@@ -258,14 +258,22 @@ export function DetailDrawer({
   children: ReactNode;
   wide?: boolean;
 }) {
-  const previousFocus = useRef<HTMLElement | null>(null);
+  const previousFocus = useRef<HTMLElement | null>(
+    document.activeElement as HTMLElement,
+  );
   return (
     <Dialog.Root open={open} onOpenChange={(v) => !v && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
         <Dialog.Content
-          onOpenAutoFocus={() => {
-            previousFocus.current = document.activeElement as HTMLElement;
+          onOpenAutoFocus={(event) => {
+            // React autoFocus fields may focus before Radix emits this event.
+            // Retain the render-time opener when focus is already in the drawer.
+            if (
+              !(event.target as HTMLElement).contains(document.activeElement)
+            ) {
+              previousFocus.current = document.activeElement as HTMLElement;
+            }
           }}
           onCloseAutoFocus={(e) => {
             e.preventDefault();
