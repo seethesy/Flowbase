@@ -215,6 +215,8 @@ export function RecordForm({
                   "Protein",
                   "Bakery",
                   "Beverages",
+                  "Dairy",
+                  "Supplies",
                   "Tableware",
                 ].map((c) => (
                   <option key={c}>{c}</option>

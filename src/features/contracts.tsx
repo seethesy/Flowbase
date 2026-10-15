@@ -245,7 +245,9 @@ export function Contracts() {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState(params.get("q") ?? "");
   const query = params.get("q") ?? "";
-  useEffect(() => { setSearch(query); }, [query]);
+  useEffect(() => {
+    setSearch(query);
+  }, [query]);
   const [owner, setOwner] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [create, setCreate] = useState(false);
