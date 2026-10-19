@@ -12,7 +12,6 @@ Single source of truth for Claude Code and Codex when implementing Jira tickets 
 | Developer's Jira accountId | `712020:7101d867-639d-4ae5-a53d-d1e08e4bd946` |
 | Statuses | To Do, In Progress, Done |
 | Issue types | Epic, Story, Task, Bug (never Subtask) |
-| Labels | `needs-decision` only |
 
 | Agent | Worktree | Base branch | Ticket branch prefix |
 |---|---|---|---|
@@ -32,7 +31,7 @@ Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. C
 ## 3. Hard rules
 
 Never:
-- change a Jira status, or create labels, statuses, or issue types;
+- change a Jira status or create statuses or issue types;
 - merge a PR, or commit to `main` or your base branch;
 - run tests or checks locally: no `npm run lint|typecheck|test|test:e2e|build`, no `npx vitest|playwright|tsc|eslint`;
 - run `git reset --hard`, `git clean`, `git stash`, `git checkout -- <path>`, `git rebase`, or `git push --force*` (only exception: §5.3);
