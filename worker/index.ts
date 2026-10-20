@@ -15,7 +15,15 @@ export default Sentry.withSentry(
     dsn: env.SENTRY_DSN,
     enabled: Boolean(env.SENTRY_DSN),
     release: env.APP_VERSION ?? APP_VERSION,
-    sendDefaultPii: false,
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      stackFrameVariables: false,
+    },
     tracesSampleRate: 0,
     beforeSend(event) {
       delete event.request;

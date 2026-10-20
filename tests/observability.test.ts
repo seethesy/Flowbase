@@ -19,7 +19,13 @@ it("initializes browser errors with the configured DSN and package release", () 
     expect.objectContaining({
       dsn: "https://public@example.com/1",
       release: "0.1.0",
-      sendDefaultPii: false,
+      dataCollection: expect.objectContaining({
+        userInfo: false,
+        cookies: false,
+        httpHeaders: false,
+        httpBodies: [],
+        urlQueryParams: false,
+      }),
       tracesSampleRate: 0,
     }),
   );

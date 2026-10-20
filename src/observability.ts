@@ -6,7 +6,15 @@ export function initializeObservability() {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
     release: APP_VERSION,
-    sendDefaultPii: false,
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      stackFrameVariables: false,
+    },
     tracesSampleRate: 0,
     beforeSend(event) {
       delete event.request;
