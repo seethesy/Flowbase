@@ -28,7 +28,7 @@ export function RecordForm({
     >
       <form
         noValidate
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           const data = new FormData(e.currentTarget);
           const s = (key: string) => String(data.get(key) || "").trim();
@@ -66,8 +66,9 @@ export function RecordForm({
             );
             return;
           }
+          try {
           if (kind === "customer")
-            store.customers.save({
+            await store.customers.save({
               id: record?.id ?? `cus-${Date.now()}`,
               name: s("name"),
               contact: s("contact"),
@@ -80,7 +81,7 @@ export function RecordForm({
               notes: (record as Customer)?.notes ?? [],
             });
           if (kind === "item")
-            store.inventory.save({
+            await store.inventory.save({
               id: record?.id ?? `INV-${Date.now().toString().slice(-6)}`,
               name: s("name"),
               category: s("category"),
@@ -95,7 +96,7 @@ export function RecordForm({
               history: (record as Item)?.history ?? [],
             });
           if (kind === "contract")
-            store.contracts.save({
+            await store.contracts.save({
               id: record?.id ?? `FB-${Date.now().toString().slice(-6)}`,
               name: s("name"),
               customerId: s("customerId"),
@@ -112,9 +113,10 @@ export function RecordForm({
             `${kind === "item" ? "Inventory item" : kind[0].toUpperCase() + kind.slice(1)} saved in demo memory.`,
           );
           onClose();
+          } catch (e) { setError((e as Error).message); }
         }}
       >
-        <p className="demo-callout">Demo only · No data is sent to a server.</p>
+        <p className="demo-callout">Demo records are validated by the API. Changes reset on refresh.</p>
         {error && (
           <p role="alert" className="error-message">
             {error}
@@ -164,7 +166,7 @@ export function RecordForm({
                 required
               >
                 <option value="">Choose a customer</option>
-                {store.customers.list().map((c) => (
+                {store.customers.records.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>

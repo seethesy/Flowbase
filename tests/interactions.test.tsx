@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { describe, it, expect } from "vitest";
@@ -9,8 +9,8 @@ import { InventoryList, InventoryDetail } from "../src/features/inventory";
 import { ContractDrawer } from "../src/features/contracts";
 import { RecordForm } from "../src/features/forms";
 import { useState, type ReactNode } from "react";
-function mount(node: ReactNode, path = "/") {
-  return render(
+async function mount(node: ReactNode, path = "/") {
+  const view = render(
     <DemoProvider>
       <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
     </DemoProvider>,
@@ -19,7 +19,7 @@ function mount(node: ReactNode, path = "/") {
 describe("customer workflow", () => {
   it("searches by customer and filters by status", async () => {
     const user = userEvent.setup();
-    mount(<CustomerList />);
+    await mount(<CustomerList />);
     await user.type(
       screen.getByRole("textbox", { name: "Search customers or contacts…" }),
       "Juniper",
@@ -33,7 +33,7 @@ describe("customer workflow", () => {
   });
   it("switches record detail tabs and adds a timestamped note", async () => {
     const user = userEvent.setup();
-    mount(
+    await mount(
       <Routes>
         <Route path="/crm/:id" element={<CustomerDetail />} />
       </Routes>,
@@ -53,7 +53,7 @@ describe("customer workflow", () => {
 });
 it("opens inventory details through a keyboard accessible table link", async () => {
   const user = userEvent.setup();
-  mount(
+  await mount(
     <Routes>
       <Route path="/inventory" element={<InventoryList />} />
       <Route path="/inventory/:id" element={<InventoryDetail />} />
@@ -68,7 +68,7 @@ it("opens inventory details through a keyboard accessible table link", async () 
 });
 it("updates a contract and rejects an invalid stage", async () => {
   const user = userEvent.setup();
-  mount(<ContractDrawer id="FB-2026" onClose={() => {}} />);
+  await mount(<ContractDrawer id="FB-2026" onClose={() => {}} />);
   await user.selectOptions(screen.getByLabelText("Contract stage"), "Signed");
   expect(screen.getByRole("alert")).toHaveTextContent(
     "Cannot move Draft to Signed",
@@ -87,7 +87,7 @@ function FormHarness() {
 }
 it("validates, saves, and closes a customer dialog", async () => {
   const user = userEvent.setup();
-  mount(<FormHarness />);
+  await mount(<FormHarness />);
   const dialog = screen.getByRole("dialog");
   await user.click(
     within(dialog).getByRole("button", { name: "Save customer" }),
@@ -115,7 +115,7 @@ it("validates, saves, and closes a customer dialog", async () => {
 });
 it("navigates using the sidebar and exposes mobile navigation", async () => {
   const user = userEvent.setup();
-  mount(
+  await mount(
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<p>Home content</p>} />

@@ -8,10 +8,13 @@ Requires Node.js 22.12+ and npm.
 
 ```sh
 npm ci
-npm run dev
+npm run build
+npm run dev:worker
 ```
 
-Build with `npm run build`. Serve `dist/` with any static host. Hash routing supports direct record URLs and browser back/forward navigation without server rewrite rules. Fonts are bundled locally.
+The Worker serves the built SPA and `/api/*` at `http://localhost:8787`. `GET /api/health` returns `{ ok: true }`. For frontend hot reload, run `npm run dev` in another terminal; Vite proxies `/api` to the local Worker. Rebuild to update the SPA served by Wrangler. Hash routing supports direct record URLs and browser back/forward without server rewrites. Fonts are bundled locally.
+
+No environment variables or credentials are needed for this demo. `.env.example` documents this baseline. Keep later local Worker secrets in ignored `.dev.vars`, and Vite variables in ignored `.env.local`. Never put secrets in `VITE_*`, which are shipped to the browser.
 
 ## Explore
 
@@ -25,7 +28,9 @@ Seeded data: 35 customers, 45 contacts, 40 contracts, 50 items, 15 suppliers, 12
 
 ## Architecture
 
-React + strict TypeScript + Vite; Tailwind CSS; shadcn-style Button built with Radix Slot/CVA and Radix Dialog primitives; Lucide; React Router; TanStack Table; Recharts; @dnd-kit. `components.json` holds the shadcn convention settings. Shared components live in `src/components`; feature screens in `src/features`; typed fixtures in `src/data/mock`; context owns in-memory records. Typed `RecordService<T>` interfaces and `createRecordService` in `src/services` isolate record access from components for future API adapters. No backend is implemented.
+React + strict TypeScript + Vite; Tailwind CSS; Radix/shadcn-style components; Lucide; React Router; TanStack Table; Recharts; dnd-kit. Shared components live in `src/components`, feature screens in `src/features`, and typed fixtures in `src/data/mock`.
+
+A Hono Worker in `worker/` handles the API, and one `wrangler.jsonc` serves `dist/` as static assets on the same origin. App and API infer record types from Zod schemas in `shared/records.ts`. The build typechecks both targets before bundling. The async `RecordService<T>` adapter loads fixtures from `/api/demo/*`, validates writes through the API, and keeps changes in browser memory until refresh. Demo endpoints validate and echo writes; they do not persist records. Context publishes loaded snapshots for rendering; screens await mutations before reporting success. Database access is deferred to FLOW-24. Binding decisions, principles, and terms are copied from FLOW-1 in [docs/architecture.md](docs/architecture.md).
 
 ## CI and testing
 
@@ -42,4 +47,4 @@ npm run test:e2e
 
 ## Demo limitations
 
-No real authentication, database, API integrations, uploads, email delivery, signatures, PDF generation, or production inventory transactions. Attachments are filename/size metadata only. Purchase orders are read-only sample records. Simulated operations update only React memory. No Supabase, Cloudflare Workers, or R2 integration. The deployable output is static assets only. No secrets or real customer data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
+No real authentication, database, external API integrations, uploads, email delivery, signatures, PDF generation, or production inventory transactions. Attachments are filename/size metadata only. Purchase orders are read-only sample records. Simulated operations update only React memory. No database, authentication, or R2 integration is configured. The deployable unit is the Worker and its static SPA assets. No secrets or real customer data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.

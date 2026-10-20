@@ -90,3 +90,12 @@ test("customer creation validates and saves in memory", async ({ page }) => {
     page.getByRole("button", { name: "DO Demo Orchard Client" }),
   ).toBeVisible();
 });
+
+
+test("Worker health and SPA share an origin", async ({ page, request }) => {
+  const response = await request.get("/api/health");
+  expect(response.ok()).toBeTruthy();
+  expect(await response.json()).toEqual({ ok: true });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+});

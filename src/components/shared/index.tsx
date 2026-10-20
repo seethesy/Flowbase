@@ -307,18 +307,20 @@ export function ConfirmationDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   children: ReactNode;
 }) {
+  const [error, setError] = useState("");
   return (
     <DetailDrawer open={open} onClose={onClose} title={title}>
       <p>{children}</p>
+      {error && <p role="alert">{error}</p>}
       <div className="form-actions">
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="destructive" onClick={onConfirm}>
+        <Button variant="destructive" onClick={async () => { try { await onConfirm(); } catch (e) { setError((e as Error).message); } }}>
           Confirm
         </Button>
       </div>
@@ -452,16 +454,17 @@ export function Notes({
   onAdd,
 }: {
   notes: { text: string; date: string }[];
-  onAdd: (text: string) => void;
+  onAdd: (text: string) => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
+  const [error, setError] = useState("");
   return (
     <Section title="Team notes">
       <form
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           if (text.trim()) {
-            onAdd(text.trim());
+            try { await onAdd(text.trim()); setError(""); } catch (e) { setError((e as Error).message); return; }
             setText("");
           }
         }}
@@ -474,6 +477,7 @@ export function Notes({
             placeholder="Capture something useful for your team…"
           />
         </FormField>
+        {error && <p role="alert">{error}</p>}
         <Button>Add note</Button>
       </form>
       {notes.length ? (

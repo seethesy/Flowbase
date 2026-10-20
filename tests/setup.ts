@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 afterEach(cleanup);
 class ResizeObserverMock {
   observe() {}
@@ -8,3 +8,9 @@ class ResizeObserverMock {
   disconnect() {}
 }
 globalThis.ResizeObserver = ResizeObserverMock;
+
+import { app } from "../worker";
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn((input: string, init?: RequestInit) => app.request(`http://localhost${input}`, init)));
+});
+afterEach(() => vi.unstubAllGlobals());

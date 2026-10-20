@@ -51,8 +51,8 @@ export function Breadcrumbs() {
         : "Dashboard";
   const record =
     parts[0] === "crm"
-      ? store.customers.get(parts[1])?.name
-      : store.inventory.get(parts[1])?.name;
+      ? store.customers.find(parts[1])?.name
+      : store.inventory.find(parts[1])?.name;
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       <span>Workspace</span>
@@ -203,24 +203,21 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
       : "contract";
   const results = search.trim()
     ? [
-        ...store.customers
-          .list()
+        ...store.customers.records
           .map((c) => ({
             id: c.id,
             title: c.name,
             kind: "Customer",
             path: `/crm/${c.id}`,
           })),
-        ...store.inventory
-          .list()
+        ...store.inventory.records
           .map((i) => ({
             id: i.id,
             title: i.name,
             kind: i.id,
             path: `/inventory/${i.id}`,
           })),
-        ...store.contracts
-          .list()
+        ...store.contracts.records
           .map((c) => ({
             id: c.id,
             title: c.name,

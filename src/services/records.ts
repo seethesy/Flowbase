@@ -49,24 +49,9 @@ export function transitionContract(
   };
 }
 export interface RecordService<T extends { id: string }> {
-  list(): T[];
-  get(id: string): T | undefined;
-  save(record: T): void;
-  remove(id: string): void;
+  list(): Promise<T[]>;
+  get(id: string): Promise<T | undefined>;
+  save(record: T): Promise<void>;
+  remove(id: string): Promise<void>;
 }
-export function createRecordService<T extends { id: string }>(
-  records: T[],
-  setRecords: (records: T[]) => void,
-): RecordService<T> {
-  return {
-    list: () => records,
-    get: (id) => records.find((r) => r.id === id),
-    save: (record) =>
-      setRecords(
-        records.some((r) => r.id === record.id)
-          ? records.map((r) => (r.id === record.id ? record : r))
-          : [record, ...records],
-      ),
-    remove: (id) => setRecords(records.filter((r) => r.id !== id)),
-  };
-}
+export { createRecordService } from "./api";

@@ -59,18 +59,17 @@ export function Dashboard() {
   const [range, setRange] = useState("This month");
   const [create, setCreate] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
-  const all = store.contracts.list();
+  const all = store.contracts.records;
   const ranged =
     range === "This week"
       ? all.filter((_, i) => i % 3 === 0)
       : range === "Last month"
         ? all.filter((_, i) => i % 2 === 0)
         : all;
-  const active = store.customers.list().filter((c) => c.status === "Active");
+  const active = store.customers.records.filter((c) => c.status === "Active");
   const open = ranged.filter((c) => !["Signed", "Lost"].includes(c.stage));
   const signed = ranged.filter((c) => c.stage === "Signed");
-  const alerts = store.inventory
-    .list()
+  const alerts = store.inventory.records
     .filter((i) => stockStatus(i) !== "In Stock");
   const chart = stages.map((name) => ({
     name,
@@ -187,7 +186,7 @@ export function Dashboard() {
                         >
                           {c.name}
                           <small>
-                            {store.customers.get(c.customerId)?.name}
+                            {store.customers.find(c.customerId)?.name}
                           </small>
                         </button>
                       </td>

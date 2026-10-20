@@ -5,3 +5,7 @@ playwright-report/
 *.tar.gz
 .env*
 .openai/local*
+
+.dev.vars*
+.wrangler/
+!.env.example

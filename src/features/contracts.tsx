@@ -45,15 +45,15 @@ export function ContractDrawer({
   onClose: () => void;
 }) {
   const store = useDemo();
-  const c = store.contracts.get(id);
+  const c = store.contracts.find(id);
   const [edit, setEdit] = useState(false);
   const [target, setTarget] = useState<Stage>();
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   if (!c) return null;
-  const update = (stage: Stage, lossReason?: string) => {
+  const update = async (stage: Stage, lossReason?: string) => {
     try {
-      store.contracts.save(transitionContract(c, stage, lossReason));
+      await store.contracts.save(transitionContract(c, stage, lossReason));
       store.notify(`Contract moved to ${stage} · simulated.`);
       setTarget(undefined);
       setError("");
@@ -69,7 +69,7 @@ export function ContractDrawer({
           <StatusBadge status={c.stage} />
         </div>
         <h2 className="contract-value">{money(c.value)}</h2>
-        <p>{store.customers.get(c.customerId)?.name}</p>
+        <p>{store.customers.find(c.customerId)?.name}</p>
         <div className="info-grid">
           <div>
             <small>Event date</small>
@@ -107,7 +107,7 @@ export function ContractDrawer({
         </FormField>
         {target === "Lost" && (
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               update("Lost", reason);
             }}
@@ -191,7 +191,7 @@ export function ContractCard({
       <button className="contract-card-title" onClick={onOpen}>
         {contract.name}
       </button>
-      <p>{store.customers.get(contract.customerId)?.name}</p>
+      <p>{store.customers.find(contract.customerId)?.name}</p>
       <strong>{money(contract.value)}</strong>
       <div className="contract-card-footer">
         <span>
@@ -257,11 +257,10 @@ export function Contracts() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
-  const rows = store.contracts
-    .list()
+  const rows = store.contracts.records
     .filter(
       (c) =>
-        (c.name + " " + c.id + " " + store.customers.get(c.customerId)?.name)
+        (c.name + " " + c.id + " " + store.customers.find(c.customerId)?.name)
           .toLowerCase()
           .includes(search.toLowerCase()) &&
         (!params.get("open") || !["Signed", "Lost"].includes(c.stage)) &&
@@ -275,9 +274,9 @@ export function Contracts() {
     else next.delete(key);
     setParams(next);
   };
-  const drop = ({ active, over }: DragEndEvent) => {
+  const drop = async ({ active, over }: DragEndEvent) => {
     if (!over) return;
-    const c = store.contracts.get(String(active.id));
+    const c = store.contracts.find(String(active.id));
     if (!c) return;
     if (over.id === "Lost" && c.stage !== "Lost") {
       setSelected(c.id);
@@ -287,7 +286,7 @@ export function Contracts() {
       return;
     }
     try {
-      store.contracts.save(transitionContract(c, over.id as Stage));
+      await store.contracts.save(transitionContract(c, over.id as Stage));
       store.notify(`Moved to ${over.id} · simulated.`);
     } catch (e) {
       store.notify((e as Error).message);
@@ -299,7 +298,7 @@ export function Contracts() {
     {
       id: "customer",
       header: "Customer",
-      accessorFn: (c) => store.customers.get(c.customerId)?.name,
+      accessorFn: (c) => store.customers.find(c.customerId)?.name,
     },
     {
       accessorKey: "value",
@@ -340,8 +339,7 @@ export function Contracts() {
         <div>
           <strong>
             {
-              store.contracts
-                .list()
+              store.contracts.records
                 .filter((c) => !["Signed", "Lost"].includes(c.stage)).length
             }
           </strong>
@@ -350,8 +348,7 @@ export function Contracts() {
         <div>
           <strong>
             {money(
-              store.contracts
-                .list()
+              store.contracts.records
                 .filter((c) => !["Signed", "Lost"].includes(c.stage))
                 .reduce((a, c) => a + c.value, 0),
             )}
@@ -360,7 +357,7 @@ export function Contracts() {
         </div>
         <div>
           <strong>
-            {store.contracts.list().filter((c) => c.stage === "Signed").length}
+            {store.contracts.records.filter((c) => c.stage === "Signed").length}
           </strong>
           <span>contracts won this month</span>
         </div>

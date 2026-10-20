@@ -45,8 +45,7 @@ export function InventoryList() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [category, setCategory] = useState("");
   const [create, setCreate] = useState(false);
-  const rows = store.inventory
-    .list()
+  const rows = store.inventory.records
     .filter(
       (i) =>
         (i.id + " " + i.name).toLowerCase().includes(search.toLowerCase()) &&
@@ -111,14 +110,13 @@ export function InventoryList() {
       </PageHeader>
       <div className="module-summary">
         <div>
-          <strong>{store.inventory.list().length}</strong>
+          <strong>{store.inventory.records.length}</strong>
           <span>items tracked</span>
         </div>
         <div>
           <strong>
             {
-              store.inventory
-                .list()
+              store.inventory.records
                 .filter((i) => stockStatus(i) === "Low Stock").length
             }
           </strong>
@@ -127,8 +125,7 @@ export function InventoryList() {
         <div>
           <strong>
             {
-              store.inventory
-                .list()
+              store.inventory.records
                 .filter((i) => stockStatus(i) === "Out of Stock").length
             }
           </strong>
@@ -145,7 +142,7 @@ export function InventoryList() {
           label="Categories"
           value={category}
           onChange={setCategory}
-          options={[...new Set(store.inventory.list().map((i) => i.category))]}
+          options={[...new Set(store.inventory.records.map((i) => i.category))]}
         />
         <Select
           label="Stock statuses"
@@ -187,7 +184,7 @@ export function InventorySummaryCard({
 export function InventoryDetail() {
   const { id } = useParams();
   const store = useDemo();
-  const item = store.inventory.get(id!);
+  const item = store.inventory.find(id!);
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useState(false);
   const [operation, setOperation] = useState<"adjust" | "receive" | null>(null);
@@ -443,8 +440,8 @@ export function InventoryDetail() {
         {tab === "Notes" && (
           <Notes
             notes={item.notes}
-            onAdd={(text) => {
-              store.inventory.save({
+            onAdd={async (text) => {
+              await store.inventory.save({
                 ...item,
                 notes: [
                   { text, date: new Date().toLocaleString() },
@@ -477,7 +474,7 @@ export function InventoryDetail() {
         }
       >
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             const data = new FormData(e.currentTarget);
             const qty = Number(data.get("quantity"));
@@ -501,7 +498,8 @@ export function InventoryDetail() {
               setError("Enter a reason or purchase order reference.");
               return;
             }
-            store.inventory.save({
+            try {
+            await store.inventory.save({
               ...item,
               onHand: item.onHand + qty,
               history: [
@@ -522,6 +520,7 @@ export function InventoryDetail() {
             store.notify("Simulated stock change applied in memory only.");
             setOperation(null);
             setError("");
+            } catch (e) { setError((e as Error).message); }
           }}
         >
           <p className="demo-callout">
@@ -562,8 +561,8 @@ export function InventoryDetail() {
         open={remove}
         onClose={() => setRemove(false)}
         title="Remove this demo item?"
-        onConfirm={() => {
-          store.inventory.remove(item.id);
+        onConfirm={async () => {
+          await store.inventory.remove(item.id);
           store.notify("Item removed from demo memory.");
           navigate("/inventory");
         }}

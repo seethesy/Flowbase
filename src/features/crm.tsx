@@ -53,8 +53,7 @@ export function CustomerList() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [owner, setOwner] = useState("");
   const [create, setCreate] = useState(false);
-  const data = store.customers
-    .list()
+  const data = store.customers.records
     .filter(
       (c) =>
         (c.name + " " + c.contact)
@@ -88,8 +87,7 @@ export function CustomerList() {
       id: "open",
       header: "Open contracts",
       accessorFn: (c) =>
-        store.contracts
-          .list()
+        store.contracts.records
           .filter(
             (x) =>
               x.customerId === c.id && !["Signed", "Lost"].includes(x.stage),
@@ -116,19 +114,19 @@ export function CustomerList() {
       </PageHeader>
       <div className="module-summary">
         <div>
-          <strong>{store.customers.list().length}</strong>
+          <strong>{store.customers.records.length}</strong>
           <span>total customers</span>
         </div>
         <div>
           <strong>
-            {store.customers.list().filter((c) => c.status === "Active").length}
+            {store.customers.records.filter((c) => c.status === "Active").length}
           </strong>
           <span>active relationships</span>
         </div>
         <div>
           <strong>
             {
-              store.customers.list().filter((c) => c.status === "Prospect")
+              store.customers.records.filter((c) => c.status === "Prospect")
                 .length
             }
           </strong>
@@ -175,8 +173,7 @@ export function RelatedContracts({
   onOpen: (id: string) => void;
 }) {
   const store = useDemo();
-  const rows = store.contracts
-    .list()
+  const rows = store.contracts.records
     .filter((c) => c.customerId === customerId);
   const cols: ColumnDef<Contract, unknown>[] = [
     { accessorKey: "name", header: "Contract" },
@@ -203,7 +200,7 @@ export function RelatedContracts({
 export function CustomerDetail() {
   const { id } = useParams();
   const store = useDemo();
-  const c = store.customers.get(id!);
+  const c = store.customers.find(id!);
   const navigate = useNavigate();
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useState(false);
@@ -392,8 +389,8 @@ export function CustomerDetail() {
         {tab === "Notes" && (
           <Notes
             notes={c.notes}
-            onAdd={(text) => {
-              store.customers.save({
+            onAdd={async (text) => {
+              await store.customers.save({
                 ...c,
                 notes: [
                   { text, date: new Date().toLocaleString() },
@@ -427,8 +424,8 @@ export function CustomerDetail() {
         open={archive}
         onClose={() => setArchive(false)}
         title="Archive this customer?"
-        onConfirm={() => {
-          store.customers.save({ ...c, status: "Inactive" });
+        onConfirm={async () => {
+          await store.customers.save({ ...c, status: "Inactive" });
           store.notify("Customer archived in demo memory.");
           setArchive(false);
           navigate("/crm");

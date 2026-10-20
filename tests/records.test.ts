@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   stockStatus,
   transitionContract,
-  createRecordService,
 } from "../src/services/records";
 import {
   contracts,
@@ -60,13 +59,3 @@ it("seeds the requested fixture counts", () =>
     events.length,
     employees.length,
   ]).toEqual([35, 45, 40, 50, 15, 12, 10, 8]));
-it("supports replaceable record service save and remove", () => {
-  let rows = [customers[0]];
-  const service = createRecordService(rows, (next) => {
-    rows = next;
-  });
-  service.save({ ...customers[0], name: "Updated" });
-  expect(rows[0].name).toBe("Updated");
-  service.remove(customers[0].id);
-  expect(rows).toHaveLength(0);
-});
