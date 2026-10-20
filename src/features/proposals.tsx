@@ -21,8 +21,8 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 import { useDemo } from "../app/store";
 import { stages, employees } from "../data/mock/fixtures";
-import type { Contract, Stage } from "../types";
-import { money, date, transitionContract } from "../services/records";
+import type { Proposal, Stage } from "../types";
+import { money, date, transitionProposal } from "../services/records";
 import {
   PageHeader,
   Button,
@@ -37,7 +37,7 @@ import {
   EmptyState,
 } from "../components/shared";
 import { RecordForm } from "./forms";
-export function ContractDrawer({
+export function ProposalDrawer({
   id,
   onClose,
 }: {
@@ -45,16 +45,16 @@ export function ContractDrawer({
   onClose: () => void;
 }) {
   const store = useDemo();
-  const c = store.contracts.get(id);
+  const c = store.proposals.find(id);
   const [edit, setEdit] = useState(false);
   const [target, setTarget] = useState<Stage>();
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   if (!c) return null;
-  const update = (stage: Stage, lossReason?: string) => {
+  const update = async (stage: Stage, lossReason?: string) => {
     try {
-      store.contracts.save(transitionContract(c, stage, lossReason));
-      store.notify(`Contract moved to ${stage} · simulated.`);
+      await store.proposals.save(transitionProposal(c, stage, lossReason));
+      store.notify(`Proposal moved to ${stage} · simulated.`);
       setTarget(undefined);
       setError("");
     } catch (e) {
@@ -68,8 +68,8 @@ export function ContractDrawer({
           <span>{c.id}</span>
           <StatusBadge status={c.stage} />
         </div>
-        <h2 className="contract-value">{money(c.value)}</h2>
-        <p>{store.customers.get(c.customerId)?.name}</p>
+        <h2 className="proposal-value">{money(c.value)}</h2>
+        <p>{store.clients.find(c.clientId)?.name}</p>
         <div className="info-grid">
           <div>
             <small>Event date</small>
@@ -88,9 +88,9 @@ export function ContractDrawer({
             <strong>{date(c.updated)}</strong>
           </div>
         </div>
-        <FormField label="Contract stage">
+        <FormField label="Proposal stage">
           <select
-            aria-label="Contract stage"
+            aria-label="Proposal stage"
             value={c.stage}
             onChange={(e) => {
               const stage = e.target.value as Stage;
@@ -107,13 +107,13 @@ export function ContractDrawer({
         </FormField>
         {target === "Lost" && (
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               update("Lost", reason);
             }}
           >
             <p className="demo-callout">
-              Confirm marking this contract Lost. A loss reason is required.
+              Confirm marking this proposal Lost. A loss reason is required.
             </p>
             <FormField label="Loss reason">
               <textarea
@@ -143,43 +143,43 @@ export function ContractDrawer({
           <p className="demo-callout">Loss reason: {c.lossReason}</p>
         )}
         <Button variant="outline" onClick={() => setEdit(true)}>
-          Edit contract
+          Edit proposal
         </Button>
         <h3 className="spaced">Attachments</h3>
         <FileList />
       </DetailDrawer>
       {edit && (
-        <RecordForm kind="contract" record={c} onClose={() => setEdit(false)} />
+        <RecordForm kind="proposal" record={c} onClose={() => setEdit(false)} />
       )}
     </>
   );
 }
-export function ContractCard({
-  contract,
+export function ProposalCard({
+  proposal,
   onOpen,
 }: {
-  contract: Contract;
+  proposal: Proposal;
   onOpen: () => void;
 }) {
   const store = useDemo();
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: contract.id });
+    useDraggable({ id: proposal.id });
   return (
     <article
       ref={setNodeRef}
-      className={`contract-card ${isDragging ? "dragging" : ""}`}
+      className={`proposal-card ${isDragging ? "dragging" : ""}`}
       style={
         transform
           ? { transform: `translate(${transform.x}px,${transform.y}px)` }
           : undefined
       }
     >
-      <div className="contract-card-top">
-        <span>{contract.id}</span>
+      <div className="proposal-card-top">
+        <span>{proposal.id}</span>
         <div>
-          {contract.priority && <Flag size={13} className="priority" />}
+          {proposal.priority && <Flag size={13} className="priority" />}
           <button
-            aria-label={`Drag ${contract.name}`}
+            aria-label={`Drag ${proposal.name}`}
             className="drag-handle"
             {...listeners}
             {...attributes}
@@ -188,23 +188,23 @@ export function ContractCard({
           </button>
         </div>
       </div>
-      <button className="contract-card-title" onClick={onOpen}>
-        {contract.name}
+      <button className="proposal-card-title" onClick={onOpen}>
+        {proposal.name}
       </button>
-      <p>{store.customers.get(contract.customerId)?.name}</p>
-      <strong>{money(contract.value)}</strong>
-      <div className="contract-card-footer">
+      <p>{store.clients.find(proposal.clientId)?.name}</p>
+      <strong>{money(proposal.value)}</strong>
+      <div className="proposal-card-footer">
         <span>
           <CalendarDays size={13} />
-          {date(contract.eventDate).replace(", 2026", "")}
+          {date(proposal.eventDate).replace(", 2026", "")}
         </span>
-        <span className="avatar tiny" title={contract.owner}>
-          {contract.owner
+        <span className="avatar tiny" title={proposal.owner}>
+          {proposal.owner
             .split(" ")
             .map((n) => n[0])
             .join("")}
         </span>
-        <button aria-label={`Details for ${contract.id}`} onClick={onOpen}>
+        <button aria-label={`Details for ${proposal.id}`} onClick={onOpen}>
           <MoreHorizontal size={17} />
         </button>
       </div>
@@ -240,7 +240,7 @@ export function KanbanColumn({
     </section>
   );
 }
-export function Contracts() {
+export function Proposals() {
   const store = useDemo();
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState(params.get("q") ?? "");
@@ -257,49 +257,47 @@ export function Contracts() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
-  const rows = store.contracts
-    .list()
-    .filter(
-      (c) =>
-        (c.name + " " + c.id + " " + store.customers.get(c.customerId)?.name)
-          .toLowerCase()
-          .includes(search.toLowerCase()) &&
-        (!params.get("open") || !["Signed", "Lost"].includes(c.stage)) &&
-        (!stage || c.stage === stage) &&
-        (!owner || c.owner === owner) &&
-        (!eventDate || c.eventDate >= eventDate),
-    );
+  const rows = store.proposals.records.filter(
+    (c) =>
+      (c.name + " " + c.id + " " + store.clients.find(c.clientId)?.name)
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (!params.get("open") || !["Signed", "Lost"].includes(c.stage)) &&
+      (!stage || c.stage === stage) &&
+      (!owner || c.owner === owner) &&
+      (!eventDate || c.eventDate >= eventDate),
+  );
   const change = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
     setParams(next);
   };
-  const drop = ({ active, over }: DragEndEvent) => {
+  const drop = async ({ active, over }: DragEndEvent) => {
     if (!over) return;
-    const c = store.contracts.get(String(active.id));
+    const c = store.proposals.find(String(active.id));
     if (!c) return;
     if (over.id === "Lost" && c.stage !== "Lost") {
       setSelected(c.id);
       store.notify(
-        "Choose Lost in contract details and enter a loss reason to confirm.",
+        "Choose Lost in proposal details and enter a loss reason to confirm.",
       );
       return;
     }
     try {
-      store.contracts.save(transitionContract(c, over.id as Stage));
+      await store.proposals.save(transitionProposal(c, over.id as Stage));
       store.notify(`Moved to ${over.id} · simulated.`);
     } catch (e) {
       store.notify((e as Error).message);
     }
   };
-  const columns: ColumnDef<Contract, unknown>[] = [
-    { accessorKey: "id", header: "Contract number" },
-    { accessorKey: "name", header: "Contract name" },
+  const columns: ColumnDef<Proposal, unknown>[] = [
+    { accessorKey: "id", header: "Proposal number" },
+    { accessorKey: "name", header: "Proposal name" },
     {
-      id: "customer",
-      header: "Customer",
-      accessorFn: (c) => store.customers.get(c.customerId)?.name,
+      id: "client",
+      header: "Client",
+      accessorFn: (c) => store.clients.find(c.clientId)?.name,
     },
     {
       accessorKey: "value",
@@ -327,22 +325,22 @@ export function Contracts() {
   return (
     <>
       <PageHeader
-        title="Contracts"
+        title="Proposals"
         subtitle="Keep every opportunity moving forward."
         eyebrow="YOUR BUSINESS, CONNECTED"
       >
         <Button onClick={() => setCreate(true)}>
           <Plus size={16} />
-          New Contract
+          New Proposal
         </Button>
       </PageHeader>
       <div className="module-summary">
         <div>
           <strong>
             {
-              store.contracts
-                .list()
-                .filter((c) => !["Signed", "Lost"].includes(c.stage)).length
+              store.proposals.records.filter(
+                (c) => !["Signed", "Lost"].includes(c.stage),
+              ).length
             }
           </strong>
           <span>open opportunities</span>
@@ -350,8 +348,7 @@ export function Contracts() {
         <div>
           <strong>
             {money(
-              store.contracts
-                .list()
+              store.proposals.records
                 .filter((c) => !["Signed", "Lost"].includes(c.stage))
                 .reduce((a, c) => a + c.value, 0),
             )}
@@ -360,16 +357,16 @@ export function Contracts() {
         </div>
         <div>
           <strong>
-            {store.contracts.list().filter((c) => c.stage === "Signed").length}
+            {store.proposals.records.filter((c) => c.stage === "Signed").length}
           </strong>
-          <span>contracts won this month</span>
+          <span>proposals won this month</span>
         </div>
       </div>
       <FilterBar>
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search contracts…"
+          placeholder="Search proposals…"
         />
         <Select
           label="Owners"
@@ -414,7 +411,7 @@ export function Contracts() {
           data={rows}
           columns={columns}
           onRow={(c) => setSelected(c.id)}
-          label="contracts"
+          label="proposals"
         />
       ) : (
         <>
@@ -438,15 +435,15 @@ export function Contracts() {
                     {rows
                       .filter((c) => c.stage === s)
                       .map((c) => (
-                        <ContractCard
+                        <ProposalCard
                           key={c.id}
-                          contract={c}
+                          proposal={c}
                           onOpen={() => setSelected(c.id)}
                         />
                       ))}
                     {!rows.some((c) => c.stage === s) && (
                       <EmptyState
-                        title="No contracts"
+                        title="No proposals"
                         description="This stage is ready for its next opportunity."
                       />
                     )}
@@ -457,10 +454,10 @@ export function Contracts() {
         </>
       )}
       {create && (
-        <RecordForm kind="contract" onClose={() => setCreate(false)} />
+        <RecordForm kind="proposal" onClose={() => setCreate(false)} />
       )}{" "}
       {selected && (
-        <ContractDrawer id={selected} onClose={() => setSelected(null)} />
+        <ProposalDrawer id={selected} onClose={() => setSelected(null)} />
       )}
     </>
   );

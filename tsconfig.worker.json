@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["@cloudflare/workers-types"], "lib": ["ES2022"], "jsx": "react-jsx" },
+  "include": ["worker", "shared", "src/types", "src/data/mock"]
+}

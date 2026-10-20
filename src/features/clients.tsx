@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useDemo } from "../app/store";
-import type { Customer, Contract } from "../types";
+import type { Client, Proposal } from "../types";
 import { employees, contacts, events } from "../data/mock/fixtures";
 import { date, money } from "../services/records";
 import {
@@ -36,7 +36,7 @@ import {
   EmptyState,
 } from "../components/shared";
 import { RecordForm } from "./forms";
-import { ContractDrawer } from "./contracts";
+import { ProposalDrawer } from "./proposals";
 export const initials = (name: string) =>
   name
     .replace(/&/g, "")
@@ -45,7 +45,7 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((n) => n[0])
     .join("");
-export function CustomerList() {
+export function ClientList() {
   const store = useDemo();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -53,20 +53,16 @@ export function CustomerList() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [owner, setOwner] = useState("");
   const [create, setCreate] = useState(false);
-  const data = store.customers
-    .list()
-    .filter(
-      (c) =>
-        (c.name + " " + c.contact)
-          .toLowerCase()
-          .includes(search.toLowerCase()) &&
-        (!status || c.status === status) &&
-        (!owner || c.owner === owner),
-    );
-  const columns: ColumnDef<Customer, unknown>[] = [
+  const data = store.clients.records.filter(
+    (c) =>
+      (c.name + " " + c.contact).toLowerCase().includes(search.toLowerCase()) &&
+      (!status || c.status === status) &&
+      (!owner || c.owner === owner),
+  );
+  const columns: ColumnDef<Client, unknown>[] = [
     {
       accessorKey: "name",
-      header: "Customer",
+      header: "Client",
       cell: (c) => (
         <span className="company-cell">
           <span className="company-avatar">
@@ -86,14 +82,11 @@ export function CustomerList() {
     },
     {
       id: "open",
-      header: "Open contracts",
+      header: "Open proposals",
       accessorFn: (c) =>
-        store.contracts
-          .list()
-          .filter(
-            (x) =>
-              x.customerId === c.id && !["Signed", "Lost"].includes(x.stage),
-          ).length,
+        store.proposals.records.filter(
+          (x) => x.clientId === c.id && !["Signed", "Lost"].includes(x.stage),
+        ).length,
     },
     { accessorKey: "owner", header: "Account owner" },
     {
@@ -105,30 +98,30 @@ export function CustomerList() {
   return (
     <>
       <PageHeader
-        title="Customers"
+        title="Clients"
         subtitle="Good relationships start with the little details."
-        eyebrow="CRM"
+        eyebrow="Clients"
       >
         <Button onClick={() => setCreate(true)}>
           <Plus size={16} />
-          New Customer
+          New Client
         </Button>
       </PageHeader>
       <div className="module-summary">
         <div>
-          <strong>{store.customers.list().length}</strong>
-          <span>total customers</span>
+          <strong>{store.clients.records.length}</strong>
+          <span>total clients</span>
         </div>
         <div>
           <strong>
-            {store.customers.list().filter((c) => c.status === "Active").length}
+            {store.clients.records.filter((c) => c.status === "Active").length}
           </strong>
           <span>active relationships</span>
         </div>
         <div>
           <strong>
             {
-              store.customers.list().filter((c) => c.status === "Prospect")
+              store.clients.records.filter((c) => c.status === "Prospect")
                 .length
             }
           </strong>
@@ -139,7 +132,7 @@ export function CustomerList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search customers or contacts…"
+          placeholder="Search clients or contacts…"
         />
         <Select
           label="Statuses"
@@ -153,33 +146,29 @@ export function CustomerList() {
           value={owner}
           onChange={setOwner}
         />
-        <span className="result-count">{data.length} customers</span>
+        <span className="result-count">{data.length} clients</span>
       </FilterBar>
       <DataTable
         data={data}
         columns={columns}
-        onRow={(c) => navigate(`/crm/${c.id}`)}
-        label="customers"
+        onRow={(c) => navigate(`/clients/${c.id}`)}
+        label="clients"
       />
-      {create && (
-        <RecordForm kind="customer" onClose={() => setCreate(false)} />
-      )}
+      {create && <RecordForm kind="client" onClose={() => setCreate(false)} />}
     </>
   );
 }
-export function RelatedContracts({
-  customerId,
+export function RelatedProposals({
+  clientId,
   onOpen,
 }: {
-  customerId: string;
+  clientId: string;
   onOpen: (id: string) => void;
 }) {
   const store = useDemo();
-  const rows = store.contracts
-    .list()
-    .filter((c) => c.customerId === customerId);
-  const cols: ColumnDef<Contract, unknown>[] = [
-    { accessorKey: "name", header: "Contract" },
+  const rows = store.proposals.records.filter((c) => c.clientId === clientId);
+  const cols: ColumnDef<Proposal, unknown>[] = [
+    { accessorKey: "name", header: "Proposal" },
     {
       accessorKey: "stage",
       header: "Status",
@@ -196,29 +185,29 @@ export function RelatedContracts({
       data={rows}
       columns={cols}
       onRow={(c) => onOpen(c.id)}
-      label="contracts"
+      label="proposals"
     />
   );
 }
-export function CustomerDetail() {
+export function ClientDetail() {
   const { id } = useParams();
   const store = useDemo();
-  const c = store.customers.get(id!);
+  const c = store.clients.find(id!);
   const navigate = useNavigate();
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useState(false);
   const [create, setCreate] = useState(false);
   const [archive, setArchive] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [contract, setContract] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<string | null>(null);
   if (!c)
     return (
       <EmptyState
-        title="Customer not found"
+        title="Client not found"
         description="This demo record may have been archived."
       />
     );
-  const relatedEvents = events.filter((e) => e.customerId === c.id);
+  const relatedEvents = events.filter((e) => e.clientId === c.id);
   const eventPanel = (
     <Section title="Upcoming events">
       {relatedEvents.length ? (
@@ -239,15 +228,15 @@ export function CustomerDetail() {
       ) : (
         <EmptyState
           title="No upcoming events"
-          description="Future events for this customer will appear here."
+          description="Future events for this client will appear here."
         />
       )}
     </Section>
   );
   return (
     <>
-      <Link to="/crm" className="back-link">
-        ← All customers
+      <Link to="/clients" className="back-link">
+        ← All clients
       </Link>
       <div className="record-heading">
         <span className="company-avatar large">{initials(c.name)}</span>
@@ -265,13 +254,13 @@ export function CustomerDetail() {
           </Button>
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Contract
+            New Proposal
           </Button>
           <div className="menu-wrap">
             <Button
               variant="outline"
               size="icon"
-              aria-label="More customer actions"
+              aria-label="More client actions"
               onClick={() => setMenu(!menu)}
             >
               <MoreHorizontal size={18} />
@@ -284,7 +273,7 @@ export function CustomerDetail() {
                     setMenu(false);
                   }}
                 >
-                  Archive customer
+                  Archive client
                 </button>
               </div>
             )}
@@ -292,7 +281,7 @@ export function CustomerDetail() {
         </div>
       </div>
       <Tabs
-        tabs={["Overview", "Contacts", "Contracts", "Events", "Notes", "Files"]}
+        tabs={["Overview", "Contacts", "Proposals", "Events", "Notes", "Files"]}
         value={tab}
         onChange={setTab}
       />
@@ -300,7 +289,7 @@ export function CustomerDetail() {
         {tab === "Overview" && (
           <div className="detail-grid">
             <div>
-              <Section title="Customer information">
+              <Section title="Client information">
                 <div className="info-row">
                   <Building2 size={17} />
                   <div>
@@ -346,23 +335,23 @@ export function CustomerDetail() {
             </div>
             <div>
               <Section
-                title="Recent contracts"
+                title="Recent proposals"
                 action={
                   <button
                     className="text-link"
-                    onClick={() => setTab("Contracts")}
+                    onClick={() => setTab("Proposals")}
                   >
                     View all <ArrowUpRight size={14} />
                   </button>
                 }
               >
-                <RelatedContracts customerId={c.id} onOpen={setContract} />
+                <RelatedProposals clientId={c.id} onOpen={setProposal} />
               </Section>
               {eventPanel}
               <Section title="Recent activity">
                 <p>Account reviewed by {c.owner}</p>
                 <small className="muted">
-                  {date(c.activity)} · Customer information updated
+                  {date(c.activity)} · Client information updated
                 </small>
               </Section>
             </div>
@@ -371,7 +360,7 @@ export function CustomerDetail() {
         {tab === "Contacts" && (
           <Section title="People at this company">
             {contacts
-              .filter((p) => p.customerId === c.id)
+              .filter((p) => p.clientId === c.id)
               .map((p) => (
                 <div className="contact-profile" key={p.id}>
                   <span className="avatar">{initials(p.name)}</span>
@@ -385,57 +374,57 @@ export function CustomerDetail() {
               ))}
           </Section>
         )}
-        {tab === "Contracts" && (
-          <RelatedContracts customerId={c.id} onOpen={setContract} />
+        {tab === "Proposals" && (
+          <RelatedProposals clientId={c.id} onOpen={setProposal} />
         )}{" "}
         {tab === "Events" && eventPanel}
         {tab === "Notes" && (
           <Notes
             notes={c.notes}
-            onAdd={(text) => {
-              store.customers.save({
+            onAdd={async (text) => {
+              await store.clients.save({
                 ...c,
                 notes: [
                   { text, date: new Date().toLocaleString() },
                   ...c.notes,
                 ],
               });
-              store.notify("Note added to this demo customer.");
+              store.notify("Note added to this demo client.");
             }}
           />
         )}
         {tab === "Files" && (
-          <Section title="Customer files">
+          <Section title="Client files">
             <FileList />
           </Section>
         )}
       </div>
       {edit && (
-        <RecordForm kind="customer" record={c} onClose={() => setEdit(false)} />
+        <RecordForm kind="client" record={c} onClose={() => setEdit(false)} />
       )}{" "}
       {create && (
         <RecordForm
-          kind="contract"
-          customerId={c.id}
+          kind="proposal"
+          clientId={c.id}
           onClose={() => setCreate(false)}
         />
       )}{" "}
-      {contract && (
-        <ContractDrawer id={contract} onClose={() => setContract(null)} />
+      {proposal && (
+        <ProposalDrawer id={proposal} onClose={() => setProposal(null)} />
       )}
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this customer?"
-        onConfirm={() => {
-          store.customers.save({ ...c, status: "Inactive" });
-          store.notify("Customer archived in demo memory.");
+        title="Archive this client?"
+        onConfirm={async () => {
+          await store.clients.save({ ...c, status: "Inactive" });
+          store.notify("Client archived in demo memory.");
           setArchive(false);
-          navigate("/crm");
+          navigate("/clients");
         }}
       >
         This marks {c.name} inactive in the current demo session. Related
-        contracts remain available.
+        proposals remain available.
       </ConfirmationDialog>
     </>
   );

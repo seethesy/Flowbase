@@ -45,16 +45,14 @@ export function InventoryList() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [category, setCategory] = useState("");
   const [create, setCreate] = useState(false);
-  const rows = store.inventory
-    .list()
-    .filter(
-      (i) =>
-        (i.id + " " + i.name).toLowerCase().includes(search.toLowerCase()) &&
-        (!category || i.category === category) &&
-        (!status ||
-          (status === "Alerts" && stockStatus(i) !== "In Stock") ||
-          stockStatus(i) === status),
-    );
+  const rows = store.inventory.records.filter(
+    (i) =>
+      (i.id + " " + i.name).toLowerCase().includes(search.toLowerCase()) &&
+      (!category || i.category === category) &&
+      (!status ||
+        (status === "Alerts" && stockStatus(i) !== "In Stock") ||
+        stockStatus(i) === status),
+  );
   const quantity = (n: number, i: Item) => `${n} ${i.unit}`;
   const cols: ColumnDef<Item, unknown>[] = [
     {
@@ -95,7 +93,7 @@ export function InventoryList() {
       accessorFn: stockStatus,
       cell: (c) => <StatusBadge status={c.getValue() as string} />,
     },
-    { accessorKey: "supplier", header: "Supplier" },
+    { accessorKey: "vendor", header: "Vendor" },
   ];
   return (
     <>
@@ -111,15 +109,15 @@ export function InventoryList() {
       </PageHeader>
       <div className="module-summary">
         <div>
-          <strong>{store.inventory.list().length}</strong>
+          <strong>{store.inventory.records.length}</strong>
           <span>items tracked</span>
         </div>
         <div>
           <strong>
             {
-              store.inventory
-                .list()
-                .filter((i) => stockStatus(i) === "Low Stock").length
+              store.inventory.records.filter(
+                (i) => stockStatus(i) === "Low Stock",
+              ).length
             }
           </strong>
           <span>running low</span>
@@ -127,9 +125,9 @@ export function InventoryList() {
         <div>
           <strong>
             {
-              store.inventory
-                .list()
-                .filter((i) => stockStatus(i) === "Out of Stock").length
+              store.inventory.records.filter(
+                (i) => stockStatus(i) === "Out of Stock",
+              ).length
             }
           </strong>
           <span>out of stock</span>
@@ -145,7 +143,7 @@ export function InventoryList() {
           label="Categories"
           value={category}
           onChange={setCategory}
-          options={[...new Set(store.inventory.list().map((i) => i.category))]}
+          options={[...new Set(store.inventory.records.map((i) => i.category))]}
         />
         <Select
           label="Stock statuses"
@@ -187,7 +185,7 @@ export function InventorySummaryCard({
 export function InventoryDetail() {
   const { id } = useParams();
   const store = useDemo();
-  const item = store.inventory.get(id!);
+  const item = store.inventory.find(id!);
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useState(false);
   const [operation, setOperation] = useState<"adjust" | "receive" | null>(null);
@@ -204,7 +202,7 @@ export function InventoryDetail() {
       />
     );
   const related = purchaseOrders.filter(
-    (p) => p.itemId === item.id || p.supplier === item.supplier,
+    (p) => p.itemId === item.id || p.vendor === item.vendor,
   );
   return (
     <>
@@ -320,7 +318,7 @@ export function InventoryDetail() {
                       "Reorder quantity",
                       `${item.reorderQuantity} ${item.unit}`,
                     ],
-                    ["Preferred supplier", item.supplier],
+                    ["Preferred vendor", item.vendor],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <small>{k}</small>
@@ -387,7 +385,7 @@ export function InventoryDetail() {
                     <div>
                       <strong>{p.id}</strong>
                       <small>
-                        {p.supplier} · {money(p.value)}
+                        {p.vendor} · {money(p.value)}
                       </small>
                     </div>
                     <StatusBadge status={p.status} />
@@ -400,11 +398,11 @@ export function InventoryDetail() {
                 />
               )}
             </Section>
-            <Section title="Supplier details">
+            <Section title="Vendor details">
               <div className="info-grid">
                 <div>
-                  <small>Preferred supplier</small>
-                  <strong>{item.supplier}</strong>
+                  <small>Preferred vendor</small>
+                  <strong>{item.vendor}</strong>
                 </div>
                 <div>
                   <small>Last purchase price</small>
@@ -443,8 +441,8 @@ export function InventoryDetail() {
         {tab === "Notes" && (
           <Notes
             notes={item.notes}
-            onAdd={(text) => {
-              store.inventory.save({
+            onAdd={async (text) => {
+              await store.inventory.save({
                 ...item,
                 notes: [
                   { text, date: new Date().toLocaleString() },
@@ -477,7 +475,7 @@ export function InventoryDetail() {
         }
       >
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             const data = new FormData(e.currentTarget);
             const qty = Number(data.get("quantity"));
@@ -501,27 +499,31 @@ export function InventoryDetail() {
               setError("Enter a reason or purchase order reference.");
               return;
             }
-            store.inventory.save({
-              ...item,
-              onHand: item.onHand + qty,
-              history: [
-                {
-                  date: today(),
-                  type:
-                    operation === "receive"
-                      ? "Simulated receipt"
-                      : "Simulated adjustment",
-                  quantity: qty,
-                  reference,
-                  by: "Alex Chen",
-                  balance: item.onHand + qty,
-                },
-                ...item.history,
-              ],
-            });
-            store.notify("Simulated stock change applied in memory only.");
-            setOperation(null);
-            setError("");
+            try {
+              await store.inventory.save({
+                ...item,
+                onHand: item.onHand + qty,
+                history: [
+                  {
+                    date: today(),
+                    type:
+                      operation === "receive"
+                        ? "Simulated receipt"
+                        : "Simulated adjustment",
+                    quantity: qty,
+                    reference,
+                    by: "Alex Chen",
+                    balance: item.onHand + qty,
+                  },
+                  ...item.history,
+                ],
+              });
+              store.notify("Simulated stock change applied in memory only.");
+              setOperation(null);
+              setError("");
+            } catch (e) {
+              setError((e as Error).message);
+            }
           }}
         >
           <p className="demo-callout">
@@ -562,8 +564,8 @@ export function InventoryDetail() {
         open={remove}
         onClose={() => setRemove(false)}
         title="Remove this demo item?"
-        onConfirm={() => {
-          store.inventory.remove(item.id);
+        onConfirm={async () => {
+          await store.inventory.remove(item.id);
           store.notify("Item removed from demo memory.");
           navigate("/inventory");
         }}
@@ -577,7 +579,7 @@ export function InventoryDetail() {
         title={`Purchase order ${order ?? ""}`}
       >
         <p className="demo-callout">Read-only fictional purchase order.</p>
-        <p>Supplier: {purchaseOrders.find((p) => p.id === order)?.supplier}</p>
+        <p>Vendor: {purchaseOrders.find((p) => p.id === order)?.vendor}</p>
         <p>
           Total: {money(purchaseOrders.find((p) => p.id === order)?.value ?? 0)}
         </p>

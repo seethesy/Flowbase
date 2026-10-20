@@ -1,4 +1,4 @@
-import type { Contract, Item, Stage } from "../types";
+import type { Proposal, Item, Stage } from "../types";
 export const stockStatus = (
   item: Pick<Item, "onHand" | "reserved" | "reorder">,
 ) =>
@@ -29,44 +29,29 @@ const permitted: Record<Stage, Stage[]> = {
   Signed: [],
   Lost: ["Draft"],
 };
-export function transitionContract(
-  contract: Contract,
+export function transitionProposal(
+  proposal: Proposal,
   stage: Stage,
   reason?: string,
-): Contract {
-  if (stage === contract.stage) return contract;
-  if (!permitted[contract.stage].includes(stage))
+): Proposal {
+  if (stage === proposal.stage) return proposal;
+  if (!permitted[proposal.stage].includes(stage))
     throw new Error(
-      `Cannot move ${contract.stage} to ${stage}. ${contract.stage === "Signed" ? "Signed contracts are final." : `Allowed next stages: ${permitted[contract.stage].join(", ")}.`}`,
+      `Cannot move ${proposal.stage} to ${stage}. ${proposal.stage === "Signed" ? "Signed proposals are final." : `Allowed next stages: ${permitted[proposal.stage].join(", ")}.`}`,
     );
   if (stage === "Lost" && !reason?.trim())
     throw new Error("A loss reason is required.");
   return {
-    ...contract,
+    ...proposal,
     stage,
     lossReason: stage === "Lost" ? reason : undefined,
     updated: today(),
   };
 }
 export interface RecordService<T extends { id: string }> {
-  list(): T[];
-  get(id: string): T | undefined;
-  save(record: T): void;
-  remove(id: string): void;
+  list(): Promise<T[]>;
+  get(id: string): Promise<T | undefined>;
+  save(record: T): Promise<void>;
+  remove(id: string): Promise<void>;
 }
-export function createRecordService<T extends { id: string }>(
-  records: T[],
-  setRecords: (records: T[]) => void,
-): RecordService<T> {
-  return {
-    list: () => records,
-    get: (id) => records.find((r) => r.id === id),
-    save: (record) =>
-      setRecords(
-        records.some((r) => r.id === record.id)
-          ? records.map((r) => (r.id === record.id ? record : r))
-          : [record, ...records],
-      ),
-    remove: (id) => setRecords(records.filter((r) => r.id !== id)),
-  };
-}
+export { createRecordService } from "./api";

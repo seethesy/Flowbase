@@ -1,0 +1,105 @@
+import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { recordSchemas } from "../shared/records";
+import { healthSchema, type DatabaseStatus } from "../shared/api";
+import { APP_VERSION } from "../shared/version";
+import type { Bindings } from "./bindings";
+import * as fixtures from "../src/data/mock/fixtures";
+
+type Options = {
+  checkDatabase?: (env: Bindings) => Promise<DatabaseStatus>;
+  captureError?: (error: Error, requestId: string) => void;
+};
+export function createApp(options: Options = {}) {
+  const app = new Hono<{
+    Bindings: Bindings;
+    Variables: { requestId: string };
+  }>();
+  app.use("/api/*", async (c, next) => {
+    const requestId = crypto.randomUUID();
+    c.set("requestId", requestId);
+    c.header("X-Request-ID", requestId);
+    await next();
+    console.log(
+      JSON.stringify({
+        event: "api_request",
+        requestId,
+        method: c.req.method,
+        path: c.req.path,
+        status: c.res.status,
+      }),
+    );
+  });
+  app.onError((error, c) => {
+    const requestId = c.get("requestId") ?? crypto.randomUUID();
+    c.header("X-Request-ID", requestId);
+    const status = error instanceof HTTPException ? error.status : 500;
+    if (status >= 500) options.captureError?.(error, requestId);
+    const code = status >= 500 ? "INTERNAL_ERROR" : "INVALID_REQUEST";
+    console.error(
+      JSON.stringify({ event: "api_error", requestId, code, status }),
+    );
+    return c.json(
+      {
+        error: {
+          code,
+          message:
+            status >= 500
+              ? "An unexpected error occurred."
+              : "Invalid request.",
+          requestId,
+        },
+      },
+      status,
+    );
+  });
+  app.get("/api/health", async (c) => {
+    const database = await (options.checkDatabase?.(c.env) ??
+      Promise.resolve("not_configured" as const));
+    return c.json(
+      healthSchema.parse({
+        ok: true,
+        version: c.env?.APP_VERSION ?? APP_VERSION,
+        database,
+      }),
+    );
+  });
+  // Temporary demo adapters. Writes validate and echo, without database storage.
+  for (const resource of ["clients", "proposals", "inventory"] as const) {
+    const schema = recordSchemas[resource];
+    app.get(`/api/demo/${resource}`, (c) =>
+      c.json(schema.array().parse(fixtures[resource])),
+    );
+    app.put(`/api/demo/${resource}/:id`, async (c) => {
+      const parsed = schema.safeParse(await c.req.json().catch(() => null));
+      if (!parsed.success || parsed.data.id !== c.req.param("id"))
+        return c.json(
+          {
+            error: {
+              code: "INVALID_RECORD",
+              message: "Invalid record.",
+              requestId: c.get("requestId"),
+            },
+          },
+          400,
+        );
+      return c.json(parsed.data);
+    });
+    app.delete(`/api/demo/${resource}/:id`, (c) => c.body(null, 204));
+  }
+  app.all("/api/*", (c) =>
+    c.json(
+      {
+        error: {
+          code: "NOT_FOUND",
+          message: "API route not found.",
+          requestId: c.get("requestId"),
+        },
+      },
+      404,
+    ),
+  );
+  app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
+  return app;
+}
+export const app = createApp();

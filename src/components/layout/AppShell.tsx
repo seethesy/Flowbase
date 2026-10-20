@@ -32,8 +32,8 @@ import { useDemo } from "../../app/store";
 import { RecordForm } from "../../features/forms";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
-  { name: "CRM", to: "/crm", icon: Users },
-  { name: "Contracts", to: "/contracts", icon: FileText },
+  { name: "Clients", to: "/clients", icon: Users },
+  { name: "Proposals", to: "/proposals", icon: FileText },
   { name: "Inventory", to: "/inventory", icon: Package },
   { name: "Purchasing", to: "/purchasing", icon: ShoppingCart },
   { name: "Events", to: "/events", icon: CalendarDays },
@@ -44,15 +44,15 @@ export function Breadcrumbs() {
   const store = useDemo();
   const parts = location.pathname.split("/").filter(Boolean);
   const name =
-    parts[0] === "crm"
-      ? "CRM"
+    parts[0] === "clients"
+      ? "Clients"
       : parts[0]
         ? parts[0][0].toUpperCase() + parts[0].slice(1)
         : "Dashboard";
   const record =
-    parts[0] === "crm"
-      ? store.customers.get(parts[1])?.name
-      : store.inventory.get(parts[1])?.name;
+    parts[0] === "clients"
+      ? store.clients.find(parts[1])?.name
+      : store.inventory.find(parts[1])?.name;
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       <span>Workspace</span>
@@ -122,7 +122,7 @@ export function Sidebar({
             >
               <Icon size={19} />
               <span className="sidebar-text">{name}</span>
-              {name === "Contracts" && (
+              {name === "Proposals" && (
                 <span className="nav-count sidebar-text">40</span>
               )}
               {["Purchasing", "Events", "Reports"].includes(name) && (
@@ -198,35 +198,29 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const [profile, setProfile] = useState(false);
   const kind = location.pathname.startsWith("/inventory")
     ? "item"
-    : location.pathname === "/crm"
-      ? "customer"
-      : "contract";
+    : location.pathname === "/clients"
+      ? "client"
+      : "proposal";
   const results = search.trim()
     ? [
-        ...store.customers
-          .list()
-          .map((c) => ({
-            id: c.id,
-            title: c.name,
-            kind: "Customer",
-            path: `/crm/${c.id}`,
-          })),
-        ...store.inventory
-          .list()
-          .map((i) => ({
-            id: i.id,
-            title: i.name,
-            kind: i.id,
-            path: `/inventory/${i.id}`,
-          })),
-        ...store.contracts
-          .list()
-          .map((c) => ({
-            id: c.id,
-            title: c.name,
-            kind: "Contract",
-            path: `/contracts?view=table&q=${encodeURIComponent(c.id)}`,
-          })),
+        ...store.clients.records.map((c) => ({
+          id: c.id,
+          title: c.name,
+          kind: "Client",
+          path: `/clients/${c.id}`,
+        })),
+        ...store.inventory.records.map((i) => ({
+          id: i.id,
+          title: i.name,
+          kind: i.id,
+          path: `/inventory/${i.id}`,
+        })),
+        ...store.proposals.records.map((c) => ({
+          id: c.id,
+          title: c.name,
+          kind: "Proposal",
+          path: `/proposals?view=table&q=${encodeURIComponent(c.id)}`,
+        })),
       ]
         .filter((r) =>
           (r.title + " " + r.id).toLowerCase().includes(search.toLowerCase()),
@@ -303,7 +297,7 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
         open={global}
         onClose={() => setGlobal(false)}
         title="Search your workspace"
-        description="Find fictional customers, contracts, and inventory items."
+        description="Find fictional clients, proposals, and inventory items."
       >
         <SearchInput
           value={search}
@@ -333,7 +327,7 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
             description={
               search
                 ? "Try another name or SKU."
-                : "Type a name, contract number, or SKU to begin."
+                : "Type a name, proposal number, or SKU to begin."
             }
           />
         )}
@@ -357,18 +351,18 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
         </Link>
         <Link
           className="notification-row"
-          to="/contracts?stage=Sent"
+          to="/proposals?stage=Sent"
           onClick={() => setAlerts(false)}
         >
           <FileText size={20} />
           <div>
             <strong>Proposals ready for follow-up</strong>
-            <p>Your team has sent contracts to review.</p>
+            <p>Your team has sent proposals to review.</p>
           </div>
         </Link>
         <Link
           className="notification-row"
-          to="/crm/cus-1"
+          to="/clients/cli-1"
           onClick={() => setAlerts(false)}
         >
           <CalendarDays size={20} />

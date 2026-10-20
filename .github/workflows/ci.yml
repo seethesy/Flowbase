@@ -1,16 +1,49 @@
-name: Frontend quality
+name: Platform quality
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: flowbase_ci
+          POSTGRES_USER: flowbase
+          POSTGRES_PASSWORD: flowbase
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U flowbase -d flowbase_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://flowbase:flowbase@localhost:5432/flowbase_ci
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect Markdown-only PR
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process';
+          import { appendFileSync } from 'node:fs';
+          const { BASE_SHA, HEAD_SHA, GITHUB_OUTPUT } = process.env;
+          const files = BASE_SHA && HEAD_SHA
+            ? execFileSync('git', ['diff', '--name-only', `${BASE_SHA}...${HEAD_SHA}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
+            : ['manual-run'];
+          const code = files.some(path => !path.toLowerCase().endsWith('.md'));
+          appendFileSync(GITHUB_OUTPUT, `code=${code}\n`);
+          JS
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -18,10 +51,28 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run typecheck:worker
       - run: npm test
+      - run: npm run test:worker
+      - run: npm run db:check
+      - run: npm run test:db
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Cache Playwright Chromium
+        if: steps.changes.outputs.code == 'true'
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium and system dependencies
+        if: steps.changes.outputs.code == 'true' && steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install system dependencies for cached Chromium
+        if: steps.changes.outputs.code == 'true' && steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Playwright desktop and mobile
+        if: steps.changes.outputs.code == 'true'
+        run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
