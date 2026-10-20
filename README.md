@@ -34,16 +34,25 @@ A Hono Worker in `worker/` handles the API, and one `wrangler.jsonc` serves `dis
 
 ## CI and testing
 
-GitHub Actions (`.github/workflows/ci.yml`) runs lint, strict type checking, Vitest/React Testing Library, a production build, and Playwright Chromium workflows at desktop and mobile widths. Failures retain browser artifacts. Tests cover navigation, searching/filtering, tabs and notes, stage transitions and loss reasons, stock labels, item navigation, form validation/save/close, mobile navigation, and keyboard focus restoration. Explicit focus rings, skip link, dialog focus trapping, accessible field labels, semantic badges, and reduced-motion handling are included.
+GitHub Actions (`.github/workflows/ci.yml`) is the execution authority. Local test/check execution is prohibited by the repository workflow. Every PR runs lint, app and Worker typechecks, frontend Vitest, Node Worker tests, migration drift checks, Postgres integration tests, build, and desktop/mobile Playwright against the actual Worker. PRs changing only Markdown skip Playwright. Superseded runs on the same PR are cancelled; npm and Chromium are cached. Merge-to-main does not start a duplicate CI run. No workflow requires production credentials or repository secrets.
 
-The implementation session does **not** execute unit or browser tests locally, as requested. CI is the execution authority. Available commands:
+Postgres 17 runs as a disposable service with public CI-only credentials. `DATABASE_URL` points only to that service. `worker/db/schema.ts` and the empty Drizzle journal establish the CI migration seam; FLOW-24 must add the initial application schema/migrations after cloud setup. The DB suite applies committed migrations, tests a separate CI fixture for reads/writes/rollback, and checks `pg_class.relrowsecurity` and browser-facing policies for all application tables. The drift check runs Drizzle generation and rejects both modified and newly generated migration files. This scaffolding does not claim a deployed database or Hyperdrive verification.
+
+Commands used by CI:
 
 ```sh
 npm run lint
 npm run typecheck
+npm run typecheck:worker
 npm test
+npm run test:worker
+npm run db:check
+npm run test:db
+npm run build
 npm run test:e2e
 ```
+
+Manual workflow verification: push two commits to a PR while the first run is active and confirm cancellation; check npm/Chromium cache hits on a subsequent run; open a Markdown-only PR and confirm Playwright is skipped. Review Actions billing minutes after runs: the account's 2,000 monthly free minutes are shared with ops schedules, so avoid redundant pushes. Cloud setup and production deploy verification remain developer tasks.
 
 ## Demo limitations
 
