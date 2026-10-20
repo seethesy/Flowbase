@@ -203,27 +203,24 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
       : "proposal";
   const results = search.trim()
     ? [
-        ...store.clients.records
-          .map((c) => ({
-            id: c.id,
-            title: c.name,
-            kind: "Client",
-            path: `/clients/${c.id}`,
-          })),
-        ...store.inventory.records
-          .map((i) => ({
-            id: i.id,
-            title: i.name,
-            kind: i.id,
-            path: `/inventory/${i.id}`,
-          })),
-        ...store.proposals.records
-          .map((c) => ({
-            id: c.id,
-            title: c.name,
-            kind: "Proposal",
-            path: `/proposals?view=table&q=${encodeURIComponent(c.id)}`,
-          })),
+        ...store.clients.records.map((c) => ({
+          id: c.id,
+          title: c.name,
+          kind: "Client",
+          path: `/clients/${c.id}`,
+        })),
+        ...store.inventory.records.map((i) => ({
+          id: i.id,
+          title: i.name,
+          kind: i.id,
+          path: `/inventory/${i.id}`,
+        })),
+        ...store.proposals.records.map((c) => ({
+          id: c.id,
+          title: c.name,
+          kind: "Proposal",
+          path: `/proposals?view=table&q=${encodeURIComponent(c.id)}`,
+        })),
       ]
         .filter((r) =>
           (r.title + " " + r.id).toLowerCase().includes(search.toLowerCase()),

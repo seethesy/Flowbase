@@ -257,17 +257,16 @@ export function Proposals() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
-  const rows = store.proposals.records
-    .filter(
-      (c) =>
-        (c.name + " " + c.id + " " + store.clients.find(c.clientId)?.name)
-          .toLowerCase()
-          .includes(search.toLowerCase()) &&
-        (!params.get("open") || !["Signed", "Lost"].includes(c.stage)) &&
-        (!stage || c.stage === stage) &&
-        (!owner || c.owner === owner) &&
-        (!eventDate || c.eventDate >= eventDate),
-    );
+  const rows = store.proposals.records.filter(
+    (c) =>
+      (c.name + " " + c.id + " " + store.clients.find(c.clientId)?.name)
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (!params.get("open") || !["Signed", "Lost"].includes(c.stage)) &&
+      (!stage || c.stage === stage) &&
+      (!owner || c.owner === owner) &&
+      (!eventDate || c.eventDate >= eventDate),
+  );
   const change = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -339,8 +338,9 @@ export function Proposals() {
         <div>
           <strong>
             {
-              store.proposals.records
-                .filter((c) => !["Signed", "Lost"].includes(c.stage)).length
+              store.proposals.records.filter(
+                (c) => !["Signed", "Lost"].includes(c.stage),
+              ).length
             }
           </strong>
           <span>open opportunities</span>

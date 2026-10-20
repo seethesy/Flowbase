@@ -91,21 +91,32 @@ test("client creation validates and saves in memory", async ({ page }) => {
   ).toBeVisible();
 });
 
-
 test("Worker health and SPA share an origin", async ({ page, request }) => {
   const response = await request.get("/api/health");
   expect(response.ok()).toBeTruthy();
-  expect(await response.json()).toEqual({ ok: true });
+  expect(await response.json()).toMatchObject({
+    ok: true,
+    version: "0.1.0",
+    database: "not_configured",
+  });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Overview", exact: true }),
+  ).toBeVisible();
 });
 
 test("legacy routes redirect and retain proposal filters", async ({ page }) => {
   await page.goto("/#/crm/cus-1");
   await expect(page).toHaveURL(/#\/clients\/cli-1$/);
-  await expect(page.getByRole("heading", { name: "Juniper & Co.", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Juniper & Co.", exact: true }),
+  ).toBeVisible();
   await page.goto("/#/contracts?view=table&stage=Sent");
   await expect(page).toHaveURL(/#\/proposals\?view=table&stage=Sent$/);
-  await expect(page.getByRole("heading", { name: "Proposals", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Contracts", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Proposals", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Contracts", exact: true }),
+  ).toHaveCount(0);
 });

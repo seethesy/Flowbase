@@ -67,56 +67,60 @@ export function RecordForm({
             return;
           }
           try {
-          if (kind === "client")
-            await store.clients.save({
-              id: record?.id ?? `cli-${Date.now()}`,
-              name: s("name"),
-              contact: s("contact"),
-              email: s("email"),
-              phone: s("phone"),
-              status: s("status"),
-              owner: s("owner"),
-              address: s("address"),
-              activity: today(),
-              notes: (record as Client)?.notes ?? [],
-            });
-          if (kind === "item")
-            await store.inventory.save({
-              id: record?.id ?? `INV-${Date.now().toString().slice(-6)}`,
-              name: s("name"),
-              category: s("category"),
-              unit: s("unit"),
-              onHand: n("onHand"),
-              reserved: n("reserved"),
-              reorder: n("reorder"),
-              reorderQuantity: n("reorderQuantity"),
-              cost: n("cost"),
-              vendor: s("vendor"),
-              notes: (record as Item)?.notes ?? [],
-              history: (record as Item)?.history ?? [],
-            });
-          if (kind === "proposal")
-            await store.proposals.save({
-              id: record?.id ?? `FB-${Date.now().toString().slice(-6)}`,
-              name: s("name"),
-              clientId: s("clientId"),
-              value: n("value"),
-              stage: (record as Proposal)?.stage ?? "Draft",
-              eventDate: s("eventDate"),
-              sent: (record as Proposal)?.sent ?? "",
-              updated: today(),
-              owner: s("owner"),
-              priority: (record as Proposal)?.priority ?? false,
-              lossReason: (record as Proposal)?.lossReason,
-            });
-          store.notify(
-            `${kind === "item" ? "Inventory item" : kind[0].toUpperCase() + kind.slice(1)} saved in demo memory.`,
-          );
-          onClose();
-          } catch (e) { setError((e as Error).message); }
+            if (kind === "client")
+              await store.clients.save({
+                id: record?.id ?? `cli-${Date.now()}`,
+                name: s("name"),
+                contact: s("contact"),
+                email: s("email"),
+                phone: s("phone"),
+                status: s("status"),
+                owner: s("owner"),
+                address: s("address"),
+                activity: today(),
+                notes: (record as Client)?.notes ?? [],
+              });
+            if (kind === "item")
+              await store.inventory.save({
+                id: record?.id ?? `INV-${Date.now().toString().slice(-6)}`,
+                name: s("name"),
+                category: s("category"),
+                unit: s("unit"),
+                onHand: n("onHand"),
+                reserved: n("reserved"),
+                reorder: n("reorder"),
+                reorderQuantity: n("reorderQuantity"),
+                cost: n("cost"),
+                vendor: s("vendor"),
+                notes: (record as Item)?.notes ?? [],
+                history: (record as Item)?.history ?? [],
+              });
+            if (kind === "proposal")
+              await store.proposals.save({
+                id: record?.id ?? `FB-${Date.now().toString().slice(-6)}`,
+                name: s("name"),
+                clientId: s("clientId"),
+                value: n("value"),
+                stage: (record as Proposal)?.stage ?? "Draft",
+                eventDate: s("eventDate"),
+                sent: (record as Proposal)?.sent ?? "",
+                updated: today(),
+                owner: s("owner"),
+                priority: (record as Proposal)?.priority ?? false,
+                lossReason: (record as Proposal)?.lossReason,
+              });
+            store.notify(
+              `${kind === "item" ? "Inventory item" : kind[0].toUpperCase() + kind.slice(1)} saved in demo memory.`,
+            );
+            onClose();
+          } catch (e) {
+            setError((e as Error).message);
+          }
         }}
       >
-        <p className="demo-callout">Demo records are validated by the API. Changes reset on refresh.</p>
+        <p className="demo-callout">
+          Demo records are validated by the API. Changes reset on refresh.
+        </p>
         {error && (
           <p role="alert" className="error-message">
             {error}

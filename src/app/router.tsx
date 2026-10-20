@@ -1,4 +1,10 @@
-import { createHashRouter, Link, Navigate, useLocation, useParams } from "react-router-dom";
+import {
+  createHashRouter,
+  Link,
+  Navigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Dashboard } from "../features/dashboard";
 import { ClientList, ClientDetail } from "../features/clients";
@@ -39,8 +45,8 @@ function Profile() {
       <Section title="Employee profile">
         <p>Fictional employee · Demo session</p>
         <p>
-          Alex coordinates client relationships, event proposals, and
-          inventory for the team.
+          Alex coordinates client relationships, event proposals, and inventory
+          for the team.
         </p>
         <p className="demo-callout">
           No authentication or account changes are included in this prototype.
@@ -52,7 +58,12 @@ function Profile() {
 function LegacyRoute({ to }: { to: string }) {
   const location = useLocation();
   const { id } = useParams();
-  return <Navigate replace to={`${to}${id ? `/${encodeURIComponent(id.replace(/^cus-/, "cli-"))}` : ""}${location.search}`} />;
+  return (
+    <Navigate
+      replace
+      to={`${to}${id ? `/${encodeURIComponent(id.replace(/^cus-/, "cli-"))}` : ""}${location.search}`}
+    />
+  );
 }
 export const router = createHashRouter([
   {

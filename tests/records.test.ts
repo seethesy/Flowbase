@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  stockStatus,
-  transitionProposal,
-} from "../src/services/records";
+import { stockStatus, transitionProposal } from "../src/services/records";
 import {
   proposals,
   clients,

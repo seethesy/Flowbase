@@ -320,7 +320,16 @@ export function ConfirmationDialog({
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="destructive" onClick={async () => { try { await onConfirm(); } catch (e) { setError((e as Error).message); } }}>
+        <Button
+          variant="destructive"
+          onClick={async () => {
+            try {
+              await onConfirm();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+          }}
+        >
           Confirm
         </Button>
       </div>
@@ -464,7 +473,13 @@ export function Notes({
         onSubmit={async (e) => {
           e.preventDefault();
           if (text.trim()) {
-            try { await onAdd(text.trim()); setError(""); } catch (e) { setError((e as Error).message); return; }
+            try {
+              await onAdd(text.trim());
+              setError("");
+            } catch (e) {
+              setError((e as Error).message);
+              return;
+            }
             setText("");
           }
         }}

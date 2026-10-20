@@ -1,15 +1,27 @@
 import type { z } from "zod";
+import { apiErrorSchema } from "../../shared/api";
 import type { RecordService } from "./records";
 
 // The prototype validates writes at the API and keeps its working set in browser
 // memory. Refetching the page reloads the fixtures; no persistence is implied.
 export function createRecordService<T extends { id: string }>(
-  resource: string, schema: z.ZodType<T>, request: typeof fetch = fetch,
+  resource: string,
+  schema: z.ZodType<T>,
+  request: typeof fetch = fetch,
 ): RecordService<T> {
   let records: T[] | undefined;
   const send = async (path = "", init?: RequestInit) => {
     const response = await request(`/api/demo/${resource}${path}`, init);
-    if (!response.ok) throw new Error(`Unable to update demo records (${response.status}). Please retry.`);
+    if (!response.ok) {
+      const parsed = apiErrorSchema.safeParse(
+        await response.json().catch(() => null),
+      );
+      throw new Error(
+        parsed.success
+          ? `${parsed.data.error.message} Reference: ${parsed.data.error.requestId}`
+          : `Unable to update demo records (${response.status}). Please retry.`,
+      );
+    }
     return response;
   };
   const list = async () => {
@@ -21,12 +33,19 @@ export function createRecordService<T extends { id: string }>(
     get: async (id) => (await list()).find((record) => record.id === id),
     save: async (record) => {
       await list();
-      const saved = schema.parse(await (await send(`/${encodeURIComponent(record.id)}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(schema.parse(record)),
-      })).json());
+      const saved = schema.parse(
+        await (
+          await send(`/${encodeURIComponent(record.id)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(schema.parse(record)),
+          })
+        ).json(),
+      );
       const current = records!;
       records = current.some((r) => r.id === saved.id)
-        ? current.map((r) => r.id === saved.id ? saved : r) : [saved, ...current];
+        ? current.map((r) => (r.id === saved.id ? saved : r))
+        : [saved, ...current];
     },
     remove: async (id) => {
       await list();

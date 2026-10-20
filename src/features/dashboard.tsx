@@ -69,8 +69,9 @@ export function Dashboard() {
   const active = store.clients.records.filter((c) => c.status === "Active");
   const open = ranged.filter((c) => !["Signed", "Lost"].includes(c.stage));
   const signed = ranged.filter((c) => c.stage === "Signed");
-  const alerts = store.inventory.records
-    .filter((i) => stockStatus(i) !== "In Stock");
+  const alerts = store.inventory.records.filter(
+    (i) => stockStatus(i) !== "In Stock",
+  );
   const chart = stages.map((name) => ({
     name,
     value: ranged.filter((c) => c.stage === name).length,
@@ -185,9 +186,7 @@ export function Dashboard() {
                           onClick={() => setProposal(c.id)}
                         >
                           {c.name}
-                          <small>
-                            {store.clients.find(c.clientId)?.name}
-                          </small>
+                          <small>{store.clients.find(c.clientId)?.name}</small>
                         </button>
                       </td>
                       <td>{money(c.value)}</td>

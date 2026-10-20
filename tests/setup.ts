@@ -9,8 +9,13 @@ class ResizeObserverMock {
 }
 globalThis.ResizeObserver = ResizeObserverMock;
 
-import { app } from "../worker";
+import { app } from "../worker/app";
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn((input: string, init?: RequestInit) => app.request(`http://localhost${input}`, init)));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: string, init?: RequestInit) =>
+      app.request(`http://localhost${input}`, init),
+    ),
+  );
 });
 afterEach(() => vi.unstubAllGlobals());

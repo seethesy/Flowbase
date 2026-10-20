@@ -53,15 +53,12 @@ export function ClientList() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [owner, setOwner] = useState("");
   const [create, setCreate] = useState(false);
-  const data = store.clients.records
-    .filter(
-      (c) =>
-        (c.name + " " + c.contact)
-          .toLowerCase()
-          .includes(search.toLowerCase()) &&
-        (!status || c.status === status) &&
-        (!owner || c.owner === owner),
-    );
+  const data = store.clients.records.filter(
+    (c) =>
+      (c.name + " " + c.contact).toLowerCase().includes(search.toLowerCase()) &&
+      (!status || c.status === status) &&
+      (!owner || c.owner === owner),
+  );
   const columns: ColumnDef<Client, unknown>[] = [
     {
       accessorKey: "name",
@@ -87,11 +84,9 @@ export function ClientList() {
       id: "open",
       header: "Open proposals",
       accessorFn: (c) =>
-        store.proposals.records
-          .filter(
-            (x) =>
-              x.clientId === c.id && !["Signed", "Lost"].includes(x.stage),
-          ).length,
+        store.proposals.records.filter(
+          (x) => x.clientId === c.id && !["Signed", "Lost"].includes(x.stage),
+        ).length,
     },
     { accessorKey: "owner", header: "Account owner" },
     {
@@ -159,9 +154,7 @@ export function ClientList() {
         onRow={(c) => navigate(`/clients/${c.id}`)}
         label="clients"
       />
-      {create && (
-        <RecordForm kind="client" onClose={() => setCreate(false)} />
-      )}
+      {create && <RecordForm kind="client" onClose={() => setCreate(false)} />}
     </>
   );
 }
@@ -173,8 +166,7 @@ export function RelatedProposals({
   onOpen: (id: string) => void;
 }) {
   const store = useDemo();
-  const rows = store.proposals.records
-    .filter((c) => c.clientId === clientId);
+  const rows = store.proposals.records.filter((c) => c.clientId === clientId);
   const cols: ColumnDef<Proposal, unknown>[] = [
     { accessorKey: "name", header: "Proposal" },
     {

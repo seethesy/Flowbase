@@ -45,15 +45,14 @@ export function InventoryList() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [category, setCategory] = useState("");
   const [create, setCreate] = useState(false);
-  const rows = store.inventory.records
-    .filter(
-      (i) =>
-        (i.id + " " + i.name).toLowerCase().includes(search.toLowerCase()) &&
-        (!category || i.category === category) &&
-        (!status ||
-          (status === "Alerts" && stockStatus(i) !== "In Stock") ||
-          stockStatus(i) === status),
-    );
+  const rows = store.inventory.records.filter(
+    (i) =>
+      (i.id + " " + i.name).toLowerCase().includes(search.toLowerCase()) &&
+      (!category || i.category === category) &&
+      (!status ||
+        (status === "Alerts" && stockStatus(i) !== "In Stock") ||
+        stockStatus(i) === status),
+  );
   const quantity = (n: number, i: Item) => `${n} ${i.unit}`;
   const cols: ColumnDef<Item, unknown>[] = [
     {
@@ -116,8 +115,9 @@ export function InventoryList() {
         <div>
           <strong>
             {
-              store.inventory.records
-                .filter((i) => stockStatus(i) === "Low Stock").length
+              store.inventory.records.filter(
+                (i) => stockStatus(i) === "Low Stock",
+              ).length
             }
           </strong>
           <span>running low</span>
@@ -125,8 +125,9 @@ export function InventoryList() {
         <div>
           <strong>
             {
-              store.inventory.records
-                .filter((i) => stockStatus(i) === "Out of Stock").length
+              store.inventory.records.filter(
+                (i) => stockStatus(i) === "Out of Stock",
+              ).length
             }
           </strong>
           <span>out of stock</span>
@@ -499,28 +500,30 @@ export function InventoryDetail() {
               return;
             }
             try {
-            await store.inventory.save({
-              ...item,
-              onHand: item.onHand + qty,
-              history: [
-                {
-                  date: today(),
-                  type:
-                    operation === "receive"
-                      ? "Simulated receipt"
-                      : "Simulated adjustment",
-                  quantity: qty,
-                  reference,
-                  by: "Alex Chen",
-                  balance: item.onHand + qty,
-                },
-                ...item.history,
-              ],
-            });
-            store.notify("Simulated stock change applied in memory only.");
-            setOperation(null);
-            setError("");
-            } catch (e) { setError((e as Error).message); }
+              await store.inventory.save({
+                ...item,
+                onHand: item.onHand + qty,
+                history: [
+                  {
+                    date: today(),
+                    type:
+                      operation === "receive"
+                        ? "Simulated receipt"
+                        : "Simulated adjustment",
+                    quantity: qty,
+                    reference,
+                    by: "Alex Chen",
+                    balance: item.onHand + qty,
+                  },
+                  ...item.history,
+                ],
+              });
+              store.notify("Simulated stock change applied in memory only.");
+              setOperation(null);
+              setError("");
+            } catch (e) {
+              setError((e as Error).message);
+            }
           }}
         >
           <p className="demo-callout">
