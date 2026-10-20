@@ -6,7 +6,7 @@ export type Bindings = { ASSETS: { fetch: typeof fetch } };
 export const app = new Hono<{ Bindings: Bindings }>();
 app.get("/api/health", (c) => c.json({ ok: true }));
 // Temporary demo adapters. Writes validate and echo, without database storage.
-for (const resource of ["customers", "contracts", "inventory"] as const) {
+for (const resource of ["clients", "proposals", "inventory"] as const) {
   const schema = recordSchemas[resource];
   app.get(`/api/demo/${resource}`, (c) => c.json(schema.array().parse(fixtures[resource])));
   app.put(`/api/demo/${resource}/:id`, async (c) => {

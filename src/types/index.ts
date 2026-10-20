@@ -1,4 +1,4 @@
-export type { Stage, Customer, Contract, Item } from "../../shared/records";
+export type { Stage, Client, Proposal, Item } from "../../shared/records";
 export interface Employee {
   id: string;
   name: string;

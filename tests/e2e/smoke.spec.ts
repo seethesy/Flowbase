@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-test("sidebar, customer search, detail tabs, and browser history", async ({
+test("sidebar, client search, detail tabs, and browser history", async ({
   page,
   isMobile,
 }) => {
@@ -9,8 +9,8 @@ test("sidebar, customer search, detail tabs, and browser history", async ({
   ).toBeVisible();
   if (isMobile)
     await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "CRM", exact: true }).click();
-  await page.getByPlaceholder("Search customers or contacts…").fill("Juniper");
+  await page.getByRole("link", { name: "Clients", exact: true }).click();
+  await page.getByPlaceholder("Search clients or contacts…").fill("Juniper");
   await page.getByRole("button", { name: "JC Juniper & Co." }).click();
   await page.getByRole("tab", { name: "Contacts", exact: true }).click();
   await expect(page.getByText("Olivia Bennett", { exact: true })).toBeVisible();
@@ -18,7 +18,7 @@ test("sidebar, customer search, detail tabs, and browser history", async ({
   await expect(page.getByText("Event brief.pdf")).toBeVisible();
   await page.goBack();
   await expect(
-    page.getByRole("heading", { name: "Customers", exact: true }),
+    page.getByRole("heading", { name: "Clients", exact: true }),
   ).toBeVisible();
 });
 test("inventory detail, simulated receipt, and keyboard dialog close", async ({
@@ -50,33 +50,33 @@ test("inventory detail, simulated receipt, and keyboard dialog close", async ({
     page.getByRole("button", { name: "Edit", exact: true }),
   ).toBeFocused();
 });
-test("contract status rules and lost reason confirmation", async ({ page }) => {
-  await page.goto("/#/contracts?view=table");
+test("proposal status rules and lost reason confirmation", async ({ page }) => {
+  await page.goto("/#/proposals?view=table");
   await page.getByRole("button", { name: "FB-2026", exact: true }).click();
   await page
-    .getByLabel("Contract stage", { exact: true })
+    .getByLabel("Proposal stage", { exact: true })
     .selectOption("Signed");
   await expect(page.getByRole("alert")).toContainText(
     "Cannot move Draft to Signed",
   );
-  await page.getByLabel("Contract stage", { exact: true }).selectOption("Sent");
-  await expect(page.getByLabel("Contract stage", { exact: true })).toHaveValue(
+  await page.getByLabel("Proposal stage", { exact: true }).selectOption("Sent");
+  await expect(page.getByLabel("Proposal stage", { exact: true })).toHaveValue(
     "Sent",
   );
-  await page.getByLabel("Contract stage", { exact: true }).selectOption("Lost");
+  await page.getByLabel("Proposal stage", { exact: true }).selectOption("Lost");
   await page
     .getByLabel("Loss reason", { exact: true })
-    .fill("Customer event postponed");
+    .fill("Client event postponed");
   await page.getByRole("button", { name: "Confirm Lost" }).click();
-  await expect(page.getByLabel("Contract stage", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Proposal stage", { exact: true })).toHaveValue(
     "Lost",
   );
 });
-test("customer creation validates and saves in memory", async ({ page }) => {
-  await page.goto("/#/crm");
-  await page.getByRole("button", { name: "New Customer", exact: true }).click();
+test("client creation validates and saves in memory", async ({ page }) => {
+  await page.goto("/#/clients");
+  await page.getByRole("button", { name: "New Client", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Save customer" }).click();
+  await dialog.getByRole("button", { name: "Save client" }).click();
   await expect(dialog.getByRole("alert")).toContainText("Name is required");
   await dialog
     .getByLabel("Name *", { exact: true })
@@ -85,7 +85,7 @@ test("customer creation validates and saves in memory", async ({ page }) => {
   await dialog
     .getByLabel("Email *", { exact: true })
     .fill("avery@demo.example");
-  await dialog.getByRole("button", { name: "Save customer" }).click();
+  await dialog.getByRole("button", { name: "Save client" }).click();
   await expect(
     page.getByRole("button", { name: "DO Demo Orchard Client" }),
   ).toBeVisible();
@@ -98,4 +98,14 @@ test("Worker health and SPA share an origin", async ({ page, request }) => {
   expect(await response.json()).toEqual({ ok: true });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+});
+
+test("legacy routes redirect and retain proposal filters", async ({ page }) => {
+  await page.goto("/#/crm/cus-1");
+  await expect(page).toHaveURL(/#\/clients\/cli-1$/);
+  await expect(page.getByRole("heading", { name: "Juniper & Co.", exact: true })).toBeVisible();
+  await page.goto("/#/contracts?view=table&stage=Sent");
+  await expect(page).toHaveURL(/#\/proposals\?view=table&stage=Sent$/);
+  await expect(page.getByRole("heading", { name: "Proposals", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Contracts", exact: true })).toHaveCount(0);
 });

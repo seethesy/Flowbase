@@ -29,7 +29,7 @@ import {
   StatusBadge,
 } from "../components/shared";
 import { RecordForm } from "./forms";
-import { ContractDrawer } from "./contracts";
+import { ProposalDrawer } from "./proposals";
 export function ActivityFeed() {
   const icons = [Check, MessageSquare, Truck, UserPlus, Send];
   return (
@@ -58,15 +58,15 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [range, setRange] = useState("This month");
   const [create, setCreate] = useState(false);
-  const [contract, setContract] = useState<string | null>(null);
-  const all = store.contracts.records;
+  const [proposal, setProposal] = useState<string | null>(null);
+  const all = store.proposals.records;
   const ranged =
     range === "This week"
       ? all.filter((_, i) => i % 3 === 0)
       : range === "Last month"
         ? all.filter((_, i) => i % 2 === 0)
         : all;
-  const active = store.customers.records.filter((c) => c.status === "Active");
+  const active = store.clients.records.filter((c) => c.status === "Active");
   const open = ranged.filter((c) => !["Signed", "Lost"].includes(c.stage));
   const signed = ranged.filter((c) => c.stage === "Signed");
   const alerts = store.inventory.records
@@ -97,7 +97,7 @@ export function Dashboard() {
         </label>
         <Button onClick={() => setCreate(true)}>
           <Plus size={16} />
-          New Contract
+          New Proposal
         </Button>
       </PageHeader>
       <div className="welcome-strip">
@@ -107,7 +107,7 @@ export function Dashboard() {
         <div>
           <strong>A good day to keep things flowing.</strong>
           <p>
-            You have {open.length} open contracts and {alerts.length} inventory
+            You have {open.length} open proposals and {alerts.length} inventory
             items that need a little attention.
           </p>
         </div>
@@ -118,25 +118,25 @@ export function Dashboard() {
       </div>
       <div className="kpi-grid">
         <KpiCard
-          label="Active Customers"
+          label="Active Clients"
           value={active.length}
           icon={<Users size={19} />}
-          comparison="Customer relationships"
-          onClick={() => navigate("/crm?status=Active")}
+          comparison="Client relationships"
+          onClick={() => navigate("/clients?status=Active")}
         />
         <KpiCard
-          label="Open Contracts"
+          label="Open Proposals"
           value={open.length}
           icon={<FileText size={19} />}
           comparison={`${money(open.reduce((a, c) => a + c.value, 0))} in pipeline`}
-          onClick={() => navigate("/contracts?open=1")}
+          onClick={() => navigate("/proposals?open=1")}
         />
         <KpiCard
-          label="Contracts Won This Month"
+          label="Proposals Won This Month"
           value={signed.length}
           icon={<CheckCheck size={19} />}
           comparison={`${money(signed.reduce((a, c) => a + c.value, 0))} in signed value`}
-          onClick={() => navigate("/contracts?stage=Signed")}
+          onClick={() => navigate("/proposals?stage=Signed")}
         />
         <KpiCard
           label="Inventory Alerts"
@@ -159,9 +159,9 @@ export function Dashboard() {
             <ActivityFeed />
           </Section>
           <Section
-            title="Recent contracts"
+            title="Recent proposals"
             action={
-              <Link className="text-link" to="/contracts?view=table">
+              <Link className="text-link" to="/proposals?view=table">
                 View all <ArrowUpRight size={14} />
               </Link>
             }
@@ -170,7 +170,7 @@ export function Dashboard() {
               <table className="compact-table">
                 <thead>
                   <tr>
-                    <th>Contract / Customer</th>
+                    <th>Proposal / Client</th>
                     <th>Value</th>
                     <th>Status</th>
                     <th />
@@ -181,12 +181,12 @@ export function Dashboard() {
                     <tr key={c.id}>
                       <td>
                         <button
-                          className="table-link contract-name"
-                          onClick={() => setContract(c.id)}
+                          className="table-link proposal-name"
+                          onClick={() => setProposal(c.id)}
                         >
                           {c.name}
                           <small>
-                            {store.customers.find(c.customerId)?.name}
+                            {store.clients.find(c.clientId)?.name}
                           </small>
                         </button>
                       </td>
@@ -197,7 +197,7 @@ export function Dashboard() {
                       <td>
                         <button
                           aria-label={`Open ${c.id}`}
-                          onClick={() => setContract(c.id)}
+                          onClick={() => setProposal(c.id)}
                         >
                           <ArrowUpRight size={15} />
                         </button>
@@ -216,9 +216,9 @@ export function Dashboard() {
         </div>
         <div className="dashboard-aside">
           <Section
-            title="Contracts by status"
+            title="Proposals by status"
             action={
-              <Link to="/contracts" aria-label="View contract pipeline">
+              <Link to="/proposals" aria-label="View proposal pipeline">
                 <ArrowUpRight size={17} />
               </Link>
             }
@@ -245,14 +245,14 @@ export function Dashboard() {
                 </ResponsiveContainer>
                 <div className="donut-label">
                   <strong>{ranged.length}</strong>
-                  <small>contracts</small>
+                  <small>proposals</small>
                 </div>
               </div>
               <div className="chart-legend">
                 {chart.map((c, i) => (
                   <button
                     key={c.name}
-                    onClick={() => navigate(`/contracts?stage=${c.name}`)}
+                    onClick={() => navigate(`/proposals?stage=${c.name}`)}
                   >
                     <span style={{ background: colors[i] }} />
                     <span>{c.name}</span>
@@ -303,7 +303,7 @@ export function Dashboard() {
               <Link
                 className="event-row"
                 key={e.id}
-                to={`/crm/${e.customerId}`}
+                to={`/clients/${e.clientId}`}
               >
                 <div className="event-date">
                   <b>{e.date.slice(-2)}</b>
@@ -321,10 +321,10 @@ export function Dashboard() {
         </div>
       </div>
       {create && (
-        <RecordForm kind="contract" onClose={() => setCreate(false)} />
+        <RecordForm kind="proposal" onClose={() => setCreate(false)} />
       )}{" "}
-      {contract && (
-        <ContractDrawer id={contract} onClose={() => setContract(null)} />
+      {proposal && (
+        <ProposalDrawer id={proposal} onClose={() => setProposal(null)} />
       )}
     </>
   );

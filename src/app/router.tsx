@@ -1,8 +1,8 @@
-import { createHashRouter, Link } from "react-router-dom";
+import { createHashRouter, Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Dashboard } from "../features/dashboard";
-import { CustomerList, CustomerDetail } from "../features/crm";
-import { Contracts } from "../features/contracts";
+import { ClientList, ClientDetail } from "../features/clients";
+import { Proposals } from "../features/proposals";
 import { InventoryList, InventoryDetail } from "../features/inventory";
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
@@ -18,8 +18,8 @@ function Placeholder() {
           <Leaf size={40} />
           <h2>One step at a time.</h2>
           <p>
-            This module is a placeholder in Flowbase v0.1. Explore CRM,
-            contracts, and inventory to see the interactive prototype.
+            This module is a placeholder in Flowbase v0.1. Explore Clients,
+            proposals, and inventory to see the interactive prototype.
           </p>
           <Button asChild>
             <Link to="/">Back to overview</Link>
@@ -39,7 +39,7 @@ function Profile() {
       <Section title="Employee profile">
         <p>Fictional employee · Demo session</p>
         <p>
-          Alex coordinates customer relationships, event contracts, and
+          Alex coordinates client relationships, event proposals, and
           inventory for the team.
         </p>
         <p className="demo-callout">
@@ -49,14 +49,24 @@ function Profile() {
     </>
   );
 }
+function LegacyRoute({ to }: { to: string }) {
+  const location = useLocation();
+  const { id } = useParams();
+  return <Navigate replace to={`${to}${id ? `/${encodeURIComponent(id.replace(/^cus-/, "cli-"))}` : ""}${location.search}`} />;
+}
 export const router = createHashRouter([
   {
     element: <AppShell />,
     children: [
       { path: "/", element: <Dashboard /> },
-      { path: "/crm", element: <CustomerList /> },
-      { path: "/crm/:id", element: <CustomerDetail /> },
-      { path: "/contracts", element: <Contracts /> },
+      { path: "/clients", element: <ClientList /> },
+      { path: "/clients/:id", element: <ClientDetail /> },
+      { path: "/crm", element: <LegacyRoute to="/clients" /> },
+      { path: "/crm/:id", element: <LegacyRoute to="/clients" /> },
+      { path: "/customers", element: <LegacyRoute to="/clients" /> },
+      { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
+      { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
+      { path: "/proposals", element: <Proposals /> },
       { path: "/inventory", element: <InventoryList /> },
       { path: "/inventory/:id", element: <InventoryDetail /> },
       { path: "/profile", element: <Profile /> },

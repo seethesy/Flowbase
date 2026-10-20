@@ -1,4 +1,4 @@
-import type { Customer, Contract, Item, Employee, Stage } from "../../types";
+import type { Client, Proposal, Item, Employee, Stage } from "../../types";
 export const employees: Employee[] = [
   "Alex Chen",
   "Jordan Ellis",
@@ -50,8 +50,8 @@ const names = [
   "Hilltop Pavilion",
   "Aster Collective",
 ];
-export const customers: Customer[] = names.map((name, i) => ({
-  id: `cus-${i + 1}`,
+export const clients: Client[] = names.map((name, i) => ({
+  id: `cli-${i + 1}`,
   name,
   contact: [
     "Olivia Bennett",
@@ -77,7 +77,7 @@ export const stages: Stage[] = [
   "Signed",
   "Lost",
 ];
-const contractNames = [
+const proposalNames = [
   "Autumn leadership retreat",
   "Annual harvest gala",
   "Creative team luncheon",
@@ -87,10 +87,10 @@ const contractNames = [
   "Community fundraising brunch",
   "Board meeting catering",
 ];
-export const contracts: Contract[] = Array.from({ length: 40 }, (_, i) => ({
+export const proposals: Proposal[] = Array.from({ length: 40 }, (_, i) => ({
   id: `FB-${String(2026 + i).padStart(4, "0")}`,
-  name: contractNames[i % 8],
-  customerId: customers[i % 30].id,
+  name: proposalNames[i % 8],
+  clientId: clients[i % 30].id,
   value: 2400 + i * 375,
   stage: stages[i % 5],
   eventDate: `2026-${i % 3 === 0 ? "11" : "10"}-${String(16 + (i % 12)).padStart(2, "0")}`,
@@ -98,10 +98,10 @@ export const contracts: Contract[] = Array.from({ length: 40 }, (_, i) => ({
   owner: employees[i % 8].name,
   updated: "2026-10-15",
   priority: i % 7 === 0,
-  ...(i % 5 === 4 ? { lossReason: "Event postponed by customer" } : {}),
+  ...(i % 5 === 4 ? { lossReason: "Event postponed by client" } : {}),
 }));
-export const suppliers = Array.from({ length: 15 }, (_, i) => ({
-  id: `sup-${i}`,
+export const vendors = Array.from({ length: 15 }, (_, i) => ({
+  id: `ven-${i}`,
   name: [
     "Valley Fresh Produce",
     "Pacific Pantry Co.",
@@ -286,7 +286,7 @@ export const inventory: Item[] = itemNames.map((name, i) => ({
   reorder: 12,
   reorderQuantity: 30,
   cost: 3.5 + i * 1.25,
-  supplier: suppliers[i % 15].name,
+  vendor: vendors[i % 15].name,
   notes: [],
   history: [
     {
@@ -309,17 +309,17 @@ export const inventory: Item[] = itemNames.map((name, i) => ({
 }));
 export const contacts = Array.from({ length: 45 }, (_, i) => ({
   id: `contact-${i}`,
-  customerId: customers[i % 35].id,
+  clientId: clients[i % 35].id,
   name:
     i < 35
-      ? customers[i].contact
+      ? clients[i].contact
       : `${["Avery", "Riley", "Quinn"][i % 3]} Spencer`,
   role: i < 35 ? "Primary contact" : "Event coordinator",
   email: `contact${i + 1}@fictional.example`,
 }));
 export const purchaseOrders = Array.from({ length: 12 }, (_, i) => ({
   id: `PO-${1200 + i}`,
-  supplier: suppliers[i % 15].name,
+  vendor: vendors[i % 15].name,
   itemId: inventory[i].id,
   status: i % 3 === 0 ? "Received" : "Ordered",
   value: 350 + i * 125,
@@ -327,26 +327,26 @@ export const purchaseOrders = Array.from({ length: 12 }, (_, i) => ({
 }));
 export const events = Array.from({ length: 10 }, (_, i) => ({
   id: `evt-${i}`,
-  name: contractNames[i % 8],
-  customerId: customers[i].id,
+  name: proposalNames[i % 8],
+  clientId: clients[i].id,
   date: `2026-10-${16 + i}`,
   guests: 40 + i * 15,
   location: ["The Glasshouse", "Willow Creek Estate", "Harbor House"][i % 3],
 }));
 export const activities = [
   {
-    text: "Contract signed with The Glasshouse",
+    text: "Proposal signed with The Glasshouse",
     detail: "Annual harvest gala · $8,400",
     time: "12 min ago",
-    path: "/contracts?stage=Signed",
-    type: "contract",
+    path: "/proposals?stage=Signed",
+    type: "proposal",
   },
   {
     text: "Olivia Bennett added a note",
     detail: "Juniper & Co. · Dietary preferences updated",
     time: "48 min ago",
-    path: "/crm/cus-1",
-    type: "customer",
+    path: "/clients/cli-1",
+    type: "client",
   },
   {
     text: "Purchase order received",
@@ -356,17 +356,17 @@ export const activities = [
     type: "inventory",
   },
   {
-    text: "New customer added",
+    text: "New client added",
     detail: "Northstar Studio · Assigned to Morgan Reed",
     time: "2 hours ago",
-    path: "/crm/cus-3",
-    type: "customer",
+    path: "/clients/cli-3",
+    type: "client",
   },
   {
     text: "Proposal sent to Willow Creek Estate",
     detail: "Garden wedding reception · $12,500",
     time: "3 hours ago",
-    path: "/contracts?stage=Sent",
-    type: "contract",
+    path: "/proposals?stage=Sent",
+    type: "proposal",
   },
 ];

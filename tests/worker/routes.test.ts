@@ -1,21 +1,21 @@
 // @vitest-environment node
 import { it, expect } from "vitest";
 import { app } from "../../worker";
-import { customers } from "../../src/data/mock/fixtures";
+import { clients } from "../../src/data/mock/fixtures";
 
 it("serves health and fixture records", async () => {
   expect(await (await app.request("/api/health")).json()).toEqual({ ok: true });
-  expect(await (await app.request("/api/demo/customers")).json()).toEqual(customers);
+  expect(await (await app.request("/api/demo/clients")).json()).toEqual(clients);
 });
 it("validates writes and ID matches, including malformed JSON", async () => {
-  for (const body of ["{", JSON.stringify({ ...customers[0], id: "mismatch" })]) {
-    const response = await app.request("/api/demo/customers/cus-1", { method: "PUT", body });
+  for (const body of ["{", JSON.stringify({ ...clients[0], id: "mismatch" })]) {
+    const response = await app.request("/api/demo/clients/cli-1", { method: "PUT", body });
     expect(response.status).toBe(400);
   }
-  const response = await app.request(`/api/demo/customers/${customers[0].id}`, {
-    method: "PUT", body: JSON.stringify(customers[0]),
+  const response = await app.request(`/api/demo/clients/${clients[0].id}`, {
+    method: "PUT", body: JSON.stringify(clients[0]),
   });
-  expect(await response.json()).toEqual(customers[0]);
+  expect(await response.json()).toEqual(clients[0]);
 });
 it("does not return the SPA for an unknown API route", async () => {
   expect((await app.request("/api/missing")).status).toBe(404);

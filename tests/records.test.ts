@@ -1,14 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   stockStatus,
-  transitionContract,
+  transitionProposal,
 } from "../src/services/records";
 import {
-  contracts,
-  customers,
+  proposals,
+  clients,
   contacts,
   inventory,
-  suppliers,
+  vendors,
   purchaseOrders,
   events,
   employees,
@@ -23,38 +23,38 @@ describe("inventory availability", () => {
     expect(stockStatus(item)).toBe(status),
   );
 });
-describe("contract stage rules", () => {
+describe("proposal stage rules", () => {
   it("allows Draft to Sent and preserves the original record", () => {
-    const draft = contracts[0];
-    expect(transitionContract(draft, "Sent").stage).toBe("Sent");
+    const draft = proposals[0];
+    expect(transitionProposal(draft, "Sent").stage).toBe("Sent");
     expect(draft.stage).toBe("Draft");
   });
   it("rejects Draft to Signed", () =>
-    expect(() => transitionContract(contracts[0], "Signed")).toThrow(
+    expect(() => transitionProposal(proposals[0], "Signed")).toThrow(
       "Cannot move Draft to Signed",
     ));
   it("requires a nonblank loss reason", () => {
-    expect(() => transitionContract(contracts[0], "Lost", " ")).toThrow(
+    expect(() => transitionProposal(proposals[0], "Lost", " ")).toThrow(
       "loss reason",
     );
     expect(
-      transitionContract(contracts[0], "Lost", "Budget reduced").lossReason,
+      transitionProposal(proposals[0], "Lost", "Budget reduced").lossReason,
     ).toBe("Budget reduced");
   });
-  it("prevents changing a signed contract", () =>
-    expect(() => transitionContract(contracts[3], "Draft")).toThrow(
-      "Signed contracts are final",
+  it("prevents changing a signed proposal", () =>
+    expect(() => transitionProposal(proposals[3], "Draft")).toThrow(
+      "Signed proposals are final",
     ));
-  it("can reopen a lost contract as a draft", () =>
-    expect(transitionContract(contracts[4], "Draft").stage).toBe("Draft"));
+  it("can reopen a lost proposal as a draft", () =>
+    expect(transitionProposal(proposals[4], "Draft").stage).toBe("Draft"));
 });
 it("seeds the requested fixture counts", () =>
   expect([
-    customers.length,
+    clients.length,
     contacts.length,
-    contracts.length,
+    proposals.length,
     inventory.length,
-    suppliers.length,
+    vendors.length,
     purchaseOrders.length,
     events.length,
     employees.length,

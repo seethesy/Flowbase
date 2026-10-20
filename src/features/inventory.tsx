@@ -94,7 +94,7 @@ export function InventoryList() {
       accessorFn: stockStatus,
       cell: (c) => <StatusBadge status={c.getValue() as string} />,
     },
-    { accessorKey: "supplier", header: "Supplier" },
+    { accessorKey: "vendor", header: "Vendor" },
   ];
   return (
     <>
@@ -201,7 +201,7 @@ export function InventoryDetail() {
       />
     );
   const related = purchaseOrders.filter(
-    (p) => p.itemId === item.id || p.supplier === item.supplier,
+    (p) => p.itemId === item.id || p.vendor === item.vendor,
   );
   return (
     <>
@@ -317,7 +317,7 @@ export function InventoryDetail() {
                       "Reorder quantity",
                       `${item.reorderQuantity} ${item.unit}`,
                     ],
-                    ["Preferred supplier", item.supplier],
+                    ["Preferred vendor", item.vendor],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <small>{k}</small>
@@ -384,7 +384,7 @@ export function InventoryDetail() {
                     <div>
                       <strong>{p.id}</strong>
                       <small>
-                        {p.supplier} · {money(p.value)}
+                        {p.vendor} · {money(p.value)}
                       </small>
                     </div>
                     <StatusBadge status={p.status} />
@@ -397,11 +397,11 @@ export function InventoryDetail() {
                 />
               )}
             </Section>
-            <Section title="Supplier details">
+            <Section title="Vendor details">
               <div className="info-grid">
                 <div>
-                  <small>Preferred supplier</small>
-                  <strong>{item.supplier}</strong>
+                  <small>Preferred vendor</small>
+                  <strong>{item.vendor}</strong>
                 </div>
                 <div>
                   <small>Last purchase price</small>
@@ -576,7 +576,7 @@ export function InventoryDetail() {
         title={`Purchase order ${order ?? ""}`}
       >
         <p className="demo-callout">Read-only fictional purchase order.</p>
-        <p>Supplier: {purchaseOrders.find((p) => p.id === order)?.supplier}</p>
+        <p>Vendor: {purchaseOrders.find((p) => p.id === order)?.vendor}</p>
         <p>
           Total: {money(purchaseOrders.find((p) => p.id === order)?.value ?? 0)}
         </p>
