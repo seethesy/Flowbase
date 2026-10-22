@@ -71,8 +71,12 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await dialog.getByLabel("Title *", { exact: true }).fill("Fall gala");
   await dialog.getByLabel("Date *", { exact: true }).fill("2026-11-14");
   await dialog.getByLabel("Start time *", { exact: true }).fill("18:00");
-  await dialog.getByLabel("Client *").selectOption({ label: "Juniper & Co." });
-  await dialog.getByLabel("Venue").selectOption({ label: "The Glasshouse" });
+  await dialog
+    .getByLabel("Client *", { exact: true })
+    .selectOption({ label: "Juniper & Co." });
+  await dialog
+    .getByLabel("Venue", { exact: true })
+    .selectOption({ label: "The Glasshouse" });
   await dialog.getByRole("button", { name: "Save event" }).click();
   await expect(
     page.getByRole("heading", { name: "Fall gala", level: 1 }),
@@ -83,7 +87,7 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Guest count", { exact: true }).fill("120");
-  await dialog.getByLabel("Status").selectOption("booked");
+  await dialog.getByLabel("Status", { exact: true }).selectOption("booked");
   await dialog.getByRole("button", { name: "Save event" }).click();
   await expect(page.getByText("120", { exact: true })).toBeVisible();
   await expect(page.getByText("Booked").first()).toBeVisible();
