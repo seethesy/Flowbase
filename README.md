@@ -95,6 +95,8 @@ curl http://localhost:8787/api/health
 
 The POST returns `201` with the new row, the GET lists it, and health reports `database: "reachable"`. Local mode (without `--remote`) skips Hyperdrive and needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`; see `.env.example`.
 
+**Backups.** Production is dumped nightly to R2 from the private ops repo with 30-day retention. Setup, contents and the restore procedure: [docs/restore.md](docs/restore.md).
+
 ## Core records
 
 Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and are served by `worker/routes/records.ts`; Zod schemas in `shared/core-records.ts` are shared by the API and the screens in `src/features/{clients,venues,events}.tsx`.
@@ -112,7 +114,30 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 - Every create, update, archive and restore emits a domain event (`client.created`, `event.updated`, …) in the same transaction. Change history (FLOW-55 AC3) moved to FLOW-161, which builds on the audit log (FLOW-41).
 
 ## Background jobs
-**Backups.** Production is dumped nightly to R2 from the private ops repo with 30-day retention. Setup, contents and the restore procedure: [docs/restore.md](docs/restore.md).
+
+`worker/jobs/queue.ts` (FLOW-27) is the outbox and work queue, stored in the `jobs` table.
+
+- **Enqueue inside the change's transaction.** `enqueueJob(tx, { type, payload, idempotencyKey })` and `emitDomainEvent(tx, { name, entityId, data })` take the caller's transaction, so a rolled-back change never leaves a job behind. A repeated idempotency key is ignored. Domain events are jobs of type `event:<name>` (`<entity>.<past-tense verb>`, e.g. `client.created`).
+- **Handlers** register by type in `createJobRegistry()` (`worker/jobs/cron.ts`). Handlers must be idempotent. An event with no subscriber succeeds as a no-op; any other job type without a handler fails.
+- **Cron.** One Cron Trigger (`*/5 * * * *` in `wrangler.jsonc`) runs `runDueJobs`, which claims at most 10 due jobs (`FOR UPDATE SKIP LOCKED`) so each run stays within the 10 ms CPU budget. A throwing handler retries after 30 s, 1 min, 2 min, … (capped at 1 h) and is marked `failed` after 5 attempts. A job stuck in `running` for 10 minutes is reclaimed. Without a Hyperdrive binding the cron logs `jobs_skipped` and does nothing.
+- **Admin API:** `GET /api/admin/jobs?status=failed` lists jobs; `POST /api/admin/jobs/<id>/retry` re-queues a failed job with fresh attempts.
+
+## Machine ingestion
+
+`POST /api/ingest/<source>` (FLOW-28) is how outside systems push data in. Each request must authenticate, be at most 256 KB, and name its record; otherwise nothing is stored (401, 413 or 400). The raw body is stored once per source + record id in `ingest_receipts` with an `ingest.process` job in the same transaction; a repeat answers `200` with `duplicate: true` and creates nothing.
+
+| Source | Auth | Record id | Worker secret |
+| --- | --- | --- | --- |
+| `leads` (lead collector, FLOW-102) | `Authorization: Bearer <token>` | `sourceRecordId` in the JSON body | `INGEST_TOKEN_LEADS` |
+| `shopify` (FLOW-109) | Shopify HMAC (`X-Shopify-Hmac-Sha256`) | `X-Shopify-Webhook-Id` header | `SHOPIFY_WEBHOOK_SECRET` |
+
+Thumbtack (FLOW-108) adds its own row once its payload and auth scheme are known. Each source's ticket also registers the processor that turns a receipt into records (`ingestProcessors` in `worker/ingest/receipts.ts`); until then receipts are stored and left unprocessed.
+
+**Rotating a secret:** set the secret to `old,new` (`npx wrangler secret put INGEST_TOKEN_LEADS --env production`), switch the sender to the new value, then set it to `new` alone.
+
+**Admin API:** `GET /api/admin/ingest-receipts?status=failed&source=leads` lists receipts with their job status; `POST /api/admin/ingest-receipts/<id>/replay` queues a new processing job for a receipt whose job failed.
+
+**Sign-in.** Admin routes check permissions through `worker/policy.ts`, a stand-in for the FLOW-38 matrix. Until sign-in (FLOW-36) resolves the caller, no request has a user, so every `/api/admin/*` route answers `401` in deployed environments.
 
 ## Deploy
 
