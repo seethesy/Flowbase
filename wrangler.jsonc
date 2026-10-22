@@ -23,11 +23,19 @@
       ],
       "vars": { "DB_CHECK_ROUTE": "enabled" },
     },
-    // Production database. Deploying with --env production is wired up in FLOW-25.
+    // Production database. Workers Builds deploys it from main (npm run deploy).
     "production": {
       "name": "flowbase",
       "hyperdrive": [
         { "binding": "HYPERDRIVE", "id": "d6486e8ab1314d8ca1dbf5addf1036d0" },
+      ],
+    },
+    // Preview versions of the flowbase Worker for non-production branches
+    // (npm run deploy:preview). Same Worker name, dev database.
+    "preview": {
+      "name": "flowbase",
+      "hyperdrive": [
+        { "binding": "HYPERDRIVE", "id": "925a83ae72554fdd8e25e630cc7060d8" },
       ],
     },
   },
