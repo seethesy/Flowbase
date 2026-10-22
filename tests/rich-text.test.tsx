@@ -148,7 +148,7 @@ describe("pasting from Google Docs (AC2)", () => {
     '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1234">' +
     '<h2 dir="ltr" style="line-height:1.38;margin-top:18pt"><span style="font-size:16pt;font-family:Arial;color:#000000;font-weight:400">Setup</span></h2>' +
     '<p dir="ltr"><span style="font-family:Arial;color:#ff0000;font-weight:700">Bold red</span><span style="font-family:Arial"> plain </span>' +
-    '<span style="font-style:italic">italic</span> <span style="text-decoration:underline">underlined</span> ' +
+    '<span style="font-style:italic">italic</span> <span style="text-decoration:underline">lined</span> ' +
     '<span style="background-color:#ffff00">highlight</span> <a href="https://example.com/sop"><span style="color:#1155cc">SOP</span></a></p>' +
     '<ul style="margin-top:0"><li dir="ltr" aria-level="1" style="list-style-type:disc"><p dir="ltr" role="presentation"><span>Linens</span></p></li>' +
     '<ul><li dir="ltr" aria-level="2" style="list-style-type:circle"><p dir="ltr" role="presentation"><span>Ivory</span></p></li></ul></ul>' +
