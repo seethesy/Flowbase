@@ -130,15 +130,36 @@ export const venueSchema = z.object({
 });
 export type Venue = z.infer<typeof venueSchema>;
 
-export const eventStatusSchema = z.enum([
-  // Created by lead conversion (FLOW-112) before the date is firm.
+// The event lifecycle (FLOW-56), in order; moves are defined in
+// shared/event-lifecycle.ts. "P" is the proposal.
+export const eventStatuses = [
+  // Lead conversion (FLOW-112) creates events in Inquiry.
   "inquiry",
-  "tentative",
-  "booked",
-  "completed",
-  "cancelled",
-]);
+  "pitching",
+  "proposal_creation",
+  "initial_proposal_sent",
+  "negotiation",
+  "closing",
+  "closed",
+  "preparation",
+  "finished",
+  "lost",
+] as const;
+export const eventStatusSchema = z.enum(eventStatuses);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
+export const eventStatusLabels: Record<EventStatus, string> = {
+  inquiry: "Inquiry",
+  pitching: "Pitching",
+  proposal_creation: "P creation",
+  initial_proposal_sent: "Initial P sent",
+  negotiation: "Negotiation",
+  closing: "Closing",
+  // Paid and signed.
+  closed: "Closed",
+  preparation: "Preparation",
+  finished: "Finished",
+  lost: "Lost",
+};
 const localDate = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Enter a date.");
@@ -170,7 +191,9 @@ export const eventInputSchema = z.object({
   dressCode: text(500).default(""),
   transportationNotes: text(5000).default(""),
   internalNotes: text(5000).default(""),
-  status: eventStatusSchema.default("tentative"),
+  // Any status on create (FLOW-56 A4). Ignored on update: status changes go
+  // through POST /api/events/<id>/status.
+  status: eventStatusSchema.default("inquiry"),
 });
 export type EventInput = z.input<typeof eventInputSchema>;
 export const eventSchema = z.object({
@@ -204,3 +227,24 @@ export const eventSchema = z.object({
   updatedAt: timestamp,
 });
 export type FlowEvent = z.infer<typeof eventSchema>;
+
+// POST /api/events/<id>/status (FLOW-56): a manual status change. The reason is
+// optional.
+export const eventTransitionSchema = z.object({
+  status: eventStatusSchema,
+  reason: text(1000).default(""),
+});
+export type EventTransitionInput = z.input<typeof eventTransitionSchema>;
+export const eventStatusChangeSchema = z.object({
+  id,
+  // false when the system moved the event along the forward chain.
+  manual: z.boolean(),
+  // null for the status the event was created with.
+  from: eventStatusSchema.nullable(),
+  to: eventStatusSchema,
+  reason: z.string(),
+  // null for an automatic change.
+  actorId: id.nullable(),
+  at: timestamp,
+});
+export type EventStatusChange = z.infer<typeof eventStatusChangeSchema>;

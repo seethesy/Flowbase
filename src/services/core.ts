@@ -4,9 +4,11 @@ import {
   clientSchema,
   duplicateErrorSchema,
   eventSchema,
+  eventStatusChangeSchema,
   venueSchema,
   type ClientInput,
   type EventInput,
+  type EventTransitionInput,
   type VenueInput,
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
@@ -142,6 +144,13 @@ export const eventsApi = {
       at("events", id, archived ? "archive" : "restore"),
       "POST",
       {},
+    ),
+  setStatus: (id: string, input: EventTransitionInput) =>
+    request(eventSchema, at("events", id, "status"), "POST", input),
+  statusHistory: (id: string) =>
+    request(
+      eventStatusChangeSchema.array(),
+      at("events", id, "status-history"),
     ),
 };
 

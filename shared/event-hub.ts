@@ -26,5 +26,7 @@ export const eventHubSchema = z.object({
   client: clientSchema.nullable(),
   sections: z.array(hubSectionSchema),
   canEdit: z.boolean(),
+  // Admin or the event's salesperson (FLOW-56).
+  canChangeStatus: z.boolean(),
 });
 export type EventHub = z.infer<typeof eventHubSchema>;

@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  desc,
   eq,
   gte,
   inArray,
@@ -13,12 +14,32 @@ import {
 } from "drizzle-orm";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
-import type { FlowEvent, eventInputSchema } from "../../shared/core-records";
+import {
+  eventStatusLabels,
+  eventStatusSchema,
+  type EventStatus,
+  type EventStatusChange,
+  type FlowEvent,
+  type eventInputSchema,
+} from "../../shared/core-records";
+import {
+  automaticNextStatuses,
+  isAutomaticTransition,
+  mayOverrideStatus,
+} from "../../shared/event-lifecycle";
 import type { EventHub, HubSection } from "../../shared/event-hub";
 import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
+import { listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { clientContacts, clients, eventAreas, events, venues } from "../db/schema";
-import { ApiError, notFound } from "../hono";
+import {
+  clientContacts,
+  clients,
+  eventAreas,
+  events,
+  eventStatusHistory,
+  venues,
+} from "../db/schema";
+import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
 import { findVisibleClient, getClient } from "./clients";
@@ -50,6 +71,15 @@ function instants(input: Pick<EventInput, "date" | "startTime" | "endTime">) {
   if (endsAt < startsAt) endsAt = new Date(endsAt.getTime() + DAY_MS);
   return { startsAt, endsAt };
 }
+
+// booked_at decides which event keeps contested rentals: the first time the event
+// reached Negotiation (FLOW-56 A6), or a later status if it skipped Negotiation.
+const bookedFrom = eventStatusSchema.options.indexOf("negotiation");
+const bookedAtFor = (current: Date | null, status: EventStatus) =>
+  current ??
+  (status !== "lost" && eventStatusSchema.options.indexOf(status) >= bookedFrom
+    ? new Date()
+    : null);
 
 async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
   if (!rows.length) return [];
@@ -166,6 +196,26 @@ export async function getEvent(db: Db, actor: Actor, id: string) {
   return event;
 }
 
+// The event as an audit snapshot (FLOW-161). Areas are compared by name because
+// saving the form replaces their rows; startsAt/endsAt repeat date and times.
+async function eventSnapshot(db: DbLike, id: string) {
+  const [row] = await db.select().from(events).where(eq(events.id, id));
+  const [event] = await toEvents(db, [row]);
+  const snapshot: Record<string, unknown> = {
+    ...event,
+    areas: event.areas.map((area) => area.name),
+  };
+  delete snapshot.startsAt;
+  delete snapshot.endsAt;
+  return snapshot;
+}
+
+// Everyone who can open an event sees all of its fields, so nothing is hidden.
+export async function eventHistory(db: DbLike, actor: Actor, id: string) {
+  await findVisibleEvent(db, actor, id);
+  return listHistory(db, "event", id, (changes) => changes);
+}
+
 // Hub sections whose module exists (FLOW-57), in display order. Each module ticket
 // adds its section here: proposal and versions, booking and payments, BEO, pull list,
 // tasks (FLOW-58), timeline, staff, trucks and history (FLOW-41).
@@ -194,6 +244,7 @@ export async function getEventHub(
       (section) => section !== "client" || client !== null,
     ),
     canEdit: can(actor, "events.write"),
+    canChangeStatus: mayOverrideStatus(actor, event),
   };
 }
 
@@ -268,7 +319,7 @@ const eventValues = (input: EventInput, actor: Actor) => ({
   dressCode: input.dressCode,
   transportationNotes: input.transportationNotes,
   internalNotes: input.internalNotes,
-  status: input.status,
+  // Status is set on create and then only by the status changes below.
   updatedBy: actor.userId,
 });
 
@@ -283,8 +334,9 @@ async function replaceAreas(tx: DbLike, eventId: string, names: string[]) {
       .values(names.map((name, sortOrder) => ({ eventId, name, sortOrder })));
 }
 
-// Inserts the event, its areas and the event.created outbox row inside the caller's
-// transaction (lead conversion shares it); returns the new id.
+// Inserts the event, its areas, its first status history row, its audit row and the
+// event.created outbox row inside the caller's transaction (lead conversion shares
+// it); returns the new id.
 export async function insertEvent(
   tx: DbLike,
   actor: Actor,
@@ -295,13 +347,28 @@ export async function insertEvent(
     .insert(events)
     .values({
       ...eventValues(input, actor),
+      status: input.status,
       address: resolved.address,
       assignedSalespersonId: resolved.salesperson,
-      bookedAt: input.status === "booked" ? new Date() : null,
+      bookedAt: bookedAtFor(null, input.status),
       createdBy: actor.userId,
     })
     .returning({ id: events.id });
   await replaceAreas(tx, row.id, resolved.areas ?? []);
+  await tx.insert(eventStatusHistory).values({
+    eventId: row.id,
+    fromStatus: null,
+    toStatus: input.status,
+    createdBy: actor.userId,
+    updatedBy: actor.userId,
+  });
+  await writeAudit(tx, actor, {
+    entityType: "event",
+    entityId: row.id,
+    action: "create",
+    before: null,
+    after: await eventSnapshot(tx, row.id),
+  });
   await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
   return row.id;
 }
@@ -321,21 +388,27 @@ export async function updateEvent(
   id: string,
   input: EventInput,
 ): Promise<FlowEvent> {
+  // input.status is ignored here: status changes go through overrideEventStatus.
   const current = await findVisibleEvent(db, actor, id);
   const resolved = await resolveReferences(db, actor, input, current);
   await db.transaction(async (tx) => {
+    const before = await eventSnapshot(tx, id);
     await tx
       .update(events)
       .set({
         ...eventValues(input, actor),
         address: resolved.address,
         assignedSalespersonId: resolved.salesperson,
-        // booked_at records the first time the event was booked.
-        bookedAt:
-          current.bookedAt ?? (input.status === "booked" ? new Date() : null),
       })
       .where(eq(events.id, id));
     if (resolved.areas) await replaceAreas(tx, id, resolved.areas);
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: "update",
+      before,
+      after: await eventSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, { name: "event.updated", entityId: id });
   });
   return getEvent(db, actor, id);
@@ -349,14 +422,159 @@ export async function setEventArchived(
 ): Promise<FlowEvent> {
   await findVisibleEvent(db, actor, id);
   await db.transaction(async (tx) => {
+    const before = await eventSnapshot(tx, id);
     await tx
       .update(events)
       .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
       .where(eq(events.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: archived ? "archive" : "restore",
+      before,
+      after: await eventSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, {
       name: archived ? "event.archived" : "event.restored",
       entityId: id,
     });
   });
   return getEvent(db, actor, id);
+}
+
+// Status changes (FLOW-56). Every change, automatic or manual, records who, when and
+// why in event_status_history, writes the audit row and emits exactly one domain
+// event, event.<new status>, all in one transaction.
+async function changeStatus(
+  tx: DbLike,
+  current: EventRow,
+  change: {
+    to: EventStatus;
+    reason: string;
+    manual: boolean;
+    // null when the system made the change.
+    actor: Actor | null;
+  },
+) {
+  const from = current.status;
+  const { to, reason, manual, actor } = change;
+  const before = await eventSnapshot(tx, current.id);
+  await tx
+    .update(events)
+    .set({
+      status: to,
+      bookedAt: bookedAtFor(current.bookedAt, to),
+      updatedBy: actor?.userId ?? null,
+    })
+    .where(eq(events.id, current.id));
+  await tx.insert(eventStatusHistory).values({
+    eventId: current.id,
+    fromStatus: from,
+    toStatus: to,
+    reason,
+    manual,
+    createdBy: actor?.userId ?? null,
+    updatedBy: actor?.userId ?? null,
+  });
+  await writeAudit(tx, actor, {
+    entityType: "event",
+    entityId: current.id,
+    action: "update",
+    before,
+    after: await eventSnapshot(tx, current.id),
+  });
+  await emitDomainEvent(tx, {
+    name: `event.${to}`,
+    entityId: current.id,
+    data: { from, to, reason, manual },
+  });
+}
+
+// Locked so two changes to the same event can't both succeed.
+async function lockEvent(tx: DbLike, id: string) {
+  const [row] = await tx
+    .select()
+    .from(events)
+    .where(eq(events.id, id))
+    .for("update");
+  if (!row) throw notFound("Event");
+  return row;
+}
+
+const sameStatus = (status: EventStatus) =>
+  new ApiError(
+    409,
+    "INVALID_TRANSITION",
+    `The event is already ${eventStatusLabels[status]}.`,
+  );
+
+// A person changing the status (A1: any status, at any time). Admin, or the
+// salesperson assigned to the event (A2).
+export async function overrideEventStatus(
+  db: Db,
+  actor: Actor,
+  id: string,
+  input: { status: EventStatus; reason: string },
+): Promise<FlowEvent> {
+  await findVisibleEvent(db, actor, id);
+  await db.transaction(async (tx) => {
+    const current = await lockEvent(tx, id);
+    if (!mayOverrideStatus(actor, current)) throw forbidden();
+    if (current.status === input.status) throw sameStatus(input.status);
+    await changeStatus(tx, current, {
+      to: input.status,
+      reason: input.reason,
+      manual: true,
+      actor,
+    });
+  });
+  return getEvent(db, actor, id);
+}
+
+// The system moving an event along the forward chain (A1), for the features that
+// drive it (proposals, contracts, payments). Call it inside the transaction that
+// makes the triggering change. Anything but the next status, or Lost, is refused.
+export async function advanceEventStatus(
+  tx: DbLike,
+  id: string,
+  to: EventStatus,
+  reason = "",
+) {
+  const current = await lockEvent(tx, id);
+  if (!isAutomaticTransition(current.status, to)) {
+    if (current.status === to) throw sameStatus(to);
+    const allowed = automaticNextStatuses(current.status);
+    throw new ApiError(
+      409,
+      "INVALID_TRANSITION",
+      `An event can't move automatically from ${eventStatusLabels[current.status]} to ${eventStatusLabels[to]}. ` +
+        (allowed.length
+          ? `Allowed next statuses: ${allowed.map((status) => eventStatusLabels[status]).join(", ")}.`
+          : `${eventStatusLabels[current.status]} is final.`),
+      { allowed },
+    );
+  }
+  await changeStatus(tx, current, { to, reason, manual: false, actor: null });
+}
+
+// The event's status changes, newest first.
+export async function eventStatusChanges(db: DbLike, actor: Actor, id: string) {
+  await findVisibleEvent(db, actor, id);
+  const rows = await db
+    .select()
+    .from(eventStatusHistory)
+    .where(eq(eventStatusHistory.eventId, id))
+    .orderBy(desc(eventStatusHistory.createdAt))
+    .limit(500);
+  return rows.map(
+    (row): EventStatusChange => ({
+      id: row.id,
+      manual: row.manual,
+      from: row.fromStatus,
+      to: row.toStatus,
+      reason: row.reason,
+      actorId: row.createdBy,
+      at: row.createdAt.toISOString(),
+    }),
+  );
 }

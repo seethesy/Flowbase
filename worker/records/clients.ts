@@ -17,6 +17,14 @@ import {
   type Client,
 } from "../../shared/core-records";
 import type { z } from "zod";
+import {
+  fullView,
+  hideFields,
+  listHistory,
+  maskField,
+  redactAll,
+  writeAudit,
+} from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
@@ -139,6 +147,32 @@ export async function getClient(db: Db, actor: Actor, id: string) {
     await findVisibleClient(db, actor, id),
   ]);
   return client;
+}
+
+// The client as an audit snapshot (FLOW-41): every field, whoever is writing.
+async function clientSnapshot(db: DbLike, id: string) {
+  const [row] = await db.select().from(clients).where(eq(clients.id, id));
+  const [client] = await toClients(db, fullView, [row]);
+  return client;
+}
+
+// History hides what toClients hides from the caller: contact email and phone from
+// part-time users, and the possible-duplicate match from salespeople.
+export async function clientHistory(db: DbLike, actor: Actor, id: string) {
+  await findVisibleClient(db, actor, id);
+  const hideContactDetails = (value: unknown) =>
+    Array.isArray(value)
+      ? value.map((contact) => ({ ...contact, email: null, phone: null }))
+      : value;
+  return listHistory(
+    db,
+    "client",
+    id,
+    redactAll(
+      clientScope(actor) === "all" ? (c) => c : hideFields("possibleDuplicateOf"),
+      isFtPlus(actor) ? (c) => c : maskField("contacts", hideContactDetails),
+    ),
+  );
 }
 
 // Clients whose live contacts share an email or phone with the new contacts.
@@ -278,6 +312,13 @@ export async function insertClient(
     })
     .returning({ id: clients.id });
   await syncContacts(tx, row.id, input.contacts);
+  await writeAudit(tx, actor, {
+    entityType: "client",
+    entityId: row.id,
+    action: "create",
+    before: null,
+    after: await clientSnapshot(tx, row.id),
+  });
   await emitDomainEvent(tx, { name: "client.created", entityId: row.id });
   if (hidden.length)
     await emitDomainEvent(tx, {
@@ -320,6 +361,7 @@ export async function updateClient(
   const scope = requireClientAccess(actor);
   const current = await findVisibleClient(db, actor, id);
   await db.transaction(async (tx) => {
+    const before = await clientSnapshot(tx, id);
     await tx
       .update(clients)
       .set({
@@ -336,6 +378,13 @@ export async function updateClient(
       })
       .where(eq(clients.id, id));
     await syncContacts(tx, id, input.contacts);
+    await writeAudit(tx, actor, {
+      entityType: "client",
+      entityId: id,
+      action: "update",
+      before,
+      after: await clientSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, { name: "client.updated", entityId: id });
   });
   return getClient(db, actor, id);
@@ -349,10 +398,18 @@ export async function setClientArchived(
 ): Promise<Client> {
   await findVisibleClient(db, actor, id);
   await db.transaction(async (tx) => {
+    const before = await clientSnapshot(tx, id);
     await tx
       .update(clients)
       .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
       .where(eq(clients.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "client",
+      entityId: id,
+      action: archived ? "archive" : "restore",
+      before,
+      after: await clientSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, {
       name: archived ? "client.archived" : "client.restored",
       entityId: id,

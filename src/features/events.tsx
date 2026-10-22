@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  eventStatusLabels,
   contactRoleLabels,
   eventStatusSchema,
   type EventInput,
@@ -28,13 +29,7 @@ import {
 import { hidden, initials, LoadError } from "./clients";
 import { Attachments } from "./attachments";
 
-export const statusLabels: Record<EventStatus, string> = {
-  inquiry: "Inquiry",
-  tentative: "Tentative",
-  booked: "Booked",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
+export const statusLabels = eventStatusLabels;
 const date = (value: string) =>
   new Date(`${value}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "short",
@@ -182,7 +177,7 @@ const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
   dressCode: event?.dressCode ?? "",
   transportationNotes: event?.transportationNotes ?? "",
   internalNotes: event?.internalNotes ?? "",
-  status: event?.status ?? "tentative",
+  status: event?.status ?? "inquiry",
 });
 const countOf = (value: string) =>
   value.trim() === "" ? null : Math.max(0, Math.round(Number(value)));
@@ -316,20 +311,23 @@ export function EventForm({
               ))}
             </select>
           </FormField>
-          <FormField label="Status">
-            <select
-              value={draft.status}
-              onChange={(e) =>
-                set("status", eventStatusSchema.parse(e.target.value))
-              }
-            >
-              {eventStatusSchema.options.map((status) => (
-                <option key={status} value={status}>
-                  {statusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </FormField>
+          {/* Any status on create; afterwards it changes on the event page. */}
+          {!event && (
+            <FormField label="Status">
+              <select
+                value={draft.status}
+                onChange={(e) =>
+                  set("status", eventStatusSchema.parse(e.target.value))
+                }
+              >
+                {eventStatusSchema.options.map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          )}
           <FormField label="Venue">
             <select
               value={draft.venueId ?? ""}
@@ -393,6 +391,105 @@ export function EventForm({
   );
 }
 
+// Manual status changes (FLOW-56): Admin or the event's salesperson may pick any
+// status; the reason is optional. Everyone who can open the event sees the history.
+function EventStatusPanel({
+  event,
+  canChange,
+  onChanged,
+}: {
+  event: FlowEvent;
+  canChange: boolean;
+  onChanged: (event: FlowEvent) => void;
+}) {
+  const history = useResource(
+    () => eventsApi.statusHistory(event.id),
+    [event.id, event.status],
+  );
+  const others = eventStatusSchema.options.filter(
+    (status) => status !== event.status,
+  );
+  const [to, setTo] = useState<EventStatus>(others[0]);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const target = others.includes(to) ? to : others[0];
+  const change = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      onChanged(await eventsApi.setStatus(event.id, { status: target, reason }));
+      setReason("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Section title="Status">
+      {canChange && (
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            void change();
+          }}
+        >
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
+          <FormField label="New status">
+            <select
+              value={target}
+              onChange={(e) => setTo(eventStatusSchema.parse(e.target.value))}
+            >
+              {others.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Why (optional)">
+            <textarea
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </FormField>
+          <Button type="submit" disabled={saving}>
+            Change status
+          </Button>
+        </form>
+      )}
+      <h3>Status history</h3>
+      {history.error ? (
+        <LoadError message={history.error} />
+      ) : (
+        <ul aria-label="Status history">
+          {history.data?.map((entry) => (
+            <li key={entry.id}>
+              <strong>
+                {entry.from
+                  ? `${statusLabels[entry.from]} → ${statusLabels[entry.to]}`
+                  : `Created as ${statusLabels[entry.to]}`}
+              </strong>{" "}
+              <small>
+                {new Date(entry.at).toLocaleString("en-US")}
+                {entry.manual ? "" : " · automatic"}
+              </small>
+              {entry.reason && <p>{entry.reason}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
 // The event hub (FLOW-57): one page per event with a section for each part of it.
 // The API decides which sections the user may see; a section whose module doesn't
 // exist yet is never listed.
@@ -415,7 +512,7 @@ export function EventDetail() {
       </>
     );
   if (!hub.data) return <LoadingSkeleton />;
-  const { event: e, client, sections, canEdit } = hub.data;
+  const { event: e, client, sections, canEdit, canChangeStatus } = hub.data;
   const setEvent = (event: FlowEvent) => hub.replace({ ...hub.data!, event });
   const facts: [string, string][] = [
     ["When", when(e)],
@@ -433,29 +530,36 @@ export function EventDetail() {
   ];
   const render: Partial<Record<HubSection, () => ReactNode>> = {
     details: () => (
-      <div className="detail-grid" key="details">
-        <Section title="Event details">
-          <div className="info-grid">
-            {facts.map(([label, value]) => (
-              <div key={label}>
-                <small>{label}</small>
-                <strong>{value}</strong>
-              </div>
-            ))}
-          </div>
-          {e.venue && (
-            <p>
-              <Link to={`/venues/${e.venue.id}`}>Open venue</Link>
-            </p>
-          )}
-        </Section>
-        <Section title="Notes">
-          <small>Transportation</small>
-          <p>{e.transportationNotes || "—"}</p>
-          <small>Internal</small>
-          <p>{e.internalNotes || "—"}</p>
-        </Section>
-      </div>
+      <Fragment key="details">
+        <div className="detail-grid">
+          <Section title="Event details">
+            <div className="info-grid">
+              {facts.map(([label, value]) => (
+                <div key={label}>
+                  <small>{label}</small>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+            {e.venue && (
+              <p>
+                <Link to={`/venues/${e.venue.id}`}>Open venue</Link>
+              </p>
+            )}
+          </Section>
+          <Section title="Notes">
+            <small>Transportation</small>
+            <p>{e.transportationNotes || "—"}</p>
+            <small>Internal</small>
+            <p>{e.internalNotes || "—"}</p>
+          </Section>
+        </div>
+        <EventStatusPanel
+          event={e}
+          canChange={canChangeStatus}
+          onChanged={setEvent}
+        />
+      </Fragment>
     ),
     client: () =>
       client && (

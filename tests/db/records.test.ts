@@ -95,7 +95,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table leads, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -328,7 +328,7 @@ describe("events", () => {
       startTime: "18:00",
       endTime: null,
       client: { id: owner.id, name: "Juniper & Co." },
-      status: "tentative",
+      status: "inquiry",
       assignedSalespersonId: people.sam,
       venue: null,
       areas: [],
@@ -418,16 +418,15 @@ describe("events", () => {
     );
   });
 
-  it("records booked_at the first time an event is booked", async () => {
+  it("records booked_at the first time an event reaches Negotiation", async () => {
     const owner = await admin.post<Client>("/api/clients", newClient());
     const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id));
     expect(event.bookedAt).toBeNull();
-    const booked = (await (
-      await admin.call("PUT", `/api/events/${event.id}`, {
-        ...newEvent(owner.id),
-        status: "booked",
-      })
-    ).json()) as FlowEvent;
+    const booked = await admin.post<FlowEvent>(
+      `/api/events/${event.id}/status`,
+      { status: "negotiation" },
+      200,
+    );
     expect(booked.bookedAt).not.toBeNull();
   });
 

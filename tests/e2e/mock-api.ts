@@ -5,6 +5,8 @@ import type {
   Client,
   ClientInput,
   EventInput,
+  EventStatusChange,
+  EventTransitionInput,
   FlowEvent,
   Venue,
   VenueInput,
@@ -41,6 +43,7 @@ export async function mockRecordsApi(
   const clients = new Map((seed.clients ?? []).map((c) => [c.id, c]));
   const venues = new Map<string, Venue>();
   const events = new Map((seed.events ?? []).map((e) => [e.id, e]));
+  const statusChanges = new Map<string, EventStatusChange[]>();
   const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, json: body });
   const notFound = (route: Route) =>
@@ -129,7 +132,8 @@ export async function mockRecordsApi(
       dressCode: input.dressCode ?? "",
       transportationNotes: input.transportationNotes ?? "",
       internalNotes: input.internalNotes ?? "",
-      status: input.status ?? "tentative",
+      // Like the API: any status on create, unchanged by an edit.
+      status: current?.status ?? input.status ?? "inquiry",
       bookedAt: null,
       archivedAt: current?.archivedAt ?? null,
       createdAt: current?.createdAt ?? now(),
@@ -186,14 +190,36 @@ export async function mockRecordsApi(
         client,
         sections: client ? ["details", "client", "files"] : ["details", "files"],
         canEdit: true,
+        canChangeStatus: true,
       });
     }
+    if (resource === "events" && action === "status-history" && method === "GET")
+      return json(route, statusChanges.get(current.id) ?? []);
     if (method === "GET") return json(route, current);
     if (method === "PUT") {
       const updated = (
         save as (input: unknown, current: unknown) => { id: string }
       )(request.postDataJSON(), current);
       records.set(current.id, updated as never);
+      return json(route, updated);
+    }
+    if (resource === "events" && action === "status" && method === "POST") {
+      const event = current as unknown as FlowEvent;
+      const input = request.postDataJSON() as EventTransitionInput;
+      const updated = { ...event, status: input.status, updatedAt: now() };
+      statusChanges.set(event.id, [
+        {
+          id: randomUUID(),
+          manual: true,
+          from: event.status,
+          to: input.status,
+          reason: input.reason ?? "",
+          actorId: null,
+          at: now(),
+        },
+        ...(statusChanges.get(event.id) ?? []),
+      ]);
+      records.set(event.id, updated as never);
       return json(route, updated);
     }
     if (method === "POST" && (action === "archive" || action === "restore")) {
@@ -328,7 +354,7 @@ export const fallGala = (): FlowEvent => ({
   dressCode: "",
   transportationNotes: "",
   internalNotes: "",
-  status: "booked",
+  status: "closed",
   bookedAt: "2026-10-22T09:00:00.000Z",
   archivedAt: null,
   createdAt: "2026-10-22T09:00:00.000Z",

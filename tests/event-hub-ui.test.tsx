@@ -33,7 +33,7 @@ const event: FlowEvent = {
   dressCode: "",
   transportationNotes: "",
   internalNotes: "",
-  status: "booked",
+  status: "closed",
   bookedAt: now,
   archivedAt: null,
   createdAt: now,
@@ -67,6 +67,7 @@ function mountHub(hub: EventHub) {
     const path = String(input);
     if (path === `/api/events/${eventId}/hub`) return Response.json(hub);
     if (path.startsWith("/api/attachments?")) return Response.json([]);
+    if (path === `/api/events/${eventId}/status-history`) return Response.json([]);
     throw new Error(`Unexpected request ${path}`);
   });
   render(
@@ -84,6 +85,7 @@ it("loads the details, client and files sections from the API", async () => {
     client: client("olivia@juniper.example"),
     sections: ["details", "client", "files"],
     canEdit: true,
+    canChangeStatus: false,
   });
   expect(
     await screen.findByRole("heading", { name: "Fall gala", level: 1 }),
@@ -106,6 +108,7 @@ it("shows a part-time user only the sections and fields the API allows", async (
     client: null,
     sections: ["details", "files"],
     canEdit: false,
+    canChangeStatus: false,
   });
   expect(
     await screen.findByRole("heading", { name: "Fall gala", level: 1 }),
@@ -123,7 +126,39 @@ it("shows contact details as hidden when the API leaves them out", async () => {
     client: client(null),
     sections: ["details", "client", "files"],
     canEdit: true,
+    canChangeStatus: false,
   });
   expect(await screen.findByText("Olivia Bennett (point of contact)")).toBeInTheDocument();
   expect(screen.getByText(/Primary POC · Hidden · Hidden/)).toBeInTheDocument();
+});
+
+it("offers Change status only when the API allows it (FLOW-56)", async () => {
+  mountHub({
+    event,
+    client: null,
+    sections: ["details", "files"],
+    canEdit: true,
+    canChangeStatus: true,
+  });
+  expect(
+    await screen.findByRole("button", { name: "Change status" }),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("New status")).not.toHaveValue("closed");
+  expect(screen.getByRole("heading", { name: "Status history" })).toBeInTheDocument();
+});
+
+it("shows the status history without the form to everyone else", async () => {
+  mountHub({
+    event,
+    client: null,
+    sections: ["details", "files"],
+    canEdit: true,
+    canChangeStatus: false,
+  });
+  expect(
+    await screen.findByRole("heading", { name: "Status history" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Change status" }),
+  ).not.toBeInTheDocument();
 });
