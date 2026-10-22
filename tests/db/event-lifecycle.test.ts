@@ -389,8 +389,7 @@ describe("existing events (A5)", () => {
       cancelled: "lost",
       inquiry: "inquiry",
     });
-    expect(
-      rows.find((row) => row.title === "booked")?.booked_at.toISOString(),
-    ).toBe(bookedAt.toISOString());
+    const kept = rows.find((row) => row.title === "booked")?.booked_at;
+    expect(new Date(kept).toISOString()).toBe(bookedAt.toISOString());
   });
 });
