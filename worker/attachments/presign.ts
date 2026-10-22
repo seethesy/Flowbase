@@ -81,7 +81,8 @@ export async function presignUrl(input: PresignInput) {
     await sha256(canonicalRequest),
   ].join("\n");
   let key: ArrayBuffer = await hmac(
-    encoder.encode(`AWS4${input.secretAccessKey}`),
+    // Copied into a plain ArrayBuffer-backed array for both DOM and Workers types.
+    new Uint8Array(encoder.encode(`AWS4${input.secretAccessKey}`)),
     date,
   );
   for (const part of [input.region, service, "aws4_request"])
