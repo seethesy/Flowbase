@@ -14,13 +14,14 @@ import {
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import type { FlowEvent, eventInputSchema } from "../../shared/core-records";
+import type { EventHub, HubSection } from "../../shared/event-hub";
 import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients, eventAreas, events, venues } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
-import { eventScope } from "../policy";
-import { findVisibleClient } from "./clients";
+import { can, clientScope, eventScope } from "../policy";
+import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
 // Events (FLOW-55), the record everything else attaches to. A salesperson sees the
@@ -163,6 +164,37 @@ export async function findVisibleEvent(db: DbLike, actor: Actor, id: string) {
 export async function getEvent(db: Db, actor: Actor, id: string) {
   const [event] = await toEvents(db, [await findVisibleEvent(db, actor, id)]);
   return event;
+}
+
+// Hub sections whose module exists (FLOW-57), in display order. Each module ticket
+// adds its section here: proposal and versions, booking and payments, BEO, pull list,
+// tasks (FLOW-58), timeline, staff, trucks and history (FLOW-41).
+const builtSections: HubSection[] = ["details", "client", "files"];
+
+// Everything the event hub shows, limited to what the actor may see. The client
+// section needs access to the client record itself: staff who only work the event
+// see the client's name in the details, not the client.
+export async function getEventHub(
+  db: Db,
+  actor: Actor,
+  id: string,
+): Promise<EventHub> {
+  const event = await getEvent(db, actor, id);
+  const client =
+    clientScope(actor) === "none"
+      ? null
+      : await getClient(db, actor, event.client.id).catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        });
+  return {
+    event,
+    client,
+    sections: builtSections.filter(
+      (section) => section !== "client" || client !== null,
+    ),
+    canEdit: can(actor, "events.write"),
+  };
 }
 
 // Checks the references in an event and works out what it inherits from them.

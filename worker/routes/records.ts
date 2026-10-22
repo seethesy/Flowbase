@@ -25,6 +25,7 @@ import {
 import {
   createEvent,
   getEvent,
+  getEventHub,
   listEvents,
   setEventArchived,
   updateEvent,
@@ -200,6 +201,15 @@ export function recordRoutes(options: {
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
         getEvent(tx, c.get("actor"), id),
+      ),
+    );
+  });
+  // The event hub (FLOW-57): the event, its client and the sections the user may see.
+  routes.get("/events/:id/hub", async (c) => {
+    const id = param(c, "Event");
+    return c.json(
+      await runDb(options.withDb, c.env, (tx) =>
+        getEventHub(tx, c.get("actor"), id),
       ),
     );
   });

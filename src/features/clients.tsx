@@ -49,7 +49,7 @@ export function LoadError({ message }: { message: string }) {
 const primaryContact = (client: Client) =>
   client.contacts.find((contact) => contact.role === "primary_poc") ??
   client.contacts[0];
-const hidden = (value: string | null) =>
+export const hidden = (value: string | null) =>
   value === null ? "Hidden" : value || "—";
 
 // Real client records (FLOW-53), replacing the prototype's mock clients.
