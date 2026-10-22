@@ -1,0 +1,1 @@
+ALTER TABLE "event_status_history" ADD COLUMN "manual" boolean DEFAULT true NOT NULL;

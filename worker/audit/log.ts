@@ -38,10 +38,10 @@ export function diffSnapshots(
 }
 
 // Writes one audit row through the caller's transaction. An update that changed
-// nothing writes no row.
+// nothing writes no row. actor is null for changes the system makes on its own.
 export async function writeAudit(
   tx: DbLike,
-  actor: Actor,
+  actor: Actor | null,
   entry: {
     entityType: AuditEntity;
     entityId: string;
@@ -57,8 +57,8 @@ export async function writeAudit(
     entityId: entry.entityId,
     action: entry.action,
     changes,
-    createdBy: actor.userId,
-    updatedBy: actor.userId,
+    createdBy: actor?.userId ?? null,
+    updatedBy: actor?.userId ?? null,
   });
 }
 

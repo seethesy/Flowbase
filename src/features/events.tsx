@@ -6,6 +6,7 @@ import {
   eventStatusLabels,
   eventStatusSchema,
   type EventInput,
+  type EventStatus,
   type FlowEvent,
 } from "../../shared/core-records";
 import { clientsApi, eventsApi, venuesApi } from "../services/core";
@@ -174,7 +175,7 @@ const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
   dressCode: event?.dressCode ?? "",
   transportationNotes: event?.transportationNotes ?? "",
   internalNotes: event?.internalNotes ?? "",
-  status: event?.status ?? "tentative",
+  status: event?.status ?? "inquiry",
 });
 const countOf = (value: string) =>
   value.trim() === "" ? null : Math.max(0, Math.round(Number(value)));
@@ -308,20 +309,23 @@ export function EventForm({
               ))}
             </select>
           </FormField>
-          <FormField label="Status">
-            <select
-              value={draft.status}
-              onChange={(e) =>
-                set("status", eventStatusSchema.parse(e.target.value))
-              }
-            >
-              {eventStatusSchema.options.map((status) => (
-                <option key={status} value={status}>
-                  {statusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </FormField>
+          {/* Any status on create; afterwards it changes on the event page. */}
+          {!event && (
+            <FormField label="Status">
+              <select
+                value={draft.status}
+                onChange={(e) =>
+                  set("status", eventStatusSchema.parse(e.target.value))
+                }
+              >
+                {eventStatusSchema.options.map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          )}
           <FormField label="Venue">
             <select
               value={draft.venueId ?? ""}
@@ -382,6 +386,101 @@ export function EventForm({
         </div>
       </form>
     </DetailDrawer>
+  );
+}
+
+// Manual status changes (FLOW-56): Admin or the event's salesperson may pick any
+// status; the reason is optional. The API refuses anyone else.
+function EventStatusPanel({
+  event,
+  onChanged,
+}: {
+  event: FlowEvent;
+  onChanged: (event: FlowEvent) => void;
+}) {
+  const history = useResource(
+    () => eventsApi.statusHistory(event.id),
+    [event.id, event.status],
+  );
+  const others = eventStatusSchema.options.filter(
+    (status) => status !== event.status,
+  );
+  const [to, setTo] = useState<EventStatus>(others[0]);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const target = others.includes(to) ? to : others[0];
+  const change = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      onChanged(await eventsApi.setStatus(event.id, { status: target, reason }));
+      setReason("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Section title="Status">
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void change();
+        }}
+      >
+        {error && (
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        )}
+        <FormField label="New status">
+          <select
+            value={target}
+            onChange={(e) => setTo(eventStatusSchema.parse(e.target.value))}
+          >
+            {others.map((status) => (
+              <option key={status} value={status}>
+                {statusLabels[status]}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Why (optional)">
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </FormField>
+        <Button type="submit" disabled={saving}>
+          Change status
+        </Button>
+      </form>
+      <h3>Status history</h3>
+      {history.error ? (
+        <LoadError message={history.error} />
+      ) : (
+        <ul aria-label="Status history">
+          {history.data?.map((entry) => (
+            <li key={entry.id}>
+              <strong>
+                {entry.from
+                  ? `${statusLabels[entry.from]} → ${statusLabels[entry.to]}`
+                  : `Created as ${statusLabels[entry.to]}`}
+              </strong>{" "}
+              <small>
+                {new Date(entry.at).toLocaleString("en-US")}
+                {entry.manual ? "" : " · automatic"}
+              </small>
+              {entry.reason && <p>{entry.reason}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
   );
 }
 
@@ -481,6 +580,7 @@ export function EventDetail() {
           <p>{e.internalNotes || "—"}</p>
         </Section>
       </div>
+      <EventStatusPanel event={e} onChanged={event.replace} />
       <Attachments recordType="event" recordId={e.id} title="Event files" />
       {edit && (
         <EventForm

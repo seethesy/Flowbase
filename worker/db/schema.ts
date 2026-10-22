@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -173,7 +174,7 @@ export const events = pgTable(
     internalNotes: text("internal_notes").notNull().default(""),
     status: text("status", { enum: eventStatusSchema.options })
       .notNull()
-      .default("tentative"),
+      .default("inquiry"),
     bookedAt: timestamptz("booked_at"),
   },
   (table) => [
@@ -223,7 +224,7 @@ export const auditLog = pgTable(
 ).enableRLS();
 
 // Status history (FLOW-56): one row per status change of an event: who
-// (created_by), when (created_at), from and to, and why.
+// (created_by; null for the system), when (created_at), from and to, and why.
 export const eventStatusHistory = pgTable(
   "event_status_history",
   {
@@ -235,6 +236,8 @@ export const eventStatusHistory = pgTable(
     fromStatus: text("from_status", { enum: eventStatusSchema.options }),
     toStatus: text("to_status", { enum: eventStatusSchema.options }).notNull(),
     reason: text("reason").notNull().default(""),
+    // false when the system moved the event along the forward chain.
+    manual: boolean("manual").notNull().default(true),
   },
   (table) => [index("event_status_history_event_idx").on(table.eventId)],
 ).enableRLS();

@@ -30,8 +30,8 @@ import {
   eventStatusChanges,
   getEvent,
   listEvents,
+  overrideEventStatus,
   setEventArchived,
-  transitionEvent,
   updateEvent,
 } from "../records/events";
 import {
@@ -242,14 +242,14 @@ export function recordRoutes(options: {
       ),
     );
   });
-  // Status changes (FLOW-56). Who may make each move is decided per event in
-  // shared/event-lifecycle.ts, so these need no write permission up front.
+  // Manual status changes (FLOW-56): Admin or the event's salesperson, checked per
+  // event in shared/event-lifecycle.ts. Automatic moves have no route.
   routes.post("/events/:id/status", async (c) => {
     const id = param(c, "Event");
     const input = await parseBody(c, eventTransitionSchema);
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
-        transitionEvent(tx, c.get("actor"), id, input),
+        overrideEventStatus(tx, c.get("actor"), id, input),
       ),
     );
   });

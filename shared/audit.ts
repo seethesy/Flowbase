@@ -3,7 +3,7 @@ export type AuditEntity = "client" | "venue" | "event";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";
-  // The user who made the change; null only for rows written without a user.
+  // The user who made the change; null when the system made it.
   actorId: string | null;
   at: string;
   // Changed fields by their API name, with only what the caller may see.
