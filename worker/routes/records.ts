@@ -25,6 +25,7 @@ import {
 } from "../records/clients";
 import {
   createEvent,
+  eventHistory,
   getEvent,
   listEvents,
   setEventArchived,
@@ -85,6 +86,7 @@ export function recordRoutes(options: {
   for (const [resource, what, history] of [
     ["clients", "Client", clientHistory],
     ["venues", "Venue", venueHistory],
+    ["events", "Event", eventHistory],
   ] as const)
     routes.get(`/${resource}/:id/history`, async (c) => {
       const id = param(c, what);

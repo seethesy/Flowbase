@@ -9,9 +9,17 @@ import type { Db } from "../../worker/db/client";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
 import { updateClient } from "../../worker/records/clients";
+import { updateEvent } from "../../worker/records/events";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
 import type { HistoryEntry } from "../../shared/audit";
-import type { Client, ClientInput, Venue, VenueInput } from "../../shared/core-records";
+import type {
+  Client,
+  ClientInput,
+  EventInput,
+  FlowEvent,
+  Venue,
+  VenueInput,
+} from "../../shared/core-records";
 
 // Audit log and record history (FLOW-41).
 const url = process.env.DATABASE_URL;
@@ -66,7 +74,12 @@ const admin = as(people.admin, "admin");
 const sam = as(people.sam, "salesperson");
 const sue = as(people.sue, "salesperson");
 const partTimeSam = as(people.sam, "salesperson", "part_time");
-const partTimeStaff = as("b0000000-0000-4000-8000-000000000004", "staff", "part_time");
+const partTimeStaff = as(
+  "b0000000-0000-4000-8000-000000000004",
+  "staff",
+  "part_time",
+);
+const lead = as("b0000000-0000-4000-8000-000000000005", "kitchen_lead");
 
 const newClient = (overrides: Partial<ClientInput> = {}): ClientInput => ({
   name: "Juniper & Co.",
@@ -281,5 +294,125 @@ describe("history endpoint", () => {
     expect(history[0].changes.areas.after).toEqual([
       expect.objectContaining({ name: "Lawn" }),
     ]);
+  });
+});
+
+// FLOW-161: events go through the same audit log.
+describe("event changes", () => {
+  const eventInput = (event: FlowEvent): EventInput => ({
+    title: event.title,
+    date: event.date,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    clientId: event.client.id,
+    pocContactId: event.pocContactId,
+    venueId: event.venue?.id ?? null,
+    address: event.address,
+    areas: event.areas.map((area) => area.name),
+    eventType: event.eventType,
+    serviceType: event.serviceType,
+    foodServiceStyle: event.foodServiceStyle,
+    guestCount: event.guestCount,
+    servingsCount: event.servingsCount,
+    productionLeadId: event.productionLeadId,
+    assistantLeadIds: event.assistantLeadIds,
+    dressCode: event.dressCode,
+    transportationNotes: event.transportationNotes,
+    internalNotes: event.internalNotes,
+    status: event.status,
+  });
+  const newEvent = async () => {
+    const owner = await sam.post<Client>("/api/clients", newClient());
+    return sam.post<FlowEvent>("/api/events", {
+      title: "Juniper holiday party",
+      date: "2026-12-12",
+      startTime: "18:00",
+      endTime: "22:00",
+      clientId: owner.id,
+      areas: ["Ballroom"],
+      productionLeadId: lead.actor.userId,
+    } satisfies EventInput);
+  };
+
+  it("audits the create", async () => {
+    const event = await newEvent();
+    const [row] = await rowsFor(event.id);
+    expect(row).toMatchObject({ entityType: "event", action: "create" });
+    expect(row.changes.title).toEqual({
+      before: null,
+      after: "Juniper holiday party",
+    });
+  });
+
+  it("writes one row with only the changed fields on update", async () => {
+    const event = await newEvent();
+    await sam.put(`/api/events/${event.id}`, {
+      ...eventInput(event),
+      guestCount: 120,
+      startTime: "19:00",
+    });
+    const rows = await rowsFor(event.id);
+    expect(rows.map((row) => row.action)).toEqual(["create", "update"]);
+    expect(rows[1].changes).toEqual({
+      guestCount: { before: null, after: 120 },
+      startTime: { before: "18:00", after: "19:00" },
+    });
+  });
+
+  it("doesn't count re-saved areas as a change", async () => {
+    const event = await newEvent();
+    await sam.put(`/api/events/${event.id}`, eventInput(event));
+    expect((await rowsFor(event.id)).map((row) => row.action)).toEqual([
+      "create",
+    ]);
+  });
+
+  it("audits archive and restore", async () => {
+    const event = await newEvent();
+    await sam.post(`/api/events/${event.id}/archive`, {}, 200);
+    await sam.post(`/api/events/${event.id}/restore`, {}, 200);
+    expect((await rowsFor(event.id)).map((row) => row.action)).toEqual([
+      "create",
+      "archive",
+      "restore",
+    ]);
+  });
+
+  it("writes no row when the update rolls back", async () => {
+    const event = await newEvent();
+    await db
+      .transaction(async (tx) => {
+        await updateEvent(tx as unknown as Db, sam.actor, event.id, {
+          ...eventInput(event),
+          title: "Never saved",
+        } as never);
+        tx.rollback();
+      })
+      .catch(() => undefined);
+    expect(await sam.get<FlowEvent>(`/api/events/${event.id}`)).toMatchObject({
+      title: "Juniper holiday party",
+    });
+    expect((await rowsFor(event.id)).map((row) => row.action)).toEqual([
+      "create",
+    ]);
+  });
+
+  it("serves the history to staff on the event and 404 to others", async () => {
+    const event = await newEvent();
+    await sam.put(`/api/events/${event.id}`, {
+      ...eventInput(event),
+      dressCode: "Black tie",
+    });
+    const history = await lead.get<HistoryEntry[]>(
+      `/api/events/${event.id}/history`,
+    );
+    expect(history[0]).toMatchObject({
+      action: "update",
+      actorId: people.sam,
+      changes: { dressCode: { before: "", after: "Black tie" } },
+    });
+    expect(
+      (await sue.call("GET", `/api/events/${event.id}/history`)).status,
+    ).toBe(404);
   });
 });

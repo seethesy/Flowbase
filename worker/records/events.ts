@@ -15,6 +15,7 @@ import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import type { FlowEvent, eventInputSchema } from "../../shared/core-records";
 import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
+import { listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients, eventAreas, events, venues } from "../db/schema";
 import { ApiError, notFound } from "../hono";
@@ -165,6 +166,26 @@ export async function getEvent(db: Db, actor: Actor, id: string) {
   return event;
 }
 
+// The event as an audit snapshot (FLOW-161). Areas are compared by name because
+// saving the form replaces their rows; startsAt/endsAt repeat date and times.
+async function eventSnapshot(db: DbLike, id: string) {
+  const [row] = await db.select().from(events).where(eq(events.id, id));
+  const [event] = await toEvents(db, [row]);
+  const snapshot: Record<string, unknown> = {
+    ...event,
+    areas: event.areas.map((area) => area.name),
+  };
+  delete snapshot.startsAt;
+  delete snapshot.endsAt;
+  return snapshot;
+}
+
+// Everyone who can open an event sees all of its fields, so nothing is hidden.
+export async function eventHistory(db: DbLike, actor: Actor, id: string) {
+  await findVisibleEvent(db, actor, id);
+  return listHistory(db, "event", id, (changes) => changes);
+}
+
 // Checks the references in an event and works out what it inherits from them.
 async function resolveReferences(
   db: DbLike,
@@ -269,6 +290,13 @@ export async function createEvent(
       })
       .returning({ id: events.id });
     await replaceAreas(tx, row.id, resolved.areas ?? []);
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: row.id,
+      action: "create",
+      before: null,
+      after: await eventSnapshot(tx, row.id),
+    });
     await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
     return row.id;
   });
@@ -284,6 +312,7 @@ export async function updateEvent(
   const current = await findVisibleEvent(db, actor, id);
   const resolved = await resolveReferences(db, actor, input, current);
   await db.transaction(async (tx) => {
+    const before = await eventSnapshot(tx, id);
     await tx
       .update(events)
       .set({
@@ -296,6 +325,13 @@ export async function updateEvent(
       })
       .where(eq(events.id, id));
     if (resolved.areas) await replaceAreas(tx, id, resolved.areas);
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: "update",
+      before,
+      after: await eventSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, { name: "event.updated", entityId: id });
   });
   return getEvent(db, actor, id);
@@ -309,10 +345,18 @@ export async function setEventArchived(
 ): Promise<FlowEvent> {
   await findVisibleEvent(db, actor, id);
   await db.transaction(async (tx) => {
+    const before = await eventSnapshot(tx, id);
     await tx
       .update(events)
       .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
       .where(eq(events.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: archived ? "archive" : "restore",
+      before,
+      after: await eventSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, {
       name: archived ? "event.archived" : "event.restored",
       entityId: id,
