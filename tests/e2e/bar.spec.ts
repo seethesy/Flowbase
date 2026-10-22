@@ -97,11 +97,11 @@ test("creates a bar item kept in Bar Storage", async ({ page }) => {
     barStorage.id,
   );
   await dialog.getByLabel("Name *", { exact: true }).fill("Tito's Vodka");
-  await dialog.getByLabel("Category", { exact: true }).selectOption("Liquor");
-  await dialog.getByLabel("Subcategory", { exact: true }).selectOption("Vodka");
+  await dialog.getByLabel(/^Category/).selectOption("Liquor");
+  await dialog.getByLabel(/^Subcategory/).selectOption("Vodka");
   await dialog.getByLabel(/^Brand \/ varietal/).fill("Tito's");
-  await dialog.getByLabel("Tier", { exact: true }).selectOption("call");
-  await dialog.getByLabel("Container", { exact: true }).selectOption("bottle");
+  await dialog.getByLabel(/^Tier/).selectOption("call");
+  await dialog.getByLabel(/^Container/).selectOption("bottle");
   await dialog.getByLabel(/^Purchase unit/).selectOption("case");
   await dialog.getByLabel("Items per case", { exact: true }).fill("12");
   await dialog.getByLabel(/^One each is about/).fill("750");

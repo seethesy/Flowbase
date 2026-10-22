@@ -130,10 +130,8 @@ test("records and corrects a stock movement from the item page", async ({
 
   await page.getByRole("button", { name: "Record movement" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Type", { exact: true }).selectOption("damage_loss");
-  await dialog.getByLabel("Section", { exact: true }).selectOption({
-    label: "Warehouse",
-  });
+  await dialog.getByLabel(/^Type/).selectOption("damage_loss");
+  await dialog.getByLabel(/^Section/).selectOption({ label: "Warehouse" });
   await dialog.getByLabel("Quantity out (each)").fill("2");
   await dialog.getByLabel("Reason", { exact: true }).fill("Broken legs");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
