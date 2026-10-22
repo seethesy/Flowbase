@@ -8,12 +8,22 @@ import {
   ArrowLeftRight,
   ClipboardCheck,
   AlertTriangle,
+  PackagePlus,
 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   allergenLabels,
   allergenSchema,
+  barCategories,
+  barContainerLabels,
+  barContainerSchema,
+  barTierLabels,
+  barTierSchema,
+  costSourceLabels,
   ingredientCategories,
+  liquorSubcategories,
+  movementDirection,
+  movementTypeLabels,
   itemKindSchema,
   ratioBasisLabels,
   ratioBasisSchema,
@@ -23,13 +33,18 @@ import {
   sectionKindSchema,
   subtypesByKind,
   type Allergen,
+  type BarContainer,
+  type BarTier,
   type InventoryItem,
   type ItemInput,
   type ItemKind,
+  type MovementInput,
   type RatioBasis,
   type Section as StockSection,
   type SectionKind,
+  type StockMovement,
 } from "../../shared/inventory";
+import { utcToBusinessTime } from "../../shared/time";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { inventoryApi, sectionsApi } from "../services/core";
 import { useResource } from "../app/useResource";
@@ -48,8 +63,10 @@ import {
 import { LoadError } from "./clients";
 import { Attachments } from "./attachments";
 
-// Inventory (FLOW-69/70/81): every item Flowbase tracks or sells, the sections
-// stock lives in, and the kitchen's ingredient catalog.
+// Inventory (FLOW-69/70/81/71/83/90): every item Flowbase tracks or sells, the
+// sections stock lives in, the kitchen's ingredient catalog, bar stock, and each
+// item's movement and cost history. Count mode and the low-stock list are in
+// stock-counts.tsx.
 const kindLabels: Record<ItemKind, string> = {
   rental: "Rental",
   consumable: "Consumable",
@@ -77,6 +94,15 @@ export function purchaseLabel(consumable: InventoryItem["consumable"]) {
 }
 const variantLabel = (item: InventoryItem) =>
   [item.group, item.tier, item.color].filter(Boolean).join(" · ");
+export const dateTimeLabel = (iso: string) => {
+  const { date, time } = utcToBusinessTime(new Date(iso));
+  return `${date} ${time}`;
+};
+// A signed change, e.g. "+12" or "−3".
+export const changeLabel = (quantity: number) =>
+  `${quantity > 0 ? "+" : quantity < 0 ? "−" : "±"}${Number(Math.abs(quantity).toFixed(4))}`;
+const barTierLabel = (tier: string) =>
+  barTierSchema.safeParse(tier).success ? barTierLabels[tier as BarTier] : tier;
 
 function SectionFilter({
   value,
@@ -166,6 +192,15 @@ export function InventoryList() {
       >
         <Button variant="outline" asChild>
           <Link to="/inventory/ingredients">Ingredients</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/inventory/bar">Bar</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/inventory/counts">Counts</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/inventory/low-stock">Low stock</Link>
         </Button>
         <Button variant="outline" asChild>
           <Link to="/inventory/sections">Sections</Link>
@@ -380,6 +415,206 @@ export function IngredientList() {
   );
 }
 
+// Bar stock (FLOW-90): consumables of subtype bar, counted, flagged below par and
+// costed like ingredients.
+export function BarList() {
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
+  const [tier, setTier] = useState("");
+  const [distributor, setDistributor] = useState("");
+  const [belowPar, setBelowPar] = useState(false);
+  const [create, setCreate] = useState(false);
+  const items = useResource(
+    () =>
+      inventoryApi.list({
+        kind: "consumable",
+        subtype: "bar",
+        category: category || undefined,
+        subcategory: subcategory || undefined,
+        tier: tier || undefined,
+        belowPar,
+      }),
+    [category, subcategory, tier, belowPar],
+  );
+  const data = (items.data ?? []).filter(
+    (item) =>
+      `${item.code} ${item.name} ${item.bar?.brand ?? ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (item.consumable?.preferredVendor ?? "")
+        .toLowerCase()
+        .includes(distributor.toLowerCase()),
+  );
+  const columns: ColumnDef<InventoryItem, unknown>[] = [
+    { accessorKey: "name", header: "Item" },
+    {
+      id: "brand",
+      header: "Brand / varietal",
+      accessorFn: (item) => item.bar?.brand || "—",
+    },
+    {
+      id: "category",
+      header: "Category",
+      accessorFn: (item) =>
+        [item.category, item.bar?.subcategory].filter(Boolean).join(" · "),
+    },
+    {
+      id: "tier",
+      header: "Tier",
+      accessorFn: (item) => barTierLabel(item.tier) || "—",
+    },
+    {
+      id: "container",
+      header: "Container",
+      accessorFn: (item) =>
+        [
+          item.bar?.container ? barContainerLabels[item.bar.container] : "",
+          item.consumable?.eachSize
+            ? `${Number(item.consumable.eachSize.quantity)} ${unitLabel(item.consumable.eachSize.unit)}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ") || "—",
+    },
+    {
+      id: "pack",
+      header: "Bought as",
+      accessorFn: (item) => purchaseLabel(item.consumable),
+    },
+    {
+      id: "distributor",
+      header: "Distributor",
+      accessorFn: (item) => item.consumable?.preferredVendor || "—",
+    },
+    {
+      id: "cost",
+      header: "Unit cost",
+      accessorFn: (item) =>
+        item.consumable?.costHidden
+          ? "Hidden"
+          : centsLabel(item.consumable?.unitCostCents ?? null),
+    },
+    {
+      id: "onHand",
+      header: "On hand",
+      accessorFn: (item) => item.totalQuantity,
+      sortingFn: "basic",
+      cell: (c) => (
+        <>
+          {quantityLabel(c.row.original.totalQuantity, c.row.original.unit)}
+          {c.row.original.belowPar && (
+            <span className="badge warning">Below par</span>
+          )}
+        </>
+      ),
+    },
+  ];
+  return (
+    <>
+      <Link to="/inventory" className="back-link">
+        ← All inventory
+      </Link>
+      <PageHeader
+        title="Bar"
+        subtitle="Beer, wine and liquor: what's in stock, what's low, and who supplies it."
+        eyebrow="BAR"
+      >
+        <Button variant="outline" asChild>
+          <Link to="/inventory/counts">
+            <ClipboardCheck size={16} />
+            Count
+          </Link>
+        </Button>
+        <Button onClick={() => setCreate(true)}>
+          <Plus size={16} />
+          New Bar Item
+        </Button>
+      </PageHeader>
+      <FilterBar>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search name or brand…"
+        />
+        <select
+          aria-label="Category"
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            if (e.target.value !== "Liquor") setSubcategory("");
+          }}
+        >
+          <option value="">All categories</option>
+          {barCategories.map((option) => (
+            <option key={option}>{option}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Subcategory"
+          value={subcategory}
+          onChange={(e) => {
+            setSubcategory(e.target.value);
+            if (e.target.value) setCategory("Liquor");
+          }}
+        >
+          <option value="">All subcategories</option>
+          {liquorSubcategories.map((option) => (
+            <option key={option}>{option}</option>
+          ))}
+        </select>
+        <select
+          aria-label="Tier"
+          value={tier}
+          onChange={(e) => setTier(e.target.value)}
+        >
+          <option value="">All tiers</option>
+          {barTierSchema.options.map((option) => (
+            <option key={option} value={option}>
+              {barTierLabels[option]}
+            </option>
+          ))}
+        </select>
+        <input
+          aria-label="Distributor"
+          placeholder="Distributor"
+          value={distributor}
+          onChange={(e) => setDistributor(e.target.value)}
+        />
+        <label className="checkbox-filter">
+          <input
+            type="checkbox"
+            checked={belowPar}
+            onChange={(e) => setBelowPar(e.target.checked)}
+          />
+          Below par only
+        </label>
+        <span className="result-count">{data.length} bar items</span>
+      </FilterBar>
+      {items.error ? (
+        <LoadError message={items.error} />
+      ) : items.loading && !items.data ? (
+        <LoadingSkeleton />
+      ) : (
+        <DataTable
+          data={data}
+          columns={columns}
+          onRow={(item) => navigate(`/inventory/${item.id}`)}
+          label="bar items"
+        />
+      )}
+      {create && (
+        <ItemForm
+          preset={{ kind: "consumable", subtype: "bar" }}
+          onClose={() => setCreate(false)}
+          onSaved={() => items.reload()}
+        />
+      )}
+    </>
+  );
+}
+
 const dollars = (cents: number | null | undefined) =>
   cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
 const toCents = (value: string) =>
@@ -435,7 +670,11 @@ type FieldName =
   | "unitCost"
   | "preferredVendor"
   | "parLevel"
-  | "storageSectionId";
+  | "storageSectionId"
+  | "storageOrder"
+  | "brand"
+  | "subcategory"
+  | "container";
 
 export function ItemForm({
   item,
@@ -476,7 +715,13 @@ export function ItemForm({
     preferredVendor: item?.consumable?.preferredVendor ?? "",
     parLevel: numberText(item?.consumable?.parLevel),
     storageSectionId: item?.consumable?.storageSectionId ?? "",
+    storageOrder: numberText(item?.consumable?.storageOrder),
+    brand: item?.bar?.brand ?? "",
+    subcategory: item?.bar?.subcategory ?? "",
+    container: item?.bar?.container ?? "",
   }));
+  // A new bar item is kept in Bar Storage unless the user picks another section.
+  const [storageTouched, setStorageTouched] = useState(Boolean(item));
   const [allergens, setAllergens] = useState<Allergen[]>(
     item?.consumable?.allergens ?? [],
   );
@@ -495,6 +740,15 @@ export function ItemForm({
   );
   const set = (key: FieldName) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
+  const isBar = kind === "consumable" && subtype === "bar";
+  const storageSectionId = storageTouched
+    ? fields.storageSectionId
+    : fields.storageSectionId ||
+      (isBar
+        ? ((storage.data ?? []).find(
+            (section) => section.name === "Bar Storage",
+          )?.id ?? "")
+        : "");
   const input = (key: FieldName, props: { type?: string } = {}) => (
     <input
       type={props.type ?? "text"}
@@ -558,7 +812,15 @@ export function ItemForm({
           preferredVendor: fields.preferredVendor,
           parLevel: toNumber(fields.parLevel),
           allergens,
-          storageSectionId: fields.storageSectionId || null,
+          storageSectionId: storageSectionId || null,
+          storageOrder: toNumber(fields.storageOrder),
+        },
+      }),
+      ...(isBar && {
+        bar: {
+          brand: fields.brand,
+          subcategory: fields.category === "Liquor" ? fields.subcategory : "",
+          container: (fields.container || null) as BarContainer | null,
         },
       }),
     };
@@ -582,7 +844,13 @@ export function ItemForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title={item ? "Edit item" : preset ? "New ingredient" : "New item"}
+      title={
+        item
+          ? "Edit item"
+          : preset
+            ? `New ${preset.subtype === "bar" ? "bar item" : preset.subtype}`
+            : "New item"
+      }
       description="Saved to Flowbase."
       wide
     >
@@ -640,18 +908,50 @@ export function ItemForm({
               </select>
             </FormField>
           )}
-          <FormField label="Category">
-            <input
-              list="item-categories"
-              value={fields.category}
-              onChange={(e) => set("category")(e.target.value)}
-            />
-            <datalist id="item-categories">
-              {ingredientCategories.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
-          </FormField>
+          {isBar ? (
+            <>
+              <FormField label="Category">
+                <select
+                  value={fields.category}
+                  onChange={(e) => set("category")(e.target.value)}
+                >
+                  <option value="">Pick one</option>
+                  {barCategories.map((option) => (
+                    <option key={option}>{option}</option>
+                  ))}
+                </select>
+              </FormField>
+              {fields.category === "Liquor" && (
+                <FormField label="Subcategory">
+                  <select
+                    value={fields.subcategory}
+                    onChange={(e) => set("subcategory")(e.target.value)}
+                  >
+                    <option value="">Not set</option>
+                    {liquorSubcategories.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </FormField>
+              )}
+              <FormField label="Brand / varietal" hint="e.g. Pinot Grigio">
+                {input("brand")}
+              </FormField>
+            </>
+          ) : (
+            <FormField label="Category">
+              <input
+                list="item-categories"
+                value={fields.category}
+                onChange={(e) => set("category")(e.target.value)}
+              />
+              <datalist id="item-categories">
+                {ingredientCategories.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </FormField>
+          )}
           {kind !== "service" && (
             <UnitSelect
               label="Stock unit"
@@ -662,9 +962,40 @@ export function ItemForm({
           <FormField label="Group" hint="e.g. Table Linens">
             {input("group")}
           </FormField>
-          <FormField label="Tier" hint="e.g. Standard, Premium">
-            {input("tier")}
-          </FormField>
+          {isBar ? (
+            <>
+              <FormField label="Tier">
+                <select
+                  value={fields.tier}
+                  onChange={(e) => set("tier")(e.target.value)}
+                >
+                  <option value="">Not set</option>
+                  {barTierSchema.options.map((option) => (
+                    <option key={option} value={option}>
+                      {barTierLabels[option]}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Container">
+                <select
+                  value={fields.container}
+                  onChange={(e) => set("container")(e.target.value)}
+                >
+                  <option value="">Not set</option>
+                  {barContainerSchema.options.map((option) => (
+                    <option key={option} value={option}>
+                      {barContainerLabels[option]}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            </>
+          ) : (
+            <FormField label="Tier" hint="e.g. Standard, Premium">
+              {input("tier")}
+            </FormField>
+          )}
           <FormField label="Color / finish">{input("color")}</FormField>
         </div>
         <FormField label="Description">
@@ -761,7 +1092,7 @@ export function ItemForm({
                   {input("unitCost", { type: "number" })}
                 </FormField>
               )}
-              <FormField label="Preferred vendor">
+              <FormField label={isBar ? "Distributor" : "Preferred vendor"}>
                 {input("preferredVendor")}
               </FormField>
               <FormField
@@ -771,8 +1102,11 @@ export function ItemForm({
               </FormField>
               <FormField label="Storage section">
                 <select
-                  value={fields.storageSectionId}
-                  onChange={(e) => set("storageSectionId")(e.target.value)}
+                  value={storageSectionId}
+                  onChange={(e) => {
+                    setStorageTouched(true);
+                    set("storageSectionId")(e.target.value);
+                  }}
                 >
                   <option value="">Not set</option>
                   {(storage.data ?? []).map((section) => (
@@ -781,6 +1115,12 @@ export function ItemForm({
                     </option>
                   ))}
                 </select>
+              </FormField>
+              <FormField
+                label="Shelf order"
+                hint="Where it sits in the section; count mode follows this order"
+              >
+                {input("storageOrder", { type: "number" })}
               </FormField>
             </div>
             {conversionProblem && (
@@ -847,7 +1187,7 @@ function StockForm({
   const [from, setFrom] = useState(item.stock[0]?.sectionId ?? "");
   const [to, setTo] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [note, setNote] = useState("");
+  const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const options = (sections.data ?? []).map((section) => (
@@ -870,12 +1210,12 @@ function StockForm({
               fromSectionId: from,
               toSectionId: to,
               quantity: amount,
-              note,
+              reason,
             })
           : await inventoryApi.count(item.id, {
               sectionId: from,
               quantity: amount,
-              note,
+              reason,
             }),
       );
       onClose();
@@ -893,7 +1233,7 @@ function StockForm({
       description={
         mode === "transfer"
           ? "Moves stock between sections and records a transfer."
-          : "Sets the counted quantity in a section and records the difference."
+          : "Records what you counted in a section; the difference is saved as a count movement."
       }
     >
       <form
@@ -933,8 +1273,8 @@ function StockForm({
             onChange={(e) => setQuantity(e.target.value)}
           />
         </FormField>
-        <FormField label="Note">
-          <input value={note} onChange={(e) => setNote(e.target.value)} />
+        <FormField label="Reason">
+          <input value={reason} onChange={(e) => setReason(e.target.value)} />
         </FormField>
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
@@ -949,13 +1289,363 @@ function StockForm({
   );
 }
 
+// Receipts, adjustments, damage or loss and usage entered by hand (FLOW-71). Pulls
+// and returns come from the event pull list once it exists.
+const handMovementTypes = [
+  "receive",
+  "adjust",
+  "damage_loss",
+  "consume",
+] as const;
+
+function MovementForm({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: InventoryItem;
+  onClose: () => void;
+  onSaved: (item: InventoryItem) => void;
+}) {
+  const kind = sectionKindFor(item.kind) ?? "rental";
+  const sections = useResource(() => sectionsApi.list({ kind }), [kind]);
+  const [type, setType] =
+    useState<(typeof handMovementTypes)[number]>("receive");
+  const [sectionId, setSectionId] = useState(item.stock[0]?.sectionId ?? "");
+  const [quantity, setQuantity] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    const amount = toNumber(quantity);
+    if (amount === null || Number.isNaN(amount) || amount === 0)
+      return setError("Enter a quantity.");
+    if (!sectionId) return setError("Pick a section.");
+    const input: MovementInput = { type, sectionId, quantity: amount, reason };
+    setSaving(true);
+    setError("");
+    try {
+      onSaved(await inventoryApi.addMovement(item.id, input));
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const direction = movementDirection[type];
+  return (
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title="Record movement"
+      description="Adds a movement to the stock ledger. Quantities are never edited directly."
+    >
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        {error && (
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        )}
+        <FormField label="Type">
+          <select
+            value={type}
+            onChange={(e) =>
+              setType(e.target.value as (typeof handMovementTypes)[number])
+            }
+          >
+            {handMovementTypes.map((option) => (
+              <option key={option} value={option}>
+                {movementTypeLabels[option]}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Section">
+          <select
+            value={sectionId}
+            onChange={(e) => setSectionId(e.target.value)}
+          >
+            <option value="">Pick a section</option>
+            {(sections.data ?? []).map((section) => (
+              <option key={section.id} value={section.id}>
+                {section.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField
+          label={`${direction > 0 ? "Quantity in" : direction < 0 ? "Quantity out" : "Change"} (${unitLabel(item.unit)})`}
+          hint={
+            direction === 0 ? "Use a minus sign to remove stock." : undefined
+          }
+        >
+          <input
+            type="number"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </FormField>
+        <FormField label={type === "adjust" ? "Reason *" : "Reason"}>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} />
+        </FormField>
+        <div className="form-actions">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            Record
+          </Button>
+        </div>
+      </form>
+    </DetailDrawer>
+  );
+}
+
+// FLOW-71 AC3: correcting a movement records the difference as a new movement linked
+// to it; the original stays as it was.
+function CorrectionForm({
+  item,
+  movement,
+  current,
+  onClose,
+  onSaved,
+}: {
+  item: InventoryItem;
+  movement: StockMovement;
+  // The movement plus its corrections so far.
+  current: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [quantity, setQuantity] = useState(String(current));
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    const amount = toNumber(quantity);
+    if (amount === null || Number.isNaN(amount))
+      return setError("Enter what the movement should have been.");
+    if (!reason.trim()) return setError("Give a reason for the correction.");
+    setSaving(true);
+    setError("");
+    try {
+      await inventoryApi.correct(movement.id, { quantity: amount, reason });
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title="Correct movement"
+      description={`${movementTypeLabels[movement.type]} of ${changeLabel(current)} ${unitLabel(item.unit)} in ${movement.sectionName} on ${dateTimeLabel(movement.createdAt)}. The difference is recorded as a new, linked movement.`}
+    >
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        {error && (
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        )}
+        <FormField
+          label={`Should have been (${unitLabel(item.unit)})`}
+          hint="Signed: a minus sign removes stock."
+        >
+          <input
+            type="number"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </FormField>
+        <FormField label="Reason *">
+          <input value={reason} onChange={(e) => setReason(e.target.value)} />
+        </FormField>
+        <div className="form-actions">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            Save correction
+          </Button>
+        </div>
+      </form>
+    </DetailDrawer>
+  );
+}
+
+// The item's stock ledger, newest first (FLOW-71).
+function MovementHistory({
+  item,
+  version,
+  onCorrected,
+}: {
+  item: InventoryItem;
+  version: number;
+  onCorrected: () => void;
+}) {
+  const movements = useResource(
+    () => inventoryApi.movements(item.id),
+    [item.id, version],
+  );
+  const [correcting, setCorrecting] = useState<StockMovement | null>(null);
+  const all = movements.data ?? [];
+  const total = (movement: StockMovement) =>
+    movement.quantity +
+    all
+      .filter((other) => other.correctsId === movement.id)
+      .reduce((sum, other) => sum + other.quantity, 0);
+  return (
+    <Section title="Movement history">
+      {movements.error ? (
+        <LoadError message={movements.error} />
+      ) : !movements.data ? (
+        <LoadingSkeleton />
+      ) : !all.length ? (
+        <p className="muted">No stock movements yet.</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="stock-table movement-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Type</th>
+                <th>Section</th>
+                <th>Change</th>
+                <th>Reason</th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {all.map((movement) => (
+                <tr key={movement.id}>
+                  <td>{dateTimeLabel(movement.createdAt)}</td>
+                  <td>
+                    {movementTypeLabels[movement.type]}
+                    {movement.correctsId && (
+                      <span className="badge neutral">Correction</span>
+                    )}
+                    {movement.correctedBy.length > 0 && (
+                      <span className="badge warning">Corrected</span>
+                    )}
+                  </td>
+                  <td>{movement.sectionName}</td>
+                  <td>{changeLabel(movement.quantity)}</td>
+                  <td>{movement.reason || "—"}</td>
+                  <td>
+                    {!movement.correctsId &&
+                      movement.type !== "transfer" &&
+                      !item.archivedAt && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => setCorrecting(movement)}
+                          aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
+                        >
+                          Correct
+                        </Button>
+                      )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {correcting && (
+        <CorrectionForm
+          item={item}
+          movement={correcting}
+          current={total(correcting)}
+          onClose={() => setCorrecting(null)}
+          onSaved={onCorrected}
+        />
+      )}
+    </Section>
+  );
+}
+
+// Unit-cost history (FLOW-83), for FT+ users.
+function CostHistory({
+  item,
+  version,
+}: {
+  item: InventoryItem;
+  version: number;
+}) {
+  const history = useResource(
+    () => inventoryApi.costHistory(item.id),
+    [item.id, version],
+  );
+  const unit = item.consumable ? unitLabel(item.consumable.purchaseUnit) : "";
+  return (
+    <Section title="Cost history">
+      {history.error ? (
+        <LoadError message={history.error} />
+      ) : !history.data ? (
+        <LoadingSkeleton />
+      ) : !history.data.length ? (
+        <p className="muted">No cost changes yet.</p>
+      ) : (
+        <table className="stock-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Cost per {unit}</th>
+              <th>Was</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.data.map((change) => (
+              <tr key={change.id}>
+                <td>{dateTimeLabel(change.changedAt)}</td>
+                <td>{centsLabel(change.unitCostCents)}</td>
+                <td>{centsLabel(change.previousCents)}</td>
+                <td>{costSourceLabels[change.source]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Section>
+  );
+}
+
 export function InventoryDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const item = useResource(() => inventoryApi.get(id), [id]);
   const [edit, setEdit] = useState(false);
-  const [stockForm, setStockForm] = useState<"transfer" | "count" | null>(null);
+  const [stockForm, setStockForm] = useState<
+    "transfer" | "count" | "movement" | null
+  >(null);
   const [archive, setArchive] = useState(false);
+  // Bumped on every stock or cost change so the histories reload.
+  const [version, setVersion] = useState(0);
+  const saved = (next: InventoryItem) => {
+    item.replace(next);
+    setVersion((current) => current + 1);
+  };
   const back = (
     <Link to="/inventory" className="back-link">
       ← All inventory
@@ -1056,7 +1746,19 @@ export function InventoryDetail() {
                   ? "—"
                   : `${centsLabel(c.unitCostCents)} per ${unitLabel(c.purchaseUnit)}`}
             </p>
-            <small>Preferred vendor</small>
+            {i.bar && (
+              <>
+                <small>Brand / varietal</small>
+                <p>{i.bar.brand || "—"}</p>
+                <small>Subcategory</small>
+                <p>{i.bar.subcategory || "—"}</p>
+                <small>Container</small>
+                <p>
+                  {i.bar.container ? barContainerLabels[i.bar.container] : "—"}
+                </p>
+              </>
+            )}
+            <small>{i.bar ? "Distributor" : "Preferred vendor"}</small>
             <p>{c.preferredVendor || "—"}</p>
             <small>Par level</small>
             <p>
@@ -1083,6 +1785,13 @@ export function InventoryDetail() {
           action={
             !i.archivedAt && (
               <div className="page-actions">
+                <Button
+                  variant="outline"
+                  onClick={() => setStockForm("movement")}
+                >
+                  <PackagePlus size={14} />
+                  Record movement
+                </Button>
                 <Button variant="outline" onClick={() => setStockForm("count")}>
                   <ClipboardCheck size={14} />
                   Count
@@ -1122,20 +1831,34 @@ export function InventoryDetail() {
           </table>
         </Section>
       )}
-      <Attachments recordType="inventory_item" recordId={i.id} title="Photos" />
-      {edit && (
-        <ItemForm
+      {i.kind !== "service" && (
+        <MovementHistory
           item={i}
-          onClose={() => setEdit(false)}
-          onSaved={item.replace}
+          version={version}
+          onCorrected={() => {
+            item.reload();
+            setVersion((current) => current + 1);
+          }}
         />
       )}
-      {stockForm && (
+      {c && !c.costHidden && <CostHistory item={i} version={version} />}
+      <Attachments recordType="inventory_item" recordId={i.id} title="Photos" />
+      {edit && (
+        <ItemForm item={i} onClose={() => setEdit(false)} onSaved={saved} />
+      )}
+      {stockForm === "movement" && (
+        <MovementForm
+          item={i}
+          onClose={() => setStockForm(null)}
+          onSaved={saved}
+        />
+      )}
+      {(stockForm === "transfer" || stockForm === "count") && (
         <StockForm
           item={i}
           mode={stockForm}
           onClose={() => setStockForm(null)}
-          onSaved={item.replace}
+          onSaved={saved}
         />
       )}
       <ConfirmationDialog
