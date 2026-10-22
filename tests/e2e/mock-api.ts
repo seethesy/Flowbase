@@ -28,12 +28,12 @@ import {
 // backend that behaves like the real routes for an admin.
 export async function mockRecordsApi(
   page: Page,
-  seed: { clients?: Client[] } = {},
+  seed: { clients?: Client[]; events?: FlowEvent[] } = {},
 ) {
   const now = () => new Date().toISOString();
   const clients = new Map((seed.clients ?? []).map((c) => [c.id, c]));
   const venues = new Map<string, Venue>();
-  const events = new Map<string, FlowEvent>();
+  const events = new Map((seed.events ?? []).map((e) => [e.id, e]));
   const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, json: body });
   const notFound = (route: Route) =>
@@ -170,6 +170,17 @@ export async function mockRecordsApi(
     }
     const current = id ? records.get(id) : undefined;
     if (!current) return notFound(route);
+    // The event hub (FLOW-57) as an admin sees it.
+    if (method === "GET" && resource === "events" && action === "hub") {
+      const event = current as unknown as FlowEvent;
+      const client = clients.get(event.client.id) ?? null;
+      return json(route, {
+        event,
+        client,
+        sections: client ? ["details", "client", "files"] : ["details", "files"],
+        canEdit: true,
+      });
+    }
     if (method === "GET") return json(route, current);
     if (method === "PUT") {
       const updated = (
@@ -285,6 +296,37 @@ export async function mockAttachmentsApi(page: Page) {
   });
   return { puts, starts: () => starts };
 }
+
+export const fallGala = (): FlowEvent => ({
+  id: "e0000000-0000-4000-8000-000000000001",
+  title: "Fall gala",
+  date: "2026-11-14",
+  startTime: "18:00",
+  endTime: null,
+  startsAt: "2026-11-14T23:00:00.000Z",
+  endsAt: null,
+  client: { id: juniper().id, name: juniper().name },
+  pocContactId: juniper().contacts[0].id,
+  venue: null,
+  address: "100 Garden Way, Arlington, VA",
+  areas: [],
+  eventType: "Gala",
+  serviceType: "",
+  foodServiceStyle: "",
+  guestCount: 120,
+  servingsCount: null,
+  assignedSalespersonId: null,
+  productionLeadId: null,
+  assistantLeadIds: [],
+  dressCode: "",
+  transportationNotes: "",
+  internalNotes: "",
+  status: "booked",
+  bookedAt: "2026-10-22T09:00:00.000Z",
+  archivedAt: null,
+  createdAt: "2026-10-22T09:00:00.000Z",
+  updatedAt: "2026-10-22T09:00:00.000Z",
+});
 
 export const juniper = (): Client => ({
   id: "c0000000-0000-4000-8000-000000000001",

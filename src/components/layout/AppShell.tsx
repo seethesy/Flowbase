@@ -32,6 +32,8 @@ import {
 import { Button, DetailDrawer, SearchInput, EmptyState } from "../shared";
 import { useDemo } from "../../app/store";
 import { RecordForm } from "../../features/forms";
+import { TrackingNotice } from "../../features/time-tracking";
+import { useActivityTracking } from "../../app/useActivityTracking";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
   { name: "Leads", to: "/leads", icon: Inbox },
@@ -129,7 +131,7 @@ export function Sidebar({
               {name === "Proposals" && (
                 <span className="nav-count sidebar-text">40</span>
               )}
-              {["Purchasing", "Events", "Reports"].includes(name) && (
+              {["Purchasing", "Events"].includes(name) && (
                 <span className="nav-placeholder sidebar-text">↗</span>
               )}
             </NavLink>
@@ -375,6 +377,7 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 1200);
   const [mobile, setMobile] = useState(false);
+  useActivityTracking();
   return (
     <div className={`app-shell ${collapsed ? "shell-collapsed" : ""}`}>
       <a className="skip-link" href="#main-content">
@@ -384,6 +387,7 @@ export function AppShell() {
       <div className="app-main">
         <TopHeader setMobile={setMobile} />
         <main id="main-content">
+          <TrackingNotice />
           <Outlet />
         </main>
         <footer className="app-footer">

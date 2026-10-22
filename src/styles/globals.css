@@ -2608,3 +2608,14 @@ tbody tr:last-child td {
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
+/* Time-tracking notice (FLOW-119): in the page flow so it never covers content. */
+.tracking-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.tracking-notice p {
+  margin: 0;
+  flex: 1;
+}

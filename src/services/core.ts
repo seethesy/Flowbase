@@ -9,6 +9,7 @@ import {
   type EventInput,
   type VenueInput,
 } from "../../shared/core-records";
+import { eventHubSchema } from "../../shared/event-hub";
 import {
   itemSchema,
   sectionSchema,
@@ -123,6 +124,7 @@ export const eventsApi = {
     } = {},
   ) => request(eventSchema.array(), `/api/events${query(filter)}`),
   get: (id: string) => request(eventSchema, at("events", id)),
+  hub: (id: string) => request(eventHubSchema, at("events", id, "hub")),
   create: (input: EventInput) =>
     request(eventSchema, "/api/events", "POST", input),
   update: (id: string, input: EventInput) =>
