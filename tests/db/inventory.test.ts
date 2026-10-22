@@ -4,12 +4,24 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
-import { inventorySections, stockMovements } from "../../worker/db/schema";
+import {
+  inventorySections,
+  inventoryStock,
+  jobs,
+  stockMovements,
+} from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
 import { findItem, recordMovement } from "../../worker/records/inventory";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
-import type { InventoryItem, ItemInput, Section } from "../../shared/inventory";
+import type {
+  CostChange,
+  InventoryItem,
+  ItemInput,
+  Section,
+  StockCount,
+  StockMovement,
+} from "../../shared/inventory";
 
 const url = process.env.DATABASE_URL;
 if (!url)
@@ -70,6 +82,8 @@ const admin = signedInAs(people.admin, "admin");
 const lead = signedInAs(people.lead, "kitchen_lead");
 const partTimeLead = signedInAs(people.lead, "kitchen_lead", "part_time");
 const cook = signedInAs(people.cook, "kitchen_staff", "part_time");
+const fullTimeStaff = signedInAs(people.cook, "staff", "full_time");
+const partTimeSales = signedInAs(people.cook, "salesperson", "part_time");
 
 const section = (name: string, kind: "rental" | "consumable" = "rental") =>
   admin.send<Section>("POST", "/api/inventory/sections", { name, kind }, 201);
@@ -118,7 +132,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table stock_movements, inventory_stock, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
+    sql`truncate table stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -196,7 +210,7 @@ describe("sections (FLOW-70)", () => {
     expect(listed.map((i) => i.id)).toEqual([item.id]);
   });
 
-  it("transfers with one movement and updates both sections (AC2)", async () => {
+  it("transfers with one linked pair of movements and updates both sections (AC2)", async () => {
     const warehouse = await section("Warehouse");
     const jamies = await section("Jamie's");
     const item = await createItem(chairs());
@@ -214,15 +228,23 @@ describe("sections (FLOW-70)", () => {
     const transfers = await db
       .select()
       .from(stockMovements)
-      .where(eq(stockMovements.type, "transfer"));
-    expect(transfers).toHaveLength(1);
+      .where(eq(stockMovements.type, "transfer"))
+      .orderBy(stockMovements.quantity);
+    expect(transfers).toHaveLength(2);
     expect(transfers[0]).toMatchObject({
       itemId: item.id,
-      quantity: 10,
-      fromSectionId: warehouse.id,
-      toSectionId: jamies.id,
+      quantity: -10,
+      sectionId: warehouse.id,
       createdBy: people.lead,
     });
+    expect(transfers[1]).toMatchObject({
+      itemId: item.id,
+      quantity: 10,
+      sectionId: jamies.id,
+      createdBy: people.lead,
+    });
+    expect(transfers[0].transferId).toBeTruthy();
+    expect(transfers[1].transferId).toBe(transfers[0].transferId);
   });
 
   it("rejects a transfer of more than the section holds, changing nothing", async () => {
@@ -331,12 +353,9 @@ describe("items (FLOW-69)", () => {
     await expect(
       db.transaction((tx) =>
         recordMovement(tx, admin.actor, row, {
-          type: "transfer",
-          changes: [{ sectionId: vendor.id, delta: 1 }],
-          quantity: 1,
-          fromSectionId: null,
-          toSectionId: vendor.id,
-          note: "",
+          type: "receive",
+          changes: [{ sectionId: vendor.id, quantity: 1 }],
+          reason: "",
         }),
       ),
     ).rejects.toMatchObject({ code: "SERVICE_HAS_NO_STOCK" });
@@ -436,5 +455,716 @@ describe("ingredients (FLOW-81)", () => {
     );
     expect(creamListed.consumable?.storageSectionName).toBe("Refrigerated");
     expect(creamListed.belowPar).toBe(true);
+  });
+});
+
+// FLOW-71 AC2: the cached on-hand of every section equals the sum of its movements.
+async function expectLedgerMatchesCache(itemId: string) {
+  const cached = await db
+    .select({
+      sectionId: inventoryStock.sectionId,
+      quantity: inventoryStock.quantity,
+    })
+    .from(inventoryStock)
+    .where(eq(inventoryStock.itemId, itemId));
+  const sums = await db
+    .select({
+      sectionId: stockMovements.sectionId,
+      total: sql<string>`sum(${stockMovements.quantity})`,
+    })
+    .from(stockMovements)
+    .where(eq(stockMovements.itemId, itemId))
+    .groupBy(stockMovements.sectionId);
+  const sections = new Set([
+    ...cached.map((row) => row.sectionId),
+    ...sums.map((row) => row.sectionId),
+  ]);
+  for (const sectionId of sections) {
+    const cache = cached.find((row) => row.sectionId === sectionId)?.quantity;
+    const sum = Number(sums.find((row) => row.sectionId === sectionId)?.total);
+    expect(cache ?? 0).toBeCloseTo(sum || 0, 4);
+    expect(cache ?? 0).toBeGreaterThanOrEqual(0);
+  }
+}
+
+// A small seeded generator, so a failing sequence can be replayed.
+function random(seed: number) {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const movements = (itemId: string) =>
+  admin.get<StockMovement[]>(`/api/inventory/items/${itemId}/movements`);
+const record = (itemId: string, body: unknown, as = admin, status = 201) =>
+  as.send<InventoryItem>(
+    "POST",
+    `/api/inventory/items/${itemId}/movements`,
+    body,
+    status,
+  );
+
+describe("stock ledger (FLOW-71)", () => {
+  it("keeps the cached on-hand equal to the sum of movements over random sequences (AC2)", async () => {
+    const sections = await Promise.all([
+      section("Warehouse"),
+      section("Cafe"),
+      section("Jamie's"),
+    ]);
+    for (const seed of [1, 7, 42]) {
+      const next = random(seed);
+      const pick = <T>(list: T[]) => list[Math.floor(next() * list.length)];
+      const amount = () => Math.round(next() * 2000) / 100;
+      const item = await createItem({
+        ...chairs(),
+        code: `CH-${seed}`,
+      });
+      for (let step = 0; step < 40; step++) {
+        const at = pick(sections).id;
+        const roll = next();
+        const response =
+          roll < 0.25
+            ? await admin.call(
+                "POST",
+                `/api/inventory/items/${item.id}/movements`,
+                { type: "receive", sectionId: at, quantity: amount() || 1 },
+              )
+            : roll < 0.4
+              ? await admin.call(
+                  "POST",
+                  `/api/inventory/items/${item.id}/movements`,
+                  {
+                    type: "damage_loss",
+                    sectionId: at,
+                    quantity: amount() || 1,
+                  },
+                )
+              : roll < 0.55
+                ? await admin.call(
+                    "POST",
+                    `/api/inventory/items/${item.id}/movements`,
+                    {
+                      type: "adjust",
+                      sectionId: at,
+                      quantity: (amount() || 1) * (next() < 0.5 ? -1 : 1),
+                      reason: "Property test",
+                    },
+                  )
+                : roll < 0.75
+                  ? await admin.call(
+                      "POST",
+                      `/api/inventory/items/${item.id}/counts`,
+                      { sectionId: at, quantity: amount() },
+                    )
+                  : roll < 0.9
+                    ? await admin.call(
+                        "POST",
+                        `/api/inventory/items/${item.id}/transfers`,
+                        {
+                          fromSectionId: at,
+                          toSectionId: pick(
+                            sections.filter((other) => other.id !== at),
+                          ).id,
+                          quantity: amount() || 1,
+                        },
+                      )
+                    : await (async () => {
+                        const corrigible = (await movements(item.id)).filter(
+                          (m) => !m.correctsId && m.type !== "transfer",
+                        );
+                        if (!corrigible.length)
+                          return new Response(null, { status: 409 });
+                        const target = pick(corrigible);
+                        return admin.call(
+                          "POST",
+                          `/api/inventory/movements/${target.id}/corrections`,
+                          {
+                            quantity:
+                              target.type === "damage_loss"
+                                ? -(amount() || 1)
+                                : target.type === "receive"
+                                  ? amount() || 1
+                                  : amount(),
+                            reason: "Property test",
+                          },
+                        );
+                      })();
+        // A refused movement (not enough stock, nothing to correct) changes
+        // nothing; either way the cache must still match the ledger.
+        expect([200, 201, 409], `seed ${seed} step ${step}`).toContain(
+          response.status,
+        );
+        await expectLedgerMatchesCache(item.id);
+      }
+      const shown = await admin.get<InventoryItem>(
+        `/api/inventory/items/${item.id}`,
+      );
+      const [{ total }] = await db
+        .select({
+          total: sql<string>`coalesce(sum(${stockMovements.quantity}), 0)`,
+        })
+        .from(stockMovements)
+        .where(eq(stockMovements.itemId, item.id));
+      expect(shown.totalQuantity).toBeCloseTo(Number(total), 4);
+    }
+  });
+
+  it("has no path that sets a quantity directly (AC1)", async () => {
+    const warehouse = await section("Warehouse");
+    const item = await createItem(chairs());
+    await record(item.id, {
+      type: "receive",
+      sectionId: warehouse.id,
+      quantity: 5,
+    });
+    // Quantities in an item update are ignored.
+    await admin.send("PUT", `/api/inventory/items/${item.id}`, {
+      ...chairs(),
+      totalQuantity: 100,
+      stock: [{ sectionId: warehouse.id, quantity: 100 }],
+    });
+    for (const [method, path] of [
+      ["PUT", `/api/inventory/items/${item.id}/stock`],
+      ["PATCH", `/api/inventory/items/${item.id}`],
+      ["PUT", `/api/inventory/movements/${item.id}`],
+      ["DELETE", `/api/inventory/movements/${item.id}`],
+    ])
+      expect((await admin.call(method, path, { quantity: 100 })).status).toBe(
+        404,
+      );
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
+        .totalQuantity,
+    ).toBe(5);
+    // Movements can't be edited or deleted, even in the database.
+    await expect(
+      db.update(stockMovements).set({ quantity: 100 }),
+    ).rejects.toThrow();
+    await expect(db.delete(stockMovements)).rejects.toThrow();
+  });
+
+  it("records each movement type with its sign, reason and user", async () => {
+    const fridge = await section("Refrigerated", "consumable");
+    const item = await createItem(cream());
+    await record(item.id, {
+      type: "receive",
+      sectionId: fridge.id,
+      quantity: 12,
+      reason: "Sysco delivery",
+    });
+    await record(
+      item.id,
+      {
+        type: "damage_loss",
+        sectionId: fridge.id,
+        quantity: 2,
+        reason: "Spoiled",
+      },
+      lead,
+    );
+    const used = await record(item.id, {
+      type: "consume",
+      sectionId: fridge.id,
+      quantity: 1,
+    });
+    expect(used.totalQuantity).toBe(9);
+    expect(
+      (await movements(item.id)).map((m) => [m.type, m.quantity, m.reason]),
+    ).toEqual([
+      ["consume", -1, ""],
+      ["damage_loss", -2, "Spoiled"],
+      ["receive", 12, "Sysco delivery"],
+    ]);
+    expect((await movements(item.id))[1].createdBy).toBe(people.lead);
+    const bad = await admin.call(
+      "POST",
+      `/api/inventory/items/${item.id}/movements`,
+      { type: "adjust", sectionId: fridge.id, quantity: -1 },
+    );
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error.message).toBe(
+      "Give a reason for the adjustment.",
+    );
+    const unknownEvent = await admin.call(
+      "POST",
+      `/api/inventory/items/${item.id}/movements`,
+      {
+        type: "pull",
+        sectionId: fridge.id,
+        quantity: 1,
+        eventId: "c0000000-0000-4000-8000-000000000009",
+      },
+    );
+    expect(unknownEvent.status).toBe(404);
+    const moved = await db
+      .select({ payload: jobs.payload })
+      .from(jobs)
+      .where(eq(jobs.type, "event:stock.moved"));
+    expect(moved).toHaveLength(3);
+  });
+
+  it("corrects a movement with a new linked movement and leaves the original untouched (AC3)", async () => {
+    const fridge = await section("Refrigerated", "consumable");
+    const item = await createItem(cream());
+    await record(item.id, {
+      type: "receive",
+      sectionId: fridge.id,
+      quantity: 10,
+    });
+    const [original] = await movements(item.id);
+    const [before] = await db
+      .select()
+      .from(stockMovements)
+      .where(eq(stockMovements.id, original.id));
+    const after = await admin.send<StockMovement[]>(
+      "POST",
+      `/api/inventory/movements/${original.id}/corrections`,
+      { quantity: 12, reason: "Invoice said 12" },
+      201,
+    );
+    const correction = after.find((m) => m.correctsId === original.id)!;
+    expect(correction).toMatchObject({
+      type: "receive",
+      quantity: 2,
+      sectionId: fridge.id,
+      reason: "Invoice said 12",
+    });
+    expect(after.find((m) => m.id === original.id)?.correctedBy).toEqual([
+      correction.id,
+    ]);
+    const [unchanged] = await db
+      .select()
+      .from(stockMovements)
+      .where(eq(stockMovements.id, original.id));
+    expect(unchanged).toEqual(before);
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
+        .totalQuantity,
+    ).toBe(12);
+
+    // A second correction is measured against the corrected total.
+    await admin.send(
+      "POST",
+      `/api/inventory/movements/${original.id}/corrections`,
+      { quantity: 11, reason: "One was damaged on arrival" },
+      201,
+    );
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
+        .totalQuantity,
+    ).toBe(11);
+    const refused = async (id: string, body: unknown, code: string) => {
+      const response = await admin.call(
+        "POST",
+        `/api/inventory/movements/${id}/corrections`,
+        body,
+      );
+      expect(response.status).toBe(409);
+      expect((await response.json()).error.code).toBe(code);
+    };
+    await refused(
+      correction.id,
+      { quantity: 1, reason: "x" },
+      "CORRECTS_A_CORRECTION",
+    );
+    await refused(original.id, { quantity: 11, reason: "x" }, "NO_CHANGE");
+    await refused(
+      original.id,
+      { quantity: -4, reason: "x" },
+      "WRONG_DIRECTION",
+    );
+    const other = await section("Freezer", "consumable");
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${item.id}/transfers`,
+      { fromSectionId: fridge.id, toSectionId: other.id, quantity: 1 },
+      201,
+    );
+    const transfer = (await movements(item.id)).find(
+      (m) => m.type === "transfer",
+    )!;
+    await refused(
+      transfer.id,
+      { quantity: 2, reason: "x" },
+      "TRANSFER_CORRECTION",
+    );
+    // Only inventory managers correct.
+    expect(
+      (
+        await cook.call(
+          "POST",
+          `/api/inventory/movements/${original.id}/corrections`,
+          { quantity: 10, reason: "x" },
+        )
+      ).status,
+    ).toBe(403);
+    await expectLedgerMatchesCache(item.id);
+  });
+});
+
+const startCount = (sectionId: string, as = admin, status = 201) =>
+  as.send<StockCount>("POST", "/api/inventory/counts", { sectionId }, status);
+const saveLine = (
+  countId: string,
+  body: { itemId: string; quantity: number; reason?: string },
+  as = admin,
+) =>
+  as.send<StockCount>("POST", `/api/inventory/counts/${countId}/lines`, body);
+
+describe("count mode (FLOW-82)", () => {
+  it("writes a count movement for the difference (AC1)", async () => {
+    const fridge = await section("Refrigerated", "consumable");
+    const item = await createItem(
+      cream({
+        consumable: { ...cream().consumable!, storageSectionId: fridge.id },
+      }),
+    );
+    await count(item.id, fridge.id, 15);
+    const started = await startCount(fridge.id);
+    expect(
+      started.lines.map((line) => [line.name, line.systemQuantity]),
+    ).toEqual([["Heavy Cream", 15]]);
+    const saved = await saveLine(
+      started.id,
+      { itemId: item.id, quantity: 12, reason: "Two opened" },
+      cook,
+    );
+    expect(saved.lines[0]).toMatchObject({
+      systemQuantity: 12,
+      counted: {
+        quantity: 12,
+        difference: -3,
+        reason: "Two opened",
+        countedBy: people.cook,
+      },
+    });
+    const [latest] = await movements(item.id);
+    expect(latest).toMatchObject({
+      type: "count",
+      quantity: -3,
+      sectionId: fridge.id,
+    });
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
+        .totalQuantity,
+    ).toBe(12);
+  });
+
+  it("puts an item that drops below par on the low-stock list (AC2)", async () => {
+    const fridge = await section("Refrigerated", "consumable");
+    const item = await createItem(
+      cream({
+        consumable: { ...cream().consumable!, storageSectionId: fridge.id },
+      }),
+    );
+    await count(item.id, fridge.id, 8);
+    const lowStock = async () =>
+      (
+        await admin.get<InventoryItem[]>(
+          "/api/inventory/items?kind=consumable&belowPar=true",
+        )
+      ).map((i) => i.name);
+    expect(await lowStock()).toEqual([]);
+    const started = await startCount(fridge.id);
+    const saved = await saveLine(started.id, { itemId: item.id, quantity: 4 });
+    expect(saved.lines[0].belowPar).toBe(true);
+    expect(await lowStock()).toEqual(["Heavy Cream"]);
+  });
+
+  it("resumes a partly completed count where it left off (AC3)", async () => {
+    const dry = await section("Dry Storage", "consumable");
+    const stored = (name: string, storageOrder: number) =>
+      createItem({
+        kind: "consumable",
+        subtype: "ingredient",
+        name,
+        category: "Dry Goods",
+        unit: "lb",
+        consumable: {
+          purchaseUnit: "lb",
+          storageSectionId: dry.id,
+          storageOrder,
+        },
+      });
+    const flour = await stored("Flour", 2);
+    const sugar = await stored("Sugar", 1);
+    const rice = await stored("Rice", 3);
+    const started = await startCount(dry.id);
+    expect(started.lines.map((line) => line.name)).toEqual([
+      "Sugar",
+      "Flour",
+      "Rice",
+    ]);
+    await saveLine(started.id, { itemId: sugar.id, quantity: 20 });
+    await saveLine(started.id, { itemId: flour.id, quantity: 40 });
+
+    // Starting again opens the same count, with what was saved.
+    const resumed = await startCount(dry.id, lead, 200);
+    expect(resumed.id).toBe(started.id);
+    expect(resumed.countedItems).toBe(2);
+    expect(
+      resumed.lines.map((line) => [line.name, line.counted?.quantity ?? null]),
+    ).toEqual([
+      ["Sugar", 20],
+      ["Flour", 40],
+      ["Rice", null],
+    ]);
+    expect(
+      (await admin.get<StockCount[]>("/api/inventory/counts?status=open")).map(
+        (open) => [open.sectionName, open.countedItems],
+      ),
+    ).toEqual([["Dry Storage", 2]]);
+
+    // A recount replaces the line and records only the new difference.
+    const recounted = await saveLine(started.id, {
+      itemId: sugar.id,
+      quantity: 18,
+    });
+    expect(recounted.lines[0].counted).toMatchObject({
+      quantity: 18,
+      difference: -2,
+    });
+
+    await saveLine(started.id, { itemId: rice.id, quantity: 5 });
+    const done = await admin.send<StockCount>(
+      "POST",
+      `/api/inventory/counts/${started.id}/complete`,
+      {},
+    );
+    expect(done.status).toBe("completed");
+    const late = await admin.call(
+      "POST",
+      `/api/inventory/counts/${started.id}/lines`,
+      { itemId: rice.id, quantity: 6 },
+    );
+    expect(late.status).toBe(409);
+    expect((await late.json()).error.code).toBe("COUNT_COMPLETED");
+    expect((await startCount(dry.id)).id).not.toBe(started.id);
+    await expectLedgerMatchesCache(sugar.id);
+  });
+
+  it("lets the kitchen count ingredients and FT+ count bar stock and supplies", async () => {
+    const bar = await section("Bar Storage", "consumable");
+    const beer = await createItem({
+      kind: "consumable",
+      subtype: "bar",
+      name: "Lager",
+      category: "Beer",
+      consumable: {
+        purchaseUnit: "case",
+        packCount: 24,
+        storageSectionId: bar.id,
+      },
+    });
+    const limes = await createItem({
+      kind: "consumable",
+      subtype: "ingredient",
+      name: "Limes",
+      category: "Produce",
+      consumable: { purchaseUnit: "each", storageSectionId: bar.id },
+    });
+    const started = await startCount(bar.id, cook);
+    expect(started.lines.map((line) => [line.name, line.canCount])).toEqual([
+      ["Lager", false],
+      ["Limes", true],
+    ]);
+    expect(
+      (
+        await cook.call("POST", `/api/inventory/counts/${started.id}/lines`, {
+          itemId: beer.id,
+          quantity: 3,
+        })
+      ).status,
+    ).toBe(403);
+    await saveLine(started.id, { itemId: limes.id, quantity: 30 }, cook);
+    await saveLine(
+      started.id,
+      { itemId: beer.id, quantity: 48 },
+      fullTimeStaff,
+    );
+    expect(
+      (
+        await fullTimeStaff.call(
+          "POST",
+          `/api/inventory/counts/${started.id}/lines`,
+          { itemId: limes.id, quantity: 3 },
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await partTimeSales.call("POST", "/api/inventory/counts", {
+          sectionId: bar.id,
+        })
+      ).status,
+    ).toBe(403);
+    // Count mode is for storage sections.
+    const warehouse = await section("Warehouse");
+    expect(
+      (
+        await admin.call("POST", "/api/inventory/counts", {
+          sectionId: warehouse.id,
+        })
+      ).status,
+    ).toBe(409);
+  });
+});
+
+describe("cost history (FLOW-83)", () => {
+  it("logs every cost change with its source and emits a cost-changed event (AC2)", async () => {
+    const item = await createItem(cream());
+    await admin.send("PUT", `/api/inventory/items/${item.id}`, {
+      ...cream(),
+      consumable: { ...cream().consumable!, unitCostCents: 2650 },
+    });
+    // Saving without a cost change, or as a part-time user who can't see the
+    // cost, adds nothing.
+    await admin.send("PUT", `/api/inventory/items/${item.id}`, {
+      ...cream(),
+      name: "Heavy Cream 40%",
+      consumable: { ...cream().consumable!, unitCostCents: 2650 },
+    });
+    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+      ...cream(),
+      consumable: { ...cream().consumable!, unitCostCents: undefined },
+    });
+    const history = await admin.get<CostChange[]>(
+      `/api/inventory/items/${item.id}/cost-history`,
+    );
+    expect(
+      history.map((change) => [
+        change.previousCents,
+        change.unitCostCents,
+        change.source,
+        change.changedBy,
+      ]),
+    ).toEqual([
+      [2400, 2650, "manual", people.admin],
+      [null, 2400, "manual", people.admin],
+    ]);
+    const events = await db
+      .select({ payload: jobs.payload })
+      .from(jobs)
+      .where(eq(jobs.type, "event:inventory_item.cost_changed"));
+    expect(events.map((event) => event.payload)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entityId: item.id,
+          previousCents: 2400,
+          unitCostCents: 2650,
+          source: "manual",
+        }),
+      ]),
+    );
+    expect(events).toHaveLength(2);
+    expect(
+      (await cook.call("GET", `/api/inventory/items/${item.id}/cost-history`))
+        .status,
+    ).toBe(403);
+  });
+});
+
+const titos = (overrides: Partial<ItemInput> = {}): ItemInput => ({
+  kind: "consumable",
+  subtype: "bar",
+  name: "Tito's Vodka",
+  category: "Liquor",
+  tier: "call",
+  consumable: {
+    purchaseUnit: "case",
+    packCount: 12,
+    eachSize: { quantity: 750, unit: "ml" },
+    unitCostCents: 2299,
+    preferredVendor: "Imperio",
+    parLevel: 6,
+  },
+  bar: { brand: "Tito's", subcategory: "Vodka", container: "bottle" },
+  ...overrides,
+});
+
+describe("bar stock (FLOW-90)", () => {
+  it("stores bar fields and filters by category, subcategory, tier and distributor (AC2)", async () => {
+    const created = await createItem(titos());
+    expect(created).toMatchObject({
+      category: "Liquor",
+      tier: "call",
+      bar: { brand: "Tito's", subcategory: "Vodka", container: "bottle" },
+      consumable: {
+        packCount: 12,
+        eachSize: { quantity: 750, unit: "ml" },
+        preferredVendor: "Imperio",
+      },
+    });
+    await createItem(
+      titos({
+        name: "Rail Vodka",
+        tier: "rail",
+        bar: { brand: "", subcategory: "Vodka", container: "bottle" },
+        consumable: { ...titos().consumable!, preferredVendor: "Southern" },
+      }),
+    );
+    await createItem(
+      titos({
+        name: "Pinot Grigio",
+        category: "Wine",
+        tier: "",
+        bar: { brand: "Pinot Grigio", subcategory: "", container: "bottle" },
+      }),
+    );
+    const names = async (query: string) =>
+      (
+        await admin.get<InventoryItem[]>(
+          `/api/inventory/items?kind=consumable&subtype=bar&${query}`,
+        )
+      ).map((item) => item.name);
+    expect(await names("category=Wine")).toEqual(["Pinot Grigio"]);
+    expect(await names("subcategory=Vodka")).toEqual([
+      "Rail Vodka",
+      "Tito's Vodka",
+    ]);
+    expect(await names("tier=rail")).toEqual(["Rail Vodka"]);
+    expect(await names("vendor=southern")).toEqual(["Rail Vodka"]);
+  });
+
+  it("rejects bar details on other items and categories outside Beer, Wine and Liquor", async () => {
+    for (const [input, message] of [
+      [titos({ category: "Soda" }), "Pick Beer, Wine or Liquor."],
+      [titos({ tier: "top shelf" }), "The tier is rail, call or premium."],
+      [
+        titos({
+          category: "Beer",
+          bar: { subcategory: "Vodka" },
+        }),
+        "Only liquor has a subcategory.",
+      ],
+      [
+        { ...cream(), bar: { brand: "Horizon" } },
+        "Only bar stock has bar details.",
+      ],
+    ] as const) {
+      const response = await admin.call("POST", "/api/inventory/items", input);
+      expect(response.status).toBe(400);
+      expect((await response.json()).error.message).toBe(message);
+    }
+  });
+
+  it("counts bar stock through count mode, like ingredients (AC1)", async () => {
+    const bar = await section("Bar Storage", "consumable");
+    const item = await createItem(
+      titos({
+        consumable: { ...titos().consumable!, storageSectionId: bar.id },
+      }),
+    );
+    const started = await startCount(bar.id);
+    const saved = await saveLine(started.id, { itemId: item.id, quantity: 4 });
+    expect(saved.lines[0]).toMatchObject({
+      name: "Tito's Vodka",
+      belowPar: true,
+      counted: { quantity: 4, difference: 4 },
+    });
   });
 });

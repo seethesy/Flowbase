@@ -116,3 +116,54 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   await expect(page.getByText("Kitchen – Refrigerated")).toBeVisible();
   await expect(page.getByText("$24.00 per case")).toBeVisible();
 });
+
+test("records and corrects a stock movement from the item page", async ({
+  page,
+}) => {
+  await mockInventoryApi(page, { items: [chairs()] });
+  await page.goto(`/#/inventory/${chairs().id}`);
+  const stock = page.locator(".stock-table").first();
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 40 each" }),
+  ).toBeVisible();
+  await expect(page.getByText("No stock movements yet.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Record movement" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Type", { exact: true }).selectOption("damage_loss");
+  await dialog.getByLabel("Section", { exact: true }).selectOption({
+    label: "Warehouse",
+  });
+  await dialog.getByLabel("Quantity out (each)").fill("2");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Broken legs");
+  await dialog.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 38 each" }),
+  ).toBeVisible();
+  const history = page.locator(".movement-table");
+  await expect(history.getByRole("row")).toHaveCount(2);
+  await expect(history.getByRole("row").nth(1)).toContainText("Damage / loss");
+  await expect(history.getByRole("row").nth(1)).toContainText("−2");
+  await expect(history.getByRole("row").nth(1)).toContainText("Broken legs");
+
+  // AC3: the correction is a new, linked movement; the original stays.
+  await history.getByRole("button", { name: /^Correct the damage/ }).click();
+  await expect(dialog.getByLabel(/^Should have been/)).toHaveValue("-2");
+  await dialog.getByLabel(/^Should have been/).fill("-3");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "Give a reason for the correction.",
+  );
+  await dialog.getByLabel("Reason *").fill("Found a third");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 37 each" }),
+  ).toBeVisible();
+  await expect(history.getByRole("row")).toHaveCount(3);
+  await expect(history.getByRole("row").nth(1)).toContainText("Correction");
+  await expect(history.getByRole("row").nth(1)).toContainText("−1");
+  await expect(history.getByRole("row").nth(2)).toContainText("Corrected");
+  await expect(history.getByRole("row").nth(2)).toContainText("−2");
+});
