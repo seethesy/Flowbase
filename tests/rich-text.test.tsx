@@ -133,7 +133,8 @@ describe("pasting from Google Docs (AC2)", () => {
       extensions: richTextExtensions,
       editorProps: { transformPastedHTML: normalizePastedHtml },
     });
-    editor.view.pasteHTML(html);
+    // jsdom has no ClipboardEvent; ProseMirror only needs a paste event to pass around.
+    editor.view.pasteHTML(html, new Event("paste") as ClipboardEvent);
     return editor.getJSON() as JSONContent;
   };
   const marksIn = (node: JSONContent): string[] => [
