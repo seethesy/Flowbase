@@ -186,6 +186,8 @@ export async function mockRecordsApi(
         canChangeStatus: true,
       });
     }
+    if (resource === "events" && action === "status-history" && method === "GET")
+      return json(route, statusChanges.get(current.id) ?? []);
     if (method === "GET") return json(route, current);
     if (method === "PUT") {
       const updated = (
@@ -194,8 +196,6 @@ export async function mockRecordsApi(
       records.set(current.id, updated as never);
       return json(route, updated);
     }
-    if (resource === "events" && action === "status-history" && method === "GET")
-      return json(route, statusChanges.get(current.id) ?? []);
     if (resource === "events" && action === "status" && method === "POST") {
       const event = current as unknown as FlowEvent;
       const input = request.postDataJSON() as EventTransitionInput;
