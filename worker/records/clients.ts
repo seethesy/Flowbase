@@ -39,7 +39,7 @@ export function visibleClients(actor: Actor): SQL | undefined {
   return sql`false`;
 }
 
-function requireClientAccess(actor: Actor): Scope {
+export function requireClientAccess(actor: Actor): Scope {
   const scope = clientScope(actor);
   if (scope === "none") throw forbidden();
   return scope;
@@ -217,6 +217,77 @@ async function syncContacts(
   );
 }
 
+export type ClientDuplicates = {
+  visible: { id: string; name: string }[];
+  hidden: { id: string; name: string }[];
+};
+
+// Matches for new contacts. Admin, Technical and Sales Manager see every match. A
+// salesperson sees only their own clients; a match among clients they can't see is
+// "hidden": flagged to Admin on the new client, never returned to them.
+export async function checkDuplicates(
+  db: DbLike,
+  actor: Actor,
+  scope: Scope,
+  contacts: ContactInput[],
+): Promise<ClientDuplicates> {
+  const matches = await findDuplicates(db, contacts);
+  const visible =
+    scope === "all"
+      ? matches
+      : matches.filter((match) => match.assignedSalespersonId === actor.userId);
+  const hidden = matches.filter((match) => !visible.includes(match));
+  return {
+    visible: visible.map(({ id, name }) => ({ id, name })),
+    hidden: hidden.map(({ id, name }) => ({ id, name })),
+  };
+}
+
+export const duplicateClientError = (duplicates: ClientDuplicates["visible"]) =>
+  new ApiError(
+    409,
+    "POSSIBLE_DUPLICATE",
+    "A client with this email or phone already exists.",
+    { duplicates },
+  );
+
+// Inserts the client, its contacts and the client events inside the caller's
+// transaction; returns the new id.
+export async function insertClient(
+  tx: DbLike,
+  actor: Actor,
+  scope: Scope,
+  input: Pick<
+    ClientCreate,
+    "name" | "kind" | "notes" | "tags" | "contacts" | "assignedSalespersonId"
+  >,
+  hidden: ClientDuplicates["hidden"],
+): Promise<string> {
+  const [row] = await tx
+    .insert(clients)
+    .values({
+      name: input.name,
+      kind: input.kind,
+      notes: input.notes,
+      tags: input.tags,
+      assignedSalespersonId:
+        scope === "own" ? actor.userId : (input.assignedSalespersonId ?? null),
+      possibleDuplicateOfId: hidden[0]?.id ?? null,
+      createdBy: actor.userId,
+      updatedBy: actor.userId,
+    })
+    .returning({ id: clients.id });
+  await syncContacts(tx, row.id, input.contacts);
+  await emitDomainEvent(tx, { name: "client.created", entityId: row.id });
+  if (hidden.length)
+    await emitDomainEvent(tx, {
+      name: "client.duplicate_flagged",
+      entityId: row.id,
+      data: { possibleDuplicateOfIds: hidden.map((match) => match.id) },
+    });
+  return row.id;
+}
+
 // Creates a client. A matching email or phone warns Admin and Sales Manager (409
 // with the matches). A salesperson is warned only about their own clients; a match
 // among clients they can't see is flagged to Admin instead, and nothing about it
@@ -227,44 +298,16 @@ export async function createClient(
   input: ClientCreate,
 ): Promise<Client> {
   const scope = requireClientAccess(actor);
-  const matches = await findDuplicates(db, input.contacts);
-  const visible =
-    scope === "all"
-      ? matches
-      : matches.filter((match) => match.assignedSalespersonId === actor.userId);
-  const hidden = matches.filter((match) => !visible.includes(match));
-  if (visible.length && !input.allowDuplicate)
-    throw new ApiError(
-      409,
-      "POSSIBLE_DUPLICATE",
-      "A client with this email or phone already exists.",
-      { duplicates: visible.map(({ id, name }) => ({ id, name })) },
-    );
-  const id = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(clients)
-      .values({
-        name: input.name,
-        kind: input.kind,
-        notes: input.notes,
-        tags: input.tags,
-        assignedSalespersonId:
-          scope === "own" ? actor.userId : (input.assignedSalespersonId ?? null),
-        possibleDuplicateOfId: hidden[0]?.id ?? null,
-        createdBy: actor.userId,
-        updatedBy: actor.userId,
-      })
-      .returning({ id: clients.id });
-    await syncContacts(tx, row.id, input.contacts);
-    await emitDomainEvent(tx, { name: "client.created", entityId: row.id });
-    if (hidden.length)
-      await emitDomainEvent(tx, {
-        name: "client.duplicate_flagged",
-        entityId: row.id,
-        data: { possibleDuplicateOfIds: hidden.map((match) => match.id) },
-      });
-    return row.id;
-  });
+  const { visible, hidden } = await checkDuplicates(
+    db,
+    actor,
+    scope,
+    input.contacts,
+  );
+  if (visible.length && !input.allowDuplicate) throw duplicateClientError(visible);
+  const id = await db.transaction((tx) =>
+    insertClient(tx, actor, scope, input, hidden),
+  );
   return getClient(db, actor, id);
 }
 
