@@ -8,6 +8,8 @@ import {
 import { AppShell } from "../components/layout/AppShell";
 import { Dashboard } from "../features/dashboard";
 import { ClientList, ClientDetail } from "../features/clients";
+import { EventList, EventDetail } from "../features/events";
+import { VenueList, VenueDetail } from "../features/venues";
 import { Proposals } from "../features/proposals";
 import { InventoryList, InventoryDetail } from "../features/inventory";
 import { Button, PageHeader, Section } from "../components/shared";
@@ -80,8 +82,12 @@ export const router = createHashRouter([
       { path: "/proposals", element: <Proposals /> },
       { path: "/inventory", element: <InventoryList /> },
       { path: "/inventory/:id", element: <InventoryDetail /> },
+      { path: "/events", element: <EventList /> },
+      { path: "/events/:id", element: <EventDetail /> },
+      { path: "/venues", element: <VenueList /> },
+      { path: "/venues/:id", element: <VenueDetail /> },
       { path: "/profile", element: <Profile /> },
-      ...["purchasing", "events", "reports", "settings", "help", "*"].map(
+      ...["purchasing", "reports", "settings", "help", "*"].map(
         (path) => ({ path, element: <Placeholder /> }),
       ),
     ],

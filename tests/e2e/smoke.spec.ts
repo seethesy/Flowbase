@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { juniper, mockRecordsApi } from "./mock-api";
 test("sidebar, client search, detail tabs, and browser history", async ({
   page,
   isMobile,
 }) => {
+  await mockRecordsApi(page, { clients: [juniper()] });
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Overview", exact: true }),
@@ -14,8 +16,6 @@ test("sidebar, client search, detail tabs, and browser history", async ({
   await page.getByRole("button", { name: "JC Juniper & Co." }).click();
   await page.getByRole("tab", { name: "Contacts", exact: true }).click();
   await expect(page.getByText("Olivia Bennett", { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Files", exact: true }).click();
-  await expect(page.getByText("Event brief.pdf")).toBeVisible();
   await page.goBack();
   await expect(
     page.getByRole("heading", { name: "Clients", exact: true }),
@@ -72,25 +72,6 @@ test("proposal status rules and lost reason confirmation", async ({ page }) => {
     "Lost",
   );
 });
-test("client creation validates and saves in memory", async ({ page }) => {
-  await page.goto("/#/clients");
-  await page.getByRole("button", { name: "New Client", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Save client" }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Name is required");
-  await dialog
-    .getByLabel("Name *", { exact: true })
-    .fill("Demo Orchard Client");
-  await dialog.getByLabel("Main contact *", { exact: true }).fill("Avery Demo");
-  await dialog
-    .getByLabel("Email *", { exact: true })
-    .fill("avery@demo.example");
-  await dialog.getByRole("button", { name: "Save client" }).click();
-  await expect(
-    page.getByRole("button", { name: "DO Demo Orchard Client" }),
-  ).toBeVisible();
-});
-
 test("Worker health and SPA share an origin", async ({ page, request }) => {
   const response = await request.get("/api/health");
   expect(response.ok()).toBeTruthy();
@@ -108,9 +89,8 @@ test("Worker health and SPA share an origin", async ({ page, request }) => {
 test("legacy routes redirect and retain proposal filters", async ({ page }) => {
   await page.goto("/#/crm/cus-1");
   await expect(page).toHaveURL(/#\/clients\/cli-1$/);
-  await expect(
-    page.getByRole("heading", { name: "Juniper & Co.", exact: true }),
-  ).toBeVisible();
+  // Prototype ids aren't real client ids, so the page explains it can't load one.
+  await expect(page.getByRole("link", { name: "← All clients" })).toBeVisible();
   await page.goto("/#/contracts?view=table&stage=Sent");
   await expect(page).toHaveURL(/#\/proposals\?view=table&stage=Sent$/);
   await expect(

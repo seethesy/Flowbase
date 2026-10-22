@@ -13,6 +13,7 @@ import {
   Package,
   ShoppingCart,
   CalendarDays,
+  MapPin,
   ChartNoAxesCombined,
   Settings,
   CircleHelp,
@@ -37,6 +38,7 @@ const navigation = [
   { name: "Inventory", to: "/inventory", icon: Package },
   { name: "Purchasing", to: "/purchasing", icon: ShoppingCart },
   { name: "Events", to: "/events", icon: CalendarDays },
+  { name: "Venues", to: "/venues", icon: MapPin },
   { name: "Reports", to: "/reports", icon: ChartNoAxesCombined },
 ];
 export function Breadcrumbs() {
@@ -196,19 +198,11 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const [alerts, setAlerts] = useState(false);
   const [create, setCreate] = useState(false);
   const [profile, setProfile] = useState(false);
-  const kind = location.pathname.startsWith("/inventory")
-    ? "item"
-    : location.pathname === "/clients"
-      ? "client"
-      : "proposal";
+  // Clients are real records now (FLOW-53) with their own New Client form; quick
+  // create and search here cover the remaining demo modules.
+  const kind = location.pathname.startsWith("/inventory") ? "item" : "proposal";
   const results = search.trim()
     ? [
-        ...store.clients.records.map((c) => ({
-          id: c.id,
-          title: c.name,
-          kind: "Client",
-          path: `/clients/${c.id}`,
-        })),
         ...store.inventory.records.map((i) => ({
           id: i.id,
           title: i.name,

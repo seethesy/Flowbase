@@ -11,10 +11,11 @@ import { DatabaseNotConfiguredError } from "./db/errors";
 import { APP_VERSION } from "../shared/version";
 import type { Bindings } from "./bindings";
 import type { ResolveActor } from "./auth";
-import type { AppEnv, RunWithDb } from "./hono";
+import { ApiError, type AppEnv, type RunWithDb } from "./hono";
 import type { IngestSource } from "./ingest/sources";
 import { adminRoutes } from "./routes/admin";
 import { ingestRoutes } from "./routes/ingest";
+import { recordRoutes } from "./routes/records";
 import * as fixtures from "../src/data/mock/fixtures";
 
 type DbCheck = {
@@ -49,6 +50,14 @@ export function createApp(options: Options = {}) {
   app.onError((error, c) => {
     const requestId = c.get("requestId") ?? crypto.randomUUID();
     c.header("X-Request-ID", requestId);
+    if (error instanceof ApiError)
+      return c.json(
+        {
+          error: { code: error.code, message: error.message, requestId },
+          ...error.extra,
+        },
+        error.status,
+      );
     if (error instanceof DatabaseNotConfiguredError)
       return c.json(
         {
@@ -164,6 +173,7 @@ export function createApp(options: Options = {}) {
     app.delete(`/api/demo/${resource}/:id`, (c) => c.body(null, 204));
   }
   app.route("/api/admin", adminRoutes(options));
+  app.route("/api", recordRoutes(options));
   app.route(
     "/api/ingest",
     ingestRoutes({ withDb: options.withDb, sources: options.ingestSources }),

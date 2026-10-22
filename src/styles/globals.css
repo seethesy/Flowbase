@@ -2318,7 +2318,34 @@ tbody tr:last-child td {
     scroll-behavior: auto !important;
   }
 }
+
+/* Core record forms and filters (FLOW-53/54/55). */
+.checkbox-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.form-subheading {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+}
+.form-group {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 12px 12px 4px;
+  margin: 0 0 12px;
+}
+.inline-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.inline-row .form-field {
+  flex: 1;
 /* Rich text (FLOW-50): shared by the editor and the read-only/print view. */
+}
 .rich-text {
   line-height: 1.6;
   overflow-wrap: anywhere;
