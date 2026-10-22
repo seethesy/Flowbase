@@ -118,7 +118,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table stock_movements, inventory_stock, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, jobs`,
+    sql`truncate table stock_movements, inventory_stock, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
