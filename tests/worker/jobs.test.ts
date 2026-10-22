@@ -32,7 +32,7 @@ it("skips the cron run without a database binding", async () => {
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
   try {
     await runScheduledJobs({ ASSETS: { fetch } }, new JobRegistry(), {
-      withDb,
+      withDb: withDb as unknown as RunWithDb,
     });
     expect(withDb).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(

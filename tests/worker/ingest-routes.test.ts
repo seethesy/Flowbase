@@ -5,7 +5,7 @@ import type { RunWithDb } from "../../worker/hono";
 import { INGEST_MAX_BYTES } from "../../worker/ingest/sources";
 
 const withDb = vi.fn<RunWithDb>();
-const app = createApp({ withDb });
+const app = createApp({ withDb: withDb as unknown as RunWithDb });
 const env = {
   ASSETS: { fetch },
   // Two accepted values: a token mid-rotation.

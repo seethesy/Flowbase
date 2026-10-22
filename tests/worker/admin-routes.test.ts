@@ -7,6 +7,8 @@ import { can } from "../../worker/policy";
 import { roleSchema } from "../../shared/access";
 
 const env = { ASSETS: { fetch } };
+// A Mock loses RunWithDb's generic signature, so it is cast where it is wired in.
+const asDb = (mock: unknown) => mock as RunWithDb;
 const actor = (role: Role): Actor => ({
   userId: "8d6f2a4e-5b1c-4e8a-9f3d-2c7b1a0e6d54",
   role,
@@ -24,7 +26,7 @@ const paths = [
 
 it.each(paths)("%s %s answers 401 without a signed-in user", async (method, path) => {
   const withDb = vi.fn<RunWithDb>();
-  const response = await createApp({ withDb }).request(path, { method }, env);
+  const response = await createApp({ withDb: asDb(withDb) }).request(path, { method }, env);
   expect(response.status).toBe(401);
   expect((await response.json()).error.code).toBe("UNAUTHENTICATED");
   expect(withDb).not.toHaveBeenCalled();
@@ -33,7 +35,7 @@ it.each(roleSchema.options.filter((role) => role !== "admin"))(
   "refuses the %s role on every admin route",
   async (role) => {
     const withDb = vi.fn<RunWithDb>();
-    const app = createApp({ withDb, resolveActor: async () => actor(role) });
+    const app = createApp({ withDb: asDb(withDb), resolveActor: async () => actor(role) });
     for (const [method, path] of paths) {
       const response = await app.request(path, { method }, env);
       expect(response.status).toBe(403);
@@ -45,7 +47,7 @@ it.each(roleSchema.options.filter((role) => role !== "admin"))(
 );
 it("lets an admin list failed jobs", async () => {
   const withDb = vi.fn<RunWithDb>().mockResolvedValue([]);
-  const app = createApp({ withDb, resolveActor: async () => actor("admin") });
+  const app = createApp({ withDb: asDb(withDb), resolveActor: async () => actor("admin") });
   const response = await app.request("/api/admin/jobs", {}, env);
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual([]);
@@ -57,7 +59,7 @@ it("rejects an unknown job status filter", async () => {
 });
 it("answers 404 for a malformed job id without touching the database", async () => {
   const withDb = vi.fn<RunWithDb>();
-  const app = createApp({ withDb, resolveActor: async () => actor("admin") });
+  const app = createApp({ withDb: asDb(withDb), resolveActor: async () => actor("admin") });
   const response = await app.request(
     "/api/admin/jobs/not-a-uuid/retry",
     { method: "POST" },
