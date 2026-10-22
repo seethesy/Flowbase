@@ -8,6 +8,7 @@ import {
 import { AppShell } from "../components/layout/AppShell";
 import { Dashboard } from "../features/dashboard";
 import { ClientList, ClientDetail } from "../features/clients";
+import { LeadInbox, LeadDetail } from "../features/leads";
 import { EventList, EventDetail } from "../features/events";
 import { VenueList, VenueDetail } from "../features/venues";
 import { PrintSample } from "../features/print-sample";
@@ -80,6 +81,8 @@ export const router = createHashRouter([
     element: <AppShell />,
     children: [
       { path: "/", element: <Dashboard /> },
+      { path: "/leads", element: <LeadInbox /> },
+      { path: "/leads/:id", element: <LeadDetail /> },
       { path: "/clients", element: <ClientList /> },
       { path: "/clients/:id", element: <ClientDetail /> },
       { path: "/crm", element: <LegacyRoute to="/clients" /> },

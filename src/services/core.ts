@@ -68,14 +68,14 @@ export async function request<S extends z.ZodType>(
   return schema.parse(json);
 }
 
-const query = (params: Record<string, string | boolean | undefined>) => {
+export const query = (params: Record<string, string | boolean | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params))
     if (value) search.set(key, String(value));
   const text = search.toString();
   return text ? `?${text}` : "";
 };
-const at = (resource: string, id: string, action = "") =>
+export const at = (resource: string, id: string, action = "") =>
   `/api/${resource}/${encodeURIComponent(id)}${action && `/${action}`}`;
 
 export const clientsApi = {
