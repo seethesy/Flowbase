@@ -418,13 +418,13 @@ describe("events", () => {
     );
   });
 
-  it("records booked_at the first time an event is Closed", async () => {
+  it("records booked_at the first time an event reaches Negotiation", async () => {
     const owner = await admin.post<Client>("/api/clients", newClient());
     const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id));
     expect(event.bookedAt).toBeNull();
     const booked = await admin.post<FlowEvent>(
       `/api/events/${event.id}/status`,
-      { status: "closed" },
+      { status: "negotiation" },
       200,
     );
     expect(booked.bookedAt).not.toBeNull();

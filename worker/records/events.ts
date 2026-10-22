@@ -16,6 +16,7 @@ import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import {
   eventStatusLabels,
+  eventStatusSchema,
   type EventStatus,
   type EventStatusChange,
   type FlowEvent,
@@ -71,9 +72,13 @@ function instants(input: Pick<EventInput, "date" | "startTime" | "endTime">) {
 }
 
 // booked_at decides which event keeps contested rentals: the first time the event
-// reached Closed (paid and signed).
+// reached Negotiation (FLOW-56 A6), or a later status if it skipped Negotiation.
+const bookedFrom = eventStatusSchema.options.indexOf("negotiation");
 const bookedAtFor = (current: Date | null, status: EventStatus) =>
-  current ?? (status === "closed" ? new Date() : null);
+  current ??
+  (status !== "lost" && eventStatusSchema.options.indexOf(status) >= bookedFrom
+    ? new Date()
+    : null);
 
 async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
   if (!rows.length) return [];

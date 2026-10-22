@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { and, eq, like, sql } from "drizzle-orm";
@@ -130,13 +131,15 @@ describe("creating", () => {
   });
 
   it("allows any starting status (A4)", async () => {
-    const event = await newEvent("negotiation");
-    expect(event.status).toBe("negotiation");
-    expect(event.bookedAt).toBeNull();
+    const event = await newEvent("closing");
+    expect(event.status).toBe("closing");
   });
 
-  it("sets booked_at when created as Closed", async () => {
+  it("sets booked_at when created in Negotiation or later, but not as Lost", async () => {
+    expect((await newEvent("negotiation")).bookedAt).not.toBeNull();
     expect((await newEvent("closed")).bookedAt).not.toBeNull();
+    expect((await newEvent("initial_proposal_sent")).bookedAt).toBeNull();
+    expect((await newEvent("lost")).bookedAt).toBeNull();
   });
 });
 
@@ -231,7 +234,30 @@ describe("manual changes", () => {
     expect(response.status).toBe(400);
   });
 
-  it("sets booked_at the first time the event reaches Closed and keeps it", async () => {
+  it("sets booked_at the first time the event reaches Negotiation and keeps it (A6)", async () => {
+    const event = await newEvent();
+    const pitching = await sam.json<FlowEvent>(
+      "POST",
+      `/api/events/${event.id}/status`,
+      { status: "initial_proposal_sent" },
+    );
+    expect(pitching.bookedAt).toBeNull();
+    const negotiating = await sam.json<FlowEvent>(
+      "POST",
+      `/api/events/${event.id}/status`,
+      { status: "negotiation" },
+    );
+    expect(negotiating.bookedAt).not.toBeNull();
+    await sam.json("POST", `/api/events/${event.id}/status`, { status: "pitching" });
+    const again = await sam.json<FlowEvent>(
+      "POST",
+      `/api/events/${event.id}/status`,
+      { status: "closed" },
+    );
+    expect(again.bookedAt).toBe(negotiating.bookedAt);
+  });
+
+  it("sets booked_at when an override skips past Negotiation", async () => {
     const event = await newEvent();
     const closed = await sam.json<FlowEvent>(
       "POST",
@@ -239,13 +265,6 @@ describe("manual changes", () => {
       { status: "closed" },
     );
     expect(closed.bookedAt).not.toBeNull();
-    await sam.json("POST", `/api/events/${event.id}/status`, { status: "negotiation" });
-    const again = await sam.json<FlowEvent>(
-      "POST",
-      `/api/events/${event.id}/status`,
-      { status: "closed" },
-    );
-    expect(again.bookedAt).toBe(closed.bookedAt);
   });
 
   it("leaves the status alone when the event is edited", async () => {
@@ -326,5 +345,37 @@ describe("automatic changes", () => {
     ).rejects.toMatchObject({
       message: "An event can't move automatically from Finished to Lost. Finished is final.",
     });
+  });
+});
+
+describe("existing events (A5)", () => {
+  it("converts the FLOW-55 statuses and keeps booked_at", async () => {
+    const owner = await sam.json<Client>(
+      "POST",
+      "/api/clients",
+      { name: "Juniper & Co.", kind: "organization", contacts: [] },
+      201,
+    );
+    const bookedAt = new Date("2026-10-01T15:00:00.000Z");
+    const old = ["tentative", "booked", "completed", "cancelled", "inquiry"];
+    for (const status of old)
+      await client`insert into events (title, starts_at, client_id, status, booked_at)
+        values (${status}, now(), ${owner.id}, ${status}, ${status === "booked" ? bookedAt : null})`;
+    await client.unsafe(
+      readFileSync("drizzle/0008_event_status_values.sql", "utf8"),
+    );
+    const rows = await client`select title, status, booked_at from events order by title`;
+    expect(
+      Object.fromEntries(rows.map((row) => [row.title, row.status])),
+    ).toEqual({
+      tentative: "pitching",
+      booked: "closed",
+      completed: "finished",
+      cancelled: "lost",
+      inquiry: "inquiry",
+    });
+    expect(
+      rows.find((row) => row.title === "booked")?.booked_at.toISOString(),
+    ).toBe(bookedAt.toISOString());
   });
 });

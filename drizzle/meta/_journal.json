@@ -57,6 +57,13 @@
       "when": 1792696497192,
       "tag": "0007_event_status_default",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792697192729,
+      "tag": "0008_event_status_values",
+      "breakpoints": true
     }
   ]
 }
