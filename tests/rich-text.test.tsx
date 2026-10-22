@@ -134,7 +134,7 @@ describe("pasting from Google Docs (AC2)", () => {
       editorProps: { transformPastedHTML: normalizePastedHtml },
     });
     editor.view.pasteHTML(html);
-    return editor.getJSON();
+    return editor.getJSON() as JSONContent;
   };
   const marksIn = (node: JSONContent): string[] => [
     ...(node.marks ?? []).map((mark) => mark.type),
