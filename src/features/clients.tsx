@@ -1,42 +1,33 @@
 import { useState } from "react";
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
-import {
-  Plus,
-  ArrowUpRight,
-  Mail,
-  Phone,
-  MapPin,
-  MoreHorizontal,
-  Pencil,
-  Building2,
-} from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Plus, Pencil, Archive, RotateCcw, TriangleAlert } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useDemo } from "../app/store";
-import type { Client, Proposal } from "../types";
-import { employees, contacts, events } from "../data/mock/fixtures";
-import { date, money } from "../services/records";
+import {
+  contactRoleLabels,
+  contactRoleSchema,
+  type Client,
+  type ClientInput,
+  type Contact,
+  type ContactInput,
+} from "../../shared/core-records";
+import { ApiRequestError, clientsApi, eventsApi } from "../services/core";
+import { useResource } from "../app/useResource";
 import {
   PageHeader,
   Button,
   SearchInput,
-  Select,
   FilterBar,
   DataTable,
-  StatusBadge,
   Tabs,
   Section,
-  Notes,
-  FileList,
   ConfirmationDialog,
   EmptyState,
+  DetailDrawer,
+  FormField,
+  LoadingSkeleton,
 } from "../components/shared";
-import { RecordForm } from "./forms";
-import { ProposalDrawer } from "./proposals";
+import { EventForm, EventTable } from "./events";
+
 export const initials = (name: string) =>
   name
     .replace(/&/g, "")
@@ -45,19 +36,34 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((n) => n[0])
     .join("");
+
+export function LoadError({ message }: { message: string }) {
+  return (
+    <p role="alert" className="error-message">
+      {message}
+    </p>
+  );
+}
+
+const primaryContact = (client: Client) =>
+  client.contacts.find((contact) => contact.role === "primary_poc") ??
+  client.contacts[0];
+const hidden = (value: string | null) =>
+  value === null ? "Hidden" : value || "—";
+
+// Real client records (FLOW-53), replacing the prototype's mock clients.
 export function ClientList() {
-  const store = useDemo();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState(params.get("status") ?? "");
-  const [owner, setOwner] = useState("");
+  const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  const data = store.clients.records.filter(
-    (c) =>
-      (c.name + " " + c.contact).toLowerCase().includes(search.toLowerCase()) &&
-      (!status || c.status === status) &&
-      (!owner || c.owner === owner),
+  const clients = useResource(() => clientsApi.list({ archived }), [archived]);
+  const term = search.toLowerCase();
+  const data = (clients.data ?? []).filter((client) =>
+    [client.name, ...client.contacts.map((contact) => contact.name)]
+      .join(" ")
+      .toLowerCase()
+      .includes(term),
   );
   const columns: ColumnDef<Client, unknown>[] = [
     {
@@ -69,30 +75,37 @@ export function ClientList() {
             {initials(c.row.original.name)}
           </span>
           <strong>{c.getValue() as string}</strong>
+          {c.row.original.possibleDuplicateOf && (
+            <span className="badge warning">Possible duplicate</span>
+          )}
         </span>
       ),
     },
-    { accessorKey: "contact", header: "Contact" },
-    { accessorKey: "email", header: "Email" },
-    { accessorKey: "phone", header: "Phone" },
     {
-      accessorKey: "status",
-      header: "Status",
-      cell: (c) => <StatusBadge status={c.getValue() as string} />,
+      id: "kind",
+      header: "Type",
+      accessorFn: (client) =>
+        client.kind === "person" ? "Person" : "Organization",
     },
     {
-      id: "open",
-      header: "Open proposals",
-      accessorFn: (c) =>
-        store.proposals.records.filter(
-          (x) => x.clientId === c.id && !["Signed", "Lost"].includes(x.stage),
-        ).length,
+      id: "contact",
+      header: "Primary contact",
+      accessorFn: (client) => primaryContact(client)?.name ?? "—",
     },
-    { accessorKey: "owner", header: "Account owner" },
     {
-      accessorKey: "activity",
-      header: "Last activity",
-      cell: (c) => date(c.getValue() as string),
+      id: "email",
+      header: "Email",
+      accessorFn: (client) => hidden(primaryContact(client)?.email ?? ""),
+    },
+    {
+      id: "phone",
+      header: "Phone",
+      accessorFn: (client) => hidden(primaryContact(client)?.phone ?? ""),
+    },
+    {
+      id: "tags",
+      header: "Tags",
+      accessorFn: (client) => client.tags.join(", "),
     },
   ];
   return (
@@ -107,132 +120,327 @@ export function ClientList() {
           New Client
         </Button>
       </PageHeader>
-      <div className="module-summary">
-        <div>
-          <strong>{store.clients.records.length}</strong>
-          <span>total clients</span>
-        </div>
-        <div>
-          <strong>
-            {store.clients.records.filter((c) => c.status === "Active").length}
-          </strong>
-          <span>active relationships</span>
-        </div>
-        <div>
-          <strong>
-            {
-              store.clients.records.filter((c) => c.status === "Prospect")
-                .length
-            }
-          </strong>
-          <span>new opportunities</span>
-        </div>
-      </div>
       <FilterBar>
         <SearchInput
           value={search}
           onChange={setSearch}
           placeholder="Search clients or contacts…"
         />
-        <Select
-          label="Statuses"
-          options={["Active", "Prospect", "Inactive"]}
-          value={status}
-          onChange={setStatus}
-        />
-        <Select
-          label="Owners"
-          options={employees.map((e) => e.name)}
-          value={owner}
-          onChange={setOwner}
-        />
+        <label className="checkbox-filter">
+          <input
+            type="checkbox"
+            checked={archived}
+            onChange={(e) => setArchived(e.target.checked)}
+          />
+          Show archived
+        </label>
         <span className="result-count">{data.length} clients</span>
       </FilterBar>
-      <DataTable
-        data={data}
-        columns={columns}
-        onRow={(c) => navigate(`/clients/${c.id}`)}
-        label="clients"
-      />
-      {create && <RecordForm kind="client" onClose={() => setCreate(false)} />}
+      {clients.error ? (
+        <LoadError message={clients.error} />
+      ) : clients.loading && !clients.data ? (
+        <LoadingSkeleton />
+      ) : (
+        <DataTable
+          data={data}
+          columns={columns}
+          onRow={(client) => navigate(`/clients/${client.id}`)}
+          label="clients"
+        />
+      )}
+      {create && (
+        <ClientForm
+          onClose={() => setCreate(false)}
+          onSaved={(client) => navigate(`/clients/${client.id}`)}
+        />
+      )}
     </>
   );
 }
-export function RelatedProposals({
-  clientId,
-  onOpen,
+
+type ContactDraft = ContactInput & { key: string; hiddenDetails: boolean };
+const draftOf = (contact: Contact, index: number): ContactDraft => ({
+  key: contact.id ?? String(index),
+  id: contact.id,
+  name: contact.name,
+  role: contact.role,
+  // Hidden details stay undefined so the API keeps what it has.
+  email: contact.email ?? undefined,
+  phone: contact.phone ?? undefined,
+  notes: contact.notes,
+  hiddenDetails: contact.email === null,
+});
+
+export function ClientForm({
+  client,
+  onClose,
+  onSaved,
 }: {
-  clientId: string;
-  onOpen: (id: string) => void;
+  client?: Client;
+  onClose: () => void;
+  onSaved: (client: Client) => void;
 }) {
-  const store = useDemo();
-  const rows = store.proposals.records.filter((c) => c.clientId === clientId);
-  const cols: ColumnDef<Proposal, unknown>[] = [
-    { accessorKey: "name", header: "Proposal" },
-    {
-      accessorKey: "stage",
-      header: "Status",
-      cell: (c) => <StatusBadge status={c.getValue() as string} />,
-    },
-    {
-      accessorKey: "value",
-      header: "Value",
-      cell: (c) => money(c.getValue() as number),
-    },
-  ];
+  const [name, setName] = useState(client?.name ?? "");
+  const [kind, setKind] = useState<Client["kind"]>(
+    client?.kind ?? "organization",
+  );
+  const [tags, setTags] = useState(client?.tags.join(", ") ?? "");
+  const [notes, setNotes] = useState(client?.notes ?? "");
+  const [contacts, setContacts] = useState<ContactDraft[]>(
+    client?.contacts.map(draftOf) ?? [
+      {
+        key: "new-0",
+        name: "",
+        role: "primary_poc",
+        email: "",
+        phone: "",
+        hiddenDetails: false,
+      },
+    ],
+  );
+  const [error, setError] = useState("");
+  const [duplicates, setDuplicates] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+  const [saving, setSaving] = useState(false);
+  const update = (key: string, patch: Partial<ContactDraft>) =>
+    setContacts((current) =>
+      current.map((contact) =>
+        contact.key === key ? { ...contact, ...patch } : contact,
+      ),
+    );
+  const save = async (allowDuplicate: boolean) => {
+    if (!name.trim()) return setError("Name is required.");
+    if (contacts.some((contact) => !contact.name.trim()))
+      return setError("Every contact needs a name.");
+    const input: ClientInput = {
+      name,
+      kind,
+      notes,
+      tags: tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      contacts: contacts.map((contact) => ({
+        id: contact.id,
+        name: contact.name,
+        role: contact.role,
+        email: contact.email,
+        phone: contact.phone,
+        notes: contact.notes,
+      })),
+      allowDuplicate,
+    };
+    setSaving(true);
+    setError("");
+    try {
+      onSaved(
+        client
+          ? await clientsApi.update(client.id, input)
+          : await clientsApi.create(input),
+      );
+      onClose();
+    } catch (e) {
+      if (e instanceof ApiRequestError && e.code === "POSSIBLE_DUPLICATE")
+        setDuplicates(e.duplicates);
+      else setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
-    <DataTable
-      data={rows}
-      columns={cols}
-      onRow={(c) => onOpen(c.id)}
-      label="proposals"
-    />
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={client ? "Edit client" : "New client"}
+      description="Saved to Flowbase."
+    >
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save(false);
+        }}
+      >
+        {error && (
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        )}
+        {duplicates.length > 0 && (
+          <div role="alert" className="error-message">
+            <p>
+              <TriangleAlert size={14} /> A client with this email or phone
+              already exists:
+            </p>
+            <ul>
+              {duplicates.map((duplicate) => (
+                <li key={duplicate.id}>
+                  <Link to={`/clients/${duplicate.id}`} onClick={onClose}>
+                    {duplicate.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => void save(true)}
+            >
+              Create anyway
+            </Button>
+          </div>
+        )}
+        <FormField label="Name *">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </FormField>
+        <div className="form-grid">
+          <FormField label="Type">
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as Client["kind"])}
+            >
+              <option value="organization">Organization</option>
+              <option value="person">Person</option>
+            </select>
+          </FormField>
+          <FormField label="Tags" hint="Separate tags with commas.">
+            <input value={tags} onChange={(e) => setTags(e.target.value)} />
+          </FormField>
+        </div>
+        <FormField label="Notes">
+          <textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </FormField>
+        <h3 className="form-subheading">Contacts</h3>
+        {contacts.map((contact, index) => (
+          <fieldset
+            className="form-group"
+            key={contact.key}
+            aria-label={`Contact ${index + 1}`}
+          >
+            <div className="form-grid">
+              <FormField label="Contact name *">
+                <input
+                  value={contact.name}
+                  onChange={(e) => update(contact.key, { name: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Role">
+                <select
+                  value={contact.role}
+                  onChange={(e) =>
+                    update(contact.key, {
+                      role: contactRoleSchema.parse(e.target.value),
+                    })
+                  }
+                >
+                  {contactRoleSchema.options.map((role) => (
+                    <option key={role} value={role}>
+                      {contactRoleLabels[role]}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              {contact.hiddenDetails ? (
+                <p className="muted">
+                  Email and phone are visible to full-time staff only.
+                </p>
+              ) : (
+                <>
+                  <FormField label="Email">
+                    <input
+                      type="email"
+                      value={contact.email ?? ""}
+                      onChange={(e) =>
+                        update(contact.key, { email: e.target.value })
+                      }
+                    />
+                  </FormField>
+                  <FormField label="Phone">
+                    <input
+                      value={contact.phone ?? ""}
+                      onChange={(e) =>
+                        update(contact.key, { phone: e.target.value })
+                      }
+                    />
+                  </FormField>
+                </>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() =>
+                setContacts((current) =>
+                  current.filter((other) => other.key !== contact.key),
+                )
+              }
+            >
+              Remove contact
+            </Button>
+          </fieldset>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            setContacts((current) => [
+              ...current,
+              {
+                key: `new-${Date.now()}`,
+                name: "",
+                role: "billing",
+                email: "",
+                phone: "",
+                hiddenDetails: false,
+              },
+            ])
+          }
+        >
+          <Plus size={14} /> Add contact
+        </Button>
+        <div className="form-actions">
+          <Button variant="outline" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            Save client
+          </Button>
+        </div>
+      </form>
+    </DetailDrawer>
   );
 }
+
 export function ClientDetail() {
-  const { id } = useParams();
-  const store = useDemo();
-  const c = store.clients.find(id!);
+  const { id = "" } = useParams();
   const navigate = useNavigate();
+  const client = useResource(() => clientsApi.get(id), [id]);
+  const events = useResource(() => eventsApi.list({ clientId: id }), [id]);
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useState(false);
-  const [create, setCreate] = useState(false);
   const [archive, setArchive] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const [proposal, setProposal] = useState<string | null>(null);
-  if (!c)
+  const [newEvent, setNewEvent] = useState(false);
+  if (client.error)
     return (
-      <EmptyState
-        title="Client not found"
-        description="This demo record may have been archived."
-      />
+      <>
+        <Link to="/clients" className="back-link">
+          ← All clients
+        </Link>
+        <LoadError message={client.error} />
+      </>
     );
-  const relatedEvents = events.filter((e) => e.clientId === c.id);
-  const eventPanel = (
-    <Section title="Upcoming events">
-      {relatedEvents.length ? (
-        relatedEvents.map((e) => (
-          <div className="event-row" key={e.id}>
-            <div className="event-date">
-              <b>{e.date.slice(-2)}</b>
-              <span>OCT</span>
-            </div>
-            <div>
-              <strong>{e.name}</strong>
-              <small>
-                {e.location} · {e.guests} guests
-              </small>
-            </div>
-          </div>
-        ))
-      ) : (
-        <EmptyState
-          title="No upcoming events"
-          description="Future events for this client will appear here."
-        />
-      )}
-    </Section>
-  );
+  const c = client.data;
+  if (!c) return <LoadingSkeleton />;
   return (
     <>
       <Link to="/clients" className="back-link">
@@ -243,8 +451,10 @@ export function ClientDetail() {
         <div>
           <h1>{c.name}</h1>
           <p>
-            <StatusBadge status={c.status} />
-            <span>Account owner · {c.owner}</span>
+            <span className="badge neutral">
+              {c.kind === "person" ? "Person" : "Organization"}
+            </span>
+            {c.archivedAt && <span className="badge error">Archived</span>}
           </p>
         </div>
         <div className="page-actions">
@@ -252,179 +462,117 @@ export function ClientDetail() {
             <Pencil size={14} />
             Edit
           </Button>
-          <Button onClick={() => setCreate(true)}>
+          <Button onClick={() => setNewEvent(true)}>
             <Plus size={16} />
-            New Proposal
+            New Event
           </Button>
-          <div className="menu-wrap">
+          {c.archivedAt ? (
             <Button
               variant="outline"
-              size="icon"
-              aria-label="More client actions"
-              onClick={() => setMenu(!menu)}
+              onClick={async () =>
+                client.replace(await clientsApi.setArchived(c.id, false))
+              }
             >
-              <MoreHorizontal size={18} />
+              <RotateCcw size={14} />
+              Restore
             </Button>
-            {menu && (
-              <div className="dropdown">
-                <button
-                  onClick={() => {
-                    setArchive(true);
-                    setMenu(false);
-                  }}
-                >
-                  Archive client
-                </button>
-              </div>
-            )}
-          </div>
+          ) : (
+            <Button variant="outline" onClick={() => setArchive(true)}>
+              <Archive size={14} />
+              Archive
+            </Button>
+          )}
         </div>
       </div>
+      {c.possibleDuplicateOf && (
+        <p role="note" className="demo-callout">
+          Possible duplicate of{" "}
+          <Link to={`/clients/${c.possibleDuplicateOf.id}`}>
+            {c.possibleDuplicateOf.name}
+          </Link>
+          , created by a salesperson who can't see that client.
+        </p>
+      )}
       <Tabs
-        tabs={["Overview", "Contacts", "Proposals", "Events", "Notes", "Files"]}
+        tabs={["Overview", "Contacts", "Events"]}
         value={tab}
         onChange={setTab}
       />
       <div role="tabpanel" id="record-panel" aria-labelledby={`tab-${tab}`}>
         {tab === "Overview" && (
           <div className="detail-grid">
-            <div>
-              <Section title="Client information">
-                <div className="info-row">
-                  <Building2 size={17} />
-                  <div>
-                    <small>Company</small>
-                    <strong>{c.name}</strong>
-                  </div>
+            <Section title="Client information">
+              <div className="info-grid">
+                <div>
+                  <small>Tags</small>
+                  <strong>{c.tags.join(", ") || "None"}</strong>
                 </div>
-                <div className="info-row">
-                  <MapPin size={17} />
-                  <div>
-                    <small>Billing & contact address</small>
-                    <strong>{c.address || "No address added"}</strong>
-                  </div>
+                <div>
+                  <small>Contacts</small>
+                  <strong>{c.contacts.length}</strong>
                 </div>
-                <div className="info-grid">
-                  <div>
-                    <small>Account owner</small>
-                    <strong>{c.owner}</strong>
-                  </div>
-                  <div>
-                    <small>Last activity</small>
-                    <strong>{date(c.activity)}</strong>
-                  </div>
-                </div>
-              </Section>
-              <Section title="Main contact">
-                <div className="contact-profile">
-                  <span className="avatar">{initials(c.contact)}</span>
-                  <div>
-                    <strong>{c.contact}</strong>
-                    <small>Primary contact</small>
-                  </div>
-                </div>
-                <div className="info-row">
-                  <Mail size={16} />
-                  <span>{c.email}</span>
-                </div>
-                <div className="info-row">
-                  <Phone size={16} />
-                  <span>{c.phone || "No phone added"}</span>
-                </div>
-              </Section>
-            </div>
-            <div>
-              <Section
-                title="Recent proposals"
-                action={
-                  <button
-                    className="text-link"
-                    onClick={() => setTab("Proposals")}
-                  >
-                    View all <ArrowUpRight size={14} />
-                  </button>
-                }
-              >
-                <RelatedProposals clientId={c.id} onOpen={setProposal} />
-              </Section>
-              {eventPanel}
-              <Section title="Recent activity">
-                <p>Account reviewed by {c.owner}</p>
-                <small className="muted">
-                  {date(c.activity)} · Client information updated
-                </small>
-              </Section>
-            </div>
+              </div>
+              <h3 className="form-subheading">Notes</h3>
+              <p>{c.notes || "No notes yet."}</p>
+            </Section>
+            <Section title="Upcoming events">
+              <EventTable events={events.data ?? []} error={events.error} />
+            </Section>
           </div>
         )}
         {tab === "Contacts" && (
-          <Section title="People at this company">
-            {contacts
-              .filter((p) => p.clientId === c.id)
-              .map((p) => (
-                <div className="contact-profile" key={p.id}>
-                  <span className="avatar">{initials(p.name)}</span>
+          <Section title="Contacts">
+            {c.contacts.length ? (
+              c.contacts.map((contact) => (
+                <div className="contact-profile" key={contact.id}>
+                  <span className="avatar">{initials(contact.name)}</span>
                   <div>
-                    <strong>{p.name}</strong>
+                    <strong>{contact.name}</strong>
                     <small>
-                      {p.role} · {p.email}
+                      {contactRoleLabels[contact.role]} ·{" "}
+                      {hidden(contact.email)} · {hidden(contact.phone)}
                     </small>
                   </div>
                 </div>
-              ))}
+              ))
+            ) : (
+              <EmptyState
+                title="No contacts"
+                description="Add contacts from Edit."
+              />
+            )}
           </Section>
         )}
-        {tab === "Proposals" && (
-          <RelatedProposals clientId={c.id} onOpen={setProposal} />
-        )}{" "}
-        {tab === "Events" && eventPanel}
-        {tab === "Notes" && (
-          <Notes
-            notes={c.notes}
-            onAdd={async (text) => {
-              await store.clients.save({
-                ...c,
-                notes: [
-                  { text, date: new Date().toLocaleString() },
-                  ...c.notes,
-                ],
-              });
-              store.notify("Note added to this demo client.");
-            }}
-          />
-        )}
-        {tab === "Files" && (
-          <Section title="Client files">
-            <FileList />
-          </Section>
+        {tab === "Events" && (
+          <EventTable events={events.data ?? []} error={events.error} />
         )}
       </div>
       {edit && (
-        <RecordForm kind="client" record={c} onClose={() => setEdit(false)} />
-      )}{" "}
-      {create && (
-        <RecordForm
-          kind="proposal"
-          clientId={c.id}
-          onClose={() => setCreate(false)}
+        <ClientForm
+          client={c}
+          onClose={() => setEdit(false)}
+          onSaved={client.replace}
         />
-      )}{" "}
-      {proposal && (
-        <ProposalDrawer id={proposal} onClose={() => setProposal(null)} />
+      )}
+      {newEvent && (
+        <EventForm
+          clientId={c.id}
+          onClose={() => setNewEvent(false)}
+          onSaved={(event) => navigate(`/events/${event.id}`)}
+        />
       )}
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
         title="Archive this client?"
         onConfirm={async () => {
-          await store.clients.save({ ...c, status: "Inactive" });
-          store.notify("Client archived in demo memory.");
+          await clientsApi.setArchived(c.id, true);
           setArchive(false);
           navigate("/clients");
         }}
       >
-        This marks {c.name} inactive in the current demo session. Related
-        proposals remain available.
+        {c.name} will be hidden from the client list. You can restore it from
+        Show archived.
       </ConfirmationDialog>
     </>
   );
