@@ -1,4 +1,4 @@
-import type { Actor } from "../shared/access";
+import { isFtPlus, type Actor } from "../shared/access";
 
 // Stand-in for the FLOW-38 permission matrix: it covers only the actions built so
 // far, and FLOW-38 replaces it with the full role map. Admin can do everything.
@@ -11,6 +11,7 @@ export type Action =
   | "venues.write"
   | "events.write"
   | "inventory.write"
+  | "inventory.count"
   | "inventory.sections"
   | "leads.update"
   | "leads.assign"
@@ -28,6 +29,11 @@ const sells = (actor: Actor) =>
 const managesInventory = (actor: Actor) =>
   seesAllRecords(actor) || actor.role === "kitchen_lead";
 
+// Consumable counts (FLOW-82): Admin and the kitchen count ingredients; Admin and
+// FT+ count bar stock and supplies.
+const countsIngredients = (actor: Actor) =>
+  actor.role === "kitchen_lead" || actor.role === "kitchen_staff";
+
 const rules: Record<Action, (actor: Actor) => boolean> = {
   "jobs.manage": isAdmin,
   "ingest.manage": isAdmin,
@@ -35,6 +41,9 @@ const rules: Record<Action, (actor: Actor) => boolean> = {
   "venues.write": sells,
   "events.write": sells,
   "inventory.write": managesInventory,
+  // May count at least something: opens count mode.
+  "inventory.count": (actor) =>
+    managesInventory(actor) || countsIngredients(actor) || isFtPlus(actor),
   // Adding, renaming and archiving sections is Admin only (FLOW-70).
   "inventory.sections": isAdmin,
   "leads.update": sells,
@@ -46,6 +55,20 @@ const rules: Record<Action, (actor: Actor) => boolean> = {
 
 export const can = (actor: Actor, action: Action) =>
   isAdmin(actor) || rules[action](actor);
+
+// Who may count an item. Consumable counts need no approval and follow the kitchen
+// and bar split; rental counts stay with inventory managers until approval-gated
+// Master changes exist (FLOW-73).
+export function canCountItem(
+  actor: Actor,
+  item: { kind: string; subtype: string | null },
+) {
+  if (isAdmin(actor)) return true;
+  if (item.kind !== "consumable") return can(actor, "inventory.write");
+  return item.subtype === "ingredient"
+    ? countsIngredients(actor)
+    : isFtPlus(actor);
+}
 
 // Which records of a kind the actor may see. "own" = assigned to them as the
 // salesperson; "staffed" = events they lead or assist; "none" = no access.

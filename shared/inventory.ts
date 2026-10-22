@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { convert, unitSchema, type ItemConversions, type Unit } from "./units";
 
-// Inventory (FLOW-69 item model, FLOW-70 sections, FLOW-81 ingredient catalog),
+// Inventory (FLOW-69 item model, FLOW-70 sections, FLOW-81 ingredient catalog,
+// FLOW-71 stock ledger, FLOW-82 counts, FLOW-83 cost history, FLOW-90 bar stock),
 // shared by the API and the app. One item model covers rentals, decor, kitchen
 // ingredients, bar stock, disposables and non-stock service offerings. Kind-specific
 // fields live in typed sub-records so later tickets extend them without touching
@@ -73,6 +74,34 @@ export const allergenLabels: Record<Allergen, string> = {
   sesame: "Sesame",
 };
 
+// Bar stock (FLOW-90). Built-in lists until business settings make them
+// configurable (FLOW-45).
+export const barCategories = ["Beer", "Wine", "Liquor"];
+export const liquorSubcategories = ["Vodka", "Whiskey", "Scotch", "Rum", "Gin"];
+export const barTierSchema = z.enum(["rail", "call", "premium"]);
+export type BarTier = z.infer<typeof barTierSchema>;
+export const barTierLabels: Record<BarTier, string> = {
+  rail: "Rail",
+  call: "Call",
+  premium: "Premium",
+};
+export const barContainerSchema = z.enum(["bottle", "can", "keg"]);
+export type BarContainer = z.infer<typeof barContainerSchema>;
+export const barContainerLabels: Record<BarContainer, string> = {
+  bottle: "Bottle",
+  can: "Can",
+  keg: "Keg",
+};
+export const barDetailsSchema = z.object({
+  // Brand or varietal, e.g. Tito's or Pinot Grigio.
+  brand: text(200).default(""),
+  // Liquor only.
+  subcategory: text(100).default(""),
+  container: barContainerSchema.nullable().default(null),
+});
+const isBarStock = (item: { kind: ItemKind; subtype: string | null }) =>
+  item.kind === "consumable" && item.subtype === "bar";
+
 const eachSizeSchema = z.object({
   quantity: z.number().finite().positive().max(1_000_000),
   unit: unitSchema,
@@ -100,8 +129,10 @@ export const consumableDetailsInputSchema = z.object({
   // In the item's stock unit.
   parLevel: quantity.nullable().default(null),
   allergens: z.array(allergenSchema).max(20).default([]),
-  // Where it is normally kept (FLOW-70).
+  // Where it is normally kept (FLOW-70), and its shelf position there: count mode
+  // lists items in this order (FLOW-82).
   storageSectionId: id.nullable().default(null),
+  storageOrder: z.number().int().min(0).max(100_000).nullable().default(null),
 });
 
 const ratioSchema = z.object({
@@ -129,6 +160,7 @@ export const itemInputSchema = z
     rental: rentalDetailsSchema.optional(),
     consumable: consumableDetailsInputSchema.optional(),
     service: serviceDetailsSchema.optional(),
+    bar: barDetailsSchema.optional(),
   })
   .superRefine((item, ctx) => {
     const subtypes: readonly string[] = subtypesByKind[item.kind];
@@ -164,6 +196,32 @@ export const itemInputSchema = z
         path: ["consumable", "packCount"],
         message: "Enter how many are in a case.",
       });
+    if (item.bar && !isBarStock(item))
+      ctx.addIssue({
+        code: "custom",
+        path: ["bar"],
+        message: "Only bar stock has bar details.",
+      });
+    if (isBarStock(item)) {
+      if (!barCategories.includes(item.category))
+        ctx.addIssue({
+          code: "custom",
+          path: ["category"],
+          message: "Pick Beer, Wine or Liquor.",
+        });
+      if (item.tier && !barTierSchema.safeParse(item.tier).success)
+        ctx.addIssue({
+          code: "custom",
+          path: ["tier"],
+          message: "The tier is rail, call or premium.",
+        });
+      if (item.bar?.subcategory && item.category !== "Liquor")
+        ctx.addIssue({
+          code: "custom",
+          path: ["bar", "subcategory"],
+          message: "Only liquor has a subcategory.",
+        });
+    }
   });
 export type ItemInput = z.input<typeof itemInputSchema>;
 export type ItemInputParsed = z.output<typeof itemInputSchema>;
@@ -197,6 +255,8 @@ export const itemSchema = z.object({
     })
     .nullable(),
   service: serviceDetailsSchema.nullable(),
+  // Bar stock only (consumable, subtype bar).
+  bar: barDetailsSchema.nullable(),
   // Per-section quantities; services never have stock.
   stock: z.array(stockLevelSchema),
   totalQuantity: z.number(),
@@ -232,25 +292,203 @@ export type Section = z.infer<typeof sectionSchema>;
 export const sectionKindFor = (kind: ItemKind): SectionKind | null =>
   kind === "service" ? null : kind;
 
+// The stock ledger (FLOW-71). Every quantity change is a movement of one item in
+// one section with a signed quantity; on-hand is their sum.
+export const movementTypeSchema = z.enum([
+  "receive",
+  "adjust",
+  "count",
+  "transfer",
+  "pull",
+  "return",
+  "damage_loss",
+  "consume",
+]);
+export type MovementType = z.infer<typeof movementTypeSchema>;
+export const movementTypeLabels: Record<MovementType, string> = {
+  receive: "Received",
+  adjust: "Adjustment",
+  count: "Count",
+  transfer: "Transfer",
+  pull: "Pulled for event",
+  return: "Returned from event",
+  damage_loss: "Damage / loss",
+  consume: "Used",
+};
+// Which way each type moves stock; adjustments, counts, transfers and corrections
+// can go either way.
+export const movementDirection: Record<MovementType, 1 | -1 | 0> = {
+  receive: 1,
+  return: 1,
+  pull: -1,
+  damage_loss: -1,
+  consume: -1,
+  adjust: 0,
+  count: 0,
+  transfer: 0,
+};
+export const movementLinkTypeSchema = z.enum(["event", "order", "import"]);
+export const movementSchema = z.object({
+  id,
+  itemId: id,
+  sectionId: id,
+  sectionName: z.string(),
+  type: movementTypeSchema,
+  // Signed: positive adds stock to the section.
+  quantity: z.number(),
+  reason: z.string(),
+  // Both halves of a transfer share it.
+  transferId: id.nullable(),
+  // Set on a correction: the movement it corrects.
+  correctsId: id.nullable(),
+  // Corrections of this movement, oldest first.
+  correctedBy: z.array(id),
+  link: z.object({ type: movementLinkTypeSchema, id }).nullable(),
+  createdBy: id.nullable(),
+  createdAt: timestamp,
+});
+export type StockMovement = z.infer<typeof movementSchema>;
+
+// Movements entered by hand. Counts and transfers have their own inputs; pulls,
+// returns and usage are linked to an event when there is one.
+export const manualMovementTypes = [
+  "receive",
+  "adjust",
+  "damage_loss",
+  "consume",
+  "pull",
+  "return",
+] as const satisfies readonly MovementType[];
+const signedQuantity = z.number().finite().min(-1_000_000).max(1_000_000);
+export const movementInputSchema = z
+  .object({
+    type: z.enum(manualMovementTypes),
+    sectionId: id,
+    // How many, for a type with a direction; the signed change for an adjustment.
+    quantity: signedQuantity.refine((value) => value !== 0, {
+      message: "Enter a quantity other than zero.",
+    }),
+    reason: text(500).default(""),
+    eventId: id.nullable().default(null),
+  })
+  .superRefine((movement, ctx) => {
+    if (movementDirection[movement.type] !== 0 && movement.quantity < 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["quantity"],
+        message: "Enter how many; the type sets the direction.",
+      });
+    if (movement.type === "adjust" && !movement.reason)
+      ctx.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "Give a reason for the adjustment.",
+      });
+  });
+export type MovementInput = z.input<typeof movementInputSchema>;
+// FLOW-71 AC3: what the movement should have been. The difference is recorded as a
+// new movement linked to it; the original is never changed.
+export const correctionInputSchema = z.object({
+  quantity: signedQuantity,
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Give a reason for the correction.")
+    .max(500),
+});
+export type CorrectionInput = z.input<typeof correctionInputSchema>;
+
 export const transferInputSchema = z
   .object({
     fromSectionId: id,
     toSectionId: id,
     quantity: quantity.positive("Enter a quantity above zero."),
-    note: text(500).default(""),
+    reason: text(500).default(""),
   })
   .refine((transfer) => transfer.fromSectionId !== transfer.toSectionId, {
     message: "Pick two different sections.",
     path: ["toSectionId"],
   });
 export type TransferInput = z.input<typeof transferInputSchema>;
-// Sets a section's counted quantity; the difference is recorded as an adjustment.
+// A section's counted quantity; the difference is recorded as a count movement.
 export const countInputSchema = z.object({
   sectionId: id,
   quantity,
-  note: text(500).default(""),
+  reason: text(500).default(""),
 });
 export type CountInput = z.input<typeof countInputSchema>;
+
+// The count movement for a counted quantity (FLOW-82 AC1): counting 12 where the
+// section holds 15 is -3. Four decimal places, as stored.
+export const countDifference = (counted: number, onHand: number) =>
+  Math.round((counted - onHand) * 10_000) / 10_000;
+
+// Count mode (FLOW-82): a count of one storage section, saved item by item so it
+// can be resumed.
+export const countStatusSchema = z.enum(["open", "completed"]);
+export const startCountInputSchema = z.object({ sectionId: id });
+export const countLineInputSchema = z.object({
+  itemId: id,
+  quantity,
+  reason: text(500).default(""),
+});
+export type CountLineInput = z.input<typeof countLineInputSchema>;
+export const countLineSchema = z.object({
+  itemId: id,
+  name: z.string(),
+  code: z.string(),
+  subtype: z.string().nullable(),
+  category: z.string(),
+  unit: unitSchema,
+  storageOrder: z.number().nullable(),
+  parLevel: z.number().nullable(),
+  belowPar: z.boolean().nullable(),
+  // What the section holds now.
+  systemQuantity: z.number(),
+  // Whether the caller may count this item.
+  canCount: z.boolean(),
+  counted: z
+    .object({
+      quantity: z.number(),
+      difference: z.number(),
+      reason: z.string(),
+      countedBy: id.nullable(),
+      countedAt: timestamp,
+    })
+    .nullable(),
+});
+export type CountLine = z.infer<typeof countLineSchema>;
+export const stockCountSummarySchema = z.object({
+  id,
+  sectionId: id,
+  sectionName: z.string(),
+  status: countStatusSchema,
+  countedItems: z.number(),
+  startedBy: id.nullable(),
+  startedAt: timestamp,
+  completedAt: timestamp.nullable(),
+});
+export type StockCountSummary = z.infer<typeof stockCountSummarySchema>;
+export const stockCountSchema = stockCountSummarySchema.extend({
+  lines: z.array(countLineSchema),
+});
+export type StockCount = z.infer<typeof stockCountSchema>;
+
+// Unit-cost history (FLOW-83). FT+ only, like the cost itself.
+export const costSourceSchema = z.enum(["manual", "receiving"]);
+export const costSourceLabels: Record<
+  z.infer<typeof costSourceSchema>,
+  string
+> = { manual: "Edited by hand", receiving: "Receiving" };
+export const costChangeSchema = z.object({
+  id,
+  previousCents: z.number().int().nullable(),
+  unitCostCents: z.number().int().nullable(),
+  source: costSourceSchema,
+  changedBy: id.nullable(),
+  changedAt: timestamp,
+});
+export type CostChange = z.infer<typeof costChangeSchema>;
 
 // The item's conversions, in the shape the units helper takes.
 export const conversionsOf = (

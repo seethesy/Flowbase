@@ -365,11 +365,43 @@ export const inventoryConsumableDetails = pgTable(
     storageSectionId: uuid("storage_section_id").references(
       () => inventorySections.id,
     ),
+    // Shelf position in the storage section; count mode lists items in this order
+    // (FLOW-82).
+    storageOrder: integer("storage_order"),
   },
 ).enableRLS();
 
-// Current quantity of an item in a section. Changed only together with a
-// stock_movements row.
+// Bar stock fields (FLOW-90), one row per consumable of subtype bar. Category is
+// the item's (Beer, Wine, Liquor); tier is the item's (rail, call, premium); size
+// is the consumable's each size and pack size its pack count.
+export const inventoryBarDetails = pgTable("inventory_bar_details", {
+  ...baseColumns(),
+  itemId: itemReference(),
+  // Brand or varietal, e.g. Tito's or Pinot Grigio.
+  brand: text("brand").notNull().default(""),
+  // Liquor only: Vodka, Whiskey, Scotch, Rum, Gin.
+  subcategory: text("subcategory").notNull().default(""),
+  container: text("container", { enum: ["bottle", "can", "keg"] }),
+}).enableRLS();
+
+// Every unit-cost change of a consumable (FLOW-83): by hand from the item, or from
+// receiving (FLOW-88).
+export const inventoryCostHistory = pgTable(
+  "inventory_cost_history",
+  {
+    ...baseColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    previousCents: moneyCents("previous_cents"),
+    unitCostCents: moneyCents("unit_cost_cents"),
+    source: text("source", { enum: ["manual", "receiving"] }).notNull(),
+  },
+  (table) => [index("inventory_cost_history_item_idx").on(table.itemId)],
+).enableRLS();
+
+// Current quantity of an item in a section: a cache of the sum of its
+// stock_movements, written in the same transaction as each movement (FLOW-71).
 export const inventoryStock = pgTable(
   "inventory_stock",
   {
@@ -391,8 +423,21 @@ export const inventoryStock = pgTable(
   ],
 ).enableRLS();
 
-// Every stock change. Only transfers and counted adjustments so far; the stock
-// ledger (FLOW-71) adds receipts, usage and the rest.
+export const movementTypes = [
+  "receive",
+  "adjust",
+  "count",
+  "transfer",
+  "pull",
+  "return",
+  "damage_loss",
+  "consume",
+] as const;
+
+// The stock ledger (FLOW-71): one row per change to one item in one section, with
+// a signed quantity. Append-only (a trigger rejects updates and deletes); a
+// correction is a new row pointing at the one it corrects. A transfer is two rows
+// sharing a transfer_id.
 export const stockMovements = pgTable(
   "stock_movements",
   {
@@ -400,16 +445,69 @@ export const stockMovements = pgTable(
     itemId: uuid("item_id")
       .notNull()
       .references(() => inventoryItems.id),
-    type: text("type", { enum: ["transfer", "adjustment"] }).notNull(),
-    // A transfer's amount, or an adjustment's signed change.
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => inventorySections.id),
+    type: text("type", { enum: movementTypes }).notNull(),
     quantity: quantity("quantity").notNull(),
-    fromSectionId: uuid("from_section_id").references(
-      () => inventorySections.id,
+    reason: text("reason").notNull().default(""),
+    transferId: uuid("transfer_id"),
+    correctsId: uuid("corrects_id").references(
+      (): AnyPgColumn => stockMovements.id,
     ),
-    toSectionId: uuid("to_section_id").references(() => inventorySections.id),
-    note: text("note").notNull().default(""),
+    // What the movement belongs to. No foreign key: orders and imports don't
+    // exist yet (FLOW-86, FLOW-47).
+    linkType: text("link_type", { enum: ["event", "order", "import"] }),
+    linkId: uuid("link_id"),
   },
-  (table) => [index("stock_movements_item_idx").on(table.itemId)],
+  (table) => [
+    index("stock_movements_item_idx").on(table.itemId),
+    index("stock_movements_corrects_idx").on(table.correctsId),
+  ],
+).enableRLS();
+
+// Count mode (FLOW-82): one count of one storage section, saved line by line so it
+// can be resumed. At most one open count per section.
+export const stockCounts = pgTable(
+  "stock_counts",
+  {
+    ...baseColumns(),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => inventorySections.id),
+    status: text("status", { enum: ["open", "completed"] })
+      .notNull()
+      .default("open"),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("stock_counts_open_section_idx")
+      .on(table.sectionId)
+      .where(sql`${table.status} = 'open'`),
+  ],
+).enableRLS();
+
+// The latest counted quantity of an item in a count, and the count movement it
+// wrote.
+export const stockCountLines = pgTable(
+  "stock_count_lines",
+  {
+    ...baseColumns(),
+    countId: uuid("count_id")
+      .notNull()
+      .references(() => stockCounts.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    quantity: quantity("quantity").notNull(),
+    reason: text("reason").notNull().default(""),
+    movementId: uuid("movement_id")
+      .notNull()
+      .references(() => stockMovements.id),
+  },
+  (table) => [
+    uniqueIndex("stock_count_lines_item_idx").on(table.countId, table.itemId),
+  ],
 ).enableRLS();
 
 // Automatic activity time tracking (FLOW-119): one row per stretch of active time on
