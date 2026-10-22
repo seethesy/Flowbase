@@ -15,6 +15,13 @@
       "when": 1792659508449,
       "tag": "0001_jobs_and_ingest_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792660033336,
+      "tag": "0002_core_records",
+      "breakpoints": true
     }
   ]
 }
