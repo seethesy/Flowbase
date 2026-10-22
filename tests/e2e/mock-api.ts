@@ -9,6 +9,13 @@ import type {
   Venue,
   VenueInput,
 } from "../../shared/core-records";
+import type {
+  CountInput,
+  InventoryItem,
+  ItemInput,
+  Section,
+  TransferInput,
+} from "../../shared/inventory";
 
 // An in-memory stand-in for the core records API (FLOW-53/54/55). Playwright runs
 // against a Worker without a database or sign-in, so these screens get a fake
@@ -291,6 +298,220 @@ export const juniper = (): Client => ({
     },
   ],
   possibleDuplicateOf: null,
+  archivedAt: null,
+  createdAt: "2026-10-22T09:00:00.000Z",
+  updatedAt: "2026-10-22T09:00:00.000Z",
+});
+
+// The inventory API (FLOW-69/70/81) for an admin, in memory, with the default
+// sections. Seed items are stored as returned by the API.
+export async function mockInventoryApi(
+  page: Page,
+  seed: { items?: InventoryItem[] } = {},
+) {
+  const now = () => new Date().toISOString();
+  const sections = new Map<string, Section>(
+    defaultSections.map((section) => [section.id, section]),
+  );
+  const items = new Map((seed.items ?? []).map((item) => [item.id, item]));
+  const fail = (route: Route, status: number, code: string, message: string) =>
+    route.fulfill({
+      status,
+      json: { error: { code, message, requestId: randomUUID() } },
+    });
+  const withStock = (item: InventoryItem, stock: InventoryItem["stock"]) => {
+    const totalQuantity = stock.reduce((sum, level) => sum + level.quantity, 0);
+    const par = item.consumable?.parLevel;
+    return {
+      ...item,
+      stock: stock.filter((level) => level.quantity !== 0),
+      totalQuantity,
+      belowPar: par === null || par === undefined ? null : totalQuantity < par,
+    };
+  };
+  const save = (input: ItemInput, current?: InventoryItem): InventoryItem => {
+    const consumable = input.consumable;
+    const storage = consumable?.storageSectionId
+      ? sections.get(consumable.storageSectionId)
+      : undefined;
+    return withStock(
+      {
+        id: current?.id ?? randomUUID(),
+        kind: input.kind,
+        subtype: input.subtype ?? null,
+        code: input.code ?? "",
+        name: input.name,
+        category: input.category ?? "",
+        description: input.description ?? "",
+        unit: input.unit ?? "each",
+        group: input.group ?? "",
+        color: input.color ?? "",
+        tier: input.tier ?? "",
+        ratio: input.ratio ?? null,
+        active: input.active ?? true,
+        rental:
+          input.kind === "rental"
+            ? { priceCents: input.rental?.priceCents ?? null }
+            : null,
+        service:
+          input.kind === "service"
+            ? {
+                priceCents: input.service?.priceCents ?? null,
+                priceBasis: input.service?.priceBasis ?? "per_event",
+              }
+            : null,
+        consumable: consumable
+          ? {
+              purchaseUnit: consumable.purchaseUnit,
+              packCount: consumable.packCount ?? null,
+              eachSize: consumable.eachSize ?? null,
+              recipeUnit: consumable.recipeUnit ?? null,
+              unitCostCents:
+                consumable.unitCostCents ??
+                current?.consumable?.unitCostCents ??
+                null,
+              costHidden: false,
+              preferredVendor: consumable.preferredVendor ?? "",
+              parLevel: consumable.parLevel ?? null,
+              allergens: consumable.allergens ?? [],
+              storageSectionId: storage?.id ?? null,
+              storageSectionName: storage?.name ?? null,
+            }
+          : null,
+        stock: [],
+        totalQuantity: 0,
+        belowPar: null,
+        archivedAt: current?.archivedAt ?? null,
+        createdAt: current?.createdAt ?? now(),
+        updatedAt: now(),
+      },
+      current?.stock ?? [],
+    );
+  };
+  const change = (item: InventoryItem, sectionId: string, delta: number) => {
+    const stock = item.stock.map((other) => ({ ...other }));
+    const level = stock.find((other) => other.sectionId === sectionId);
+    if (level) level.quantity += delta;
+    else
+      stock.push({
+        sectionId,
+        sectionName: sections.get(sectionId)?.name ?? "",
+        quantity: delta,
+      });
+    return withStock(item, stock);
+  };
+
+  await page.route(/\/api\/inventory\//, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const [, , , resource, id, action] = url.pathname.split("/");
+    const method = request.method();
+    const body = method === "GET" ? undefined : request.postDataJSON();
+    if (resource === "sections") {
+      if (!id && method === "GET") {
+        const kind = url.searchParams.get("kind");
+        const archived = url.searchParams.get("archived") === "true";
+        return route.fulfill({
+          json: [...sections.values()].filter(
+            (section) =>
+              (!kind || section.kind === kind) &&
+              Boolean(section.archivedAt) === archived,
+          ),
+        });
+      }
+      return fail(route, 404, "NOT_FOUND", "Not found.");
+    }
+    if (!id && method === "GET") {
+      const params = url.searchParams;
+      return route.fulfill({
+        json: [...items.values()].filter(
+          (item) =>
+            Boolean(item.archivedAt) === (params.get("archived") === "true") &&
+            (!params.get("kind") || item.kind === params.get("kind")) &&
+            (!params.get("subtype") || item.subtype === params.get("subtype")) &&
+            (!params.get("category") ||
+              item.category === params.get("category")) &&
+            (!params.get("sectionId") ||
+              item.stock.some((s) => s.sectionId === params.get("sectionId")) ||
+              item.consumable?.storageSectionId === params.get("sectionId")) &&
+            (params.get("belowPar") !== "true" || item.belowPar === true),
+        ),
+      });
+    }
+    if (!id && method === "POST") {
+      const created = save(body as ItemInput);
+      items.set(created.id, created);
+      return route.fulfill({ status: 201, json: created });
+    }
+    const current = id ? items.get(id) : undefined;
+    if (!current) return fail(route, 404, "NOT_FOUND", "Item not found.");
+    let next: InventoryItem | undefined;
+    if (method === "GET" && !action) next = current;
+    if (method === "PUT" && !action) next = save(body as ItemInput, current);
+    if (action === "archive" || action === "restore")
+      next = { ...current, archivedAt: action === "archive" ? now() : null };
+    if (action === "transfers") {
+      const transfer = body as TransferInput;
+      const from = current.stock.find((s) => s.sectionId === transfer.fromSectionId);
+      if ((from?.quantity ?? 0) < transfer.quantity)
+        return fail(route, 409, "INSUFFICIENT_STOCK", "Not enough stock.");
+      next = change(
+        change(current, transfer.fromSectionId, -transfer.quantity),
+        transfer.toSectionId,
+        transfer.quantity,
+      );
+    }
+    if (action === "counts") {
+      const counted = body as CountInput;
+      const level = current.stock.find((s) => s.sectionId === counted.sectionId);
+      next = change(current, counted.sectionId, counted.quantity - (level?.quantity ?? 0));
+    }
+    if (!next) return fail(route, 404, "NOT_FOUND", "Not found.");
+    items.set(next.id, next);
+    const created = action === "transfers" || action === "counts";
+    return route.fulfill({ status: created ? 201 : 200, json: next });
+  });
+}
+
+const sectionRow = (index: number, name: string, kind: Section["kind"]): Section => ({
+  id: `d0000000-0000-4000-8000-00000000000${index}`,
+  name,
+  kind,
+  totalQuantity: 0,
+  archivedAt: null,
+});
+export const defaultSections = [
+  sectionRow(1, "Warehouse", "rental"),
+  sectionRow(2, "Jamie's", "rental"),
+  sectionRow(3, "Cafe", "rental"),
+  sectionRow(4, "Vendor", "rental"),
+  sectionRow(5, "Kitchen – Dry Storage", "consumable"),
+  sectionRow(6, "Kitchen – Refrigerated", "consumable"),
+];
+
+export const chairs = (): InventoryItem => ({
+  id: "e0000000-0000-4000-8000-000000000001",
+  kind: "rental",
+  subtype: "furniture",
+  code: "CH-001",
+  name: "Chiavari Chair",
+  category: "Chairs",
+  description: "",
+  unit: "each",
+  group: "",
+  color: "Gold",
+  tier: "",
+  ratio: { quantity: 1, basis: "per_guest" },
+  active: true,
+  rental: { priceCents: 800 },
+  service: null,
+  consumable: null,
+  stock: [
+    { sectionId: defaultSections[0].id, sectionName: "Warehouse", quantity: 40 },
+    { sectionId: defaultSections[2].id, sectionName: "Cafe", quantity: 10 },
+  ],
+  totalQuantity: 50,
+  belowPar: null,
   archivedAt: null,
   createdAt: "2026-10-22T09:00:00.000Z",
   updatedAt: "2026-10-22T09:00:00.000Z",

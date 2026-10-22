@@ -12,7 +12,12 @@ import { EventList, EventDetail } from "../features/events";
 import { VenueList, VenueDetail } from "../features/venues";
 import { PrintSample } from "../features/print-sample";
 import { Proposals } from "../features/proposals";
-import { InventoryList, InventoryDetail } from "../features/inventory";
+import {
+  InventoryList,
+  InventoryDetail,
+  IngredientList,
+  SectionList,
+} from "../features/inventory";
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 function Placeholder() {
@@ -84,6 +89,8 @@ export const router = createHashRouter([
       { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
       { path: "/proposals", element: <Proposals /> },
       { path: "/inventory", element: <InventoryList /> },
+      { path: "/inventory/ingredients", element: <IngredientList /> },
+      { path: "/inventory/sections", element: <SectionList /> },
       { path: "/inventory/:id", element: <InventoryDetail /> },
       { path: "/events", element: <EventList /> },
       { path: "/events/:id", element: <EventDetail /> },
