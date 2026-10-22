@@ -105,7 +105,7 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 | --- | --- |
 | Clients | `GET /api/clients?archived=&flagged=`, `GET/PUT /api/clients/<id>`, `POST /api/clients`, `POST /api/clients/<id>/archive` and `/restore` |
 | Venues | the same shape under `/api/venues` |
-| Events | the same shape under `/api/events`, with `?clientId=&venueId=&from=&to=` (New York dates) |
+| Events | the same shape under `/api/events`, with `?clientId=&venueId=&from=&to=` (New York dates). Status is `inquiry` (created by lead conversion), `tentative`, `booked`, `completed` or `cancelled` |
 
 - **Who sees what** (`worker/policy.ts`, a stand-in for FLOW-38): Admin, Technical and Sales Manager see every client and event; a salesperson sees the clients and events assigned to them (their new clients are assigned to them); other staff see the events they lead or assist and no clients. Records a user can't see answer 404. Venues are visible to everyone. Writes are open to Admin, Technical, Sales Manager and salespeople.
 - **Contact details** (F-01-04): client contact email/phone and venue contacts come back as `null` for anyone who isn't FT+. An update that omits a contact's email or phone keeps the stored value.
@@ -127,6 +127,24 @@ Inventory items (FLOW-69), sections and stock (FLOW-70) and the ingredient catal
 - **Units** (`shared/units.ts`, FLOW-51): count (each, dozen, case), weight (oz, lb, g, kg) and volume (tsp, tbsp, cup, fl oz, qt, gal, ml, l). `convert()` handles the standard conversions plus each item's pack count (a case of 12) and "one each is about" size (750 ml a bottle, 8 oz a chicken breast), and returns `cannot_convert` instead of guessing (weight ↔ volume never converts). `orderQuantity()` rounds up to whole purchase units. A recipe unit an ingredient can't be converted to is flagged on the form (`recipeUnitProblem`).
 - **Stock:** quantities are per item and section. Rentals live in rental sections (Warehouse, Jamie's, Cafe, Vendor for sub-rentals), consumables in storage sections (Kitchen – Dry Storage, – Refrigerated, – Freezer, Bar Storage, Supplies); the defaults are seeded by migration. Every change goes through `recordMovement` (`worker/records/inventory.ts`), which writes a `stock_movements` row and the new quantities in one transaction, never lets a section go below zero, and rejects service items, which have no stock. Only transfers and counted adjustments exist so far; the stock ledger (FLOW-71) adds the rest.
 - **Who can do what** (`worker/policy.ts`): every signed-in user can read inventory. Admin, Technical, Sales Manager and the kitchen lead can change items and stock. Only Admin adds, renames and archives sections; a section that still holds stock can't be archived. Ingredient costs come back `null` (with `costHidden`) for anyone who isn't FT+ (F-01-04), and an update that omits the cost keeps it.
+
+## Leads
+
+Every lead source writes the same record (FLOW-100); the inbox, triage queue and conversion (FLOW-111, FLOW-112) are served by `worker/routes/leads.ts` under `/api/leads`, with logic in `worker/records/leads.ts`, schemas in `shared/leads.ts` and the screens in `src/features/leads.tsx` (`/#/leads`).
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/leads` | The inbox, newest first. Filters: `status`, `source`, `channel`, `assigned` (a user id or `unassigned`), `search`, `needsReview=true`, `triage=true` |
+| `GET /api/leads/<id>` | One lead; includes `rawPayload` for FT+ users, `null` for part-time |
+| `POST /api/leads/<id>/assign`, `POST /api/leads/assign` | Assign a salesperson to one lead, or to many (`{leadIds, assignedSalespersonId}`). Admin only |
+| `POST /api/leads/<id>/status` | `{status: contacted \| qualified \| lost, reason}` |
+| `POST /api/leads/<id>/convert` | Convert a qualified lead (below) |
+
+- **Entering a lead:** there is no create route. Collectors (FLOW-102), webhooks (FLOW-108), manual entry (FLOW-101) and import (FLOW-109) call `createLead(db, input)`, which stores the lead and emits `lead.collected` (collector) or `lead.received` (everything else) in the same transaction. Only `channel` and `source` are required; a lead with no event date, or with neither email nor phone, appears in the **Needs review** view.
+- **Who sees what:** Admin, Technical and Sales Manager see every lead; a salesperson sees only the leads assigned to them, and any other lead answers 404 (Q-41). Other roles get 403. The raw payload is returned only on the detail response and only to FT+ users.
+- **Triage and assignment:** the triage queue is every open lead (new, contacted or qualified) with no salesperson. Only Admin can assign or reassign (FLOW-111 Q-41a; `leads.assign` in `worker/policy.ts` is the one rule to widen if the Sales Manager should assign too). Bulk assign is all or nothing. Each change of salesperson emits `lead.assigned` with the new and previous salesperson; the notification (FLOW-43) subscribes to it. Until the users table exists (FLOW-37) the salesperson is a user id typed into the form.
+- **Status:** `new → contacted → qualified`, and `lost` from any open status with a required reason. Lost and converted are final; `converted` is reached only by converting. The first move to `contacted` stamps `firstRespondedAt`; first-response time is the gap from `receivedAt` to that moment. Each change emits `lead.status_changed`.
+- **Convert:** needs a `qualified` lead. In one transaction it creates a client (or links an existing one) with a contact from the lead, creates an event with status `inquiry` pre-filled from the lead (date, guest count, event type, location as the address, message as the internal notes), marks the lead `converted` with links to both, and emits `lead.converted` (`clientId`, `eventId`) plus the usual `client.created` / `event.created`. If anything fails, nothing is kept. The start time is entered at conversion (the lead has none); the date defaults to the lead's. A matching client email or phone answers `409 POSSIBLE_DUPLICATE`, and the form offers to link to the match or create anyway. A salesperson converts only their own leads, into clients and events assigned to them. The proposal that FLOW-112 also asks for is not created yet: proposals do not exist until FLOW-122.
 
 ## Attachments
 

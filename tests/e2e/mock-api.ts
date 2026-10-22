@@ -17,6 +17,12 @@ import type {
   TransferInput,
 } from "../../shared/inventory";
 
+import {
+  leadStatusTransitions,
+  type Lead,
+  type LeadConversion,
+} from "../../shared/leads";
+
 // An in-memory stand-in for the core records API (FLOW-53/54/55). Playwright runs
 // against a Worker without a database or sign-in, so these screens get a fake
 // backend that behaves like the real routes for an admin.
@@ -516,3 +522,167 @@ export const chairs = (): InventoryItem => ({
   createdAt: "2026-10-22T09:00:00.000Z",
   updatedAt: "2026-10-22T09:00:00.000Z",
 });
+
+// An in-memory stand-in for the leads API (FLOW-100/111/112), behaving like the real
+// routes for an admin: filters, the triage queue, status rules, assignment and
+// conversion.
+export async function mockLeadsApi(page: Page, seed: Lead[]) {
+  const leads = new Map(seed.map((lead) => [lead.id, lead]));
+  const json = (route: Route, body: unknown, status = 200) =>
+    route.fulfill({ status, json: body });
+  const error = (route: Route, status: number, code: string, message: string) =>
+    json(
+      route,
+      { error: { code, message, requestId: randomUUID() } },
+      status,
+    );
+  await page.route(/\/api\/leads(\/|\?|$)/, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const parts = url.pathname.split("/");
+    const id: string | undefined = parts[3];
+    const action: string | undefined = parts[4];
+    const method = request.method();
+    const body = method === "POST" ? request.postDataJSON() : undefined;
+    if (method === "GET" && !id) {
+      const param = (key: string) => url.searchParams.get(key);
+      return json(
+        route,
+        [...leads.values()]
+          .filter(
+            (lead) =>
+              (!param("status") || lead.status === param("status")) &&
+              (!param("source") || lead.source === param("source")) &&
+              (!param("channel") || lead.channel === param("channel")) &&
+              (param("needsReview") !== "true" || lead.needsReview) &&
+              (param("triage") !== "true" ||
+                (!lead.assignedSalespersonId &&
+                  ["new", "contacted", "qualified"].includes(lead.status))),
+          )
+          .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)),
+      );
+    }
+    if (method === "POST" && id === "assign") {
+      for (const leadId of body.leadIds as string[]) {
+        const lead = leads.get(leadId);
+        if (lead)
+          leads.set(leadId, {
+            ...lead,
+            assignedSalespersonId: body.assignedSalespersonId,
+          });
+      }
+      return json(
+        route,
+        (body.leadIds as string[]).map((leadId) => leads.get(leadId)),
+      );
+    }
+    const current = id ? leads.get(id) : undefined;
+    if (!current)
+      return error(route, 404, "NOT_FOUND", "Lead not found.");
+    if (method === "GET") return json(route, current);
+    if (action === "assign") {
+      const updated = {
+        ...current,
+        assignedSalespersonId: body.assignedSalespersonId,
+      };
+      leads.set(current.id, updated);
+      return json(route, updated);
+    }
+    if (action === "status") {
+      if (body.status === "lost" && !String(body.reason ?? "").trim())
+        return error(
+          route,
+          400,
+          "INVALID_REQUEST",
+          "A reason is required when marking a lead lost.",
+        );
+      if (!leadStatusTransitions[current.status].includes(body.status))
+        return error(
+          route,
+          409,
+          "INVALID_TRANSITION",
+          `A ${current.status} lead can't be marked ${body.status}.`,
+        );
+      const now = new Date();
+      const updated: Lead = {
+        ...current,
+        status: body.status,
+        lostReason: body.status === "lost" ? body.reason : current.lostReason,
+        firstRespondedAt:
+          current.firstRespondedAt ??
+          (body.status === "contacted" ? now.toISOString() : null),
+        firstResponseSeconds:
+          current.firstResponseSeconds ??
+          (body.status === "contacted"
+            ? Math.round((now.getTime() - Date.parse(current.receivedAt)) / 1000)
+            : null),
+      };
+      leads.set(current.id, updated);
+      return json(route, updated);
+    }
+    if (action === "convert") {
+      if (current.status !== "qualified")
+        return error(
+          route,
+          409,
+          "INVALID_TRANSITION",
+          "Only a qualified lead can be converted.",
+        );
+      const clientId = randomUUID();
+      const eventId = randomUUID();
+      const converted: Lead = {
+        ...current,
+        status: "converted",
+        convertedClientId: clientId,
+        convertedEventId: eventId,
+      };
+      leads.set(current.id, converted);
+      const result: LeadConversion = {
+        lead: converted,
+        client: { id: clientId, name: body.client?.name || current.name },
+        event: {
+          id: eventId,
+          title: body.event.title || `${current.name} — ${current.eventType}`,
+        },
+      };
+      return json(route, result);
+    }
+    return error(route, 404, "NOT_FOUND", "Not found.");
+  });
+}
+
+let leadCounter = 0;
+export const lead = (overrides: Partial<Lead> = {}): Lead => {
+  leadCounter += 1;
+  return {
+    id: `d0000000-0000-4000-8000-${String(leadCounter).padStart(12, "0")}`,
+    receivedAt: `2026-10-${String(10 + leadCounter).padStart(2, "0")}T14:00:00.000Z`,
+    channel: "webhook",
+    source: "Bark",
+    sourceLeadId: `bark-${leadCounter}`,
+    sourceLeadUrl: "",
+    purchased: false,
+    name: `Lead ${leadCounter}`,
+    email: `lead${leadCounter}@example.com`,
+    phone: "202-555-0100",
+    eventDate: "2026-12-05",
+    guestCount: 60,
+    location: "Brooklyn, NY",
+    eventType: "Wedding",
+    budgetCents: null,
+    message: "",
+    status: "new",
+    lostReason: "",
+    firstRespondedAt: null,
+    firstResponseSeconds: null,
+    assignedSalespersonId: null,
+    convertedClientId: null,
+    convertedEventId: null,
+    needsReview: false,
+    rawPayload: null,
+    archivedAt: null,
+    createdAt: "2026-10-10T14:00:00.000Z",
+    updatedAt: "2026-10-10T14:00:00.000Z",
+    ...overrides,
+  };
+};

@@ -27,6 +27,7 @@ import { LoadError } from "./clients";
 import { Attachments } from "./attachments";
 
 export const statusLabels: Record<EventStatus, string> = {
+  inquiry: "Inquiry",
   tentative: "Tentative",
   booked: "Booked",
   completed: "Completed",

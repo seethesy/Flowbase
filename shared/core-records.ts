@@ -131,6 +131,8 @@ export const venueSchema = z.object({
 export type Venue = z.infer<typeof venueSchema>;
 
 export const eventStatusSchema = z.enum([
+  // Created by lead conversion (FLOW-112) before the date is firm.
+  "inquiry",
   "tentative",
   "booked",
   "completed",

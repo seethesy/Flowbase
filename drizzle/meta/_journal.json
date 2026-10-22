@@ -43,6 +43,13 @@
       "when": 1792694006920,
       "tag": "0005_default_inventory_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792695187820,
+      "tag": "0006_lead_inbox",
+      "breakpoints": true
     }
   ]
 }
