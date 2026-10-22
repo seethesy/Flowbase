@@ -223,3 +223,85 @@ it("creates an event from just a title, date, time and client", async () => {
   // Untouched areas are left to the API, which copies the venue's.
   expect(sent).not.toHaveProperty("areas");
 });
+
+it("offers every status when creating an event, and none when editing it", async () => {
+  let sent: Record<string, unknown> | undefined;
+  mockApi({
+    "GET /api/clients": () => Response.json([client()]),
+    "GET /api/venues": () => Response.json([]),
+    "POST /api/events": (init) => {
+      sent = bodyOf(init);
+      return new Response(null, { status: 500 });
+    },
+  });
+  const user = userEvent.setup();
+  const { unmount } = mount(<EventForm onClose={() => {}} onSaved={() => {}} />);
+  const dialog = screen.getByRole("dialog");
+  const status = within(dialog).getByLabelText("Status");
+  expect(status).toHaveValue("inquiry");
+  expect(
+    within(status)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual([
+    "Inquiry",
+    "Pitching",
+    "P creation",
+    "Initial P sent",
+    "Negotiation",
+    "Closing",
+    "Closed",
+    "Preparation",
+    "Finished",
+    "Lost",
+  ]);
+  await user.selectOptions(status, "negotiation");
+  await user.type(within(dialog).getByLabelText("Title *"), "Fall gala");
+  await user.type(within(dialog).getByLabelText("Date *"), "2026-11-14");
+  await user.type(within(dialog).getByLabelText("Start time *"), "18:00");
+  await within(dialog).findByRole("option", { name: "Juniper & Co." });
+  await user.selectOptions(within(dialog).getByLabelText("Client *"), client().id);
+  await user.click(within(dialog).getByRole("button", { name: "Save event" }));
+  await waitFor(() => expect(sent).toMatchObject({ status: "negotiation" }));
+  unmount();
+
+  mount(
+    <EventForm
+      event={{
+        id: "6b1f4c3e-2d5a-4e7b-8c9d-0a1b2c3d4e5f",
+        title: "Fall gala",
+        date: "2026-11-14",
+        startTime: "18:00",
+        endTime: null,
+        startsAt: "2026-11-14T23:00:00.000Z",
+        endsAt: null,
+        client: { id: client().id, name: "Juniper & Co." },
+        pocContactId: null,
+        venue: null,
+        address: "",
+        areas: [],
+        eventType: "",
+        serviceType: "",
+        foodServiceStyle: "",
+        guestCount: null,
+        servingsCount: null,
+        assignedSalespersonId: null,
+        productionLeadId: null,
+        assistantLeadIds: [],
+        dressCode: "",
+        transportationNotes: "",
+        internalNotes: "",
+        status: "closing",
+        bookedAt: null,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      }}
+      onClose={() => {}}
+      onSaved={() => {}}
+    />,
+  );
+  expect(
+    within(screen.getByRole("dialog")).queryByLabelText("Status"),
+  ).not.toBeInTheDocument();
+});

@@ -89,8 +89,16 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Guest count", { exact: true }).fill("120");
-  await dialog.getByLabel(/^Status/).selectOption("booked");
+  // Status changes on the event page, not in the edit form (FLOW-56).
+  await expect(dialog.getByLabel(/^Status/)).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save event" }).click();
   await expect(page.getByText("120", { exact: true })).toBeVisible();
-  await expect(page.getByText("Booked").first()).toBeVisible();
+
+  await page.getByLabel(/^New status/).selectOption("lost");
+  await page.getByLabel("Why (optional)").fill("Went with another caterer");
+  await page.getByRole("button", { name: "Change status" }).click();
+  await expect(page.getByText("Lost").first()).toBeVisible();
+  const history = page.getByRole("list", { name: "Status history" });
+  await expect(history.getByText("Inquiry → Lost")).toBeVisible();
+  await expect(history.getByText("Went with another caterer")).toBeVisible();
 });

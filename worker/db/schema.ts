@@ -12,6 +12,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { eventStatuses } from "../../shared/core-records";
 import { baseColumns, moneyCents, timestamptz } from "./conventions";
 
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
@@ -174,11 +175,9 @@ export const events = pgTable(
     dressCode: text("dress_code").notNull().default(""),
     transportationNotes: text("transportation_notes").notNull().default(""),
     internalNotes: text("internal_notes").notNull().default(""),
-    status: text("status", {
-      enum: ["inquiry", "tentative", "booked", "completed", "cancelled"],
-    })
+    status: text("status", { enum: eventStatuses })
       .notNull()
-      .default("tentative"),
+      .default("inquiry"),
     bookedAt: timestamptz("booked_at"),
   },
   (table) => [
@@ -201,6 +200,49 @@ export const eventAreas = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [index("event_areas_event_idx").on(table.eventId)],
+).enableRLS();
+
+// Audit log (FLOW-41): one append-only row per create, update, archive or restore
+// of a core record, written in the same transaction as the change. changes holds
+// only the fields that changed, keyed by their API name. The API never updates or
+// deletes these rows; created_by is the actor.
+export const auditActions = ["create", "update", "archive", "restore"] as const;
+export type AuditChanges = Record<string, { before: unknown; after: unknown }>;
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    ...baseColumns(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    action: text("action", { enum: auditActions }).notNull(),
+    changes: jsonb("changes").$type<AuditChanges>().notNull(),
+  },
+  (table) => [
+    index("audit_log_entity_idx").on(
+      table.entityType,
+      table.entityId,
+      table.createdAt,
+    ),
+  ],
+).enableRLS();
+
+// Status history (FLOW-56): one row per status change of an event: who
+// (created_by; null for the system), when (created_at), from and to, and why.
+export const eventStatusHistory = pgTable(
+  "event_status_history",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    // null for the status the event was created with.
+    fromStatus: text("from_status", { enum: eventStatuses }),
+    toStatus: text("to_status", { enum: eventStatuses }).notNull(),
+    reason: text("reason").notNull().default(""),
+    // false when the system moved the event along the forward chain.
+    manual: boolean("manual").notNull().default(true),
+  },
+  (table) => [index("event_status_history_event_idx").on(table.eventId)],
 ).enableRLS();
 
 // Leads (FLOW-100). One record for every source: collector, webhook, manual entry and

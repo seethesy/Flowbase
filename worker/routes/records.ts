@@ -4,6 +4,7 @@ import {
   clientCreateSchema,
   clientInputSchema,
   eventInputSchema,
+  eventTransitionSchema,
   venueInputSchema,
 } from "../../shared/core-records";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
@@ -16,6 +17,7 @@ import {
   type RunWithDb,
 } from "../hono";
 import {
+  clientHistory,
   createClient,
   getClient,
   listClients,
@@ -24,9 +26,12 @@ import {
 } from "../records/clients";
 import {
   createEvent,
+  eventHistory,
+  eventStatusChanges,
   getEvent,
   getEventHub,
   listEvents,
+  overrideEventStatus,
   setEventArchived,
   updateEvent,
 } from "../records/events";
@@ -36,12 +41,13 @@ import {
   listVenues,
   setVenueArchived,
   updateVenue,
+  venueHistory,
 } from "../records/venues";
 
 const uuid = z.string().uuid();
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-// Core records API (FLOW-53/54/55): /api/clients, /api/venues, /api/events. Every
+// Core records API (FLOW-53/54/55, history FLOW-41): /api/clients, /api/venues, /api/events. Every
 // route needs a signed-in user; records the user can't see answer 404.
 export function recordRoutes(options: {
   withDb?: RunWithDb;
@@ -79,6 +85,21 @@ export function recordRoutes(options: {
       ),
     );
   });
+  // Record history (FLOW-41): read-only for anyone who can see the record. There
+  // are deliberately no routes that change or remove audit rows.
+  for (const [resource, what, history] of [
+    ["clients", "Client", clientHistory],
+    ["venues", "Venue", venueHistory],
+    ["events", "Event", eventHistory],
+  ] as const)
+    routes.get(`/${resource}/:id/history`, async (c) => {
+      const id = param(c, what);
+      return c.json(
+        await runDb(options.withDb, c.env, (tx) =>
+          history(tx, c.get("actor"), id),
+        ),
+      );
+    });
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
     const input = await parseBody(c, clientCreateSchema);
     return c.json(
@@ -228,6 +249,25 @@ export function recordRoutes(options: {
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
         updateEvent(tx, c.get("actor"), id, input),
+      ),
+    );
+  });
+  // Manual status changes (FLOW-56): Admin or the event's salesperson, checked per
+  // event in shared/event-lifecycle.ts. Automatic moves have no route.
+  routes.post("/events/:id/status", async (c) => {
+    const id = param(c, "Event");
+    const input = await parseBody(c, eventTransitionSchema);
+    return c.json(
+      await runDb(options.withDb, c.env, (tx) =>
+        overrideEventStatus(tx, c.get("actor"), id, input),
+      ),
+    );
+  });
+  routes.get("/events/:id/status-history", async (c) => {
+    const id = param(c, "Event");
+    return c.json(
+      await runDb(options.withDb, c.env, (tx) =>
+        eventStatusChanges(tx, c.get("actor"), id),
       ),
     );
   });
