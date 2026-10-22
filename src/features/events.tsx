@@ -3,9 +3,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  eventStatusLabels,
   eventStatusSchema,
   type EventInput,
-  type EventStatus,
   type FlowEvent,
 } from "../../shared/core-records";
 import { clientsApi, eventsApi, venuesApi } from "../services/core";
@@ -26,12 +26,7 @@ import {
 import { LoadError } from "./clients";
 import { Attachments } from "./attachments";
 
-export const statusLabels: Record<EventStatus, string> = {
-  tentative: "Tentative",
-  booked: "Booked",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
+export const statusLabels = eventStatusLabels;
 const date = (value: string) =>
   new Date(`${value}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "short",

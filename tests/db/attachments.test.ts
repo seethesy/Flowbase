@@ -71,7 +71,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   stored.clear();
   await db.execute(
-    sql`truncate table attachments, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table audit_log, event_status_history, attachments, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {

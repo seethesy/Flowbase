@@ -8,6 +8,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { eventStatusSchema } from "../../shared/core-records";
 import { baseColumns, timestamptz } from "./conventions";
 
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
@@ -170,9 +171,7 @@ export const events = pgTable(
     dressCode: text("dress_code").notNull().default(""),
     transportationNotes: text("transportation_notes").notNull().default(""),
     internalNotes: text("internal_notes").notNull().default(""),
-    status: text("status", {
-      enum: ["tentative", "booked", "completed", "cancelled"],
-    })
+    status: text("status", { enum: eventStatusSchema.options })
       .notNull()
       .default("tentative"),
     bookedAt: timestamptz("booked_at"),
@@ -221,6 +220,23 @@ export const auditLog = pgTable(
       table.createdAt,
     ),
   ],
+).enableRLS();
+
+// Status history (FLOW-56): one row per status change of an event: who
+// (created_by), when (created_at), from and to, and why.
+export const eventStatusHistory = pgTable(
+  "event_status_history",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    // null for the status the event was created with.
+    fromStatus: text("from_status", { enum: eventStatusSchema.options }),
+    toStatus: text("to_status", { enum: eventStatusSchema.options }).notNull(),
+    reason: text("reason").notNull().default(""),
+  },
+  (table) => [index("event_status_history_event_idx").on(table.eventId)],
 ).enableRLS();
 
 // Attachments (FLOW-42): file metadata linked to any record; the bytes live in R2.

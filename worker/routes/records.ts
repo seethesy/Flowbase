@@ -4,6 +4,7 @@ import {
   clientCreateSchema,
   clientInputSchema,
   eventInputSchema,
+  eventTransitionSchema,
   venueInputSchema,
 } from "../../shared/core-records";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
@@ -26,9 +27,11 @@ import {
 import {
   createEvent,
   eventHistory,
+  eventStatusChanges,
   getEvent,
   listEvents,
   setEventArchived,
+  transitionEvent,
   updateEvent,
 } from "../records/events";
 import {
@@ -236,6 +239,25 @@ export function recordRoutes(options: {
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
         updateEvent(tx, c.get("actor"), id, input),
+      ),
+    );
+  });
+  // Status changes (FLOW-56). Who may make each move is decided per event in
+  // shared/event-lifecycle.ts, so these need no write permission up front.
+  routes.post("/events/:id/status", async (c) => {
+    const id = param(c, "Event");
+    const input = await parseBody(c, eventTransitionSchema);
+    return c.json(
+      await runDb(options.withDb, c.env, (tx) =>
+        transitionEvent(tx, c.get("actor"), id, input),
+      ),
+    );
+  });
+  routes.get("/events/:id/status-history", async (c) => {
+    const id = param(c, "Event");
+    return c.json(
+      await runDb(options.withDb, c.env, (tx) =>
+        eventStatusChanges(tx, c.get("actor"), id),
       ),
     );
   });

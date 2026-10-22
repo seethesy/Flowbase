@@ -130,13 +130,30 @@ export const venueSchema = z.object({
 });
 export type Venue = z.infer<typeof venueSchema>;
 
+// The event lifecycle (Epic FLOW-4); allowed moves live in shared/event-lifecycle.ts.
 export const eventStatusSchema = z.enum([
+  "inquiry",
+  "proposing",
   "tentative",
   "booked",
+  "planning",
+  "in_progress",
   "completed",
+  "closed",
   "cancelled",
 ]);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
+export const eventStatusLabels: Record<EventStatus, string> = {
+  inquiry: "Inquiry",
+  proposing: "Proposing",
+  tentative: "Tentative",
+  booked: "Booked",
+  planning: "Planning",
+  in_progress: "In progress",
+  completed: "Completed",
+  closed: "Closed",
+  cancelled: "Cancelled",
+};
 const localDate = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Enter a date.");
@@ -202,3 +219,20 @@ export const eventSchema = z.object({
   updatedAt: timestamp,
 });
 export type FlowEvent = z.infer<typeof eventSchema>;
+
+// POST /api/events/<id>/status (FLOW-56).
+export const eventTransitionSchema = z.object({
+  status: eventStatusSchema,
+  reason: text(1000).default(""),
+});
+export type EventTransitionInput = z.input<typeof eventTransitionSchema>;
+export const eventStatusChangeSchema = z.object({
+  id,
+  // null for the status the event was created with.
+  from: eventStatusSchema.nullable(),
+  to: eventStatusSchema,
+  reason: z.string(),
+  actorId: id.nullable(),
+  at: timestamp,
+});
+export type EventStatusChange = z.infer<typeof eventStatusChangeSchema>;
