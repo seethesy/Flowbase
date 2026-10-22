@@ -151,7 +151,7 @@ export async function listEvents(
   return toEvents(db, rows);
 }
 
-async function findVisibleEvent(db: DbLike, actor: Actor, id: string) {
+export async function findVisibleEvent(db: DbLike, actor: Actor, id: string) {
   const [row] = await db
     .select()
     .from(events)

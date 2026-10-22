@@ -2472,3 +2472,126 @@ tbody tr:last-child td {
     font-size: 0.85em;
   }
 }
+
+/* Attachments (FLOW-42). */
+.attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.attachment-grid li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+.attachment-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+}
+.attachment-grid a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.attachment-grid li > button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+/* Printable documents (FLOW-49). US Letter, header repeated on every page. */
+.print-document {
+  max-width: 8.5in;
+  margin: 0 auto;
+  padding: 24px 16px;
+  background: white;
+  color: #1f2a24;
+  font-size: 12px;
+}
+.print-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+.print-page {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.print-page > thead {
+  display: table-header-group;
+}
+.print-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #2f5d50;
+}
+.print-header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.print-header strong {
+  font-size: 14px;
+}
+.print-title {
+  text-align: right;
+}
+.print-title h1 {
+  font-size: 18px;
+  margin: 0;
+}
+.print-body {
+  overflow-wrap: anywhere;
+}
+.print-section h2 {
+  font-size: 15px;
+  margin: 18px 0 8px;
+}
+.print-section h3 {
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+.print-section article {
+  break-inside: avoid;
+}
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0 10px;
+}
+.print-table th,
+.print-table td {
+  border: 1px solid #d8dfdb;
+  padding: 4px 6px;
+  text-align: left;
+}
+@page {
+  size: letter;
+  margin: 0.6in 0.5in;
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 9px;
+    color: #66736c;
+  }
+}
+@media print {
+  .print-toolbar {
+    display: none;
+  }
+  .print-document {
+    max-width: none;
+    padding: 0;
+  }
+}

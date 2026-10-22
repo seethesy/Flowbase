@@ -56,7 +56,7 @@ Manual workflow verification: push two commits to a PR while the first run is ac
 
 ## Demo limitations
 
-No real authentication, database, external API integrations, uploads, email delivery, signatures, PDF generation, or production inventory transactions. Attachments are filename/size metadata only. Purchase orders are read-only sample records. Simulated operations update only React memory. No authentication or R2 integration is configured, and a database is bound only in the dev environment (see [Database](#database)). The deployable unit is the Worker and its static SPA assets. No secrets or real client data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
+No real authentication, database, external API integrations, uploads, email delivery, signatures, PDF generation, or production inventory transactions. Attachments are filename/size metadata only. Purchase orders are read-only sample records. Simulated operations update only React memory. No authentication is configured, R2 file storage is configured only in production, and a database is bound only in the dev environment (see [Database](#database)). The deployable unit is the Worker and its static SPA assets. No secrets or real client data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
 
 ## Database
 
@@ -112,6 +112,20 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 - **Duplicates:** creating a client whose contact email or phone matches an existing contact answers `409 POSSIBLE_DUPLICATE` with the matches, and the form offers "Create anyway" (`allowDuplicate: true`). A salesperson is only warned about their own clients; a match they can't see is saved as `possibleDuplicateOf`, which only Admin, Technical and Sales Manager see (`?flagged=true`), and emits `client.duplicate_flagged`.
 - **Events:** only title, date, start time and client are required. Times are entered as New York wall-clock times and stored as UTC (`shared/time.ts`); an end time before the start runs past midnight. Picking a venue copies its address (when the address is empty) and its areas; per-event areas can be added. `booked_at` records the first time status becomes `booked`. People fields (salesperson, Production Lead, assistants) are user ids until the users table exists.
 - Every create, update, archive and restore emits a domain event (`client.created`, `event.updated`, …) in the same transaction. Change history (FLOW-55 AC3) moved to FLOW-161, which builds on the audit log (FLOW-41).
+
+## Attachments
+
+Photos and documents attach to clients, venues and events (FLOW-42, ADR-08) through `/api/attachments` (`worker/routes/attachments.ts`) and the `Attachments` component (`src/features/attachments.tsx`). Venues use two groups, Floor plans and Aerial images.
+
+- **In the browser** (`src/services/attachments.ts`): a file is checked before anything uploads (photos JPEG/PNG/WebP/HEIC up to 25 MB, PDF and .docx up to 20 MB). A photo is resized on a canvas to a 320 px thumbnail and a 1600 px display JPEG; only those two are uploaded, never the original. Documents upload as they are.
+- **Upload:** `POST /api/attachments` checks the record (same visibility as the record itself; records you can't see answer 404) and the declared variants, stores a pending row, and returns signed R2 `PUT` URLs valid for 5 minutes. Each URL is signed for the exact content type and length declared. The browser `PUT`s straight to R2, then `POST /api/attachments/<id>/complete` marks it ready (in production the `FILES` binding first confirms each object arrived at its declared size). The Worker never handles file bytes. Object keys are generated (`<record type>/<record id>/<attachment id>/<variant>.<ext>`); file names are only metadata.
+- **Download:** `GET /api/attachments?recordType=&recordId=` returns ready files with signed `GET` URLs that expire after 5 minutes. `PATCH /api/attachments/<id>` changes caption or order; `POST /api/attachments/<id>/archive` hides a file.
+- **Config:** `R2_ACCOUNT_ID` and `R2_BUCKET` (`flowbase-files`) are production vars in `wrangler.jsonc`; `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` (the R2 API token's S3 key pair) are Worker secrets. Without them the routes answer `503 STORAGE_NOT_CONFIGURED`, which is the case in dev and CI. Signing is in `worker/attachments/presign.ts` (SigV4, checked against AWS's published example).
+- **Bucket CORS** (one-time, Cloudflare dashboard → R2 → `flowbase-files` → Settings → CORS): allow origin `https://flowbase.sybertechlabs.workers.dev`, methods `GET` and `PUT`, header `Content-Type`.
+
+## Printable documents
+
+`PrintLayout` (`src/components/print/PrintLayout.tsx`, FLOW-49, ADR-17) is the shared print layout for the recipe book, order list and BEO: a company header block (name, sales contact, website from `src/config/company.ts`, placeholders until the real details are filled in), US Letter pages with the header repeated on every page, and page numbers where the browser supports CSS page margin boxes (Chrome; Safari prints without them). Users print or "Save as PDF" from the browser; there is no PDF server or library. `/#/print/sample` is a sample multi-page document for checking the layout.
 
 ## Background jobs
 

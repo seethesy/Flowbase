@@ -198,3 +198,32 @@ export const eventAreas = pgTable(
   },
   (table) => [index("event_areas_event_idx").on(table.eventId)],
 ).enableRLS();
+
+// Attachments (FLOW-42): file metadata linked to any record; the bytes live in R2.
+// variants lists the stored objects: a photo's "thumb" and "display" sizes, or a
+// document's "original".
+export type AttachmentVariant = {
+  name: "thumb" | "display" | "original";
+  key: string;
+  contentType: string;
+  size: number;
+};
+export const attachments = pgTable(
+  "attachments",
+  {
+    ...baseColumns(),
+    recordType: text("record_type").notNull(),
+    recordId: uuid("record_id").notNull(),
+    group: text("group").notNull().default(""),
+    fileName: text("file_name").notNull(),
+    caption: text("caption").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: text("status", { enum: ["pending", "ready"] })
+      .notNull()
+      .default("pending"),
+    variants: jsonb("variants").$type<AttachmentVariant[]>().notNull(),
+  },
+  (table) => [
+    index("attachments_record_idx").on(table.recordType, table.recordId),
+  ],
+).enableRLS();

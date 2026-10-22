@@ -29,6 +29,15 @@
       "hyperdrive": [
         { "binding": "HYPERDRIVE", "id": "d6486e8ab1314d8ca1dbf5addf1036d0" },
       ],
+      // File storage (FLOW-42): the Worker signs short-lived R2 URLs with the
+      // R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY Worker secrets, and uses the FILES
+      // binding only to confirm uploads. Other environments have no file storage,
+      // so their attachment routes answer 503.
+      "vars": {
+        "R2_ACCOUNT_ID": "198f242b0d80d010bf3ba7a2b2b351c2",
+        "R2_BUCKET": "flowbase-files",
+      },
+      "r2_buckets": [{ "binding": "FILES", "bucket_name": "flowbase-files" }],
     },
     // Preview versions of the flowbase Worker for non-production branches
     // (npm run deploy:preview). Same Worker name, dev database.

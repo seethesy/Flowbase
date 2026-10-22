@@ -10,6 +10,7 @@ import { Dashboard } from "../features/dashboard";
 import { ClientList, ClientDetail } from "../features/clients";
 import { EventList, EventDetail } from "../features/events";
 import { VenueList, VenueDetail } from "../features/venues";
+import { PrintSample } from "../features/print-sample";
 import { Proposals } from "../features/proposals";
 import { InventoryList, InventoryDetail } from "../features/inventory";
 import { Button, PageHeader, Section } from "../components/shared";
@@ -68,6 +69,8 @@ function LegacyRoute({ to }: { to: string }) {
   );
 }
 export const router = createHashRouter([
+  // Printable documents render without the app shell.
+  { path: "/print/sample", element: <PrintSample /> },
   {
     element: <AppShell />,
     children: [

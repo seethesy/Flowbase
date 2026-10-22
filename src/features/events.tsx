@@ -24,6 +24,7 @@ import {
   Select,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import { Attachments } from "./attachments";
 
 export const statusLabels: Record<EventStatus, string> = {
   tentative: "Tentative",
@@ -485,6 +486,7 @@ export function EventDetail() {
           <p>{e.internalNotes || "—"}</p>
         </Section>
       </div>
+      <Attachments recordType="event" recordId={e.id} title="Event files" />
       {edit && (
         <EventForm
           event={e}

@@ -27,6 +27,7 @@ import {
   LoadingSkeleton,
 } from "../components/shared";
 import { EventForm, EventTable } from "./events";
+import { Attachments } from "./attachments";
 
 export const initials = (name: string) =>
   name
@@ -500,7 +501,7 @@ export function ClientDetail() {
         </p>
       )}
       <Tabs
-        tabs={["Overview", "Contacts", "Events"]}
+        tabs={["Overview", "Contacts", "Events", "Files"]}
         value={tab}
         onChange={setTab}
       />
@@ -551,6 +552,9 @@ export function ClientDetail() {
         )}
         {tab === "Events" && (
           <EventTable events={events.data ?? []} error={events.error} />
+        )}
+        {tab === "Files" && (
+          <Attachments recordType="client" recordId={c.id} title="Client files" />
         )}
       </div>
       {edit && (
