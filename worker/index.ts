@@ -1,11 +1,20 @@
 import * as Sentry from "@sentry/cloudflare";
 import { createApp } from "./app";
 import { checkDatabase } from "./health";
+import { withDb } from "./db/client";
+import {
+  createConnectionCheck,
+  listConnectionChecks,
+} from "./db/connection-checks";
 import type { Bindings } from "./bindings";
 import { APP_VERSION } from "../shared/version";
 
 const app = createApp({
   checkDatabase,
+  dbCheck: {
+    list: (env) => withDb(env, (db) => listConnectionChecks(db)),
+    create: (env, note) => withDb(env, (db) => createConnectionCheck(db, note)),
+  },
   captureError: (error, requestId) => {
     Sentry.captureException(error, { tags: { requestId } });
   },

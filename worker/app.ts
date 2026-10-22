@@ -1,13 +1,24 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { recordSchemas } from "../shared/records";
-import { healthSchema, type DatabaseStatus } from "../shared/api";
+import {
+  connectionCheckInputSchema,
+  healthSchema,
+  type ConnectionCheck,
+  type DatabaseStatus,
+} from "../shared/api";
+import { DatabaseNotConfiguredError } from "./db/errors";
 import { APP_VERSION } from "../shared/version";
 import type { Bindings } from "./bindings";
 import * as fixtures from "../src/data/mock/fixtures";
 
+type DbCheck = {
+  list: (env: Bindings) => Promise<ConnectionCheck[]>;
+  create: (env: Bindings, note: string) => Promise<ConnectionCheck>;
+};
 type Options = {
   checkDatabase?: (env: Bindings) => Promise<DatabaseStatus>;
+  dbCheck?: DbCheck;
   captureError?: (error: Error, requestId: string) => void;
 };
 export function createApp(options: Options = {}) {
@@ -63,6 +74,55 @@ export function createApp(options: Options = {}) {
         database,
       }),
     );
+  });
+  const errorBody = (requestId: string, code: string, message: string) => ({
+    error: { code, message, requestId },
+  });
+  // Hyperdrive read/write proof for the dev environment only (FLOW-24). It has no
+  // sign-in yet, so it answers 404 unless DB_CHECK_ROUTE is "enabled" in that env.
+  app.use("/api/dev/*", async (c, next) => {
+    if (c.env?.DB_CHECK_ROUTE !== "enabled")
+      return c.json(
+        errorBody(c.get("requestId"), "NOT_FOUND", "API route not found."),
+        404,
+      );
+    await next();
+  });
+  const dbUnavailable = (requestId: string) =>
+    errorBody(
+      requestId,
+      "DATABASE_NOT_CONFIGURED",
+      "The database is not configured.",
+    );
+  app.get("/api/dev/db-check", async (c) => {
+    if (!options.dbCheck)
+      return c.json(dbUnavailable(c.get("requestId")), 503);
+    try {
+      return c.json(await options.dbCheck.list(c.env));
+    } catch (error) {
+      if (error instanceof DatabaseNotConfiguredError)
+        return c.json(dbUnavailable(c.get("requestId")), 503);
+      throw error;
+    }
+  });
+  app.post("/api/dev/db-check", async (c) => {
+    const parsed = connectionCheckInputSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!parsed.success)
+      return c.json(
+        errorBody(c.get("requestId"), "INVALID_REQUEST", "Invalid request."),
+        400,
+      );
+    if (!options.dbCheck)
+      return c.json(dbUnavailable(c.get("requestId")), 503);
+    try {
+      return c.json(await options.dbCheck.create(c.env, parsed.data.note), 201);
+    } catch (error) {
+      if (error instanceof DatabaseNotConfiguredError)
+        return c.json(dbUnavailable(c.get("requestId")), 503);
+      throw error;
+    }
   });
   // Temporary demo adapters. Writes validate and echo, without database storage.
   for (const resource of ["clients", "proposals", "inventory"] as const) {
