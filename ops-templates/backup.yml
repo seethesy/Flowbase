@@ -1,0 +1,46 @@
+# Nightly Flowbase production backup (FLOW-30, ADR-22, ADR-26).
+# TEMPLATE: copy this file to .github/workflows/backup.yml in the private ops
+# repo. It does nothing in the Flowbase repo. Setup and restore steps are in
+# docs/restore.md. Secrets are referenced by name only; their values live in the
+# ops repo's Actions secrets.
+name: Nightly Flowbase backup
+on:
+  schedule:
+    # 07:15 UTC = 03:15 New York during daylight time, 02:15 in winter.
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flowbase-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out Flowbase main (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: seethesy/Flowbase
+          ref: main
+          path: flowbase
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pg_dump 17 (matches the Supabase server version)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+      - name: Back up production to R2
+        env:
+          DATABASE_URL: ${{ secrets.FLOWBASE_PROD_DATABASE_URL }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          R2_BUCKET: flowbase-backups
+          PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+        run: bash flowbase/scripts/backup.sh
