@@ -11,6 +11,15 @@ import {
   type EventTransitionInput,
   type VenueInput,
 } from "../../shared/core-records";
+import {
+  itemSchema,
+  sectionSchema,
+  type CountInput,
+  type ItemInput,
+  type ItemKind,
+  type SectionKind,
+  type TransferInput,
+} from "../../shared/inventory";
 
 // Client for the core records API (FLOW-53/54/55). Failures carry the API's
 // message, its request reference, and any possible duplicates.
@@ -61,14 +70,14 @@ export async function request<S extends z.ZodType>(
   return schema.parse(json);
 }
 
-const query = (params: Record<string, string | boolean | undefined>) => {
+export const query = (params: Record<string, string | boolean | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params))
     if (value) search.set(key, String(value));
   const text = search.toString();
   return text ? `?${text}` : "";
 };
-const at = (resource: string, id: string, action = "") =>
+export const at = (resource: string, id: string, action = "") =>
   `/api/${resource}/${encodeURIComponent(id)}${action && `/${action}`}`;
 
 export const clientsApi = {
@@ -133,5 +142,52 @@ export const eventsApi = {
     request(
       eventStatusChangeSchema.array(),
       at("events", id, "status-history"),
+    ),
+};
+
+export const inventoryApi = {
+  list: (
+    filter: {
+      archived?: boolean;
+      kind?: ItemKind;
+      subtype?: string;
+      category?: string;
+      sectionId?: string;
+      vendor?: string;
+      belowPar?: boolean;
+      search?: string;
+    } = {},
+  ) => request(itemSchema.array(), `/api/inventory/items${query(filter)}`),
+  get: (id: string) => request(itemSchema, at("inventory/items", id)),
+  create: (input: ItemInput) =>
+    request(itemSchema, "/api/inventory/items", "POST", input),
+  update: (id: string, input: ItemInput) =>
+    request(itemSchema, at("inventory/items", id), "PUT", input),
+  setArchived: (id: string, archived: boolean) =>
+    request(
+      itemSchema,
+      at("inventory/items", id, archived ? "archive" : "restore"),
+      "POST",
+      {},
+    ),
+  transfer: (id: string, input: TransferInput) =>
+    request(itemSchema, at("inventory/items", id, "transfers"), "POST", input),
+  count: (id: string, input: CountInput) =>
+    request(itemSchema, at("inventory/items", id, "counts"), "POST", input),
+};
+
+export const sectionsApi = {
+  list: (filter: { archived?: boolean; kind?: SectionKind } = {}) =>
+    request(sectionSchema.array(), `/api/inventory/sections${query(filter)}`),
+  create: (input: { name: string; kind: SectionKind }) =>
+    request(sectionSchema, "/api/inventory/sections", "POST", input),
+  rename: (id: string, name: string) =>
+    request(sectionSchema, at("inventory/sections", id), "PUT", { name }),
+  setArchived: (id: string, archived: boolean) =>
+    request(
+      sectionSchema,
+      at("inventory/sections", id, archived ? "archive" : "restore"),
+      "POST",
+      {},
     ),
 };

@@ -1,8 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   uniqueIndex,
@@ -10,7 +13,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { eventStatusSchema } from "../../shared/core-records";
-import { baseColumns, timestamptz } from "./conventions";
+import { baseColumns, moneyCents, timestamptz } from "./conventions";
 
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
 // CI fails if a migrated table in the public schema lacks RLS.
@@ -242,6 +245,52 @@ export const eventStatusHistory = pgTable(
   (table) => [index("event_status_history_event_idx").on(table.eventId)],
 ).enableRLS();
 
+// Leads (FLOW-100). One record for every source: collector, webhook, manual entry and
+// import. assigned_salesperson_id is a plain uuid until the users table exists
+// (FLOW-37). raw_payload is the source's data as received, for debugging (FT+ only).
+export const leadChannels = ["collector", "webhook", "manual", "import"] as const;
+export const leadStatuses = [
+  "new",
+  "contacted",
+  "qualified",
+  "converted",
+  "lost",
+] as const;
+export const leads = pgTable(
+  "leads",
+  {
+    ...baseColumns(),
+    receivedAt: timestamptz("received_at").notNull().defaultNow(),
+    channel: text("channel", { enum: leadChannels }).notNull(),
+    source: text("source").notNull(),
+    sourceLeadId: text("source_lead_id").notNull().default(""),
+    sourceLeadUrl: text("source_lead_url").notNull().default(""),
+    purchased: boolean("purchased").notNull().default(false),
+    name: text("name").notNull().default(""),
+    email: text("email").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    eventDate: date("event_date", { mode: "string" }),
+    guestCount: integer("guest_count"),
+    location: text("location").notNull().default(""),
+    eventType: text("event_type").notNull().default(""),
+    budgetCents: moneyCents("budget_cents"),
+    message: text("message").notNull().default(""),
+    rawPayload: jsonb("raw_payload"),
+    status: text("status", { enum: leadStatuses }).notNull().default("new"),
+    lostReason: text("lost_reason").notNull().default(""),
+    firstRespondedAt: timestamptz("first_responded_at"),
+    assignedSalespersonId: uuid("assigned_salesperson_id"),
+    convertedClientId: uuid("converted_client_id").references(() => clients.id),
+    convertedEventId: uuid("converted_event_id").references(() => events.id),
+  },
+  (table) => [
+    index("leads_received_at_idx").on(table.receivedAt),
+    index("leads_status_idx").on(table.status),
+    index("leads_salesperson_idx").on(table.assignedSalespersonId),
+    index("leads_source_idx").on(table.source, table.sourceLeadId),
+  ],
+).enableRLS();
+
 // Attachments (FLOW-42): file metadata linked to any record; the bytes live in R2.
 // variants lists the stored objects: a photo's "thumb" and "display" sizes, or a
 // document's "original".
@@ -269,4 +318,138 @@ export const attachments = pgTable(
   (table) => [
     index("attachments_record_idx").on(table.recordType, table.recordId),
   ],
+).enableRLS();
+
+// Inventory (FLOW-69/70/81). Quantities can be fractional (2.5 lb), so they are
+// numeric, read as numbers. Units are the codes in shared/units.ts.
+const quantity = (name: string) =>
+  numeric(name, { precision: 14, scale: 4, mode: "number" });
+
+// Where stock lives (FLOW-70): rental sections (Warehouse, Jamie's, Cafe, Vendor)
+// and consumable storage sections.
+export const inventorySections = pgTable("inventory_sections", {
+  ...baseColumns(),
+  name: text("name").notNull(),
+  kind: text("kind", { enum: ["rental", "consumable"] }).notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+}).enableRLS();
+
+// One row per thing Flowbase tracks or sells (FLOW-69). Kind-specific fields live
+// in the *_details tables below, one row per item of that kind.
+export const inventoryItems = pgTable(
+  "inventory_items",
+  {
+    ...baseColumns(),
+    kind: text("kind", { enum: ["rental", "consumable", "service"] }).notNull(),
+    // Rental: equipment, furniture, linen, tableware, glassware, bar, decor.
+    // Consumable: ingredient, bar, supply. Services have none.
+    subtype: text("subtype"),
+    code: text("code").notNull().default(""),
+    name: text("name").notNull(),
+    category: text("category").notNull().default(""),
+    description: text("description").notNull().default(""),
+    unit: text("unit").notNull().default("each"),
+    group: text("group").notNull().default(""),
+    color: text("color").notNull().default(""),
+    tier: text("tier").notNull().default(""),
+    ratioQuantity: quantity("ratio_quantity"),
+    ratioBasis: text("ratio_basis", {
+      enum: ["per_guest", "per_table", "per_event"],
+    }),
+    active: boolean("active").notNull().default(true),
+  },
+  (table) => [
+    index("inventory_items_kind_idx").on(table.kind, table.subtype),
+    uniqueIndex("inventory_items_code_idx")
+      .on(table.code)
+      .where(sql`${table.code} <> '' and ${table.archivedAt} is null`),
+  ],
+).enableRLS();
+
+const itemReference = () =>
+  uuid("item_id")
+    .notNull()
+    .unique()
+    .references(() => inventoryItems.id);
+
+export const inventoryRentalDetails = pgTable("inventory_rental_details", {
+  ...baseColumns(),
+  itemId: itemReference(),
+  priceCents: moneyCents("price_cents"),
+}).enableRLS();
+
+export const inventoryServiceDetails = pgTable("inventory_service_details", {
+  ...baseColumns(),
+  itemId: itemReference(),
+  priceCents: moneyCents("price_cents"),
+  priceBasis: text("price_basis", {
+    enum: ["per_guest", "per_table", "per_event"],
+  })
+    .notNull()
+    .default("per_event"),
+}).enableRLS();
+
+export const inventoryConsumableDetails = pgTable(
+  "inventory_consumable_details",
+  {
+    ...baseColumns(),
+    itemId: itemReference(),
+    purchaseUnit: text("purchase_unit").notNull(),
+    packCount: integer("pack_count"),
+    eachSizeQuantity: quantity("each_size_quantity"),
+    eachSizeUnit: text("each_size_unit"),
+    recipeUnit: text("recipe_unit"),
+    // Cost of one purchase unit; FT+ only (F-01-04).
+    unitCostCents: moneyCents("unit_cost_cents"),
+    preferredVendor: text("preferred_vendor").notNull().default(""),
+    parLevel: quantity("par_level"),
+    allergens: jsonb("allergens").$type<string[]>().notNull().default([]),
+    storageSectionId: uuid("storage_section_id").references(
+      () => inventorySections.id,
+    ),
+  },
+).enableRLS();
+
+// Current quantity of an item in a section. Changed only together with a
+// stock_movements row.
+export const inventoryStock = pgTable(
+  "inventory_stock",
+  {
+    ...baseColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => inventorySections.id),
+    quantity: quantity("quantity").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("inventory_stock_item_section_idx").on(
+      table.itemId,
+      table.sectionId,
+    ),
+    index("inventory_stock_section_idx").on(table.sectionId),
+  ],
+).enableRLS();
+
+// Every stock change. Only transfers and counted adjustments so far; the stock
+// ledger (FLOW-71) adds receipts, usage and the rest.
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    ...baseColumns(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    type: text("type", { enum: ["transfer", "adjustment"] }).notNull(),
+    // A transfer's amount, or an adjustment's signed change.
+    quantity: quantity("quantity").notNull(),
+    fromSectionId: uuid("from_section_id").references(
+      () => inventorySections.id,
+    ),
+    toSectionId: uuid("to_section_id").references(() => inventorySections.id),
+    note: text("note").notNull().default(""),
+  },
+  (table) => [index("stock_movements_item_idx").on(table.itemId)],
 ).enableRLS();

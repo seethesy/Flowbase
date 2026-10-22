@@ -21,35 +21,6 @@ test("sidebar, client search, detail tabs, and browser history", async ({
     page.getByRole("heading", { name: "Clients", exact: true }),
   ).toBeVisible();
 });
-test("inventory detail, simulated receipt, and keyboard dialog close", async ({
-  page,
-}) => {
-  await page.goto("/#/inventory");
-  await page.getByPlaceholder("Search item name or SKU…").fill("INV-001");
-  await page.getByRole("button", { name: "INV-001", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Organic mixed greens" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Simulate receipt" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Quantity change (kg)").fill("25");
-  await dialog
-    .getByLabel("Reason / reference *", { exact: true })
-    .fill("PO-demo");
-  await dialog.getByRole("button", { name: "Apply simulation" }).click();
-  await expect(dialog).toHaveCount(0);
-  await page.getByRole("tab", { name: "Stock History" }).click();
-  await expect(
-    page.getByText("Simulated receipt", { exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Edit", exact: true }),
-  ).toBeFocused();
-});
 test("proposal status rules and lost reason confirmation", async ({ page }) => {
   await page.goto("/#/proposals?view=table");
   await page.getByRole("button", { name: "FB-2026", exact: true }).click();

@@ -9,7 +9,12 @@ export type Action =
   | "ingest.manage"
   | "clients.write"
   | "venues.write"
-  | "events.write";
+  | "events.write"
+  | "inventory.write"
+  | "inventory.sections"
+  | "leads.update"
+  | "leads.assign"
+  | "leads.convert";
 
 const isAdmin = (actor: Actor) => actor.role === "admin";
 const seesAllRecords = (actor: Actor) =>
@@ -19,12 +24,24 @@ const seesAllRecords = (actor: Actor) =>
 const sells = (actor: Actor) =>
   seesAllRecords(actor) || actor.role === "salesperson";
 
+// Inventory items, stock counts and transfers: managers and the kitchen lead.
+const managesInventory = (actor: Actor) =>
+  seesAllRecords(actor) || actor.role === "kitchen_lead";
+
 const rules: Record<Action, (actor: Actor) => boolean> = {
   "jobs.manage": isAdmin,
   "ingest.manage": isAdmin,
   "clients.write": sells,
   "venues.write": sells,
   "events.write": sells,
+  "inventory.write": managesInventory,
+  // Adding, renaming and archiving sections is Admin only (FLOW-70).
+  "inventory.sections": isAdmin,
+  "leads.update": sells,
+  "leads.convert": sells,
+  // Admin only (FLOW-111, Q-41a). Widening it to the Sales Manager later is this one
+  // rule; the answer to FLOW-111 Q1 decides.
+  "leads.assign": () => false,
 };
 
 export const can = (actor: Actor, action: Action) =>
@@ -35,6 +52,13 @@ export const can = (actor: Actor, action: Action) =>
 export type Scope = "all" | "own" | "staffed" | "none";
 
 export function clientScope(actor: Actor): Scope {
+  if (seesAllRecords(actor)) return "all";
+  return actor.role === "salesperson" ? "own" : "none";
+}
+
+// Admin and Sales Manager see every lead; a salesperson sees only the leads assigned
+// to them (Q-41). Everyone else has no access to leads.
+export function leadScope(actor: Actor): Scope {
   if (seesAllRecords(actor)) return "all";
   return actor.role === "salesperson" ? "own" : "none";
 }

@@ -2595,3 +2595,16 @@ tbody tr:last-child td {
     padding: 0;
   }
 }
+
+/* Inventory stock tables (FLOW-70). */
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.stock-table th,
+.stock-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}

@@ -9,6 +9,7 @@ import {
 import {
   LayoutDashboard,
   Users,
+  Inbox,
   FileText,
   Package,
   ShoppingCart,
@@ -33,6 +34,7 @@ import { useDemo } from "../../app/store";
 import { RecordForm } from "../../features/forms";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
+  { name: "Leads", to: "/leads", icon: Inbox },
   { name: "Clients", to: "/clients", icon: Users },
   { name: "Proposals", to: "/proposals", icon: FileText },
   { name: "Inventory", to: "/inventory", icon: Package },

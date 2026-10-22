@@ -16,6 +16,7 @@ import { forbidden, notFound } from "../hono";
 import { can, type Action } from "../policy";
 import { findVisibleClient } from "../records/clients";
 import { findVisibleEvent } from "../records/events";
+import { findItem } from "../records/inventory";
 import { findVenue } from "../records/venues";
 import { fileStorage } from "./storage";
 
@@ -34,6 +35,11 @@ const parents: Record<
   client: { find: findVisibleClient, write: "clients.write" },
   venue: { find: (db, _actor, id) => findVenue(db, id), write: "venues.write" },
   event: { find: findVisibleEvent, write: "events.write" },
+  // Item photos (FLOW-69).
+  inventory_item: {
+    find: (db, _actor, id) => findItem(db, id),
+    write: "inventory.write",
+  },
 };
 
 async function requireParent(

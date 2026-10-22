@@ -301,42 +301,51 @@ async function replaceAreas(tx: DbLike, eventId: string, names: string[]) {
       .values(names.map((name, sortOrder) => ({ eventId, name, sortOrder })));
 }
 
+// Inserts the event, its areas, its first status history row, its audit row and the
+// event.created outbox row inside the caller's transaction (lead conversion shares
+// it); returns the new id.
+export async function insertEvent(
+  tx: DbLike,
+  actor: Actor,
+  input: EventInput,
+): Promise<string> {
+  const resolved = await resolveReferences(tx, actor, input);
+  const [row] = await tx
+    .insert(events)
+    .values({
+      ...eventValues(input, actor),
+      status: input.status,
+      address: resolved.address,
+      assignedSalespersonId: resolved.salesperson,
+      bookedAt: bookedAtFor(null, input.status),
+      createdBy: actor.userId,
+    })
+    .returning({ id: events.id });
+  await replaceAreas(tx, row.id, resolved.areas ?? []);
+  await tx.insert(eventStatusHistory).values({
+    eventId: row.id,
+    fromStatus: null,
+    toStatus: input.status,
+    createdBy: actor.userId,
+    updatedBy: actor.userId,
+  });
+  await writeAudit(tx, actor, {
+    entityType: "event",
+    entityId: row.id,
+    action: "create",
+    before: null,
+    after: await eventSnapshot(tx, row.id),
+  });
+  await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
+  return row.id;
+}
+
 export async function createEvent(
   db: Db,
   actor: Actor,
   input: EventInput,
 ): Promise<FlowEvent> {
-  const resolved = await resolveReferences(db, actor, input);
-  const id = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(events)
-      .values({
-        ...eventValues(input, actor),
-        status: input.status,
-        address: resolved.address,
-        assignedSalespersonId: resolved.salesperson,
-        bookedAt: bookedAtFor(null, input.status),
-        createdBy: actor.userId,
-      })
-      .returning({ id: events.id });
-    await replaceAreas(tx, row.id, resolved.areas ?? []);
-    await tx.insert(eventStatusHistory).values({
-      eventId: row.id,
-      fromStatus: null,
-      toStatus: input.status,
-      createdBy: actor.userId,
-      updatedBy: actor.userId,
-    });
-    await writeAudit(tx, actor, {
-      entityType: "event",
-      entityId: row.id,
-      action: "create",
-      before: null,
-      after: await eventSnapshot(tx, row.id),
-    });
-    await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
-    return row.id;
-  });
+  const id = await db.transaction((tx) => insertEvent(tx, actor, input));
   return getEvent(db, actor, id);
 }
 

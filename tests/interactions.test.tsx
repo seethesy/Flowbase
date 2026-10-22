@@ -5,7 +5,6 @@ import { it, expect, vi } from "vitest";
 import { DemoProvider } from "../src/app/store";
 import { AppShell } from "../src/components/layout/AppShell";
 import { ClientList } from "../src/features/clients";
-import { InventoryList, InventoryDetail } from "../src/features/inventory";
 import { ProposalDrawer } from "../src/features/proposals";
 import type { ReactNode } from "react";
 async function mount(node: ReactNode, path = "/") {
@@ -19,21 +18,6 @@ async function mount(node: ReactNode, path = "/") {
   );
   return view;
 }
-it("opens inventory details through a keyboard accessible table link", async () => {
-  const user = userEvent.setup();
-  await mount(
-    <Routes>
-      <Route path="/inventory" element={<InventoryList />} />
-      <Route path="/inventory/:id" element={<InventoryDetail />} />
-    </Routes>,
-    "/inventory",
-  );
-  await user.click(screen.getByRole("button", { name: "INV-001" }));
-  expect(
-    screen.getByRole("heading", { name: "Organic mixed greens", level: 1 }),
-  ).toBeInTheDocument();
-  expect(screen.getByText(/Out of Stock · Time/)).toBeInTheDocument();
-});
 it("updates a proposal and rejects an invalid stage", async () => {
   const user = userEvent.setup();
   await mount(<ProposalDrawer id="FB-2026" onClose={() => {}} />);

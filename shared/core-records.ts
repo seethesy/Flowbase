@@ -133,6 +133,7 @@ export type Venue = z.infer<typeof venueSchema>;
 // The event lifecycle (FLOW-56), in order; moves are defined in
 // shared/event-lifecycle.ts. "P" is the proposal.
 export const eventStatusSchema = z.enum([
+  // Lead conversion (FLOW-112) creates events in Inquiry.
   "inquiry",
   "pitching",
   "proposal_creation",
