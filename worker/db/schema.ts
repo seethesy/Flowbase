@@ -199,6 +199,30 @@ export const eventAreas = pgTable(
   (table) => [index("event_areas_event_idx").on(table.eventId)],
 ).enableRLS();
 
+// Audit log (FLOW-41): one append-only row per create, update, archive or restore
+// of a core record, written in the same transaction as the change. changes holds
+// only the fields that changed, keyed by their API name. The API never updates or
+// deletes these rows; created_by is the actor.
+export const auditActions = ["create", "update", "archive", "restore"] as const;
+export type AuditChanges = Record<string, { before: unknown; after: unknown }>;
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    ...baseColumns(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    action: text("action", { enum: auditActions }).notNull(),
+    changes: jsonb("changes").$type<AuditChanges>().notNull(),
+  },
+  (table) => [
+    index("audit_log_entity_idx").on(
+      table.entityType,
+      table.entityId,
+      table.createdAt,
+    ),
+  ],
+).enableRLS();
+
 // Attachments (FLOW-42): file metadata linked to any record; the bytes live in R2.
 // variants lists the stored objects: a photo's "thumb" and "display" sizes, or a
 // document's "original".

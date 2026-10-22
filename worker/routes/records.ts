@@ -16,6 +16,7 @@ import {
   type RunWithDb,
 } from "../hono";
 import {
+  clientHistory,
   createClient,
   getClient,
   listClients,
@@ -35,12 +36,13 @@ import {
   listVenues,
   setVenueArchived,
   updateVenue,
+  venueHistory,
 } from "../records/venues";
 
 const uuid = z.string().uuid();
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-// Core records API (FLOW-53/54/55): /api/clients, /api/venues, /api/events. Every
+// Core records API (FLOW-53/54/55, history FLOW-41): /api/clients, /api/venues, /api/events. Every
 // route needs a signed-in user; records the user can't see answer 404.
 export function recordRoutes(options: {
   withDb?: RunWithDb;
@@ -78,6 +80,20 @@ export function recordRoutes(options: {
       ),
     );
   });
+  // Record history (FLOW-41): read-only for anyone who can see the record. There
+  // are deliberately no routes that change or remove audit rows.
+  for (const [resource, what, history] of [
+    ["clients", "Client", clientHistory],
+    ["venues", "Venue", venueHistory],
+  ] as const)
+    routes.get(`/${resource}/:id/history`, async (c) => {
+      const id = param(c, what);
+      return c.json(
+        await runDb(options.withDb, c.env, (tx) =>
+          history(tx, c.get("actor"), id),
+        ),
+      );
+    });
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
     const input = await parseBody(c, clientCreateSchema);
     return c.json(

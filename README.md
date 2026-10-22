@@ -105,6 +105,7 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 | --- | --- |
 | Clients | `GET /api/clients?archived=&flagged=`, `GET/PUT /api/clients/<id>`, `POST /api/clients`, `POST /api/clients/<id>/archive` and `/restore` |
 | Venues | the same shape under `/api/venues` |
+| History | `GET /api/clients/<id>/history`, `/api/venues/<id>/history` |
 | Events | the same shape under `/api/events`, with `?clientId=&venueId=&from=&to=` (New York dates) |
 
 - **Who sees what** (`worker/policy.ts`, a stand-in for FLOW-38): Admin, Technical and Sales Manager see every client and event; a salesperson sees the clients and events assigned to them (their new clients are assigned to them); other staff see the events they lead or assist and no clients. Records a user can't see answer 404. Venues are visible to everyone. Writes are open to Admin, Technical, Sales Manager and salespeople.
@@ -112,6 +113,7 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 - **Duplicates:** creating a client whose contact email or phone matches an existing contact answers `409 POSSIBLE_DUPLICATE` with the matches, and the form offers "Create anyway" (`allowDuplicate: true`). A salesperson is only warned about their own clients; a match they can't see is saved as `possibleDuplicateOf`, which only Admin, Technical and Sales Manager see (`?flagged=true`), and emits `client.duplicate_flagged`.
 - **Events:** only title, date, start time and client are required. Times are entered as New York wall-clock times and stored as UTC (`shared/time.ts`); an end time before the start runs past midnight. Picking a venue copies its address (when the address is empty) and its areas; per-event areas can be added. `booked_at` records the first time status becomes `booked`. People fields (salesperson, Production Lead, assistants) are user ids until the users table exists.
 - Every create, update, archive and restore emits a domain event (`client.created`, `event.updated`, …) in the same transaction. Change history (FLOW-55 AC3) moved to FLOW-161, which builds on the audit log (FLOW-41).
+- **History** (FLOW-41, `worker/audit/log.ts`): every create, update, archive and restore of a client or venue writes one row to the append-only `audit_log` in the same transaction: actor, time, and a before/after diff of only the changed fields, keyed by their API names (a client's contacts and a venue's areas and contacts are fields of their record). An update that changes nothing writes no row. `GET /api/clients/<id>/history` and `/api/venues/<id>/history` return it newest first to anyone who can see the record, hiding what the record itself hides from them (contact details from part-time users, the possible-duplicate match from salespeople); a change made only to hidden fields doesn't appear. No route updates or deletes audit rows.
 
 ## Attachments
 

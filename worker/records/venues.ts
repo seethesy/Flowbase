@@ -2,6 +2,7 @@ import { and, asc, eq, ilike, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { z } from "zod";
 import { isFtPlus, type Actor } from "../../shared/access";
 import type { Venue, venueInputSchema } from "../../shared/core-records";
+import { fullView, hideFields, listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { venueAreas, venueContacts, venues } from "../db/schema";
 import { forbidden, notFound } from "../hono";
@@ -89,6 +90,23 @@ export async function findVenue(db: DbLike, id: string) {
 export async function getVenue(db: Db, actor: Actor, id: string) {
   const [venue] = await toVenues(db, actor, [await findVenue(db, id)]);
   return venue;
+}
+
+// The venue as an audit snapshot (FLOW-41): every field, whoever is writing.
+async function venueSnapshot(db: DbLike, id: string) {
+  const [venue] = await toVenues(db, fullView, [await findVenue(db, id)]);
+  return venue;
+}
+
+// History hides venue contacts from part-time users, as toVenues does.
+export async function venueHistory(db: DbLike, actor: Actor, id: string) {
+  await findVenue(db, id);
+  return listHistory(
+    db,
+    "venue",
+    id,
+    isFtPlus(actor) ? (changes) => changes : hideFields("contacts"),
+  );
 }
 
 // The venue's live areas, in order; events copy them when the venue is picked.
@@ -182,6 +200,13 @@ export async function createVenue(
       .values({ ...venueValues(input, actor), createdBy: actor.userId })
       .returning({ id: venues.id });
     await syncVenueChildren(tx, actor, row.id, input);
+    await writeAudit(tx, actor, {
+      entityType: "venue",
+      entityId: row.id,
+      action: "create",
+      before: null,
+      after: await venueSnapshot(tx, row.id),
+    });
     await emitDomainEvent(tx, { name: "venue.created", entityId: row.id });
     return row.id;
   });
@@ -196,11 +221,19 @@ export async function updateVenue(
 ): Promise<Venue> {
   await findVenue(db, id);
   await db.transaction(async (tx) => {
+    const before = await venueSnapshot(tx, id);
     await tx
       .update(venues)
       .set(venueValues(input, actor))
       .where(eq(venues.id, id));
     await syncVenueChildren(tx, actor, id, input);
+    await writeAudit(tx, actor, {
+      entityType: "venue",
+      entityId: id,
+      action: "update",
+      before,
+      after: await venueSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, { name: "venue.updated", entityId: id });
   });
   return getVenue(db, actor, id);
@@ -213,9 +246,19 @@ export async function setVenueArchived(
   archived: boolean,
 ): Promise<Venue> {
   await findVenue(db, id);
-  await db
-    .update(venues)
-    .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
-    .where(eq(venues.id, id));
+  await db.transaction(async (tx) => {
+    const before = await venueSnapshot(tx, id);
+    await tx
+      .update(venues)
+      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
+      .where(eq(venues.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "venue",
+      entityId: id,
+      action: archived ? "archive" : "restore",
+      before,
+      after: await venueSnapshot(tx, id),
+    });
+  });
   return getVenue(db, actor, id);
 }
