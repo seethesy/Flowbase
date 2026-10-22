@@ -5,6 +5,8 @@
   "compatibility_date": "2026-10-19",
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "compatibility_flags": ["nodejs_compat"],
+  // The one Cron Trigger (FLOW-27): each run processes a small batch of due jobs.
+  "triggers": { "crons": ["*/5 * * * *"] },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
