@@ -375,7 +375,7 @@ describe("existing events (A5)", () => {
     const old = ["tentative", "booked", "completed", "cancelled", "inquiry"];
     for (const status of old)
       await client`insert into events (title, starts_at, client_id, status, booked_at)
-        values (${status}, now(), ${owner.id}, ${status}, ${status === "booked" ? bookedAt : null})`;
+        values (${status}, now(), ${owner.id}, ${status}, ${status === "booked" ? bookedAt.toISOString() : null}::timestamptz)`;
     await client.unsafe(
       readFileSync("drizzle/0009_event_status_values.sql", "utf8"),
     );
