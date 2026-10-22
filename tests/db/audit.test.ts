@@ -94,7 +94,10 @@ const newClient = (overrides: Partial<ClientInput> = {}): ClientInput => ({
   ],
   ...overrides,
 });
-const asInput = (saved: Client): ClientInput => ({
+type EditableClient = ClientInput & {
+  contacts: NonNullable<ClientInput["contacts"]>;
+};
+const asInput = (saved: Client): EditableClient => ({
   name: saved.name,
   kind: saved.kind,
   notes: saved.notes,

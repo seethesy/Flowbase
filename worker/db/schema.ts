@@ -12,7 +12,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { eventStatusSchema } from "../../shared/core-records";
+import { eventStatuses } from "../../shared/core-records";
 import { baseColumns, moneyCents, timestamptz } from "./conventions";
 
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
@@ -175,7 +175,7 @@ export const events = pgTable(
     dressCode: text("dress_code").notNull().default(""),
     transportationNotes: text("transportation_notes").notNull().default(""),
     internalNotes: text("internal_notes").notNull().default(""),
-    status: text("status", { enum: eventStatusSchema.options })
+    status: text("status", { enum: eventStatuses })
       .notNull()
       .default("inquiry"),
     bookedAt: timestamptz("booked_at"),
@@ -236,8 +236,8 @@ export const eventStatusHistory = pgTable(
       .notNull()
       .references(() => events.id),
     // null for the status the event was created with.
-    fromStatus: text("from_status", { enum: eventStatusSchema.options }),
-    toStatus: text("to_status", { enum: eventStatusSchema.options }).notNull(),
+    fromStatus: text("from_status", { enum: eventStatuses }),
+    toStatus: text("to_status", { enum: eventStatuses }).notNull(),
     reason: text("reason").notNull().default(""),
     // false when the system moved the event along the forward chain.
     manual: boolean("manual").notNull().default(true),
