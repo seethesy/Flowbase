@@ -88,7 +88,7 @@ if [[ "$1 $2" == "s3api list-objects-v2" ]]; then printf '%s\\t' ${listedKeys.ma
         R2_SECRET_ACCESS_KEY: "secret",
       },
     });
-    const calls = existsSync(log) ? read(log).split("\n").filter(Boolean) : [];
+    const calls = existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean) : [];
     return { status: result.status, calls };
   }
 
