@@ -50,6 +50,13 @@
       "when": 1792695187820,
       "tag": "0006_lead_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792696066261,
+      "tag": "0007_activity_sessions",
+      "breakpoints": true
     }
   ]
 }

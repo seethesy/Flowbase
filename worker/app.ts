@@ -19,6 +19,7 @@ import { inventoryRoutes } from "./routes/inventory";
 import { leadRoutes } from "./routes/leads";
 import { recordRoutes } from "./routes/records";
 import { attachmentRoutes } from "./routes/attachments";
+import { timeTrackingRoutes } from "./routes/time-tracking";
 import * as fixtures from "../src/data/mock/fixtures";
 
 type DbCheck = {
@@ -180,6 +181,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/leads", leadRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
+  app.route("/api/time", timeTrackingRoutes(options));
   app.route(
     "/api/ingest",
     ingestRoutes({ withDb: options.withDb, sources: options.ingestSources }),
