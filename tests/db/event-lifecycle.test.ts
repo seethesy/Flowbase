@@ -18,6 +18,7 @@ import type {
   EventStatusChange,
   FlowEvent,
 } from "../../shared/core-records";
+import type { EventHub } from "../../shared/event-hub";
 
 // Event lifecycle (FLOW-56) against the real database.
 const url = process.env.DATABASE_URL;
@@ -217,6 +218,20 @@ describe("manual changes", () => {
     expect(await statusEventsOf(event.id)).toEqual([]);
   });
 
+  it("tells the event hub who may change the status", async () => {
+    const event = await newEvent();
+    for (const [who, expected] of [
+      [sam, true],
+      [admin, true],
+      [manager, false],
+      [tech, false],
+    ] as const)
+      expect(
+        (await who.json<EventHub>("GET", `/api/events/${event.id}/hub`))
+          .canChangeStatus,
+      ).toBe(expected);
+  });
+
   it("refuses a move to the current status", async () => {
     const event = await newEvent();
     const response = await sam.call("POST", `/api/events/${event.id}/status`, {
@@ -362,7 +377,7 @@ describe("existing events (A5)", () => {
       await client`insert into events (title, starts_at, client_id, status, booked_at)
         values (${status}, now(), ${owner.id}, ${status}, ${status === "booked" ? bookedAt : null})`;
     await client.unsafe(
-      readFileSync("drizzle/0008_event_status_values.sql", "utf8"),
+      readFileSync("drizzle/0009_event_status_values.sql", "utf8"),
     );
     const rows = await client`select title, status, booked_at from events order by title`;
     expect(

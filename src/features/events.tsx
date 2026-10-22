@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   eventStatusLabels,
+  contactRoleLabels,
   eventStatusSchema,
   type EventInput,
   type EventStatus,
   type FlowEvent,
 } from "../../shared/core-records";
+import type { HubSection } from "../../shared/event-hub";
 import { clientsApi, eventsApi, venuesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import {
@@ -24,7 +26,7 @@ import {
   LoadingSkeleton,
   Select,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { hidden, initials, LoadError } from "./clients";
 import { Attachments } from "./attachments";
 
 export const statusLabels = eventStatusLabels;
@@ -390,12 +392,14 @@ export function EventForm({
 }
 
 // Manual status changes (FLOW-56): Admin or the event's salesperson may pick any
-// status; the reason is optional. The API refuses anyone else.
+// status; the reason is optional. Everyone who can open the event sees the history.
 function EventStatusPanel({
   event,
+  canChange,
   onChanged,
 }: {
   event: FlowEvent;
+  canChange: boolean;
   onChanged: (event: FlowEvent) => void;
 }) {
   const history = useResource(
@@ -424,41 +428,43 @@ function EventStatusPanel({
   };
   return (
     <Section title="Status">
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void change();
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <FormField label="New status">
-          <select
-            value={target}
-            onChange={(e) => setTo(eventStatusSchema.parse(e.target.value))}
-          >
-            {others.map((status) => (
-              <option key={status} value={status}>
-                {statusLabels[status]}
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Why (optional)">
-          <textarea
-            rows={2}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </FormField>
-        <Button type="submit" disabled={saving}>
-          Change status
-        </Button>
-      </form>
+      {canChange && (
+        <form
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            void change();
+          }}
+        >
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
+          <FormField label="New status">
+            <select
+              value={target}
+              onChange={(e) => setTo(eventStatusSchema.parse(e.target.value))}
+            >
+              {others.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Why (optional)">
+            <textarea
+              rows={2}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </FormField>
+          <Button type="submit" disabled={saving}>
+            Change status
+          </Button>
+        </form>
+      )}
       <h3>Status history</h3>
       {history.error ? (
         <LoadError message={history.error} />
@@ -484,10 +490,13 @@ function EventStatusPanel({
   );
 }
 
+// The event hub (FLOW-57): one page per event with a section for each part of it.
+// The API decides which sections the user may see; a section whose module doesn't
+// exist yet is never listed.
 export function EventDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const event = useResource(() => eventsApi.get(id), [id]);
+  const hub = useResource(() => eventsApi.hub(id), [id]);
   const [edit, setEdit] = useState(false);
   const [archive, setArchive] = useState(false);
   const back = (
@@ -495,15 +504,16 @@ export function EventDetail() {
       ← All events
     </Link>
   );
-  if (event.error)
+  if (hub.error)
     return (
       <>
         {back}
-        <LoadError message={event.error} />
+        <LoadError message={hub.error} />
       </>
     );
-  const e = event.data;
-  if (!e) return <LoadingSkeleton />;
+  if (!hub.data) return <LoadingSkeleton />;
+  const { event: e, client, sections, canEdit, canChangeStatus } = hub.data;
+  const setEvent = (event: FlowEvent) => hub.replace({ ...hub.data!, event });
   const facts: [string, string][] = [
     ["When", when(e)],
     ["Client", e.client.name],
@@ -518,6 +528,82 @@ export function EventDetail() {
     ["Dress code", e.dressCode || "—"],
     ["Status", statusLabels[e.status]],
   ];
+  const render: Partial<Record<HubSection, () => ReactNode>> = {
+    details: () => (
+      <Fragment key="details">
+        <div className="detail-grid">
+          <Section title="Event details">
+            <div className="info-grid">
+              {facts.map(([label, value]) => (
+                <div key={label}>
+                  <small>{label}</small>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+            {e.venue && (
+              <p>
+                <Link to={`/venues/${e.venue.id}`}>Open venue</Link>
+              </p>
+            )}
+          </Section>
+          <Section title="Notes">
+            <small>Transportation</small>
+            <p>{e.transportationNotes || "—"}</p>
+            <small>Internal</small>
+            <p>{e.internalNotes || "—"}</p>
+          </Section>
+        </div>
+        <EventStatusPanel
+          event={e}
+          canChange={canChangeStatus}
+          onChanged={setEvent}
+        />
+      </Fragment>
+    ),
+    client: () =>
+      client && (
+        <Section
+          key="client"
+          title="Client"
+          action={<Link to={`/clients/${client.id}`}>Open client</Link>}
+        >
+          <div className="contact-profile">
+            <span className="avatar">{initials(client.name)}</span>
+            <div>
+              <strong>{client.name}</strong>
+              <small>
+                {client.kind === "organization" ? "Organization" : "Person"}
+                {client.tags.length ? ` · ${client.tags.join(", ")}` : ""}
+              </small>
+            </div>
+          </div>
+          {client.contacts.map((contact) => (
+            <div className="contact-profile" key={contact.id}>
+              <span className="avatar">{initials(contact.name)}</span>
+              <div>
+                <strong>
+                  {contact.name}
+                  {contact.id === e.pocContactId && " (point of contact)"}
+                </strong>
+                <small>
+                  {contactRoleLabels[contact.role]} · {hidden(contact.email)} ·{" "}
+                  {hidden(contact.phone)}
+                </small>
+              </div>
+            </div>
+          ))}
+        </Section>
+      ),
+    files: () => (
+      <Attachments
+        key="files"
+        recordType="event"
+        recordId={e.id}
+        title="Event files"
+      />
+    ),
+  };
   return (
     <>
       {back}
@@ -530,63 +616,38 @@ export function EventDetail() {
             <span>{when(e)}</span>
           </p>
         </div>
-        <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
-          {e.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                event.replace(await eventsApi.setArchived(e.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
+        {canEdit && (
+          <div className="page-actions">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
             </Button>
-          ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
-          )}
-        </div>
-      </div>
-      <div className="detail-grid">
-        <Section title="Event details">
-          <div className="info-grid">
-            {facts.map(([label, value]) => (
-              <div key={label}>
-                <small>{label}</small>
-                <strong>{value}</strong>
-              </div>
-            ))}
-          </div>
-          <p>
-            <Link to={`/clients/${e.client.id}`}>Open client</Link>
-            {e.venue && (
-              <>
-                {" · "}
-                <Link to={`/venues/${e.venue.id}`}>Open venue</Link>
-              </>
+            {e.archivedAt ? (
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  setEvent(await eventsApi.setArchived(e.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
             )}
-          </p>
-        </Section>
-        <Section title="Notes">
-          <small>Transportation</small>
-          <p>{e.transportationNotes || "—"}</p>
-          <small>Internal</small>
-          <p>{e.internalNotes || "—"}</p>
-        </Section>
+          </div>
+        )}
       </div>
-      <EventStatusPanel event={e} onChanged={event.replace} />
-      <Attachments recordType="event" recordId={e.id} title="Event files" />
+      {sections.map((section) => render[section]?.())}
       {edit && (
         <EventForm
           event={e}
           onClose={() => setEdit(false)}
-          onSaved={event.replace}
+          // The client may have changed, so reload the whole hub.
+          onSaved={() => hub.reload()}
         />
       )}
       <ConfirmationDialog

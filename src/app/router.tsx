@@ -13,6 +13,7 @@ import { EventList, EventDetail } from "../features/events";
 import { VenueList, VenueDetail } from "../features/venues";
 import { PrintSample } from "../features/print-sample";
 import { Proposals } from "../features/proposals";
+import { SettingsPage, TimeReports } from "../features/time-tracking";
 import {
   InventoryList,
   InventoryDetail,
@@ -100,7 +101,9 @@ export const router = createHashRouter([
       { path: "/venues", element: <VenueList /> },
       { path: "/venues/:id", element: <VenueDetail /> },
       { path: "/profile", element: <Profile /> },
-      ...["purchasing", "reports", "settings", "help", "*"].map(
+      { path: "/reports", element: <TimeReports /> },
+      { path: "/settings", element: <SettingsPage /> },
+      ...["purchasing", "help", "*"].map(
         (path) => ({ path, element: <Placeholder /> }),
       ),
     ],

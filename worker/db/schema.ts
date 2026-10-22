@@ -453,3 +453,31 @@ export const stockMovements = pgTable(
   },
   (table) => [index("stock_movements_item_idx").on(table.itemId)],
 ).enableRLS();
+
+// Automatic activity time tracking (FLOW-119): one row per stretch of active time on
+// one screen. The browser picks client_session_id and resends an open session with a
+// later end, so (user_id, client_session_id) is unique. user_id has no foreign key
+// until the users table exists (FLOW-37).
+export const activitySessions = pgTable(
+  "activity_sessions",
+  {
+    ...baseColumns(),
+    userId: uuid("user_id").notNull(),
+    clientSessionId: uuid("client_session_id").notNull(),
+    startedAt: timestamptz("started_at").notNull(),
+    endedAt: timestamptz("ended_at").notNull(),
+    recordType: text("record_type", {
+      enum: ["lead", "client", "proposal", "event", "beo", "task"],
+    }),
+    recordId: uuid("record_id"),
+    activity: text("activity").notNull(),
+  },
+  (table) => [
+    uniqueIndex("activity_sessions_client_session_idx").on(
+      table.userId,
+      table.clientSessionId,
+    ),
+    index("activity_sessions_started_idx").on(table.startedAt),
+    index("activity_sessions_record_idx").on(table.recordType, table.recordId),
+  ],
+).enableRLS();

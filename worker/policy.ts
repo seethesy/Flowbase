@@ -67,3 +67,11 @@ export function eventScope(actor: Actor): Scope {
   if (seesAllRecords(actor)) return "all";
   return actor.role === "salesperson" ? "own" : "staffed";
 }
+
+// Time-tracking reports (FLOW-119): Admin and Sales Manager see everyone's time;
+// every other user sees only their own.
+export function timeReportScope(actor: Actor): "all" | "own" {
+  return actor.role === "admin" || actor.role === "sales_manager"
+    ? "all"
+    : "own";
+}

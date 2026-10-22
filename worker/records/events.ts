@@ -27,6 +27,7 @@ import {
   isAutomaticTransition,
   mayOverrideStatus,
 } from "../../shared/event-lifecycle";
+import type { EventHub, HubSection } from "../../shared/event-hub";
 import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
@@ -40,8 +41,8 @@ import {
 } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
-import { eventScope } from "../policy";
-import { findVisibleClient } from "./clients";
+import { can, clientScope, eventScope } from "../policy";
+import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
 // Events (FLOW-55), the record everything else attaches to. A salesperson sees the
@@ -213,6 +214,38 @@ async function eventSnapshot(db: DbLike, id: string) {
 export async function eventHistory(db: DbLike, actor: Actor, id: string) {
   await findVisibleEvent(db, actor, id);
   return listHistory(db, "event", id, (changes) => changes);
+}
+
+// Hub sections whose module exists (FLOW-57), in display order. Each module ticket
+// adds its section here: proposal and versions, booking and payments, BEO, pull list,
+// tasks (FLOW-58), timeline, staff, trucks and history (FLOW-41).
+const builtSections: HubSection[] = ["details", "client", "files"];
+
+// Everything the event hub shows, limited to what the actor may see. The client
+// section needs access to the client record itself: staff who only work the event
+// see the client's name in the details, not the client.
+export async function getEventHub(
+  db: Db,
+  actor: Actor,
+  id: string,
+): Promise<EventHub> {
+  const event = await getEvent(db, actor, id);
+  const client =
+    clientScope(actor) === "none"
+      ? null
+      : await getClient(db, actor, event.client.id).catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        });
+  return {
+    event,
+    client,
+    sections: builtSections.filter(
+      (section) => section !== "client" || client !== null,
+    ),
+    canEdit: can(actor, "events.write"),
+    canChangeStatus: mayOverrideStatus(actor, event),
+  };
 }
 
 // Checks the references in an event and works out what it inherits from them.

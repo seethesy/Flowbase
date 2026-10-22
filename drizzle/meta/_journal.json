@@ -54,15 +54,22 @@
     {
       "idx": 7,
       "version": "7",
-      "when": 1792697372572,
-      "tag": "0007_audit_log_event_lifecycle",
+      "when": 1792696066261,
+      "tag": "0007_activity_sessions",
       "breakpoints": true
     },
     {
       "idx": 8,
       "version": "7",
-      "when": 1792697379959,
-      "tag": "0008_event_status_values",
+      "when": 1792698357697,
+      "tag": "0008_audit_log_event_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792698358704,
+      "tag": "0009_event_status_values",
       "breakpoints": true
     }
   ]
