@@ -2345,6 +2345,7 @@ tbody tr:last-child td {
 .inline-row .form-field {
   flex: 1;
 /* Rich text (FLOW-50): shared by the editor and the read-only/print view. */
+}
 .rich-text {
   line-height: 1.6;
   overflow-wrap: anywhere;
