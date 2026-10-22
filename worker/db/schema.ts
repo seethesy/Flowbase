@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -174,7 +175,7 @@ export const events = pgTable(
     transportationNotes: text("transportation_notes").notNull().default(""),
     internalNotes: text("internal_notes").notNull().default(""),
     status: text("status", {
-      enum: ["tentative", "booked", "completed", "cancelled"],
+      enum: ["inquiry", "tentative", "booked", "completed", "cancelled"],
     })
       .notNull()
       .default("tentative"),
@@ -200,6 +201,52 @@ export const eventAreas = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [index("event_areas_event_idx").on(table.eventId)],
+).enableRLS();
+
+// Leads (FLOW-100). One record for every source: collector, webhook, manual entry and
+// import. assigned_salesperson_id is a plain uuid until the users table exists
+// (FLOW-37). raw_payload is the source's data as received, for debugging (FT+ only).
+export const leadChannels = ["collector", "webhook", "manual", "import"] as const;
+export const leadStatuses = [
+  "new",
+  "contacted",
+  "qualified",
+  "converted",
+  "lost",
+] as const;
+export const leads = pgTable(
+  "leads",
+  {
+    ...baseColumns(),
+    receivedAt: timestamptz("received_at").notNull().defaultNow(),
+    channel: text("channel", { enum: leadChannels }).notNull(),
+    source: text("source").notNull(),
+    sourceLeadId: text("source_lead_id").notNull().default(""),
+    sourceLeadUrl: text("source_lead_url").notNull().default(""),
+    purchased: boolean("purchased").notNull().default(false),
+    name: text("name").notNull().default(""),
+    email: text("email").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    eventDate: date("event_date", { mode: "string" }),
+    guestCount: integer("guest_count"),
+    location: text("location").notNull().default(""),
+    eventType: text("event_type").notNull().default(""),
+    budgetCents: moneyCents("budget_cents"),
+    message: text("message").notNull().default(""),
+    rawPayload: jsonb("raw_payload"),
+    status: text("status", { enum: leadStatuses }).notNull().default("new"),
+    lostReason: text("lost_reason").notNull().default(""),
+    firstRespondedAt: timestamptz("first_responded_at"),
+    assignedSalespersonId: uuid("assigned_salesperson_id"),
+    convertedClientId: uuid("converted_client_id").references(() => clients.id),
+    convertedEventId: uuid("converted_event_id").references(() => events.id),
+  },
+  (table) => [
+    index("leads_received_at_idx").on(table.receivedAt),
+    index("leads_status_idx").on(table.status),
+    index("leads_salesperson_idx").on(table.assignedSalespersonId),
+    index("leads_source_idx").on(table.source, table.sourceLeadId),
+  ],
 ).enableRLS();
 
 // Attachments (FLOW-42): file metadata linked to any record; the bytes live in R2.
