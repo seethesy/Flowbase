@@ -21,3 +21,31 @@ export const connectionCheckSchema = z.object({
   createdAt: z.string().datetime(),
 });
 export type ConnectionCheck = z.infer<typeof connectionCheckSchema>;
+
+export const jobStatusSchema = z.enum([
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+]);
+export const jobSchema = z.object({
+  id: z.string().uuid(),
+  type: z.string(),
+  status: jobStatusSchema,
+  attempts: z.number().int(),
+  runAt: z.string().datetime(),
+  lastError: z.string().nullable(),
+  createdAt: z.string().datetime(),
+});
+export type Job = z.infer<typeof jobSchema>;
+export const ingestReceiptSchema = z.object({
+  id: z.string().uuid(),
+  source: z.string(),
+  sourceRecordId: z.string(),
+  jobId: z.string().uuid().nullable(),
+  jobStatus: jobStatusSchema.nullable(),
+  lastError: z.string().nullable(),
+  processedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+});
+export type IngestReceipt = z.infer<typeof ingestReceiptSchema>;

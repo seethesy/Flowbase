@@ -7,6 +7,7 @@ import {
   listConnectionChecks,
 } from "./db/connection-checks";
 import type { Bindings } from "./bindings";
+import { createJobRegistry, runScheduledJobs } from "./jobs/cron";
 import { APP_VERSION } from "../shared/version";
 
 const app = createApp({
@@ -18,7 +19,10 @@ const app = createApp({
   captureError: (error, requestId) => {
     Sentry.captureException(error, { tags: { requestId } });
   },
+  // No resolveActor until sign-in (FLOW-36): admin routes answer 401.
+  withDb,
 });
+const jobRegistry = createJobRegistry();
 export default Sentry.withSentry(
   (env: Bindings) => ({
     dsn: env.SENTRY_DSN,
@@ -46,5 +50,8 @@ export default Sentry.withSentry(
       env: Bindings,
       ctx: Parameters<typeof app.fetch>[2],
     ) => app.fetch(request, env, ctx),
+    scheduled: async (_controller: unknown, env: Bindings) => {
+      await runScheduledJobs(env, jobRegistry);
+    },
   },
 );

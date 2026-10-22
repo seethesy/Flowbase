@@ -10,6 +10,11 @@ import {
 import { DatabaseNotConfiguredError } from "./db/errors";
 import { APP_VERSION } from "../shared/version";
 import type { Bindings } from "./bindings";
+import type { ResolveActor } from "./auth";
+import type { AppEnv, RunWithDb } from "./hono";
+import type { IngestSource } from "./ingest/sources";
+import { adminRoutes } from "./routes/admin";
+import { ingestRoutes } from "./routes/ingest";
 import * as fixtures from "../src/data/mock/fixtures";
 
 type DbCheck = {
@@ -20,12 +25,12 @@ type Options = {
   checkDatabase?: (env: Bindings) => Promise<DatabaseStatus>;
   dbCheck?: DbCheck;
   captureError?: (error: Error, requestId: string) => void;
+  withDb?: RunWithDb;
+  resolveActor?: ResolveActor;
+  ingestSources?: Map<string, IngestSource>;
 };
 export function createApp(options: Options = {}) {
-  const app = new Hono<{
-    Bindings: Bindings;
-    Variables: { requestId: string };
-  }>();
+  const app = new Hono<AppEnv>();
   app.use("/api/*", async (c, next) => {
     const requestId = crypto.randomUUID();
     c.set("requestId", requestId);
@@ -44,6 +49,17 @@ export function createApp(options: Options = {}) {
   app.onError((error, c) => {
     const requestId = c.get("requestId") ?? crypto.randomUUID();
     c.header("X-Request-ID", requestId);
+    if (error instanceof DatabaseNotConfiguredError)
+      return c.json(
+        {
+          error: {
+            code: "DATABASE_NOT_CONFIGURED",
+            message: "The database is not configured.",
+            requestId,
+          },
+        },
+        503,
+      );
     const status = error instanceof HTTPException ? error.status : 500;
     if (status >= 500) options.captureError?.(error, requestId);
     const code = status >= 500 ? "INTERNAL_ERROR" : "INVALID_REQUEST";
@@ -147,6 +163,11 @@ export function createApp(options: Options = {}) {
     });
     app.delete(`/api/demo/${resource}/:id`, (c) => c.body(null, 204));
   }
+  app.route("/api/admin", adminRoutes(options));
+  app.route(
+    "/api/ingest",
+    ingestRoutes({ withDb: options.withDb, sources: options.ingestSources }),
+  );
   app.all("/api/*", (c) =>
     c.json(
       {
