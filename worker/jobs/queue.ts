@@ -39,7 +39,10 @@ export async function enqueueJob(
       type: input.type,
       payload: input.payload ?? {},
       idempotencyKey: input.idempotencyKey,
-      runAt: input.runAt,
+      // Stamp with the app clock, not Postgres now(): claimDueJobs compares
+      // against a JS Date (millisecond precision), and a microsecond-precision
+      // database timestamp from the same millisecond would not be due yet.
+      runAt: input.runAt ?? new Date(),
     })
     .onConflictDoNothing({ target: jobs.idempotencyKey })
     .returning();

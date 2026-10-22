@@ -129,6 +129,25 @@ it("fails a job type that has no handler", async () => {
   expect(row.lastError).toContain("No handler");
 });
 
+it("claims a job enqueued without runAt in the same instant", async () => {
+  // Regression: run_at came from Postgres now() while claiming used the app
+  // clock, so a job enqueued and claimed in the same moment could stay pending.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  try {
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const handler = vi.fn<JobHandler>(async () => {});
+    const registry = new JobRegistry().register("now", handler);
+    await enqueueJob(db, { type: "now", payload: {}, idempotencyKey: "now-1" });
+    expect(await runDueJobs(db, registry)).toMatchObject({
+      claimed: 1,
+      succeeded: 1,
+    });
+    expect(handler).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("runs two jobs with the same idempotency key once", async () => {
   const handler = vi.fn<JobHandler>(async () => {});
   const registry = new JobRegistry().register("send", handler);

@@ -24,6 +24,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "./clients";
 import { EventTable } from "./events";
+import { Attachments } from "./attachments";
 
 const contactRoleLabels = { manager: "Manager", coordinator: "Coordinator" };
 
@@ -463,6 +464,20 @@ export function VenueDetail() {
             <p className="muted">No venue contacts yet.</p>
           )}
         </Section>
+      </div>
+      <div className="detail-grid">
+        <Attachments
+          recordType="venue"
+          recordId={v.id}
+          group="floor_plan"
+          title="Floor plans"
+        />
+        <Attachments
+          recordType="venue"
+          recordId={v.id}
+          group="aerial"
+          title="Aerial images"
+        />
       </div>
       <Section title="Event history">
         <EventTable events={events.data ?? []} error={events.error} />
