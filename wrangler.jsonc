@@ -11,4 +11,22 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
+  // No top-level Hyperdrive binding: plain `wrangler dev` and CI run without a
+  // database and report "not_configured". Bindings are per environment.
+  "env": {
+    // Dev database. Use: npx wrangler dev --remote --env dev (see README, Database).
+    "dev": {
+      "hyperdrive": [
+        { "binding": "HYPERDRIVE", "id": "925a83ae72554fdd8e25e630cc7060d8" },
+      ],
+      "vars": { "DB_CHECK_ROUTE": "enabled" },
+    },
+    // Production database. Deploying with --env production is wired up in FLOW-25.
+    "production": {
+      "name": "flowbase",
+      "hyperdrive": [
+        { "binding": "HYPERDRIVE", "id": "d6486e8ab1314d8ca1dbf5addf1036d0" },
+      ],
+    },
+  },
 }
