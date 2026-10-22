@@ -123,7 +123,7 @@ export function VenueForm({
   );
   const [loadInNotes, setLoadInNotes] = useState(venue?.loadInNotes ?? "");
   const [parkingNotes, setParkingNotes] = useState(venue?.parkingNotes ?? "");
-  const [areas, setAreas] = useState(
+  const [areas, setAreas] = useState<Row<{ id?: string; name: string }>[]>(
     (venue?.areas ?? []).map((area) => keyed({ id: area.id, name: area.name })),
   );
   // null: contacts are hidden from this user, so the form leaves them alone.
