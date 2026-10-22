@@ -29,6 +29,20 @@
       "when": 1792660906604,
       "tag": "0003_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792694000920,
+      "tag": "0004_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792694006920,
+      "tag": "0005_default_inventory_sections",
+      "breakpoints": true
     }
   ]
 }

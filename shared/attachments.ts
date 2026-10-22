@@ -16,7 +16,12 @@ export const PHOTO_SIZES = { thumb: 320, display: 1600 } as const;
 export const UPLOAD_URL_SECONDS = 300;
 export const DOWNLOAD_URL_SECONDS = 300;
 
-export const recordTypeSchema = z.enum(["client", "venue", "event"]);
+export const recordTypeSchema = z.enum([
+  "client",
+  "venue",
+  "event",
+  "inventory_item",
+]);
 export type AttachmentRecordType = z.infer<typeof recordTypeSchema>;
 export const variantNameSchema = z.enum(["thumb", "display", "original"]);
 export type VariantName = z.infer<typeof variantNameSchema>;

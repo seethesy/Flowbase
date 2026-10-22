@@ -15,6 +15,7 @@ import { ApiError, type AppEnv, type RunWithDb } from "./hono";
 import type { IngestSource } from "./ingest/sources";
 import { adminRoutes } from "./routes/admin";
 import { ingestRoutes } from "./routes/ingest";
+import { inventoryRoutes } from "./routes/inventory";
 import { recordRoutes } from "./routes/records";
 import { attachmentRoutes } from "./routes/attachments";
 import * as fixtures from "../src/data/mock/fixtures";
@@ -174,6 +175,7 @@ export function createApp(options: Options = {}) {
     app.delete(`/api/demo/${resource}/:id`, (c) => c.body(null, 204));
   }
   app.route("/api/admin", adminRoutes(options));
+  app.route("/api/inventory", inventoryRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route(

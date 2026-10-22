@@ -9,7 +9,9 @@ export type Action =
   | "ingest.manage"
   | "clients.write"
   | "venues.write"
-  | "events.write";
+  | "events.write"
+  | "inventory.write"
+  | "inventory.sections";
 
 const isAdmin = (actor: Actor) => actor.role === "admin";
 const seesAllRecords = (actor: Actor) =>
@@ -19,12 +21,19 @@ const seesAllRecords = (actor: Actor) =>
 const sells = (actor: Actor) =>
   seesAllRecords(actor) || actor.role === "salesperson";
 
+// Inventory items, stock counts and transfers: managers and the kitchen lead.
+const managesInventory = (actor: Actor) =>
+  seesAllRecords(actor) || actor.role === "kitchen_lead";
+
 const rules: Record<Action, (actor: Actor) => boolean> = {
   "jobs.manage": isAdmin,
   "ingest.manage": isAdmin,
   "clients.write": sells,
   "venues.write": sells,
   "events.write": sells,
+  "inventory.write": managesInventory,
+  // Adding, renaming and archiving sections is Admin only (FLOW-70).
+  "inventory.sections": isAdmin,
 };
 
 export const can = (actor: Actor, action: Action) =>
