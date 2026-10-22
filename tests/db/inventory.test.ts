@@ -84,6 +84,7 @@ const partTimeLead = signedInAs(people.lead, "kitchen_lead", "part_time");
 const cook = signedInAs(people.cook, "kitchen_staff", "part_time");
 const fullTimeStaff = signedInAs(people.cook, "staff", "full_time");
 const partTimeSales = signedInAs(people.cook, "salesperson", "part_time");
+const partTimeStaff = signedInAs(people.cook, "staff", "part_time");
 
 const section = (name: string, kind: "rental" | "consumable" = "rental") =>
   admin.send<Section>("POST", "/api/inventory/sections", { name, kind }, 201);
@@ -151,6 +152,7 @@ describe("sections (FLOW-70)", () => {
       { name: "Jamie's", kind: "rental" },
       { name: "Cafe", kind: "rental" },
       { name: "Vendor", kind: "rental" },
+      { name: "Unlabeled", kind: "rental" },
     ]);
   });
 
@@ -245,6 +247,52 @@ describe("sections (FLOW-70)", () => {
     });
     expect(transfers[0].transferId).toBeTruthy();
     expect(transfers[1].transferId).toBe(transfers[0].transferId);
+  });
+
+  it("lets sales, the kitchen and FT+ count and move rentals, but not edit them", async () => {
+    const warehouse = await section("Warehouse");
+    const unlabeled = await section("Unlabeled");
+    const item = await createItem(chairs());
+    for (const who of [partTimeSales, cook, fullTimeStaff]) {
+      await who.send<InventoryItem>(
+        "POST",
+        `/api/inventory/items/${item.id}/counts`,
+        { sectionId: unlabeled.id, quantity: 12 },
+        201,
+      );
+      await who.send<InventoryItem>(
+        "POST",
+        `/api/inventory/items/${item.id}/transfers`,
+        { fromSectionId: unlabeled.id, toSectionId: warehouse.id, quantity: 2 },
+        201,
+      );
+      expect(
+        (await who.call("PUT", `/api/inventory/items/${item.id}`, chairs()))
+          .status,
+      ).toBe(403);
+    }
+    expect(
+      (
+        await partTimeStaff.call(
+          "POST",
+          `/api/inventory/items/${item.id}/counts`,
+          { sectionId: unlabeled.id, quantity: 1 },
+        )
+      ).status,
+    ).toBe(403);
+    // Consumable movements stay with inventory managers.
+    const fridge = await section("Refrigerated", "consumable");
+    const creamItem = await createItem(cream());
+    expect(
+      (
+        await partTimeSales.call(
+          "POST",
+          `/api/inventory/items/${creamItem.id}/movements`,
+          { type: "receive", sectionId: fridge.id, quantity: 1 },
+        )
+      ).status,
+    ).toBe(403);
+    await expectLedgerMatchesCache(item.id);
   });
 
   it("rejects a transfer of more than the section holds, changing nothing", async () => {
@@ -792,7 +840,7 @@ describe("stock ledger (FLOW-71)", () => {
       { quantity: 2, reason: "x" },
       "TRANSFER_CORRECTION",
     );
-    // Only inventory managers correct.
+    // Only inventory managers correct consumable movements.
     expect(
       (
         await cook.call(
@@ -997,7 +1045,7 @@ describe("count mode (FLOW-82)", () => {
     ).toBe(403);
     expect(
       (
-        await partTimeSales.call("POST", "/api/inventory/counts", {
+        await partTimeStaff.call("POST", "/api/inventory/counts", {
           sectionId: bar.id,
         })
       ).status,
@@ -1073,7 +1121,7 @@ const titos = (overrides: Partial<ItemInput> = {}): ItemInput => ({
   subtype: "bar",
   name: "Tito's Vodka",
   category: "Liquor",
-  tier: "call",
+  tier: "mid",
   consumable: {
     purchaseUnit: "case",
     packCount: 12,
@@ -1091,7 +1139,7 @@ describe("bar stock (FLOW-90)", () => {
     const created = await createItem(titos());
     expect(created).toMatchObject({
       category: "Liquor",
-      tier: "call",
+      tier: "mid",
       bar: { brand: "Tito's", subcategory: "Vodka", container: "bottle" },
       consumable: {
         packCount: 12,
@@ -1112,7 +1160,11 @@ describe("bar stock (FLOW-90)", () => {
         name: "Pinot Grigio",
         category: "Wine",
         tier: "",
-        bar: { brand: "Pinot Grigio", subcategory: "", container: "bottle" },
+        bar: {
+          brand: "Pinot Grigio",
+          subcategory: "White",
+          container: "bottle",
+        },
       }),
     );
     const names = async (query: string) =>
@@ -1122,6 +1174,7 @@ describe("bar stock (FLOW-90)", () => {
         )
       ).map((item) => item.name);
     expect(await names("category=Wine")).toEqual(["Pinot Grigio"]);
+    expect(await names("subcategory=White")).toEqual(["Pinot Grigio"]);
     expect(await names("subcategory=Vodka")).toEqual([
       "Rail Vodka",
       "Tito's Vodka",
@@ -1130,16 +1183,20 @@ describe("bar stock (FLOW-90)", () => {
     expect(await names("vendor=southern")).toEqual(["Rail Vodka"]);
   });
 
-  it("rejects bar details on other items and categories outside Beer, Wine and Liquor", async () => {
+  it("rejects bar details on other items and categories outside the bar list", async () => {
     for (const [input, message] of [
-      [titos({ category: "Soda" }), "Pick Beer, Wine or Liquor."],
-      [titos({ tier: "top shelf" }), "The tier is rail, call or premium."],
+      [titos({ category: "Soda" }), "Pick a bar category."],
+      [titos({ tier: "call" }), "The tier is rail, mid, high or premium."],
       [
         titos({
           category: "Beer",
           bar: { subcategory: "Vodka" },
         }),
-        "Only liquor has a subcategory.",
+        "Only wine and liquor have a subcategory.",
+      ],
+      [
+        titos({ bar: { subcategory: "Scotch" } }),
+        "Pick Vodka, Tequila, Gin, Rum, Whiskey or Cognac.",
       ],
       [
         { ...cream(), bar: { brand: "Horizon" } },
@@ -1160,11 +1217,51 @@ describe("bar stock (FLOW-90)", () => {
       }),
     );
     const started = await startCount(bar.id);
-    const saved = await saveLine(started.id, { itemId: item.id, quantity: 4 });
+    const saved = await saveLine(started.id, {
+      itemId: item.id,
+      quantity: 3.25,
+    });
     expect(saved.lines[0]).toMatchObject({
       name: "Tito's Vodka",
       belowPar: true,
-      counted: { quantity: 4, difference: 4 },
+      counted: { quantity: 3.25, difference: 3.25 },
     });
+  });
+
+  it("counts beer and wine to the nearest 0.5 and liquor to the nearest 0.25", async () => {
+    const bar = await section("Bar Storage", "consumable");
+    const storage = { ...titos().consumable!, storageSectionId: bar.id };
+    const vodka = await createItem(titos({ consumable: storage }));
+    const beer = await createItem(
+      titos({
+        name: "Modelo",
+        category: "Beer",
+        tier: "",
+        consumable: { ...storage, packCount: 24 },
+        bar: { brand: "", subcategory: "", container: "bottle" },
+      }),
+    );
+    const started = await startCount(bar.id);
+    const refused = async (
+      itemId: string,
+      quantity: number,
+      message: string,
+    ) => {
+      const response = await admin.call(
+        "POST",
+        `/api/inventory/counts/${started.id}/lines`,
+        { itemId, quantity },
+      );
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatchObject({
+        code: "COUNT_STEP",
+        message,
+      });
+    };
+    await refused(vodka.id, 3.3, "Count liquor to the nearest 0.25.");
+    await refused(beer.id, 1.25, "Count beer and wine to the nearest 0.5.");
+    await saveLine(started.id, { itemId: vodka.id, quantity: 0.75 });
+    await saveLine(started.id, { itemId: beer.id, quantity: 7.5 });
+    await expectLedgerMatchesCache(beer.id);
   });
 });

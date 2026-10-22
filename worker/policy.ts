@@ -12,6 +12,7 @@ export type Action =
   | "events.write"
   | "inventory.write"
   | "inventory.count"
+  | "inventory.move"
   | "inventory.sections"
   | "leads.update"
   | "leads.assign"
@@ -34,6 +35,11 @@ const managesInventory = (actor: Actor) =>
 const countsIngredients = (actor: Actor) =>
   actor.role === "kitchen_lead" || actor.role === "kitchen_staff";
 
+// Rental stock (counts, receipts, transfers and other movements): everyone who
+// handles rentals at events: sales, the kitchen and FT+.
+const updatesRentalStock = (actor: Actor) =>
+  sells(actor) || countsIngredients(actor) || isFtPlus(actor);
+
 const rules: Record<Action, (actor: Actor) => boolean> = {
   "jobs.manage": isAdmin,
   "ingest.manage": isAdmin,
@@ -43,7 +49,10 @@ const rules: Record<Action, (actor: Actor) => boolean> = {
   "inventory.write": managesInventory,
   // May count at least something: opens count mode.
   "inventory.count": (actor) =>
-    managesInventory(actor) || countsIngredients(actor) || isFtPlus(actor),
+    managesInventory(actor) || updatesRentalStock(actor),
+  // May move at least something: rental stock, or consumables as a manager.
+  "inventory.move": (actor) =>
+    managesInventory(actor) || updatesRentalStock(actor),
   // Adding, renaming and archiving sections is Admin only (FLOW-70).
   "inventory.sections": isAdmin,
   "leads.update": sells,
@@ -56,18 +65,26 @@ const rules: Record<Action, (actor: Actor) => boolean> = {
 export const can = (actor: Actor, action: Action) =>
   isAdmin(actor) || rules[action](actor);
 
+type StockItem = { kind: string; subtype: string | null };
+
 // Who may count an item. Consumable counts need no approval and follow the kitchen
-// and bar split; rental counts stay with inventory managers until approval-gated
-// Master changes exist (FLOW-73).
-export function canCountItem(
-  actor: Actor,
-  item: { kind: string; subtype: string | null },
-) {
+// and bar split. Rentals follow updatesRentalStock.
+export function canCountItem(actor: Actor, item: StockItem) {
   if (isAdmin(actor)) return true;
+  if (item.kind === "rental") return updatesRentalStock(actor);
   if (item.kind !== "consumable") return can(actor, "inventory.write");
   return item.subtype === "ingredient"
     ? countsIngredients(actor)
     : isFtPlus(actor);
+}
+
+// Who may record receipts, transfers, corrections and other movements on an item:
+// rentals follow updatesRentalStock, everything else stays with inventory managers.
+export function canMoveItem(actor: Actor, item: StockItem) {
+  if (isAdmin(actor)) return true;
+  return item.kind === "rental"
+    ? updatesRentalStock(actor)
+    : can(actor, "inventory.write");
 }
 
 // Which records of a kind the actor may see. "own" = assigned to them as the

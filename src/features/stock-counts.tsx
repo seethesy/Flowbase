@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, ClipboardCheck } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type {
-  CountLine,
-  InventoryItem,
-  StockCount,
+import {
+  barCountStep,
+  fitsCountStep,
+  type CountLine,
+  type InventoryItem,
+  type StockCount,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
 import { countsApi, inventoryApi, sectionsApi } from "../services/core";
@@ -121,10 +123,14 @@ function CountLineRow({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const editable = count.status === "open" && line.canCount;
+  // Beer and wine count to the nearest 0.5, liquor to the nearest 0.25.
+  const step = line.subtype === "bar" ? barCountStep(line.category) : null;
   const save = async () => {
     const amount = quantity.trim() === "" ? NaN : Number(quantity);
     if (Number.isNaN(amount) || amount < 0)
       return setError("Enter the quantity you counted.");
+    if (!fitsCountStep(amount, step))
+      return setError(`Round to the nearest ${step}.`);
     setSaving(true);
     setError("");
     try {
@@ -182,12 +188,13 @@ function CountLineRow({
             <input
               type="number"
               inputMode="decimal"
-              step="any"
+              step={step ?? "any"}
               min="0"
               value={quantity}
               autoFocus={autoFocus}
               onChange={(e) => setQuantity(e.target.value)}
             />
+            {step && <small>Nearest {step}</small>}
           </label>
           <label className="form-field">
             <span>Reason</span>

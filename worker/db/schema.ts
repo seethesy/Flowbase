@@ -379,7 +379,7 @@ export const inventoryBarDetails = pgTable("inventory_bar_details", {
   itemId: itemReference(),
   // Brand or varietal, e.g. Tito's or Pinot Grigio.
   brand: text("brand").notNull().default(""),
-  // Liquor only: Vodka, Whiskey, Scotch, Rum, Gin.
+  // Wine and liquor only (barSubcategories in shared/inventory.ts).
   subcategory: text("subcategory").notNull().default(""),
   container: text("container", { enum: ["bottle", "can", "keg"] }),
 }).enableRLS();

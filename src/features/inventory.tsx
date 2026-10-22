@@ -17,11 +17,11 @@ import {
   barCategories,
   barContainerLabels,
   barContainerSchema,
+  barSubcategories,
   barTierLabels,
   barTierSchema,
   costSourceLabels,
   ingredientCategories,
-  liquorSubcategories,
   movementDirection,
   movementTypeLabels,
   itemKindSchema,
@@ -543,7 +543,8 @@ export function BarList() {
           value={category}
           onChange={(e) => {
             setCategory(e.target.value);
-            if (e.target.value !== "Liquor") setSubcategory("");
+            if (!barSubcategories[e.target.value]?.includes(subcategory))
+              setSubcategory("");
           }}
         >
           <option value="">All categories</option>
@@ -554,15 +555,25 @@ export function BarList() {
         <select
           aria-label="Subcategory"
           value={subcategory}
+          disabled={Boolean(category) && !barSubcategories[category]}
           onChange={(e) => {
             setSubcategory(e.target.value);
-            if (e.target.value) setCategory("Liquor");
+            const parent = Object.keys(barSubcategories).find((key) =>
+              barSubcategories[key].includes(e.target.value),
+            );
+            if (parent) setCategory(parent);
           }}
         >
           <option value="">All subcategories</option>
-          {liquorSubcategories.map((option) => (
-            <option key={option}>{option}</option>
-          ))}
+          {Object.entries(barSubcategories)
+            .filter(([parent]) => !category || parent === category)
+            .map(([parent, options]) => (
+              <optgroup key={parent} label={parent}>
+                {options.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </optgroup>
+            ))}
         </select>
         <select
           aria-label="Tier"
@@ -819,7 +830,11 @@ export function ItemForm({
       ...(isBar && {
         bar: {
           brand: fields.brand,
-          subcategory: fields.category === "Liquor" ? fields.subcategory : "",
+          subcategory: barSubcategories[fields.category]?.includes(
+            fields.subcategory,
+          )
+            ? fields.subcategory
+            : "",
           container: (fields.container || null) as BarContainer | null,
         },
       }),
@@ -921,14 +936,14 @@ export function ItemForm({
                   ))}
                 </select>
               </FormField>
-              {fields.category === "Liquor" && (
+              {barSubcategories[fields.category] && (
                 <FormField label="Subcategory">
                   <select
                     value={fields.subcategory}
                     onChange={(e) => set("subcategory")(e.target.value)}
                   >
                     <option value="">Not set</option>
-                    {liquorSubcategories.map((option) => (
+                    {barSubcategories[fields.category].map((option) => (
                       <option key={option}>{option}</option>
                     ))}
                   </select>

@@ -74,17 +74,41 @@ export const allergenLabels: Record<Allergen, string> = {
   sesame: "Sesame",
 };
 
-// Bar stock (FLOW-90). Built-in lists until business settings make them
-// configurable (FLOW-45).
-export const barCategories = ["Beer", "Wine", "Liquor"];
-export const liquorSubcategories = ["Vodka", "Whiskey", "Scotch", "Rum", "Gin"];
-export const barTierSchema = z.enum(["rail", "call", "premium"]);
+// Bar stock (FLOW-90), following the bar inventory masterlist. Built-in lists
+// until business settings make them configurable (FLOW-45).
+export const barCategories = [
+  "Beer",
+  "Wine",
+  "Champagne",
+  "Liquor",
+  "Cordials",
+  "Mixers & Juices",
+  "Garnishes",
+  "Soft Beverages",
+];
+// Wine and liquor are split further; other bar categories have no subcategory.
+export const barSubcategories: Record<string, string[]> = {
+  Wine: ["White", "Red"],
+  Liquor: ["Vodka", "Tequila", "Gin", "Rum", "Whiskey", "Cognac"],
+};
+export const barTierSchema = z.enum(["rail", "mid", "high", "premium"]);
 export type BarTier = z.infer<typeof barTierSchema>;
 export const barTierLabels: Record<BarTier, string> = {
   rail: "Rail",
-  call: "Call",
+  mid: "Mid",
+  high: "High",
   premium: "Premium",
 };
+// Bar counts round to the nearest half for beer and wine and the nearest quarter
+// for liquor (masterlist). Other bar stock is counted as entered.
+export function barCountStep(category: string): number | null {
+  if (["Beer", "Wine", "Champagne"].includes(category)) return 0.5;
+  if (["Liquor", "Cordials"].includes(category)) return 0.25;
+  return null;
+}
+export const fitsCountStep = (quantity: number, step: number | null) =>
+  step === null ||
+  Math.abs(quantity / step - Math.round(quantity / step)) < 1e-9;
 export const barContainerSchema = z.enum(["bottle", "can", "keg"]);
 export type BarContainer = z.infer<typeof barContainerSchema>;
 export const barContainerLabels: Record<BarContainer, string> = {
@@ -95,7 +119,7 @@ export const barContainerLabels: Record<BarContainer, string> = {
 export const barDetailsSchema = z.object({
   // Brand or varietal, e.g. Tito's or Pinot Grigio.
   brand: text(200).default(""),
-  // Liquor only.
+  // Wine and liquor only (barSubcategories).
   subcategory: text(100).default(""),
   container: barContainerSchema.nullable().default(null),
 });
@@ -207,19 +231,25 @@ export const itemInputSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["category"],
-          message: "Pick Beer, Wine or Liquor.",
+          message: "Pick a bar category.",
         });
       if (item.tier && !barTierSchema.safeParse(item.tier).success)
         ctx.addIssue({
           code: "custom",
           path: ["tier"],
-          message: "The tier is rail, call or premium.",
+          message: "The tier is rail, mid, high or premium.",
         });
-      if (item.bar?.subcategory && item.category !== "Liquor")
+      const subcategories = barSubcategories[item.category];
+      if (
+        item.bar?.subcategory &&
+        !subcategories?.includes(item.bar.subcategory)
+      )
         ctx.addIssue({
           code: "custom",
           path: ["bar", "subcategory"],
-          message: "Only liquor has a subcategory.",
+          message: subcategories
+            ? `Pick ${subcategories.slice(0, -1).join(", ")} or ${subcategories.at(-1)}.`
+            : "Only wine and liquor have a subcategory.",
         });
     }
   });

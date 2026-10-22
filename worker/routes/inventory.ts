@@ -50,9 +50,10 @@ import {
 const uuid = z.string().uuid();
 
 // Inventory API (FLOW-69/70/71/81/82/83/90), mounted at /api/inventory. Every route
-// needs a signed-in user; item and stock writes need inventory.write, section
-// changes inventory.sections (Admin). Counts need inventory.count, and each counted
-// item is checked against who may count it (canCountItem). There is no route that
+// needs a signed-in user; item writes need inventory.write, section changes
+// inventory.sections (Admin). Movements need inventory.move and counts
+// inventory.count, and each item is then checked against who may move or count it
+// (canMoveItem, canCountItem). There is no route that
 // sets a quantity: every change is a movement (FLOW-71 AC1).
 export function inventoryRoutes(options: {
   withDb?: RunWithDb;
@@ -111,7 +112,7 @@ export function inventoryRoutes(options: {
   });
   routes.post(
     "/items/:id/transfers",
-    requirePermission("inventory.write"),
+    requirePermission("inventory.move"),
     async (c) => {
       const id = param(c, "Item");
       const input = await parseBody(c, transferInputSchema);
@@ -139,7 +140,7 @@ export function inventoryRoutes(options: {
   });
   routes.post(
     "/items/:id/movements",
-    requirePermission("inventory.write"),
+    requirePermission("inventory.move"),
     async (c) => {
       const id = param(c, "Item");
       const input = await parseBody(c, movementInputSchema);
@@ -151,7 +152,7 @@ export function inventoryRoutes(options: {
   );
   routes.post(
     "/movements/:id/corrections",
-    requirePermission("inventory.write"),
+    requirePermission("inventory.move"),
     async (c) => {
       const id = param(c, "Movement");
       const input = await parseBody(c, correctionInputSchema);

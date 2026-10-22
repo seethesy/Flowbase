@@ -14,7 +14,9 @@ import {
 import type { z } from "zod";
 import { isFtPlus, type Actor } from "../../shared/access";
 import {
+  barCountStep,
   countDifference,
+  fitsCountStep,
   movementDirection,
   sectionKindFor,
   type Allergen,
@@ -53,7 +55,7 @@ import {
 } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
-import { canCountItem } from "../policy";
+import { canCountItem, canMoveItem } from "../policy";
 
 // Inventory items (FLOW-69), sections and per-section stock (FLOW-70), the
 // ingredient catalog fields (FLOW-81), the stock ledger (FLOW-71), count mode
@@ -831,6 +833,7 @@ export async function transferStock(
   input: TransferInput,
 ): Promise<InventoryItem> {
   const item = await findItem(db, itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
   await db.transaction((tx) =>
     recordMovement(tx, actor, item, {
       type: "transfer",
@@ -856,6 +859,18 @@ async function recordCount(
   reason: string,
 ) {
   if (!canCountItem(actor, item)) throw forbidden();
+  const step =
+    item.kind === "consumable" && item.subtype === "bar"
+      ? barCountStep(item.category)
+      : null;
+  if (!fitsCountStep(counted, step))
+    throw new ApiError(
+      400,
+      "COUNT_STEP",
+      step === 0.5
+        ? "Count beer and wine to the nearest 0.5."
+        : "Count liquor to the nearest 0.25.",
+    );
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
     .from(inventoryStock)
@@ -896,6 +911,7 @@ export async function addMovement(
   input: MovementInput,
 ): Promise<InventoryItem> {
   const item = await findItem(db, itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
   if (input.eventId) {
     const [event] = await db
       .select({ id: events.id })
@@ -954,6 +970,7 @@ export async function correctMovement(
         : "This movement removes stock; enter what it should have removed as a negative number.",
     );
   const item = await findItem(db, original.itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
   await db.transaction(async (tx) => {
     const [{ total }] = await tx
       .select({

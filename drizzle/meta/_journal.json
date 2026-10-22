@@ -71,6 +71,13 @@
       "when": 1792697965780,
       "tag": "0009_stock_ledger_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792700057231,
+      "tag": "0010_unlabeled_section",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  barCountStep,
   correctionInputSchema,
   countDifference,
+  fitsCountStep,
   itemInputSchema,
   movementInputSchema,
   type ItemInput,
@@ -68,7 +70,7 @@ const rows: Record<string, ItemInput> = {
     subtype: "bar",
     name: "House Pinot Grigio",
     category: "Wine",
-    tier: "call",
+    tier: "mid",
     consumable: {
       purchaseUnit: "case",
       packCount: 12,
@@ -77,7 +79,7 @@ const rows: Record<string, ItemInput> = {
       preferredVendor: "Imperio",
       parLevel: 24,
     },
-    bar: { brand: "Pinot Grigio", subcategory: "", container: "bottle" },
+    bar: { brand: "Pinot Grigio", subcategory: "White", container: "bottle" },
   },
   "rail vodka": {
     kind: "consumable",
@@ -162,7 +164,7 @@ describe("inventory item model", () => {
       "Enter how many are in a case.",
     ],
     [
-      "bar stock outside Beer, Wine and Liquor",
+      "bar stock outside the bar categories",
       {
         kind: "consumable",
         subtype: "bar",
@@ -170,10 +172,10 @@ describe("inventory item model", () => {
         category: "Soda",
         consumable: { purchaseUnit: "each" },
       },
-      "Pick Beer, Wine or Liquor.",
+      "Pick a bar category.",
     ],
     [
-      "a bar tier that isn't rail, call or premium",
+      "a bar tier that isn't rail, mid, high or premium",
       {
         kind: "consumable",
         subtype: "bar",
@@ -182,10 +184,10 @@ describe("inventory item model", () => {
         tier: "Top shelf",
         consumable: { purchaseUnit: "each" },
       },
-      "The tier is rail, call or premium.",
+      "The tier is rail, mid, high or premium.",
     ],
     [
-      "a subcategory on wine",
+      "a liquor subcategory on wine",
       {
         kind: "consumable",
         subtype: "bar",
@@ -194,7 +196,19 @@ describe("inventory item model", () => {
         consumable: { purchaseUnit: "each" },
         bar: { subcategory: "Rum" },
       },
-      "Only liquor has a subcategory.",
+      "Pick White or Red.",
+    ],
+    [
+      "a subcategory on beer",
+      {
+        kind: "consumable",
+        subtype: "bar",
+        name: "Modelo",
+        category: "Beer",
+        consumable: { purchaseUnit: "each" },
+        bar: { subcategory: "Lager" },
+      },
+      "Only wine and liquor have a subcategory.",
     ],
     [
       "bar details on an ingredient",
@@ -247,6 +261,19 @@ describe("stock ledger inputs (FLOW-71, FLOW-82)", () => {
     expect(countDifference(0, 2.5)).toBe(-2.5);
     // No floating-point drift: 0.3 - 0.1 is 0.2, not 0.19999999999999998.
     expect(countDifference(0.3, 0.1)).toBe(0.2);
+  });
+
+  it("counts beer and wine to the nearest 0.5 and liquor to the nearest 0.25", () => {
+    for (const category of ["Beer", "Wine", "Champagne"])
+      expect(barCountStep(category)).toBe(0.5);
+    for (const category of ["Liquor", "Cordials"])
+      expect(barCountStep(category)).toBe(0.25);
+    expect(barCountStep("Soft Beverages")).toBeNull();
+    expect(fitsCountStep(7.5, 0.5)).toBe(true);
+    expect(fitsCountStep(1.25, 0.5)).toBe(false);
+    expect(fitsCountStep(3.25, 0.25)).toBe(true);
+    expect(fitsCountStep(3.3, 0.25)).toBe(false);
+    expect(fitsCountStep(3.3, null)).toBe(true);
   });
 
   it("takes a positive quantity for typed movements and a signed one for adjustments", () => {
