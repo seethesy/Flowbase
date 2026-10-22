@@ -209,7 +209,7 @@ it("creates an event from just a title, date, time and client", async () => {
   await within(dialog).findByRole("option", { name: "Juniper & Co." });
   await user.selectOptions(
     within(dialog).getByLabelText("Client *"),
-    "Juniper & Co.",
+    client().id,
   );
   await user.click(within(dialog).getByRole("button", { name: "Save event" }));
   await waitFor(() => expect(sent).toBeDefined());

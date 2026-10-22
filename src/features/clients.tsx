@@ -95,12 +95,18 @@ export function ClientList() {
     {
       id: "email",
       header: "Email",
-      accessorFn: (client) => hidden(primaryContact(client)?.email ?? ""),
+      accessorFn: (client) => {
+        const contact = primaryContact(client);
+        return contact ? hidden(contact.email) : "—";
+      },
     },
     {
       id: "phone",
       header: "Phone",
-      accessorFn: (client) => hidden(primaryContact(client)?.phone ?? ""),
+      accessorFn: (client) => {
+        const contact = primaryContact(client);
+        return contact ? hidden(contact.phone) : "—";
+      },
     },
     {
       id: "tags",
