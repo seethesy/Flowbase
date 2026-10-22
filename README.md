@@ -28,7 +28,7 @@ Seeded data: 35 clients, 45 contacts, 40 proposals, 50 items, 15 vendors, 12 pur
 
 ## Architecture
 
-React + strict TypeScript + Vite; Tailwind CSS; Radix/shadcn-style components; Lucide; React Router; TanStack Table; Recharts; dnd-kit. Shared components live in `src/components`, feature screens in `src/features`, and typed fixtures in `src/data/mock`.
+React + strict TypeScript + Vite; Tailwind CSS; Radix/shadcn-style components; Lucide; React Router; TanStack Table; Recharts; dnd-kit. Shared components live in `src/components`, feature screens in `src/features`, and typed fixtures in `src/data/mock`. Rich text (SOPs, setup and BEO notes) uses TipTap free core in `src/components/rich-text`: `RichTextEditor` stores TipTap JSON, and `RichTextView`/`renderRichText` render it to DOMPurify-sanitized HTML for screen and print. Headings, bold, italic, bulleted/numbered/checklist lists (nestable) and http(s)/mailto/tel links are supported; pasted Google Docs content keeps that formatting and drops everything else.
 
 A Hono Worker in `worker/` handles the API, and one `wrangler.jsonc` serves `dist/` as static assets on the same origin. App and API infer record types from Zod schemas in `shared/records.ts`. The build typechecks both targets before bundling. The async `RecordService<T>` adapter loads fixtures from `/api/demo/*`, validates writes through the API, and keeps changes in browser memory until refresh. Demo endpoints validate and echo writes; they do not persist records. Context publishes loaded snapshots for rendering; screens await mutations before reporting success. Database access lives in `worker/db/` (see [Database](#database)). Binding decisions, principles, and terms are copied from FLOW-1 in [docs/architecture.md](docs/architecture.md).
 
@@ -94,6 +94,8 @@ curl http://localhost:8787/api/health
 ```
 
 The POST returns `201` with the new row, the GET lists it, and health reports `database: "reachable"`. Local mode (without `--remote`) skips Hyperdrive and needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`; see `.env.example`.
+
+**Backups.** Production is dumped nightly to R2 from the private ops repo with 30-day retention. Setup, contents and the restore procedure: [docs/restore.md](docs/restore.md).
 
 ## Deploy
 

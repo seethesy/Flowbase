@@ -2318,3 +2318,130 @@ tbody tr:last-child td {
     scroll-behavior: auto !important;
   }
 }
+/* Rich text (FLOW-50): shared by the editor and the read-only/print view. */
+.rich-text {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.rich-text > * + * {
+  margin-top: 8px;
+}
+.rich-text h1 {
+  font-size: 20px;
+}
+.rich-text h2 {
+  font-size: 17px;
+}
+.rich-text h3 {
+  font-size: 15px;
+}
+.rich-text ul,
+.rich-text ol {
+  margin: 4px 0;
+  padding-left: 24px;
+}
+.rich-text ul {
+  list-style: disc;
+}
+.rich-text ul ul {
+  list-style: circle;
+}
+.rich-text ol {
+  list-style: decimal;
+}
+.rich-text ol ol {
+  list-style: lower-alpha;
+}
+.rich-text a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.rich-text ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.rich-text ul[data-type="taskList"] ul[data-type="taskList"] {
+  padding-left: 26px;
+}
+.rich-text li[data-type="taskItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.rich-text li[data-type="taskItem"] > label {
+  flex: none;
+  padding-top: 3px;
+}
+.rich-text li[data-type="taskItem"] > div {
+  flex: 1;
+  min-width: 0;
+}
+.rich-text input[type="checkbox"] {
+  width: 16px;
+  min-height: 0;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+.rich-text input[type="checkbox"]:disabled {
+  opacity: 1;
+}
+.rich-text-field {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: white;
+}
+.rich-text-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.rich-text-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.rich-text-link label {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.rich-text-link small {
+  flex-basis: 100%;
+  color: var(--error);
+}
+.rich-text-editor {
+  min-height: 140px;
+  padding: 10px 12px;
+}
+.rich-text-editor:focus-visible {
+  outline: 3px solid #80ac92;
+  outline-offset: -3px;
+}
+@media print {
+  .rich-text-toolbar,
+  .rich-text-link {
+    display: none;
+  }
+  .rich-text {
+    color: #000;
+  }
+  .rich-text li {
+    break-inside: avoid;
+  }
+  .rich-text input[type="checkbox"] {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .rich-text a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+  }
+}
