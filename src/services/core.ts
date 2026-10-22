@@ -13,11 +13,18 @@ import {
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
 import {
+  costChangeSchema,
   itemSchema,
+  movementSchema,
   sectionSchema,
+  stockCountSchema,
+  stockCountSummarySchema,
+  type CorrectionInput,
   type CountInput,
+  type CountLineInput,
   type ItemInput,
   type ItemKind,
+  type MovementInput,
   type SectionKind,
   type TransferInput,
 } from "../../shared/inventory";
@@ -158,6 +165,8 @@ export const inventoryApi = {
       vendor?: string;
       belowPar?: boolean;
       search?: string;
+      tier?: string;
+      subcategory?: string;
     } = {},
   ) => request(itemSchema.array(), `/api/inventory/items${query(filter)}`),
   get: (id: string) => request(itemSchema, at("inventory/items", id)),
@@ -176,6 +185,48 @@ export const inventoryApi = {
     request(itemSchema, at("inventory/items", id, "transfers"), "POST", input),
   count: (id: string, input: CountInput) =>
     request(itemSchema, at("inventory/items", id, "counts"), "POST", input),
+  movements: (id: string) =>
+    request(movementSchema.array(), at("inventory/items", id, "movements")),
+  addMovement: (id: string, input: MovementInput) =>
+    request(itemSchema, at("inventory/items", id, "movements"), "POST", input),
+  correct: (movementId: string, input: CorrectionInput) =>
+    request(
+      movementSchema.array(),
+      at("inventory/movements", movementId, "corrections"),
+      "POST",
+      input,
+    ),
+  costHistory: (id: string) =>
+    request(
+      costChangeSchema.array(),
+      at("inventory/items", id, "cost-history"),
+    ),
+};
+
+// Count mode (FLOW-82).
+export const countsApi = {
+  list: (filter: { status?: "open" | "completed" } = {}) =>
+    request(
+      stockCountSummarySchema.array(),
+      `/api/inventory/counts${query(filter)}`,
+    ),
+  get: (id: string) => request(stockCountSchema, at("inventory/counts", id)),
+  start: (sectionId: string) =>
+    request(stockCountSchema, "/api/inventory/counts", "POST", { sectionId }),
+  saveLine: (id: string, input: CountLineInput) =>
+    request(
+      stockCountSchema,
+      at("inventory/counts", id, "lines"),
+      "POST",
+      input,
+    ),
+  complete: (id: string) =>
+    request(
+      stockCountSchema,
+      at("inventory/counts", id, "complete"),
+      "POST",
+      {},
+    ),
 };
 
 export const sectionsApi = {

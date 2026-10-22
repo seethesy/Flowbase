@@ -2619,3 +2619,83 @@ tbody tr:last-child td {
   margin: 0;
   flex: 1;
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.movement-table .badge {
+  margin-left: 6px;
+}
+/* Count mode (FLOW-82): one card per item, sized for a phone in the storage area. */
+.count-sections,
+.count-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.count-sections li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.count-sections small,
+.count-line-heading small {
+  display: block;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.count-progress {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.count-line {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.count-line.counted {
+  border-color: var(--success, #3f7d4e);
+}
+.count-line .badge {
+  margin-left: 6px;
+}
+.count-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+.count-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+.count-entry input {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+}
+.count-entry .error-message {
+  grid-column: 1 / -1;
+}
+@media (max-width: 480px) {
+  .count-entry {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .count-entry .form-field:nth-of-type(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

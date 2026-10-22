@@ -18,8 +18,14 @@ import {
   InventoryList,
   InventoryDetail,
   IngredientList,
+  BarList,
   SectionList,
 } from "../features/inventory";
+import {
+  CountList,
+  CountMode,
+  LowStockList,
+} from "../features/stock-counts";
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 function Placeholder() {
@@ -94,6 +100,10 @@ export const router = createHashRouter([
       { path: "/proposals", element: <Proposals /> },
       { path: "/inventory", element: <InventoryList /> },
       { path: "/inventory/ingredients", element: <IngredientList /> },
+      { path: "/inventory/bar", element: <BarList /> },
+      { path: "/inventory/low-stock", element: <LowStockList /> },
+      { path: "/inventory/counts", element: <CountList /> },
+      { path: "/inventory/counts/:id", element: <CountMode /> },
       { path: "/inventory/sections", element: <SectionList /> },
       { path: "/inventory/:id", element: <InventoryDetail /> },
       { path: "/events", element: <EventList /> },

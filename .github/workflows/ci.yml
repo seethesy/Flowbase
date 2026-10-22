@@ -66,10 +66,15 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium and system dependencies
         if: steps.changes.outputs.code == 'true' && steps.browsers.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: |
+          # The runner's Azure mirror can stall long enough to exhaust this job.
+          echo 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          npx playwright install --with-deps chromium
       - name: Install system dependencies for cached Chromium
         if: steps.changes.outputs.code == 'true' && steps.browsers.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: |
+          echo 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          npx playwright install-deps chromium
       - name: Playwright desktop and mobile
         if: steps.changes.outputs.code == 'true'
         run: npm run test:e2e

@@ -1,49 +1,75 @@
 import {
   and,
   asc,
+  desc,
   eq,
   ilike,
   inArray,
   isNotNull,
   isNull,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
 import type { z } from "zod";
 import { isFtPlus, type Actor } from "../../shared/access";
 import {
+  barCountStep,
+  countDifference,
+  fitsCountStep,
+  movementDirection,
   sectionKindFor,
   type Allergen,
+  type BarContainer,
+  type CostChange,
   type InventoryItem,
   type ItemInputParsed,
+  type MovementType,
   type Section,
   type SectionKind,
+  type StockCount,
+  type StockCountSummary,
+  type StockMovement,
+  type correctionInputSchema,
   type countInputSchema,
+  type countLineInputSchema,
+  type movementInputSchema,
   type sectionInputSchema,
   type transferInputSchema,
 } from "../../shared/inventory";
 import type { Unit } from "../../shared/units";
 import type { Db, DbLike } from "../db/client";
 import {
+  events,
+  inventoryBarDetails,
   inventoryConsumableDetails,
+  inventoryCostHistory,
   inventoryItems,
   inventoryRentalDetails,
   inventorySections,
   inventoryServiceDetails,
   inventoryStock,
+  stockCountLines,
+  stockCounts,
   stockMovements,
 } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
+import { canCountItem, canMoveItem } from "../policy";
 
-// Inventory items (FLOW-69), sections and per-section stock (FLOW-70) and the
-// ingredient catalog fields (FLOW-81). Every signed-in user can read inventory;
-// ingredient costs are FT+ only (F-01-04). Stock changes only through
-// recordMovement, which writes the movement and the new quantities together.
+// Inventory items (FLOW-69), sections and per-section stock (FLOW-70), the
+// ingredient catalog fields (FLOW-81), the stock ledger (FLOW-71), count mode
+// (FLOW-82), cost history (FLOW-83) and bar stock (FLOW-90). Every signed-in user
+// can read inventory; consumable costs are FT+ only (F-01-04). Stock changes only
+// through recordMovement, which writes the movements and the cached quantities
+// together; nothing sets a quantity directly.
 type ItemRow = typeof inventoryItems.$inferSelect;
 type SectionRow = typeof inventorySections.$inferSelect;
 type TransferInput = z.output<typeof transferInputSchema>;
 type CountInput = z.output<typeof countInputSchema>;
+type CountLineInput = z.output<typeof countLineInputSchema>;
+type MovementInput = z.output<typeof movementInputSchema>;
+type CorrectionInput = z.output<typeof correctionInputSchema>;
 type SectionInput = z.output<typeof sectionInputSchema>;
 
 // Four decimal places, as stored; keeps 0.1 + 0.2 from drifting.
@@ -227,7 +253,7 @@ async function toItems(
 ): Promise<InventoryItem[]> {
   if (!rows.length) return [];
   const ids = rows.map((row) => row.id);
-  const [rentals, services, consumables, stock] = await Promise.all([
+  const [rentals, services, consumables, stock, bars] = await Promise.all([
     db
       .select()
       .from(inventoryRentalDetails)
@@ -261,6 +287,10 @@ async function toItems(
       )
       .where(inArray(inventoryStock.itemId, ids))
       .orderBy(asc(inventorySections.sortOrder), asc(inventorySections.name)),
+    db
+      .select()
+      .from(inventoryBarDetails)
+      .where(inArray(inventoryBarDetails.itemId, ids)),
   ]);
   const showCost = isFtPlus(actor);
   return rows.map((row): InventoryItem => {
@@ -280,6 +310,7 @@ async function toItems(
       levels.reduce((sum, level) => sum + level.quantity, 0),
     );
     const c = consumable?.details;
+    const bar = bars.find((detail) => detail.itemId === row.id);
     const par = c?.parLevel ?? null;
     return {
       id: row.id,
@@ -325,8 +356,17 @@ async function toItems(
             allergens: c.allergens as Allergen[],
             storageSectionId: c.storageSectionId,
             storageSectionName: consumable.storageSectionName,
+            storageOrder: c.storageOrder,
           }
         : null,
+      bar:
+        row.kind === "consumable" && row.subtype === "bar"
+          ? {
+              brand: bar?.brand ?? "",
+              subcategory: bar?.subcategory ?? "",
+              container: (bar?.container as BarContainer | null) ?? null,
+            }
+          : null,
       stock: levels,
       totalQuantity,
       belowPar: par === null ? null : totalQuantity < par,
@@ -346,6 +386,9 @@ export type ItemFilter = {
   vendor?: string;
   belowPar?: boolean;
   search?: string;
+  tier?: string;
+  // Bar stock (FLOW-90).
+  subcategory?: string;
 };
 
 export async function listItems(
@@ -366,6 +409,7 @@ export async function listItems(
         filter.category
           ? eq(inventoryItems.category, filter.category)
           : undefined,
+        filter.tier ? eq(inventoryItems.tier, filter.tier) : undefined,
         filter.search
           ? or(
               ilike(inventoryItems.name, `%${filter.search}%`),
@@ -384,7 +428,8 @@ export async function listItems(
         item.consumable?.storageSectionId === filter.sectionId) &&
       (!vendor ||
         item.consumable?.preferredVendor.toLowerCase().includes(vendor)) &&
-      (!filter.belowPar || item.belowPar === true),
+      (!filter.belowPar || item.belowPar === true) &&
+      (!filter.subcategory || item.bar?.subcategory === filter.subcategory),
   );
 }
 
@@ -474,6 +519,10 @@ async function saveDetails(
     if (c.unitCostCents !== undefined && !isFtPlus(actor)) throw forbidden();
     if (c.storageSectionId)
       await requireStockSection(tx, c.storageSectionId, "consumable");
+    const [stored] = await tx
+      .select({ unitCostCents: inventoryConsumableDetails.unitCostCents })
+      .from(inventoryConsumableDetails)
+      .where(eq(inventoryConsumableDetails.itemId, itemId));
     const values = {
       purchaseUnit: c.purchaseUnit,
       packCount: c.packCount,
@@ -484,6 +533,7 @@ async function saveDetails(
       parLevel: c.parLevel,
       allergens: c.allergens,
       storageSectionId: c.storageSectionId,
+      storageOrder: c.storageOrder,
       ...(c.unitCostCents !== undefined && { unitCostCents: c.unitCostCents }),
     };
     await tx
@@ -493,7 +543,81 @@ async function saveDetails(
         target: inventoryConsumableDetails.itemId,
         set: values,
       });
+    const previousCents = stored?.unitCostCents ?? null;
+    if (c.unitCostCents !== undefined && c.unitCostCents !== previousCents)
+      await recordCostChange(tx, actor, {
+        itemId,
+        previousCents,
+        unitCostCents: c.unitCostCents,
+        source: "manual",
+      });
   }
+  if (input.kind === "consumable" && input.subtype === "bar") {
+    const values = {
+      brand: input.bar?.brand ?? "",
+      subcategory: input.bar?.subcategory ?? "",
+      container: input.bar?.container ?? null,
+    };
+    await tx
+      .insert(inventoryBarDetails)
+      .values({ itemId, ...values })
+      .onConflictDoUpdate({ target: inventoryBarDetails.itemId, set: values });
+  }
+}
+
+// ---- Costs (FLOW-83) ----
+
+// Logs a unit-cost change and emits inventory_item.cost_changed in the caller's
+// transaction, after the new cost is stored. Recipe costing (FLOW-94) recalculates
+// every recipe using the item on that event. Receiving (FLOW-88) calls this with
+// source "receiving".
+export async function recordCostChange(
+  tx: DbLike,
+  actor: Actor,
+  change: {
+    itemId: string;
+    previousCents: number | null;
+    unitCostCents: number | null;
+    source: CostChange["source"];
+  },
+) {
+  const [row] = await tx
+    .insert(inventoryCostHistory)
+    .values({ ...change, createdBy: actor.userId, updatedBy: actor.userId })
+    .returning({ id: inventoryCostHistory.id });
+  await emitDomainEvent(tx, {
+    name: "inventory_item.cost_changed",
+    entityId: change.itemId,
+    data: {
+      costChangeId: row.id,
+      previousCents: change.previousCents,
+      unitCostCents: change.unitCostCents,
+      source: change.source,
+    },
+  });
+}
+
+export async function listCostHistory(
+  db: Db,
+  actor: Actor,
+  itemId: string,
+): Promise<CostChange[]> {
+  if (!isFtPlus(actor)) throw forbidden();
+  await findItem(db, itemId);
+  const rows = await db
+    .select()
+    .from(inventoryCostHistory)
+    .where(eq(inventoryCostHistory.itemId, itemId))
+    .orderBy(desc(inventoryCostHistory.createdAt))
+    .limit(500);
+  return rows.map((row) => ({
+    id: row.id,
+    previousCents: row.previousCents,
+    unitCostCents: row.unitCostCents,
+    source: row.source,
+    changedBy: row.createdBy,
+    changedAt: row.createdAt.toISOString(),
+  }));
 }
 
 export async function createItem(
@@ -565,27 +689,27 @@ export async function setItemArchived(
   return getItem(db, actor, id);
 }
 
-// ---- Stock ----
+// ---- Stock ledger (FLOW-71) ----
 
-type Movement = {
-  type: "transfer" | "adjustment";
-  // Per-section changes; a transfer has two, an adjustment one.
-  changes: { sectionId: string; delta: number }[];
-  quantity: number;
-  fromSectionId: string | null;
-  toSectionId: string | null;
-  note: string;
+export type Movement = {
+  type: MovementType;
+  // One signed change per section; a transfer has two.
+  changes: { sectionId: string; quantity: number }[];
+  reason: string;
+  correctsId?: string | null;
+  link?: { type: "event" | "order" | "import"; id: string } | null;
 };
 
-// The only way stock changes: writes the movement and every section's new
-// quantity in the caller's transaction. Services never have stock (FLOW-69 AC2),
-// and no section may go below zero.
+// The only way stock changes: appends the movements and updates every section's
+// cached on-hand in the caller's transaction, so the cache always equals the sum of
+// movements. Services never have stock (FLOW-69 AC2), and no section may go below
+// zero. Returns the new movement ids, in the order of the changes.
 export async function recordMovement(
   tx: DbLike,
   actor: Actor,
   item: Pick<ItemRow, "id" | "kind" | "archivedAt">,
   movement: Movement,
-) {
+): Promise<string[]> {
   const sectionKind = sectionKindFor(item.kind);
   if (!sectionKind)
     throw conflict(
@@ -602,14 +726,10 @@ export async function recordMovement(
       requireStockSection(tx, change.sectionId, sectionKind),
     ),
   );
+  const sectionIds = movement.changes.map((change) => change.sectionId);
   await tx
     .insert(inventoryStock)
-    .values(
-      movement.changes.map((change) => ({
-        itemId: item.id,
-        sectionId: change.sectionId,
-      })),
-    )
+    .values(sectionIds.map((sectionId) => ({ itemId: item.id, sectionId })))
     .onConflictDoNothing();
   const levels = await tx
     .select()
@@ -617,16 +737,13 @@ export async function recordMovement(
     .where(
       and(
         eq(inventoryStock.itemId, item.id),
-        inArray(
-          inventoryStock.sectionId,
-          movement.changes.map((change) => change.sectionId),
-        ),
+        inArray(inventoryStock.sectionId, sectionIds),
       ),
     )
     .for("update");
   for (const [index, change] of movement.changes.entries()) {
     const level = levels.find((row) => row.sectionId === change.sectionId);
-    const next = round((level?.quantity ?? 0) + change.delta);
+    const next = round((level?.quantity ?? 0) + change.quantity);
     if (next < 0)
       throw conflict(
         "INSUFFICIENT_STOCK",
@@ -642,27 +759,73 @@ export async function recordMovement(
         ),
       );
   }
-  const [row] = await tx
+  const transferId = movement.type === "transfer" ? crypto.randomUUID() : null;
+  const rows = await tx
     .insert(stockMovements)
-    .values({
-      itemId: item.id,
-      type: movement.type,
-      quantity: round(movement.quantity),
-      fromSectionId: movement.fromSectionId,
-      toSectionId: movement.toSectionId,
-      note: movement.note,
-      createdBy: actor.userId,
-      updatedBy: actor.userId,
-    })
+    .values(
+      movement.changes.map((change) => ({
+        itemId: item.id,
+        sectionId: change.sectionId,
+        type: movement.type,
+        quantity: round(change.quantity),
+        reason: movement.reason,
+        transferId,
+        correctsId: movement.correctsId ?? null,
+        linkType: movement.link?.type ?? null,
+        linkId: movement.link?.id ?? null,
+        createdBy: actor.userId,
+        updatedBy: actor.userId,
+      })),
+    )
     .returning({ id: stockMovements.id });
+  const ids = rows.map((row) => row.id);
   await emitDomainEvent(tx, {
-    name: movement.type === "transfer" ? "stock.transferred" : "stock.adjusted",
+    name: "stock.moved",
     entityId: item.id,
-    data: { movementId: row.id },
+    data: { movementIds: ids, type: movement.type },
   });
+  return ids;
 }
 
-// FLOW-70 AC2: one transfer movement, both sections updated.
+export async function listMovements(
+  db: Db,
+  itemId: string,
+): Promise<StockMovement[]> {
+  await findItem(db, itemId);
+  const rows = await db
+    .select({ movement: stockMovements, sectionName: inventorySections.name })
+    .from(stockMovements)
+    .innerJoin(
+      inventorySections,
+      eq(stockMovements.sectionId, inventorySections.id),
+    )
+    .where(eq(stockMovements.itemId, itemId))
+    .orderBy(desc(stockMovements.createdAt), asc(stockMovements.quantity))
+    .limit(1000);
+  return rows.map(({ movement: m, sectionName }) => ({
+    id: m.id,
+    itemId: m.itemId,
+    sectionId: m.sectionId,
+    sectionName,
+    type: m.type,
+    quantity: m.quantity,
+    reason: m.reason,
+    transferId: m.transferId,
+    correctsId: m.correctsId,
+    correctedBy: rows
+      .filter((other) => other.movement.correctsId === m.id)
+      .sort(
+        (a, b) =>
+          a.movement.createdAt.getTime() - b.movement.createdAt.getTime(),
+      )
+      .map((other) => other.movement.id),
+    link: m.linkType && m.linkId ? { type: m.linkType, id: m.linkId } : null,
+    createdBy: m.createdBy,
+    createdAt: m.createdAt.toISOString(),
+  }));
+}
+
+// FLOW-70 AC2: one transfer, both sections updated.
 export async function transferStock(
   db: Db,
   actor: Actor,
@@ -670,23 +833,63 @@ export async function transferStock(
   input: TransferInput,
 ): Promise<InventoryItem> {
   const item = await findItem(db, itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
   await db.transaction((tx) =>
     recordMovement(tx, actor, item, {
       type: "transfer",
       changes: [
-        { sectionId: input.fromSectionId, delta: -input.quantity },
-        { sectionId: input.toSectionId, delta: input.quantity },
+        { sectionId: input.fromSectionId, quantity: -input.quantity },
+        { sectionId: input.toSectionId, quantity: input.quantity },
       ],
-      quantity: input.quantity,
-      fromSectionId: input.fromSectionId,
-      toSectionId: input.toSectionId,
-      note: input.note,
+      reason: input.reason,
     }),
   );
   return getItem(db, actor, itemId);
 }
 
-// Sets a section's counted quantity; the difference is an adjustment movement.
+// Records a counted quantity as a count movement for the difference (FLOW-82 AC1:
+// counting 12 where the section holds 15 writes -3). A count that matches still
+// writes a zero movement, so the ledger shows when it was counted.
+async function recordCount(
+  tx: DbLike,
+  actor: Actor,
+  item: ItemRow,
+  sectionId: string,
+  counted: number,
+  reason: string,
+) {
+  if (!canCountItem(actor, item)) throw forbidden();
+  const step =
+    item.kind === "consumable" && item.subtype === "bar"
+      ? barCountStep(item.category)
+      : null;
+  if (!fitsCountStep(counted, step))
+    throw new ApiError(
+      400,
+      "COUNT_STEP",
+      step === 0.5
+        ? "Count beer and wine to the nearest 0.5."
+        : "Count liquor to the nearest 0.25.",
+    );
+  const [level] = await tx
+    .select({ quantity: inventoryStock.quantity })
+    .from(inventoryStock)
+    .where(
+      and(
+        eq(inventoryStock.itemId, item.id),
+        eq(inventoryStock.sectionId, sectionId),
+      ),
+    )
+    .for("update");
+  const difference = countDifference(counted, level?.quantity ?? 0);
+  const [movementId] = await recordMovement(tx, actor, item, {
+    type: "count",
+    changes: [{ sectionId, quantity: difference }],
+    reason,
+  });
+  return { movementId, difference };
+}
+
 export async function countStock(
   db: Db,
   actor: Actor,
@@ -694,26 +897,356 @@ export async function countStock(
   input: CountInput,
 ): Promise<InventoryItem> {
   const item = await findItem(db, itemId);
+  await db.transaction((tx) =>
+    recordCount(tx, actor, item, input.sectionId, input.quantity, input.reason),
+  );
+  return getItem(db, actor, itemId);
+}
+
+// Receipts, adjustments, damage or loss, usage, pulls and returns entered by hand.
+export async function addMovement(
+  db: Db,
+  actor: Actor,
+  itemId: string,
+  input: MovementInput,
+): Promise<InventoryItem> {
+  const item = await findItem(db, itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
+  if (input.eventId) {
+    const [event] = await db
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, input.eventId));
+    if (!event) throw notFound("Event");
+  }
+  const direction = movementDirection[input.type];
+  await db.transaction((tx) =>
+    recordMovement(tx, actor, item, {
+      type: input.type,
+      changes: [
+        {
+          sectionId: input.sectionId,
+          quantity:
+            direction === 0 ? input.quantity : direction * input.quantity,
+        },
+      ],
+      reason: input.reason,
+      link: input.eventId ? { type: "event", id: input.eventId } : null,
+    }),
+  );
+  return getItem(db, actor, itemId);
+}
+
+// FLOW-71 AC3: a correction is a new movement of the difference, linked to the
+// original, which stays untouched. Corrections always point at the original, and
+// a transfer is corrected by transferring back.
+export async function correctMovement(
+  db: Db,
+  actor: Actor,
+  movementId: string,
+  input: CorrectionInput,
+): Promise<StockMovement[]> {
+  const [original] = await db
+    .select()
+    .from(stockMovements)
+    .where(eq(stockMovements.id, movementId));
+  if (!original) throw notFound("Movement");
+  if (original.correctsId)
+    throw conflict(
+      "CORRECTS_A_CORRECTION",
+      "Correct the original movement instead.",
+    );
+  if (original.type === "transfer")
+    throw conflict(
+      "TRANSFER_CORRECTION",
+      "A transfer can't be corrected. Transfer the stock back instead.",
+    );
+  const direction = movementDirection[original.type];
+  if (direction * input.quantity < 0)
+    throw conflict(
+      "WRONG_DIRECTION",
+      direction > 0
+        ? "This movement adds stock; enter what it should have added."
+        : "This movement removes stock; enter what it should have removed as a negative number.",
+    );
+  const item = await findItem(db, original.itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
   await db.transaction(async (tx) => {
-    const [level] = await tx
-      .select({ quantity: inventoryStock.quantity })
+    const [{ total }] = await tx
+      .select({
+        total: sql<string>`coalesce(sum(${stockMovements.quantity}), 0)`,
+      })
+      .from(stockMovements)
+      .where(
+        or(
+          eq(stockMovements.id, original.id),
+          eq(stockMovements.correctsId, original.id),
+        ),
+      );
+    const difference = round(input.quantity - Number(total));
+    if (difference === 0)
+      throw conflict(
+        "NO_CHANGE",
+        "That's already what the movement adds up to.",
+      );
+    await recordMovement(tx, actor, item, {
+      type: original.type,
+      changes: [{ sectionId: original.sectionId, quantity: difference }],
+      reason: input.reason,
+      correctsId: original.id,
+      link:
+        original.linkType && original.linkId
+          ? { type: original.linkType, id: original.linkId }
+          : null,
+    });
+  });
+  return listMovements(db, original.itemId);
+}
+
+// ---- Count mode (FLOW-82) ----
+
+type CountRow = typeof stockCounts.$inferSelect;
+
+async function countedItems(db: DbLike, countIds: string[]) {
+  if (!countIds.length) return new Map<string, number>();
+  const rows = await db
+    .select({
+      countId: stockCountLines.countId,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(stockCountLines)
+    .where(inArray(stockCountLines.countId, countIds))
+    .groupBy(stockCountLines.countId);
+  return new Map(rows.map((row) => [row.countId, row.total]));
+}
+
+async function toCountSummaries(
+  db: DbLike,
+  rows: { count: CountRow; sectionName: string }[],
+): Promise<StockCountSummary[]> {
+  const counted = await countedItems(
+    db,
+    rows.map(({ count }) => count.id),
+  );
+  return rows.map(({ count, sectionName }) => ({
+    id: count.id,
+    sectionId: count.sectionId,
+    sectionName,
+    status: count.status,
+    countedItems: counted.get(count.id) ?? 0,
+    startedBy: count.createdBy,
+    startedAt: count.createdAt.toISOString(),
+    completedAt: count.completedAt?.toISOString() ?? null,
+  }));
+}
+
+const countQuery = (db: DbLike) =>
+  db
+    .select({ count: stockCounts, sectionName: inventorySections.name })
+    .from(stockCounts)
+    .innerJoin(
+      inventorySections,
+      eq(stockCounts.sectionId, inventorySections.id),
+    );
+
+export async function listCounts(
+  db: Db,
+  filter: { status?: CountRow["status"] },
+): Promise<StockCountSummary[]> {
+  const rows = await countQuery(db)
+    .where(filter.status ? eq(stockCounts.status, filter.status) : undefined)
+    .orderBy(desc(stockCounts.createdAt))
+    .limit(200);
+  return toCountSummaries(db, rows);
+}
+
+// Everything count mode shows: the section's consumables (kept there, holding
+// stock there, or already counted) in storage order, with what the section holds
+// and any count already saved, so a partial count resumes where it left off.
+export async function getCount(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+): Promise<StockCount> {
+  const [row] = await countQuery(db).where(eq(stockCounts.id, id));
+  if (!row) throw notFound("Count");
+  const { count } = row;
+  const [[summary], held, kept, lines] = await Promise.all([
+    toCountSummaries(db, [row]),
+    db
+      .select({ itemId: inventoryStock.itemId })
       .from(inventoryStock)
       .where(
         and(
-          eq(inventoryStock.itemId, itemId),
-          eq(inventoryStock.sectionId, input.sectionId),
+          eq(inventoryStock.sectionId, count.sectionId),
+          ne(inventoryStock.quantity, 0),
         ),
+      ),
+    db
+      .select({ itemId: inventoryConsumableDetails.itemId })
+      .from(inventoryConsumableDetails)
+      .where(eq(inventoryConsumableDetails.storageSectionId, count.sectionId)),
+    db
+      .select()
+      .from(stockCountLines)
+      .where(eq(stockCountLines.countId, count.id)),
+  ]);
+  const ids = [
+    ...new Set([...held, ...kept, ...lines].map((line) => line.itemId)),
+  ];
+  const items = ids.length
+    ? await toItems(
+        db,
+        actor,
+        await db
+          .select()
+          .from(inventoryItems)
+          .where(
+            and(
+              inArray(inventoryItems.id, ids),
+              eq(inventoryItems.kind, "consumable"),
+              isNull(inventoryItems.archivedAt),
+            ),
+          ),
       )
-      .for("update");
-    const delta = round(input.quantity - (level?.quantity ?? 0));
-    await recordMovement(tx, actor, item, {
-      type: "adjustment",
-      changes: [{ sectionId: input.sectionId, delta }],
-      quantity: delta,
-      fromSectionId: null,
-      toSectionId: input.sectionId,
-      note: input.note,
-    });
+    : [];
+  const movementIds = lines.map((line) => line.movementId);
+  const differences = movementIds.length
+    ? await db
+        .select({ id: stockMovements.id, quantity: stockMovements.quantity })
+        .from(stockMovements)
+        .where(inArray(stockMovements.id, movementIds))
+    : [];
+  const order = (item: InventoryItem) =>
+    item.consumable?.storageOrder ?? Number.MAX_SAFE_INTEGER;
+  return {
+    ...summary,
+    lines: items
+      .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
+      .map((item) => {
+        const line = lines.find((other) => other.itemId === item.id);
+        return {
+          itemId: item.id,
+          name: item.name,
+          code: item.code,
+          subtype: item.subtype,
+          category: item.category,
+          unit: item.unit,
+          storageOrder: item.consumable?.storageOrder ?? null,
+          parLevel: item.consumable?.parLevel ?? null,
+          belowPar: item.belowPar,
+          systemQuantity:
+            item.stock.find((level) => level.sectionId === count.sectionId)
+              ?.quantity ?? 0,
+          canCount: canCountItem(actor, item),
+          counted: line
+            ? {
+                quantity: line.quantity,
+                difference:
+                  differences.find((other) => other.id === line.movementId)
+                    ?.quantity ?? 0,
+                reason: line.reason,
+                countedBy: line.updatedBy,
+                countedAt: line.updatedAt.toISOString(),
+              }
+            : null,
+        };
+      }),
+  };
+}
+
+// Starts a count of a storage section, or returns the one already open there so it
+// can be resumed.
+export async function startCount(
+  db: Db,
+  actor: Actor,
+  sectionId: string,
+): Promise<{ count: StockCount; created: boolean }> {
+  await requireStockSection(db, sectionId, "consumable");
+  const [open] = await db
+    .select({ id: stockCounts.id })
+    .from(stockCounts)
+    .where(
+      and(eq(stockCounts.sectionId, sectionId), eq(stockCounts.status, "open")),
+    );
+  if (open)
+    return { count: await getCount(db, actor, open.id), created: false };
+  const [row] = await db
+    .insert(stockCounts)
+    .values({ sectionId, createdBy: actor.userId, updatedBy: actor.userId })
+    .onConflictDoNothing()
+    .returning({ id: stockCounts.id });
+  // Someone else started one at the same moment: resume theirs.
+  if (!row) return startCount(db, actor, sectionId);
+  return { count: await getCount(db, actor, row.id), created: true };
+}
+
+async function findOpenCount(db: DbLike, id: string) {
+  const [count] = await db
+    .select()
+    .from(stockCounts)
+    .where(eq(stockCounts.id, id));
+  if (!count) throw notFound("Count");
+  if (count.status !== "open")
+    throw conflict("COUNT_COMPLETED", "This count is already complete.");
+  return count;
+}
+
+// Saves one item's counted quantity: a count movement for the difference, and the
+// count's line for the item (a recount replaces the line and writes another
+// movement).
+export async function recordCountLine(
+  db: Db,
+  actor: Actor,
+  countId: string,
+  input: CountLineInput,
+): Promise<StockCount> {
+  const count = await findOpenCount(db, countId);
+  const item = await findItem(db, input.itemId);
+  if (item.kind !== "consumable")
+    throw conflict(
+      "NOT_CONSUMABLE",
+      "Count mode is for consumables. Count rentals from the item page.",
+    );
+  await db.transaction(async (tx) => {
+    const { movementId } = await recordCount(
+      tx,
+      actor,
+      item,
+      count.sectionId,
+      input.quantity,
+      input.reason,
+    );
+    const values = {
+      quantity: round(input.quantity),
+      reason: input.reason,
+      movementId,
+      updatedBy: actor.userId,
+    };
+    await tx
+      .insert(stockCountLines)
+      .values({ countId, itemId: item.id, createdBy: actor.userId, ...values })
+      .onConflictDoUpdate({
+        target: [stockCountLines.countId, stockCountLines.itemId],
+        set: { ...values, updatedAt: new Date() },
+      });
   });
-  return getItem(db, actor, itemId);
+  return getCount(db, actor, countId);
+}
+
+export async function completeCount(
+  db: Db,
+  actor: Actor,
+  countId: string,
+): Promise<StockCount> {
+  await findOpenCount(db, countId);
+  await db
+    .update(stockCounts)
+    .set({
+      status: "completed",
+      completedAt: new Date(),
+      updatedBy: actor.userId,
+    })
+    .where(eq(stockCounts.id, countId));
+  return getCount(db, actor, countId);
 }

@@ -12,10 +12,17 @@ import type {
   VenueInput,
 } from "../../shared/core-records";
 import type {
+  CorrectionInput,
+  CostChange,
   CountInput,
+  CountLineInput,
   InventoryItem,
   ItemInput,
+  MovementInput,
+  MovementType,
   Section,
+  StockCount,
+  StockMovement,
   TransferInput,
 } from "../../shared/inventory";
 
@@ -377,8 +384,9 @@ export const juniper = (): Client => ({
   updatedAt: "2026-10-22T09:00:00.000Z",
 });
 
-// The inventory API (FLOW-69/70/81) for an admin, in memory, with the default
-// sections. Seed items are stored as returned by the API.
+// The inventory API (FLOW-69/70/71/81/82/83/90) for an admin, in memory, with the
+// default sections. Seed items are stored as returned by the API; their seeded
+// stock has no movements.
 export async function mockInventoryApi(
   page: Page,
   seed: { items?: InventoryItem[] } = {},
@@ -388,6 +396,22 @@ export async function mockInventoryApi(
     defaultSections.map((section) => [section.id, section]),
   );
   const items = new Map((seed.items ?? []).map((item) => [item.id, item]));
+  const ledger = new Map<string, StockMovement[]>();
+  const costs = new Map<string, CostChange[]>();
+  type Count = {
+    id: string;
+    sectionId: string;
+    status: StockCount["status"];
+    startedAt: string;
+    completedAt: string | null;
+    lines: Map<
+      string,
+      { quantity: number; difference: number; reason: string; countedAt: string }
+    >;
+  };
+  const counts = new Map<string, Count>();
+  const signed = (type: MovementType, quantity: number) =>
+    ["pull", "damage_loss", "consume"].includes(type) ? -quantity : quantity;
   const fail = (route: Route, status: number, code: string, message: string) =>
     route.fulfill({
       status,
@@ -408,6 +432,24 @@ export async function mockInventoryApi(
     const storage = consumable?.storageSectionId
       ? sections.get(consumable.storageSectionId)
       : undefined;
+    const previousCents = current?.consumable?.unitCostCents ?? null;
+    if (
+      consumable?.unitCostCents !== undefined &&
+      consumable.unitCostCents !== previousCents &&
+      current
+    )
+      costs.set(current.id, [
+        {
+          id: randomUUID(),
+          previousCents,
+          unitCostCents: consumable.unitCostCents,
+          source: "manual",
+          changedBy: null,
+          changedAt: now(),
+        },
+        ...(costs.get(current.id) ?? []),
+      ]);
+    const isBar = input.kind === "consumable" && input.subtype === "bar";
     return withStock(
       {
         id: current?.id ?? randomUUID(),
@@ -450,6 +492,14 @@ export async function mockInventoryApi(
               allergens: consumable.allergens ?? [],
               storageSectionId: storage?.id ?? null,
               storageSectionName: storage?.name ?? null,
+              storageOrder: consumable.storageOrder ?? null,
+            }
+          : null,
+        bar: isBar
+          ? {
+              brand: input.bar?.brand ?? "",
+              subcategory: input.bar?.subcategory ?? "",
+              container: input.bar?.container ?? null,
             }
           : null,
         stock: [],
@@ -462,7 +512,30 @@ export async function mockInventoryApi(
       current?.stock ?? [],
     );
   };
-  const change = (item: InventoryItem, sectionId: string, delta: number) => {
+  const change = (
+    item: InventoryItem,
+    sectionId: string,
+    delta: number,
+    movement: Partial<StockMovement> & { type: MovementType },
+  ) => {
+    ledger.set(item.id, [
+      {
+        id: randomUUID(),
+        itemId: item.id,
+        sectionId,
+        sectionName: sections.get(sectionId)?.name ?? "",
+        quantity: delta,
+        reason: "",
+        transferId: null,
+        correctsId: null,
+        correctedBy: [],
+        link: null,
+        createdBy: null,
+        createdAt: now(),
+        ...movement,
+      },
+      ...(ledger.get(item.id) ?? []),
+    ]);
     const stock = item.stock.map((other) => ({ ...other }));
     const level = stock.find((other) => other.sectionId === sectionId);
     if (level) level.quantity += delta;
@@ -481,6 +554,34 @@ export async function mockInventoryApi(
     const [, , , resource, id, action] = url.pathname.split("/");
     const method = request.method();
     const body = method === "GET" ? undefined : request.postDataJSON();
+    if (resource === "counts") return countRoute(route, id, action, body);
+    if (resource === "movements" && action === "corrections") {
+      const input = body as CorrectionInput;
+      const list =
+        [...ledger.values()].find((movements) =>
+          movements.some((m) => m.id === id),
+        ) ?? [];
+      const original = list.find((m) => m.id === id);
+      const item = original && items.get(original.itemId);
+      if (!original || !item)
+        return fail(route, 404, "NOT_FOUND", "Movement not found.");
+      const itemId = item.id;
+      const total = list
+        .filter((m) => m.id === id || m.correctsId === id)
+        .reduce((sum, m) => sum + m.quantity, 0);
+      const correctionId = randomUUID();
+      items.set(
+        itemId,
+        change(item, original.sectionId, input.quantity - total, {
+          id: correctionId,
+          type: original.type,
+          reason: input.reason,
+          correctsId: id,
+        }),
+      );
+      original.correctedBy = [...original.correctedBy, correctionId];
+      return route.fulfill({ status: 201, json: ledger.get(itemId) });
+    }
     if (resource === "sections") {
       if (!id && method === "GET") {
         const kind = url.searchParams.get("kind");
@@ -505,6 +606,9 @@ export async function mockInventoryApi(
             (!params.get("subtype") || item.subtype === params.get("subtype")) &&
             (!params.get("category") ||
               item.category === params.get("category")) &&
+            (!params.get("tier") || item.tier === params.get("tier")) &&
+            (!params.get("subcategory") ||
+              item.bar?.subcategory === params.get("subcategory")) &&
             (!params.get("sectionId") ||
               item.stock.some((s) => s.sectionId === params.get("sectionId")) ||
               item.consumable?.storageSectionId === params.get("sectionId")) &&
@@ -521,6 +625,21 @@ export async function mockInventoryApi(
     if (!current) return fail(route, 404, "NOT_FOUND", "Item not found.");
     let next: InventoryItem | undefined;
     if (method === "GET" && !action) next = current;
+    if (method === "GET" && action === "movements")
+      return route.fulfill({ json: ledger.get(current.id) ?? [] });
+    if (method === "GET" && action === "cost-history")
+      return route.fulfill({ json: costs.get(current.id) ?? [] });
+    if (method === "POST" && action === "movements") {
+      const movement = body as MovementInput;
+      const delta = signed(movement.type, movement.quantity);
+      const level = current.stock.find((s) => s.sectionId === movement.sectionId);
+      if ((level?.quantity ?? 0) + delta < 0)
+        return fail(route, 409, "INSUFFICIENT_STOCK", "Not enough stock.");
+      next = change(current, movement.sectionId, delta, {
+        type: movement.type,
+        reason: movement.reason ?? "",
+      });
+    }
     if (method === "PUT" && !action) next = save(body as ItemInput, current);
     if (action === "archive" || action === "restore")
       next = { ...current, archivedAt: action === "archive" ? now() : null };
@@ -529,22 +648,139 @@ export async function mockInventoryApi(
       const from = current.stock.find((s) => s.sectionId === transfer.fromSectionId);
       if ((from?.quantity ?? 0) < transfer.quantity)
         return fail(route, 409, "INSUFFICIENT_STOCK", "Not enough stock.");
+      const transferId = randomUUID();
       next = change(
-        change(current, transfer.fromSectionId, -transfer.quantity),
+        change(current, transfer.fromSectionId, -transfer.quantity, {
+          type: "transfer",
+          transferId,
+        }),
         transfer.toSectionId,
         transfer.quantity,
+        { type: "transfer", transferId },
       );
     }
     if (action === "counts") {
       const counted = body as CountInput;
       const level = current.stock.find((s) => s.sectionId === counted.sectionId);
-      next = change(current, counted.sectionId, counted.quantity - (level?.quantity ?? 0));
+      next = change(current, counted.sectionId, counted.quantity - (level?.quantity ?? 0), {
+        type: "count",
+      });
     }
     if (!next) return fail(route, 404, "NOT_FOUND", "Not found.");
     items.set(next.id, next);
-    const created = action === "transfers" || action === "counts";
+    const created =
+      action === "transfers" || action === "counts" || action === "movements";
     return route.fulfill({ status: created ? 201 : 200, json: next });
   });
+
+  // Count mode: the section's consumables in shelf order, with saved counts.
+  const countView = (count: Count): StockCount => {
+    const order = (item: InventoryItem) =>
+      item.consumable?.storageOrder ?? Number.MAX_SAFE_INTEGER;
+    const lines = [...items.values()]
+      .filter(
+        (item) =>
+          item.kind === "consumable" &&
+          !item.archivedAt &&
+          (item.consumable?.storageSectionId === count.sectionId ||
+            item.stock.some((s) => s.sectionId === count.sectionId) ||
+            count.lines.has(item.id)),
+      )
+      .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
+      .map((item) => {
+        const line = count.lines.get(item.id);
+        return {
+          itemId: item.id,
+          name: item.name,
+          code: item.code,
+          subtype: item.subtype,
+          category: item.category,
+          unit: item.unit,
+          storageOrder: item.consumable?.storageOrder ?? null,
+          parLevel: item.consumable?.parLevel ?? null,
+          belowPar: item.belowPar,
+          systemQuantity:
+            item.stock.find((s) => s.sectionId === count.sectionId)?.quantity ??
+            0,
+          canCount: true,
+          counted: line ? { ...line, countedBy: null } : null,
+        };
+      });
+    return {
+      id: count.id,
+      sectionId: count.sectionId,
+      sectionName: sections.get(count.sectionId)?.name ?? "",
+      status: count.status,
+      countedItems: count.lines.size,
+      startedBy: null,
+      startedAt: count.startedAt,
+      completedAt: count.completedAt,
+      lines,
+    };
+  };
+  const countRoute = (
+    route: Route,
+    id: string | undefined,
+    action: string | undefined,
+    body: unknown,
+  ) => {
+    const method = route.request().method();
+    if (!id && method === "GET") {
+      const status = new URL(route.request().url()).searchParams.get("status");
+      return route.fulfill({
+        json: [...counts.values()]
+          .filter((count) => !status || count.status === status)
+          // The list carries summaries only.
+          .map((count) => ({ ...countView(count), lines: undefined })),
+      });
+    }
+    if (!id && method === "POST") {
+      const { sectionId } = body as { sectionId: string };
+      const open = [...counts.values()].find(
+        (count) => count.sectionId === sectionId && count.status === "open",
+      );
+      if (open) return route.fulfill({ status: 200, json: countView(open) });
+      const count: Count = {
+        id: randomUUID(),
+        sectionId,
+        status: "open",
+        startedAt: now(),
+        completedAt: null,
+        lines: new Map(),
+      };
+      counts.set(count.id, count);
+      return route.fulfill({ status: 201, json: countView(count) });
+    }
+    const count = id ? counts.get(id) : undefined;
+    if (!count) return fail(route, 404, "NOT_FOUND", "Count not found.");
+    if (method === "GET") return route.fulfill({ json: countView(count) });
+    if (count.status !== "open")
+      return fail(route, 409, "COUNT_COMPLETED", "This count is already complete.");
+    if (action === "complete") {
+      count.status = "completed";
+      count.completedAt = now();
+      return route.fulfill({ json: countView(count) });
+    }
+    const line = body as CountLineInput;
+    const item = items.get(line.itemId);
+    if (!item) return fail(route, 404, "NOT_FOUND", "Item not found.");
+    const level = item.stock.find((s) => s.sectionId === count.sectionId);
+    const difference = line.quantity - (level?.quantity ?? 0);
+    items.set(
+      item.id,
+      change(item, count.sectionId, difference, {
+        type: "count",
+        reason: line.reason ?? "",
+      }),
+    );
+    count.lines.set(item.id, {
+      quantity: line.quantity,
+      difference,
+      reason: line.reason ?? "",
+      countedAt: now(),
+    });
+    return route.fulfill({ json: countView(count) });
+  };
 }
 
 const sectionRow = (index: number, name: string, kind: Section["kind"]): Section => ({
@@ -561,6 +797,7 @@ export const defaultSections = [
   sectionRow(4, "Vendor", "rental"),
   sectionRow(5, "Kitchen – Dry Storage", "consumable"),
   sectionRow(6, "Kitchen – Refrigerated", "consumable"),
+  sectionRow(7, "Bar Storage", "consumable"),
 ];
 
 export const chairs = (): InventoryItem => ({
@@ -580,6 +817,7 @@ export const chairs = (): InventoryItem => ({
   rental: { priceCents: 800 },
   service: null,
   consumable: null,
+  bar: null,
   stock: [
     { sectionId: defaultSections[0].id, sectionName: "Warehouse", quantity: 40 },
     { sectionId: defaultSections[2].id, sectionName: "Cafe", quantity: 10 },
@@ -590,6 +828,65 @@ export const chairs = (): InventoryItem => ({
   createdAt: "2026-10-22T09:00:00.000Z",
   updatedAt: "2026-10-22T09:00:00.000Z",
 });
+
+// A consumable as the API returns it, kept in Kitchen – Refrigerated unless the
+// overrides say otherwise.
+export const consumable = (
+  name: string,
+  overrides: Partial<InventoryItem> & {
+    details?: Partial<NonNullable<InventoryItem["consumable"]>>;
+    onHand?: number;
+  } = {},
+): InventoryItem => {
+  const { details, onHand = 0, ...item } = overrides;
+  const storage =
+    defaultSections.find(
+      (section) => section.id === details?.storageSectionId,
+    ) ?? defaultSections[5];
+  const parLevel = details?.parLevel ?? null;
+  return {
+    id: randomUUID(),
+    kind: "consumable",
+    subtype: "ingredient",
+    code: "",
+    name,
+    category: "",
+    description: "",
+    unit: "each",
+    group: "",
+    color: "",
+    tier: "",
+    ratio: null,
+    active: true,
+    rental: null,
+    service: null,
+    bar: null,
+    stock: onHand
+      ? [{ sectionId: storage.id, sectionName: storage.name, quantity: onHand }]
+      : [],
+    totalQuantity: onHand,
+    belowPar: parLevel === null ? null : onHand < parLevel,
+    archivedAt: null,
+    createdAt: "2026-10-22T09:00:00.000Z",
+    updatedAt: "2026-10-22T09:00:00.000Z",
+    ...item,
+    consumable: {
+      purchaseUnit: "each",
+      packCount: null,
+      eachSize: null,
+      recipeUnit: null,
+      unitCostCents: null,
+      costHidden: false,
+      preferredVendor: "",
+      parLevel,
+      allergens: [],
+      storageSectionId: storage.id,
+      storageSectionName: storage.name,
+      storageOrder: null,
+      ...details,
+    },
+  };
+};
 
 // An in-memory stand-in for the leads API (FLOW-100/111/112), behaving like the real
 // routes for an admin: filters, the triage queue, status rules, assignment and
