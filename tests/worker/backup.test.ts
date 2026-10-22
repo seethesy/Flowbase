@@ -99,7 +99,7 @@ if [[ "$1 $2" == "s3api list-objects-v2" ]]; then printf '%s\\t' ${listedKeys.ma
   });
 
   it("exits non-zero and uploads nothing when the dump is empty", () => {
-    const writeEmpty = 'for a in "$@"; do [[ "$a" == --file=* ]] && : > "${a#--file=}"; done';
+    const writeEmpty = 'for a in "$@"; do [[ "$a" == --file=* ]] && : > "${a#--file=}"; done; exit 0';
     const { status, calls } = runBackup(writeEmpty, []);
     expect(status).not.toBe(0);
     expect(calls).toEqual([]);
@@ -108,7 +108,7 @@ if [[ "$1 $2" == "s3api list-objects-v2" ]]; then printf '%s\\t' ${listedKeys.ma
   it("uploads, then deletes only expired dumps", () => {
     const old = keyAt(Date.now() - 31 * DAY);
     const recent = keyAt(Date.now() - 2 * DAY);
-    const writeDump = 'for a in "$@"; do [[ "$a" == --file=* ]] && echo dump > "${a#--file=}"; done';
+    const writeDump = 'for a in "$@"; do [[ "$a" == --file=* ]] && echo dump > "${a#--file=}"; done; exit 0';
     const { status, calls } = runBackup(writeDump, [old, recent, "production/readme.txt"]);
     expect(status).toBe(0);
     expect(calls[0]).toMatch(
