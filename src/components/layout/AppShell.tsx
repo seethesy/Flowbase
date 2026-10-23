@@ -25,14 +25,14 @@ import {
   Search,
   Menu,
   X,
-  ArrowUpRight,
   Leaf,
   Plus,
 } from "lucide-react";
-import { Button, DetailDrawer, SearchInput, EmptyState } from "../shared";
+import { Button, DetailDrawer } from "../shared";
 import { useDemo } from "../../app/store";
 import { RecordForm } from "../../features/forms";
 import { TrackingNotice } from "../../features/time-tracking";
+import { GlobalSearch } from "../../features/search";
 import { useActivityTracking } from "../../app/useActivityTracking";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -198,33 +198,12 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [global, setGlobal] = useState(false);
-  const [search, setSearch] = useState("");
   const [alerts, setAlerts] = useState(false);
   const [create, setCreate] = useState(false);
   const [profile, setProfile] = useState(false);
   // Clients are real records now (FLOW-53) with their own New Client form; quick
-  // create and search here cover the remaining demo modules.
+  // create here covers the remaining demo modules.
   const kind = location.pathname.startsWith("/inventory") ? "item" : "proposal";
-  const results = search.trim()
-    ? [
-        ...store.inventory.records.map((i) => ({
-          id: i.id,
-          title: i.name,
-          kind: i.id,
-          path: `/inventory/${i.id}`,
-        })),
-        ...store.proposals.records.map((c) => ({
-          id: c.id,
-          title: c.name,
-          kind: "Proposal",
-          path: `/proposals?view=table&q=${encodeURIComponent(c.id)}`,
-        })),
-      ]
-        .filter((r) =>
-          (r.title + " " + r.id).toLowerCase().includes(search.toLowerCase()),
-        )
-        .slice(0, 12)
-    : [];
   return (
     <>
       <header className="top-header">
@@ -239,6 +218,7 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
         <div className="header-right">
           <button
             className="global-search-trigger"
+            aria-label="Search anything"
             onClick={() => setGlobal(true)}
           >
             <Search size={16} />
@@ -295,40 +275,14 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
         open={global}
         onClose={() => setGlobal(false)}
         title="Search your workspace"
-        description="Find fictional clients, proposals, and inventory items."
+        description="Find clients, leads, events, venues and inventory items."
       >
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search demo records…"
+        <GlobalSearch
+          onOpen={(path) => {
+            navigate(path);
+            setGlobal(false);
+          }}
         />
-        {results.map((r) => (
-          <button
-            key={`${r.kind}-${r.id}`}
-            className="search-result"
-            onClick={() => {
-              navigate(r.path);
-              setGlobal(false);
-              setSearch("");
-            }}
-          >
-            <div>
-              <strong>{r.title}</strong>
-              <small>{r.kind}</small>
-            </div>
-            <ArrowUpRight size={17} />
-          </button>
-        ))}
-        {!results.length && (
-          <EmptyState
-            title={search ? "No matching records" : "Everything, in one place"}
-            description={
-              search
-                ? "Try another name or SKU."
-                : "Type a name, proposal number, or SKU to begin."
-            }
-          />
-        )}
       </DetailDrawer>
       <DetailDrawer
         open={alerts}

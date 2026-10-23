@@ -1,0 +1,91 @@
+# Lead collector (FLOW-102, ADR-14, ADR-26).
+# TEMPLATE: copy this file to .github/workflows/collector.yml in the private ops
+# repo. It does nothing in the Flowbase repo. Secrets are referenced by name only
+# (collector/README.md lists them); their values live in the ops repo's Actions
+# secrets.
+name: Flowbase lead collector
+on:
+  schedule:
+    # GitHub cron is UTC. 8am–8pm New York is 12:00–00:00 UTC in daylight time and
+    # 13:00–01:00 UTC in winter, so this fires hourly across both; the script runs
+    # only at 8am, 10am, … 8pm New York time and exits at once otherwise.
+    - cron: "0 0,1,12-23 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flowbase-collector
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out Flowbase main (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: seethesy/Flowbase
+          ref: main
+          path: flowbase
+          token: ${{ secrets.FLOWBASE_READ_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          # Node 24 runs the collector's TypeScript directly.
+          node-version: 24
+          cache: npm
+          cache-dependency-path: flowbase/package-lock.json
+      - name: Skip outside the collection window
+        id: window
+        working-directory: flowbase
+        run: |
+          hour=$(TZ=America/New_York date +%-H)
+          if [ "$hour" -ge 8 ] && [ "$hour" -le 20 ] && [ $(( (hour - 8) % 2 )) -eq 0 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Outside 8am–8pm New York collection slots; nothing to do."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install dependencies and Chromium
+        if: steps.window.outputs.run == 'true'
+        working-directory: flowbase
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Restore saved sessions
+        if: steps.window.outputs.run == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: flowbase/.collector-state
+          key: collector-state-${{ github.run_id }}
+          restore-keys: collector-state-
+      - name: Collect leads
+        if: steps.window.outputs.run == 'true'
+        working-directory: flowbase
+        env:
+          FLOWBASE_URL: ${{ secrets.FLOWBASE_URL }}
+          INGEST_TOKEN_LEADS: ${{ secrets.INGEST_TOKEN_LEADS }}
+          COLLECTOR_STATE_KEY: ${{ secrets.COLLECTOR_STATE_KEY }}
+          COLLECTOR_BARK_USERNAME: ${{ secrets.COLLECTOR_BARK_USERNAME }}
+          COLLECTOR_BARK_PASSWORD: ${{ secrets.COLLECTOR_BARK_PASSWORD }}
+          COLLECTOR_PERFECT_VENUE_USERNAME: ${{ secrets.COLLECTOR_PERFECT_VENUE_USERNAME }}
+          COLLECTOR_PERFECT_VENUE_PASSWORD: ${{ secrets.COLLECTOR_PERFECT_VENUE_PASSWORD }}
+          COLLECTOR_WEDDINGPRO_USERNAME: ${{ secrets.COLLECTOR_WEDDINGPRO_USERNAME }}
+          COLLECTOR_WEDDINGPRO_PASSWORD: ${{ secrets.COLLECTOR_WEDDINGPRO_PASSWORD }}
+          COLLECTOR_EVENTECTIVE_USERNAME: ${{ secrets.COLLECTOR_EVENTECTIVE_USERNAME }}
+          COLLECTOR_EVENTECTIVE_PASSWORD: ${{ secrets.COLLECTOR_EVENTECTIVE_PASSWORD }}
+        run: node collector/src/main.ts ${{ github.event_name == 'workflow_dispatch' && '--any-time' || '' }}
+      - name: Save sessions
+        if: always() && steps.window.outputs.run == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: flowbase/.collector-state
+          key: collector-state-${{ github.run_id }}
+      # Screenshots and HTML hold client details: kept 3 days, only on failure.
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.window.outputs.run == 'true'
+        with:
+          name: collector-failures
+          path: flowbase/collector-artifacts/
+          retention-days: 3
+          if-no-files-found: ignore

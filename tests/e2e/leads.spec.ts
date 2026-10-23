@@ -117,3 +117,39 @@ test("a qualified lead converts from the inbox", async ({ page }) => {
   await dialog.getByRole("button", { name: "Convert lead" }).click();
   await expect(page).toHaveURL(/#\/events\/[0-9a-f-]+$/);
 });
+
+test("possible duplicates are merged into one lead that keeps both source links", async ({
+  page,
+}) => {
+  const bark = lead({ name: "Maya Ortiz", source: "Bark", sourceLeadId: "bark-77" });
+  const thumbtack = lead({
+    name: "Maya O.",
+    source: "Thumbtack",
+    sourceLeadId: "tt-88",
+    email: bark.email,
+  });
+  await mockLeadsApi(
+    page,
+    [bark, thumbtack],
+    [{ leadId: thumbtack.id, matchedLeadId: bark.id, reason: "email" }],
+  );
+  await page.goto("/#/leads");
+  await page.getByRole("tab", { name: "Duplicates" }).click();
+  const queue = page.getByRole("list", { name: "Possible duplicates" });
+  await expect(queue.getByText("Same email")).toBeVisible();
+  await expect(queue.getByRole("link", { name: "Maya O." })).toBeVisible();
+
+  await queue.getByRole("link", { name: "Maya Ortiz" }).click();
+  const section = page.locator("section", { hasText: "Possible duplicates" });
+  await expect(section.getByRole("link", { name: "Maya O." })).toBeVisible();
+  await section.getByRole("button", { name: "Merge into this lead" }).click();
+  await expect(page.getByText("Possible duplicates")).toHaveCount(0);
+  const links = page.getByRole("list", { name: "Source links" });
+  await expect(links.getByText("bark-77")).toBeVisible();
+  await expect(links.getByText("tt-88")).toBeVisible();
+  await expect(links.getByText(/merged/)).toBeVisible();
+
+  await page.goto("/#/leads");
+  await expect(row(page, "Maya Ortiz")).toBeVisible();
+  await expect(row(page, "Maya O.")).toHaveCount(0);
+});

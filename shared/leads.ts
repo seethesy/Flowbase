@@ -106,6 +106,70 @@ export const leadIntakeSchema = z.object({
 });
 export type LeadIntake = z.input<typeof leadIntakeSchema>;
 
+// Duplicate detection and merge (FLOW-110). Matching order: same source and source
+// lead id (the same lead again: it updates the existing lead instead), then email
+// or phone, then name and event date.
+export const leadDuplicateReasonSchema = z.enum(["email", "phone", "name_event_date"]);
+export type LeadDuplicateReason = z.infer<typeof leadDuplicateReasonSchema>;
+export const leadDuplicateReasonLabels: Record<LeadDuplicateReason, string> = {
+  email: "Same email",
+  phone: "Same phone",
+  name_event_date: "Same name and event date",
+};
+// Shown to a salesperson whose lead matches a record they can't see; nothing else
+// about the match is returned to them (Q-41c).
+export const assignedElsewhereMessage =
+  "A possible duplicate is already assigned to another salesperson. Admin will resolve it.";
+
+export const leadSummarySchema = z.object({
+  id,
+  name: z.string(),
+  source: z.string(),
+  channel: leadChannelSchema,
+  status: leadStatusSchema,
+  receivedAt: timestamp,
+  eventDate: z.string().nullable(),
+  assignedSalespersonId: id.nullable(),
+});
+export type LeadSummary = z.infer<typeof leadSummarySchema>;
+
+export const leadSourceLinkSchema = z.object({
+  leadId: id,
+  channel: leadChannelSchema,
+  source: z.string(),
+  sourceLeadId: z.string(),
+  sourceLeadUrl: z.string(),
+  receivedAt: timestamp,
+  // Set on links that came from a merged lead.
+  mergedAt: timestamp.nullable(),
+  mergedBy: id.nullable(),
+});
+export type LeadSourceLink = z.infer<typeof leadSourceLinkSchema>;
+
+// One possible duplicate, seen from one lead: the other lead or a client.
+export const leadMatchSchema = z.object({
+  duplicateId: id,
+  reason: leadDuplicateReasonSchema,
+  lead: leadSummarySchema.nullable(),
+  client: z.object({ id, name: z.string() }).nullable(),
+});
+export type LeadMatch = z.infer<typeof leadMatchSchema>;
+
+// An open pair in the duplicates queue. crossOwner: both leads are assigned, to
+// different salespeople, so only Admin and the Sales Manager can resolve it.
+export const leadDuplicateSchema = z.object({
+  id,
+  reason: leadDuplicateReasonSchema,
+  lead: leadSummarySchema,
+  matchedLead: leadSummarySchema.nullable(),
+  matchedClient: z.object({ id, name: z.string() }).nullable(),
+  crossOwner: z.boolean(),
+  createdAt: timestamp,
+});
+export type LeadDuplicate = z.infer<typeof leadDuplicateSchema>;
+
+export const leadMergeSchema = z.object({ keepLeadId: id });
+
 export const leadSchema = z.object({
   id,
   receivedAt: timestamp,
@@ -135,6 +199,12 @@ export const leadSchema = z.object({
   // Debugging payload as received. Present only for FT+ users and only on the detail
   // response; null for everyone else.
   rawPayload: z.unknown().nullable().optional(),
+  // Detail response only (FLOW-110): every source record behind this lead, its
+  // possible duplicates the caller may see, and whether one is hidden from them.
+  sourceLinks: leadSourceLinkSchema.array().optional(),
+  duplicates: leadMatchSchema.array().optional(),
+  assignedElsewhere: z.boolean().optional(),
+  mergedIntoLeadId: id.nullable(),
   archivedAt: timestamp.nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
@@ -191,3 +261,45 @@ export const leadConversionSchema = z.object({
   event: z.object({ id, title: z.string() }),
 });
 export type LeadConversion = z.infer<typeof leadConversionSchema>;
+
+// Lead dashboard (FLOW-113): which sources are worth paying for, over a date range of
+// received dates (New York days, inclusive). Money is an estimate until proposals
+// exist (FLOW-122): a closed lead counts at its stated budget, or at the average
+// budget of the leads in range when it gave none (Ash, 2026-10-23).
+export const leadDashboardRowSchema = z.object({
+  leads: z.number(),
+  converted: z.number(),
+  // converted / leads, 0–1; null with no leads.
+  conversionRate: z.number().nullable(),
+  // Converted leads whose event reached Closed (paid and signed) or later.
+  closed: z.number(),
+  estimatedClosedCents: z.number(),
+  medianFirstResponseSeconds: z.number().nullable(),
+  // Open leads nobody has contacted yet (status New).
+  awaitingAction: z.number(),
+  purchased: z.number(),
+});
+export type LeadDashboardRow = z.infer<typeof leadDashboardRowSchema>;
+
+export const leadDashboardSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  // Only Admin, Technical and the Sales Manager see everyone's numbers.
+  scope: z.enum(["all", "own"]),
+  averageBudgetCents: z.number().nullable(),
+  totals: leadDashboardRowSchema,
+  bySource: leadDashboardRowSchema
+    .extend({
+      source: z.string(),
+      // False when no lead from the source was purchased: the source has no
+      // purchased flag, so purchased vs not isn't shown for it.
+      hasPurchased: z.boolean(),
+    })
+    .array(),
+  byChannel: leadDashboardRowSchema.extend({ channel: leadChannelSchema }).array(),
+  byStatus: z.object({ status: leadStatusSchema, leads: z.number() }).array(),
+  bySalesperson: leadDashboardRowSchema
+    .extend({ salespersonId: id.nullable() })
+    .array(),
+});
+export type LeadDashboard = z.infer<typeof leadDashboardSchema>;

@@ -18,6 +18,7 @@ import { ingestRoutes } from "./routes/ingest";
 import { inventoryRoutes } from "./routes/inventory";
 import { leadRoutes } from "./routes/leads";
 import { recordRoutes } from "./routes/records";
+import { searchRoutes } from "./routes/search";
 import { attachmentRoutes } from "./routes/attachments";
 import { timeTrackingRoutes } from "./routes/time-tracking";
 import * as fixtures from "../src/data/mock/fixtures";
@@ -46,7 +47,8 @@ export function createApp(options: Options = {}) {
         event: "api_request",
         requestId,
         method: c.req.method,
-        path: c.req.path,
+        // A token in an ingestion path (FLOW-108) never reaches the logs.
+        path: c.req.path.replace(/^(\/api\/ingest\/[^/]+)\/.+$/, "$1/[token]"),
         status: c.res.status,
       }),
     );
@@ -179,6 +181,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/admin", adminRoutes(options));
   app.route("/api/inventory", inventoryRoutes(options));
   app.route("/api/leads", leadRoutes(options));
+  app.route("/api/search", searchRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));

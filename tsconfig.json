@@ -25,6 +25,7 @@
     "src",
     "tests",
     "*.ts",
-    "shared"
+    "shared",
+    "collector"
   ]
 }

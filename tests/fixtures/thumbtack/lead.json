@@ -1,0 +1,25 @@
+{
+  "event": {
+    "eventID": "evt-0001",
+    "eventType": "NegotiationCreatedV4"
+  },
+  "data": {
+    "negotiationID": "500000000000000001",
+    "status": "active",
+    "createTime": "2026-10-20T14:05:00Z",
+    "category": { "categoryID": "100000000000000001", "name": "Wedding Catering" },
+    "customer": {
+      "customerID": "300000000000000001",
+      "displayName": "Sample Customer",
+      "phone": "(202) 555-0100",
+      "location": { "city": "Washington", "state": "DC", "zipCode": "20001" }
+    },
+    "business": { "businessID": "200000000000000001", "name": "Sample Catering" },
+    "details": [
+      { "question": "Event date", "answer": "Saturday, November 14, 2026" },
+      { "question": "Number of guests", "answer": "About 80 guests" },
+      { "question": "Budget", "answer": "$12,000" },
+      { "question": "Project scope", "answer": "Plated dinner and cocktail hour" }
+    ]
+  }
+}

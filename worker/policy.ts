@@ -16,7 +16,8 @@ export type Action =
   | "inventory.sections"
   | "leads.update"
   | "leads.assign"
-  | "leads.convert";
+  | "leads.convert"
+  | "leads.merge";
 
 const isAdmin = (actor: Actor) => actor.role === "admin";
 const seesAllRecords = (actor: Actor) =>
@@ -57,6 +58,9 @@ const rules: Record<Action, (actor: Actor) => boolean> = {
   "inventory.sections": isAdmin,
   "leads.update": sells,
   "leads.convert": sells,
+  // Merging or dismissing duplicates (FLOW-110). A salesperson can only reach
+  // duplicates among their own leads; cross-owner ones are left to Admin.
+  "leads.merge": sells,
   // Admin only (FLOW-111, Q-41a). Widening it to the Sales Manager later is this one
   // rule; the answer to FLOW-111 Q1 decides.
   "leads.assign": () => false,

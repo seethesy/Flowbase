@@ -9,3 +9,7 @@ playwright-report/
 .dev.vars*
 .wrangler/
 !.env.example
+
+# Lead collector (FLOW-102) state and failure artifacts, for local runs
+.collector-state/
+collector-artifacts/
