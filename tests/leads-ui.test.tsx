@@ -33,6 +33,7 @@ const lead = (overrides: Partial<Lead> = {}): Lead => ({
   assignedSalespersonId: null,
   convertedClientId: null,
   convertedEventId: null,
+  mergedIntoLeadId: null,
   needsReview: false,
   archivedAt: null,
   createdAt: now,

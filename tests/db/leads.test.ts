@@ -73,10 +73,13 @@ const sue = signedInAs(people.sue, "salesperson");
 const partTimeSam = signedInAs(people.sam, "salesperson", "part_time");
 const kitchen = signedInAs(people.kitchen, "kitchen_lead");
 
+// Each seeded lead is its own source record: the same source and source lead id
+// again would update the first lead (FLOW-110).
+let sourceLeadNumber = 1000;
 const intake = (overrides: Partial<LeadIntake> = {}): LeadIntake => ({
   channel: "webhook",
   source: "Bark",
-  sourceLeadId: "bark-1001",
+  sourceLeadId: `bark-${(sourceLeadNumber += 1)}`,
   sourceLeadUrl: "https://bark.example/leads/1001",
   purchased: true,
   name: "Maya Ortiz",
@@ -105,7 +108,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -114,11 +117,15 @@ afterAll(async () => {
 
 describe("inbox (FLOW-100)", () => {
   it("stores a lead from every channel and emits the matching event", async () => {
-    await seed({ channel: "webhook", name: "Webhook" });
+    await seed({ channel: "webhook", name: "Webhook", sourceLeadId: "bark-1001" });
     await seed({ channel: "collector", name: "Collector" });
     await seed({ channel: "manual", name: "Manual" });
     await seed({ channel: "import", name: "Import" });
-    const types = (await jobTypes()).sort();
+    // The four share an email, so each later one also reports possible duplicates
+    // (FLOW-110, covered in lead-duplicates.test.ts).
+    const types = (await jobTypes())
+      .filter((type) => type !== "event:lead.duplicates_found")
+      .sort();
     expect(types).toEqual([
       "event:lead.collected",
       "event:lead.received",

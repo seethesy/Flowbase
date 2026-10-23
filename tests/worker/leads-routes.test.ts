@@ -38,6 +38,9 @@ it.each([
   ["POST", `/api/leads/${id}/assign`],
   ["POST", `/api/leads/${id}/status`],
   ["POST", `/api/leads/${id}/convert`],
+  ["GET", "/api/leads/duplicates"],
+  ["POST", `/api/leads/duplicates/${id}/merge`],
+  ["POST", `/api/leads/duplicates/${id}/dismiss`],
 ])("%s %s answers 401 without a signed-in user", async (method, path) => {
   const { mock, withDb } = mockDb();
   const response = await createApp({ withDb }).request(path, { method }, env);
@@ -209,4 +212,31 @@ it("allows only the documented status moves", () => {
     kind: "person",
     allowDuplicate: false,
   });
+});
+
+it("lets only roles that sell resolve duplicates, before touching the database", async () => {
+  expect(
+    roleSchema.options.filter((role) => can(actor(role), "leads.merge")),
+  ).toEqual(["admin", "technical", "sales_manager", "salesperson"]);
+  const { mock, withDb } = mockDb();
+  const staff = createApp({ withDb, resolveActor: async () => actor("staff") });
+  for (const action of ["merge", "dismiss"])
+    expect(
+      (
+        await staff.request(
+          `/api/leads/duplicates/${id}/${action}`,
+          post({ keepLeadId: id }),
+          env,
+        )
+      ).status,
+    ).toBe(403);
+  const admin = createApp({ withDb, resolveActor: async () => actor("admin") });
+  expect(
+    (await admin.request("/api/leads/duplicates/x/merge", post({ keepLeadId: id }), env))
+      .status,
+  ).toBe(404);
+  expect(
+    (await admin.request(`/api/leads/duplicates/${id}/merge`, post({}), env)).status,
+  ).toBe(400);
+  expect(mock).not.toHaveBeenCalled();
 });

@@ -30,6 +30,10 @@ import {
   leadStatusTransitions,
   type Lead,
   type LeadConversion,
+  type LeadDuplicate,
+  type LeadDuplicateReason,
+  type LeadSourceLink,
+  type LeadSummary,
 } from "../../shared/leads";
 
 // An in-memory stand-in for the core records API (FLOW-53/54/55). Playwright runs
@@ -889,10 +893,51 @@ export const consumable = (
 };
 
 // An in-memory stand-in for the leads API (FLOW-100/111/112), behaving like the real
-// routes for an admin: filters, the triage queue, status rules, assignment and
-// conversion.
-export async function mockLeadsApi(page: Page, seed: Lead[]) {
+// routes for an admin: filters, the triage queue, status rules, assignment,
+// conversion, and possible duplicates with merge (FLOW-110).
+export async function mockLeadsApi(
+  page: Page,
+  seed: Lead[],
+  pairs: { leadId: string; matchedLeadId: string; reason: LeadDuplicateReason }[] = [],
+) {
   const leads = new Map(seed.map((lead) => [lead.id, lead]));
+  const duplicates = new Map(pairs.map((pair) => [randomUUID(), pair]));
+  const merged = new Map<string, LeadSourceLink[]>();
+  const summary = (lead: Lead): LeadSummary => ({
+    id: lead.id,
+    name: lead.name,
+    source: lead.source,
+    channel: lead.channel,
+    status: lead.status,
+    receivedAt: lead.receivedAt,
+    eventDate: lead.eventDate,
+    assignedSalespersonId: lead.assignedSalespersonId,
+  });
+  const link = (lead: Lead, mergedAt: string | null = null): LeadSourceLink => ({
+    leadId: lead.id,
+    channel: lead.channel,
+    source: lead.source,
+    sourceLeadId: lead.sourceLeadId,
+    sourceLeadUrl: lead.sourceLeadUrl,
+    receivedAt: lead.receivedAt,
+    mergedAt,
+    mergedBy: mergedAt ? "a0000000-0000-4000-8000-000000000001" : null,
+  });
+  const detail = (lead: Lead): Lead => ({
+    ...lead,
+    sourceLinks: [link(lead), ...(merged.get(lead.id) ?? [])],
+    duplicates: [...duplicates.entries()]
+      .filter(([, pair]) => pair.leadId === lead.id || pair.matchedLeadId === lead.id)
+      .map(([duplicateId, pair]) => ({
+        duplicateId,
+        reason: pair.reason,
+        lead: summary(
+          leads.get(pair.leadId === lead.id ? pair.matchedLeadId : pair.leadId)!,
+        ),
+        client: null,
+      })),
+    assignedElsewhere: false,
+  });
   const json = (route: Route, body: unknown, status = 200) =>
     route.fulfill({ status, json: body });
   const error = (route: Route, status: number, code: string, message: string) =>
@@ -927,6 +972,38 @@ export async function mockLeadsApi(page: Page, seed: Lead[]) {
           .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)),
       );
     }
+    if (id === "duplicates") {
+      if (method === "GET" && !action)
+        return json(
+          route,
+          [...duplicates.entries()].map(
+            ([duplicateId, pair]): LeadDuplicate => ({
+              id: duplicateId,
+              reason: pair.reason,
+              lead: summary(leads.get(pair.leadId)!),
+              matchedLead: summary(leads.get(pair.matchedLeadId)!),
+              matchedClient: null,
+              crossOwner: false,
+              createdAt: "2026-10-20T14:00:00.000Z",
+            }),
+          ),
+        );
+      const pair = action ? duplicates.get(action) : undefined;
+      if (!pair) return error(route, 404, "NOT_FOUND", "Duplicate not found.");
+      duplicates.delete(action!);
+      if (parts[5] === "dismiss") return route.fulfill({ status: 204 });
+      const keep = leads.get(body.keepLeadId)!;
+      const other = leads.get(
+        body.keepLeadId === pair.leadId ? pair.matchedLeadId : pair.leadId,
+      )!;
+      leads.delete(other.id);
+      merged.set(keep.id, [
+        ...(merged.get(keep.id) ?? []),
+        link(other, new Date().toISOString()),
+        ...(merged.get(other.id) ?? []),
+      ]);
+      return json(route, detail(keep));
+    }
     if (method === "POST" && id === "assign") {
       for (const leadId of body.leadIds as string[]) {
         const lead = leads.get(leadId);
@@ -944,7 +1021,7 @@ export async function mockLeadsApi(page: Page, seed: Lead[]) {
     const current = id ? leads.get(id) : undefined;
     if (!current)
       return error(route, 404, "NOT_FOUND", "Lead not found.");
-    if (method === "GET") return json(route, current);
+    if (method === "GET") return json(route, detail(current));
     if (action === "assign") {
       const updated = {
         ...current,
@@ -1045,6 +1122,7 @@ export const lead = (overrides: Partial<Lead> = {}): Lead => {
     convertedEventId: null,
     needsReview: false,
     rawPayload: null,
+    mergedIntoLeadId: null,
     archivedAt: null,
     createdAt: "2026-10-10T14:00:00.000Z",
     updatedAt: "2026-10-10T14:00:00.000Z",
