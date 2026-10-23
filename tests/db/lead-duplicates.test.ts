@@ -186,6 +186,10 @@ describe("cross-owner duplicates (FLOW-110, Q-41c)", () => {
     expect(JSON.stringify(detail)).not.toContain(sues);
     expect(assignedElsewhereMessage).toContain("another salesperson");
     expect(await sam.get<LeadDuplicate[]>("/api/leads/duplicates")).toEqual([]);
+    // The same holds the other way round.
+    const suesView = await sue.get<Lead>(`/api/leads/${sues}`);
+    expect(suesView).toMatchObject({ duplicates: [], assignedElsewhere: true });
+    expect(JSON.stringify(suesView)).not.toContain(sams);
 
     const queue = await admin.get<LeadDuplicate[]>("/api/leads/duplicates");
     expect(queue).toEqual([
