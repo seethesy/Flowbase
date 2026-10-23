@@ -38,6 +38,7 @@ it.each([
   ["POST", `/api/leads/${id}/assign`],
   ["POST", `/api/leads/${id}/status`],
   ["POST", `/api/leads/${id}/convert`],
+  ["GET", "/api/leads/dashboard"],
   ["GET", "/api/leads/duplicates"],
   ["POST", `/api/leads/duplicates/${id}/merge`],
   ["POST", `/api/leads/duplicates/${id}/dismiss`],
