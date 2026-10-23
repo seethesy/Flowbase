@@ -316,6 +316,27 @@ export const leads = pgTable(
   ],
 ).enableRLS();
 
+// Lead collector runs (FLOW-102): one row per site per run, posted by the collector.
+// FLOW-107 builds collector health and alerts on these.
+export const collectorRunStatuses = ["ok", "needs_login", "blocked", "error"] as const;
+export const collectorRuns = pgTable(
+  "collector_runs",
+  {
+    ...baseColumns(),
+    runId: uuid("run_id").notNull(),
+    site: text("site").notNull(),
+    startedAt: timestamptz("started_at").notNull(),
+    finishedAt: timestamptz("finished_at").notNull(),
+    leadsFound: integer("leads_found").notNull().default(0),
+    status: text("status", { enum: collectorRunStatuses }).notNull(),
+    message: text("message").notNull().default(""),
+  },
+  (table) => [
+    uniqueIndex("collector_runs_run_site_idx").on(table.runId, table.site),
+    index("collector_runs_site_started_idx").on(table.site, table.startedAt),
+  ],
+).enableRLS();
+
 // Possible duplicates (FLOW-110): a lead matched to an earlier lead, or to a client,
 // by email or phone, or by name and event date. Open until someone merges the
 // leads or dismisses the match.

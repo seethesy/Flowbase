@@ -3,6 +3,7 @@ import type { IngestReceipt } from "../../shared/api";
 import type { Db } from "../db/client";
 import { ingestReceipts, jobs } from "../db/schema";
 import { enqueueJob, type JobContext, type JobRegistry } from "../jobs/queue";
+import { ingestProcessors } from "./processors";
 
 export const INGEST_JOB_TYPE = "ingest.process";
 export type ReceiptRow = typeof ingestReceipts.$inferSelect;
@@ -47,12 +48,12 @@ export function storeReceipt(
 }
 
 // Turns a stored receipt into Flowbase records. Each source's ticket adds its own
-// (FLOW-102, FLOW-108, FLOW-109); a receipt without one stays unprocessed.
+// to ingestProcessors (worker/ingest/processors.ts); a receipt without one stays
+// unprocessed.
 export type IngestProcessor = (
   receipt: ReceiptRow,
   context: JobContext,
 ) => Promise<void>;
-export const ingestProcessors = new Map<string, IngestProcessor>();
 
 export function registerIngestProcessing(
   registry: JobRegistry,

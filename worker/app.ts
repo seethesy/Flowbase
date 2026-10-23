@@ -47,7 +47,8 @@ export function createApp(options: Options = {}) {
         event: "api_request",
         requestId,
         method: c.req.method,
-        path: c.req.path,
+        // A token in an ingestion path (FLOW-108) never reaches the logs.
+        path: c.req.path.replace(/^(\/api\/ingest\/[^/]+)\/.+$/, "$1/[token]"),
         status: c.res.status,
       }),
     );

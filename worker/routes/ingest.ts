@@ -1,5 +1,11 @@
 import { Hono } from "hono";
-import { fail, runDb, type AppEnv, type RunWithDb } from "../hono";
+import {
+  fail,
+  runDb,
+  type AppContext,
+  type AppEnv,
+  type RunWithDb,
+} from "../hono";
 import { storeReceipt } from "../ingest/receipts";
 import {
   INGEST_MAX_BYTES,
@@ -14,8 +20,10 @@ export function ingestRoutes(options: {
   sources?: Map<string, IngestSource>;
 }) {
   const ingest = new Hono<AppEnv>();
-  ingest.post("/:source", async (c) => {
-    const name = c.req.param("source");
+  // POST /api/ingest/<source>/<token> carries the token in the path, for senders
+  // that can't set headers; only sources that accept it (Thumbtack) do.
+  const handle = async (c: AppContext) => {
+    const name = c.req.param("source") ?? "";
     const source = (options.sources ?? ingestSources).get(name);
     if (!source) return fail(c, 404, "NOT_FOUND", "API route not found.");
     const tooLarge = () =>
@@ -27,6 +35,7 @@ export function ingestRoutes(options: {
     const request = {
       body: new TextDecoder().decode(bytes),
       headers: c.req.raw.headers,
+      pathToken: c.req.param("token"),
     };
     if (!(await source.authenticate(request, c.env ?? {})))
       return fail(c, 401, "UNAUTHENTICATED", "Invalid credentials.");
@@ -43,6 +52,8 @@ export function ingestRoutes(options: {
       storeReceipt(db, { source: name, sourceRecordId, body: request.body }),
     );
     return c.json(stored, stored.duplicate ? 200 : 202);
-  });
+  };
+  ingest.post("/:source", handle);
+  ingest.post("/:source/:token", handle);
   return ingest;
 }
