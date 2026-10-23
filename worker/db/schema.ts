@@ -18,6 +18,10 @@ import { baseColumns, moneyCents, timestamptz } from "./conventions";
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
 // CI fails if a migrated table in the public schema lacks RLS.
 
+// Trigram index for global search (FLOW-46): fuzzy name matching with pg_trgm.
+const trigram = (name: string, column: AnyPgColumn) =>
+  index(name).using("gin", column.op("gin_trgm_ops"));
+
 // Proves reads and writes through Hyperdrive. Served only where DB_CHECK_ROUTE is
 // enabled (the dev environment); holds no business data.
 export const connectionChecks = pgTable("connection_checks", {
@@ -81,7 +85,10 @@ export const clients = pgTable(
       (): AnyPgColumn => clients.id,
     ),
   },
-  (table) => [index("clients_salesperson_idx").on(table.assignedSalespersonId)],
+  (table) => [
+    index("clients_salesperson_idx").on(table.assignedSalespersonId),
+    trigram("clients_name_trgm_idx", table.name),
+  ],
 ).enableRLS();
 
 export const clientContacts = pgTable(
@@ -106,18 +113,23 @@ export const clientContacts = pgTable(
     index("client_contacts_client_idx").on(table.clientId),
     index("client_contacts_email_idx").on(table.email),
     index("client_contacts_phone_idx").on(table.phoneDigits),
+    trigram("client_contacts_name_trgm_idx", table.name),
   ],
 ).enableRLS();
 
-export const venues = pgTable("venues", {
-  ...baseColumns(),
-  name: text("name").notNull(),
-  address: text("address").notNull().default(""),
-  // Stored for future tax use.
-  jurisdiction: text("jurisdiction", { enum: ["DC", "MD", "VA"] }),
-  loadInNotes: text("load_in_notes").notNull().default(""),
-  parkingNotes: text("parking_notes").notNull().default(""),
-}).enableRLS();
+export const venues = pgTable(
+  "venues",
+  {
+    ...baseColumns(),
+    name: text("name").notNull(),
+    address: text("address").notNull().default(""),
+    // Stored for future tax use.
+    jurisdiction: text("jurisdiction", { enum: ["DC", "MD", "VA"] }),
+    loadInNotes: text("load_in_notes").notNull().default(""),
+    parkingNotes: text("parking_notes").notNull().default(""),
+  },
+  (table) => [trigram("venues_name_trgm_idx", table.name)],
+).enableRLS();
 
 export const venueAreas = pgTable(
   "venue_areas",
@@ -185,6 +197,7 @@ export const events = pgTable(
     index("events_client_idx").on(table.clientId),
     index("events_venue_idx").on(table.venueId),
     index("events_salesperson_idx").on(table.assignedSalespersonId),
+    trigram("events_title_trgm_idx", table.title),
   ],
 ).enableRLS();
 
@@ -269,6 +282,8 @@ export const leads = pgTable(
     name: text("name").notNull().default(""),
     email: text("email").notNull().default(""),
     phone: text("phone").notNull().default(""),
+    // Digits only, for search and duplicate matching.
+    phoneDigits: text("phone_digits").notNull().default(""),
     eventDate: date("event_date", { mode: "string" }),
     guestCount: integer("guest_count"),
     location: text("location").notNull().default(""),
@@ -282,12 +297,56 @@ export const leads = pgTable(
     assignedSalespersonId: uuid("assigned_salesperson_id"),
     convertedClientId: uuid("converted_client_id").references(() => clients.id),
     convertedEventId: uuid("converted_event_id").references(() => events.id),
+    // Set when this lead was merged into another (FLOW-110). The merged lead is
+    // archived but kept, with its source record and raw payload.
+    mergedIntoLeadId: uuid("merged_into_lead_id").references(
+      (): AnyPgColumn => leads.id,
+    ),
+    mergedAt: timestamptz("merged_at"),
+    mergedBy: uuid("merged_by"),
   },
   (table) => [
     index("leads_received_at_idx").on(table.receivedAt),
     index("leads_status_idx").on(table.status),
     index("leads_salesperson_idx").on(table.assignedSalespersonId),
     index("leads_source_idx").on(table.source, table.sourceLeadId),
+    index("leads_email_idx").on(table.email),
+    index("leads_phone_idx").on(table.phoneDigits),
+    trigram("leads_name_trgm_idx", table.name),
+  ],
+).enableRLS();
+
+// Possible duplicates (FLOW-110): a lead matched to an earlier lead, or to a client,
+// by email or phone, or by name and event date. Open until someone merges the
+// leads or dismisses the match.
+export const leadDuplicateReasons = ["email", "phone", "name_event_date"] as const;
+export const leadDuplicateStatuses = ["open", "merged", "dismissed"] as const;
+export const leadDuplicates = pgTable(
+  "lead_duplicates",
+  {
+    ...baseColumns(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id),
+    matchedLeadId: uuid("matched_lead_id").references(() => leads.id),
+    matchedClientId: uuid("matched_client_id").references(() => clients.id),
+    reason: text("reason", { enum: leadDuplicateReasons }).notNull(),
+    status: text("status", { enum: leadDuplicateStatuses })
+      .notNull()
+      .default("open"),
+    resolvedAt: timestamptz("resolved_at"),
+    resolvedBy: uuid("resolved_by"),
+  },
+  (table) => [
+    index("lead_duplicates_lead_idx").on(table.leadId),
+    index("lead_duplicates_matched_lead_idx").on(table.matchedLeadId),
+    index("lead_duplicates_status_idx").on(table.status),
+    uniqueIndex("lead_duplicates_lead_pair_idx")
+      .on(table.leadId, table.matchedLeadId)
+      .where(sql`${table.matchedLeadId} is not null`),
+    uniqueIndex("lead_duplicates_client_pair_idx")
+      .on(table.leadId, table.matchedClientId)
+      .where(sql`${table.matchedClientId} is not null`),
   ],
 ).enableRLS();
 
@@ -363,6 +422,7 @@ export const inventoryItems = pgTable(
     uniqueIndex("inventory_items_code_idx")
       .on(table.code)
       .where(sql`${table.code} <> '' and ${table.archivedAt} is null`),
+    trigram("inventory_items_name_trgm_idx", table.name),
   ],
 ).enableRLS();
 

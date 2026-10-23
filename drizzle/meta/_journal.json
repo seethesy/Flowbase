@@ -92,6 +92,20 @@
       "when": 1792700697897,
       "tag": "0012_unlabeled_section",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792734945853,
+      "tag": "0013_global_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792735188634,
+      "tag": "0014_lead_duplicates",
+      "breakpoints": true
     }
   ]
 }

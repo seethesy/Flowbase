@@ -40,6 +40,11 @@ import {
   requireClientAccess,
 } from "./clients";
 import { insertEvent } from "./events";
+import {
+  leadMatchesFor,
+  recordLeadDuplicates,
+  sourceLinksFor,
+} from "./lead-duplicates";
 import { phoneDigits } from "./sync";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion). Admin and
@@ -95,22 +100,72 @@ function toLead(row: LeadRow, actor: Actor, withRawPayload = false): Lead {
     ...(withRawPayload && {
       rawPayload: isFtPlus(actor) ? (row.rawPayload ?? null) : null,
     }),
+    mergedIntoLeadId: row.mergedIntoLeadId,
     archivedAt: row.archivedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
+type ParsedIntake = ReturnType<typeof leadIntakeSchema.parse>;
+
+// The same source record again (FLOW-110 matching step 1, and source status
+// updates): details it now carries replace the stored ones; the lead's status,
+// assignment and received time stay.
+function updatedFromSource(lead: ParsedIntake) {
+  const given = <T>(value: T) => (value === "" || value === null ? undefined : value);
+  return {
+    sourceLeadUrl: given(lead.sourceLeadUrl),
+    ...(lead.purchased && { purchased: true }),
+    name: given(lead.name),
+    email: given(lead.email),
+    phone: given(lead.phone),
+    phoneDigits: given(phoneDigits(lead.phone)),
+    eventDate: given(lead.eventDate),
+    guestCount: given(lead.guestCount),
+    location: given(lead.location),
+    eventType: given(lead.eventType),
+    budgetCents: given(lead.budgetCents),
+    message: given(lead.message),
+    ...(lead.rawPayload !== undefined && { rawPayload: lead.rawPayload }),
+  };
+}
+
 // The one way a lead enters the system. Collectors (FLOW-102), webhooks (FLOW-108),
 // manual entry (FLOW-101) and import (FLOW-109) all call this. Emits lead.collected
-// for the collector and lead.received for everything else, in the same transaction.
+// for the collector and lead.received for everything else, in the same transaction,
+// and records the lead's possible duplicates (FLOW-110). A lead with the same source
+// and source lead id as a stored one updates that lead instead (created: false) and
+// emits lead.updated.
 export async function createLead(
   db: DbLike,
   input: LeadIntake,
-  options: { createdBy?: string } = {},
-): Promise<{ id: string }> {
+  options: { createdBy?: string; assignedSalespersonId?: string } = {},
+): Promise<{ id: string; created: boolean }> {
   const lead = leadIntakeSchema.parse(input);
   return db.transaction(async (tx) => {
+    if (lead.sourceLeadId) {
+      const [existing] = await tx
+        .select({ id: leads.id })
+        .from(leads)
+        .where(
+          and(eq(leads.source, lead.source), eq(leads.sourceLeadId, lead.sourceLeadId)),
+        )
+        .orderBy(leads.createdAt)
+        .limit(1);
+      if (existing) {
+        await tx
+          .update(leads)
+          .set({ ...updatedFromSource(lead), updatedBy: options.createdBy ?? null })
+          .where(eq(leads.id, existing.id));
+        await emitDomainEvent(tx, {
+          name: "lead.updated",
+          entityId: existing.id,
+          data: { channel: lead.channel, source: lead.source },
+        });
+        return { id: existing.id, created: false };
+      }
+    }
     const [row] = await tx
       .insert(leads)
       .values({
@@ -123,6 +178,7 @@ export async function createLead(
         name: lead.name,
         email: lead.email,
         phone: lead.phone,
+        phoneDigits: phoneDigits(lead.phone),
         eventDate: lead.eventDate,
         guestCount: lead.guestCount,
         location: lead.location,
@@ -130,16 +186,18 @@ export async function createLead(
         budgetCents: lead.budgetCents,
         message: lead.message,
         rawPayload: lead.rawPayload ?? null,
+        assignedSalespersonId: options.assignedSalespersonId ?? null,
         createdBy: options.createdBy ?? null,
         updatedBy: options.createdBy ?? null,
       })
-      .returning({ id: leads.id });
+      .returning();
     await emitDomainEvent(tx, {
       name: lead.channel === "collector" ? "lead.collected" : "lead.received",
       entityId: row.id,
       data: { channel: lead.channel, source: lead.source },
     });
-    return row;
+    await recordLeadDuplicates(tx, row);
+    return { id: row.id, created: true };
   });
 }
 
@@ -230,8 +288,16 @@ export async function findVisibleLead(db: DbLike, actor: Actor, id: string) {
   return row;
 }
 
+// The detail adds every source link and the possible duplicates the actor may see.
 export async function getLead(db: DbLike, actor: Actor, id: string): Promise<Lead> {
-  return toLead(await findVisibleLead(db, actor, id), actor, true);
+  const row = await findVisibleLead(db, actor, id);
+  const { duplicates, assignedElsewhere } = await leadMatchesFor(db, actor, row);
+  return {
+    ...toLead(row, actor, true),
+    sourceLinks: await sourceLinksFor(db, row),
+    duplicates,
+    assignedElsewhere,
+  };
 }
 
 function requireAssign(actor: Actor) {
