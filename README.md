@@ -208,9 +208,14 @@ Photos and documents attach to clients, venues and events (FLOW-42, ADR-08) thro
 | Source | Auth | Record id | Worker secret |
 | --- | --- | --- | --- |
 | `leads` (lead collector, FLOW-102) | `Authorization: Bearer <token>` | `sourceRecordId` in the JSON body | `INGEST_TOKEN_LEADS` |
+| `collector-runs` (FLOW-102) | `Authorization: Bearer <token>` | `sourceRecordId` (`<runId>:<site>`) | `INGEST_TOKEN_LEADS` |
+| `thumbtack` (FLOW-108) | the token as `Authorization: Bearer`, an `X-Flowbase-Token` header, or the path (`/api/ingest/thumbtack/<token>`) | Thumbtack lead id + event id | `INGEST_TOKEN_THUMBTACK` |
 | `shopify` (FLOW-109) | Shopify HMAC (`X-Shopify-Hmac-Sha256`) | `X-Shopify-Webhook-Id` header | `SHOPIFY_WEBHOOK_SECRET` |
 
-Thumbtack (FLOW-108) adds its own row once its payload and auth scheme are known. Each source's ticket also registers the processor that turns a receipt into records (`ingestProcessors` in `worker/ingest/receipts.ts`); until then receipts are stored and left unprocessed.
+Each source's ticket registers the processor that turns a receipt into records (`ingestProcessors` in `worker/ingest/processors.ts`); a source without one keeps its receipts unprocessed (Shopify until FLOW-109).
+
+- **Lead collector** (FLOW-102, [collector/README.md](collector/README.md)): each `leads` receipt is one lead (`shared/collector.ts`), created through `createLead` with channel `collector`; a changed version of the same lead updates it. Each `collector-runs` receipt is stored in `collector_runs` (site, start, finish, leads found, `ok | needs_login | blocked | error`) for FLOW-107. The ops workflow template is `ops-templates/collector.yml`.
+- **Thumbtack** (FLOW-108, `worker/ingest/thumbtack.ts`): Thumbtack's self-serve lead webhooks (FLOW-115 sets them up). Thumbtack documents no signature, so the webhook carries a long random token, in the URL path when no custom header is possible (request logs show the path as `/api/ingest/thumbtack/[token]`). The mapper reads Thumbtack's documented lead fields (`negotiationID`, `customer.displayName`/contact details, `customer.location`, `category.name`, the `details` questions for date, guests and budget, `createTime`) into a `webhook` lead with source Thumbtack; anything missing is left for review. A status update for a stored lead updates it (same source lead id); the Thumbtack status stays in the raw payload. The tests use the hand-made sample in `tests/fixtures/thumbtack/`, which FLOW-115 replaces with a captured payload.
 
 **Rotating a secret:** set the secret to `old,new` (`npx wrangler secret put INGEST_TOKEN_LEADS --env production`), switch the sender to the new value, then set it to `new` alone.
 

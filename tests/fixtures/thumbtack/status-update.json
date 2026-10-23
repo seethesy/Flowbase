@@ -1,0 +1,23 @@
+{
+  "event": {
+    "eventID": "evt-0002",
+    "eventType": "NegotiationUpdatedV4"
+  },
+  "data": {
+    "negotiationID": "500000000000000001",
+    "status": "hired",
+    "createTime": "2026-10-20T14:05:00Z",
+    "category": { "categoryID": "100000000000000001", "name": "Wedding Catering" },
+    "customer": {
+      "customerID": "300000000000000001",
+      "displayName": "Sample Customer",
+      "phone": "(202) 555-0100",
+      "email": "sample.customer@example.com",
+      "location": { "city": "Washington", "state": "DC", "zipCode": "20001" }
+    },
+    "details": [
+      { "question": "Event date", "answer": "Saturday, November 14, 2026" },
+      { "question": "Number of guests", "answer": "About 95 guests" }
+    ]
+  }
+}
