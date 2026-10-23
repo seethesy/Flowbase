@@ -901,7 +901,9 @@ export async function mockLeadsApi(
   pairs: { leadId: string; matchedLeadId: string; reason: LeadDuplicateReason }[] = [],
 ) {
   const leads = new Map(seed.map((lead) => [lead.id, lead]));
-  const duplicates = new Map(pairs.map((pair) => [randomUUID(), pair]));
+  const duplicates = new Map<string, (typeof pairs)[number]>(
+    pairs.map((pair) => [randomUUID(), pair]),
+  );
   const merged = new Map<string, LeadSourceLink[]>();
   const summary = (lead: Lead): LeadSummary => ({
     id: lead.id,

@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
   type AnyPgColumn,
+  type ExtraConfigColumn,
 } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../shared/core-records";
 import { baseColumns, moneyCents, timestamptz } from "./conventions";
@@ -19,7 +20,7 @@ import { baseColumns, moneyCents, timestamptz } from "./conventions";
 // CI fails if a migrated table in the public schema lacks RLS.
 
 // Trigram index for global search (FLOW-46): fuzzy name matching with pg_trgm.
-const trigram = (name: string, column: AnyPgColumn) =>
+const trigram = (name: string, column: ExtraConfigColumn) =>
   index(name).using("gin", column.op("gin_trgm_ops"));
 
 // Proves reads and writes through Hyperdrive. Served only where DB_CHECK_ROUTE is
