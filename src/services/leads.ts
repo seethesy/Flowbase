@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   leadConversionSchema,
+  leadDashboardSchema,
   leadDuplicateSchema,
   leadSchema,
   type LeadConvertInput,
@@ -34,6 +35,8 @@ export const leadsApi = {
     request(leadSchema, at("leads", id, "status"), "POST", change),
   convert: (id: string, input: LeadConvertInput) =>
     request(leadConversionSchema, at("leads", id, "convert"), "POST", input),
+  dashboard: (range: { from?: string; to?: string } = {}) =>
+    request(leadDashboardSchema, `/api/leads/dashboard${query(range)}`),
   duplicates: () => request(leadDuplicateSchema.array(), "/api/leads/duplicates"),
   // Returns the kept lead.
   merge: (duplicateId: string, keepLeadId: string) =>

@@ -24,6 +24,7 @@ import {
   getLead,
   listLeads,
 } from "../records/leads";
+import { leadDashboard } from "../records/lead-dashboard";
 import {
   dismissLeadDuplicate,
   listLeadDuplicates,
@@ -78,6 +79,18 @@ export function leadRoutes(options: {
       ),
     );
   });
+  // Lead dashboard (FLOW-113): ?from=&to= are New York dates; the last 30 days by
+  // default.
+  routes.get("/dashboard", async (c) =>
+    c.json(
+      await runDb(options.withDb, c.env, (tx) =>
+        leadDashboard(tx, c.get("actor"), {
+          from: query(c, "from"),
+          to: query(c, "to"),
+        }),
+      ),
+    ),
+  );
   // Possible duplicates (FLOW-110): the queue, merge into the kept lead, dismiss.
   routes.get("/duplicates", async (c) =>
     c.json(

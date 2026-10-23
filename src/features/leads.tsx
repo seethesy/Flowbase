@@ -360,7 +360,11 @@ export function LeadInbox() {
         title="Leads"
         subtitle="Every inquiry from every source, in one place."
         eyebrow="Leads"
-      />
+      >
+        <Button variant="outline" asChild>
+          <Link to="/leads/dashboard">Lead dashboard</Link>
+        </Button>
+      </PageHeader>
       <Tabs
         tabs={views}
         value={view}

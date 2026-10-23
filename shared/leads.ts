@@ -261,3 +261,45 @@ export const leadConversionSchema = z.object({
   event: z.object({ id, title: z.string() }),
 });
 export type LeadConversion = z.infer<typeof leadConversionSchema>;
+
+// Lead dashboard (FLOW-113): which sources are worth paying for, over a date range of
+// received dates (New York days, inclusive). Money is an estimate until proposals
+// exist (FLOW-122): a closed lead counts at its stated budget, or at the average
+// budget of the leads in range when it gave none (Ash, 2026-10-23).
+export const leadDashboardRowSchema = z.object({
+  leads: z.number(),
+  converted: z.number(),
+  // converted / leads, 0–1; null with no leads.
+  conversionRate: z.number().nullable(),
+  // Converted leads whose event reached Closed (paid and signed) or later.
+  closed: z.number(),
+  estimatedClosedCents: z.number(),
+  medianFirstResponseSeconds: z.number().nullable(),
+  // Open leads nobody has contacted yet (status New).
+  awaitingAction: z.number(),
+  purchased: z.number(),
+});
+export type LeadDashboardRow = z.infer<typeof leadDashboardRowSchema>;
+
+export const leadDashboardSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  // Only Admin, Technical and the Sales Manager see everyone's numbers.
+  scope: z.enum(["all", "own"]),
+  averageBudgetCents: z.number().nullable(),
+  totals: leadDashboardRowSchema,
+  bySource: leadDashboardRowSchema
+    .extend({
+      source: z.string(),
+      // False when no lead from the source was purchased: the source has no
+      // purchased flag, so purchased vs not isn't shown for it.
+      hasPurchased: z.boolean(),
+    })
+    .array(),
+  byChannel: leadDashboardRowSchema.extend({ channel: leadChannelSchema }).array(),
+  byStatus: z.object({ status: leadStatusSchema, leads: z.number() }).array(),
+  bySalesperson: leadDashboardRowSchema
+    .extend({ salespersonId: id.nullable() })
+    .array(),
+});
+export type LeadDashboard = z.infer<typeof leadDashboardSchema>;
