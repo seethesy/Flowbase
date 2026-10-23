@@ -20,6 +20,7 @@ const addDays = (date: string, days: number) => {
   const [year, month, day] = date.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 };
+// Checks the pattern first: addDays can't parse anything else.
 const validDate = (value: string) =>
   datePattern.test(value) && addDays(value, 0) === value;
 
@@ -75,10 +76,11 @@ export async function leadDashboard(
 ): Promise<LeadDashboard> {
   const scope = leadScope(actor);
   if (scope === "none" || scope === "staffed") throw forbidden();
+  const invalid = () => new ApiError(400, "INVALID_REQUEST", "Enter a valid date range.");
   const to = range.to ?? utcToBusinessTime(now).date;
+  if (!validDate(to)) throw invalid();
   const from = range.from ?? addDays(to, -(DEFAULT_DAYS - 1));
-  if (!validDate(from) || !validDate(to) || from > to)
-    throw new ApiError(400, "INVALID_REQUEST", "Enter a valid date range.");
+  if (!validDate(from) || from > to) throw invalid();
   const where = and(
     visibleLeads(actor),
     isNull(leads.archivedAt),
