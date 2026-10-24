@@ -41,18 +41,15 @@ describe("production deploy (FLOW-25)", () => {
   });
 });
 
-describe("preview versions (FLOW-25)", () => {
-  it("upload a version without migrating or deploying", () => {
-    expect(steps(scripts["deploy:preview"])).toEqual([
-      "npm run build",
-      "wrangler versions upload --env preview",
-    ]);
+describe("non-production branches (FLOW-176)", () => {
+  it("have no preview deploy script", () => {
+    expect(scripts["deploy:preview"]).toBeUndefined();
+    expect(Object.values(scripts).join("\n")).not.toContain("wrangler versions upload");
   });
 
-  it("target the flowbase Worker with the dev database", () => {
-    expect(wrangler.env.preview.name).toBe("flowbase");
-    expect(wrangler.env.preview.hyperdrive).toEqual(wrangler.env.dev.hyperdrive);
-    expect(wrangler.env.preview.vars?.DB_CHECK_ROUTE).toBeUndefined();
+  it("have no preview environment that could upload versions of the flowbase Worker", () => {
+    expect(wrangler.env.preview).toBeUndefined();
+    expect(Object.keys(wrangler.env).sort()).toEqual(["dev", "production"]);
   });
 });
 

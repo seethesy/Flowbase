@@ -76,7 +76,7 @@ Supabase Free Postgres (`flowbase-prod` `hzmgxkyitvlzcnecywai`, `flowbase-dev` `
 
 **Using it in the Worker:** `withDb(env, (db) => ...)` in `worker/db/client.ts` opens a request-local postgres.js client from the `HYPERDRIVE` binding (`max: 5`, `fetch_types: false`, prepared statements on), runs the callback with a typed Drizzle `db`, and always closes the client. Without the binding it throws `DatabaseNotConfiguredError`; `/api/health` keeps reporting `not_configured`.
 
-**Environments** (`wrangler.jsonc`). There is deliberately no top-level Hyperdrive binding, so plain `wrangler dev` and CI run without a database. `--env dev` binds the dev Hyperdrive config and enables `/api/dev/db-check`; `--env production` binds the production config and is what [Deploy](#deploy) ships; `--env preview` uploads non-production preview versions of the same Worker against the dev config. Outside the dev environment `/api/dev/*` answers 404.
+**Environments** (`wrangler.jsonc`). There is deliberately no top-level Hyperdrive binding, so plain `wrangler dev` and CI run without a database. `--env dev` binds the dev Hyperdrive config and enables `/api/dev/db-check`; `--env production` binds the production config and is what [Deploy](#deploy) ships. There is no preview environment (FLOW-176). Outside the dev environment `/api/dev/*` answers 404.
 
 **Migrate the dev database:**
 
@@ -237,7 +237,7 @@ Cloudflare Workers Builds deploys from `main`; GitHub Actions is not involved, s
 
 If the build or a migration fails, nothing is deployed and the previous version keeps serving. Drizzle applies the pending migrations in one transaction, so a failing migration leaves the schema as it was. Migrations run before the new code goes live, so they must stay compatible with the version currently serving (add columns and tables first; remove them in a later release).
 
-**Non-production branches.** Workers Builds runs `npm run deploy:preview`, which builds and runs `wrangler versions upload --env preview`. That creates a preview version of the `flowbase` Worker bound to the dev database, reachable at its preview URL and never serving production traffic. Previews do not run migrations; migrate the dev database manually (see [Database](#database)) when a branch changes the schema.
+**Non-production branches are not deployed** (FLOW-176). Worker secrets belong to the Worker, not to a version, so a preview version of `flowbase` would run unmerged code at a public URL with the production runtime secrets (`INGEST_TOKEN_LEADS`, `INGEST_TOKEN_THUMBTACK`, `SHOPIFY_WEBHOOK_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `SENTRY_DSN`). Non-production branch builds are therefore off and there is no `deploy:preview` script. Check a branch with CI and `wrangler dev --remote --env dev` (see [Database](#database)). If previews are needed later, give them a separate Worker (for example `flowbase-preview`) bound to the dev database with dev-only secrets; never upload versions of `flowbase` from an unmerged branch.
 
 **Workers Builds settings** (Worker `flowbase` → Settings → Build; developer-configured):
 
@@ -246,12 +246,11 @@ If the build or a migration fails, nothing is deployed and the previous version 
 | Production branch | `main` |
 | Build command | *(empty; `npm run deploy` builds)* |
 | Deploy command | `npm run deploy` |
-| Non-production branch builds | enabled |
-| Non-production branch deploy command | `npm run deploy:preview` |
+| Non-production branch builds | disabled |
 
 **Build variables** (names only; values live in Cloudflare, never in this repo):
 
-- `DATABASE_URL`: production Postgres connection string used for migrations. Set it as a secret build variable. Use the `flowbase-prod` session pooler string if the build environment cannot reach the direct connection over IPv6.
+- `DATABASE_URL`: production Postgres connection string used for migrations. Set it as a secret build variable on the Production settings only. Use the `flowbase-prod` session pooler string if the build environment cannot reach the direct connection over IPv6.
 - `VITE_SENTRY_DSN`: public SPA Sentry DSN (optional; see [Observability](#observability)).
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`: provided by Workers Builds automatically.
 
@@ -263,7 +262,7 @@ Runtime secrets such as `SENTRY_DSN` are Worker secrets (`wrangler secret put SE
 npx wrangler rollback --env production
 ```
 
-To pick a specific version, list deployments with `npx wrangler deployments list --env production` and pass its version ID: `npx wrangler rollback <version-id> --env production`. Choose a version from the deployments list, not a preview version. Rollback does not undo migrations; fix forward with a new migration if the schema must change back.
+To pick a specific version, list deployments with `npx wrangler deployments list --env production` and pass its version ID: `npx wrangler rollback <version-id> --env production`. Rollback does not undo migrations; fix forward with a new migration if the schema must change back.
 
 **Manual verification.** Merge a trivial change, then in the Cloudflare dashboard confirm the build log shows the build, migrate and deploy steps and that the new version is active. A failing step ends the build before `wrangler deploy`, so the active version in the dashboard stays the same.
 

@@ -39,13 +39,7 @@
       },
       "r2_buckets": [{ "binding": "FILES", "bucket_name": "flowbase-files" }],
     },
-    // Preview versions of the flowbase Worker for non-production branches
-    // (npm run deploy:preview). Same Worker name, dev database.
-    "preview": {
-      "name": "flowbase",
-      "hyperdrive": [
-        { "binding": "HYPERDRIVE", "id": "925a83ae72554fdd8e25e630cc7060d8" },
-      ],
-    },
+    // No preview environment (FLOW-176): non-production branches are not
+    // deployed, so unmerged code never runs with the flowbase Worker's secrets.
   },
 }
