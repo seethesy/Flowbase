@@ -147,18 +147,27 @@ export const eventStatuses = [
 ] as const;
 export const eventStatusSchema = z.enum(eventStatuses);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
+// Negotiation and Closing both show as Pending until the client signs the first
+// contract (FLOW-209); the stored statuses stay separate.
 export const eventStatusLabels: Record<EventStatus, string> = {
   inquiry: "Inquiry",
   pitching: "Pitching",
   proposal_creation: "P creation",
   initial_proposal_sent: "Initial P sent",
-  negotiation: "Negotiation",
-  closing: "Closing",
+  negotiation: "Pending",
+  closing: "Pending",
   // Paid and signed.
   closed: "Closed",
   preparation: "Preparation",
   finished: "Finished",
   lost: "Lost",
+};
+// Tells the two Pending statuses apart where a person picks an exact status or
+// reads a change between them.
+export const eventStatusDetailLabels: Record<EventStatus, string> = {
+  ...eventStatusLabels,
+  negotiation: "Pending (Negotiation)",
+  closing: "Pending (Closing)",
 };
 const localDate = z
   .string()

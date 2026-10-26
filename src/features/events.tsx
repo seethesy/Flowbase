@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  eventStatusDetailLabels,
   eventStatusLabels,
   contactRoleLabels,
   eventStatusSchema,
@@ -125,7 +126,7 @@ export function EventList() {
         />
         <Select
           label="Statuses"
-          options={Object.values(statusLabels)}
+          options={[...new Set(Object.values(statusLabels))]}
           value={status}
           onChange={setStatus}
         />
@@ -322,7 +323,7 @@ export function EventForm({
               >
                 {eventStatusSchema.options.map((status) => (
                   <option key={status} value={status}>
-                    {statusLabels[status]}
+                    {eventStatusDetailLabels[status]}
                   </option>
                 ))}
               </select>
@@ -448,7 +449,7 @@ function EventStatusPanel({
             >
               {others.map((status) => (
                 <option key={status} value={status}>
-                  {statusLabels[status]}
+                  {eventStatusDetailLabels[status]}
                 </option>
               ))}
             </select>
@@ -474,8 +475,8 @@ function EventStatusPanel({
             <li key={entry.id}>
               <strong>
                 {entry.from
-                  ? `${statusLabels[entry.from]} → ${statusLabels[entry.to]}`
-                  : `Created as ${statusLabels[entry.to]}`}
+                  ? `${eventStatusDetailLabels[entry.from]} → ${eventStatusDetailLabels[entry.to]}`
+                  : `Created as ${eventStatusDetailLabels[entry.to]}`}
               </strong>{" "}
               <small>
                 {new Date(entry.at).toLocaleString("en-US")}
