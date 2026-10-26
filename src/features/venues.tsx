@@ -10,6 +10,7 @@ import {
 } from "../../shared/core-records";
 import { eventsApi, venuesApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor } from "../app/useOpenFor";
 import {
   PageHeader,
   Button,
@@ -381,8 +382,8 @@ export function VenueDetail() {
   const navigate = useNavigate();
   const venue = useResource(() => venuesApi.get(id), [id]);
   const events = useResource(() => eventsApi.list({ venueId: id }), [id]);
-  const [edit, setEdit] = useState(false);
-  const [archive, setArchive] = useState(false);
+  const [edit, setEdit] = useOpenFor(id);
+  const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/venues" className="back-link">
       ← All venues

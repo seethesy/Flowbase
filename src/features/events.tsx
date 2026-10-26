@@ -14,6 +14,7 @@ import {
 import type { HubSection } from "../../shared/event-hub";
 import { clientsApi, eventsApi, venuesApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor } from "../app/useOpenFor";
 import {
   PageHeader,
   Button,
@@ -498,8 +499,8 @@ export function EventDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const hub = useResource(() => eventsApi.hub(id), [id]);
-  const [edit, setEdit] = useState(false);
-  const [archive, setArchive] = useState(false);
+  const [edit, setEdit] = useOpenFor(id);
+  const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/events" className="back-link">
       ← All events

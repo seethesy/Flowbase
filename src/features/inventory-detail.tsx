@@ -17,6 +17,7 @@ import {
 import { unitLabel } from "../../shared/units";
 import { inventoryApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor, useStateFor } from "../app/useOpenFor";
 import {
   Button,
   Section,
@@ -42,11 +43,11 @@ export function InventoryDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const item = useResource(() => inventoryApi.get(id), [id]);
-  const [edit, setEdit] = useState(false);
-  const [stockForm, setStockForm] = useState<
+  const [edit, setEdit] = useOpenFor(id);
+  const [stockForm, setStockForm] = useStateFor<
     "transfer" | "count" | "movement" | null
-  >(null);
-  const [archive, setArchive] = useState(false);
+  >(id, null);
+  const [archive, setArchive] = useOpenFor(id);
   // Bumped on every stock or cost change so the histories reload.
   const [version, setVersion] = useState(0);
   const saved = (next: InventoryItem) => {

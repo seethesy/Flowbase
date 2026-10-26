@@ -12,6 +12,7 @@ import {
 } from "../../shared/core-records";
 import { ApiRequestError, clientsApi, eventsApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor } from "../app/useOpenFor";
 import {
   PageHeader,
   Button,
@@ -435,9 +436,9 @@ export function ClientDetail() {
   const client = useResource(() => clientsApi.get(id), [id]);
   const events = useResource(() => eventsApi.list({ clientId: id }), [id]);
   const [tab, setTab] = useState("Overview");
-  const [edit, setEdit] = useState(false);
-  const [archive, setArchive] = useState(false);
-  const [newEvent, setNewEvent] = useState(false);
+  const [edit, setEdit] = useOpenFor(id);
+  const [archive, setArchive] = useOpenFor(id);
+  const [newEvent, setNewEvent] = useOpenFor(id);
   if (client.error)
     return (
       <>

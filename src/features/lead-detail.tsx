@@ -11,6 +11,7 @@ import {
 } from "../../shared/leads";
 import { leadsApi } from "../services/leads";
 import { useResource } from "../app/useResource";
+import { useOpenFor, useStateFor } from "../app/useOpenFor";
 import {
   Button,
   Section,
@@ -40,12 +41,12 @@ export function LeadDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const lead = useResource(() => leadsApi.get(id), [id]);
-  const [error, setError] = useState("");
+  const [error, setError] = useStateFor(id, "");
   const [busy, setBusy] = useState(false);
-  const [losing, setLosing] = useState(false);
-  const [reason, setReason] = useState("");
-  const [convert, setConvert] = useState(false);
-  const [linkClientId, setLinkClientId] = useState("");
+  const [losing, setLosing] = useOpenFor(id);
+  const [reason, setReason] = useStateFor(id, "");
+  const [convert, setConvert] = useOpenFor(id);
+  const [linkClientId, setLinkClientId] = useStateFor(id, "");
   if (lead.error)
     return (
       <>
