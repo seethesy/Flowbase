@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import { lead, mockLeadsApi } from "./mock-api";
 
 const maya = () => lead({ name: "Maya Ortiz", source: "Bark" });

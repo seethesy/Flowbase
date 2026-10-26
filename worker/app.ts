@@ -14,7 +14,8 @@ import {
 } from "./db/errors";
 import { APP_VERSION } from "../shared/version";
 import type { Bindings } from "./bindings";
-import type { ResolveActor } from "./auth";
+import { createActorResolver, requireActor, type ResolveActor } from "./auth";
+import { authRoutes, userRoutes } from "./routes/users";
 import { ApiError, type AppEnv, type RunWithDb } from "./hono";
 import type { IngestSource } from "./ingest/sources";
 import { adminRoutes } from "./routes/admin";
@@ -117,6 +118,23 @@ export function createApp(options: Options = {}) {
       status,
     );
   });
+  const resolveActor =
+    options.resolveActor ?? createActorResolver(options.withDb);
+  app.use("/api/*", async (c, next) => {
+    c.header("Cache-Control", "no-store");
+    // Liveness and public Auth configuration have no user data. Machine intake
+    // authenticates with its own service token/webhook signature.
+    if (
+      ["/api/health", "/api/auth/config"].includes(c.req.path) ||
+      c.req.path.startsWith("/api/ingest/")
+    ) {
+      await next();
+      return;
+    }
+    return requireActor(resolveActor)(c, next);
+  });
+  app.route("/api/auth", authRoutes(options));
+  app.route("/api/admin/users", userRoutes(options));
   app.get("/api/health", async (c) => {
     const database = await (options.checkDatabase?.(c.env) ??
       Promise.resolve("not_configured" as const));
@@ -131,8 +149,8 @@ export function createApp(options: Options = {}) {
   const errorBody = (requestId: string, code: string, message: string) => ({
     error: { code, message, requestId },
   });
-  // Hyperdrive read/write proof for the dev environment only (FLOW-24). It has no
-  // sign-in yet, so it answers 404 unless DB_CHECK_ROUTE is "enabled" in that env.
+  // Hyperdrive read/write proof for dev (FLOW-24). It answers 404 unless
+  // DB_CHECK_ROUTE is "enabled"; staff authentication also applies.
   app.use("/api/dev/*", async (c, next) => {
     if (c.env?.DB_CHECK_ROUTE !== "enabled")
       return c.json(
@@ -148,8 +166,7 @@ export function createApp(options: Options = {}) {
       "The database is not configured.",
     );
   app.get("/api/dev/db-check", async (c) => {
-    if (!options.dbCheck)
-      return c.json(dbUnavailable(c.get("requestId")), 503);
+    if (!options.dbCheck) return c.json(dbUnavailable(c.get("requestId")), 503);
     try {
       return c.json(await options.dbCheck.list(c.env));
     } catch (error) {
@@ -167,8 +184,7 @@ export function createApp(options: Options = {}) {
         errorBody(c.get("requestId"), "INVALID_REQUEST", "Invalid request."),
         400,
       );
-    if (!options.dbCheck)
-      return c.json(dbUnavailable(c.get("requestId")), 503);
+    if (!options.dbCheck) return c.json(dbUnavailable(c.get("requestId")), 503);
     try {
       return c.json(await options.dbCheck.create(c.env, parsed.data.note), 201);
     } catch (error) {

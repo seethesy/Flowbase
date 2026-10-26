@@ -14,15 +14,15 @@ npm run dev:worker
 
 The Worker serves the built SPA and `/api/*` at `http://localhost:8787`. `GET /api/health` returns `{ ok: true, version, database }`. For frontend hot reload, run `npm run dev` in another terminal; Vite proxies `/api` to the local Worker. Rebuild to update the SPA served by Wrangler. Hash routing supports direct record URLs and browser back/forward without server rewrites. Fonts are bundled locally.
 
-No credentials are needed for the fixture demo. `.env.example` lists optional Sentry configuration and the disposable CI database URL. Keep later local Worker secrets in ignored `.dev.vars`, and Vite variables in ignored `.env.local`. Never put secrets in `VITE_*`, which are shipped to the browser.
+Google sign-in is required to enter the workspace. Follow [Sign-in setup](docs/sign-in-setup.md) to configure Supabase, the allowlist hook, invitation delivery and the first Admin. `.env.example` lists optional Sentry configuration and the disposable CI database URL. Keep later local Worker secrets in ignored `.dev.vars`, and Vite variables in ignored `.env.local`. Never put secrets in `VITE_*`, which are shipped to the browser.
 
 ## Explore
 
 - **Dashboard:** date-range sample datasets, KPI navigation, activity links, proposal status chart, stock alerts, and upcoming events.
-- **Clients, Venues, Events:** real records from the API (see [Core records](#core-records)), with search, show-archived filters, create/edit forms, archive/restore and detail pages. They need sign-in (FLOW-36), so until then deployed environments show a sign-in error on these screens.
+- **Clients, Venues, Events:** real records from the API (see [Core records](#core-records)), with search, show-archived filters, create/edit forms, archive/restore and detail pages. They require an invited Google account.
 - **Proposals:** pipeline/table toggle, shared filters, numeric sorting, date filtering, pagination, drag-and-drop cards, and detail/edit drawers. The status selector is the keyboard-accessible alternative to dragging. Lost requires confirmation and a reason. Signed is final; Draft cannot jump straight to Signed. Lost may reopen as Draft.
 - **Inventory:** real items from the API (see [Inventory](#inventory)): rentals, decor, ingredients, bar stock, supplies and services, with per-section stock, the stock ledger (movement history, transfers, counts, receipts, adjustments and corrections) on the item page, the kitchen ingredient catalog, the bar screen, count mode, the low-stock list, cost history, and Admin-managed sections. The Dashboard stock alerts still use the demo item fixtures.
-- Global search (header, see [Global search](#global-search)) finds real clients, leads, events, venues and inventory items; demo proposals are no longer in it. Notifications link to sample records. Purchasing and Help are labeled placeholders; Reports holds the time-tracking reports and Settings the time-tracking notice (see [Time tracking](#time-tracking)). Proposals and the Dashboard still use the demo client fixtures. Employee profile is fictional.
+- Global search (header, see [Global search](#global-search)) finds real clients, leads, events, venues and inventory items; demo proposals are no longer in it. Notifications link to sample records. Purchasing and Help are labeled placeholders; Reports holds the time-tracking reports and Settings the time-tracking notice (see [Time tracking](#time-tracking)). Proposals and the Dashboard still use the demo client fixtures. The employee profile and header show the signed-in staff member. Admin manages invitations and access in Settings → Manage users.
 
 Seeded data: 35 clients, 45 contacts, 40 proposals, 50 items, 15 vendors, 12 purchase orders, 10 events, 8 employee profiles, activity and attachment metadata. Dashboard date ranges intentionally select different mock subsets rather than querying a backend.
 
@@ -36,7 +36,7 @@ A Hono Worker in `worker/` handles the API, and one `wrangler.jsonc` serves `dis
 
 GitHub Actions (`.github/workflows/ci.yml`) is the execution authority. Local test/check execution is prohibited by the repository workflow. Every PR runs lint, app and Worker typechecks, frontend Vitest, Node Worker tests, migration drift checks, Postgres integration tests, build, and desktop/mobile Playwright against the actual Worker. PRs changing only Markdown skip Playwright. Superseded runs on the same PR are cancelled; npm and Chromium are cached. Merge-to-main does not start a duplicate CI run. No workflow requires production credentials or repository secrets.
 
-Postgres 17 runs as a disposable service with public CI-only credentials. `DATABASE_URL` points only to that service. `worker/db/schema.ts` and the Drizzle migrations in `drizzle/` define the application schema. The DB suite applies committed migrations, checks the base column conventions and soft delete on the real tables, tests a separate CI fixture for reads/writes/rollback, and checks `pg_class.relrowsecurity` and browser-facing policies for all application tables. The drift check runs Drizzle generation and rejects both modified and newly generated migration files. CI does not contact Hyperdrive or any deployed database; that path is covered by the manual live check in [Database](#database).
+Postgres 17 runs as a disposable service with public CI-only credentials. `DATABASE_URL` points only to that service. `worker/db/schema.ts` and the Drizzle migrations in `drizzle/` define the application schema. Before each `npm run test:db` run, `tests/db/global-setup.ts` drops and re-creates the `public` and `drizzle` schemas and applies the committed migrations once, so the suite passes again on the same database and in any file order; it refuses to run unless `DATABASE_URL` points at localhost or the CI service (FLOW-182). A test file that clears migration-seeded rows (the default inventory sections) restores them when it finishes. CI runs the suite twice, the second time in shuffled file order. The DB suite applies committed migrations, checks the base column conventions and soft delete on the real tables, tests a separate CI fixture for reads/writes/rollback, and checks `pg_class.relrowsecurity` and browser-facing policies for all application tables. The drift check runs Drizzle generation and rejects both modified and newly generated migration files. CI does not contact Hyperdrive or any deployed database; that path is covered by the manual live check in [Database](#database).
 
 Commands used by CI:
 
@@ -56,7 +56,7 @@ Manual workflow verification: push two commits to a PR while the first run is ac
 
 ## Demo limitations
 
-No real authentication, database, external API integrations, uploads, email delivery, signatures, PDF generation, or production inventory transactions. Attachments are filename/size metadata only. Purchase orders are read-only sample records. Simulated operations update only React memory. No authentication is configured, R2 file storage is configured only in production, and a database is bound only in the dev environment (see [Database](#database)). The deployable unit is the Worker and its static SPA assets. No secrets or real client data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
+Some Dashboard, proposal and purchasing content remains fictional; authentication, core records, files and inventory use their real APIs. Attachments are filename/size metadata only. Purchase orders are read-only sample records. Simulated operations update only React memory. Google-only, invite-only authentication is configured per environment (see [Sign-in setup](docs/sign-in-setup.md)); R2 file storage is configured only in production. The deployable unit is the Worker and its static SPA assets. No secrets or real client data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
 
 ## Database
 
@@ -228,7 +228,7 @@ Each source's ticket registers the processor that turns a receipt into records (
 
 **Admin API:** `GET /api/admin/ingest-receipts?status=failed&source=leads` lists receipts with their job status; `POST /api/admin/ingest-receipts/<id>/replay` queues a new processing job for a receipt whose job failed.
 
-**Sign-in.** Admin routes check permissions through `worker/policy.ts`, a stand-in for the FLOW-38 matrix. Until sign-in (FLOW-36) resolves the caller, no request has a user, so every `/api/admin/*` route answers `401` in deployed environments.
+**Sign-in.** Admin routes check permissions through `worker/policy.ts`, a stand-in for the FLOW-38 matrix. The Worker verifies the Supabase JWT and loads the caller from the allowlist on every staff API request. User management is Admin only.
 
 ## Deploy
 

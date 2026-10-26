@@ -2,7 +2,12 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { AuditEntity, HistoryEntry } from "../../shared/audit";
 import type { DbLike } from "../db/client";
-import { auditLog, type AuditChanges, type auditActions } from "../db/schema";
+import {
+  auditLog,
+  users,
+  type AuditChanges,
+  type auditActions,
+} from "../db/schema";
 
 // Audit log (FLOW-41). Record modules take a snapshot of the record before and after
 // a write, inside the write's transaction, and writeAudit stores the fields that
@@ -20,7 +25,8 @@ export const fullView: Actor = {
 
 // Change on every write, or identify the row rather than describe it.
 const ignored = new Set(["id", "createdAt", "updatedAt"]);
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a: unknown, b: unknown) =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 export function diffSnapshots(
   before: Snapshot | null,
@@ -97,14 +103,15 @@ export async function listHistory(
   redact: RedactHistory,
 ): Promise<HistoryEntry[]> {
   const rows = await db
-    .select()
+    .select({ entry: auditLog, actorName: users.name, actorEmail: users.email })
     .from(auditLog)
+    .leftJoin(users, eq(users.id, auditLog.createdBy))
     .where(
       and(eq(auditLog.entityType, entityType), eq(auditLog.entityId, entityId)),
     )
     .orderBy(desc(auditLog.createdAt))
     .limit(500);
-  return rows.flatMap((row) => {
+  return rows.flatMap(({ entry: row, actorName, actorEmail }) => {
     const changes = redact(row.changes);
     if (row.action === "update" && !Object.keys(changes).length) return [];
     return [
@@ -112,6 +119,7 @@ export async function listHistory(
         id: row.id,
         action: row.action,
         actorId: row.createdBy,
+        actorName: actorName || actorEmail || null,
         at: row.createdAt.toISOString(),
         changes,
       },

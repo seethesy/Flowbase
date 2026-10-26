@@ -124,8 +124,22 @@
     {
       "idx": 17,
       "version": "7",
-      "when": 1793053435457,
-      "tag": "0017_check_constraints",
+      "when": 1793052509842,
+      "tag": "0017_staff_allowlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793052510943,
+      "tag": "0018_invite_only_auth_hook",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793054203542,
+      "tag": "0019_check_constraints",
       "breakpoints": true
     }
   ]

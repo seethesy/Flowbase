@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 // Roles and employment type from the architecture terms. FLOW-38 owns the full
-// permission matrix; until sign-in (FLOW-36) exists, no request carries an actor.
-export const roleSchema = z.enum([
+// permission matrix. The Worker loads both from the stored user on every request.
+export const roles = [
   "admin",
   "technical",
   "sales_manager",
@@ -10,9 +10,11 @@ export const roleSchema = z.enum([
   "kitchen_lead",
   "kitchen_staff",
   "staff",
-]);
+] as const;
+export const roleSchema = z.enum(roles);
 export type Role = z.infer<typeof roleSchema>;
-export const employmentTypeSchema = z.enum(["full_time", "part_time"]);
+export const employmentTypes = ["full_time", "part_time"] as const;
+export const employmentTypeSchema = z.enum(employmentTypes);
 export type EmploymentType = z.infer<typeof employmentTypeSchema>;
 export const actorSchema = z.object({
   userId: z.string().uuid(),

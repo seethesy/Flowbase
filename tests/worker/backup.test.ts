@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -58,27 +58,30 @@ describe("backup retention (FLOW-30 AC2)", () => {
   });
 });
 
-describe("backup script (FLOW-30 AC1)", () => {
-  let dir = "";
-  afterEach(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true });
-  });
+// The script tests need a POSIX bash (Linux CI, macOS). On Windows, `bash` is
+// often missing or WSL, which cannot run these fake binaries, so they are skipped
+// there with this reason instead of reporting a misleading result (FLOW-204 AC4).
+const posixShell = process.platform !== "win32";
 
-  // Runs scripts/backup.sh with fake pg_dump and aws binaries that log their arguments.
-  function runBackup(pgDump: string, listedKeys: string[]) {
-    dir = mkdtempSync(join(tmpdir(), "flowbase-backup-"));
+// Runs scripts/backup.sh with fake pg_dump and aws binaries that log their
+// arguments. Throws when the shell never ran the script to an exit code, so a
+// launch failure can never satisfy a failure-path assertion (FLOW-204).
+function runBackup(pgDump: string, listedKeys: string[], shell = "bash") {
+  const dir = mkdtempSync(join(tmpdir(), "flowbase-backup-"));
+  try {
     const log = join(dir, "aws.log");
+    const ran = join(dir, "pg_dump.ran");
     const fake = (name: string, body: string) => {
       writeFileSync(join(dir, name), `#!/usr/bin/env bash\n${body}\n`);
       chmodSync(join(dir, name), 0o755);
     };
-    fake("pg_dump", pgDump);
+    fake("pg_dump", `: > "${ran}"\n${pgDump}`);
     fake(
       "aws",
       `echo "$*" >> "${log}"
 if [[ "$1 $2" == "s3api list-objects-v2" ]]; then printf '%s\\t' ${listedKeys.map((k) => `'${k}'`).join(" ")}; echo; fi`,
     );
-    const result = spawnSync("bash", [join(root, "scripts/backup.sh")], {
+    const result = spawnSync(shell, [join(root, "scripts/backup.sh")], {
       encoding: "utf8",
       env: {
         PATH: `${dir}:${process.env.PATH ?? ""}`,
@@ -88,28 +91,52 @@ if [[ "$1 $2" == "s3api list-objects-v2" ]]; then printf '%s\\t' ${listedKeys.ma
         R2_SECRET_ACCESS_KEY: "secret",
       },
     });
+    if (result.error || typeof result.status !== "number") {
+      throw new Error(
+        `scripts/backup.sh did not run to an exit code with "${shell}" ` +
+          `(${result.error?.message ?? `signal ${result.signal}`}). ` +
+          "These tests need a POSIX bash on PATH (Linux CI or macOS).",
+      );
+    }
     const calls = existsSync(log) ? readFileSync(log, "utf8").split("\n").filter(Boolean) : [];
-    return { status: result.status, calls };
+    return { status: result.status, stderr: result.stderr, dumpRan: existsSync(ran), calls };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
+}
 
+describe("backup test harness (FLOW-204)", () => {
+  it("fails loudly instead of returning a status when the shell cannot launch", () => {
+    expect(() => runBackup("exit 1", [], join(tmpdir(), "flowbase-missing-bash"))).toThrow(
+      /did not run to an exit code/,
+    );
+  });
+});
+
+describe.skipIf(!posixShell)("backup script (FLOW-30 AC1; needs a POSIX bash, skipped on Windows)", () => {
   it("exits non-zero and uploads nothing when the dump fails", () => {
-    const { status, calls } = runBackup("exit 1", []);
-    expect(status).not.toBe(0);
-    expect(calls).toEqual([]);
+    const result = runBackup("exit 1", []);
+    expect(result.dumpRan).toBe(true);
+    expect(result.status).toBeGreaterThan(0);
+    expect(result.stderr).toContain("pg_dump failed; nothing was uploaded.");
+    expect(result.calls).toEqual([]);
   });
 
   it("exits non-zero and uploads nothing when the dump is empty", () => {
     const writeEmpty = 'for a in "$@"; do [[ "$a" == --file=* ]] && : > "${a#--file=}"; done; exit 0';
-    const { status, calls } = runBackup(writeEmpty, []);
-    expect(status).not.toBe(0);
-    expect(calls).toEqual([]);
+    const result = runBackup(writeEmpty, []);
+    expect(result.dumpRan).toBe(true);
+    expect(result.status).toBeGreaterThan(0);
+    expect(result.stderr).toContain("pg_dump produced an empty file; nothing was uploaded.");
+    expect(result.calls).toEqual([]);
   });
 
   it("uploads, then deletes only expired dumps", () => {
     const old = keyAt(Date.now() - 31 * DAY);
     const recent = keyAt(Date.now() - 2 * DAY);
     const writeDump = 'for a in "$@"; do [[ "$a" == --file=* ]] && echo dump > "${a#--file=}"; done; exit 0';
-    const { status, calls } = runBackup(writeDump, [old, recent, "production/readme.txt"]);
+    const { status, dumpRan, calls } = runBackup(writeDump, [old, recent, "production/readme.txt"]);
+    expect(dumpRan).toBe(true);
     expect(status).toBe(0);
     expect(calls[0]).toMatch(
       /^s3 cp .*flowbase-\d{4}-\d{2}-\d{2}T\d{6}Z\.dump s3:\/\/flowbase-backups\/production\/flowbase-/,
@@ -122,14 +149,16 @@ if [[ "$1 $2" == "s3api list-objects-v2" ]]; then printf '%s\\t' ${listedKeys.ma
   });
 });
 
-describe("ops backup template (FLOW-30 AC3)", () => {
+describe("ops backup template (FLOW-30 AC3, FLOW-175)", () => {
   const template = read("ops-templates/backup.yml");
   const restore = read("docs/restore.md");
+  const secretsTable = restore.slice(restore.indexOf("| Secret |"), restore.indexOf("3. Make sure"));
 
   it("references secrets by name only", () => {
     const envValues = [...template.matchAll(/^\s+[A-Z][A-Z0-9_]+: (.+)$/gm)].map((m) => m[1]);
     const secretNames = [...template.matchAll(/\$\{\{ secrets\.([A-Z0-9_]+) \}\}/g)].map((m) => m[1]);
     expect(secretNames).toEqual([
+      "FLOWBASE_READ_TOKEN",
       "FLOWBASE_PROD_DATABASE_URL",
       "R2_ACCOUNT_ID",
       "R2_BACKUP_ACCESS_KEY_ID",
@@ -141,16 +170,43 @@ describe("ops backup template (FLOW-30 AC3)", () => {
     expect(template).not.toMatch(/postgres(ql)?:\/\//);
   });
 
-  it("is documented in docs/restore.md", () => {
+  it("lists exactly the secrets the template reads in the docs/restore.md table", () => {
     expect(restore).toContain("ops-templates/backup.yml");
-    for (const [, name] of template.matchAll(/\$\{\{ secrets\.([A-Z0-9_]+) \}\}/g)) {
-      expect(restore).toContain(`\`${name}\``);
-    }
+    const used = new Set([...template.matchAll(/\$\{\{ secrets\.([A-Z0-9_]+) \}\}/g)].map((m) => m[1]));
+    const documented = new Set([...secretsTable.matchAll(/^\s*\| `([A-Z0-9_]+)` \|/gm)].map((m) => m[1]));
+    expect(documented).toEqual(used);
   });
 
-  it("runs the Flowbase script from main", () => {
+  it("runs the Flowbase script from the reviewed ops-v1 tag", () => {
     expect(template).toContain("repository: seethesy/Flowbase");
-    expect(template).toContain("ref: main");
     expect(template).toContain("bash flowbase/scripts/backup.sh");
+  });
+});
+
+describe("ops templates check out a pinned ref with a read token (FLOW-175)", () => {
+  // Returns the `with:` block of the actions/checkout step.
+  const checkout = (path: string) => {
+    const template = read(path);
+    const step = template.slice(template.indexOf("uses: actions/checkout@"));
+    return step.slice(0, step.search(/\n\s+- /));
+  };
+
+  for (const path of ["ops-templates/backup.yml", "ops-templates/collector.yml"]) {
+    it(`${path} checks out ops-v1 with FLOWBASE_READ_TOKEN`, () => {
+      const step = checkout(path);
+      expect(step).toContain("repository: seethesy/Flowbase");
+      expect(step).toContain("ref: ops-v1");
+      expect(step).not.toMatch(/ref: main/);
+      expect(step).toContain("token: ${{ secrets.FLOWBASE_READ_TOKEN }}");
+      expect(step).toContain("persist-credentials: false");
+    });
+  }
+
+  it("documents how to move the tag", () => {
+    for (const path of ["docs/restore.md", "collector/README.md"]) {
+      expect(read(path)).toContain("ops-v1");
+      expect(read(path)).toContain("Update the scripts the ops repo runs");
+    }
+    expect(read("docs/restore.md")).toContain("git push origin -f refs/tags/ops-v1");
   });
 });

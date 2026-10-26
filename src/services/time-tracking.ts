@@ -143,7 +143,11 @@ export class ActivityTracker {
   // Sends finished sessions and the open one's progress, at most once per interval.
   async flush() {
     const at = this.now();
-    if (this.stopped || this.sending || at - this.lastSentAt < this.flushIntervalMs)
+    if (
+      this.stopped ||
+      this.sending ||
+      at - this.lastSentAt < this.flushIntervalMs
+    )
       return;
     this.settle(at);
     const batch = [...this.unsent.values()];
@@ -185,7 +189,12 @@ export class ActivityTracker {
       at - this.lastInputAt >= this.idleCutoffMs
     )
       return;
-    this.open = { id: this.newId(), startedAt: at, endedAt: at, context: this.context };
+    this.open = {
+      id: this.newId(),
+      startedAt: at,
+      endedAt: at,
+      context: this.context,
+    };
   }
 
   private close() {
@@ -216,7 +225,7 @@ export async function sendSessions(
   sessions: ActivitySessionInput[],
   keepalive = false,
 ) {
-  const response = await fetch("/api/time/sessions", {
+  const response = await authFetch("/api/time/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sessions }),
@@ -234,3 +243,4 @@ export const timeApi = {
   report: (filter: { from?: string; to?: string; userId?: string } = {}) =>
     request(timeReportSchema, `/api/time/report${query(filter)}`),
 };
+import { authFetch } from "./auth";

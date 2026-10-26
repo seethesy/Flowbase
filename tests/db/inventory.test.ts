@@ -11,6 +11,7 @@ import {
   stockMovements,
 } from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
+import { restoreDefaultSections } from "./reference-data";
 import type { RunWithDb } from "../../worker/hono";
 import { findItem, recordMovement } from "../../worker/records/inventory";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
@@ -137,6 +138,8 @@ beforeEach(async () => {
   );
 });
 afterAll(async () => {
+  // beforeEach clears inventory_sections; give later files the seeded defaults back.
+  await restoreDefaultSections(client);
   await client.end();
 });
 

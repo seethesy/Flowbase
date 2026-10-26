@@ -22,5 +22,8 @@ ALTER TABLE "leads" ADD CONSTRAINT "leads_status_check" CHECK ("leads"."status" 
 ALTER TABLE "stock_counts" ADD CONSTRAINT "stock_counts_status_check" CHECK ("stock_counts"."status" in ('open', 'completed'));--> statement-breakpoint
 ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_type_check" CHECK ("stock_movements"."type" in ('receive', 'adjust', 'count', 'transfer', 'pull', 'return', 'damage_loss', 'consume'));--> statement-breakpoint
 ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_link_type_check" CHECK ("stock_movements"."link_type" in ('event', 'order', 'import'));--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_role_check" CHECK ("users"."role" in ('admin', 'technical', 'sales_manager', 'salesperson', 'kitchen_lead', 'kitchen_staff', 'staff'));--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_employment_type_check" CHECK ("users"."employment_type" in ('full_time', 'part_time'));--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_status_check" CHECK ("users"."status" in ('pending', 'active', 'deactivated', 'revoked'));--> statement-breakpoint
 ALTER TABLE "venue_contacts" ADD CONSTRAINT "venue_contacts_role_check" CHECK ("venue_contacts"."role" in ('manager', 'coordinator'));--> statement-breakpoint
 ALTER TABLE "venues" ADD CONSTRAINT "venues_jurisdiction_check" CHECK ("venues"."jurisdiction" in ('DC', 'MD', 'VA'));
