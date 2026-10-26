@@ -4,7 +4,7 @@ import {
   recordTypeSchema,
   uploadRequestSchema,
 } from "../../shared/attachments";
-import { requireActor, type ResolveActor } from "../auth";
+import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   ApiError,
   notFound,
@@ -41,7 +41,7 @@ export function attachmentRoutes(options: {
     return parsed.data;
   };
 
-  routes.get("/", async (c) => {
+  routes.get("/", requirePermission("attachments.read"), async (c) => {
     const recordType = recordTypeSchema.safeParse(c.req.query("recordType"));
     const recordId = uuid.safeParse(c.req.query("recordId"));
     if (!recordType.success || !recordId.success)
@@ -58,7 +58,7 @@ export function attachmentRoutes(options: {
       ),
     );
   });
-  routes.post("/", async (c) => {
+  routes.post("/", requirePermission("attachments.write"), async (c) => {
     const input = await parseBody(c, uploadRequestSchema);
     return c.json(
       await runDb(options.withDb, c.env, (db) =>
@@ -67,15 +67,19 @@ export function attachmentRoutes(options: {
       201,
     );
   });
-  routes.post("/:id/complete", async (c) => {
-    const attachmentId = id(c);
-    return c.json(
-      await runDb(options.withDb, c.env, (db) =>
-        completeUpload(db, c.get("actor"), c.env ?? {}, attachmentId),
-      ),
-    );
-  });
-  routes.patch("/:id", async (c) => {
+  routes.post(
+    "/:id/complete",
+    requirePermission("attachments.write"),
+    async (c) => {
+      const attachmentId = id(c);
+      return c.json(
+        await runDb(options.withDb, c.env, (db) =>
+          completeUpload(db, c.get("actor"), c.env ?? {}, attachmentId),
+        ),
+      );
+    },
+  );
+  routes.patch("/:id", requirePermission("attachments.write"), async (c) => {
     const attachmentId = id(c);
     const change = await parseBody(c, changeSchema);
     return c.json(
@@ -84,15 +88,19 @@ export function attachmentRoutes(options: {
       ),
     );
   });
-  routes.post("/:id/archive", async (c) => {
-    const attachmentId = id(c);
-    return c.json(
-      await runDb(options.withDb, c.env, (db) =>
-        updateAttachment(db, c.get("actor"), c.env ?? {}, attachmentId, {
-          archived: true,
-        }),
-      ),
-    );
-  });
+  routes.post(
+    "/:id/archive",
+    requirePermission("attachments.write"),
+    async (c) => {
+      const attachmentId = id(c);
+      return c.json(
+        await runDb(options.withDb, c.env, (db) =>
+          updateAttachment(db, c.get("actor"), c.env ?? {}, attachmentId, {
+            archived: true,
+          }),
+        ),
+      );
+    },
+  );
   return routes;
 }

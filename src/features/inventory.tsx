@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -196,19 +197,25 @@ export function InventoryList() {
         <Button variant="outline" asChild>
           <Link to="/inventory/bar">Bar</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">Counts</Link>
-        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts">Counts</Link>
+          </Button>
+        </Allowed>
         <Button variant="outline" asChild>
           <Link to="/inventory/low-stock">Low stock</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/sections">Sections</Link>
-        </Button>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Item
-        </Button>
+        <Allowed action="inventory.sections">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/sections">Sections</Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Item
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -349,10 +356,12 @@ export function IngredientList() {
         subtitle="What the kitchen buys, how it's used in recipes, and where it's kept."
         eyebrow="KITCHEN"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Ingredient
-        </Button>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Ingredient
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -521,16 +530,20 @@ export function BarList() {
         subtitle="Beer, wine and liquor: what's in stock, what's low, and who supplies it."
         eyebrow="BAR"
       >
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">
-            <ClipboardCheck size={16} />
-            Count
-          </Link>
-        </Button>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Bar Item
-        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts">
+              <ClipboardCheck size={16} />
+              Count
+            </Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Bar Item
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -1571,13 +1584,15 @@ function MovementHistory({
                     {!movement.correctsId &&
                       movement.type !== "transfer" &&
                       !item.archivedAt && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => setCorrecting(movement)}
-                          aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
-                        >
-                          Correct
-                        </Button>
+                        <Allowed action="inventory.move" item={item}>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setCorrecting(movement)}
+                            aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
+                          >
+                            Correct
+                          </Button>
+                        </Allowed>
                       )}
                   </td>
                 </tr>
@@ -1695,25 +1710,31 @@ export function InventoryDetail() {
           </p>
         </div>
         <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
+          <Allowed action="inventory.write">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </Allowed>
           {i.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                item.replace(await inventoryApi.setArchived(i.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
-            </Button>
+            <Allowed action="inventory.write">
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  item.replace(await inventoryApi.setArchived(i.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            </Allowed>
           ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
+            <Allowed action="inventory.write">
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>
@@ -1756,7 +1777,7 @@ export function InventoryDetail() {
             <small>Unit cost</small>
             <p>
               {c.costHidden
-                ? "Visible to full-time staff only."
+                ? "Cost hidden for your role and employment type."
                 : c.unitCostCents === null
                   ? "—"
                   : `${centsLabel(c.unitCostCents)} per ${unitLabel(c.purchaseUnit)}`}
@@ -1800,24 +1821,33 @@ export function InventoryDetail() {
           action={
             !i.archivedAt && (
               <div className="page-actions">
-                <Button
-                  variant="outline"
-                  onClick={() => setStockForm("movement")}
-                >
-                  <PackagePlus size={14} />
-                  Record movement
-                </Button>
-                <Button variant="outline" onClick={() => setStockForm("count")}>
-                  <ClipboardCheck size={14} />
-                  Count
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setStockForm("transfer")}
-                >
-                  <ArrowLeftRight size={14} />
-                  Transfer
-                </Button>
+                <Allowed action="inventory.move" item={i}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStockForm("movement")}
+                  >
+                    <PackagePlus size={14} />
+                    Record movement
+                  </Button>
+                </Allowed>
+                <Allowed action="inventory.count" item={i}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStockForm("count")}
+                  >
+                    <ClipboardCheck size={14} />
+                    Count
+                  </Button>
+                </Allowed>
+                <Allowed action="inventory.move" item={i}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStockForm("transfer")}
+                  >
+                    <ArrowLeftRight size={14} />
+                    Transfer
+                  </Button>
+                </Allowed>
               </div>
             )
           }
@@ -1930,37 +1960,39 @@ export function SectionList() {
         </p>
       )}
       {!archived && (
-        <form
-          className="inline-row"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!name.trim()) return setError("Name is required.");
-            void run(async () => {
-              await sectionsApi.create({ name, kind });
-              setName("");
-            });
-          }}
-        >
-          <FormField label="New section name">
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </FormField>
-          <FormField label="Holds">
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as SectionKind)}
-            >
-              {sectionKindSchema.options.map((option) => (
-                <option key={option} value={option}>
-                  {sectionKindLabels[option]}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <Button type="submit">
-            <Plus size={14} /> Add section
-          </Button>
-        </form>
+        <Allowed action="inventory.sections">
+          <form
+            className="inline-row"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim()) return setError("Name is required.");
+              void run(async () => {
+                await sectionsApi.create({ name, kind });
+                setName("");
+              });
+            }}
+          >
+            <FormField label="New section name">
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+            </FormField>
+            <FormField label="Holds">
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as SectionKind)}
+              >
+                {sectionKindSchema.options.map((option) => (
+                  <option key={option} value={option}>
+                    {sectionKindLabels[option]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <Button type="submit">
+              <Plus size={14} /> Add section
+            </Button>
+          </form>
+        </Allowed>
       )}
       <FilterBar>
         <label className="checkbox-filter">
@@ -2023,39 +2055,45 @@ export function SectionList() {
                       </td>
                       <td>
                         {archived ? (
-                          <Button
-                            variant="ghost"
-                            onClick={() =>
-                              run(() =>
-                                sectionsApi.setArchived(section.id, false),
-                              )
-                            }
-                          >
-                            Restore {section.name}
-                          </Button>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                setRenaming({
-                                  id: section.id,
-                                  name: section.name,
-                                })
-                              }
-                            >
-                              Rename {section.name}
-                            </Button>
+                          <Allowed action="inventory.sections">
                             <Button
                               variant="ghost"
                               onClick={() =>
                                 run(() =>
-                                  sectionsApi.setArchived(section.id, true),
+                                  sectionsApi.setArchived(section.id, false),
                                 )
                               }
                             >
-                              Archive {section.name}
+                              Restore {section.name}
                             </Button>
+                          </Allowed>
+                        ) : (
+                          <>
+                            <Allowed action="inventory.sections">
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  setRenaming({
+                                    id: section.id,
+                                    name: section.name,
+                                  })
+                                }
+                              >
+                                Rename {section.name}
+                              </Button>
+                            </Allowed>
+                            <Allowed action="inventory.sections">
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  run(() =>
+                                    sectionsApi.setArchived(section.id, true),
+                                  )
+                                }
+                              >
+                                Archive {section.name}
+                              </Button>
+                            </Allowed>
                           </>
                         )}
                       </td>

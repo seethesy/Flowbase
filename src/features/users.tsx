@@ -1,3 +1,4 @@
+import { usePermissions } from "../app/permissions";
 import { useState } from "react";
 import {
   inviteInputSchema,
@@ -6,7 +7,6 @@ import {
   type UserAction,
 } from "../../shared/users";
 import { roleSchema } from "../../shared/access";
-import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
 import { request } from "../services/core";
 import { Button, PageHeader, Section } from "../components/shared";
@@ -30,8 +30,8 @@ const labels: Record<UserAction, string> = {
 };
 
 export function UserManagement() {
-  const auth = useAuth();
-  if (auth?.user.role !== "admin")
+  const permissions = usePermissions();
+  if (!permissions.can("users.manage"))
     return <p role="alert">Only Admin can manage users.</p>;
   return <UserList />;
 }

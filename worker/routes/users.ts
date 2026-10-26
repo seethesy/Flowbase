@@ -58,7 +58,7 @@ export function authRoutes(options: { withDb?: RunWithDb }) {
       );
     return c.json(config.data);
   });
-  routes.get("/me", async (c) => {
+  routes.get("/me", requirePermission("auth.read"), async (c) => {
     const user = await runDb(options.withDb, c.env, async (db) => {
       const [row] = await db
         .select()
@@ -76,11 +76,10 @@ export function authRoutes(options: { withDb?: RunWithDb }) {
 
 export function userRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
-  routes.use("*", requirePermission("users.manage"));
-  routes.get("/", async (c) =>
+  routes.get("/", requirePermission("users.manage"), async (c) =>
     c.json(await runDb(options.withDb, c.env, listUsers)),
   );
-  routes.post("/", async (c) => {
+  routes.post("/", requirePermission("users.manage"), async (c) => {
     const input = await parseBody(c, inviteInputSchema);
     const send = mailer(c.env);
     const user = await runDb(options.withDb, c.env, (db) =>
@@ -89,7 +88,7 @@ export function userRoutes(options: { withDb?: RunWithDb }) {
     await send(user.email);
     return c.json(user, 201);
   });
-  routes.post("/:id/:action", async (c) => {
+  routes.post("/:id/:action", requirePermission("users.manage"), async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     const action = userActionSchema.safeParse(c.req.param("action"));
     if (!id.success || !action.success)

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { requireActor, type ResolveActor } from "../auth";
+import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import { runDb, type AppEnv, type RunWithDb } from "../hono";
 import { globalSearch } from "../records/search";
 
@@ -11,7 +11,7 @@ export function searchRoutes(options: {
 }) {
   const routes = new Hono<AppEnv>();
   routes.use("*", requireActor(options.resolveActor));
-  routes.get("/", async (c) =>
+  routes.get("/", requirePermission("search.read"), async (c) =>
     c.json(
       await runDb(options.withDb, c.env, (tx) =>
         globalSearch(tx, c.get("actor"), c.req.query("q") ?? ""),

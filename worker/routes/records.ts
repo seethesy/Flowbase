@@ -66,7 +66,7 @@ export function recordRoutes(options: {
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
-  routes.get("/clients", async (c) =>
+  routes.get("/clients", requirePermission("clients.read"), async (c) =>
     c.json(
       await runDb(options.withDb, c.env, (tx) =>
         listClients(tx, c.get("actor"), {
@@ -77,7 +77,7 @@ export function recordRoutes(options: {
       ),
     ),
   );
-  routes.get("/clients/:id", async (c) => {
+  routes.get("/clients/:id", requirePermission("clients.read"), async (c) => {
     const id = param(c, "Client");
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
@@ -92,14 +92,18 @@ export function recordRoutes(options: {
     ["venues", "Venue", venueHistory],
     ["events", "Event", eventHistory],
   ] as const)
-    routes.get(`/${resource}/:id/history`, async (c) => {
-      const id = param(c, what);
-      return c.json(
-        await runDb(options.withDb, c.env, (tx) =>
-          history(tx, c.get("actor"), id),
-        ),
-      );
-    });
+    routes.get(
+      `/${resource}/:id/history`,
+      requirePermission(`${resource}.read`),
+      async (c) => {
+        const id = param(c, what);
+        return c.json(
+          await runDb(options.withDb, c.env, (tx) =>
+            history(tx, c.get("actor"), id),
+          ),
+        );
+      },
+    );
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
     const input = await parseBody(c, clientCreateSchema);
     return c.json(
@@ -160,7 +164,7 @@ export function recordRoutes(options: {
     );
   }
 
-  routes.get("/venues", async (c) =>
+  routes.get("/venues", requirePermission("venues.read"), async (c) =>
     c.json(
       await runDb(options.withDb, c.env, (tx) =>
         listVenues(tx, c.get("actor"), {
@@ -170,7 +174,7 @@ export function recordRoutes(options: {
       ),
     ),
   );
-  routes.get("/venues/:id", async (c) => {
+  routes.get("/venues/:id", requirePermission("venues.read"), async (c) => {
     const id = param(c, "Venue");
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
@@ -197,7 +201,7 @@ export function recordRoutes(options: {
     );
   });
 
-  routes.get("/events", async (c) => {
+  routes.get("/events", requirePermission("events.read"), async (c) => {
     const filter = {
       archived: flag(c, "archived"),
       clientId: query(c, "clientId"),
@@ -217,7 +221,7 @@ export function recordRoutes(options: {
       ),
     );
   });
-  routes.get("/events/:id", async (c) => {
+  routes.get("/events/:id", requirePermission("events.read"), async (c) => {
     const id = param(c, "Event");
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
@@ -226,7 +230,7 @@ export function recordRoutes(options: {
     );
   });
   // The event hub (FLOW-57): the event, its client and the sections the user may see.
-  routes.get("/events/:id/hub", async (c) => {
+  routes.get("/events/:id/hub", requirePermission("events.read"), async (c) => {
     const id = param(c, "Event");
     return c.json(
       await runDb(options.withDb, c.env, (tx) =>
@@ -254,22 +258,30 @@ export function recordRoutes(options: {
   });
   // Manual status changes (FLOW-56): Admin or the event's salesperson, checked per
   // event in shared/event-lifecycle.ts. Automatic moves have no route.
-  routes.post("/events/:id/status", async (c) => {
-    const id = param(c, "Event");
-    const input = await parseBody(c, eventTransitionSchema);
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        overrideEventStatus(tx, c.get("actor"), id, input),
-      ),
-    );
-  });
-  routes.get("/events/:id/status-history", async (c) => {
-    const id = param(c, "Event");
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        eventStatusChanges(tx, c.get("actor"), id),
-      ),
-    );
-  });
+  routes.post(
+    "/events/:id/status",
+    requirePermission("events.status"),
+    async (c) => {
+      const id = param(c, "Event");
+      const input = await parseBody(c, eventTransitionSchema);
+      return c.json(
+        await runDb(options.withDb, c.env, (tx) =>
+          overrideEventStatus(tx, c.get("actor"), id, input),
+        ),
+      );
+    },
+  );
+  routes.get(
+    "/events/:id/status-history",
+    requirePermission("events.read"),
+    async (c) => {
+      const id = param(c, "Event");
+      return c.json(
+        await runDb(options.withDb, c.env, (tx) =>
+          eventStatusChanges(tx, c.get("actor"), id),
+        ),
+      );
+    },
+  );
   return routes;
 }

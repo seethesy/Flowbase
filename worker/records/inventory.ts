@@ -1,3 +1,4 @@
+import { canSeeField, serializeFields } from "../../shared/visibility";
 import {
   and,
   asc,
@@ -12,7 +13,7 @@ import {
   sql,
 } from "drizzle-orm";
 import type { z } from "zod";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import {
   barCountStep,
   countDifference,
@@ -292,7 +293,6 @@ async function toItems(
       .from(inventoryBarDetails)
       .where(inArray(inventoryBarDetails.itemId, ids)),
   ]);
-  const showCost = isFtPlus(actor);
   return rows.map((row): InventoryItem => {
     const rental = rentals.find((detail) => detail.itemId === row.id);
     const service = services.find((detail) => detail.itemId === row.id);
@@ -312,7 +312,7 @@ async function toItems(
     const c = consumable?.details;
     const bar = bars.find((detail) => detail.itemId === row.id);
     const par = c?.parLevel ?? null;
-    return {
+    return serializeFields<InventoryItem>(actor, "inventory_item", {
       id: row.id,
       kind: row.kind,
       subtype: row.subtype,
@@ -349,8 +349,8 @@ async function toItems(
                 ? { quantity: c.eachSizeQuantity, unit: c.eachSizeUnit as Unit }
                 : null,
             recipeUnit: (c.recipeUnit as Unit | null) ?? null,
-            unitCostCents: showCost ? c.unitCostCents : null,
-            costHidden: !showCost,
+            unitCostCents: c.unitCostCents,
+            costHidden: false,
             preferredVendor: c.preferredVendor,
             parLevel: c.parLevel,
             allergens: c.allergens as Allergen[],
@@ -373,7 +373,7 @@ async function toItems(
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
-    };
+    });
   });
 }
 
@@ -516,7 +516,8 @@ async function saveDetails(
   }
   const c = input.consumable;
   if (input.kind === "consumable" && c) {
-    if (c.unitCostCents !== undefined && !isFtPlus(actor)) throw forbidden();
+    if (c.unitCostCents !== undefined && !canSeeField(actor, "internal_cost"))
+      throw forbidden();
     if (c.storageSectionId)
       await requireStockSection(tx, c.storageSectionId, "consumable");
     const [stored] = await tx
@@ -602,7 +603,7 @@ export async function listCostHistory(
   actor: Actor,
   itemId: string,
 ): Promise<CostChange[]> {
-  if (!isFtPlus(actor)) throw forbidden();
+  if (!canSeeField(actor, "internal_cost")) throw forbidden();
   await findItem(db, itemId);
   const rows = await db
     .select()

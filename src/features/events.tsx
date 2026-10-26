@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { Fragment, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -113,10 +114,12 @@ export function EventList() {
         subtitle="Every proposal, BEO and task hangs off an event."
         eyebrow="Events"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Event
-        </Button>
+        <Allowed action="events.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Event
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -419,7 +422,9 @@ function EventStatusPanel({
     setSaving(true);
     setError("");
     try {
-      onChanged(await eventsApi.setStatus(event.id, { status: target, reason }));
+      onChanged(
+        await eventsApi.setStatus(event.id, { status: target, reason }),
+      );
       setReason("");
     } catch (e) {
       setError((e as Error).message);
@@ -619,25 +624,31 @@ export function EventDetail() {
         </div>
         {canEdit && (
           <div className="page-actions">
-            <Button variant="outline" onClick={() => setEdit(true)}>
-              <Pencil size={14} />
-              Edit
-            </Button>
+            <Allowed action="events.write">
+              <Button variant="outline" onClick={() => setEdit(true)}>
+                <Pencil size={14} />
+                Edit
+              </Button>
+            </Allowed>
             {e.archivedAt ? (
-              <Button
-                variant="outline"
-                onClick={async () =>
-                  setEvent(await eventsApi.setArchived(e.id, false))
-                }
-              >
-                <RotateCcw size={14} />
-                Restore
-              </Button>
+              <Allowed action="events.write">
+                <Button
+                  variant="outline"
+                  onClick={async () =>
+                    setEvent(await eventsApi.setArchived(e.id, false))
+                  }
+                >
+                  <RotateCcw size={14} />
+                  Restore
+                </Button>
+              </Allowed>
             ) : (
-              <Button variant="outline" onClick={() => setArchive(true)}>
-                <Archive size={14} />
-                Archive
-              </Button>
+              <Allowed action="events.write">
+                <Button variant="outline" onClick={() => setArchive(true)}>
+                  <Archive size={14} />
+                  Archive
+                </Button>
+              </Allowed>
             )}
           </div>
         )}

@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, TriangleAlert } from "lucide-react";
@@ -122,10 +123,12 @@ export function ClientList() {
         subtitle="Good relationships start with the little details."
         eyebrow="Clients"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Client
-        </Button>
+        <Allowed action="clients.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Client
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -465,29 +468,37 @@ export function ClientDetail() {
           </p>
         </div>
         <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
-          <Button onClick={() => setNewEvent(true)}>
-            <Plus size={16} />
-            New Event
-          </Button>
+          <Allowed action="clients.write">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </Allowed>
+          <Allowed action="events.write">
+            <Button onClick={() => setNewEvent(true)}>
+              <Plus size={16} />
+              New Event
+            </Button>
+          </Allowed>
           {c.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                client.replace(await clientsApi.setArchived(c.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
-            </Button>
+            <Allowed action="clients.write">
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  client.replace(await clientsApi.setArchived(c.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            </Allowed>
           ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
+            <Allowed action="clients.write">
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>

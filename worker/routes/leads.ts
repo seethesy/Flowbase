@@ -50,7 +50,7 @@ export function leadRoutes(options: {
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
-  routes.get("/", async (c) =>
+  routes.get("/", requirePermission("leads.read"), async (c) =>
     c.json(
       await runDb(options.withDb, c.env, (tx) =>
         listLeads(tx, c.get("actor"), {
@@ -81,7 +81,7 @@ export function leadRoutes(options: {
   });
   // Lead dashboard (FLOW-113): ?from=&to= are New York dates; the last 30 days by
   // default.
-  routes.get("/dashboard", async (c) =>
+  routes.get("/dashboard", requirePermission("leads.read"), async (c) =>
     c.json(
       await runDb(options.withDb, c.env, (tx) =>
         leadDashboard(tx, c.get("actor"), {
@@ -92,7 +92,7 @@ export function leadRoutes(options: {
     ),
   );
   // Possible duplicates (FLOW-110): the queue, merge into the kept lead, dismiss.
-  routes.get("/duplicates", async (c) =>
+  routes.get("/duplicates", requirePermission("leads.read"), async (c) =>
     c.json(
       await runDb(options.withDb, c.env, (tx) =>
         listLeadDuplicates(tx, c.get("actor")),
@@ -132,10 +132,12 @@ export function leadRoutes(options: {
       return c.body(null, 204);
     },
   );
-  routes.get("/:id", async (c) => {
+  routes.get("/:id", requirePermission("leads.read"), async (c) => {
     const id = param(c);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) => getLead(tx, c.get("actor"), id)),
+      await runDb(options.withDb, c.env, (tx) =>
+        getLead(tx, c.get("actor"), id),
+      ),
     );
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {

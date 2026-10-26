@@ -1,3 +1,4 @@
+import { usePermissions } from "../app/permissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -21,7 +22,6 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "./clients";
-import { useAuth } from "../app/auth";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
 // Settings entry and the reports.
@@ -67,11 +67,11 @@ export function TrackingNotice() {
 }
 
 export function SettingsPage() {
-  const auth = useAuth();
+  const permissions = usePermissions();
   return (
     <>
       <PageHeader title="Settings" subtitle="How Flowbase works for you." />
-      {auth?.user.role === "admin" && (
+      {permissions.can("users.manage") && (
         <Section title="Staff access">
           <Link to="/settings/users">Manage users</Link>
         </Section>

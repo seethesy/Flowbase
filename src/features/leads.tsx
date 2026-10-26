@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRightLeft, TriangleAlert } from "lucide-react";
@@ -43,7 +44,11 @@ const statusTone: Record<LeadStatus, string> = {
   lost: "error",
 };
 export function LeadStatusBadge({ status }: { status: LeadStatus }) {
-  return <span className={`badge ${statusTone[status]}`}>{leadStatusLabels[status]}</span>;
+  return (
+    <span className={`badge ${statusTone[status]}`}>
+      {leadStatusLabels[status]}
+    </span>
+  );
 }
 
 const businessDate = (iso: string) =>
@@ -195,31 +200,41 @@ function DuplicateQueue() {
         <div className="page-actions">
           {other && (
             <>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  void act(() => leadsApi.merge(duplicate.id, duplicate.lead.id))
-                }
-              >
-                Keep {duplicate.lead.name || "first"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => void act(() => leadsApi.merge(duplicate.id, other.id))}
-              >
-                Keep {other.name || "second"}
-              </Button>
+              <Allowed action="leads.merge">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() =>
+                      leadsApi.merge(duplicate.id, duplicate.lead.id),
+                    )
+                  }
+                >
+                  Keep {duplicate.lead.name || "first"}
+                </Button>
+              </Allowed>
+              <Allowed action="leads.merge">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() => leadsApi.merge(duplicate.id, other.id))
+                  }
+                >
+                  Keep {other.name || "second"}
+                </Button>
+              </Allowed>
             </>
           )}
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
-          >
-            Not a duplicate
-          </Button>
+          <Allowed action="leads.merge">
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
+            >
+              Not a duplicate
+            </Button>
+          </Allowed>
         </div>
       </li>
     );
@@ -267,7 +282,10 @@ export function LeadInbox() {
     [lead.name, lead.email, lead.phone].join(" ").toLowerCase().includes(term),
   );
   const sources = [
-    ...new Set([...defaultLeadSources, ...(leads.data ?? []).map((l) => l.source)]),
+    ...new Set([
+      ...defaultLeadSources,
+      ...(leads.data ?? []).map((l) => l.source),
+    ]),
   ];
   const toggle = (id: string) =>
     setSelected((current) =>
@@ -281,12 +299,14 @@ export function LeadInbox() {
       header: "Select",
       enableSorting: false,
       cell: (c) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${leadTitle(c.row.original)}`}
-          checked={selected.includes(c.row.original.id)}
-          onChange={() => toggle(c.row.original.id)}
-        />
+        <Allowed action="leads.assign">
+          <input
+            type="checkbox"
+            aria-label={`Select ${leadTitle(c.row.original)}`}
+            checked={selected.includes(c.row.original.id)}
+            onChange={() => toggle(c.row.original.id)}
+          />
+        </Allowed>
       ),
     },
     {
@@ -343,14 +363,16 @@ export function LeadInbox() {
       enableSorting: false,
       cell: (c) =>
         c.row.original.status === "qualified" ? (
-          <Button
-            variant="outline"
-            aria-label={`Convert ${leadTitle(c.row.original)}`}
-            onClick={() => setConverting(c.row.original)}
-          >
-            <ArrowRightLeft size={14} />
-            Convert
-          </Button>
+          <Allowed action="leads.convert">
+            <Button
+              variant="outline"
+              aria-label={`Convert ${leadTitle(c.row.original)}`}
+              onClick={() => setConverting(c.row.original)}
+            >
+              <ArrowRightLeft size={14} />
+              Convert
+            </Button>
+          </Allowed>
         ) : null,
     },
   ];
@@ -388,7 +410,9 @@ export function LeadInbox() {
                 label="Statuses"
                 value={status}
                 onChange={setStatus}
-                options={leadStatusSchema.options.map((s) => leadStatusLabels[s])}
+                options={leadStatusSchema.options.map(
+                  (s) => leadStatusLabels[s],
+                )}
               />
               <Select
                 label="Sources"
@@ -400,21 +424,25 @@ export function LeadInbox() {
                 label="Channels"
                 value={channel}
                 onChange={setChannel}
-                options={leadChannelSchema.options.map((c) => leadChannelLabels[c])}
+                options={leadChannelSchema.options.map(
+                  (c) => leadChannelLabels[c],
+                )}
               />
               <span className="result-count">{data.length} leads</span>
             </FilterBar>
             {selected.length > 0 && (
               <Section title={`${selected.length} selected`}>
-                <AssignForm
-                  label="Assign selected to (user ID)"
-                  button="Assign selected"
-                  onAssign={async (salespersonId) => {
-                    await leadsApi.bulkAssign(selected, salespersonId);
-                    setSelected([]);
-                    leads.reload();
-                  }}
-                />
+                <Allowed action="leads.assign">
+                  <AssignForm
+                    label="Assign selected to (user ID)"
+                    button="Assign selected"
+                    onAssign={async (salespersonId) => {
+                      await leadsApi.bulkAssign(selected, salespersonId);
+                      setSelected([]);
+                      leads.reload();
+                    }}
+                  />
+                </Allowed>
               </Section>
             )}
             {leads.error ? (
@@ -475,7 +503,9 @@ export function ConvertLeadForm({
   onClose: () => void;
   onConverted: (result: LeadConversion) => void;
 }) {
-  const [mode, setMode] = useState<"create" | "link">(linkClientId ? "link" : "create");
+  const [mode, setMode] = useState<"create" | "link">(
+    linkClientId ? "link" : "create",
+  );
   const [name, setName] = useState(lead.name);
   const [kind, setKind] = useState<"person" | "organization">("person");
   const [clientId, setClientId] = useState(linkClientId);
@@ -483,7 +513,9 @@ export function ConvertLeadForm({
   const [date, setDate] = useState(lead.eventDate ?? "");
   const [startTime, setStartTime] = useState("");
   const [error, setError] = useState("");
-  const [duplicates, setDuplicates] = useState<{ id: string; name: string }[]>([]);
+  const [duplicates, setDuplicates] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const [saving, setSaving] = useState(false);
   const submit = async (allowDuplicate: boolean) => {
     if (mode === "create" && !name.trim()) return setError("Enter a client name.");
@@ -706,26 +738,38 @@ export function LeadDetail() {
           <h1>{leadTitle(l)}</h1>
           <p>
             <LeadStatusBadge status={l.status} />
-            {l.needsReview && <span className="badge warning">Needs review</span>}
+            {l.needsReview && (
+              <span className="badge warning">Needs review</span>
+            )}
             {l.purchased && <span className="badge neutral">Purchased</span>}
           </p>
         </div>
         <div className="page-actions">
           {step && moves.includes(step.status) && (
-            <Button disabled={busy} onClick={() => void move(step.status)}>
-              {step.label}
-            </Button>
+            <Allowed action="leads.update">
+              <Button disabled={busy} onClick={() => void move(step.status)}>
+                {step.label}
+              </Button>
+            </Allowed>
           )}
           {moves.includes("lost") && (
-            <Button variant="outline" disabled={busy} onClick={() => setLosing(true)}>
-              Mark lost
-            </Button>
+            <Allowed action="leads.update">
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => setLosing(true)}
+              >
+                Mark lost
+              </Button>
+            </Allowed>
           )}
           {l.status === "qualified" && (
-            <Button onClick={() => setConvert(true)}>
-              <ArrowRightLeft size={14} />
-              Convert
-            </Button>
+            <Allowed action="leads.convert">
+              <Button onClick={() => setConvert(true)}>
+                <ArrowRightLeft size={14} />
+                Convert
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>
@@ -741,7 +785,9 @@ export function LeadDetail() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!reason.trim())
-                return setError("A reason is required when marking a lead lost.");
+                return setError(
+                  "A reason is required when marking a lead lost.",
+                );
               void move("lost", reason.trim());
             }}
           >
@@ -793,34 +839,44 @@ export function LeadDetail() {
                 )}
                 <div className="page-actions">
                   {match.lead && (
-                    <Button
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
-                        void resolve(() => leadsApi.merge(match.duplicateId, l.id))
-                      }
-                    >
-                      Merge into this lead
-                    </Button>
+                    <Allowed action="leads.merge">
+                      <Button
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          void resolve(() =>
+                            leadsApi.merge(match.duplicateId, l.id),
+                          )
+                        }
+                      >
+                        Merge into this lead
+                      </Button>
+                    </Allowed>
                   )}
                   {match.client && l.status === "qualified" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setLinkClientId(match.client!.id);
-                        setConvert(true);
-                      }}
-                    >
-                      Convert and link to {match.client.name}
-                    </Button>
+                    <Allowed action="leads.convert">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setLinkClientId(match.client!.id);
+                          setConvert(true);
+                        }}
+                      >
+                        Convert and link to {match.client.name}
+                      </Button>
+                    </Allowed>
                   )}
-                  <Button
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => void resolve(() => leadsApi.dismiss(match.duplicateId))}
-                  >
-                    Not a duplicate
-                  </Button>
+                  <Allowed action="leads.merge">
+                    <Button
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() =>
+                        void resolve(() => leadsApi.dismiss(match.duplicateId))
+                      }
+                    >
+                      Not a duplicate
+                    </Button>
+                  </Allowed>
                 </div>
               </li>
             ))}
@@ -951,13 +1007,15 @@ export function LeadDetail() {
             Salesperson:{" "}
             <strong>{l.assignedSalespersonId ?? "Unassigned"}</strong>
           </p>
-          <AssignForm
-            label="Assign to (user ID)"
-            button={l.assignedSalespersonId ? "Reassign" : "Assign"}
-            onAssign={async (salespersonId) =>
-              lead.replace(await leadsApi.assign(l.id, salespersonId))
-            }
-          />
+          <Allowed action="leads.assign">
+            <AssignForm
+              label="Assign to (user ID)"
+              button={l.assignedSalespersonId ? "Reassign" : "Assign"}
+              onAssign={async (salespersonId) =>
+                lead.replace(await leadsApi.assign(l.id, salespersonId))
+              }
+            />
+          </Allowed>
         </Section>
       </div>
       {l.rawPayload !== null && l.rawPayload !== undefined && (

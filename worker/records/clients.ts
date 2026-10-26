@@ -1,3 +1,4 @@
+import { serializeFields, redactFieldHistory } from "../../shared/visibility";
 import {
   and,
   asc,
@@ -10,21 +11,14 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import {
   clientCreateSchema,
   clientInputSchema,
   type Client,
 } from "../../shared/core-records";
 import type { z } from "zod";
-import {
-  fullView,
-  hideFields,
-  listHistory,
-  maskField,
-  redactAll,
-  writeAudit,
-} from "../audit/log";
+import { fullView, listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
@@ -53,17 +47,15 @@ export function requireClientAccess(actor: Actor): Scope {
   return scope;
 }
 
-const toContact = (row: ContactRow, actor: Actor) => {
-  const visible = isFtPlus(actor);
-  return {
+const toContact = (row: ContactRow, actor: Actor) =>
+  serializeFields(actor, "client_contact", {
     id: row.id,
     name: row.name,
     role: row.role,
-    email: visible ? row.email : null,
-    phone: visible ? row.phone : null,
+    email: row.email,
+    phone: row.phone,
     notes: row.notes,
-  };
-};
+  });
 
 async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
   if (!rows.length) return [];
@@ -72,7 +64,10 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
     .select()
     .from(clientContacts)
     .where(
-      and(inArray(clientContacts.clientId, ids), isNull(clientContacts.archivedAt)),
+      and(
+        inArray(clientContacts.clientId, ids),
+        isNull(clientContacts.archivedAt),
+      ),
     )
     .orderBy(asc(clientContacts.sortOrder));
   const showDuplicates = clientScope(actor) === "all";
@@ -86,8 +81,8 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
           .from(clients)
           .where(inArray(clients.id, duplicateIds))
       : [];
-  return rows.map(
-    (row): Client => ({
+  return rows.map((row): Client =>
+    serializeFields<Client>(actor, "client", {
       id: row.id,
       name: row.name,
       kind: row.kind,
@@ -98,8 +93,9 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
         .filter((contact) => contact.clientId === row.id)
         .map((contact) => toContact(contact, actor)),
       possibleDuplicateOf:
-        duplicates.find((duplicate) => duplicate.id === row.possibleDuplicateOfId) ??
-        null,
+        duplicates.find(
+          (duplicate) => duplicate.id === row.possibleDuplicateOfId,
+        ) ?? null,
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -160,18 +156,8 @@ async function clientSnapshot(db: DbLike, id: string) {
 // part-time users, and the possible-duplicate match from salespeople.
 export async function clientHistory(db: DbLike, actor: Actor, id: string) {
   await findVisibleClient(db, actor, id);
-  const hideContactDetails = (value: unknown) =>
-    Array.isArray(value)
-      ? value.map((contact) => ({ ...contact, email: null, phone: null }))
-      : value;
-  return listHistory(
-    db,
-    "client",
-    id,
-    redactAll(
-      clientScope(actor) === "all" ? (c) => c : hideFields("possibleDuplicateOf"),
-      isFtPlus(actor) ? (c) => c : maskField("contacts", hideContactDetails),
-    ),
+  return listHistory(db, "client", id, (changes) =>
+    redactFieldHistory(actor, "client", changes),
   );
 }
 
@@ -226,7 +212,10 @@ async function syncContacts(
     .select({ id: clientContacts.id })
     .from(clientContacts)
     .where(
-      and(eq(clientContacts.clientId, clientId), isNull(clientContacts.archivedAt)),
+      and(
+        eq(clientContacts.clientId, clientId),
+        isNull(clientContacts.archivedAt),
+      ),
     );
   await syncChildren(
     existing.map((row) => row.id),
@@ -401,7 +390,10 @@ export async function setClientArchived(
     const before = await clientSnapshot(tx, id);
     await tx
       .update(clients)
-      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
+      .set({
+        archivedAt: archived ? new Date() : null,
+        updatedBy: actor.userId,
+      })
       .where(eq(clients.id, id));
     await writeAudit(tx, actor, {
       entityType: "client",

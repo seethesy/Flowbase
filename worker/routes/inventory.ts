@@ -71,7 +71,7 @@ export function inventoryRoutes(options: {
   const db = <T>(c: AppContext, run: (tx: Db) => Promise<T>) =>
     runDb(options.withDb, c.env, run);
 
-  routes.get("/items", async (c) => {
+  routes.get("/items", requirePermission("inventory.read"), async (c) => {
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
     if (query(c, "sectionId") && !sectionId.success) return c.json([]);
@@ -92,7 +92,7 @@ export function inventoryRoutes(options: {
       ),
     );
   });
-  routes.get("/items/:id", async (c) => {
+  routes.get("/items/:id", requirePermission("inventory.read"), async (c) => {
     const id = param(c, "Item");
     return c.json(await db(c, (tx) => getItem(tx, c.get("actor"), id)));
   });
@@ -134,10 +134,14 @@ export function inventoryRoutes(options: {
       );
     },
   );
-  routes.get("/items/:id/movements", async (c) => {
-    const id = param(c, "Item");
-    return c.json(await db(c, (tx) => listMovements(tx, id)));
-  });
+  routes.get(
+    "/items/:id/movements",
+    requirePermission("inventory.read"),
+    async (c) => {
+      const id = param(c, "Item");
+      return c.json(await db(c, (tx) => listMovements(tx, id)));
+    },
+  );
   routes.post(
     "/items/:id/movements",
     requirePermission("inventory.move"),
@@ -162,10 +166,16 @@ export function inventoryRoutes(options: {
       );
     },
   );
-  routes.get("/items/:id/cost-history", async (c) => {
-    const id = param(c, "Item");
-    return c.json(await db(c, (tx) => listCostHistory(tx, c.get("actor"), id)));
-  });
+  routes.get(
+    "/items/:id/cost-history",
+    requirePermission("inventory.read"),
+    async (c) => {
+      const id = param(c, "Item");
+      return c.json(
+        await db(c, (tx) => listCostHistory(tx, c.get("actor"), id)),
+      );
+    },
+  );
 
   routes.get("/counts", requirePermission("inventory.count"), async (c) => {
     const status = countStatusSchema.safeParse(c.req.query("status"));
@@ -206,7 +216,7 @@ export function inventoryRoutes(options: {
     },
   );
 
-  routes.get("/sections", async (c) => {
+  routes.get("/sections", requirePermission("inventory.read"), async (c) => {
     const kind = sectionKindSchema.safeParse(c.req.query("kind"));
     return c.json(
       await db(c, (tx) =>

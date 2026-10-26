@@ -1,3 +1,5 @@
+import { Allowed } from "../app/permissions";
+import { attachmentWriteActions } from "../../shared/policy";
 import { useRef, useState } from "react";
 import { FileText, Upload, Trash2 } from "lucide-react";
 import type {
@@ -59,7 +61,7 @@ export function Attachments({
     <Section
       title={title}
       action={
-        <>
+        <Allowed action={attachmentWriteActions[recordType]}>
           <input
             ref={input}
             type="file"
@@ -77,7 +79,7 @@ export function Attachments({
             <Upload size={14} />
             {busy ? "Uploading…" : "Add files"}
           </Button>
-        </>
+        </Allowed>
       }
     >
       {error && (
@@ -102,14 +104,16 @@ export function Attachments({
                 </a>
               )}
               <small>{file.caption || file.fileName}</small>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Remove ${file.fileName}`}
-                onClick={() => void archive(file)}
-              >
-                <Trash2 size={14} />
-              </Button>
+              <Allowed action={attachmentWriteActions[recordType]}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove ${file.fileName}`}
+                  onClick={() => void archive(file)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </Allowed>
             </li>
           ))}
         </ul>
