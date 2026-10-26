@@ -4,6 +4,7 @@ import {
   recordTypeSchema,
   uploadRequestSchema,
 } from "../../shared/attachments";
+import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, type ResolveActor } from "../auth";
 import {
   ApiError,
@@ -21,7 +22,6 @@ import {
   updateAttachment,
 } from "../attachments/records";
 
-const uuid = z.string().uuid();
 const changeSchema = z.object({
   caption: z.string().trim().max(500).optional(),
   sortOrder: z.number().int().min(0).max(10_000).optional(),

@@ -5,7 +5,7 @@ import type {
   activitySessionInputSchema,
   TimeReport,
 } from "../../shared/time-tracking";
-import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
+import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { Db } from "../db/client";
 import { activitySessions, clients, events, users } from "../db/schema";
 import { ApiError } from "../hono";
@@ -16,7 +16,6 @@ import { visibleEvents } from "./events";
 // the user comes from the sign-in, never from the request body.
 type SessionInput = z.output<typeof activitySessionInputSchema>;
 
-const DAY_MS = 24 * 60 * 60_000;
 // Allows for a browser clock running a little ahead of the Worker's.
 const CLOCK_SKEW_MS = 5 * 60_000;
 
@@ -80,10 +79,7 @@ export async function timeReport(
   const where = and(
     isNull(activitySessions.archivedAt),
     gte(activitySessions.startedAt, businessTimeToUtc(filter.from, "00:00")),
-    lt(
-      activitySessions.startedAt,
-      new Date(businessTimeToUtc(filter.to, "00:00").getTime() + DAY_MS),
-    ),
+    lt(activitySessions.startedAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00")),
     userId ? eq(activitySessions.userId, userId) : undefined,
   );
   const [effort, workload] = await Promise.all([

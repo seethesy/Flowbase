@@ -352,4 +352,39 @@ describe("time tracking", () => {
     );
     expect(before).toEqual({ scope: "all", effort: [], workload: [] });
   });
+
+  it("reports exactly the requested New York dates across daylight saving (FLOW-200)", async () => {
+    const minuteFrom = (startedAt: string) => ({
+      id: sessionId(),
+      startedAt,
+      endedAt: new Date(Date.parse(startedAt) + MIN).toISOString(),
+      recordType: null,
+      recordId: null,
+      activity: "general",
+    });
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          // March 8, 2026 runs 05:00Z to 04:00Z the next day (23 hours).
+          "2026-03-08T04:59:00.000Z",
+          "2026-03-08T05:00:00.000Z",
+          "2026-03-09T03:59:00.000Z",
+          "2026-03-09T04:00:00.000Z",
+          // November 2, 2025 runs 04:00Z to 05:00Z the next day (25 hours).
+          "2025-11-02T03:59:00.000Z",
+          "2025-11-02T04:00:00.000Z",
+          "2025-11-03T04:30:00.000Z",
+          "2025-11-03T05:00:00.000Z",
+        ].map(minuteFrom),
+      },
+      200,
+    );
+    for (const day of ["2026-03-08", "2025-11-02"]) {
+      const report = await sam.get<TimeReport>(`/api/time/report?from=${day}&to=${day}`);
+      expect(report.workload).toEqual([
+        { userId: people.sam, userName: people.sam, activity: "general", seconds: 2 * 60 },
+      ]);
+    }
+  });
 });

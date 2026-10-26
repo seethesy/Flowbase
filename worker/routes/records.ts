@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import {
   clientCreateSchema,
   clientInputSchema,
@@ -7,6 +6,7 @@ import {
   eventTransitionSchema,
   venueInputSchema,
 } from "../../shared/core-records";
+import { id as uuid, localDate } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
@@ -43,9 +43,6 @@ import {
   updateVenue,
   venueHistory,
 } from "../records/venues";
-
-const uuid = z.string().uuid();
-const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 // Core records API (FLOW-53/54/55, history FLOW-41): /api/clients, /api/venues, /api/events. Every
 // route needs a signed-in user; records the user can't see answer 404.

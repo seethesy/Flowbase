@@ -61,6 +61,26 @@ it("validates bodies before touching the database", async () => {
   expect((await response.json()).error.message).toBe("Title is required.");
   expect(mock).not.toHaveBeenCalled();
 });
+it("answers 400 for an impossible event date before touching the database (FLOW-191)", async () => {
+  const { mock, withDb } = mockDb();
+  const app = createApp({ withDb, resolveActor: async () => actor("admin") });
+  const response = await app.request(
+    "/api/events",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Fall gala",
+        date: "2026-02-31",
+        startTime: "18:00",
+        clientId: "8d6f2a4e-5b1c-4e8a-9f3d-2c7b1a0e6d54",
+      }),
+    },
+    env,
+  );
+  expect(response.status).toBe(400);
+  expect((await response.json()).error.message).toBe("Enter a date.");
+  expect(mock).not.toHaveBeenCalled();
+});
 it("refuses record writes to roles that don't sell", async () => {
   const { mock, withDb } = mockDb();
   for (const role of ["kitchen_lead", "kitchen_staff", "staff"] as const) {

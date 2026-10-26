@@ -1,12 +1,10 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { jobStatusSchema } from "../../shared/api";
+import { id as idSchema } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import { fail, runDb, type AppEnv, type RunWithDb } from "../hono";
 import { listReceipts, replayReceipt } from "../ingest/receipts";
 import { listJobs, retryFailedJob } from "../jobs/queue";
-
-const idSchema = z.string().uuid();
 
 // Admin-only operations for background work (FLOW-27) and ingestion (FLOW-28).
 export function adminRoutes(options: {

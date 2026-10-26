@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { id, timestamp } from "./schema-primitives";
 
 // Automatic activity time tracking (FLOW-119). The browser credits time while a
 // Flowbase tab is visible and the user has typed or clicked within the idle cutoff,
@@ -48,16 +49,15 @@ export const trackedRecordTypeSchema = z.enum([
 ]);
 export type TrackedRecordType = z.infer<typeof trackedRecordTypeSchema>;
 
-const timestamp = z.string().datetime();
 // One stretch of active time on one screen. The browser picks the id and resends
 // an open session with a later end, so a session is one row however often it's sent.
 export const activitySessionInputSchema = z
   .object({
-    id: z.string().uuid(),
+    id,
     startedAt: timestamp,
     endedAt: timestamp,
     recordType: trackedRecordTypeSchema.nullable().default(null),
-    recordId: z.string().uuid().nullable().default(null),
+    recordId: id.nullable().default(null),
     activity: activityTypeSchema,
   })
   .refine((s) => (s.recordType === null) === (s.recordId === null), {
@@ -79,7 +79,7 @@ export const activityBatchSchema = z.object({
 
 // Reports (Q-51). Dates are New York dates, inclusive; time is in seconds.
 export const effortRowSchema = z.object({
-  eventId: z.string().uuid(),
+  eventId: id,
   title: z.string(),
   date: z.string(),
   clientName: z.string(),
@@ -88,7 +88,7 @@ export const effortRowSchema = z.object({
 });
 export type EffortRow = z.infer<typeof effortRowSchema>;
 export const workloadRowSchema = z.object({
-  userId: z.string().uuid(),
+  userId: id,
   userName: z.string().optional(),
   activity: activityTypeSchema,
   seconds: z.number().int(),

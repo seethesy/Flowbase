@@ -1,18 +1,9 @@
 import { z } from "zod";
+import { email, id, localDate, text, timestamp } from "./schema-primitives";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion), shared by
 // the API and the app. Every lead source (collector, webhook, manual entry, import)
 // writes the same record through createLead on the worker.
-const id = z.string().uuid();
-const text = (max: number) => z.string().trim().max(max);
-const timestamp = z.string().datetime();
-const localDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date.")
-  .refine((value) => {
-    const parsed = new Date(`${value}T00:00:00Z`);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-  }, "Enter a date.");
 
 export const leadChannelSchema = z.enum(["collector", "webhook", "manual", "import"]);
 export type LeadChannel = z.infer<typeof leadChannelSchema>;
@@ -78,11 +69,6 @@ export const leadNeedsReview = (lead: {
   phone: string;
 }) => lead.eventDate === null || (lead.email.trim() === "" && lead.phone.trim() === "");
 
-const optionalEmail = text(254).refine(
-  (value) => value === "" || /^\S+@\S+\.\S+$/.test(value),
-  "Enter a valid email address.",
-);
-
 // What a source hands to createLead. Everything but channel and source may be
 // missing; such leads land in "needs review".
 export const leadIntakeSchema = z.object({
@@ -94,7 +80,7 @@ export const leadIntakeSchema = z.object({
   purchased: z.boolean().default(false),
   receivedAt: timestamp.optional(),
   name: text(200).default(""),
-  email: optionalEmail.default(""),
+  email: email.default(""),
   phone: text(40).default(""),
   eventDate: localDate.nullable().default(null),
   guestCount: z.number().int().min(0).max(100_000).nullable().default(null),

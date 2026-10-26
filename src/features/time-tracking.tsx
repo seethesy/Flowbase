@@ -7,7 +7,7 @@ import {
   type EffortRow,
   type WorkloadRow,
 } from "../../shared/time-tracking";
-import { utcToBusinessTime } from "../../shared/time";
+import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { timeApi } from "../services/time-tracking";
 import { useResource } from "../app/useResource";
 import {
@@ -97,8 +97,9 @@ export const duration = (seconds: number) => {
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
 };
+// Calendar days back from today in New York, whatever the day lengths (FLOW-200).
 const daysAgo = (days: number) =>
-  utcToBusinessTime(new Date(Date.now() - days * 24 * 60 * 60_000)).date;
+  addLocalDays(utcToBusinessTime(new Date()).date, -days);
 
 export function TimeReports() {
   const [from, setFrom] = useState(() => daysAgo(29));

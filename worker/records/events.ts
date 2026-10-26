@@ -27,7 +27,12 @@ import {
   mayOverrideStatus,
 } from "../../shared/event-lifecycle";
 import type { EventHub, HubSection } from "../../shared/event-hub";
-import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
+import {
+  addLocalDays,
+  businessTimeToUtc,
+  isBusinessTime,
+  utcToBusinessTime,
+} from "../../shared/time";
 import { listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
@@ -60,16 +65,26 @@ export function visibleEvents(actor: Actor): SQL | undefined {
   );
 }
 
-const DAY_MS = 24 * 60 * 60_000;
+// A New York wall-clock time as a UTC instant; a time that doesn't happen (skipped
+// when clocks spring forward) is a validation error, not a silently moved hour.
+function businessInstant(date: string, time: string) {
+  if (!isBusinessTime(date, time))
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      `${time} doesn't exist on ${date} in New York: clocks skip that hour. Pick another time.`,
+    );
+  return businessTimeToUtc(date, time);
+}
 
 // Stored as UTC instants from New York wall-clock times. An end time earlier than
-// the start runs past midnight.
+// the start runs past midnight, so it is that time on the next calendar date.
 function instants(input: Pick<EventInput, "date" | "startTime" | "endTime">) {
-  const startsAt = businessTimeToUtc(input.date, input.startTime);
+  const startsAt = businessInstant(input.date, input.startTime);
   if (!input.endTime) return { startsAt, endsAt: null };
-  let endsAt = businessTimeToUtc(input.date, input.endTime);
-  if (endsAt < startsAt) endsAt = new Date(endsAt.getTime() + DAY_MS);
-  return { startsAt, endsAt };
+  const endDate =
+    input.endTime < input.startTime ? addLocalDays(input.date, 1) : input.date;
+  return { startsAt, endsAt: businessInstant(endDate, input.endTime) };
 }
 
 async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
@@ -161,10 +176,7 @@ export async function listEvents(
           ? gte(events.startsAt, businessTimeToUtc(filter.from, "00:00"))
           : undefined,
         filter.to
-          ? lt(
-              events.startsAt,
-              new Date(businessTimeToUtc(filter.to, "00:00").getTime() + DAY_MS),
-            )
+          ? lt(events.startsAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00"))
           : undefined,
       ),
     )

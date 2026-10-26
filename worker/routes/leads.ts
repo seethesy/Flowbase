@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import {
   leadAssignSchema,
   leadBulkAssignSchema,
@@ -7,6 +6,7 @@ import {
   leadMergeSchema,
   leadStatusChangeSchema,
 } from "../../shared/leads";
+import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
@@ -30,8 +30,6 @@ import {
   listLeadDuplicates,
   mergeLeadDuplicate,
 } from "../records/lead-duplicates";
-
-const uuid = z.string().uuid();
 
 // Leads API (FLOW-100/111/112), mounted at /api/leads. Every route needs a signed-in
 // user; leads the user can't see answer 404. There is no create route here: leads

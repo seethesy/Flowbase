@@ -82,7 +82,13 @@ it("accepts a session without a record from any signed-in role", async () => {
 it("rejects a bad report range or user before touching the database", async () => {
   const { mock, withDb } = mockDb();
   const app = createApp({ withDb, resolveActor: async () => actor("admin") });
-  for (const query of ["from=2026-11-05&to=2026-11-01", "userId=someone"])
+  for (const query of [
+    "from=2026-11-05&to=2026-11-01",
+    "userId=someone",
+    // An impossible date is refused, not rolled over to March 3 (FLOW-191).
+    "from=2026-02-31&to=2026-03-05",
+    "to=2026-02-31",
+  ])
     expect(
       (await app.request(`/api/time/report?${query}`, {}, env)).status,
     ).toBe(400);
