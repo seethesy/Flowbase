@@ -9,7 +9,7 @@ import {
   ApiError,
   notFound,
   parseBody,
-  runDb,
+  recordRunner,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -34,6 +34,7 @@ export function attachmentRoutes(options: {
   resolveActor?: ResolveActor;
 }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
   const id = (c: AppContext) => {
     const parsed = uuid.safeParse(c.req.param("id"));
@@ -47,22 +48,16 @@ export function attachmentRoutes(options: {
     if (!recordType.success || !recordId.success)
       throw new ApiError(400, "INVALID_REQUEST", "Invalid request.");
     return c.json(
-      await runDb(options.withDb, c.env, (db) =>
-        listAttachments(
-          db,
-          c.get("actor"),
-          c.env ?? {},
-          recordType.data,
-          recordId.data,
-        ),
+      await record(c, (db, actor) =>
+        listAttachments(db, actor, c.env ?? {}, recordType.data, recordId.data),
       ),
     );
   });
   routes.post("/", requirePermission("attachments.write"), async (c) => {
     const input = await parseBody(c, uploadRequestSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (db) =>
-        startUpload(db, c.get("actor"), c.env ?? {}, input),
+      await record(c, (db, actor) =>
+        startUpload(db, actor, c.env ?? {}, input),
       ),
       201,
     );
@@ -73,8 +68,8 @@ export function attachmentRoutes(options: {
     async (c) => {
       const attachmentId = id(c);
       return c.json(
-        await runDb(options.withDb, c.env, (db) =>
-          completeUpload(db, c.get("actor"), c.env ?? {}, attachmentId),
+        await record(c, (db, actor) =>
+          completeUpload(db, actor, c.env ?? {}, attachmentId),
         ),
       );
     },
@@ -83,8 +78,8 @@ export function attachmentRoutes(options: {
     const attachmentId = id(c);
     const change = await parseBody(c, changeSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (db) =>
-        updateAttachment(db, c.get("actor"), c.env ?? {}, attachmentId, change),
+      await record(c, (db, actor) =>
+        updateAttachment(db, actor, c.env ?? {}, attachmentId, change),
       ),
     );
   });
@@ -94,8 +89,8 @@ export function attachmentRoutes(options: {
     async (c) => {
       const attachmentId = id(c);
       return c.json(
-        await runDb(options.withDb, c.env, (db) =>
-          updateAttachment(db, c.get("actor"), c.env ?? {}, attachmentId, {
+        await record(c, (db, actor) =>
+          updateAttachment(db, actor, c.env ?? {}, attachmentId, {
             archived: true,
           }),
         ),

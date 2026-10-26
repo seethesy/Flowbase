@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -16,7 +17,28 @@ import {
 import { eventStatuses } from "../../shared/core-records";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
-import { baseColumns, moneyCents, timestamptz } from "./conventions";
+import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
+
+// Values of enum-like text columns that have no shared name elsewhere; each
+// column also gets a oneOf() CHECK constraint (FLOW-187).
+const clientKinds = ["person", "organization"] as const;
+const clientContactRoles = [
+  "primary_poc",
+  "billing",
+  "venue_manager",
+  "event_coordinator",
+] as const;
+const jurisdictions = ["DC", "MD", "VA"] as const;
+const venueContactRoles = ["manager", "coordinator"] as const;
+const attachmentStatuses = ["pending", "ready"] as const;
+const sectionKinds = ["rental", "consumable"] as const;
+const itemKinds = ["rental", "consumable", "service"] as const;
+const containers = ["bottle", "can", "keg"] as const;
+const costSources = ["manual", "receiving"] as const;
+const linkTypes = ["event", "order", "import"] as const;
+const countStatuses = ["open", "completed"] as const;
+const activityRecordTypes = ["lead", "client", "proposal", "event", "beo", "task"] as const;
+const priceBases = ["per_guest", "per_table", "per_event"] as const;
 
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
 // CI fails if a migrated table in the public schema lacks RLS.
@@ -39,7 +61,12 @@ export const users = pgTable(
     invitedAt: timestamptz("invited_at").notNull().defaultNow(),
     activatedAt: timestamptz("activated_at"),
   },
-  (table) => [uniqueIndex("users_email_idx").on(sql`lower(${table.email})`)],
+  (table) => [
+    uniqueIndex("users_email_idx").on(sql`lower(${table.email})`),
+    oneOf("users_role_check", table.role, roles),
+    oneOf("users_employment_type_check", table.employmentType, employmentTypes),
+    oneOf("users_status_check", table.status, userStatuses),
+  ],
 ).enableRLS();
 
 // Trigram index for global search (FLOW-46): fuzzy name matching with pg_trgm.
@@ -75,7 +102,10 @@ export const jobs = pgTable(
     lockedAt: timestamptz("locked_at"),
     completedAt: timestamptz("completed_at"),
   },
-  (table) => [index("jobs_status_run_at_idx").on(table.status, table.runAt)],
+  (table) => [
+    index("jobs_status_run_at_idx").on(table.status, table.runAt),
+    oneOf("jobs_status_check", table.status, jobStatuses),
+  ],
 ).enableRLS();
 
 // Raw payloads pushed by outside systems (FLOW-28). One row per source record;
@@ -105,7 +135,7 @@ export const clients = pgTable(
   {
     ...baseColumns(),
     name: text("name").notNull(),
-    kind: text("kind", { enum: ["person", "organization"] }).notNull(),
+    kind: text("kind", { enum: clientKinds }).notNull(),
     assignedSalespersonId: uuid("assigned_salesperson_id"),
     notes: text("notes").notNull().default(""),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
@@ -117,6 +147,7 @@ export const clients = pgTable(
   (table) => [
     index("clients_salesperson_idx").on(table.assignedSalespersonId),
     trigram("clients_name_trgm_idx", table.name),
+    oneOf("clients_kind_check", table.kind, clientKinds),
   ],
 ).enableRLS();
 
@@ -128,9 +159,7 @@ export const clientContacts = pgTable(
       .notNull()
       .references(() => clients.id),
     name: text("name").notNull(),
-    role: text("role", {
-      enum: ["primary_poc", "billing", "venue_manager", "event_coordinator"],
-    }).notNull(),
+    role: text("role", { enum: clientContactRoles }).notNull(),
     email: text("email").notNull().default(""),
     phone: text("phone").notNull().default(""),
     // Digits only, for duplicate matching.
@@ -143,6 +172,7 @@ export const clientContacts = pgTable(
     index("client_contacts_email_idx").on(table.email),
     index("client_contacts_phone_idx").on(table.phoneDigits),
     trigram("client_contacts_name_trgm_idx", table.name),
+    oneOf("client_contacts_role_check", table.role, clientContactRoles),
   ],
 ).enableRLS();
 
@@ -153,11 +183,14 @@ export const venues = pgTable(
     name: text("name").notNull(),
     address: text("address").notNull().default(""),
     // Stored for future tax use.
-    jurisdiction: text("jurisdiction", { enum: ["DC", "MD", "VA"] }),
+    jurisdiction: text("jurisdiction", { enum: jurisdictions }),
     loadInNotes: text("load_in_notes").notNull().default(""),
     parkingNotes: text("parking_notes").notNull().default(""),
   },
-  (table) => [trigram("venues_name_trgm_idx", table.name)],
+  (table) => [
+    trigram("venues_name_trgm_idx", table.name),
+    oneOf("venues_jurisdiction_check", table.jurisdiction, jurisdictions),
+  ],
 ).enableRLS();
 
 export const venueAreas = pgTable(
@@ -181,12 +214,15 @@ export const venueContacts = pgTable(
       .notNull()
       .references(() => venues.id),
     name: text("name").notNull(),
-    role: text("role", { enum: ["manager", "coordinator"] }).notNull(),
+    role: text("role", { enum: venueContactRoles }).notNull(),
     email: text("email").notNull().default(""),
     phone: text("phone").notNull().default(""),
     sortOrder: integer("sort_order").notNull().default(0),
   },
-  (table) => [index("venue_contacts_venue_idx").on(table.venueId)],
+  (table) => [
+    index("venue_contacts_venue_idx").on(table.venueId),
+    oneOf("venue_contacts_role_check", table.role, venueContactRoles),
+  ],
 ).enableRLS();
 
 export const events = pgTable(
@@ -229,6 +265,7 @@ export const events = pgTable(
     index("events_venue_idx").on(table.venueId),
     index("events_salesperson_idx").on(table.assignedSalespersonId),
     trigram("events_title_trgm_idx", table.title),
+    oneOf("events_status_check", table.status, eventStatuses),
   ],
 ).enableRLS();
 
@@ -267,6 +304,7 @@ export const auditLog = pgTable(
       table.entityId,
       table.createdAt,
     ),
+    oneOf("audit_log_action_check", table.action, auditActions),
   ],
 ).enableRLS();
 
@@ -286,7 +324,11 @@ export const eventStatusHistory = pgTable(
     // false when the system moved the event along the forward chain.
     manual: boolean("manual").notNull().default(true),
   },
-  (table) => [index("event_status_history_event_idx").on(table.eventId)],
+  (table) => [
+    index("event_status_history_event_idx").on(table.eventId),
+    oneOf("event_status_history_from_status_check", table.fromStatus, eventStatuses),
+    oneOf("event_status_history_to_status_check", table.toStatus, eventStatuses),
+  ],
 ).enableRLS();
 
 // Leads (FLOW-100). One record for every source: collector, webhook, manual entry and
@@ -349,6 +391,8 @@ export const leads = pgTable(
     index("leads_email_idx").on(table.email),
     index("leads_phone_idx").on(table.phoneDigits),
     trigram("leads_name_trgm_idx", table.name),
+    oneOf("leads_channel_check", table.channel, leadChannels),
+    oneOf("leads_status_check", table.status, leadStatuses),
   ],
 ).enableRLS();
 
@@ -375,6 +419,7 @@ export const collectorRuns = pgTable(
   (table) => [
     uniqueIndex("collector_runs_run_site_idx").on(table.runId, table.site),
     index("collector_runs_site_started_idx").on(table.site, table.startedAt),
+    oneOf("collector_runs_status_check", table.status, collectorRunStatuses),
   ],
 ).enableRLS();
 
@@ -413,6 +458,8 @@ export const leadDuplicates = pgTable(
     uniqueIndex("lead_duplicates_client_pair_idx")
       .on(table.leadId, table.matchedClientId)
       .where(sql`${table.matchedClientId} is not null`),
+    oneOf("lead_duplicates_reason_check", table.reason, leadDuplicateReasons),
+    oneOf("lead_duplicates_status_check", table.status, leadDuplicateStatuses),
   ],
 ).enableRLS();
 
@@ -435,13 +482,14 @@ export const attachments = pgTable(
     fileName: text("file_name").notNull(),
     caption: text("caption").notNull().default(""),
     sortOrder: integer("sort_order").notNull().default(0),
-    status: text("status", { enum: ["pending", "ready"] })
+    status: text("status", { enum: attachmentStatuses })
       .notNull()
       .default("pending"),
     variants: jsonb("variants").$type<AttachmentVariant[]>().notNull(),
   },
   (table) => [
     index("attachments_record_idx").on(table.recordType, table.recordId),
+    oneOf("attachments_status_check", table.status, attachmentStatuses),
   ],
 ).enableRLS();
 
@@ -452,12 +500,16 @@ const quantity = (name: string) =>
 
 // Where stock lives (FLOW-70): rental sections (Warehouse, Jamie's, Cafe, Vendor)
 // and consumable storage sections.
-export const inventorySections = pgTable("inventory_sections", {
-  ...baseColumns(),
-  name: text("name").notNull(),
-  kind: text("kind", { enum: ["rental", "consumable"] }).notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-}).enableRLS();
+export const inventorySections = pgTable(
+  "inventory_sections",
+  {
+    ...baseColumns(),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: sectionKinds }).notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [oneOf("inventory_sections_kind_check", table.kind, sectionKinds)],
+).enableRLS();
 
 // One row per thing Flowbase tracks or sells (FLOW-69). Kind-specific fields live
 // in the *_details tables below, one row per item of that kind.
@@ -465,7 +517,7 @@ export const inventoryItems = pgTable(
   "inventory_items",
   {
     ...baseColumns(),
-    kind: text("kind", { enum: ["rental", "consumable", "service"] }).notNull(),
+    kind: text("kind", { enum: itemKinds }).notNull(),
     // Rental: equipment, furniture, linen, tableware, glassware, bar, decor.
     // Consumable: ingredient, bar, supply. Services have none.
     subtype: text("subtype"),
@@ -478,9 +530,7 @@ export const inventoryItems = pgTable(
     color: text("color").notNull().default(""),
     tier: text("tier").notNull().default(""),
     ratioQuantity: quantity("ratio_quantity"),
-    ratioBasis: text("ratio_basis", {
-      enum: ["per_guest", "per_table", "per_event"],
-    }),
+    ratioBasis: text("ratio_basis", { enum: priceBases }),
     active: boolean("active").notNull().default(true),
   },
   (table) => [
@@ -489,6 +539,8 @@ export const inventoryItems = pgTable(
       .on(table.code)
       .where(sql`${table.code} <> '' and ${table.archivedAt} is null`),
     trigram("inventory_items_name_trgm_idx", table.name),
+    oneOf("inventory_items_kind_check", table.kind, itemKinds),
+    oneOf("inventory_items_ratio_basis_check", table.ratioBasis, priceBases),
   ],
 ).enableRLS();
 
@@ -504,16 +556,18 @@ export const inventoryRentalDetails = pgTable("inventory_rental_details", {
   priceCents: moneyCents("price_cents"),
 }).enableRLS();
 
-export const inventoryServiceDetails = pgTable("inventory_service_details", {
-  ...baseColumns(),
-  itemId: itemReference(),
-  priceCents: moneyCents("price_cents"),
-  priceBasis: text("price_basis", {
-    enum: ["per_guest", "per_table", "per_event"],
-  })
-    .notNull()
-    .default("per_event"),
-}).enableRLS();
+export const inventoryServiceDetails = pgTable(
+  "inventory_service_details",
+  {
+    ...baseColumns(),
+    itemId: itemReference(),
+    priceCents: moneyCents("price_cents"),
+    priceBasis: text("price_basis", { enum: priceBases })
+      .notNull()
+      .default("per_event"),
+  },
+  (table) => [oneOf("inventory_service_details_price_basis_check", table.priceBasis, priceBases)],
+).enableRLS();
 
 export const inventoryConsumableDetails = pgTable(
   "inventory_consumable_details",
@@ -542,15 +596,19 @@ export const inventoryConsumableDetails = pgTable(
 // Bar stock fields (FLOW-90), one row per consumable of subtype bar. Category is
 // the item's (Beer, Wine, Liquor); tier is the item's (rail, call, premium); size
 // is the consumable's each size and pack size its pack count.
-export const inventoryBarDetails = pgTable("inventory_bar_details", {
-  ...baseColumns(),
-  itemId: itemReference(),
-  // Brand or varietal, e.g. Tito's or Pinot Grigio.
-  brand: text("brand").notNull().default(""),
-  // Wine and liquor only (barSubcategories in shared/inventory.ts).
-  subcategory: text("subcategory").notNull().default(""),
-  container: text("container", { enum: ["bottle", "can", "keg"] }),
-}).enableRLS();
+export const inventoryBarDetails = pgTable(
+  "inventory_bar_details",
+  {
+    ...baseColumns(),
+    itemId: itemReference(),
+    // Brand or varietal, e.g. Tito's or Pinot Grigio.
+    brand: text("brand").notNull().default(""),
+    // Wine and liquor only (barSubcategories in shared/inventory.ts).
+    subcategory: text("subcategory").notNull().default(""),
+    container: text("container", { enum: containers }),
+  },
+  (table) => [oneOf("inventory_bar_details_container_check", table.container, containers)],
+).enableRLS();
 
 // Every unit-cost change of a consumable (FLOW-83): by hand from the item, or from
 // receiving (FLOW-88).
@@ -563,9 +621,12 @@ export const inventoryCostHistory = pgTable(
       .references(() => inventoryItems.id),
     previousCents: moneyCents("previous_cents"),
     unitCostCents: moneyCents("unit_cost_cents"),
-    source: text("source", { enum: ["manual", "receiving"] }).notNull(),
+    source: text("source", { enum: costSources }).notNull(),
   },
-  (table) => [index("inventory_cost_history_item_idx").on(table.itemId)],
+  (table) => [
+    index("inventory_cost_history_item_idx").on(table.itemId),
+    oneOf("inventory_cost_history_source_check", table.source, costSources),
+  ],
 ).enableRLS();
 
 // Current quantity of an item in a section: a cache of the sum of its
@@ -588,6 +649,9 @@ export const inventoryStock = pgTable(
       table.sectionId,
     ),
     index("inventory_stock_section_idx").on(table.sectionId),
+    // Stock never goes below zero (FLOW-187); the code checks first, this is the
+    // backstop.
+    check("inventory_stock_quantity_check", sql`${table.quantity} >= 0`),
   ],
 ).enableRLS();
 
@@ -625,12 +689,14 @@ export const stockMovements = pgTable(
     ),
     // What the movement belongs to. No foreign key: orders and imports don't
     // exist yet (FLOW-86, FLOW-47).
-    linkType: text("link_type", { enum: ["event", "order", "import"] }),
+    linkType: text("link_type", { enum: linkTypes }),
     linkId: uuid("link_id"),
   },
   (table) => [
     index("stock_movements_item_idx").on(table.itemId),
     index("stock_movements_corrects_idx").on(table.correctsId),
+    oneOf("stock_movements_type_check", table.type, movementTypes),
+    oneOf("stock_movements_link_type_check", table.linkType, linkTypes),
   ],
 ).enableRLS();
 
@@ -643,7 +709,7 @@ export const stockCounts = pgTable(
     sectionId: uuid("section_id")
       .notNull()
       .references(() => inventorySections.id),
-    status: text("status", { enum: ["open", "completed"] })
+    status: text("status", { enum: countStatuses })
       .notNull()
       .default("open"),
     completedAt: timestamptz("completed_at"),
@@ -652,6 +718,7 @@ export const stockCounts = pgTable(
     uniqueIndex("stock_counts_open_section_idx")
       .on(table.sectionId)
       .where(sql`${table.status} = 'open'`),
+    oneOf("stock_counts_status_check", table.status, countStatuses),
   ],
 ).enableRLS();
 
@@ -690,9 +757,7 @@ export const activitySessions = pgTable(
     clientSessionId: uuid("client_session_id").notNull(),
     startedAt: timestamptz("started_at").notNull(),
     endedAt: timestamptz("ended_at").notNull(),
-    recordType: text("record_type", {
-      enum: ["lead", "client", "proposal", "event", "beo", "task"],
-    }),
+    recordType: text("record_type", { enum: activityRecordTypes }),
     recordId: uuid("record_id"),
     activity: text("activity").notNull(),
   },
@@ -703,5 +768,6 @@ export const activitySessions = pgTable(
     ),
     index("activity_sessions_started_idx").on(table.startedAt),
     index("activity_sessions_record_idx").on(table.recordType, table.recordId),
+    oneOf("activity_sessions_record_type_check", table.recordType, activityRecordTypes),
   ],
 ).enableRLS();

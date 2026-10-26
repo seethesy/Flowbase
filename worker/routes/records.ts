@@ -11,7 +11,7 @@ import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
   parseBody,
-  runDb,
+  recordRunner,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -54,6 +54,7 @@ export function recordRoutes(options: {
   resolveActor?: ResolveActor;
 }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   // Mounted at /api, so the sign-in check is scoped to these resources only.
   const signedIn = requireActor(options.resolveActor);
   for (const resource of ["clients", "venues", "events"])
@@ -68,8 +69,8 @@ export function recordRoutes(options: {
 
   routes.get("/clients", requirePermission("clients.read"), async (c) =>
     c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        listClients(tx, c.get("actor"), {
+      await record(c, (db, actor) =>
+        listClients(db, actor, {
           archived: flag(c, "archived"),
           flagged: flag(c, "flagged"),
           search: query(c, "search"),
@@ -79,11 +80,7 @@ export function recordRoutes(options: {
   );
   routes.get("/clients/:id", requirePermission("clients.read"), async (c) => {
     const id = param(c, "Client");
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        getClient(tx, c.get("actor"), id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getClient(db, actor, id)));
   });
   // Record history (FLOW-41): read-only for anyone who can see the record. There
   // are deliberately no routes that change or remove audit rows.
@@ -97,19 +94,13 @@ export function recordRoutes(options: {
       requirePermission(`${resource}.read`),
       async (c) => {
         const id = param(c, what);
-        return c.json(
-          await runDb(options.withDb, c.env, (tx) =>
-            history(tx, c.get("actor"), id),
-          ),
-        );
+        return c.json(await record(c, (db, actor) => history(db, actor, id)));
       },
     );
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
     const input = await parseBody(c, clientCreateSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        createClient(tx, c.get("actor"), input),
-      ),
+      await record(c, (db, actor) => createClient(db, actor, input)),
       201,
     );
   });
@@ -117,9 +108,7 @@ export function recordRoutes(options: {
     const id = param(c, "Client");
     const input = await parseBody(c, clientInputSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        updateClient(tx, c.get("actor"), id, input),
-      ),
+      await record(c, (db, actor) => updateClient(db, actor, id, input)),
     );
   });
   for (const [action, archived] of [
@@ -132,8 +121,8 @@ export function recordRoutes(options: {
       async (c) => {
         const id = param(c, "Client");
         return c.json(
-          await runDb(options.withDb, c.env, (tx) =>
-            setClientArchived(tx, c.get("actor"), id, archived),
+          await record(c, (db, actor) =>
+            setClientArchived(db, actor, id, archived),
           ),
         );
       },
@@ -144,8 +133,8 @@ export function recordRoutes(options: {
       async (c) => {
         const id = param(c, "Venue");
         return c.json(
-          await runDb(options.withDb, c.env, (tx) =>
-            setVenueArchived(tx, c.get("actor"), id, archived),
+          await record(c, (db, actor) =>
+            setVenueArchived(db, actor, id, archived),
           ),
         );
       },
@@ -156,8 +145,8 @@ export function recordRoutes(options: {
       async (c) => {
         const id = param(c, "Event");
         return c.json(
-          await runDb(options.withDb, c.env, (tx) =>
-            setEventArchived(tx, c.get("actor"), id, archived),
+          await record(c, (db, actor) =>
+            setEventArchived(db, actor, id, archived),
           ),
         );
       },
@@ -166,8 +155,8 @@ export function recordRoutes(options: {
 
   routes.get("/venues", requirePermission("venues.read"), async (c) =>
     c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        listVenues(tx, c.get("actor"), {
+      await record(c, (db, actor) =>
+        listVenues(db, actor, {
           archived: flag(c, "archived"),
           search: query(c, "search"),
         }),
@@ -176,18 +165,12 @@ export function recordRoutes(options: {
   );
   routes.get("/venues/:id", requirePermission("venues.read"), async (c) => {
     const id = param(c, "Venue");
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        getVenue(tx, c.get("actor"), id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getVenue(db, actor, id)));
   });
   routes.post("/venues", requirePermission("venues.write"), async (c) => {
     const input = await parseBody(c, venueInputSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        createVenue(tx, c.get("actor"), input),
-      ),
+      await record(c, (db, actor) => createVenue(db, actor, input)),
       201,
     );
   });
@@ -195,9 +178,7 @@ export function recordRoutes(options: {
     const id = param(c, "Venue");
     const input = await parseBody(c, venueInputSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        updateVenue(tx, c.get("actor"), id, input),
-      ),
+      await record(c, (db, actor) => updateVenue(db, actor, id, input)),
     );
   });
 
@@ -216,34 +197,22 @@ export function recordRoutes(options: {
       if (filter[key] && !localDate.safeParse(filter[key]).success)
         filter[key] = undefined;
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        listEvents(tx, c.get("actor"), filter),
-      ),
+      await record(c, (db, actor) => listEvents(db, actor, filter)),
     );
   });
   routes.get("/events/:id", requirePermission("events.read"), async (c) => {
     const id = param(c, "Event");
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        getEvent(tx, c.get("actor"), id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getEvent(db, actor, id)));
   });
   // The event hub (FLOW-57): the event, its client and the sections the user may see.
   routes.get("/events/:id/hub", requirePermission("events.read"), async (c) => {
     const id = param(c, "Event");
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        getEventHub(tx, c.get("actor"), id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getEventHub(db, actor, id)));
   });
   routes.post("/events", requirePermission("events.write"), async (c) => {
     const input = await parseBody(c, eventInputSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        createEvent(tx, c.get("actor"), input),
-      ),
+      await record(c, (db, actor) => createEvent(db, actor, input)),
       201,
     );
   });
@@ -251,9 +220,7 @@ export function recordRoutes(options: {
     const id = param(c, "Event");
     const input = await parseBody(c, eventInputSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        updateEvent(tx, c.get("actor"), id, input),
-      ),
+      await record(c, (db, actor) => updateEvent(db, actor, id, input)),
     );
   });
   // Manual status changes (FLOW-56): Admin or the event's salesperson, checked per
@@ -265,8 +232,8 @@ export function recordRoutes(options: {
       const id = param(c, "Event");
       const input = await parseBody(c, eventTransitionSchema);
       return c.json(
-        await runDb(options.withDb, c.env, (tx) =>
-          overrideEventStatus(tx, c.get("actor"), id, input),
+        await record(c, (db, actor) =>
+          overrideEventStatus(db, actor, id, input),
         ),
       );
     },
@@ -277,9 +244,7 @@ export function recordRoutes(options: {
     async (c) => {
       const id = param(c, "Event");
       return c.json(
-        await runDb(options.withDb, c.env, (tx) =>
-          eventStatusChanges(tx, c.get("actor"), id),
-        ),
+        await record(c, (db, actor) => eventStatusChanges(db, actor, id)),
       );
     },
   );

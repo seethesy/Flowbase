@@ -1,4 +1,3 @@
-import { usePermissions } from "../app/permissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -22,6 +21,8 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import { usePermissions } from "../app/permissions";
+import "./time-tracking.css";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
 // Settings entry and the reports.

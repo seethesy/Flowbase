@@ -1,0 +1,7 @@
+/* clients styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.company-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

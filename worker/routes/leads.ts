@@ -11,7 +11,7 @@ import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
   parseBody,
-  runDb,
+  recordRunner,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -41,6 +41,7 @@ export function leadRoutes(options: {
   resolveActor?: ResolveActor;
 }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
   const param = (c: AppContext) => {
     const parsed = uuid.safeParse(c.req.param("id"));
@@ -52,8 +53,8 @@ export function leadRoutes(options: {
 
   routes.get("/", requirePermission("leads.read"), async (c) =>
     c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        listLeads(tx, c.get("actor"), {
+      await record(c, (db, actor) =>
+        listLeads(db, actor, {
           status: query(c, "status"),
           source: query(c, "source"),
           channel: query(c, "channel"),
@@ -69,13 +70,8 @@ export function leadRoutes(options: {
   routes.post("/assign", requirePermission("leads.assign"), async (c) => {
     const input = await parseBody(c, leadBulkAssignSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        bulkAssignLeads(
-          tx,
-          c.get("actor"),
-          input.leadIds,
-          input.assignedSalespersonId,
-        ),
+      await record(c, (db, actor) =>
+        bulkAssignLeads(db, actor, input.leadIds, input.assignedSalespersonId),
       ),
     );
   });
@@ -83,8 +79,8 @@ export function leadRoutes(options: {
   // default.
   routes.get("/dashboard", requirePermission("leads.read"), async (c) =>
     c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        leadDashboard(tx, c.get("actor"), {
+      await record(c, (db, actor) =>
+        leadDashboard(db, actor, {
           from: query(c, "from"),
           to: query(c, "to"),
         }),
@@ -93,11 +89,7 @@ export function leadRoutes(options: {
   );
   // Possible duplicates (FLOW-110): the queue, merge into the kept lead, dismiss.
   routes.get("/duplicates", requirePermission("leads.read"), async (c) =>
-    c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        listLeadDuplicates(tx, c.get("actor")),
-      ),
-    ),
+    c.json(await record(c, (db, actor) => listLeadDuplicates(db, actor))),
   );
   const duplicateParam = (c: AppContext) => {
     const parsed = uuid.safeParse(c.req.param("id"));
@@ -111,11 +103,11 @@ export function leadRoutes(options: {
       const id = duplicateParam(c);
       const input = await parseBody(c, leadMergeSchema);
       return c.json(
-        await runDb(options.withDb, c.env, async (tx) =>
+        await record(c, async (db, actor) =>
           getLead(
-            tx,
-            c.get("actor"),
-            await mergeLeadDuplicate(tx, c.get("actor"), id, input.keepLeadId),
+            db,
+            actor,
+            await mergeLeadDuplicate(db, actor, id, input.keepLeadId),
           ),
         ),
       );
@@ -126,26 +118,20 @@ export function leadRoutes(options: {
     requirePermission("leads.merge"),
     async (c) => {
       const id = duplicateParam(c);
-      await runDb(options.withDb, c.env, (tx) =>
-        dismissLeadDuplicate(tx, c.get("actor"), id),
-      );
+      await record(c, (db, actor) => dismissLeadDuplicate(db, actor, id));
       return c.body(null, 204);
     },
   );
   routes.get("/:id", requirePermission("leads.read"), async (c) => {
     const id = param(c);
-    return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        getLead(tx, c.get("actor"), id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getLead(db, actor, id)));
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
     const id = param(c);
     const input = await parseBody(c, leadAssignSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        assignLead(tx, c.get("actor"), id, input.assignedSalespersonId),
+      await record(c, (db, actor) =>
+        assignLead(db, actor, id, input.assignedSalespersonId),
       ),
     );
   });
@@ -153,18 +139,14 @@ export function leadRoutes(options: {
     const id = param(c);
     const input = await parseBody(c, leadStatusChangeSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        changeLeadStatus(tx, c.get("actor"), id, input),
-      ),
+      await record(c, (db, actor) => changeLeadStatus(db, actor, id, input)),
     );
   });
   routes.post("/:id/convert", requirePermission("leads.convert"), async (c) => {
     const id = param(c);
     const input = await parseBody(c, leadConvertSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        convertLead(tx, c.get("actor"), id, input),
-      ),
+      await record(c, (db, actor) => convertLead(db, actor, id, input)),
     );
   });
   return routes;

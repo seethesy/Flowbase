@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
-import { runDb, type AppEnv, type RunWithDb } from "../hono";
+import { recordRunner, type AppEnv, type RunWithDb } from "../hono";
 import { globalSearch } from "../records/search";
 
 // Global search (FLOW-46), mounted at /api/search: GET /api/search?q=<text>. Needs a
@@ -10,11 +10,12 @@ export function searchRoutes(options: {
   resolveActor?: ResolveActor;
 }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
   routes.get("/", requirePermission("search.read"), async (c) =>
     c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        globalSearch(tx, c.get("actor"), c.req.query("q") ?? ""),
+      await record(c, (db, actor) =>
+        globalSearch(db, actor, c.req.query("q") ?? ""),
       ),
     ),
   );

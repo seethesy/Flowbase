@@ -41,6 +41,7 @@ import {
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
+import { setArchived } from "./archive";
 import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
@@ -410,23 +411,11 @@ export async function setEventArchived(
   archived: boolean,
 ): Promise<FlowEvent> {
   await findVisibleEvent(db, actor, id);
-  await db.transaction(async (tx) => {
-    const before = await eventSnapshot(tx, id);
-    await tx
-      .update(events)
-      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
-      .where(eq(events.id, id));
-    await writeAudit(tx, actor, {
-      entityType: "event",
-      entityId: id,
-      action: archived ? "archive" : "restore",
-      before,
-      after: await eventSnapshot(tx, id),
-    });
-    await emitDomainEvent(tx, {
-      name: archived ? "event.archived" : "event.restored",
-      entityId: id,
-    });
+  await setArchived(db, actor, id, archived, {
+    update: (tx, values) =>
+      tx.update(events).set(values).where(eq(events.id, id)),
+    audit: { entityType: "event", snapshot: eventSnapshot },
+    event: "event",
   });
   return getEvent(db, actor, id);
 }

@@ -7,7 +7,11 @@ import {
   type ConnectionCheck,
   type DatabaseStatus,
 } from "../shared/api";
-import { DatabaseNotConfiguredError } from "./db/errors";
+import {
+  constraintErrors,
+  DatabaseNotConfiguredError,
+  postgresErrorCode,
+} from "./db/errors";
 import { APP_VERSION } from "../shared/version";
 import type { Bindings } from "./bindings";
 import { createActorResolver, requireActor, type ResolveActor } from "./auth";
@@ -76,6 +80,24 @@ export function createApp(options: Options = {}) {
         },
         503,
       );
+    const sqlState = postgresErrorCode(error);
+    const constraint = sqlState ? constraintErrors[sqlState] : undefined;
+    if (constraint) {
+      console.error(
+        JSON.stringify({
+          event: "api_error",
+          requestId,
+          code: constraint.code,
+          status: constraint.status,
+        }),
+      );
+      return c.json(
+        {
+          error: { code: constraint.code, message: constraint.message, requestId },
+        },
+        constraint.status,
+      );
+    }
     const status = error instanceof HTTPException ? error.status : 500;
     if (status >= 500) options.captureError?.(error, requestId);
     const code = status >= 500 ? "INTERNAL_ERROR" : "INVALID_REQUEST";
