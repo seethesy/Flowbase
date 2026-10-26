@@ -56,6 +56,7 @@ import {
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { canCountItem, canMoveItem } from "../policy";
+import { setArchived } from "./archive";
 
 // Inventory items (FLOW-69), sections and per-section stock (FLOW-70), the
 // ingredient catalog fields (FLOW-81), the stock ledger (FLOW-71), count mode
@@ -222,10 +223,11 @@ export async function setSectionArchived(
         `${section.name} still holds stock. Move or count it out before archiving the section.`,
       );
   } else await requireUniqueSectionName(db, section.name, id);
-  await db
-    .update(inventorySections)
-    .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
-    .where(eq(inventorySections.id, id));
+  // Sections aren't audited and have no lifecycle events.
+  await setArchived(db, actor, id, archived, {
+    update: (tx, values) =>
+      tx.update(inventorySections).set(values).where(eq(inventorySections.id, id)),
+  });
   return getSection(db, id);
 }
 
@@ -673,18 +675,10 @@ export async function setItemArchived(
 ): Promise<InventoryItem> {
   const current = await findItem(db, id);
   if (!archived) await requireUniqueCode(db, current.code, id);
-  await db.transaction(async (tx) => {
-    await tx
-      .update(inventoryItems)
-      .set({
-        archivedAt: archived ? new Date() : null,
-        updatedBy: actor.userId,
-      })
-      .where(eq(inventoryItems.id, id));
-    await emitDomainEvent(tx, {
-      name: archived ? "inventory_item.archived" : "inventory_item.restored",
-      entityId: id,
-    });
+  await setArchived(db, actor, id, archived, {
+    update: (tx, values) =>
+      tx.update(inventoryItems).set(values).where(eq(inventoryItems.id, id)),
+    event: "inventory_item",
   });
   return getItem(db, actor, id);
 }

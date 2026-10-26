@@ -3,7 +3,7 @@ import { z } from "zod";
 import { activityBatchSchema } from "../../shared/time-tracking";
 import { utcToBusinessTime } from "../../shared/time";
 import { requireActor, type ResolveActor } from "../auth";
-import { ApiError, parseBody, runDb, type AppEnv, type RunWithDb } from "../hono";
+import { ApiError, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../hono";
 import { recordSessions, timeReport } from "../records/time-tracking";
 
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -16,14 +16,15 @@ export function timeTrackingRoutes(options: {
   resolveActor?: ResolveActor;
 }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
 
   // The browser's batch of new and still-open sessions, at most once a minute.
   routes.post("/sessions", async (c) => {
     const { sessions } = await parseBody(c, activityBatchSchema);
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        recordSessions(tx, c.get("actor"), sessions),
+      await record(c, (db, actor) =>
+        recordSessions(db, actor, sessions),
       ),
     );
   });
@@ -46,8 +47,8 @@ export function timeTrackingRoutes(options: {
     if (userId && !uuid.safeParse(userId).success)
       throw new ApiError(400, "INVALID_REQUEST", "Choose a valid user.");
     return c.json(
-      await runDb(options.withDb, c.env, (tx) =>
-        timeReport(tx, c.get("actor"), { from, to, userId }),
+      await record(c, (db, actor) =>
+        timeReport(db, actor, { from, to, userId }),
       ),
     );
   });
