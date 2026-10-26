@@ -72,7 +72,13 @@ export async function mockBrowserAuth(
     if (route.request().url().includes("/logout"))
       return route.fulfill({ status: 204, headers });
     if (route.request().url().includes("/token"))
-      return route.fulfill({ json: session, headers });
+      // Supabase's SDK derives expires_at from expires_in using the browser's
+      // clock. Returning the Node process's timestamp loops forever when the
+      // tracking suite advances the browser to a future date.
+      return route.fulfill({
+        json: { ...session, expires_at: undefined },
+        headers,
+      });
     return route.fulfill({ json: user, headers });
   });
   await page.route("**/api/auth/me", async (route) => {
