@@ -16,6 +16,7 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed": "node scripts/seed.mjs",
     "db:check": "node scripts/check-migration-drift.mjs",
     "deploy": "npm run build && npm run deploy:migrate && wrangler deploy --env production",
     "deploy:migrate": "node scripts/require-env.mjs DATABASE_URL && drizzle-kit migrate"

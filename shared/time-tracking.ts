@@ -73,6 +73,9 @@ export const activitySessionInputSchema = z
     },
   );
 export type ActivitySessionInput = z.input<typeof activitySessionInputSchema>;
+export const activityRecordedSchema = z.object({
+  recorded: z.number().int().nonnegative(),
+});
 export const activityBatchSchema = z.object({
   sessions: z.array(activitySessionInputSchema).min(1).max(100),
 });

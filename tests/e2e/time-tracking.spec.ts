@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "./auth-fixture";
 import type { ActivitySessionInput } from "../../shared/time-tracking";
-import { fallGala, juniper, mockAttachmentsApi, mockRecordsApi } from "./mock-api";
+import { fallGala, juniper } from "./fixtures";
+import { seedRecords } from "./database";
 
 // Automatic time tracking (FLOW-119) in a real browser with a fake clock: idle and
 // visibility rules, and at most one tracking request per minute.
@@ -19,14 +20,13 @@ const setHidden = (page: Page, hidden: boolean) =>
 test("time accrues only while the tab is visible and the user is active", async ({
   page,
 }) => {
-  await page.clock.install({ time: new Date("2026-11-02T14:00:00.000Z") });
+  await page.clock.install({ time: new Date(Date.now() - 60 * MIN) });
   const requests: ActivitySessionInput[][] = [];
-  await page.route("**/api/time/sessions", async (route) => {
-    requests.push(route.request().postDataJSON().sessions);
-    await route.fulfill({ json: { recorded: 1 } });
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/time/sessions")
+      requests.push(request.postDataJSON().sessions);
   });
-  await mockRecordsApi(page, { clients: [juniper()], events: [fallGala()] });
-  await mockAttachmentsApi(page);
+  await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await page.goto(`/#/events/${fallGala().id}`);
   const heading = page.getByRole("heading", { name: "Fall gala", level: 1 });
   await expect(heading).toBeVisible();

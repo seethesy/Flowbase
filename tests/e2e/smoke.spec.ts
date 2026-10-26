@@ -1,10 +1,11 @@
 import { test, expect } from "./auth-fixture";
-import { juniper, mockRecordsApi } from "./mock-api";
+import { juniper } from "./fixtures";
+import { seedRecords } from "./database";
 test("sidebar, client search, detail tabs, and browser history", async ({
   page,
   isMobile,
 }) => {
-  await mockRecordsApi(page, { clients: [juniper()] });
+  await seedRecords({ clients: [juniper()] });
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Overview", exact: true }),
@@ -49,7 +50,7 @@ test("Worker health and SPA share an origin", async ({ page, request }) => {
   expect(await response.json()).toMatchObject({
     ok: true,
     version: "0.1.0",
-    database: "not_configured",
+    database: "reachable",
   });
   await page.goto("/");
   await expect(
