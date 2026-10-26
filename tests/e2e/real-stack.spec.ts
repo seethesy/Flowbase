@@ -41,13 +41,15 @@ for (const role of ["admin", "salesperson"] as const) {
     });
 
     await page.clock.install({ time: new Date(Date.now() - 120_000) });
+    const clientsLoaded = page.waitForResponse(
+      (r) => new URL(r.url()).pathname === "/api/clients",
+    );
     await page.goto("/#/clients");
-    await expect(
-      page.getByRole("button", { name: /Juniper & Co\./ }),
-    ).toBeVisible();
+    await clientsLoaded;
     await expect(
       page.getByText("Other salesperson client", { exact: true }),
     ).toHaveCount(role === "admin" ? 1 : 0);
+    await page.getByPlaceholder("Search clients or contacts…").fill("Juniper");
     await page.getByRole("button", { name: /Juniper & Co\./ }).click();
     await expect(
       page.getByRole("heading", { name: "Juniper & Co.", level: 1 }),
@@ -73,12 +75,11 @@ for (const role of ["admin", "salesperson"] as const) {
       page.getByText(`Verified by ${role}`, { exact: true }),
     ).toBeVisible();
 
+    const eventsLoaded = page.waitForResponse(
+      (r) => new URL(r.url()).pathname === "/api/events",
+    );
     await page.goto("/#/events");
-    await expect(
-      page
-        .getByRole("button", { name: "Autumn leadership retreat", exact: true })
-        .first(),
-    ).toBeVisible();
+    await eventsLoaded;
     await expect(
       page.getByRole("button", {
         name: "Other salesperson event",

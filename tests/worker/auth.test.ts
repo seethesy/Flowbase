@@ -129,7 +129,9 @@ it("the production app rejects the browser fixture signing key before any databa
     .setProtectedHeader({ alg: "HS256" })
     .sign(testSigningKey);
   const db = vi.fn<RunWithDb>();
-  const response = await createApp({ withDb: db }).request(
+  const response = await createApp({
+    withDb: db as unknown as RunWithDb,
+  }).request(
     "/api/demo/clients",
     {
       headers: { Authorization: `Bearer ${jwt}` },
