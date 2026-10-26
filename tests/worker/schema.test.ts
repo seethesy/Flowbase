@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { is } from "drizzle-orm";
-import { PgTable, getTableConfig, pgTable } from "drizzle-orm/pg-core";
+import { PgDialect, PgTable, getTableConfig, pgTable } from "drizzle-orm/pg-core";
 import * as schema from "../../worker/db/schema";
 import { moneyCents, timestamptz } from "../../worker/db/conventions";
 
@@ -65,3 +65,19 @@ it("provides timestamptz and integer-cent column helpers", () => {
     notNull: true,
   });
 });
+
+// FLOW-187: every enum-like text column has a CHECK constraint listing exactly its
+// enum values, so a new value can't be added in code without the database knowing.
+const dialect = new PgDialect();
+for (const table of tables) {
+  const { name, columns, checks } = getTableConfig(table);
+  for (const column of columns.filter((c) => c.enumValues?.length)) {
+    it(`${name}.${column.name} has a CHECK constraint for its enum values`, () => {
+      const constraint = checks.find((c) => c.name === `${name}_${column.name}_check`);
+      expect(constraint).toBeDefined();
+      const text = dialect.sqlToQuery(constraint!.value).sql;
+      const listed = [...text.matchAll(/'([^']*)'/g)].map((m) => m[1]);
+      expect(listed).toEqual(column.enumValues);
+    });
+  }
+}

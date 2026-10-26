@@ -9,6 +9,8 @@ function run(command, args) {
   if (result.status !== 0) process.exit(result.status ?? 1);
   return result.stdout;
 }
+// New migrations must be newer than main's latest (FLOW-187).
+run(process.execPath, ["scripts/check-migration-order.mjs"]);
 // Generate from the schema, then reject changes to tracked AND new SQL/snapshots.
 // drizzle-kit check alone detects collisions, not missing migrations.
 run(process.execPath, ["node_modules/drizzle-kit/bin.cjs", "check"]);

@@ -362,13 +362,25 @@ describe("existing events (A5)", () => {
     );
     const bookedAt = new Date("2026-10-01T15:00:00.000Z");
     const old = ["tentative", "booked", "completed", "cancelled", "inquiry"];
-    for (const status of old)
-      await client`insert into events (title, starts_at, client_id, status, booked_at)
-        values (${status}, now(), ${owner.id}, ${status}, ${status === "booked" ? bookedAt.toISOString() : null}::timestamptz)`;
-    await client.unsafe(
-      readFileSync("drizzle/0009_event_status_values.sql", "utf8"),
-    );
-    const rows = await client`select title, status, booked_at from events order by title`;
+    // events_status_check (FLOW-187) rejects the old statuses, so the old rows are
+    // written with it lifted, in a transaction that is rolled back afterwards.
+    const rollback = new Error("rollback");
+    let rows: postgres.Row[] = [];
+    await client
+      .begin(async (tx) => {
+        await tx`alter table events drop constraint events_status_check`;
+        for (const status of old)
+          await tx`insert into events (title, starts_at, client_id, status, booked_at)
+            values (${status}, now(), ${owner.id}, ${status}, ${status === "booked" ? bookedAt.toISOString() : null}::timestamptz)`;
+        await tx.unsafe(
+          readFileSync("drizzle/0009_event_status_values.sql", "utf8"),
+        );
+        rows = [...(await tx`select title, status, booked_at from events order by title`)];
+        throw rollback;
+      })
+      .catch((error: unknown) => {
+        if (error !== rollback) throw error;
+      });
     expect(
       Object.fromEntries(rows.map((row) => [row.title, row.status])),
     ).toEqual({
