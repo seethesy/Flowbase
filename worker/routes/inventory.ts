@@ -14,12 +14,11 @@ import {
   startCountInputSchema,
   transferInputSchema,
 } from "../../shared/inventory";
-import type { Db } from "../db/client";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
   parseBody,
-  runDb,
+  recordRunner,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -60,6 +59,7 @@ export function inventoryRoutes(options: {
   resolveActor?: ResolveActor;
 }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
   const param = (c: AppContext, what: string) => {
     const parsed = uuid.safeParse(c.req.param("id"));
@@ -68,16 +68,14 @@ export function inventoryRoutes(options: {
   };
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
-  const db = <T>(c: AppContext, run: (tx: Db) => Promise<T>) =>
-    runDb(options.withDb, c.env, run);
 
   routes.get("/items", async (c) => {
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
     if (query(c, "sectionId") && !sectionId.success) return c.json([]);
     return c.json(
-      await db(c, (tx) =>
-        listItems(tx, c.get("actor"), {
+      await record(c, (db, actor) =>
+        listItems(db, actor, {
           archived: flag(c, "archived"),
           kind: kind.success ? kind.data : undefined,
           subtype: query(c, "subtype"),
@@ -94,12 +92,12 @@ export function inventoryRoutes(options: {
   });
   routes.get("/items/:id", async (c) => {
     const id = param(c, "Item");
-    return c.json(await db(c, (tx) => getItem(tx, c.get("actor"), id)));
+    return c.json(await record(c, (db, actor) => getItem(db, actor, id)));
   });
   routes.post("/items", requirePermission("inventory.write"), async (c) => {
     const input = await parseBody(c, itemInputSchema);
     return c.json(
-      await db(c, (tx) => createItem(tx, c.get("actor"), input)),
+      await record(c, (db, actor) => createItem(db, actor, input)),
       201,
     );
   });
@@ -107,7 +105,7 @@ export function inventoryRoutes(options: {
     const id = param(c, "Item");
     const input = await parseBody(c, itemInputSchema);
     return c.json(
-      await db(c, (tx) => updateItem(tx, c.get("actor"), id, input)),
+      await record(c, (db, actor) => updateItem(db, actor, id, input)),
     );
   });
   routes.post(
@@ -117,7 +115,7 @@ export function inventoryRoutes(options: {
       const id = param(c, "Item");
       const input = await parseBody(c, transferInputSchema);
       return c.json(
-        await db(c, (tx) => transferStock(tx, c.get("actor"), id, input)),
+        await record(c, (db, actor) => transferStock(db, actor, id, input)),
         201,
       );
     },
@@ -129,14 +127,14 @@ export function inventoryRoutes(options: {
       const id = param(c, "Item");
       const input = await parseBody(c, countInputSchema);
       return c.json(
-        await db(c, (tx) => countStock(tx, c.get("actor"), id, input)),
+        await record(c, (db, actor) => countStock(db, actor, id, input)),
         201,
       );
     },
   );
   routes.get("/items/:id/movements", async (c) => {
     const id = param(c, "Item");
-    return c.json(await db(c, (tx) => listMovements(tx, id)));
+    return c.json(await record(c, (db) => listMovements(db, id)));
   });
   routes.post(
     "/items/:id/movements",
@@ -145,7 +143,7 @@ export function inventoryRoutes(options: {
       const id = param(c, "Item");
       const input = await parseBody(c, movementInputSchema);
       return c.json(
-        await db(c, (tx) => addMovement(tx, c.get("actor"), id, input)),
+        await record(c, (db, actor) => addMovement(db, actor, id, input)),
         201,
       );
     },
@@ -157,34 +155,34 @@ export function inventoryRoutes(options: {
       const id = param(c, "Movement");
       const input = await parseBody(c, correctionInputSchema);
       return c.json(
-        await db(c, (tx) => correctMovement(tx, c.get("actor"), id, input)),
+        await record(c, (db, actor) => correctMovement(db, actor, id, input)),
         201,
       );
     },
   );
   routes.get("/items/:id/cost-history", async (c) => {
     const id = param(c, "Item");
-    return c.json(await db(c, (tx) => listCostHistory(tx, c.get("actor"), id)));
+    return c.json(await record(c, (db, actor) => listCostHistory(db, actor, id)));
   });
 
   routes.get("/counts", requirePermission("inventory.count"), async (c) => {
     const status = countStatusSchema.safeParse(c.req.query("status"));
     return c.json(
-      await db(c, (tx) =>
-        listCounts(tx, { status: status.success ? status.data : undefined }),
+      await record(c, (db) =>
+        listCounts(db, { status: status.success ? status.data : undefined }),
       ),
     );
   });
   routes.post("/counts", requirePermission("inventory.count"), async (c) => {
     const input = await parseBody(c, startCountInputSchema);
-    const { count, created } = await db(c, (tx) =>
-      startCount(tx, c.get("actor"), input.sectionId),
+    const { count, created } = await record(c, (db, actor) =>
+      startCount(db, actor, input.sectionId),
     );
     return c.json(count, created ? 201 : 200);
   });
   routes.get("/counts/:id", requirePermission("inventory.count"), async (c) => {
     const id = param(c, "Count");
-    return c.json(await db(c, (tx) => getCount(tx, c.get("actor"), id)));
+    return c.json(await record(c, (db, actor) => getCount(db, actor, id)));
   });
   routes.post(
     "/counts/:id/lines",
@@ -193,7 +191,7 @@ export function inventoryRoutes(options: {
       const id = param(c, "Count");
       const input = await parseBody(c, countLineInputSchema);
       return c.json(
-        await db(c, (tx) => recordCountLine(tx, c.get("actor"), id, input)),
+        await record(c, (db, actor) => recordCountLine(db, actor, id, input)),
       );
     },
   );
@@ -202,15 +200,15 @@ export function inventoryRoutes(options: {
     requirePermission("inventory.count"),
     async (c) => {
       const id = param(c, "Count");
-      return c.json(await db(c, (tx) => completeCount(tx, c.get("actor"), id)));
+      return c.json(await record(c, (db, actor) => completeCount(db, actor, id)));
     },
   );
 
   routes.get("/sections", async (c) => {
     const kind = sectionKindSchema.safeParse(c.req.query("kind"));
     return c.json(
-      await db(c, (tx) =>
-        listSections(tx, {
+      await record(c, (db) =>
+        listSections(db, {
           archived: flag(c, "archived"),
           kind: kind.success ? kind.data : undefined,
         }),
@@ -223,7 +221,7 @@ export function inventoryRoutes(options: {
     async (c) => {
       const input = await parseBody(c, sectionInputSchema);
       return c.json(
-        await db(c, (tx) => createSection(tx, c.get("actor"), input)),
+        await record(c, (db, actor) => createSection(db, actor, input)),
         201,
       );
     },
@@ -235,7 +233,7 @@ export function inventoryRoutes(options: {
       const id = param(c, "Section");
       const input = await parseBody(c, sectionRenameSchema);
       return c.json(
-        await db(c, (tx) => renameSection(tx, c.get("actor"), id, input.name)),
+        await record(c, (db, actor) => renameSection(db, actor, id, input.name)),
       );
     },
   );
@@ -250,8 +248,8 @@ export function inventoryRoutes(options: {
       async (c) => {
         const id = param(c, "Item");
         return c.json(
-          await db(c, (tx) =>
-            setItemArchived(tx, c.get("actor"), id, archived),
+          await record(c, (db, actor) =>
+            setItemArchived(db, actor, id, archived),
           ),
         );
       },
@@ -262,8 +260,8 @@ export function inventoryRoutes(options: {
       async (c) => {
         const id = param(c, "Section");
         return c.json(
-          await db(c, (tx) =>
-            setSectionArchived(tx, c.get("actor"), id, archived),
+          await record(c, (db, actor) =>
+            setSectionArchived(db, actor, id, archived),
           ),
         );
       },

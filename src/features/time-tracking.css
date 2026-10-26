@@ -1,0 +1,12 @@
+/* time-tracking styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.tracking-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.tracking-notice p {
+  margin: 0;
+  flex: 1;
+}

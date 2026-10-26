@@ -30,6 +30,7 @@ import { clientContacts, clients } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { clientScope, type Scope } from "../policy";
+import { setArchived } from "./archive";
 import { phoneDigits, syncChildren } from "./sync";
 
 type ClientRow = typeof clients.$inferSelect;
@@ -397,23 +398,11 @@ export async function setClientArchived(
   archived: boolean,
 ): Promise<Client> {
   await findVisibleClient(db, actor, id);
-  await db.transaction(async (tx) => {
-    const before = await clientSnapshot(tx, id);
-    await tx
-      .update(clients)
-      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
-      .where(eq(clients.id, id));
-    await writeAudit(tx, actor, {
-      entityType: "client",
-      entityId: id,
-      action: archived ? "archive" : "restore",
-      before,
-      after: await clientSnapshot(tx, id),
-    });
-    await emitDomainEvent(tx, {
-      name: archived ? "client.archived" : "client.restored",
-      entityId: id,
-    });
+  await setArchived(db, actor, id, archived, {
+    update: (tx, values) =>
+      tx.update(clients).set(values).where(eq(clients.id, id)),
+    audit: { entityType: "client", snapshot: clientSnapshot },
+    event: "client",
   });
   return getClient(db, actor, id);
 }

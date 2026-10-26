@@ -22,6 +22,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "./clients";
 import { useAuth } from "../app/auth";
+import "./time-tracking.css";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
 // Settings entry and the reports.

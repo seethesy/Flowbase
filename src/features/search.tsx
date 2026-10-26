@@ -7,6 +7,7 @@ import {
 } from "../../shared/search";
 import { searchApi } from "../services/search";
 import { EmptyState, LoadingSkeleton, SearchInput } from "../components/shared";
+import "./search.css";
 
 // Waits for typing to pause before asking the API.
 const DEBOUNCE_MS = 250;

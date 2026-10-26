@@ -1,0 +1,18 @@
+/* inventory styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.sku {
+  font-size: 11px;
+  color: #667663;
+  font-family: Inter, Arial, sans-serif;
+}
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.stock-table th,
+.stock-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}

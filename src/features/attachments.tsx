@@ -8,6 +8,7 @@ import { attachmentsApi, uploadAttachment } from "../services/attachments";
 import { useResource } from "../app/useResource";
 import { Button, Section } from "../components/shared";
 import { LoadError } from "./clients";
+import "./attachments.css";
 
 const ACCEPT =
   "image/jpeg,image/png,image/webp,image/heic,application/pdf,.docx";

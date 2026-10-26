@@ -7,6 +7,7 @@ import type { Db, DbLike } from "../db/client";
 import { venueAreas, venueContacts, venues } from "../db/schema";
 import { forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
+import { setArchived } from "./archive";
 import { syncChildren } from "./sync";
 
 // Venues (FLOW-54) are shared reference data every signed-in user can read. Venue
@@ -239,6 +240,7 @@ export async function updateVenue(
   return getVenue(db, actor, id);
 }
 
+// Venue archive and restore emit venue.archived / venue.restored (FLOW-192 R09).
 export async function setVenueArchived(
   db: Db,
   actor: Actor,
@@ -246,19 +248,11 @@ export async function setVenueArchived(
   archived: boolean,
 ): Promise<Venue> {
   await findVenue(db, id);
-  await db.transaction(async (tx) => {
-    const before = await venueSnapshot(tx, id);
-    await tx
-      .update(venues)
-      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
-      .where(eq(venues.id, id));
-    await writeAudit(tx, actor, {
-      entityType: "venue",
-      entityId: id,
-      action: archived ? "archive" : "restore",
-      before,
-      after: await venueSnapshot(tx, id),
-    });
+  await setArchived(db, actor, id, archived, {
+    update: (tx, values) =>
+      tx.update(venues).set(values).where(eq(venues.id, id)),
+    audit: { entityType: "venue", snapshot: venueSnapshot },
+    event: "venue",
   });
   return getVenue(db, actor, id);
 }

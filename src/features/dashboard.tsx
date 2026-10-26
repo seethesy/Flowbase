@@ -30,6 +30,7 @@ import {
 } from "../components/shared";
 import { RecordForm } from "./forms";
 import { ProposalDrawer } from "./proposals";
+import "./dashboard.css";
 export function ActivityFeed() {
   const icons = [Check, MessageSquare, Truck, UserPlus, Send];
   return (

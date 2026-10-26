@@ -10,7 +10,7 @@ import { requirePermission } from "../auth";
 import {
   ApiError,
   parseBody,
-  runDb,
+  recordRunner,
   type AppEnv,
   type RunWithDb,
 } from "../hono";
@@ -44,6 +44,7 @@ function mailer(env: Bindings) {
 
 export function authRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.get("/config", (c) => {
     const config = authConfigSchema.safeParse({
       url: c.env?.SUPABASE_URL,
@@ -59,11 +60,11 @@ export function authRoutes(options: { withDb?: RunWithDb }) {
     return c.json(config.data);
   });
   routes.get("/me", async (c) => {
-    const user = await runDb(options.withDb, c.env, async (db) => {
+    const user = await record(c, async (db, actor) => {
       const [row] = await db
         .select()
         .from(users)
-        .where(eq(users.id, c.get("actor").userId));
+        .where(eq(users.id, actor.userId));
       if (!row)
         throw new ApiError(401, "UNAUTHENTICATED", "Sign-in is required.");
       return toUser(row);
@@ -76,15 +77,16 @@ export function authRoutes(options: { withDb?: RunWithDb }) {
 
 export function userRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
   routes.use("*", requirePermission("users.manage"));
   routes.get("/", async (c) =>
-    c.json(await runDb(options.withDb, c.env, listUsers)),
+    c.json(await record(c, (db) => listUsers(db))),
   );
   routes.post("/", async (c) => {
     const input = await parseBody(c, inviteInputSchema);
     const send = mailer(c.env);
-    const user = await runDb(options.withDb, c.env, (db) =>
-      inviteUser(db, c.get("actor"), input),
+    const user = await record(c, (db, actor) =>
+      inviteUser(db, actor, input),
     );
     await send(user.email);
     return c.json(user, 201);
@@ -95,8 +97,8 @@ export function userRoutes(options: { withDb?: RunWithDb }) {
     if (!id.success || !action.success)
       throw new ApiError(400, "INVALID_REQUEST", "Invalid user action.");
     const send = action.data === "resend" ? mailer(c.env) : null;
-    const user = await runDb(options.withDb, c.env, (db) =>
-      changeUser(db, c.get("actor"), id.data, action.data),
+    const user = await record(c, (db, actor) =>
+      changeUser(db, actor, id.data, action.data),
     );
     if (send) await send(user.email);
     return c.json(user);

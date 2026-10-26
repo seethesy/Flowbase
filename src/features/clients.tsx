@@ -28,6 +28,7 @@ import {
 } from "../components/shared";
 import { EventForm, EventTable } from "./events";
 import { Attachments } from "./attachments";
+import "./clients.css";
 
 export const initials = (name: string) =>
   name

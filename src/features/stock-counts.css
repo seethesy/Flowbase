@@ -1,0 +1,57 @@
+/* stock-counts styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.count-sections,
+.count-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.count-sections li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.count-sections small,
+.count-line-heading small {
+  display: block;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.count-progress {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.count-line {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.count-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+.count-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+.count-entry input {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+}
+@media (max-width: 480px) {
+  .count-entry {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

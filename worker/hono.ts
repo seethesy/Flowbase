@@ -29,6 +29,15 @@ export function runDb<T>(
   return withDb(env, run);
 }
 
+// Runs a record function with the database and the signed-in actor (FLOW-192).
+// Each router makes one from its withDb option and uses it behind requireActor:
+//   const record = recordRunner(options.withDb);
+//   c.json(await record(c, (db, actor) => getClient(db, actor, id)))
+export const recordRunner =
+  (withDb: RunWithDb | undefined) =>
+  <T>(c: AppContext, run: (db: Db, actor: Actor) => Promise<T>): Promise<T> =>
+    runDb(withDb, c.env, (db) => run(db, c.get("actor")));
+
 export const fail = (
   c: AppContext,
   status: ContentfulStatusCode,

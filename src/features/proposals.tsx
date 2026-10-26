@@ -37,6 +37,7 @@ import {
   EmptyState,
 } from "../components/shared";
 import { RecordForm } from "./forms";
+import "./proposals.css";
 export function ProposalDrawer({
   id,
   onClose,

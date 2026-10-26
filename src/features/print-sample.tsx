@@ -1,4 +1,5 @@
 import { PrintLayout } from "../components/print/PrintLayout";
+import "./print-sample.css";
 
 // A sample long enough to run over several US Letter pages, used to check the
 // shared print layout (FLOW-49 AC1/AC2) before real documents use it.
