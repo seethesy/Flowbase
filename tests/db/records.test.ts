@@ -1,3 +1,6 @@
+import { roles, employmentTypes } from "../../shared/access";
+import type { EventHub } from "../../shared/event-hub";
+import type { HistoryEntry } from "../../shared/audit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
@@ -218,7 +221,11 @@ describe("clients", () => {
         name: "Juniper & Co. Events",
         kind: "organization",
         contacts: [
-          { id: created.contacts[0].id, name: "Olivia B.", role: "primary_poc" },
+          {
+            id: created.contacts[0].id,
+            name: "Olivia B.",
+            role: "primary_poc",
+          },
         ],
       },
     );
@@ -233,9 +240,9 @@ describe("clients", () => {
 
   it("keeps clients from roles without client access", async () => {
     expect((await lead.call("GET", "/api/clients")).status).toBe(403);
-    expect(
-      (await lead.call("POST", "/api/clients", newClient())).status,
-    ).toBe(403);
+    expect((await lead.call("POST", "/api/clients", newClient())).status).toBe(
+      403,
+    );
   });
 
   it("archives contacts removed from the list", async () => {
@@ -318,10 +325,7 @@ const newEvent = (clientId: string, overrides: Partial<EventInput> = {}) => ({
 describe("events", () => {
   it("creates an event from just a title, date, time and client", async () => {
     const owner = await sam.post<Client>("/api/clients", newClient());
-    const event = await sam.post<FlowEvent>(
-      "/api/events",
-      newEvent(owner.id),
-    );
+    const event = await sam.post<FlowEvent>("/api/events", newEvent(owner.id));
     expect(event).toMatchObject({
       title: "Fall gala",
       date: "2026-11-14",
@@ -407,20 +411,23 @@ describe("events", () => {
       "/api/events",
       newEvent(owner.id, { title: "Other" }),
     );
-    expect((await lead.get<FlowEvent[]>("/api/events")).map((e) => e.id)).toEqual(
-      [led.id],
-    );
+    expect(
+      (await lead.get<FlowEvent[]>("/api/events")).map((e) => e.id),
+    ).toEqual([led.id]);
     expect(
       (await helper.get<FlowEvent[]>("/api/events")).map((e) => e.id),
     ).toEqual([assisted.id]);
-    expect((await lead.call("POST", "/api/events", newEvent(owner.id))).status).toBe(
-      403,
-    );
+    expect(
+      (await lead.call("POST", "/api/events", newEvent(owner.id))).status,
+    ).toBe(403);
   });
 
   it("doesn't record booked_at when an event reaches Negotiation (FLOW-208)", async () => {
     const owner = await admin.post<Client>("/api/clients", newClient());
-    const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id));
+    const event = await admin.post<FlowEvent>(
+      "/api/events",
+      newEvent(owner.id),
+    );
     expect(event.bookedAt).toBeNull();
     const negotiating = await admin.post<FlowEvent>(
       `/api/events/${event.id}/status`,
@@ -464,4 +471,58 @@ it("writes a domain event in the same transaction as each new client", async () 
   const [row] = await db.select().from(clients);
   const queued = await db.select().from(jobs);
   expect(queued.map((job) => job.payload)).toContainEqual({ entityId: row.id });
+});
+
+// FLOW-38/39: exercise the actual API and persisted snapshots for every role and
+// employment type, including the client embedded in an event hub.
+it("projects contacts consistently in records, event hubs and historical values", async () => {
+  const owner = await sam.post<Client>("/api/clients", newClient());
+  const venue = await admin.post<Venue>("/api/venues", newVenue());
+  const event = await sam.post<FlowEvent>(
+    "/api/events",
+    newEvent(owner.id, {
+      venueId: venue.id,
+      productionLeadId: people.sam,
+    }),
+  );
+  for (const role of roles)
+    for (const employmentType of employmentTypes) {
+      const who = signedInAs(people.sam, role, employmentType);
+      const manages = ["admin", "technical", "sales_manager"].includes(role);
+      const ft = manages || employmentType === "full_time";
+      const hub = await who.get<EventHub>(`/api/events/${event.id}/hub`);
+      const eventJson = JSON.stringify(hub);
+      const venueView = await who.get<Venue>(`/api/venues/${venue.id}`);
+      const venueHistory = await who.get<HistoryEntry[]>(
+        `/api/venues/${venue.id}/history`,
+      );
+      if (!ft) {
+        expect(eventJson).not.toContain("olivia@juniper.example");
+        expect(eventJson).not.toContain("(202) 555-0101");
+        expect(venueView.contacts).toBeNull();
+        expect(
+          venueHistory.every((entry) => !("contacts" in entry.changes)),
+        ).toBe(true);
+      } else {
+        expect(venueView.contacts).toHaveLength(1);
+        expect(venueHistory.some((entry) => "contacts" in entry.changes)).toBe(
+          true,
+        );
+      }
+      if (manages || role === "salesperson") {
+        const clientView = await who.get<Client>(`/api/clients/${owner.id}`);
+        expect(clientView.contacts[0].email).toBe(
+          ft ? "olivia@juniper.example" : null,
+        );
+        expect(hub.client?.contacts).toEqual(clientView.contacts);
+        const history = await who.get<HistoryEntry[]>(
+          `/api/clients/${owner.id}/history`,
+        );
+        expect(JSON.stringify(history).includes("olivia@juniper.example")).toBe(
+          ft,
+        );
+      } else {
+        expect(hub.client).toBeNull();
+      }
+    }
 });

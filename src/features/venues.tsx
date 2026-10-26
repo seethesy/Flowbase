@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -61,10 +62,12 @@ export function VenueList() {
         subtitle="Addresses, areas and load-in details, ready for every event."
         eyebrow="Venues"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Venue
-        </Button>
+        <Allowed action="venues.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Venue
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -412,25 +415,31 @@ export function VenueDetail() {
           </p>
         </div>
         <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
+          <Allowed action="venues.write">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </Allowed>
           {v.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                venue.replace(await venuesApi.setArchived(v.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
-            </Button>
+            <Allowed action="venues.write">
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  venue.replace(await venuesApi.setArchived(v.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            </Allowed>
           ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
+            <Allowed action="venues.write">
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>

@@ -69,7 +69,7 @@ export function inventoryRoutes(options: {
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
-  routes.get("/items", async (c) => {
+  routes.get("/items", requirePermission("inventory.read"), async (c) => {
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
     if (query(c, "sectionId") && !sectionId.success) return c.json([]);
@@ -90,7 +90,7 @@ export function inventoryRoutes(options: {
       ),
     );
   });
-  routes.get("/items/:id", async (c) => {
+  routes.get("/items/:id", requirePermission("inventory.read"), async (c) => {
     const id = param(c, "Item");
     return c.json(await record(c, (db, actor) => getItem(db, actor, id)));
   });
@@ -132,10 +132,14 @@ export function inventoryRoutes(options: {
       );
     },
   );
-  routes.get("/items/:id/movements", async (c) => {
-    const id = param(c, "Item");
-    return c.json(await record(c, (db) => listMovements(db, id)));
-  });
+  routes.get(
+    "/items/:id/movements",
+    requirePermission("inventory.read"),
+    async (c) => {
+      const id = param(c, "Item");
+      return c.json(await record(c, (db) => listMovements(db, id)));
+    },
+  );
   routes.post(
     "/items/:id/movements",
     requirePermission("inventory.move"),
@@ -160,10 +164,16 @@ export function inventoryRoutes(options: {
       );
     },
   );
-  routes.get("/items/:id/cost-history", async (c) => {
-    const id = param(c, "Item");
-    return c.json(await record(c, (db, actor) => listCostHistory(db, actor, id)));
-  });
+  routes.get(
+    "/items/:id/cost-history",
+    requirePermission("inventory.read"),
+    async (c) => {
+      const id = param(c, "Item");
+      return c.json(
+        await record(c, (db, actor) => listCostHistory(db, actor, id)),
+      );
+    },
+  );
 
   routes.get("/counts", requirePermission("inventory.count"), async (c) => {
     const status = countStatusSchema.safeParse(c.req.query("status"));
@@ -200,11 +210,13 @@ export function inventoryRoutes(options: {
     requirePermission("inventory.count"),
     async (c) => {
       const id = param(c, "Count");
-      return c.json(await record(c, (db, actor) => completeCount(db, actor, id)));
+      return c.json(
+        await record(c, (db, actor) => completeCount(db, actor, id)),
+      );
     },
   );
 
-  routes.get("/sections", async (c) => {
+  routes.get("/sections", requirePermission("inventory.read"), async (c) => {
     const kind = sectionKindSchema.safeParse(c.req.query("kind"));
     return c.json(
       await record(c, (db) =>
@@ -233,7 +245,9 @@ export function inventoryRoutes(options: {
       const id = param(c, "Section");
       const input = await parseBody(c, sectionRenameSchema);
       return c.json(
-        await record(c, (db, actor) => renameSection(db, actor, id, input.name)),
+        await record(c, (db, actor) =>
+          renameSection(db, actor, id, input.name),
+        ),
       );
     },
   );

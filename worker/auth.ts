@@ -111,10 +111,13 @@ export function createActorResolver(withDb?: RunWithDb): ResolveActor {
   };
 }
 
+const actorGuards = new WeakSet<object>();
+export const isActorGuard = (handler: object) => actorGuards.has(handler);
+
 export function requireActor(
   resolve?: ResolveActor,
 ): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
+  const guard: MiddlewareHandler<AppEnv> = async (c, next) => {
     if (c.get("actor")) {
       await next();
       return;
@@ -124,12 +127,20 @@ export function requireActor(
     c.set("actor", actor);
     await next();
   };
+  actorGuards.add(guard);
+  return guard;
 }
 
+// Metadata belongs to the actual middleware used by Hono, so the route audit
+// cannot be satisfied by maintaining a separate list of supposedly guarded URLs.
+const permissionGuards = new WeakMap<object, Action>();
+export const permissionOf = (handler: object) => permissionGuards.get(handler);
 export function requirePermission(action: Action): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    if (!can(c.get("actor"), action))
+  const guard: MiddlewareHandler<AppEnv> = async (c, next) => {
+    if (!c.get("actor") || !can(c.get("actor"), action))
       return fail(c, 403, "FORBIDDEN", "You don't have access to this.");
     await next();
   };
+  permissionGuards.set(guard, action);
+  return guard;
 }

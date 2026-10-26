@@ -1,3 +1,4 @@
+import { TestAuth } from "./auth-provider";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, it, vi } from "vitest";
@@ -71,11 +72,11 @@ function mountHub(hub: EventHub) {
     throw new Error(`Unexpected request ${path}`);
   });
   render(
-    <MemoryRouter initialEntries={[`/events/${eventId}`]}>
+    <TestAuth><MemoryRouter initialEntries={[`/events/${eventId}`]}>
       <Routes>
         <Route path="/events/:id" element={<EventDetail />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter></TestAuth>,
   );
 }
 

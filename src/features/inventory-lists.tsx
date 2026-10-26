@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, ClipboardCheck } from "lucide-react";
@@ -130,19 +131,25 @@ export function InventoryList() {
         <Button variant="outline" asChild>
           <Link to="/inventory/bar">Bar</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">Counts</Link>
-        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts">Counts</Link>
+          </Button>
+        </Allowed>
         <Button variant="outline" asChild>
           <Link to="/inventory/low-stock">Low stock</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/sections">Sections</Link>
-        </Button>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Item
-        </Button>
+        <Allowed action="inventory.sections">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/sections">Sections</Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Item
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -283,10 +290,12 @@ export function IngredientList() {
         subtitle="What the kitchen buys, how it's used in recipes, and where it's kept."
         eyebrow="KITCHEN"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Ingredient
-        </Button>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Ingredient
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -455,16 +464,20 @@ export function BarList() {
         subtitle="Beer, wine and liquor: what's in stock, what's low, and who supplies it."
         eyebrow="BAR"
       >
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">
-            <ClipboardCheck size={16} />
-            Count
-          </Link>
-        </Button>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Bar Item
-        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts">
+              <ClipboardCheck size={16} />
+              Count
+            </Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Bar Item
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput

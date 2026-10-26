@@ -21,7 +21,7 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "./clients";
-import { useAuth } from "../app/auth";
+import { usePermissions } from "../app/permissions";
 import "./time-tracking.css";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
@@ -68,11 +68,11 @@ export function TrackingNotice() {
 }
 
 export function SettingsPage() {
-  const auth = useAuth();
+  const permissions = usePermissions();
   return (
     <>
       <PageHeader title="Settings" subtitle="How Flowbase works for you." />
-      {auth?.user.role === "admin" && (
+      {permissions.can("users.manage") && (
         <Section title="Staff access">
           <Link to="/settings/users">Manage users</Link>
         </Section>

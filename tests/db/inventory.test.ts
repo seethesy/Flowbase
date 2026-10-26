@@ -433,39 +433,50 @@ describe("items (FLOW-69)", () => {
 });
 
 describe("ingredients (FLOW-81)", () => {
-  it("hides costs from part-time users and keeps them on their edits (AC3)", async () => {
+  it("applies FLOW-39 cost visibility to detail, lists, writes and history", async () => {
     const item = await createItem(cream());
-    const seen = await cook.get<InventoryItem>(
-      `/api/inventory/items/${item.id}`,
-    );
-    expect(seen.consumable).toMatchObject({
-      unitCostCents: null,
-      costHidden: true,
-    });
-    const listed = await cook.get<InventoryItem[]>("/api/inventory/items");
-    expect(listed[0].consumable?.unitCostCents).toBeNull();
-
-    // JSON drops the undefined cost, as the form does for a hidden cost.
+    for (const who of [cook, partTimeLead, fullTimeStaff]) {
+      const seen = await who.get<InventoryItem>(
+        `/api/inventory/items/${item.id}`,
+      );
+      expect(seen.consumable).toMatchObject({
+        unitCostCents: 2400,
+        costHidden: false,
+      });
+      const listed = await who.get<InventoryItem[]>("/api/inventory/items");
+      expect(listed[0].consumable?.unitCostCents).toBe(2400);
+      expect(
+        (await who.call("GET", `/api/inventory/items/${item.id}/cost-history`))
+          .status,
+      ).toBe(200);
+    }
+    for (const who of [partTimeSales, partTimeStaff]) {
+      const seen = await who.get<InventoryItem>(
+        `/api/inventory/items/${item.id}`,
+      );
+      expect(seen.consumable).toMatchObject({
+        unitCostCents: null,
+        costHidden: true,
+      });
+      expect(
+        (await who.get<InventoryItem[]>("/api/inventory/items"))[0].consumable
+          ?.unitCostCents,
+      ).toBeNull();
+      expect(
+        (await who.call("GET", `/api/inventory/items/${item.id}/cost-history`))
+          .status,
+      ).toBe(403);
+    }
     await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
       ...cream(),
       name: "Heavy Cream 36%",
       consumable: { ...cream().consumable!, unitCostCents: undefined },
     });
-    const after = await admin.get<InventoryItem>(
-      `/api/inventory/items/${item.id}`,
-    );
-    expect(after.name).toBe("Heavy Cream 36%");
-    expect(after.consumable?.unitCostCents).toBe(2400);
-
     expect(
-      (
-        await partTimeLead.call(
-          "PUT",
-          `/api/inventory/items/${item.id}`,
-          cream(),
-        )
-      ).status,
-    ).toBe(403);
+      (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
+        .consumable?.unitCostCents,
+    ).toBe(2400);
+    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, cream());
   });
 
   it("filters by category, vendor, storage and below par", async () => {
@@ -1113,8 +1124,12 @@ describe("cost history (FLOW-83)", () => {
     );
     expect(events).toHaveLength(2);
     expect(
-      (await cook.call("GET", `/api/inventory/items/${item.id}/cost-history`))
-        .status,
+      (
+        await partTimeStaff.call(
+          "GET",
+          `/api/inventory/items/${item.id}/cost-history`,
+        )
+      ).status,
     ).toBe(403);
   });
 });

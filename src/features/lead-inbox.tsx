@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRightLeft } from "lucide-react";
@@ -90,7 +91,9 @@ function DuplicateQueue() {
         <p>
           {other ? (
             <>
-              <Link to={`/leads/${other.id}`}>{other.name || "Unnamed lead"}</Link>{" "}
+              <Link to={`/leads/${other.id}`}>
+                {other.name || "Unnamed lead"}
+              </Link>{" "}
               <small>{summaryLine(other)}</small>
             </>
           ) : (
@@ -107,31 +110,41 @@ function DuplicateQueue() {
         <div className="page-actions">
           {other && (
             <>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  void act(() => leadsApi.merge(duplicate.id, duplicate.lead.id))
-                }
-              >
-                Keep {duplicate.lead.name || "first"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => void act(() => leadsApi.merge(duplicate.id, other.id))}
-              >
-                Keep {other.name || "second"}
-              </Button>
+              <Allowed action="leads.merge">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() =>
+                      leadsApi.merge(duplicate.id, duplicate.lead.id),
+                    )
+                  }
+                >
+                  Keep {duplicate.lead.name || "first"}
+                </Button>
+              </Allowed>
+              <Allowed action="leads.merge">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() => leadsApi.merge(duplicate.id, other.id))
+                  }
+                >
+                  Keep {other.name || "second"}
+                </Button>
+              </Allowed>
             </>
           )}
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
-          >
-            Not a duplicate
-          </Button>
+          <Allowed action="leads.merge">
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
+            >
+              Not a duplicate
+            </Button>
+          </Allowed>
         </div>
       </li>
     );
@@ -166,12 +179,12 @@ export function LeadInbox() {
       view === "Duplicates"
         ? []
         : leadsApi.list({
-        triage: view === "Triage",
-        needsReview: view === "Needs review",
-        status: valueOf(leadStatusLabels, status),
-        source: source || undefined,
-        channel: valueOf(leadChannelLabels, channel),
-      }),
+            triage: view === "Triage",
+            needsReview: view === "Needs review",
+            status: valueOf(leadStatusLabels, status),
+            source: source || undefined,
+            channel: valueOf(leadChannelLabels, channel),
+          }),
     [view, status, source, channel],
   );
   const term = search.toLowerCase();
@@ -179,7 +192,10 @@ export function LeadInbox() {
     [lead.name, lead.email, lead.phone].join(" ").toLowerCase().includes(term),
   );
   const sources = [
-    ...new Set([...defaultLeadSources, ...(leads.data ?? []).map((l) => l.source)]),
+    ...new Set([
+      ...defaultLeadSources,
+      ...(leads.data ?? []).map((l) => l.source),
+    ]),
   ];
   const toggle = (id: string) =>
     setSelected((current) =>
@@ -193,12 +209,14 @@ export function LeadInbox() {
       header: "Select",
       enableSorting: false,
       cell: (c) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${leadTitle(c.row.original)}`}
-          checked={selected.includes(c.row.original.id)}
-          onChange={() => toggle(c.row.original.id)}
-        />
+        <Allowed action="leads.assign">
+          <input
+            type="checkbox"
+            aria-label={`Select ${leadTitle(c.row.original)}`}
+            checked={selected.includes(c.row.original.id)}
+            onChange={() => toggle(c.row.original.id)}
+          />
+        </Allowed>
       ),
     },
     {
@@ -255,14 +273,16 @@ export function LeadInbox() {
       enableSorting: false,
       cell: (c) =>
         c.row.original.status === "qualified" ? (
-          <Button
-            variant="outline"
-            aria-label={`Convert ${leadTitle(c.row.original)}`}
-            onClick={() => setConverting(c.row.original)}
-          >
-            <ArrowRightLeft size={14} />
-            Convert
-          </Button>
+          <Allowed action="leads.convert">
+            <Button
+              variant="outline"
+              aria-label={`Convert ${leadTitle(c.row.original)}`}
+              onClick={() => setConverting(c.row.original)}
+            >
+              <ArrowRightLeft size={14} />
+              Convert
+            </Button>
+          </Allowed>
         ) : null,
     },
   ];
@@ -300,7 +320,9 @@ export function LeadInbox() {
                 label="Statuses"
                 value={status}
                 onChange={setStatus}
-                options={leadStatusSchema.options.map((s) => leadStatusLabels[s])}
+                options={leadStatusSchema.options.map(
+                  (s) => leadStatusLabels[s],
+                )}
               />
               <Select
                 label="Sources"
@@ -312,21 +334,25 @@ export function LeadInbox() {
                 label="Channels"
                 value={channel}
                 onChange={setChannel}
-                options={leadChannelSchema.options.map((c) => leadChannelLabels[c])}
+                options={leadChannelSchema.options.map(
+                  (c) => leadChannelLabels[c],
+                )}
               />
               <span className="result-count">{data.length} leads</span>
             </FilterBar>
             {selected.length > 0 && (
               <Section title={`${selected.length} selected`}>
-                <AssignForm
-                  label="Assign selected to (user ID)"
-                  button="Assign selected"
-                  onAssign={async (salespersonId) => {
-                    await leadsApi.bulkAssign(selected, salespersonId);
-                    setSelected([]);
-                    leads.reload();
-                  }}
-                />
+                <Allowed action="leads.assign">
+                  <AssignForm
+                    label="Assign selected to (user ID)"
+                    button="Assign selected"
+                    onAssign={async (salespersonId) => {
+                      await leadsApi.bulkAssign(selected, salespersonId);
+                      setSelected([]);
+                      leads.reload();
+                    }}
+                  />
+                </Allowed>
               </Section>
             )}
             {leads.error ? (

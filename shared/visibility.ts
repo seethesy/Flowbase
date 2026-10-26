@@ -1,0 +1,151 @@
+import { isFtPlus, type Actor } from "./access";
+import { clientScope, leadScope } from "./policy";
+
+export const fieldGroups = [
+  "client_contact",
+  "venue_contact",
+  "lead_contact",
+  "internal_cost",
+  "financials",
+] as const;
+export type FieldGroup = (typeof fieldGroups)[number];
+export type ViewContext = {
+  assignedSalespersonId?: string | null;
+  view?: "internal" | "client_recipe" | "beo";
+};
+const fieldRules: Record<
+  FieldGroup,
+  (actor: Actor, context: ViewContext) => boolean
+> = {
+  client_contact: isFtPlus,
+  venue_contact: isFtPlus,
+  lead_contact: (actor) => leadScope(actor) !== "none",
+  internal_cost: (actor) =>
+    isFtPlus(actor) ||
+    actor.role === "kitchen_lead" ||
+    actor.role === "kitchen_staff",
+  financials: (actor, context) =>
+    ["admin", "technical", "sales_manager"].includes(actor.role) ||
+    (actor.role === "salesperson" &&
+      context.assignedSalespersonId === actor.userId),
+};
+export function canSeeField(
+  actor: Actor,
+  group: FieldGroup,
+  context: ViewContext = {},
+): boolean {
+  if (
+    context.view === "beo" &&
+    (group === "internal_cost" || group === "financials")
+  )
+    return false;
+  if (context.view === "client_recipe" && group === "internal_cost")
+    return false;
+  return fieldRules[group](actor, context);
+}
+
+// These paths describe the existing API shapes. Nested values and historical
+// before/after snapshots pass through the very same projection.
+type Rule =
+  | FieldGroup
+  | "lead_payload"
+  | "duplicate_match"
+  | "pricing"
+  | { [key: string]: Rule };
+const contact: Rule = { email: "client_contact", phone: "client_contact" };
+const shapes = {
+  client_contact: contact,
+  client: { contacts: contact, possibleDuplicateOf: "duplicate_match" },
+  venue: { contacts: "venue_contact" },
+  lead: {
+    email: "lead_contact",
+    phone: "lead_contact",
+    rawPayload: "lead_payload",
+  },
+  inventory_item: {
+    consumable: { unitCostCents: "internal_cost" },
+    rental: { priceCents: "pricing" },
+    service: { priceCents: "pricing" },
+  },
+} satisfies Record<string, Rule>;
+export type VisibilityShape = keyof typeof shapes;
+function visible(actor: Actor, rule: string, context: ViewContext): boolean {
+  if (rule === "lead_payload")
+    return canSeeField(actor, "client_contact", context);
+  if (rule === "duplicate_match") return clientScope(actor) === "all";
+  // Catalog selling prices are public to staff; BEOs omit all pricing.
+  if (rule === "pricing") return context.view !== "beo";
+  return canSeeField(actor, rule as FieldGroup, context);
+}
+function project(
+  actor: Actor,
+  value: unknown,
+  rule: Rule,
+  context: ViewContext,
+): unknown {
+  if (typeof rule === "string")
+    return visible(actor, rule, context) ? value : null;
+  if (Array.isArray(value))
+    return value.map((item) => project(actor, item, rule, context));
+  if (!value || typeof value !== "object") return value;
+  const result: Record<string, unknown> = { ...value };
+  for (const [key, child] of Object.entries(rule)) {
+    if (key in result)
+      result[key] = project(actor, result[key], child, context);
+  }
+  return result;
+}
+export function serializeFields<T>(
+  actor: Actor,
+  shape: VisibilityShape,
+  value: T,
+  context: ViewContext = {},
+): T {
+  const result = project(actor, value, shapes[shape], context) as T;
+  if (
+    shape === "inventory_item" &&
+    result &&
+    typeof result === "object" &&
+    "consumable" in result &&
+    result.consumable
+  ) {
+    Object.assign(result.consumable, {
+      costHidden: !canSeeField(actor, "internal_cost", context),
+    });
+  }
+  return result;
+}
+export function redactFieldHistory(
+  actor: Actor,
+  shape: VisibilityShape,
+  changes: Record<string, { before: unknown; after: unknown }>,
+  context: ViewContext = {},
+) {
+  const rules: Record<string, Rule> = shapes[shape];
+  return Object.fromEntries(
+    Object.entries(changes).flatMap(([key, change]) => {
+      const rule = rules[key];
+      if (!rule) return [[key, change]];
+      const masked = {
+        before: project(actor, change.before, rule, context),
+        after: project(actor, change.after, rule, context),
+      };
+      return JSON.stringify(masked.before) === JSON.stringify(masked.after)
+        ? []
+        : [[key, masked]];
+    }),
+  );
+}
+
+// Document builders pass named groups through the same rules as API records.
+// BEO context suppresses every cost, total and payment even for Admin.
+export function serializeFieldGroups<
+  T extends Partial<Record<FieldGroup, unknown>>,
+>(actor: Actor, groups: T, context: ViewContext = {}): T {
+  return Object.fromEntries(
+    Object.entries(groups).map(([group, value]) => [
+      group,
+      canSeeField(actor, group as FieldGroup, context) ? value : null,
+    ]),
+  ) as T;
+}

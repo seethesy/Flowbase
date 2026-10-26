@@ -18,8 +18,7 @@ import { can, clientScope, leadScope } from "../policy";
 // same source lead id is handled in createLead: it updates the existing lead). A
 // match is stored as an open duplicate until someone merges the leads or dismisses
 // it. A match the caller can't see is never described to them: a salesperson only
-// learns that a duplicate is assigned to another salesperson, and Admin resolves it
-// (Q-41c).
+// sees no indication that another salesperson's records exist (FLOW-38).
 type LeadRow = typeof leads.$inferSelect;
 type DuplicateRow = typeof leadDuplicates.$inferSelect;
 type ClientRef = { id: string; name: string; assignedSalespersonId: string | null };
@@ -48,11 +47,6 @@ const clientVisibleTo = (actor: Actor, row: Pick<ClientRef, "assignedSalesperson
   const scope = clientScope(actor);
   return scope === "all" || (scope === "own" && row.assignedSalespersonId === actor.userId);
 };
-const assignedToSomeoneElse = (
-  actor: Actor,
-  row: { assignedSalespersonId: string | null },
-) => row.assignedSalespersonId !== null && row.assignedSalespersonId !== actor.userId;
-
 // Finds and stores the new lead's possible duplicates, inside createLead's
 // transaction. Emits lead.duplicates_found when there are any.
 export async function recordLeadDuplicates(tx: DbLike, lead: LeadRow) {
@@ -187,7 +181,6 @@ export async function leadMatchesFor(
     rows.map((row) => row.matchedClientId).filter((id): id is string => Boolean(id)),
   );
   const duplicates: LeadMatch[] = [];
-  let assignedElsewhere = false;
   for (const row of rows) {
     const other = otherId(row);
     if (other) {
@@ -200,7 +193,6 @@ export async function leadMatchesFor(
           lead: toLeadSummary(match),
           client: null,
         });
-      else if (assignedToSomeoneElse(actor, match)) assignedElsewhere = true;
     } else if (row.matchedClientId) {
       const match = matchedClients.get(row.matchedClientId);
       if (!match) continue;
@@ -211,10 +203,9 @@ export async function leadMatchesFor(
           lead: null,
           client: { id: match.id, name: match.name },
         });
-      else if (assignedToSomeoneElse(actor, match)) assignedElsewhere = true;
     }
   }
-  return { duplicates, assignedElsewhere };
+  return { duplicates, assignedElsewhere: false };
 }
 
 // Every source record behind the lead: its own, then each lead merged into it.

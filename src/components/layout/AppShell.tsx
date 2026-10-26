@@ -1,3 +1,4 @@
+import { usePermissions } from "../../app/permissions";
 import { useState } from "react";
 import {
   NavLink,
@@ -201,6 +202,7 @@ export function Sidebar({
 }
 export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const auth = useAuth();
+  const permissions = usePermissions();
   const displayName = auth?.user.name ?? "Profile";
   const store = useDemo();
   const navigate = useNavigate();
@@ -259,7 +261,7 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
                 <Link to="/profile" onClick={() => setProfile(false)}>
                   Employee profile
                 </Link>
-                {auth?.user.role === "admin" && (
+                {permissions.can("users.manage") && (
                   <Link to="/settings/users" onClick={() => setProfile(false)}>
                     Manage users
                   </Link>

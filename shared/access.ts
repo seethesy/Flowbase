@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// Roles and employment type from the architecture terms. FLOW-38 owns the full
-// permission matrix. The Worker loads both from the stored user on every request.
+// Roles and employment type from the architecture terms. shared/policy.ts owns
+// the role/action matrix. The Worker loads both from the stored user on every request.
 export const roles = [
   "admin",
   "technical",
