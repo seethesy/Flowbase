@@ -5,6 +5,7 @@ import { isFtPlus, type Actor } from "../shared/access";
 // Technical follows the recommendation on FLOW-38 Q1 (same record visibility as the
 // Sales Manager) until that question is answered.
 export type Action =
+  | "users.manage"
   | "jobs.manage"
   | "ingest.manage"
   | "clients.write"
@@ -42,6 +43,7 @@ const updatesRentalStock = (actor: Actor) =>
   sells(actor) || countsIngredients(actor) || isFtPlus(actor);
 
 const rules: Record<Action, (actor: Actor) => boolean> = {
+  "users.manage": isAdmin,
   "jobs.manage": isAdmin,
   "ingest.manage": isAdmin,
   "clients.write": sells,

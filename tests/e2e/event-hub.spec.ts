@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import { fallGala, juniper, mockAttachmentsApi, mockRecordsApi } from "./mock-api";
 
 // The event hub (FLOW-57). The calendar (FLOW-63) doesn't exist yet, so the hub is

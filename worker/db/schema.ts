@@ -14,10 +14,33 @@ import {
   type ExtraConfigColumn,
 } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../shared/core-records";
+import { roles, employmentTypes } from "../../shared/access";
+import { userStatuses } from "../../shared/users";
 import { baseColumns, moneyCents, timestamptz } from "./conventions";
 
 // Every table: spread baseColumns() and finish with .enableRLS() (see conventions.ts).
 // CI fails if a migrated table in the public schema lacks RLS.
+
+// Allowlist and durable staff identity. Never delete on deactivation: assignments
+// and audit entries continue to refer to this id and stored Google display name.
+export const users = pgTable(
+  "users",
+  {
+    ...baseColumns(),
+    email: text("email").notNull(),
+    name: text("name").notNull().default(""),
+    authId: uuid("auth_id").unique(),
+    role: text("role", { enum: roles }).notNull(),
+    employmentType: text("employment_type", {
+      enum: employmentTypes,
+    }).notNull(),
+    mobile: text("mobile").notNull(),
+    status: text("status", { enum: userStatuses }).notNull().default("pending"),
+    invitedAt: timestamptz("invited_at").notNull().defaultNow(),
+    activatedAt: timestamptz("activated_at"),
+  },
+  (table) => [uniqueIndex("users_email_idx").on(sql`lower(${table.email})`)],
+).enableRLS();
 
 // Trigram index for global search (FLOW-46): fuzzy name matching with pg_trgm.
 const trigram = (name: string, column: ExtraConfigColumn) =>
@@ -32,7 +55,12 @@ export const connectionChecks = pgTable("connection_checks", {
 
 // Outbox and work queue (FLOW-27). Domain events and background work are rows here,
 // written in the same transaction as the change they describe, and run by the cron.
-export const jobStatuses = ["pending", "running", "succeeded", "failed"] as const;
+export const jobStatuses = [
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+] as const;
 export const jobs = pgTable(
   "jobs",
   {
@@ -71,7 +99,7 @@ export const ingestReceipts = pgTable(
 ).enableRLS();
 
 // Core records (FLOW-53/54/55). People columns (assigned salesperson, Production
-// Leads) hold user ids without a foreign key until the users table exists (FLOW-37).
+// Leads) retain stable staff ids, including assignments made before sign-in shipped.
 export const clients = pgTable(
   "clients",
   {
@@ -264,7 +292,12 @@ export const eventStatusHistory = pgTable(
 // Leads (FLOW-100). One record for every source: collector, webhook, manual entry and
 // import. assigned_salesperson_id is a plain uuid until the users table exists
 // (FLOW-37). raw_payload is the source's data as received, for debugging (FT+ only).
-export const leadChannels = ["collector", "webhook", "manual", "import"] as const;
+export const leadChannels = [
+  "collector",
+  "webhook",
+  "manual",
+  "import",
+] as const;
 export const leadStatuses = [
   "new",
   "contacted",
@@ -321,7 +354,12 @@ export const leads = pgTable(
 
 // Lead collector runs (FLOW-102): one row per site per run, posted by the collector.
 // FLOW-107 builds collector health and alerts on these.
-export const collectorRunStatuses = ["ok", "needs_login", "blocked", "error"] as const;
+export const collectorRunStatuses = [
+  "ok",
+  "needs_login",
+  "blocked",
+  "error",
+] as const;
 export const collectorRuns = pgTable(
   "collector_runs",
   {
@@ -343,7 +381,11 @@ export const collectorRuns = pgTable(
 // Possible duplicates (FLOW-110): a lead matched to an earlier lead, or to a client,
 // by email or phone, or by name and event date. Open until someone merges the
 // leads or dismisses the match.
-export const leadDuplicateReasons = ["email", "phone", "name_event_date"] as const;
+export const leadDuplicateReasons = [
+  "email",
+  "phone",
+  "name_event_date",
+] as const;
 export const leadDuplicateStatuses = ["open", "merged", "dismissed"] as const;
 export const leadDuplicates = pgTable(
   "lead_duplicates",

@@ -19,7 +19,6 @@ const app = createApp({
   captureError: (error, requestId) => {
     Sentry.captureException(error, { tags: { requestId } });
   },
-  // No resolveActor until sign-in (FLOW-36): admin routes answer 401.
   withDb,
 });
 const jobRegistry = createJobRegistry();

@@ -68,7 +68,9 @@ export const activitySessionInputSchema = z
       const length = Date.parse(s.endedAt) - Date.parse(s.startedAt);
       return length >= 0 && length <= MAX_SESSION_MS;
     },
-    { message: "A session must end after it starts and last at most 12 hours." },
+    {
+      message: "A session must end after it starts and last at most 12 hours.",
+    },
   );
 export type ActivitySessionInput = z.input<typeof activitySessionInputSchema>;
 export const activityBatchSchema = z.object({
@@ -87,6 +89,7 @@ export const effortRowSchema = z.object({
 export type EffortRow = z.infer<typeof effortRowSchema>;
 export const workloadRowSchema = z.object({
   userId: z.string().uuid(),
+  userName: z.string().optional(),
   activity: activityTypeSchema,
   seconds: z.number().int(),
 });

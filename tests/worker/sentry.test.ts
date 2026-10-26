@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { recordSchemas } from "../../shared/records";
+import { healthSchema } from "../../shared/api";
 
 const sentry = vi.hoisted(() => ({
   captureException: vi.fn(),
@@ -10,14 +10,12 @@ import worker from "../../worker";
 
 it("wires Worker failures to Sentry with the request ID", async () => {
   const failure = new Error("fixture adapter failed");
-  const parse = vi
-    .spyOn(recordSchemas.clients, "array")
-    .mockImplementation(() => {
-      throw failure;
-    });
+  const parse = vi.spyOn(healthSchema, "parse").mockImplementation(() => {
+    throw failure;
+  });
   try {
     const response = await worker.fetch!(
-      new Request("http://localhost/api/demo/clients"),
+      new Request("http://localhost/api/health"),
       { ASSETS: { fetch } },
       {} as Parameters<NonNullable<typeof worker.fetch>>[2],
     );

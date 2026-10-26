@@ -120,6 +120,20 @@
       "when": 1793049026243,
       "tag": "0016_booked_at_first_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793052509842,
+      "tag": "0017_staff_allowlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793052510943,
+      "tag": "0018_invite_only_auth_hook",
+      "breakpoints": true
     }
   ]
 }

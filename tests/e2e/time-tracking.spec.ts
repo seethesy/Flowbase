@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./auth-fixture";
 import type { ActivitySessionInput } from "../../shared/time-tracking";
 import { fallGala, juniper, mockAttachmentsApi, mockRecordsApi } from "./mock-api";
 
