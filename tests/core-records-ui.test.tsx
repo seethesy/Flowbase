@@ -4,8 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { ClientForm, ClientList } from "../src/features/clients";
-import { EventForm } from "../src/features/events";
-import type { Client } from "../shared/core-records";
+import { EventForm, EventList } from "../src/features/events";
+import type { Client, FlowEvent } from "../shared/core-records";
 
 const requestId = "81449b27-3ebd-41b3-bdad-58f725d7f319";
 const now = "2026-10-22T09:00:00.000Z";
@@ -248,8 +248,8 @@ it("offers every status when creating an event, and none when editing it", async
     "Pitching",
     "P creation",
     "Initial P sent",
-    "Negotiation",
-    "Closing",
+    "Pending (Negotiation)",
+    "Pending (Closing)",
     "Closed",
     "Preparation",
     "Finished",
@@ -304,4 +304,62 @@ it("offers every status when creating an event, and none when editing it", async
   expect(
     within(screen.getByRole("dialog")).queryByLabelText("Status"),
   ).not.toBeInTheDocument();
+});
+
+it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)", async () => {
+  const flowEvent = (n: number, title: string, status: FlowEvent["status"]): FlowEvent => ({
+    id: `6b1f4c3e-2d5a-4e7b-8c9d-0a1b2c3d4e5${n}`,
+    title,
+    date: "2026-11-14",
+    startTime: "18:00",
+    endTime: null,
+    startsAt: "2026-11-14T23:00:00.000Z",
+    endsAt: null,
+    client: { id: client().id, name: "Juniper & Co." },
+    pocContactId: null,
+    venue: null,
+    address: "",
+    areas: [],
+    eventType: "",
+    serviceType: "",
+    foodServiceStyle: "",
+    guestCount: null,
+    servingsCount: null,
+    assignedSalespersonId: null,
+    productionLeadId: null,
+    assistantLeadIds: [],
+    dressCode: "",
+    transportationNotes: "",
+    internalNotes: "",
+    status,
+    bookedAt: null,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  mockApi({
+    "GET /api/events": () =>
+      Response.json([
+        flowEvent(1, "Fall gala", "negotiation"),
+        flowEvent(2, "Winter ball", "closing"),
+        flowEvent(3, "Spring brunch", "closed"),
+      ]),
+  });
+  const user = userEvent.setup();
+  mount(<EventList />);
+  const table = await screen.findByRole("table");
+  await within(table).findByText("Fall gala");
+  expect(within(table).getAllByText("Pending")).toHaveLength(2);
+  expect(within(table).queryByText("Negotiation")).not.toBeInTheDocument();
+  expect(within(table).queryByText("Closing")).not.toBeInTheDocument();
+  const filter = screen.getByLabelText("Statuses");
+  expect(
+    within(filter)
+      .getAllByRole("option")
+      .filter((option) => option.textContent === "Pending"),
+  ).toHaveLength(1);
+  await user.selectOptions(filter, "Pending");
+  expect(within(table).getByText("Fall gala")).toBeInTheDocument();
+  expect(within(table).getByText("Winter ball")).toBeInTheDocument();
+  expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument();
 });

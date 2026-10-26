@@ -191,6 +191,8 @@ export const events = pgTable(
     status: text("status", { enum: eventStatuses })
       .notNull()
       .default("inquiry"),
+    // When the client signed the event's first DocuSign contract (FLOW-4). Set only
+    // by recording that contract, never by a status change.
     bookedAt: timestamptz("booked_at"),
   },
   (table) => [

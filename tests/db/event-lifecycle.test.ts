@@ -136,11 +136,9 @@ describe("creating", () => {
     expect(event.status).toBe("closing");
   });
 
-  it("sets booked_at when created in Negotiation or later, but not as Lost", async () => {
-    expect((await newEvent("negotiation")).bookedAt).not.toBeNull();
-    expect((await newEvent("closed")).bookedAt).not.toBeNull();
-    expect((await newEvent("initial_proposal_sent")).bookedAt).toBeNull();
-    expect((await newEvent("lost")).bookedAt).toBeNull();
+  it("never sets booked_at, whatever the starting status (FLOW-208)", async () => {
+    for (const status of ["initial_proposal_sent", "negotiation", "closing", "closed"] as const)
+      expect((await newEvent(status)).bookedAt).toBeNull();
   });
 });
 
@@ -249,37 +247,28 @@ describe("manual changes", () => {
     expect(response.status).toBe(400);
   });
 
-  it("sets booked_at the first time the event reaches Negotiation and keeps it (A6)", async () => {
+  it("leaves booked_at unset through Negotiation, Closing and Closed (FLOW-208)", async () => {
     const event = await newEvent();
-    const pitching = await sam.json<FlowEvent>(
-      "POST",
-      `/api/events/${event.id}/status`,
-      { status: "initial_proposal_sent" },
-    );
-    expect(pitching.bookedAt).toBeNull();
-    const negotiating = await sam.json<FlowEvent>(
-      "POST",
-      `/api/events/${event.id}/status`,
-      { status: "negotiation" },
-    );
-    expect(negotiating.bookedAt).not.toBeNull();
-    await sam.json("POST", `/api/events/${event.id}/status`, { status: "pitching" });
-    const again = await sam.json<FlowEvent>(
-      "POST",
-      `/api/events/${event.id}/status`,
-      { status: "closed" },
-    );
-    expect(again.bookedAt).toBe(negotiating.bookedAt);
+    for (const status of ["negotiation", "closing", "closed"] as const) {
+      const changed = await sam.json<FlowEvent>(
+        "POST",
+        `/api/events/${event.id}/status`,
+        { status },
+      );
+      expect(changed.bookedAt).toBeNull();
+    }
   });
 
-  it("sets booked_at when an override skips past Negotiation", async () => {
-    const event = await newEvent();
-    const closed = await sam.json<FlowEvent>(
+  it("keeps an existing booked_at through status changes", async () => {
+    const event = await newEvent("closed");
+    const bookedAt = new Date("2026-10-01T15:00:00.000Z");
+    await client`update events set booked_at = ${bookedAt.toISOString()}::timestamptz where id = ${event.id}`;
+    const changed = await sam.json<FlowEvent>(
       "POST",
       `/api/events/${event.id}/status`,
-      { status: "closed" },
+      { status: "preparation" },
     );
-    expect(closed.bookedAt).not.toBeNull();
+    expect(changed.bookedAt).toBe(bookedAt.toISOString());
   });
 
   it("leaves the status alone when the event is edited", async () => {
@@ -391,5 +380,43 @@ describe("existing events (A5)", () => {
     });
     const kept = rows.find((row) => row.title === "booked")?.booked_at;
     expect(new Date(kept).toISOString()).toBe(bookedAt.toISOString());
+  });
+
+  it("clears booked_at stamped at Negotiation and keeps older booked dates (FLOW-208)", async () => {
+    const owner = await sam.json<Client>(
+      "POST",
+      "/api/clients",
+      { name: "Juniper & Co.", kind: "organization", contacts: [] },
+      201,
+    );
+    const signed = new Date("2026-10-01T15:00:00.000Z");
+    const stamped = new Date("2026-10-23T15:00:00.000Z");
+    const insert = async (title: string, bookedAt: Date | null) => {
+      const [row] = await client`insert into events (title, starts_at, client_id, status, booked_at)
+        values (${title}, now(), ${owner.id}, 'closed', ${bookedAt?.toISOString() ?? null}::timestamptz)
+        returning id`;
+      return row.id as string;
+    };
+    // A6 wrote the history row in the same transaction as booked_at.
+    const a6 = await insert("a6", stamped);
+    await client`insert into event_status_history (event_id, from_status, to_status, created_at)
+      values (${a6}, 'initial_proposal_sent', 'negotiation', ${new Date(stamped.getTime() + 20).toISOString()}::timestamptz)`;
+    // Converted from the FLOW-55 booked status; its history came later.
+    const old = await insert("old", signed);
+    await client`insert into event_status_history (event_id, from_status, to_status, created_at)
+      values (${old}, 'closed', 'preparation', ${stamped.toISOString()}::timestamptz)`;
+    await insert("none", null);
+    await client.unsafe(
+      readFileSync("drizzle/0016_booked_at_first_contract.sql", "utf8"),
+    );
+    const rows = await client`select title, booked_at from events order by title`;
+    expect(
+      Object.fromEntries(
+        rows.map((row) => [
+          row.title,
+          row.booked_at && new Date(row.booked_at).toISOString(),
+        ]),
+      ),
+    ).toEqual({ a6: null, none: null, old: signed.toISOString() });
   });
 });
