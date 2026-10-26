@@ -4,5 +4,7 @@ export default defineConfig({
     environment: "node",
     include: ["tests/db/**/*.test.ts"],
     fileParallelism: false,
+    // Drops and re-creates the schemas, then migrates once (FLOW-182).
+    globalSetup: ["./tests/db/global-setup.ts"],
   },
 });
