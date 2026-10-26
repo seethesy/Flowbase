@@ -16,15 +16,33 @@ Source: [FLOW-30](https://sybertechlabs.atlassian.net/browse/FLOW-30). Supabase 
 
    | Secret | Value |
    | --- | --- |
+   | `FLOWBASE_READ_TOKEN` | Fine-grained PAT with read-only access to `seethesy/Flowbase` contents. The collector uses the same secret (`collector/README.md`). |
    | `FLOWBASE_PROD_DATABASE_URL` | `flowbase-prod` connection string. GitHub runners have no IPv6, so use the session pooler string. |
    | `R2_ACCOUNT_ID` | Cloudflare account ID |
    | `R2_BACKUP_ACCESS_KEY_ID` | R2 token access key ID |
    | `R2_BACKUP_SECRET_ACCESS_KEY` | R2 token secret |
 
-3. Copy `ops-templates/backup.yml` from Flowbase `main` to `.github/workflows/backup.yml` in the ops repo and commit it.
-4. Run it once with **Run workflow**, then confirm a new `production/flowbase-*.dump` object in the bucket.
+3. Make sure the `ops-v1` tag exists in Flowbase (see [Update the scripts the ops repo runs](#update-the-scripts-the-ops-repo-runs)).
+4. Copy `ops-templates/backup.yml` from Flowbase `main` to `.github/workflows/backup.yml` in the ops repo and commit it.
+5. Run it once with **Run workflow**, then confirm a new `production/flowbase-*.dump` object in the bucket.
 
 The job runs nightly at 07:15 UTC and uses about 2 Actions minutes per run from the shared 2,000 free minutes.
+
+## Update the scripts the ops repo runs
+
+The ops workflows (`backup.yml` and `collector.yml`) check out Flowbase at the tag `ops-v1`, not `main` (FLOW-175). They run with production secrets, so a merged change to `scripts/backup.sh`, `scripts/backup-retention.mjs` or `collector/` reaches them only when you move the tag after reviewing it.
+
+1. Review what changed since the tag: `git fetch origin --tags && git diff ops-v1 origin/main -- scripts/ collector/ package.json package-lock.json`.
+2. Move the tag to the reviewed commit and push it:
+
+   ```sh
+   git tag -f ops-v1 <reviewed commit on main>
+   git push origin -f refs/tags/ops-v1
+   ```
+
+3. Start each workflow once with **Run workflow** in the ops repo and check it passes.
+
+To create the tag the first time, run step 2 with the current `main` commit. If a template in `ops-templates/` itself changed, copy it to the ops repo again too.
 
 ## Restore into a Supabase project
 
