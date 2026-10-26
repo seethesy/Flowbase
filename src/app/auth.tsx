@@ -157,11 +157,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, []);
   const signOut = async () => {
     saveRoute();
+    setLoading(true);
     setUser(null);
     setError("");
     const { error: signOutError } = await client!.auth.signOut({
       scope: "local",
     });
+    setLoading(false);
     if (signOutError)
       setError("Sign-out could not be completed. Please retry.");
   };

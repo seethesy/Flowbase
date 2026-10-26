@@ -80,44 +80,48 @@ function LegacyRoute({ to }: { to: string }) {
     />
   );
 }
-export const router = createHashRouter([
-  // Printable documents render without the app shell.
-  { path: "/print/sample", element: <PrintSample /> },
-  {
-    element: <AppShell />,
-    children: [
-      { path: "/", element: <Dashboard /> },
-      { path: "/leads", element: <LeadInbox /> },
-      { path: "/leads/dashboard", element: <LeadDashboardPage /> },
-      { path: "/leads/:id", element: <LeadDetail /> },
-      { path: "/clients", element: <ClientList /> },
-      { path: "/clients/:id", element: <ClientDetail /> },
-      { path: "/crm", element: <LegacyRoute to="/clients" /> },
-      { path: "/crm/:id", element: <LegacyRoute to="/clients" /> },
-      { path: "/customers", element: <LegacyRoute to="/clients" /> },
-      { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
-      { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
-      { path: "/proposals", element: <Proposals /> },
-      { path: "/inventory", element: <InventoryList /> },
-      { path: "/inventory/ingredients", element: <IngredientList /> },
-      { path: "/inventory/bar", element: <BarList /> },
-      { path: "/inventory/low-stock", element: <LowStockList /> },
-      { path: "/inventory/counts", element: <CountList /> },
-      { path: "/inventory/counts/:id", element: <CountMode /> },
-      { path: "/inventory/sections", element: <SectionList /> },
-      { path: "/inventory/:id", element: <InventoryDetail /> },
-      { path: "/events", element: <EventList /> },
-      { path: "/events/:id", element: <EventDetail /> },
-      { path: "/venues", element: <VenueList /> },
-      { path: "/venues/:id", element: <VenueDetail /> },
-      { path: "/profile", element: <Profile /> },
-      { path: "/reports", element: <TimeReports /> },
-      { path: "/settings", element: <SettingsPage /> },
-      { path: "/settings/users", element: <UserManagement /> },
-      ...["purchasing", "help", "*"].map((path) => ({
-        path,
-        element: <Placeholder />,
-      })),
-    ],
-  },
-]);
+// OAuth restores the hash before this is called. Reuse the instance across
+// StrictMode renders so only one browser-history listener is installed.
+let router: ReturnType<typeof createHashRouter> | undefined;
+export const getRouter = () =>
+  (router ??= createHashRouter([
+    // Printable documents render without the app shell.
+    { path: "/print/sample", element: <PrintSample /> },
+    {
+      element: <AppShell />,
+      children: [
+        { path: "/", element: <Dashboard /> },
+        { path: "/leads", element: <LeadInbox /> },
+        { path: "/leads/dashboard", element: <LeadDashboardPage /> },
+        { path: "/leads/:id", element: <LeadDetail /> },
+        { path: "/clients", element: <ClientList /> },
+        { path: "/clients/:id", element: <ClientDetail /> },
+        { path: "/crm", element: <LegacyRoute to="/clients" /> },
+        { path: "/crm/:id", element: <LegacyRoute to="/clients" /> },
+        { path: "/customers", element: <LegacyRoute to="/clients" /> },
+        { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
+        { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
+        { path: "/proposals", element: <Proposals /> },
+        { path: "/inventory", element: <InventoryList /> },
+        { path: "/inventory/ingredients", element: <IngredientList /> },
+        { path: "/inventory/bar", element: <BarList /> },
+        { path: "/inventory/low-stock", element: <LowStockList /> },
+        { path: "/inventory/counts", element: <CountList /> },
+        { path: "/inventory/counts/:id", element: <CountMode /> },
+        { path: "/inventory/sections", element: <SectionList /> },
+        { path: "/inventory/:id", element: <InventoryDetail /> },
+        { path: "/events", element: <EventList /> },
+        { path: "/events/:id", element: <EventDetail /> },
+        { path: "/venues", element: <VenueList /> },
+        { path: "/venues/:id", element: <VenueDetail /> },
+        { path: "/profile", element: <Profile /> },
+        { path: "/reports", element: <TimeReports /> },
+        { path: "/settings", element: <SettingsPage /> },
+        { path: "/settings/users", element: <UserManagement /> },
+        ...["purchasing", "help", "*"].map((path) => ({
+          path,
+          element: <Placeholder />,
+        })),
+      ],
+    },
+  ]));

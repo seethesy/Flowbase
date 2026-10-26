@@ -39,7 +39,14 @@ export async function mockBrowserAuth(
       if (!localStorage.getItem("auth-fixture-initialized")) {
         localStorage.setItem("auth-fixture-initialized", "1");
         if (signedIn)
-          localStorage.setItem("sb-test-auth-token", JSON.stringify(session));
+          localStorage.setItem(
+            "sb-test-auth-token",
+            JSON.stringify({
+              ...session,
+              // Use the browser's clock, including the tracking suite's fake date.
+              expires_at: Math.floor(Date.now() / 1000) + 3600,
+            }),
+          );
       }
     },
     { signedIn, session },
@@ -55,7 +62,9 @@ export async function mockBrowserAuth(
   await page.route("https://test.supabase.co/auth/v1/**", async (route) => {
     const headers = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Headers":
+        route.request().headers()["access-control-request-headers"] ||
+        "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     };
     if (route.request().method() === "OPTIONS")
