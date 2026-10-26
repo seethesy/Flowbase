@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import { chairs, mockInventoryApi } from "./mock-api";
 
 test("transfers stock between sections from the item page", async ({

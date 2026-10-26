@@ -34,6 +34,8 @@ import { RecordForm } from "../../features/forms";
 import { TrackingNotice } from "../../features/time-tracking";
 import { GlobalSearch } from "../../features/search";
 import { useActivityTracking } from "../../app/useActivityTracking";
+import { useAuth } from "../../app/auth";
+import { roleLabel } from "../../features/users";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
   { name: "Leads", to: "/leads", icon: Inbox },
@@ -84,6 +86,8 @@ export function Sidebar({
   mobile: boolean;
   setMobile: (v: boolean) => void;
 }) {
+  const auth = useAuth();
+  const displayName = auth?.user.name ?? "Profile";
   return (
     <>
       {mobile && (
@@ -181,10 +185,12 @@ export function Sidebar({
             className="profile"
             onClick={() => setMobile(false)}
           >
-            <span className="avatar">AC</span>
+            <span className="avatar">
+              {displayName.slice(0, 2).toUpperCase()}
+            </span>
             <span className="sidebar-text">
-              <strong>Alex Chen</strong>
-              <small>Operations manager</small>
+              <strong>{displayName}</strong>
+              <small>{auth ? roleLabel(auth.user.role) : ""}</small>
             </span>
             <ChevronDown size={15} />
           </Link>
@@ -194,6 +200,8 @@ export function Sidebar({
   );
 }
 export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
+  const auth = useAuth();
+  const displayName = auth?.user.name ?? "Profile";
   const store = useDemo();
   const navigate = useNavigate();
   const location = useLocation();
@@ -242,15 +250,21 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
               aria-label="Open profile menu"
               onClick={() => setProfile(!profile)}
             >
-              AC
+              {displayName.slice(0, 2).toUpperCase()}
             </button>
             {profile && (
               <div className="dropdown profile-dropdown">
-                <strong>Alex Chen</strong>
-                <small>Operations manager</small>
+                <strong>{displayName}</strong>
+                <small>{auth ? roleLabel(auth.user.role) : ""}</small>
                 <Link to="/profile" onClick={() => setProfile(false)}>
                   Employee profile
                 </Link>
+                {auth?.user.role === "admin" && (
+                  <Link to="/settings/users" onClick={() => setProfile(false)}>
+                    Manage users
+                  </Link>
+                )}
+                <button onClick={() => void auth?.signOut()}>Sign out</button>
                 <button
                   onClick={() => {
                     setProfile(false);

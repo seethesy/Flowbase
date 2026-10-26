@@ -2,6 +2,10 @@ export type Bindings = {
   ASSETS: { fetch: typeof fetch };
   SENTRY_DSN?: string;
   APP_VERSION?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_PUBLISHABLE_KEY?: string;
+  SUPABASE_SECRET_KEY?: string;
+  APP_URL?: string;
   HYPERDRIVE?: { connectionString: string };
   // "enabled" only in the dev environment; exposes /api/dev/db-check.
   DB_CHECK_ROUTE?: string;

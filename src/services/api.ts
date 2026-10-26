@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
 import type { RecordService } from "./records";
 
@@ -7,7 +8,7 @@ import type { RecordService } from "./records";
 export function createRecordService<T extends { id: string }>(
   resource: string,
   schema: z.ZodType<T>,
-  request: typeof fetch = fetch,
+  request: typeof fetch = authFetch,
 ): RecordService<T> {
   let records: T[] | undefined;
   const send = async (path = "", init?: RequestInit) => {

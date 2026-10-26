@@ -7,7 +7,7 @@ import type {
 } from "../../shared/time-tracking";
 import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { Db } from "../db/client";
-import { activitySessions, clients, events } from "../db/schema";
+import { activitySessions, clients, events, users } from "../db/schema";
 import { ApiError } from "../hono";
 import { timeReportScope } from "../policy";
 import { visibleEvents } from "./events";
@@ -27,7 +27,11 @@ export async function recordSessions(
 ): Promise<{ recorded: number }> {
   const latest = Date.now() + CLOCK_SKEW_MS;
   if (input.some((session) => Date.parse(session.endedAt) > latest))
-    throw new ApiError(400, "INVALID_REQUEST", "A session can't end in the future.");
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      "A session can't end in the future.",
+    );
   // One row per session id; a batch may carry the same open session twice.
   const byId = new Map<string, SessionInput>();
   for (const session of input) {
@@ -109,12 +113,19 @@ export async function timeReport(
     db
       .select({
         userId: activitySessions.userId,
+        userName: sql<string>`coalesce(nullif(${users.name}, ''), ${users.email}, ${activitySessions.userId}::text)`,
         activity: activitySessions.activity,
         seconds,
       })
       .from(activitySessions)
+      .leftJoin(users, eq(users.id, activitySessions.userId))
       .where(where)
-      .groupBy(activitySessions.userId, activitySessions.activity)
+      .groupBy(
+        activitySessions.userId,
+        activitySessions.activity,
+        users.name,
+        users.email,
+      )
       .orderBy(activitySessions.userId, desc(seconds)),
   ]);
   return {

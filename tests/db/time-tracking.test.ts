@@ -198,14 +198,22 @@ describe("time tracking", () => {
   it("keeps one row per session, which only grows when resent", async () => {
     const { gala } = await seed();
     const id = sessionId();
-    await sam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 10, 8, id)] }, 200);
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 8, id)] },
+      200,
+    );
     await sam.post(
       "/api/time/sessions",
       // The same open session twice in one batch, then an older copy.
       { sessions: [onEvent(gala.id, 10, 6, id), onEvent(gala.id, 10, 5, id)] },
       200,
     );
-    await sam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 10, 9, id)] }, 200);
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 9, id)] },
+      200,
+    );
     const rows = await db.select().from(activitySessions);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -215,14 +223,24 @@ describe("time tracking", () => {
       activity: "event_planning",
       createdBy: people.sam,
     });
-    expect(rows[0].endedAt.getTime() - rows[0].startedAt.getTime()).toBe(5 * MIN);
+    expect(rows[0].endedAt.getTime() - rows[0].startedAt.getTime()).toBe(
+      5 * MIN,
+    );
   });
 
   it("keeps the same session id from different users apart", async () => {
     const { gala } = await seed();
     const id = sessionId();
-    await sam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 10, 8, id)] }, 200);
-    await helper.post("/api/time/sessions", { sessions: [onEvent(gala.id, 10, 7, id)] }, 200);
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 8, id)] },
+      200,
+    );
+    await helper.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 7, id)] },
+      200,
+    );
     expect(await db.select().from(activitySessions)).toHaveLength(2);
   });
 
@@ -254,7 +272,11 @@ describe("time tracking", () => {
       },
       200,
     );
-    await helper.post("/api/time/sessions", { sessions: [onEvent(gala.id, 15, 10)] }, 200);
+    await helper.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 15, 10)] },
+      200,
+    );
     // Sue can't see the gala any more than she could open it.
     await sue.post(
       "/api/time/sessions",
@@ -285,6 +307,7 @@ describe("time tracking", () => {
     expect(all.workload).toHaveLength(4);
     expect(all.workload).toContainEqual({
       userId: people.sam,
+      userName: people.sam,
       activity: "proposal_work",
       seconds: 5 * 60,
     });
@@ -304,14 +327,24 @@ describe("time tracking", () => {
     const sues = await sue.get<TimeReport>(`/api/time/report${range}`);
     expect(sues.effort.map((row) => row.title)).toEqual(["Board brunch"]);
     expect(sues.workload).toEqual([
-      { userId: people.sue, activity: "event_planning", seconds: 5 * 60 },
+      {
+        userId: people.sue,
+        userName: people.sue,
+        activity: "event_planning",
+        seconds: 5 * 60,
+      },
     ]);
 
     const helpers = await manager.get<TimeReport>(
       `/api/time/report${range}&userId=${people.helper}`,
     );
     expect(helpers.workload).toEqual([
-      { userId: people.helper, activity: "event_planning", seconds: 5 * 60 },
+      {
+        userId: people.helper,
+        userName: people.helper,
+        activity: "event_planning",
+        seconds: 5 * 60,
+      },
     ]);
 
     const before = await manager.get<TimeReport>(

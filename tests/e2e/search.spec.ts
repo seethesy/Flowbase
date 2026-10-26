@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import type { SearchResult } from "../../shared/search";
 import { lead, mockLeadsApi } from "./mock-api";
 

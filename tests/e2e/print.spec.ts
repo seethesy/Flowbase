@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 
 test("the sample document prints on US Letter with the header on every page", async ({
   page,

@@ -14,7 +14,12 @@ const dbCheck = {
   create: vi.fn(),
 };
 const enabled = { ASSETS: { fetch }, DB_CHECK_ROUTE: "enabled" };
-const app = createApp({ dbCheck });
+const resolveActor = async () => ({
+  userId: "36000000-0000-4000-8000-000000000003",
+  role: "admin" as const,
+  employmentType: "full_time" as const,
+});
+const app = createApp({ dbCheck, resolveActor });
 const post = (body: string, env: object | undefined, a = app) =>
   a.request("/api/dev/db-check", { method: "POST", body }, env);
 
@@ -68,17 +73,21 @@ it("reports a missing database binding as 503 with the request id", async () => 
     expect(body.error.code).toBe("DATABASE_NOT_CONFIGURED");
     expect(body.error.requestId).toBe(response.headers.get("X-Request-ID"));
   }
-  const unwired = await post(JSON.stringify({ note: "x" }), enabled, createApp());
+  const unwired = await post(
+    JSON.stringify({ note: "x" }),
+    enabled,
+    createApp({ resolveActor }),
+  );
   expect(unwired.status).toBe(503);
 });
 it("sends unexpected database failures through the standard 500 handler", async () => {
   const captureError = vi.fn();
   dbCheck.list.mockRejectedValue(new Error("connection reset"));
-  const response = await createApp({ dbCheck, captureError }).request(
-    "/api/dev/db-check",
-    {},
-    enabled,
-  );
+  const response = await createApp({
+    dbCheck,
+    captureError,
+    resolveActor,
+  }).request("/api/dev/db-check", {}, enabled);
   expect(response.status).toBe(500);
   const body = await response.json();
   expect(body.error.code).toBe("INTERNAL_ERROR");

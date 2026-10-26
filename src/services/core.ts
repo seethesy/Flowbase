@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
 import {
   clientSchema,
@@ -55,7 +56,7 @@ export async function request<S extends z.ZodType>(
   method = "GET",
   body?: unknown,
 ): Promise<z.output<S>> {
-  const response = await fetch(path, {
+  const response = await authFetch(path, {
     method,
     ...(body !== undefined && {
       headers: { "Content-Type": "application/json" },

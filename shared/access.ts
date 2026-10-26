@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Roles and employment type from the architecture terms. FLOW-38 owns the full
-// permission matrix; until sign-in (FLOW-36) exists, no request carries an actor.
+// permission matrix. The Worker loads both from the stored user on every request.
 export const roleSchema = z.enum([
   "admin",
   "technical",
