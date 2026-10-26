@@ -102,6 +102,8 @@ it("supports resend, revoke, re-invite and deactivation/reactivation without los
       startedAt: "2026-10-20T15:00:00.000Z",
       endedAt: "2026-10-20T15:01:00.000Z",
       activity: "general",
+      recordType: null,
+      recordId: null,
     },
   ]);
   try {

@@ -53,11 +53,18 @@ export async function mockBrowserAuth(
     }),
   );
   await page.route("https://test.supabase.co/auth/v1/**", async (route) => {
+    const headers = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    };
+    if (route.request().method() === "OPTIONS")
+      return route.fulfill({ status: 204, headers });
     if (route.request().url().includes("/logout"))
-      return route.fulfill({ status: 204 });
+      return route.fulfill({ status: 204, headers });
     if (route.request().url().includes("/token"))
-      return route.fulfill({ json: session });
-    return route.fulfill({ json: user });
+      return route.fulfill({ json: session, headers });
+    return route.fulfill({ json: user, headers });
   });
   await page.route("**/api/auth/me", async (route) => {
     if (allowed) {

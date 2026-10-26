@@ -98,7 +98,7 @@ it("refuses tampered signatures, malformed and missing tokens before accessing t
   const good = await token();
   const [header, payload] = good.split(".");
   const db = vi.fn<RunWithDb>();
-  const app = createApp({ withDb: db });
+  const app = createApp({ withDb: db as unknown as RunWithDb });
   for (const authorization of [
     undefined,
     "Basic x",
@@ -129,7 +129,7 @@ it("only Admin can call every user management operation", async () => {
   const db = vi.fn<RunWithDb>();
   for (const role of roleSchema.options.filter((r) => r !== "admin")) {
     const app = createApp({
-      withDb: db,
+      withDb: db as unknown as RunWithDb,
       resolveActor: async () => ({
         userId: id,
         role,

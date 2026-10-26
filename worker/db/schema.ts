@@ -14,7 +14,7 @@ import {
   type ExtraConfigColumn,
 } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../shared/core-records";
-import { roleSchema, employmentTypeSchema } from "../../shared/access";
+import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { baseColumns, moneyCents, timestamptz } from "./conventions";
 
@@ -30,9 +30,9 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull().default(""),
     authId: uuid("auth_id").unique(),
-    role: text("role", { enum: roleSchema.options }).notNull(),
+    role: text("role", { enum: roles }).notNull(),
     employmentType: text("employment_type", {
-      enum: employmentTypeSchema.options,
+      enum: employmentTypes,
     }).notNull(),
     mobile: text("mobile").notNull(),
     status: text("status", { enum: userStatuses }).notNull().default("pending"),
