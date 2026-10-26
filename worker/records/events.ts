@@ -15,8 +15,7 @@ import {
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import {
-  eventStatusLabels,
-  eventStatusSchema,
+  eventStatusDetailLabels,
   type EventStatus,
   type EventStatusChange,
   type FlowEvent,
@@ -71,15 +70,6 @@ function instants(input: Pick<EventInput, "date" | "startTime" | "endTime">) {
   if (endsAt < startsAt) endsAt = new Date(endsAt.getTime() + DAY_MS);
   return { startsAt, endsAt };
 }
-
-// booked_at decides which event keeps contested rentals: the first time the event
-// reached Negotiation (FLOW-56 A6), or a later status if it skipped Negotiation.
-const bookedFrom = eventStatusSchema.options.indexOf("negotiation");
-const bookedAtFor = (current: Date | null, status: EventStatus) =>
-  current ??
-  (status !== "lost" && eventStatusSchema.options.indexOf(status) >= bookedFrom
-    ? new Date()
-    : null);
 
 async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
   if (!rows.length) return [];
@@ -350,7 +340,6 @@ export async function insertEvent(
       status: input.status,
       address: resolved.address,
       assignedSalespersonId: resolved.salesperson,
-      bookedAt: bookedAtFor(null, input.status),
       createdBy: actor.userId,
     })
     .returning({ id: events.id });
@@ -463,7 +452,6 @@ async function changeStatus(
     .update(events)
     .set({
       status: to,
-      bookedAt: bookedAtFor(current.bookedAt, to),
       updatedBy: actor?.userId ?? null,
     })
     .where(eq(events.id, current.id));
@@ -505,7 +493,7 @@ const sameStatus = (status: EventStatus) =>
   new ApiError(
     409,
     "INVALID_TRANSITION",
-    `The event is already ${eventStatusLabels[status]}.`,
+    `The event is already ${eventStatusDetailLabels[status]}.`,
   );
 
 // A person changing the status (A1: any status, at any time). Admin, or the
@@ -547,10 +535,10 @@ export async function advanceEventStatus(
     throw new ApiError(
       409,
       "INVALID_TRANSITION",
-      `An event can't move automatically from ${eventStatusLabels[current.status]} to ${eventStatusLabels[to]}. ` +
+      `An event can't move automatically from ${eventStatusDetailLabels[current.status]} to ${eventStatusDetailLabels[to]}. ` +
         (allowed.length
-          ? `Allowed next statuses: ${allowed.map((status) => eventStatusLabels[status]).join(", ")}.`
-          : `${eventStatusLabels[current.status]} is final.`),
+          ? `Allowed next statuses: ${allowed.map((status) => eventStatusDetailLabels[status]).join(", ")}.`
+          : `${eventStatusDetailLabels[current.status]} is final.`),
       { allowed },
     );
   }

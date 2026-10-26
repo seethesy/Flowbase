@@ -418,16 +418,16 @@ describe("events", () => {
     );
   });
 
-  it("records booked_at the first time an event reaches Negotiation", async () => {
+  it("doesn't record booked_at when an event reaches Negotiation (FLOW-208)", async () => {
     const owner = await admin.post<Client>("/api/clients", newClient());
     const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id));
     expect(event.bookedAt).toBeNull();
-    const booked = await admin.post<FlowEvent>(
+    const negotiating = await admin.post<FlowEvent>(
       `/api/events/${event.id}/status`,
       { status: "negotiation" },
       200,
     );
-    expect(booked.bookedAt).not.toBeNull();
+    expect(negotiating.bookedAt).toBeNull();
   });
 
   it("refuses a point of contact from another client", async () => {
