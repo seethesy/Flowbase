@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { TriangleAlert } from "lucide-react";
 import type { Lead, LeadConversion } from "../../shared/leads";
 import { ApiRequestError, clientsApi } from "../services/core";

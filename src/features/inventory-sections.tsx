@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Archive } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   sectionKindLabels,
   sectionKindSchema,
