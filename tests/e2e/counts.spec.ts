@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import { consumable, defaultSections, mockInventoryApi } from "./mock-api";
 
 // Count mode (FLOW-82) is used on a phone in the storage area.

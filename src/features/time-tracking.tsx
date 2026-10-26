@@ -21,6 +21,7 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import { useAuth } from "../app/auth";
 import "./time-tracking.css";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
@@ -67,18 +68,24 @@ export function TrackingNotice() {
 }
 
 export function SettingsPage() {
+  const auth = useAuth();
   return (
     <>
       <PageHeader title="Settings" subtitle="How Flowbase works for you." />
+      {auth?.user.role === "admin" && (
+        <Section title="Staff access">
+          <Link to="/settings/users">Manage users</Link>
+        </Section>
+      )}
       <Section title="Time tracking">
         <p>
           <strong>Time tracking is on.</strong> {trackingNoticeText}
         </p>
         <p>
           Time is credited to the lead, client or event on screen and to the
-          kind of work the screen is for. Admin and Sales Managers see everyone's
-          time in <Link to="/reports">Reports</Link>; everyone else sees only
-          their own.
+          kind of work the screen is for. Admin and Sales Managers see
+          everyone's time in <Link to="/reports">Reports</Link>; everyone else
+          sees only their own.
         </p>
       </Section>
     </>
@@ -117,7 +124,11 @@ export function TimeReports() {
     },
   ];
   const workloadColumns: ColumnDef<WorkloadRow, unknown>[] = [
-    { accessorKey: "userId", header: "User" },
+    {
+      id: "user",
+      accessorFn: (row) => row.userName ?? row.userId,
+      header: "User",
+    },
     {
       id: "activity",
       header: "Activity",
@@ -167,7 +178,11 @@ export function TimeReports() {
         <>
           <Section title="Effort per booking">
             {data.effort.length ? (
-              <DataTable data={data.effort} columns={effortColumns} label="events" />
+              <DataTable
+                data={data.effort}
+                columns={effortColumns}
+                label="events"
+              />
             ) : (
               <EmptyState
                 title="No event time yet"

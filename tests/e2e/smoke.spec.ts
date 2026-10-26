@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import { juniper, mockRecordsApi } from "./mock-api";
 test("sidebar, client search, detail tabs, and browser history", async ({
   page,

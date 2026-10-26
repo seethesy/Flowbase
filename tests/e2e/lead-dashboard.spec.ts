@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import type { LeadDashboard, LeadDashboardRow } from "../../shared/leads";
 
 // Lead dashboard (FLOW-113): renders the API's numbers and asks again for a new range.

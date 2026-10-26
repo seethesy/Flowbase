@@ -9,7 +9,14 @@ class ResizeObserverMock {
 }
 globalThis.ResizeObserver = ResizeObserverMock;
 
-import { app } from "../worker/app";
+import { createApp } from "../worker/app";
+const app = createApp({
+  resolveActor: async () => ({
+    userId: "36000000-0000-4000-8000-000000000003",
+    role: "admin",
+    employmentType: "full_time",
+  }),
+});
 beforeEach(() => {
   vi.stubGlobal(
     "fetch",

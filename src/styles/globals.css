@@ -1952,7 +1952,7 @@ tbody tr:last-child td {
 }
 .inline-row .form-field {
   flex: 1;
-/* Rich text (FLOW-50): shared by the editor and the read-only/print view. */
+  /* Rich text (FLOW-50): shared by the editor and the read-only/print view. */
 }
 .rich-text {
   line-height: 1.6;
@@ -2180,4 +2180,59 @@ tbody tr:last-child td {
     grid-column: 1 / -1;
     grid-row: 2;
   }
+}
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.auth-card {
+  width: min(100%, 440px);
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: white;
+}
+.auth-card h1 {
+  font-size: 26px;
+  margin-bottom: 12px;
+}
+.auth-card p {
+  margin-bottom: 20px;
+}
+.user-invite-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+.user-invite-form label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 180px;
+}
+.user-invite-form input,
+.user-invite-form select {
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.user-access-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.user-access-row p {
+  margin: 4px 0;
+}
+.user-access-row button {
+  margin: 4px;
 }

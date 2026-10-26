@@ -30,10 +30,10 @@ it.each([
   expect(response.status).toBe(401);
   expect(mock).not.toHaveBeenCalled();
 });
-it("leaves health and the demo routes open", async () => {
+it("leaves health open and protects demo records", async () => {
   const app = createApp();
   expect((await app.request("/api/health", {}, env)).status).toBe(200);
-  expect((await app.request("/api/demo/clients", {}, env)).status).toBe(200);
+  expect((await app.request("/api/demo/clients", {}, env)).status).toBe(401);
 });
 it("answers 404 for a malformed record id", async () => {
   const { mock, withDb } = mockDb();
@@ -49,7 +49,11 @@ it("validates bodies before touching the database", async () => {
     "/api/events",
     {
       method: "POST",
-      body: JSON.stringify({ title: "", date: "2026-11-14", startTime: "18:00" }),
+      body: JSON.stringify({
+        title: "",
+        date: "2026-11-14",
+        startTime: "18:00",
+      }),
     },
     env,
   );

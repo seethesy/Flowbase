@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./auth-fixture";
 import { consumable, defaultSections, mockInventoryApi } from "./mock-api";
 
 const barStorage = defaultSections[6];

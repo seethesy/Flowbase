@@ -52,6 +52,10 @@ repo and add these Actions secrets (names only here; values never enter Flowbase
 | `COLLECTOR_STATE_KEY` | A long random string that encrypts saved sessions |
 | `COLLECTOR_<SITE>_USERNAME`, `COLLECTOR_<SITE>_PASSWORD` | Each site's login, for `BARK`, `PERFECT_VENUE`, `WEDDINGPRO`, `EVENTECTIVE` (added as each site module lands) |
 
+The workflow checks out Flowbase at the tag `ops-v1`, not `main` (FLOW-175), so a
+merged change to `collector/` runs with these secrets only after you review it and
+move the tag. Steps: [Update the scripts the ops repo runs](../docs/restore.md#update-the-scripts-the-ops-repo-runs).
+
 ## Tests
 
 Flowbase CI tests the framework against sanitized fixture pages in
