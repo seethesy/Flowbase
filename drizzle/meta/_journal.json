@@ -120,6 +120,13 @@
       "when": 1793049026243,
       "tag": "0016_booked_at_first_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793053435457,
+      "tag": "0017_check_constraints",
+      "breakpoints": true
     }
   ]
 }

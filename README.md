@@ -71,8 +71,13 @@ Supabase Free Postgres (`flowbase-prod` `lfsznrmrzxiohzydetbd`, `flowbase-dev` `
 - Soft delete through `archived_at`; list queries exclude archived rows.
 - Money as integer cents (`moneyCents`), all times as `timestamptz` (`timestamptz`).
 - RLS on every table with no browser-facing policies.
+- A CHECK constraint on every enum-like text column (`oneOf(name, column, values)` with the column's `enum` list), and `inventory_stock.quantity >= 0` (FLOW-187). A unique violation answers `409 ALREADY_EXISTS` and a CHECK violation `400 INVALID_VALUE` (`onError` in `worker/app.ts`).
 
 **Adding a table:** spread `...baseColumns()` into `pgTable(...)`, end it with `.enableRLS()`, run `npm run db:generate`, and commit the SQL and snapshot together with the schema change. CI rejects a schema without a matching migration, and any table in `public` without RLS.
+
+**Hand-written SQL** (data fixes, seed rows, triggers) goes in its own migration created with `npx drizzle-kit generate --custom --name=<name>`, never appended to a generated file (FLOW-187; `0010_stock_ledger.sql` predates this rule).
+
+**Migration order:** Drizzle skips a migration whose journal `when` is not later than the last one applied, so `npm run db:check` fails when a migration added on your branch is not newer than the last one on `main` (`scripts/check-migration-order.mjs`). If it fails, merge `main`, delete your migration and its snapshot, remove its journal entry, and run `npm run db:generate` again.
 
 **Using it in the Worker:** `withDb(env, (db) => ...)` in `worker/db/client.ts` opens a request-local postgres.js client from the `HYPERDRIVE` binding (`max: 5`, `fetch_types: false`, prepared statements on), runs the callback with a typed Drizzle `db`, and always closes the client. Without the binding it throws `DatabaseNotConfiguredError`; `/api/health` keeps reporting `not_configured`.
 
