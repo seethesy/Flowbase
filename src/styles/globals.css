@@ -48,11 +48,11 @@ button {
   background: transparent;
   border: 0;
 }
-button:focli-visible,
-a:focli-visible,
-input:focli-visible,
-select:focli-visible,
-textarea:focli-visible {
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid #80ac92;
   outline-offset: 3px;
 }
