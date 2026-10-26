@@ -19,12 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out Flowbase main (read-only)
+      # ops-v1 is a tag the developer moves after reviewing script changes
+      # (FLOW-175); see docs/restore.md → Update the scripts the ops repo runs.
+      - name: Check out Flowbase ops-v1 (read-only)
         uses: actions/checkout@v4
         with:
           repository: seethesy/Flowbase
-          ref: main
+          ref: ops-v1
           path: flowbase
+          token: ${{ secrets.FLOWBASE_READ_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
