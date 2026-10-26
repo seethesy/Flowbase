@@ -34,6 +34,7 @@ import {
   Select,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import "./leads.css";
 
 const statusTone: Record<LeadStatus, string> = {
   new: "info",

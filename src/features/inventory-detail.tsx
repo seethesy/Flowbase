@@ -36,6 +36,7 @@ import {
   variantLabel,
 } from "./inventory-labels";
 import { MovementForm, StockForm } from "./inventory-stock-forms";
+import "./inventory.css";
 
 export function InventoryDetail() {
   const { id = "" } = useParams();

@@ -1,0 +1,14 @@
+/* leads styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.duplicate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.duplicate-pair {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.duplicate-pair p {
+  margin: 0 0 6px;
+}

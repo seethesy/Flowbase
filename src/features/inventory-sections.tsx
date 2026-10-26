@@ -17,6 +17,7 @@ import {
   LoadingSkeleton,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import "./inventory.css";
 
 // Sections (FLOW-70): Admin adds, renames and archives them.
 export function SectionList() {

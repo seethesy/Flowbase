@@ -1,0 +1,242 @@
+/* dashboard styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.range-select {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 8px;
+  padding-left: 11px;
+  color: #59685f;
+  gap: 3px;
+}
+.welcome-strip {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid #dce6d8;
+  background: #eef4e9;
+  border-radius: 10px;
+  padding: 17px 20px;
+  margin-bottom: 24px;
+}
+.welcome-icon {
+  color: #64825b;
+  background: #e0ebd9;
+  border-radius: 50%;
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.live-pill {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  white-space: nowrap;
+  color: #566c50;
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(310px, 1fr);
+  gap: 24px;
+}
+.subtle-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.activity-row {
+  display: flex;
+  gap: 13px;
+  padding: 12px 0;
+  position: relative;
+  align-items: flex-start;
+}
+.activity-row + .activity-row {
+  border-top: 1px solid #f2f4ef;
+}
+.compact-table {
+  min-width: 500px;
+}
+.compact-table th {
+  font-size: 9px;
+}
+.compact-table td {
+  font-size: 11px;
+}
+.proposal-name {
+  font-size: 11px;
+  white-space: normal;
+  text-align: left;
+}
+.workspace-note {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7b897d;
+  font-size: 10px;
+  margin: 28px 0;
+}
+.small-mark {
+  width: 20px;
+  height: 22px;
+  font-size: 21px;
+  background: #dfe7d9;
+  color: #7f947b;
+  border-radius: 5px;
+}
+.workspace-note > span:last-child {
+  margin-left: auto;
+  font-size: 9px;
+}
+.chart-layout {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.donut {
+  position: relative;
+  width: 52%;
+  min-width: 145px;
+  height: 174px;
+}
+.donut-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.chart-legend {
+  flex: 1;
+}
+.chart-legend button > span:first-child {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.chart-legend b {
+  margin-left: auto;
+  font-weight: 500;
+}
+.alert-count {
+  color: #9a6a26;
+  background: #fbf1dc;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+}
+.stock-item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: #f5f5ed;
+  color: #8d9677;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+.event-row + .event-row {
+  border-top: 1px solid #f0f3ec;
+}
+.event-date {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  min-width: 36px;
+  text-align: center;
+  padding: 4px 7px;
+  background: #fafcf8;
+}
+.event-date b {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+@media (min-width: 1550px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(360px, 1fr);
+  }
+  .activity-row {
+    padding: 16px 0;
+  }
+}
+@media (max-width: 1199px) {
+  .dashboard-grid {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
+  }
+  .chart-layout {
+    gap: 5px;
+  }
+}
+@media (max-width: 1000px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-aside {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .workspace-note {
+    margin: 18px 0;
+  }
+}
+@media (max-width: 767px) {
+  .welcome-strip {
+    padding: 14px;
+    gap: 10px;
+  }
+  .welcome-strip p {
+    font-size: 10px;
+  }
+  .welcome-icon {
+    width: 31px;
+    height: 31px;
+  }
+  .live-pill {
+    display: none;
+  }
+  .dashboard-aside {
+    display: block;
+  }
+  .dashboard-grid {
+    gap: 0;
+  }
+  .activity-row p {
+    font-size: 9px;
+  }
+  .workspace-note {
+    font-size: 8px;
+    margin-bottom: 23px;
+  }
+  .chart-layout {
+    max-width: 350px;
+    margin: auto;
+  }
+  .donut {
+    width: 55%;
+  }
+  .chart-caption {
+    font-size: 10px;
+  }
+  .stock-item-icon {
+    width: 32px;
+    height: 32px;
+  }
+}

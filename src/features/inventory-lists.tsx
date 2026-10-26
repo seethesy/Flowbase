@@ -36,6 +36,7 @@ import {
   subtypeLabel,
   variantLabel,
 } from "./inventory-labels";
+import "./inventory.css";
 
 function SectionFilter({
   value,

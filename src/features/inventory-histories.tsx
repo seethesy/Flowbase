@@ -12,6 +12,7 @@ import { Button, Section, LoadingSkeleton } from "../components/shared";
 import { LoadError } from "./clients";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
 import { CorrectionForm } from "./inventory-stock-forms";
+import "./inventory.css";
 
 // The item's stock ledger, newest first (FLOW-71).
 export function MovementHistory({

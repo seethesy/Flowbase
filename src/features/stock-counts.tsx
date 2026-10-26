@@ -22,6 +22,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "./clients";
 import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
+import "./stock-counts.css";
 
 // Count mode (FLOW-82): count a storage section on a phone, item by item in shelf
 // order. Each saved count writes a count movement for the difference, and an

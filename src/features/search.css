@@ -1,0 +1,11 @@
+/* search styles, moved from globals.css (FLOW-193). Shared tokens and
+   components stay in src/styles/globals.css. */
+.search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  text-align: left;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+}
