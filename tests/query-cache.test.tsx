@@ -5,11 +5,7 @@ import { expect, it, vi } from "vitest";
 import { useResource } from "../src/app/useResource";
 import { request } from "../src/services/core";
 import { MovementForm, StockForm } from "../src/features/inventory-stock-forms";
-import {
-  rentalDetailsSchema,
-  type InventoryItem,
-  type Section,
-} from "../shared/inventory";
+import type { InventoryItem, Section } from "../shared/inventory";
 import { z } from "zod";
 
 // FLOW-189 AC3: data several forms on one page use is fetched once (TanStack
@@ -36,7 +32,7 @@ const item: InventoryItem = {
   tier: "",
   ratio: null,
   active: true,
-  rental: rentalDetailsSchema.parse({}),
+  rental: { priceCents: null, dimensions: "", colors: [], notes: "", assemblyNotes: "", bufferDaysBefore: 1, bufferDaysAfter: 1, components: [] },
   consumable: null,
   service: null,
   bar: null,
@@ -88,11 +84,11 @@ it("shares one request per key and refetches after a save", async () => {
     loads += 1;
     return ["Warehouse"];
   };
-  const twice = () => [
+  const useTwice = () => [
     useResource(["reference-test"], load, { reference: true }),
     useResource(["reference-test"], load, { reference: true }),
   ];
-  const first = renderHook(twice);
+  const first = renderHook(useTwice);
   await waitFor(() =>
     expect(first.result.current[1].data).toEqual(["Warehouse"]),
   );
@@ -102,7 +98,7 @@ it("shares one request per key and refetches after a save", async () => {
   // Any save goes through request(); afterwards cached data is stale.
   vi.mocked(fetch).mockImplementation(async () => Response.json({ ok: true }));
   await request(z.object({ ok: z.boolean() }), "/api/anything", "POST", {});
-  const second = renderHook(twice);
+  const second = renderHook(useTwice);
   await waitFor(() => expect(loads).toBe(2));
   expect(second.result.current[0].data).toEqual(["Warehouse"]);
 });
