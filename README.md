@@ -185,11 +185,47 @@ Automatic activity time tracking (FLOW-119) measures in-app time per record and 
 | `POST /api/time/sessions` | `{sessions: [{id, startedAt, endedAt, recordType, recordId, activity}]}`, up to 100. Always the caller's own time |
 | `GET /api/time/report?from=&to=&userId=` | Effort per event and workload per user and activity type, for New York dates (the last 30 days by default) |
 
-- **What counts:** time accrues only while a Flowbase tab is visible and the user has typed or clicked within the idle cutoff (`IDLE_CUTOFF_MS`, 5 minutes, until business settings (FLOW-45) can hold it). An idle session ends when the cutoff passes; hiding the tab ends it at once, and time starts again with the next input. Only time inside Flowbase is measured.
+- **What counts:** time accrues only while a Flowbase tab is visible and the user has typed or clicked within the idle cutoff (5 minutes by default; Admin changes it in business settings, FLOW-45, and open tabs pick it up when they next load settings). An idle session ends when the cutoff passes; hiding the tab ends it at once, and time starts again with the next input. Only time inside Flowbase is measured.
 - **What it's credited to:** the screen decides (`contextForPath`): leads, clients and events credit the record on screen; proposals (demo data until FLOW-122), venues and inventory credit only the activity type (proposal work, event planning, inventory, kitchen for the ingredient catalog); everything else is "general". BEO and task records and the delegating type are ready for when those modules exist.
 - **Requests:** the browser sends at most one request a minute (`FLUSH_INTERVAL_MS`). An open session is resent with a later end under the same id and stays one row (`activity_sessions`, unique on user and session id); its end only ever grows. A 401 or 403 stops tracking for that page, so until sign-in (FLOW-36) nothing is recorded. Closing the tab can lose up to a minute that wasn't sent yet.
 - **Who sees what** (`timeReportScope` in `worker/policy.ts`): Admin and Sales Manager see everyone's time and can narrow to one user; everyone else sees only their own. Events in the effort report also follow event visibility. Until the users table exists (FLOW-37) users show as ids.
 - **Notice:** a "Time tracking is on" notice shows on first use (remembered per browser until sign-in exists) and on the Settings page.
+
+## Staff directory
+
+`/staff` (FLOW-40, `src/features/staff.tsx`, API `worker/routes/staff.ts` with logic in `worker/records/staff.ts`) lists every invited user except revoked invitations: name, email, mobile number, role, employment type, active flag (`status` is active), notes, qualified positions (labels from the `staff_position` list in business settings) and SMS consent (`users.sms_consent_at`, the opt-in date; STOP replies are the SMS channel's job, FLOW-52). The directory filters by position, employment type and inactive staff, and exports to CSV.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/staff` | The directory, for every signed-in role (`staff.read`) |
+| `GET /api/staff/<id>` | One profile |
+| `PATCH /api/staff/<id>` | `{name, mobile, role, employmentType, positions, notes, smsConsent}`, any subset. Anyone may change their own `mobile` and `smsConsent` (`staff.update_self`); everything else, and other people's profiles, needs `users.manage` (Admin). Positions must be active list values, except ones the profile already has. You can't change your own role. Audited as `user` |
+
+A mobile number shows to FT+ and to the person themselves (`staff_contact` in `shared/visibility.ts`); notes show to FT+ only. Email stays the sign-in identity and isn't editable here: revoke and re-invite to change it. A name Admin sets before the first sign-in is kept; otherwise the Google name is used. The profile page shows the signed-in user's own profile.
+
+## Business settings
+
+`/settings` (FLOW-45, `src/features/settings.tsx`, API `worker/routes/settings.ts` with logic in `worker/records/settings.ts`, schemas in `shared/settings.ts`). Everyone reads the settings (`settings.read`); only Admin changes them (`settings.manage`). Every change writes an audit row (`setting` or `list_value`); the screen shows the last 100.
+
+- **Company profile:** name, website, sales contact block and logo for printed documents (`PrintLayout`). The browser scales the logo to fit 600 × 240 and re-encodes it as PNG or JPEG; it is stored inline in the profile (at most 200,000 characters), and the audit records only that it changed.
+- **Lists** (`list_values`): staff positions, event types, service types, food service styles, dress code presets, lead sources, vehicles, recipe categories, and rental, decor, kitchen equipment, ingredient and supply categories. Migration `0021` seeds them from `defaultListValues` (the 10 BEO positions, Corporate/Wedding, Full Service, Stationed/Buffet/Plated, the lead sources, Truck 1–3, the ingredient categories). Admin adds, renames, reorders, archives and restores values; labels are unique per list among active values. Records store the label: archived values stay on old records and show as "(archived)", but forms offer only active values. The event form picks event type, service type and food service style from their lists and suggests dress code presets; the inventory item form suggests its kind's categories; the lead inbox filters by lead source; staff profiles pick positions. Inventory sections keep their own screen (FLOW-70); bar categories stay built in because bar count rounding depends on them.
+- **Defaults** (`settings` rows `company` and `defaults`): rental buffer days before and after (1 and 1), per-guest ratio defaults by category (a new item in that category starts with the ratio), default payment terms, urgent (SMS) notification types, the monthly SMS cap (0 sends none), the time-tracking idle cutoff (5 minutes, the FLOW-119 answer), and the BEO key fields that trigger re-approval. No tax rates. A missing or no-longer-valid row reads as the built-in defaults.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/settings` | `{company, defaults, lists}`; lists include archived values, flagged |
+| `PUT /api/settings/company`, `PUT /api/settings/defaults` | Replace a settings group |
+| `POST /api/settings/lists/<key>` | `{label}` adds a value |
+| `PUT /api/settings/lists/<key>/order` | `{ids}` sets the display order |
+| `PATCH /api/settings/values/<id>` | `{label}` renames; saved records keep the old label |
+| `POST /api/settings/values/<id>/archive`, `/restore` | Archive or restore a value |
+| `GET /api/settings/history` | Recent changes (Admin) |
+
+The browser loads settings once per page (`useBusinessSettings`, `src/services/settings.ts`) and refreshes them after Admin's changes; until they load, or if they can't, it uses the same built-in defaults.
+
+## List export
+
+Lists with an **Export CSV** button (FLOW-48: inventory, ingredients, bar, low stock, clients, venues, events, leads, staff, time reports and lead sources) build the file in the browser from the rows on screen (`DataTable` `exportName`, `src/services/csv.ts`, ADR-09): every row that matches the current filters, in the current sort, not just the visible page. Columns are the table's columns (action and checkbox columns are left out); a column can give a plainer CSV value through `meta.csv`. A column that holds a field group (`meta.fieldGroup`, e.g. unit cost as `internal_cost`, client contact details, staff phone numbers) is left out of the file entirely for anyone who may not see that group, so Kitchen Staff exports have no client contacts and Staff exports no costs. Files are UTF-8 with a byte order mark, comma-separated with CRLF line endings, quoted per RFC 4180, and text that starts with `=`, `+`, `-` or `@` is prefixed with an apostrophe so spreadsheets don't run it as a formula. File names are `<list>-<New York date>.csv`.
 
 ## Attachments
 
@@ -203,7 +239,7 @@ Photos and documents attach to clients, venues and events (FLOW-42, ADR-08) thro
 
 ## Printable documents
 
-`PrintLayout` (`src/components/print/PrintLayout.tsx`, FLOW-49, ADR-17) is the shared print layout for the recipe book, order list and BEO: a company header block (name, sales contact, website from `src/config/company.ts`, placeholders until the real details are filled in), US Letter pages with the header repeated on every page, and page numbers where the browser supports CSS page margin boxes (Chrome; Safari prints without them). Users print or "Save as PDF" from the browser; there is no PDF server or library. `/#/print/sample` is a sample multi-page document for checking the layout.
+`PrintLayout` (`src/components/print/PrintLayout.tsx`, FLOW-49, ADR-17) is the shared print layout for the recipe book, order list and BEO: a company header block (logo, name, sales contact and website from the company profile in business settings, FLOW-45; built-in placeholders until Admin fills it in), US Letter pages with the header repeated on every page, and page numbers where the browser supports CSS page margin boxes (Chrome; Safari prints without them). Users print or "Save as PDF" from the browser; there is no PDF server or library. `/#/print/sample` is a sample multi-page document for checking the layout.
 
 ## Background jobs
 

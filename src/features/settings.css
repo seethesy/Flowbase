@@ -1,0 +1,125 @@
+/* Settings (FLOW-45) and the staff directory (FLOW-40). Shared tokens and
+   components stay in src/styles/globals.css. */
+.settings-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.settings-form {
+  display: grid;
+  gap: 4px;
+}
+.settings-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.settings-inline input,
+.settings-inline select {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.settings-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.settings-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.settings-list > li > form {
+  flex: 1;
+}
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.settings-empty {
+  color: var(--muted);
+}
+.settings-archived summary {
+  cursor: pointer;
+  margin-top: 12px;
+}
+.settings-logo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+.settings-logo img {
+  max-width: 240px;
+  max-height: 96px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  background: white;
+}
+.settings-ratios,
+.list-checkboxes {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  min-width: 0;
+}
+.settings-ratios legend,
+.list-checkboxes legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+.list-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+}
+.list-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-history {
+  margin: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+.settings-history > li {
+  margin: 8px 0;
+}
+.settings-history ul {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+.staff-detail dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.staff-detail dt {
+  color: var(--muted);
+}
+.staff-detail dd {
+  margin: 0;
+}
+.staff-consent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}

@@ -5,6 +5,7 @@ import {
   contextForPath,
   sendSessions,
 } from "../services/time-tracking";
+import { useBusinessSettings } from "../services/settings";
 
 // How often the tracker checks for idleness and sends what's due; it still sends at
 // most once a minute (FLOW-119).
@@ -23,6 +24,10 @@ export function useActivityTracking() {
   useEffect(() => {
     tracker.current!.setContext(contextForPath(pathname));
   }, [pathname]);
+  const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
+  useEffect(() => {
+    tracker.current!.setIdleCutoff(idleMinutes * 60_000);
+  }, [idleMinutes]);
   useEffect(() => {
     const current = tracker.current!;
     const onInput = () => current.input();

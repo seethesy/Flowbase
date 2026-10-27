@@ -90,6 +90,9 @@ expose the `assignedElsewhere` signal; the compatibility field stays false.
 | `lead_contact` | Anyone with lead access, after record scoping |
 | `internal_cost` | FT+, Kitchen Lead and Kitchen Staff |
 | `financials` | Admin, Technical, Sales Manager and the assigned Salesperson |
+| `staff_contact` | FT+ and the staff member themselves (`subjectUserId`) |
+
+Staff notes (`staff_member.notes`) show to FT+ only (FLOW-40).
 
 `serializeFields` projects existing API shapes, with null for hidden values as
 required by their schemas. `redactFieldHistory` projects stored before/after values

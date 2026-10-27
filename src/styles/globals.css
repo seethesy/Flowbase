@@ -869,6 +869,13 @@ strong {
 .table-card table {
   min-width: 900px;
 }
+/* List export (FLOW-48). */
+.table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -2117,13 +2124,19 @@ tbody tr:last-child td {
   margin-bottom: 14px;
   border-bottom: 2px solid #2f5d50;
 }
-.print-header > div:first-child {
+.print-header > div:not(.print-title) {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
 }
 .print-header strong {
   font-size: 14px;
+}
+.print-logo {
+  max-width: 140px;
+  max-height: 56px;
+  object-fit: contain;
 }
 .print-title {
   text-align: right;
