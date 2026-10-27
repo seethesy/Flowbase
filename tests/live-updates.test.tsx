@@ -31,12 +31,12 @@ afterEach(() => {
 // A transport the test drives: ping() and connect(), plus how often it was
 // opened and closed.
 function fakeTransport() {
-  const state = {
-    opened: 0,
-    closed: 0,
-    ping: () => {},
-    connect: (connected: boolean) => void connected,
-  };
+  const state: {
+    opened: number;
+    closed: number;
+    ping: () => void;
+    connect: (connected: boolean) => void;
+  } = { opened: 0, closed: 0, ping: () => {}, connect: () => {} };
   const transport: ChangeTransport = ({ onPing, onConnected }) => {
     state.opened += 1;
     state.ping = onPing;

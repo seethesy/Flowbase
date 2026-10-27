@@ -54,6 +54,8 @@ export function useResource<T>(
     if (!at) return;
     return Math.max(0, Date.parse(at) - RENEW_BEFORE_MS - Date.now());
   };
+  // Typed loosely: TanStack passes its Query, whose cached data may be `nothing`.
+  type Cached = { state: { data: unknown } };
   const query = useQuery(
     {
       queryKey: key,
@@ -62,19 +64,19 @@ export function useResource<T>(
         return data === undefined ? nothing : data;
       },
       staleTime: expiresAt
-        ? (cached) => renewIn(cached.state.data) ?? 0
+        ? (cached: Cached) => renewIn(cached.state.data) ?? 0
         : options.reference
           ? REFERENCE_STALE_MS
           : undefined,
-      ...(expiresAt && {
-        refetchInterval: (cached) => {
-          const wait = renewIn(cached.state.data);
-          return wait === undefined ? false : Math.max(wait, 1_000);
-        },
-        refetchIntervalInBackground: false,
-        // Refetches only when stale, i.e. when the page was hidden past expiry.
-        refetchOnWindowFocus: true,
-      }),
+      refetchInterval: expiresAt
+        ? (cached: Cached) => {
+            const wait = renewIn(cached.state.data);
+            return wait === undefined ? false : Math.max(wait, 1_000);
+          }
+        : undefined,
+      // Refetches only when stale, i.e. when the page was hidden past expiry.
+      // Intervals already pause while the page is hidden (TanStack default).
+      refetchOnWindowFocus: Boolean(expiresAt),
       placeholderData: options.keepPrevious ? keepPreviousData : undefined,
       enabled: options.enabled,
     },
