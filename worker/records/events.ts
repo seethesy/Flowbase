@@ -1,9 +1,9 @@
 import {
   and,
   asc,
-  desc,
   eq,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
@@ -33,7 +33,7 @@ import {
   isBusinessTime,
   utcToBusinessTime,
 } from "../../shared/time";
-import { listHistory, writeAudit } from "../audit/log";
+import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   clientContacts,
@@ -47,6 +47,7 @@ import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
 import { setArchived } from "./archive";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
@@ -161,8 +162,20 @@ export async function listEvents(
     // New York dates, inclusive.
     from?: string;
     to?: string;
+    // Title, client or venue name (FLOW-179).
+    search?: string;
+    status?: EventStatus;
   },
-): Promise<FlowEvent[]> {
+  page: PageRequest = {},
+): Promise<Page<FlowEvent>> {
+  const paging = keyset<EventRow>(
+    [
+      { column: events.startsAt, type: "timestamp", of: (row) => row.startsAt },
+      { column: events.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  const term = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
     .from(events)
@@ -172,17 +185,26 @@ export async function listEvents(
         filter.archived ? isNotNull(events.archivedAt) : isNull(events.archivedAt),
         filter.clientId ? eq(events.clientId, filter.clientId) : undefined,
         filter.venueId ? eq(events.venueId, filter.venueId) : undefined,
+        filter.status ? eq(events.status, filter.status) : undefined,
         filter.from
           ? gte(events.startsAt, businessTimeToUtc(filter.from, "00:00"))
           : undefined,
         filter.to
           ? lt(events.startsAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00"))
           : undefined,
+        term
+          ? or(
+              ilike(events.title, term),
+              sql`exists (select 1 from ${clients} where ${clients.id} = ${events.clientId} and ${clients.name} ilike ${term})`,
+              sql`exists (select 1 from ${venues} where ${venues.id} = ${events.venueId} and ${venues.name} ilike ${term})`,
+            )
+          : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(events.startsAt))
-    .limit(500);
-  return toEvents(db, rows);
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toEvents(db, kept));
 }
 
 export async function findVisibleEvent(db: DbLike, actor: Actor, id: string) {
@@ -214,9 +236,9 @@ async function eventSnapshot(db: DbLike, id: string) {
 }
 
 // Everyone who can open an event sees all of its fields, so nothing is hidden.
-export async function eventHistory(db: DbLike, actor: Actor, id: string) {
+export async function eventHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
   await findVisibleEvent(db, actor, id);
-  return listHistory(db, "event", id, (changes) => changes);
+  return listHistoryPage(db, "event", id, (changes) => changes, page);
 }
 
 // Hub sections whose module exists (FLOW-57), in display order. Each module ticket
@@ -547,23 +569,38 @@ export async function advanceEventStatus(
 }
 
 // The event's status changes, newest first.
-export async function eventStatusChanges(db: DbLike, actor: Actor, id: string) {
+export async function eventStatusChanges(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+): Promise<Page<EventStatusChange>> {
   await findVisibleEvent(db, actor, id);
+  type Row = typeof eventStatusHistory.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: eventStatusHistory.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: eventStatusHistory.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const rows = await db
     .select()
     .from(eventStatusHistory)
-    .where(eq(eventStatusHistory.eventId, id))
-    .orderBy(desc(eventStatusHistory.createdAt))
-    .limit(500);
-  return rows.map(
-    (row): EventStatusChange => ({
-      id: row.id,
-      manual: row.manual,
-      from: row.fromStatus,
-      to: row.toStatus,
-      reason: row.reason,
-      actorId: row.createdBy,
-      at: row.createdAt.toISOString(),
-    }),
+    .where(and(eq(eventStatusHistory.eventId, id), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) =>
+    kept.map(
+      (row): EventStatusChange => ({
+        id: row.id,
+        manual: row.manual,
+        from: row.fromStatus,
+        to: row.toStatus,
+        reason: row.reason,
+        actorId: row.createdBy,
+        at: row.createdAt.toISOString(),
+      }),
+    ),
   );
 }

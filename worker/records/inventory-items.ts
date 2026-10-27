@@ -34,6 +34,7 @@ import { setArchived } from "./archive";
 import { conflict, type ItemRow, round } from "./inventory-common";
 import { recordCostChange } from "./inventory-costs";
 import { requireStockSection } from "./inventory-sections";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // ---- Items ----
 
@@ -185,7 +186,21 @@ export async function listItems(
   db: Db,
   actor: Actor,
   filter: ItemFilter,
-): Promise<InventoryItem[]> {
+  page: PageRequest = {},
+): Promise<Page<InventoryItem>> {
+  const paging = keyset<ItemRow>(
+    [
+      { column: inventoryItems.group, type: "text", of: (row) => row.group },
+      { column: inventoryItems.name, type: "text", of: (row) => row.name },
+      { column: inventoryItems.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  // Every filter runs in SQL (FLOW-180), so a page is exactly the next matching
+  // rows. Each mirrors what the item shows: a section filter matches stock held
+  // there or the storage section, below par compares total stock with par.
+  const term = filter.search ? `%${filter.search}%` : undefined;
+  const item = inventoryItems.id;
   const rows = await db
     .select()
     .from(inventoryItems)
@@ -200,27 +215,39 @@ export async function listItems(
           ? eq(inventoryItems.category, filter.category)
           : undefined,
         filter.tier ? eq(inventoryItems.tier, filter.tier) : undefined,
-        filter.search
+        term
           ? or(
-              ilike(inventoryItems.name, `%${filter.search}%`),
-              ilike(inventoryItems.code, `%${filter.search}%`),
+              ilike(inventoryItems.name, term),
+              ilike(inventoryItems.code, term),
+              ilike(inventoryItems.group, term),
+              sql`exists (select 1 from ${inventoryBarDetails} where ${inventoryBarDetails.itemId} = ${item} and ${inventoryBarDetails.brand} ilike ${term})`,
             )
           : undefined,
+        filter.sectionId
+          ? or(
+              sql`exists (select 1 from ${inventoryStock} where ${inventoryStock.itemId} = ${item} and ${inventoryStock.sectionId} = ${filter.sectionId} and ${inventoryStock.quantity} <> 0)`,
+              sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.storageSectionId} = ${filter.sectionId})`,
+            )
+          : undefined,
+        filter.vendor
+          ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.preferredVendor} ilike ${`%${filter.vendor}%`})`
+          : undefined,
+        filter.belowPar
+          ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.parLevel} is not null and coalesce((select sum(${inventoryStock.quantity}) from ${inventoryStock} where ${inventoryStock.itemId} = ${item}), 0) < ${inventoryConsumableDetails.parLevel})`
+          : undefined,
+        filter.subcategory
+          ? and(
+              eq(inventoryItems.kind, "consumable"),
+              eq(inventoryItems.subtype, "bar"),
+              sql`exists (select 1 from ${inventoryBarDetails} where ${inventoryBarDetails.itemId} = ${item} and ${inventoryBarDetails.subcategory} = ${filter.subcategory})`,
+            )
+          : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(inventoryItems.group), asc(inventoryItems.name))
-    .limit(2000);
-  const vendor = filter.vendor?.toLowerCase();
-  return (await toItems(db, actor, rows)).filter(
-    (item) =>
-      (!filter.sectionId ||
-        item.stock.some((level) => level.sectionId === filter.sectionId) ||
-        item.consumable?.storageSectionId === filter.sectionId) &&
-      (!vendor ||
-        item.consumable?.preferredVendor.toLowerCase().includes(vendor)) &&
-      (!filter.belowPar || item.belowPar === true) &&
-      (!filter.subcategory || item.bar?.subcategory === filter.subcategory),
-  );
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toItems(db, actor, kept));
 }
 
 export async function findItem(db: DbLike, id: string) {

@@ -46,6 +46,7 @@ import {
   recordLeadDuplicates,
   sourceLinksFor,
 } from "./lead-duplicates";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { phoneDigits } from "./sync";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion). Admin and
@@ -231,20 +232,29 @@ export async function listLeads(
   db: DbLike,
   actor: Actor,
   filter: LeadFilter,
-): Promise<Lead[]> {
+  page: PageRequest = {},
+): Promise<Page<Lead>> {
   requireLeadAccess(actor);
+  const none: Page<Lead> = { rows: [], next: null };
   const status = filter.status ? leadStatusSchema.safeParse(filter.status) : undefined;
-  if (status && !status.success) return [];
+  if (status && !status.success) return none;
   const channel = filter.channel
     ? leadChannelSchema.safeParse(filter.channel)
     : undefined;
-  if (channel && !channel.success) return [];
+  if (channel && !channel.success) return none;
   if (
     filter.assigned &&
     filter.assigned !== "unassigned" &&
     !uuidPattern.test(filter.assigned)
   )
-    return [];
+    return none;
+  const paging = keyset<LeadRow>(
+    [
+      { column: leads.receivedAt, type: "timestamp", desc: true, of: (row) => row.receivedAt },
+      { column: leads.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const search = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
@@ -280,11 +290,12 @@ export async function listLeads(
               ilike(leads.phone, search),
             )
           : undefined,
+        paging.where,
       ),
     )
-    .orderBy(desc(leads.receivedAt))
-    .limit(500);
-  return rows.map((row) => toLead(row, actor));
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => kept.map((row) => toLead(row, actor)));
 }
 
 // A lead the actor may see; otherwise 404, never 403.

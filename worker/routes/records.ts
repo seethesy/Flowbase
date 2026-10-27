@@ -3,6 +3,7 @@ import {
   clientCreateSchema,
   clientInputSchema,
   eventInputSchema,
+  eventStatusSchema,
   eventTransitionSchema,
   venueInputSchema,
 } from "../../shared/core-records";
@@ -10,8 +11,10 @@ import { id as uuid, localDate } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
+  pageRequest,
   parseBody,
   recordRunner,
+  sendPage,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -65,13 +68,19 @@ export function recordRoutes(options: {
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
   routes.get("/clients", requirePermission("clients.read"), async (c) =>
-    c.json(
+    sendPage(
+      c,
       await record(c, (db, actor) =>
-        listClients(db, actor, {
-          archived: flag(c, "archived"),
-          flagged: flag(c, "flagged"),
-          search: query(c, "search"),
-        }),
+        listClients(
+          db,
+          actor,
+          {
+            archived: flag(c, "archived"),
+            flagged: flag(c, "flagged"),
+            search: query(c, "search"),
+          },
+          pageRequest(c),
+        ),
       ),
     ),
   );
@@ -91,7 +100,10 @@ export function recordRoutes(options: {
       requirePermission(`${resource}.read`),
       async (c) => {
         const id = param(c, what);
-        return c.json(await record(c, (db, actor) => history(db, actor, id)));
+        return sendPage(
+          c,
+          await record(c, (db, actor) => history(db, actor, id, pageRequest(c))),
+        );
       },
     );
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
@@ -151,12 +163,15 @@ export function recordRoutes(options: {
   }
 
   routes.get("/venues", requirePermission("venues.read"), async (c) =>
-    c.json(
+    sendPage(
+      c,
       await record(c, (db, actor) =>
-        listVenues(db, actor, {
-          archived: flag(c, "archived"),
-          search: query(c, "search"),
-        }),
+        listVenues(
+          db,
+          actor,
+          { archived: flag(c, "archived"), search: query(c, "search") },
+          pageRequest(c),
+        ),
       ),
     ),
   );
@@ -186,15 +201,20 @@ export function recordRoutes(options: {
       venueId: query(c, "venueId"),
       from: query(c, "from"),
       to: query(c, "to"),
+      search: query(c, "search"),
+      status: eventStatusSchema.safeParse(c.req.query("status")).data,
     };
     for (const key of ["clientId", "venueId"] as const)
       if (filter[key] && !uuid.safeParse(filter[key]).success)
-        return c.json([]);
+        return sendPage(c, { rows: [], next: null });
     for (const key of ["from", "to"] as const)
       if (filter[key] && !localDate.safeParse(filter[key]).success)
         filter[key] = undefined;
-    return c.json(
-      await record(c, (db, actor) => listEvents(db, actor, filter)),
+    return sendPage(
+      c,
+      await record(c, (db, actor) =>
+        listEvents(db, actor, filter, pageRequest(c)),
+      ),
     );
   });
   routes.get("/events/:id", requirePermission("events.read"), async (c) => {
@@ -240,8 +260,11 @@ export function recordRoutes(options: {
     requirePermission("events.read"),
     async (c) => {
       const id = param(c, "Event");
-      return c.json(
-        await record(c, (db, actor) => eventStatusChanges(db, actor, id)),
+      return sendPage(
+        c,
+        await record(c, (db, actor) =>
+          eventStatusChanges(db, actor, id, pageRequest(c)),
+        ),
       );
     },
   );

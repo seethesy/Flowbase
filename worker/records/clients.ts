@@ -18,13 +18,14 @@ import {
   type Client,
 } from "../../shared/core-records";
 import type { z } from "zod";
-import { fullView, listHistory, writeAudit } from "../audit/log";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { clientScope, type Scope } from "../policy";
 import { setArchived } from "./archive";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { phoneDigits, syncChildren } from "./sync";
 
 type ClientRow = typeof clients.$inferSelect;
@@ -108,8 +109,19 @@ export async function listClients(
   db: Db,
   actor: Actor,
   filter: { archived?: boolean; search?: string; flagged?: boolean },
-): Promise<Client[]> {
+  page: PageRequest = {},
+): Promise<Page<Client>> {
   const scope = requireClientAccess(actor);
+  const paging = keyset<ClientRow>(
+    [
+      { column: clients.name, type: "text", of: (row) => row.name },
+      { column: clients.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  // Search matches the client's name or any live contact's name (FLOW-179), as
+  // the Clients screen did on what it had loaded.
+  const term = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
     .from(clients)
@@ -119,15 +131,21 @@ export async function listClients(
         filter.archived
           ? isNotNull(clients.archivedAt)
           : isNull(clients.archivedAt),
-        filter.search ? ilike(clients.name, `%${filter.search}%`) : undefined,
+        term
+          ? or(
+              ilike(clients.name, term),
+              sql`exists (select 1 from ${clientContacts} where ${clientContacts.clientId} = ${clients.id} and ${clientContacts.archivedAt} is null and ${clientContacts.name} ilike ${term})`,
+            )
+          : undefined,
         filter.flagged && scope === "all"
           ? isNotNull(clients.possibleDuplicateOfId)
           : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(clients.name))
-    .limit(500);
-  return toClients(db, actor, rows);
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toClients(db, actor, kept));
 }
 
 // A client the actor may see, archived or not; otherwise 404, never 403.
@@ -157,11 +175,10 @@ async function clientSnapshot(db: DbLike, id: string) {
 
 // History hides what toClients hides from the caller: contact email and phone from
 // part-time users, and the possible-duplicate match from salespeople.
-export async function clientHistory(db: DbLike, actor: Actor, id: string) {
+export async function clientHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
   await findVisibleClient(db, actor, id);
-  return listHistory(db, "client", id, (changes) =>
-    redactFieldHistory(actor, "client", changes),
-  );
+  return listHistoryPage(db, "client", id, (changes) =>
+    redactFieldHistory(actor, "client", changes), page);
 }
 
 // Clients whose live contacts share an email or phone with the new contacts.
