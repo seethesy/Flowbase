@@ -1,5 +1,6 @@
-// Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history.
-export type AuditEntity = "client" | "venue" | "event";
+// Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history
+// and GET /api/recipes/<id>/history (FLOW-93).
+export type AuditEntity = "client" | "venue" | "event" | "recipe";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

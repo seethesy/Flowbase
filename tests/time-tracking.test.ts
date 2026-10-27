@@ -231,6 +231,7 @@ describe("contextForPath", () => {
     ["/proposals", "proposal_work", null, null],
     ["/inventory/ingredients", "kitchen", null, null],
     ["/inventory/" + eventId, "inventory", null, null],
+    ["/recipes/" + eventId, "kitchen", null, null],
     ["/venues", "event_planning", null, null],
     ["/", "general", null, null],
   ])("%s", (path, activity, recordType, recordId) => {

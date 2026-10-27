@@ -14,6 +14,7 @@ import type { Actor } from "../../shared/access";
 import type {
   Allergen,
   BarContainer,
+  DietaryTag,
   InventoryItem,
   ItemInputParsed,
 } from "../../shared/inventory";
@@ -144,6 +145,8 @@ export async function toItems(
             preferredVendor: c.preferredVendor,
             parLevel: c.parLevel,
             allergens: c.allergens as Allergen[],
+            dietaryTags: c.dietaryTags as DietaryTag[],
+            allergensVerified: c.allergensVerified,
             storageSectionId: c.storageSectionId,
             storageSectionName: consumable.storageSectionName,
             storageOrder: c.storageOrder,
@@ -323,6 +326,8 @@ async function saveDetails(
       preferredVendor: c.preferredVendor,
       parLevel: c.parLevel,
       allergens: c.allergens,
+      dietaryTags: c.dietaryTags,
+      allergensVerified: c.allergensVerified,
       storageSectionId: c.storageSectionId,
       storageOrder: c.storageOrder,
       ...(c.unitCostCents !== undefined && { unitCostCents: c.unitCostCents }),

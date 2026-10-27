@@ -3,6 +3,8 @@ import { AlertTriangle } from "lucide-react";
 import {
   allergenLabels,
   allergenSchema,
+  dietaryTagLabels,
+  dietaryTagSchema,
   barCategories,
   barContainerLabels,
   barContainerSchema,
@@ -16,6 +18,7 @@ import {
   recipeUnitProblem,
   subtypesByKind,
   type Allergen,
+  type DietaryTag,
   type BarContainer,
   type InventoryItem,
   type ItemInput,
@@ -139,6 +142,12 @@ export function ItemForm({
   const [allergens, setAllergens] = useState<Allergen[]>(
     item?.consumable?.allergens ?? [],
   );
+  const [dietaryTags, setDietaryTags] = useState<DietaryTag[]>(
+    item?.consumable?.dietaryTags ?? [],
+  );
+  const [allergensVerified, setAllergensVerified] = useState(
+    item?.consumable?.allergensVerified ?? false,
+  );
   const [active, setActive] = useState(item?.active ?? true);
   // An existing item whose cost came back hidden: the user isn't FT+, so the form
   // leaves the cost alone.
@@ -226,6 +235,9 @@ export function ItemForm({
           preferredVendor: fields.preferredVendor,
           parLevel: toNumber(fields.parLevel),
           allergens,
+          dietaryTags,
+          // Flagging an allergen means someone checked them (FLOW-95).
+          allergensVerified: allergensVerified || allergens.length > 0,
           storageSectionId: storageSectionId || null,
           storageOrder: toNumber(fields.storageOrder),
         },
@@ -563,6 +575,34 @@ export function ItemForm({
                     }
                   />
                   {allergenLabels[allergen]}
+                </label>
+              ))}
+              <label className="checkbox-filter">
+                <input
+                  type="checkbox"
+                  checked={allergensVerified || allergens.length > 0}
+                  disabled={allergens.length > 0}
+                  onChange={(e) => setAllergensVerified(e.target.checked)}
+                />
+                Allergens checked
+              </label>
+            </fieldset>
+            <fieldset className="form-group" aria-label="Dietary tags">
+              <legend>Dietary tags</legend>
+              {dietaryTagSchema.options.map((tag) => (
+                <label className="checkbox-filter" key={tag}>
+                  <input
+                    type="checkbox"
+                    checked={dietaryTags.includes(tag)}
+                    onChange={(e) =>
+                      setDietaryTags((current) =>
+                        e.target.checked
+                          ? [...current, tag]
+                          : current.filter((other) => other !== tag),
+                      )
+                    }
+                  />
+                  {dietaryTagLabels[tag]}
                 </label>
               ))}
             </fieldset>

@@ -7,6 +7,7 @@ const common = [
   "venues.read",
   "events.read",
   "inventory.read",
+  "recipes.read",
   "search.read",
   "attachments.read",
   "time.record",
@@ -31,6 +32,7 @@ const sales = [
 ] as const;
 const inventory = [
   "inventory.write",
+  "recipes.write",
   "inventory.count",
   "inventory.move",
 ] as const;
@@ -160,4 +162,5 @@ export const attachmentWriteActions = {
   venue: "venues.write",
   event: "events.write",
   inventory_item: "inventory.write",
+  recipe: "recipes.write",
 } as const satisfies Record<string, Action>;

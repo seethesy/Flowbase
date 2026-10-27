@@ -1,0 +1,403 @@
+import { z } from "zod";
+import {
+  allergenSchema,
+  conversionsOf,
+  dietaryTagSchema,
+  type Allergen,
+  type DietaryTag,
+  type InventoryItem,
+} from "./inventory";
+import { id, text, timestamp } from "./schema-primitives";
+import { convert, unitSchema, units, type Unit } from "./units";
+
+// Recipe book (FLOW-93 dish record, FLOW-94 costing, FLOW-95 allergens and
+// dietary tags, FLOW-98 scaling), shared by the API and the app. Costs, tags and
+// scaled quantities are worked out from the ingredients each time a recipe is
+// read, so a changed ingredient cost or allergen shows on every dish at once.
+const cents = z.number().int().min(0).max(100_000_000);
+
+export const recipeCategories = [
+  "appetizers",
+  "mains",
+  "sides",
+  "desserts",
+  "drinks",
+  "additional_items",
+] as const;
+export const recipeCategorySchema = z.enum(recipeCategories);
+export type RecipeCategory = z.infer<typeof recipeCategorySchema>;
+export const recipeCategoryLabels: Record<RecipeCategory, string> = {
+  appetizers: "Appetizers",
+  mains: "Mains",
+  sides: "Sides",
+  desserts: "Desserts",
+  drinks: "Drinks",
+  additional_items: "Additional items",
+};
+// The Master Recipe Book is "based off 100 servings"; its import (FLOW-99) gives
+// recipes this yield.
+export const IMPORTED_RECIPE_SERVINGS = 100;
+
+export const recipeLineInputSchema = z
+  .object({
+    // A stored line's id keeps it (and its entered cost) on update.
+    id: id.optional(),
+    // An ingredient from the catalog (FLOW-81).
+    itemId: id,
+    // Optional: the recipe book has lines like "Italian Seasoning" with no amount.
+    quantity: z.number().finite().positive().max(1_000_000).nullable().default(null),
+    unit: unitSchema.nullable().default(null),
+    prepNote: text(500).default(""),
+    // The typed line cost (FLOW-94). FT+ only (F-01-04): omitted keeps the stored
+    // cost.
+    enteredCostCents: cents.nullable().optional(),
+  })
+  .refine((line) => line.quantity === null || line.unit !== null, {
+    message: "Pick a unit for the quantity.",
+    path: ["unit"],
+  });
+export type RecipeLineInput = z.input<typeof recipeLineInputSchema>;
+
+const yieldSchema = z.object({
+  servings: z.number().finite().positive("Enter servings above zero.").max(100_000),
+  // e.g. "6 oz".
+  portionSize: text(100).default(""),
+});
+
+export const recipeInputSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(200),
+  category: recipeCategorySchema,
+  description: text(5000).default(""),
+  lines: z.array(recipeLineInputSchema).max(200).default([]),
+  // The numbered method, in order.
+  steps: z.array(z.string().trim().min(1).max(2000)).max(100).default([]),
+  // e.g. "garnish with microgreens".
+  finishingNote: text(1000).default(""),
+  // Optional (FLOW-93 AC2); a dish with no yield can't be scaled (FLOW-98).
+  yield: yieldSchema.nullable().default(null),
+  // Replace the allergens and dietary tags derived from the ingredients (FLOW-95).
+  allergenOverride: z.array(allergenSchema).max(20).nullable().default(null),
+  dietaryOverride: z.array(dietaryTagSchema).max(20).nullable().default(null),
+  active: z.boolean().default(true),
+});
+export type RecipeInput = z.input<typeof recipeInputSchema>;
+export type RecipeInputParsed = z.output<typeof recipeInputSchema>;
+
+// ---- Costing (FLOW-94) ----
+
+export const costSourceSchema = z.enum(["calculated", "entered", "none"]);
+export type LineCostSource = z.infer<typeof costSourceSchema>;
+export const lineCostSourceLabels: Record<LineCostSource, string> = {
+  calculated: "Calculated",
+  entered: "Entered",
+  none: "No cost",
+};
+export const lineCostSchema = z.object({
+  source: costSourceSchema,
+  // A line with no cost counts as $0.
+  cents: z.number().int(),
+  // Why the cost couldn't be calculated, when the ingredient has a cost.
+  problem: z.string().nullable(),
+});
+export type LineCost = z.infer<typeof lineCostSchema>;
+export const recipeCostSchema = z.object({
+  batchCents: z.number().int(),
+  // null without a yield.
+  perServingCents: z.number().int().nullable(),
+  noCostLines: z.number().int(),
+});
+export type RecipeCost = z.infer<typeof recipeCostSchema>;
+
+// What the calculations need from an ingredient: the catalog item as the API
+// returns it.
+export type RecipeIngredient = Pick<
+  InventoryItem,
+  "id" | "name" | "unit" | "consumable"
+>;
+type CostLine = {
+  quantity: number | null;
+  unit: Unit | null;
+  enteredCostCents: number | null;
+};
+
+// Calculated = quantity × the ingredient's unit cost, converted to its purchase
+// unit; otherwise the entered cost; otherwise "no cost" at $0. Integer cents.
+export function lineCost(
+  line: CostLine,
+  ingredient: RecipeIngredient | undefined,
+): LineCost {
+  const c = ingredient?.consumable;
+  let problem: string | null = null;
+  if (line.quantity !== null && line.unit && c && c.unitCostCents !== null) {
+    const converted = convert(
+      line.quantity,
+      line.unit,
+      c.purchaseUnit,
+      conversionsOf(c),
+    );
+    if (converted.ok)
+      return {
+        source: "calculated",
+        cents: Math.round(converted.value * c.unitCostCents),
+        problem: null,
+      };
+    problem = converted.message;
+  }
+  if (line.enteredCostCents !== null)
+    return { source: "entered", cents: line.enteredCostCents, problem };
+  return { source: "none", cents: 0, problem };
+}
+
+// Batch cost is the sum of the line costs; per serving divides by the yield.
+export function recipeCost(
+  lineCosts: LineCost[],
+  servings: number | null,
+): RecipeCost {
+  const batchCents = lineCosts.reduce((sum, cost) => sum + cost.cents, 0);
+  return {
+    batchCents,
+    perServingCents: servings ? Math.round(batchCents / servings) : null,
+    noCostLines: lineCosts.filter((cost) => cost.source === "none").length,
+  };
+}
+
+// ---- Allergens and dietary tags (FLOW-95) ----
+
+// "Contains" tags apply when any ingredient has them; "free" tags only when every
+// ingredient does.
+export const dietaryTagRules: Record<DietaryTag, "any" | "all"> = {
+  vegan: "all",
+  vegetarian: "all",
+  gluten_free: "all",
+  dairy_free: "all",
+  contains_meat: "any",
+};
+export const hasAllergenInfo = (ingredient: RecipeIngredient) =>
+  !!ingredient.consumable &&
+  (ingredient.consumable.allergensVerified ||
+    ingredient.consumable.allergens.length > 0);
+
+export const recipeTagsSchema = z.object({
+  derivedAllergens: z.array(allergenSchema),
+  derivedDietaryTags: z.array(dietaryTagSchema),
+  allergenOverride: z.array(allergenSchema).nullable(),
+  dietaryOverride: z.array(dietaryTagSchema).nullable(),
+  // What the dish shows: the override when set, otherwise the derived tags.
+  allergens: z.array(allergenSchema),
+  dietaryTags: z.array(dietaryTagSchema),
+  // Ingredients with no allergen information; any makes the dish "allergens
+  // unverified".
+  unverifiedIngredients: z.array(z.string()),
+});
+export type RecipeTags = z.infer<typeof recipeTagsSchema>;
+
+export function recipeTags(
+  ingredients: RecipeIngredient[],
+  overrides: {
+    allergenOverride: Allergen[] | null;
+    dietaryOverride: DietaryTag[] | null;
+  },
+): RecipeTags {
+  const used = [
+    ...new Map(ingredients.map((item) => [item.id, item])).values(),
+  ];
+  const derivedAllergens = allergenSchema.options.filter((allergen) =>
+    used.some((item) => item.consumable?.allergens.includes(allergen)),
+  );
+  const has = (tag: DietaryTag) => (item: RecipeIngredient) =>
+    !!item.consumable?.dietaryTags.includes(tag);
+  const derivedDietaryTags = dietaryTagSchema.options.filter((tag) =>
+    dietaryTagRules[tag] === "any"
+      ? used.some(has(tag))
+      : used.length > 0 && used.every(has(tag)),
+  );
+  return {
+    derivedAllergens,
+    derivedDietaryTags,
+    allergenOverride: overrides.allergenOverride,
+    dietaryOverride: overrides.dietaryOverride,
+    allergens: overrides.allergenOverride ?? derivedAllergens,
+    dietaryTags: overrides.dietaryOverride ?? derivedDietaryTags,
+    unverifiedIngredients: used
+      .filter((item) => !hasAllergenInfo(item))
+      .map((item) => item.name),
+  };
+}
+
+// ---- The recipe as the API returns it ----
+
+export const recipeLineSchema = z.object({
+  id,
+  itemId: id,
+  ingredientName: z.string(),
+  ingredientArchived: z.boolean(),
+  quantity: z.number().nullable(),
+  unit: unitSchema.nullable(),
+  prepNote: z.string(),
+  // null, with the recipe's costHidden, when the caller isn't FT+.
+  enteredCostCents: z.number().int().nullable(),
+  cost: lineCostSchema.nullable(),
+});
+export type RecipeLine = z.infer<typeof recipeLineSchema>;
+export const recipeSchema = z.object({
+  id,
+  name: z.string(),
+  category: recipeCategorySchema,
+  description: z.string(),
+  lines: z.array(recipeLineSchema),
+  steps: z.array(z.string()),
+  finishingNote: z.string(),
+  yield: z.object({ servings: z.number(), portionSize: z.string() }).nullable(),
+  tags: recipeTagsSchema,
+  // null, with costHidden, when the caller isn't FT+ (F-01-04).
+  cost: recipeCostSchema.nullable(),
+  costHidden: z.boolean(),
+  // Live recipes with the same name in the same category (FLOW-93): flagged, not
+  // blocked.
+  duplicates: z.array(z.object({ id, name: z.string() })),
+  active: z.boolean(),
+  archivedAt: timestamp.nullable(),
+  createdAt: timestamp,
+  updatedAt: timestamp,
+});
+export type Recipe = z.infer<typeof recipeSchema>;
+
+// ---- Scaling (FLOW-98) ----
+
+export const scaledLineSchema = z.object({
+  lineId: id.optional(),
+  itemId: id,
+  ingredientName: z.string(),
+  prepNote: z.string(),
+  // A line with no quantity is listed "as needed" and left out of the totals.
+  asNeeded: z.boolean(),
+  // In the recipe's unit; countable units are rounded up to whole units.
+  quantity: z.number().nullable(),
+  unit: unitSchema.nullable(),
+  // The same amount in the ingredient's purchase unit, not rounded to packs (that
+  // happens on the order list, F-07-07).
+  purchaseQuantity: z.number().nullable(),
+  purchaseUnit: unitSchema.nullable(),
+  problem: z.string().nullable(),
+});
+export type ScaledLine = z.infer<typeof scaledLineSchema>;
+export const scaledRecipeSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    servings: z.number(),
+    yieldServings: z.number(),
+    lines: z.array(scaledLineSchema),
+    // Per ingredient, in its purchase unit, without the "as needed" lines.
+    totals: z.array(
+      z.object({
+        itemId: id,
+        ingredientName: z.string(),
+        quantity: z.number(),
+        unit: unitSchema,
+      }),
+    ),
+  }),
+  z.object({
+    ok: z.literal(false),
+    reason: z.literal("no_yield"),
+    message: z.string(),
+  }),
+]);
+export type ScaledRecipe = z.infer<typeof scaledRecipeSchema>;
+export const scaleQuerySchema = z.coerce
+  .number()
+  .finite()
+  .positive("Enter servings above zero.")
+  .max(100_000);
+
+// Four decimal places, as quantities are stored. Countable units round up, with a
+// little slack so 12.000000001 breasts stays 12.
+const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
+const roundUp = (value: number) => Math.ceil(round4(value));
+
+export function scaleRecipe(
+  recipe: {
+    yield: { servings: number } | null;
+    lines: {
+      id?: string;
+      itemId: string;
+      quantity: number | null;
+      unit: Unit | null;
+      prepNote: string;
+    }[];
+  },
+  ingredients: RecipeIngredient[],
+  servings: number,
+): ScaledRecipe {
+  if (!recipe.yield)
+    return {
+      ok: false,
+      reason: "no_yield",
+      message: "This dish has no yield, so it can't be scaled. Add servings first.",
+    };
+  const factor = servings / recipe.yield.servings;
+  const byId = new Map(ingredients.map((item) => [item.id, item]));
+  const lines = recipe.lines.map((line): ScaledLine => {
+    const ingredient = byId.get(line.itemId);
+    const c = ingredient?.consumable ?? null;
+    const base = {
+      lineId: line.id,
+      itemId: line.itemId,
+      ingredientName: ingredient?.name ?? "Unknown ingredient",
+      prepNote: line.prepNote,
+    };
+    if (line.quantity === null || !line.unit)
+      return {
+        ...base,
+        asNeeded: true,
+        quantity: null,
+        unit: null,
+        purchaseQuantity: null,
+        purchaseUnit: null,
+        problem: null,
+      };
+    const scaled = line.quantity * factor;
+    const quantity =
+      units[line.unit].dimension === "count" ? roundUp(scaled) : round4(scaled);
+    const purchase = c
+      ? convert(quantity, line.unit, c.purchaseUnit, conversionsOf(c))
+      : null;
+    return {
+      ...base,
+      asNeeded: false,
+      quantity,
+      unit: line.unit,
+      purchaseQuantity: purchase?.ok ? round4(purchase.value) : null,
+      purchaseUnit: c?.purchaseUnit ?? null,
+      problem:
+        purchase && !purchase.ok
+          ? purchase.message
+          : c
+            ? null
+            : "This line's ingredient isn't in the catalog.",
+    };
+  });
+  const totals = new Map<
+    string,
+    { itemId: string; ingredientName: string; quantity: number; unit: Unit }
+  >();
+  for (const line of lines) {
+    if (line.purchaseQuantity === null || !line.purchaseUnit) continue;
+    const total = totals.get(line.itemId);
+    if (total) total.quantity = round4(total.quantity + line.purchaseQuantity);
+    else
+      totals.set(line.itemId, {
+        itemId: line.itemId,
+        ingredientName: line.ingredientName,
+        quantity: line.purchaseQuantity,
+        unit: line.purchaseUnit,
+      });
+  }
+  return {
+    ok: true,
+    servings,
+    yieldServings: recipe.yield.servings,
+    lines,
+    totals: [...totals.values()],
+  };
+}

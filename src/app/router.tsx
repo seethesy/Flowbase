@@ -23,6 +23,7 @@ import {
   SectionList,
 } from "../features/inventory";
 import { CountList, CountMode, LowStockList } from "../features/stock-counts";
+import { RecipeDetail, RecipeList } from "../features/recipes";
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
@@ -110,6 +111,8 @@ export const getRouter = () =>
         { path: "/inventory/counts/:id", element: <CountMode /> },
         { path: "/inventory/sections", element: <SectionList /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
+        { path: "/recipes", element: <RecipeList /> },
+        { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/venues", element: <VenueList /> },

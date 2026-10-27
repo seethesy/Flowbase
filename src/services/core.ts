@@ -29,6 +29,12 @@ import {
   type SectionKind,
   type TransferInput,
 } from "../../shared/inventory";
+import {
+  recipeSchema,
+  scaledRecipeSchema,
+  type RecipeCategory,
+  type RecipeInput,
+} from "../../shared/recipes";
 
 // Client for the core records API (FLOW-53/54/55). Failures carry the API's
 // message, its request reference, and any possible duplicates.
@@ -243,5 +249,33 @@ export const sectionsApi = {
       at("inventory/sections", id, archived ? "archive" : "restore"),
       "POST",
       {},
+    ),
+};
+
+// Recipe book (FLOW-93/94/95/98).
+export const recipesApi = {
+  list: (
+    filter: {
+      archived?: boolean;
+      category?: RecipeCategory;
+      search?: string;
+    } = {},
+  ) => request(recipeSchema.array(), `/api/recipes${query(filter)}`),
+  get: (id: string) => request(recipeSchema, at("recipes", id)),
+  create: (input: RecipeInput) =>
+    request(recipeSchema, "/api/recipes", "POST", input),
+  update: (id: string, input: RecipeInput) =>
+    request(recipeSchema, at("recipes", id), "PUT", input),
+  setArchived: (id: string, archived: boolean) =>
+    request(
+      recipeSchema,
+      at("recipes", id, archived ? "archive" : "restore"),
+      "POST",
+      {},
+    ),
+  scale: (id: string, servings: number) =>
+    request(
+      scaledRecipeSchema,
+      `${at("recipes", id, "scale")}${query({ servings: String(servings) })}`,
     ),
 };

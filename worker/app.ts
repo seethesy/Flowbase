@@ -22,6 +22,7 @@ import { adminRoutes } from "./routes/admin";
 import { ingestRoutes } from "./routes/ingest";
 import { inventoryRoutes } from "./routes/inventory";
 import { leadRoutes } from "./routes/leads";
+import { recipeRoutes } from "./routes/recipes";
 import { recordRoutes } from "./routes/records";
 import { searchRoutes } from "./routes/search";
 import { attachmentRoutes } from "./routes/attachments";
@@ -219,6 +220,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/admin", adminRoutes(options));
   app.route("/api/inventory", inventoryRoutes(options));
   app.route("/api/leads", leadRoutes(options));
+  app.route("/api/recipes", recipeRoutes(options));
   app.route("/api/search", searchRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));

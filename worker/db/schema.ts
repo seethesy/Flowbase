@@ -17,6 +17,7 @@ import {
 import { eventStatuses } from "../../shared/core-records";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
+import { recipeCategories } from "../../shared/recipes";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -584,6 +585,9 @@ export const inventoryConsumableDetails = pgTable(
     preferredVendor: text("preferred_vendor").notNull().default(""),
     parLevel: quantity("par_level"),
     allergens: jsonb("allergens").$type<string[]>().notNull().default([]),
+    // Dietary tags and whether the allergens were checked (FLOW-95).
+    dietaryTags: jsonb("dietary_tags").$type<string[]>().notNull().default([]),
+    allergensVerified: boolean("allergens_verified").notNull().default(false),
     storageSectionId: uuid("storage_section_id").references(
       () => inventorySections.id,
     ),
@@ -742,6 +746,56 @@ export const stockCountLines = pgTable(
   },
   (table) => [
     uniqueIndex("stock_count_lines_item_idx").on(table.countId, table.itemId),
+  ],
+).enableRLS();
+
+// Recipe book (FLOW-93): one row per dish. Yield is optional (a dish with no
+// yield can't be scaled, FLOW-98). The overrides replace the allergens and
+// dietary tags derived from the ingredients when set (FLOW-95). Steps are the
+// numbered method lines, in order.
+export const recipes = pgTable(
+  "recipes",
+  {
+    ...baseColumns(),
+    name: text("name").notNull(),
+    category: text("category", { enum: recipeCategories }).notNull(),
+    description: text("description").notNull().default(""),
+    steps: jsonb("steps").$type<string[]>().notNull().default([]),
+    finishingNote: text("finishing_note").notNull().default(""),
+    yieldServings: quantity("yield_servings"),
+    portionSize: text("portion_size").notNull().default(""),
+    allergenOverride: jsonb("allergen_override").$type<string[]>(),
+    dietaryOverride: jsonb("dietary_override").$type<string[]>(),
+    active: boolean("active").notNull().default(true),
+  },
+  (table) => [
+    index("recipes_name_idx").on(table.category, sql`lower(${table.name})`),
+    oneOf("recipes_category_check", table.category, recipeCategories),
+  ],
+).enableRLS();
+
+// One ingredient line of a recipe (FLOW-93). Quantity and unit are optional
+// ("Italian Seasoning"). entered_cost_cents is the typed line cost, used when the
+// cost can't be calculated from the ingredient (FLOW-94); FT+ only.
+export const recipeLines = pgTable(
+  "recipe_lines",
+  {
+    ...baseColumns(),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipes.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    quantity: quantity("quantity"),
+    unit: text("unit"),
+    prepNote: text("prep_note").notNull().default(""),
+    enteredCostCents: moneyCents("entered_cost_cents"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    index("recipe_lines_recipe_idx").on(table.recipeId),
+    index("recipe_lines_item_idx").on(table.itemId),
   ],
 ).enableRLS();
 

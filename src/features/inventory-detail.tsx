@@ -12,6 +12,7 @@ import {
 import {
   allergenLabels,
   barContainerLabels,
+  dietaryTagLabels,
   ratioBasisLabels,
   type InventoryItem,
 } from "../../shared/inventory";
@@ -184,7 +185,13 @@ export function InventoryDetail() {
             <p>
               {c.allergens
                 .map((allergen) => allergenLabels[allergen])
-                .join(", ") || "None flagged"}
+                .join(", ") ||
+                (c.allergensVerified ? "None" : "Not checked yet")}
+            </p>
+            <small>Dietary tags</small>
+            <p>
+              {c.dietaryTags.map((tag) => dietaryTagLabels[tag]).join(", ") ||
+                "—"}
             </p>
           </Section>
         )}
