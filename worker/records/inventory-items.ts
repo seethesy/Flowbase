@@ -22,7 +22,7 @@ import type {
   ItemInputParsed,
 } from "../../shared/inventory";
 import type { Unit } from "../../shared/units";
-import { fullView, listHistory, writeAudit } from "../audit/log";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   inventoryBarDetails,
@@ -330,10 +330,19 @@ export async function itemSnapshot(db: DbLike, id: string) {
 
 // History hides what toItems hides from the caller: consumable costs from users
 // who can't see internal costs (F-01-04).
-export async function itemHistory(db: DbLike, actor: Actor, id: string) {
+export async function itemHistory(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+) {
   await findItem(db, id);
-  return listHistory(db, "inventory_item", id, (changes) =>
-    redactFieldHistory(actor, "inventory_item", changes),
+  return listHistoryPage(
+    db,
+    "inventory_item",
+    id,
+    (changes) => redactFieldHistory(actor, "inventory_item", changes),
+    page,
   );
 }
 

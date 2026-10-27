@@ -136,7 +136,10 @@ export function leadRoutes(options: {
   // Lead history (FLOW-185): read-only for anyone who can see the lead.
   routes.get("/:id/history", requirePermission("leads.read"), async (c) => {
     const id = param(c);
-    return c.json(await record(c, (db, actor) => leadHistory(db, actor, id)));
+    return sendPage(
+      c,
+      await record(c, (db, actor) => leadHistory(db, actor, id, pageRequest(c))),
+    );
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
     const id = param(c);

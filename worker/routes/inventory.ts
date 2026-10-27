@@ -176,7 +176,10 @@ export function inventoryRoutes(options: {
     requirePermission("inventory.read"),
     async (c) => {
       const id = param(c, "Item");
-      return c.json(await record(c, (db, actor) => itemHistory(db, actor, id)));
+      return sendPage(
+        c,
+        await record(c, (db, actor) => itemHistory(db, actor, id, pageRequest(c))),
+      );
     },
   );
   routes.get(

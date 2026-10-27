@@ -28,7 +28,7 @@ import {
   type leadConvertSchema,
   type leadStatusChangeSchema,
 } from "../../shared/leads";
-import { listHistory, writeAudit } from "../audit/log";
+import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, leads } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
@@ -336,10 +336,19 @@ export async function getLead(
 
 // Lead history (FLOW-185), for anyone who can see the lead. Contact details are
 // hidden from those who can't see them; raw payloads are never in the history.
-export async function leadHistory(db: DbLike, actor: Actor, id: string) {
+export async function leadHistory(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+) {
   await findVisibleLead(db, actor, id);
-  return listHistory(db, "lead", id, (changes) =>
-    redactFieldHistory(actor, "lead", changes),
+  return listHistoryPage(
+    db,
+    "lead",
+    id,
+    (changes) => redactFieldHistory(actor, "lead", changes),
+    page,
   );
 }
 
