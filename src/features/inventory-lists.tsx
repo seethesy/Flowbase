@@ -57,7 +57,11 @@ function SectionFilter({
   kind?: SectionKind;
   label?: string;
 }) {
-  const sections = useResource(() => sectionsApi.list({ kind }), [kind]);
+  const sections = useResource(
+    ["sections", { kind }],
+    () => sectionsApi.list({ kind }),
+    { reference: true },
+  );
   return (
     <select
       aria-label={label}
@@ -84,6 +88,7 @@ export function InventoryList() {
   // Search and filters run on the server across every item (FLOW-179/180).
   const term = useDebounced(search.trim());
   const items = usePagedList(
+    ["inventory-items", "list", archived, kind, sectionId, term],
     (cursor) =>
       inventoryApi.list(
         {
@@ -94,7 +99,6 @@ export function InventoryList() {
         },
         cursor,
       ),
-    [archived, kind, sectionId, term],
   );
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
@@ -230,6 +234,7 @@ export function IngredientList() {
   const term = useDebounced(search.trim());
   const vendorTerm = useDebounced(vendor.trim());
   const items = usePagedList(
+    ["inventory-items", "ingredients", category, sectionId, belowPar, term, vendorTerm],
     (cursor) =>
       inventoryApi.list(
         {
@@ -243,7 +248,6 @@ export function IngredientList() {
         },
         cursor,
       ),
-    [category, sectionId, belowPar, term, vendorTerm],
   );
   // Business settings' categories (FLOW-45), archived ones included so old items
   // can still be found.
@@ -401,6 +405,7 @@ export function BarList() {
   const term = useDebounced(search.trim());
   const distributorTerm = useDebounced(distributor.trim());
   const items = usePagedList(
+    ["inventory-items", "bar", category, subcategory, tier, belowPar, term, distributorTerm],
     (cursor) =>
       inventoryApi.list(
         {
@@ -415,7 +420,6 @@ export function BarList() {
         },
         cursor,
       ),
-    [category, subcategory, tier, belowPar, term, distributorTerm],
   );
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [

@@ -40,8 +40,8 @@ export function VenueList() {
   // The API searches names and addresses across every venue (FLOW-179).
   const term = useDebounced(search.trim());
   const venues = usePagedList(
+    ["venues", "list", archived, term],
     (cursor) => venuesApi.list({ archived, search: term || undefined }, cursor),
-    [archived, term],
   );
   const data = venues.data ?? [];
   const columns: ColumnDef<Venue, unknown>[] = [
@@ -392,10 +392,13 @@ export function VenueForm({
 export function VenueDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const venue = useResource(() => venuesApi.get(id), [id]);
+  const venue = useResource(
+    ["venues", id],
+    () => venuesApi.get(id),
+  );
   const events = useResource(
+    ["events", { venueId: id }, "all"],
     () => allPages((cursor) => eventsApi.list({ venueId: id }, cursor)),
-    [id],
   );
   const [edit, setEdit] = useOpenFor(id);
   const [archive, setArchive] = useOpenFor(id);

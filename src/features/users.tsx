@@ -40,8 +40,8 @@ export function UserManagement() {
 function UserList() {
   const [version, setVersion] = useState(0);
   const resource = useResource(
+    ["admin-users", version],
     () => request(userSchema.array(), "/api/admin/users"),
-    [version],
   );
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");

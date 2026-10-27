@@ -1,7 +1,10 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
+import { queryClient } from "../src/app/queryClient";
 afterEach(cleanup);
+// Each test starts with an empty data cache (FLOW-189).
+afterEach(() => queryClient.clear());
 class ResizeObserverMock {
   observe() {}
   unobserve() {}

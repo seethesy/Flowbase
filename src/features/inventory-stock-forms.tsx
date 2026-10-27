@@ -26,7 +26,11 @@ export function StockForm({
   onSaved: (item: InventoryItem) => void;
 }) {
   const kind = sectionKindFor(item.kind) ?? "rental";
-  const sections = useResource(() => sectionsApi.list({ kind }), [kind]);
+  const sections = useResource(
+    ["sections", { kind }],
+    () => sectionsApi.list({ kind }),
+    { reference: true },
+  );
   const [from, setFrom] = useState(item.stock[0]?.sectionId ?? "");
   const [to, setTo] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -151,7 +155,11 @@ export function MovementForm({
   onSaved: (item: InventoryItem) => void;
 }) {
   const kind = sectionKindFor(item.kind) ?? "rental";
-  const sections = useResource(() => sectionsApi.list({ kind }), [kind]);
+  const sections = useResource(
+    ["sections", { kind }],
+    () => sectionsApi.list({ kind }),
+    { reference: true },
+  );
   const [type, setType] =
     useState<(typeof handMovementTypes)[number]>("receive");
   const [sectionId, setSectionId] = useState(item.stock[0]?.sectionId ?? "");

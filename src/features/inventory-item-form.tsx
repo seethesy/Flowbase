@@ -148,11 +148,12 @@ export function ItemForm({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const storage = useResource(
+    ["sections", kind === "consumable" ? { kind: "consumable" } : "none"],
     () =>
       kind === "consumable"
         ? sectionsApi.list({ kind: "consumable" })
         : Promise.resolve([] as StockSection[]),
-    [kind],
+    { reference: true },
   );
   const set = (key: FieldName) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));

@@ -28,8 +28,8 @@ export function MovementHistory({
   // Newest first, a page at a time (FLOW-179). Corrections are newer than the
   // movement they correct, so they're loaded before it and its total is right.
   const movements = usePagedList(
+    ["movements", item.id, version],
     (cursor) => inventoryApi.movements(item.id, cursor),
-    [item.id, version],
   );
   const [correcting, setCorrecting] = useState<StockMovement | null>(null);
   const all = movements.data ?? [];
@@ -121,8 +121,8 @@ export function CostHistory({
   version: number;
 }) {
   const history = usePagedList(
+    ["cost-history", item.id, version],
     (cursor) => inventoryApi.costHistory(item.id, cursor),
-    [item.id, version],
   );
   const unit = item.consumable ? unitLabel(item.consumable.purchaseUnit) : "";
   return (

@@ -98,7 +98,11 @@ const daysAgo = (days: number) =>
 export function TimeReports() {
   const [from, setFrom] = useState(() => daysAgo(29));
   const [to, setTo] = useState(() => daysAgo(0));
-  const report = useResource(() => timeApi.report({ from, to }), [from, to]);
+  const report = useResource(
+    ["time-report", from, to],
+    () => timeApi.report({ from, to }),
+    { keepPrevious: true },
+  );
   const effortColumns: ColumnDef<EffortRow, unknown>[] = [
     {
       accessorKey: "title",

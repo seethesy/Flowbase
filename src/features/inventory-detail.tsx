@@ -43,7 +43,10 @@ import "./inventory.css";
 export function InventoryDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const item = useResource(() => inventoryApi.get(id), [id]);
+  const item = useResource(
+    ["inventory-items", id],
+    () => inventoryApi.get(id),
+  );
   const [edit, setEdit] = useOpenFor(id);
   const [stockForm, setStockForm] = useStateFor<
     "transfer" | "count" | "movement" | null

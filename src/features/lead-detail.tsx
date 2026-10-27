@@ -43,7 +43,10 @@ const nextStep: Partial<
 export function LeadDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const lead = useResource(() => leadsApi.get(id), [id]);
+  const lead = useResource(
+    ["leads", id],
+    () => leadsApi.get(id),
+  );
   const [error, setError] = useStateFor(id, "");
   const [busy, setBusy] = useState(false);
   const [losing, setLosing] = useOpenFor(id);

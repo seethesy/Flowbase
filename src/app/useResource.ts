@@ -1,32 +1,57 @@
-import { useEffect, useState } from "react";
+import {
+  keepPreviousData,
+  useQuery,
+  type QueryKey,
+} from "@tanstack/react-query";
+import { queryClient, REFERENCE_STALE_MS } from "./queryClient";
 
-// Loads data from the API for a screen and reloads when its inputs change.
-export function useResource<T>(load: () => Promise<T>, inputs: unknown[]) {
-  const [state, setState] = useState<{
-    data?: T;
-    error?: string;
-    loading: boolean;
-  }>({ loading: true });
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    let active = true;
-    setState((current) => ({ ...current, loading: true }));
-    load().then(
-      (data) => {
-        if (active) setState({ data, loading: false });
+export type ResourceOptions = {
+  // A list several forms on one page use (clients, venues, sections): reused
+  // for a few minutes instead of fetched again by each form (FLOW-189 AC3).
+  reference?: boolean;
+  // Keep showing the last result while a new key loads (a search as you type).
+  // Off by default, so a page never shows one record while loading another.
+  keepPrevious?: boolean;
+  enabled?: boolean;
+};
+
+// TanStack Query refuses undefined as a result; loaders that have nothing to
+// fetch return undefined, stored as this marker.
+const nothing = Symbol("nothing");
+
+// Loads data from the API for a screen (ADR-01, FLOW-189). `key` names the data
+// — the same key anywhere on the page shares one request and one cached copy —
+// so it must include every input `load` uses.
+export function useResource<T>(
+  key: QueryKey,
+  load: () => Promise<T>,
+  options: ResourceOptions = {},
+) {
+  const query = useQuery(
+    {
+      queryKey: key,
+      queryFn: async () => {
+        const data = await load();
+        return data === undefined ? nothing : data;
       },
-      (error: Error) => {
-        if (active) setState({ error: error.message, loading: false });
-      },
-    );
-    return () => {
-      active = false;
-    };
-    // load is recreated every render; inputs decide when to refetch.
-  }, [...inputs, version]);
+      staleTime: options.reference ? REFERENCE_STALE_MS : undefined,
+      placeholderData: options.keepPrevious ? keepPreviousData : undefined,
+      enabled: options.enabled,
+    },
+    queryClient,
+  );
+  const data = query.data === nothing ? undefined : (query.data as T | undefined);
   return {
-    ...state,
-    reload: () => setVersion((current) => current + 1),
-    replace: (data: T) => setState({ data, loading: false }),
+    data,
+    error: query.error?.message,
+    loading:
+      query.isFetching || (query.isPending && options.enabled !== false),
+    reload: () => {
+      void query.refetch();
+    },
+    // Shows a value the API just returned (after a save) without refetching.
+    replace: (value: T) => {
+      queryClient.setQueryData(key, value === undefined ? nothing : value);
+    },
   };
 }

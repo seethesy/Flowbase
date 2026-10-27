@@ -44,7 +44,10 @@ export function StaffDirectory() {
   const [position, setPosition] = useState("");
   const [employment, setEmployment] = useState<EmploymentType | "">("");
   const [inactive, setInactive] = useState(false);
-  const staff = useResource(() => staffApi.list(), []);
+  const staff = useResource(
+    ["staff"],
+    () => staffApi.list(),
+  );
   const listed = useListLabels("staff_position");
   const positions = [
     ...new Set([
@@ -174,7 +177,10 @@ export function StaffProfile({
   heading?: boolean;
 }) {
   const permissions = usePermissions();
-  const member = useResource(() => staffApi.get(id), [id]);
+  const member = useResource(
+    ["staff", id],
+    () => staffApi.get(id),
+  );
   if (member.error) return <LoadError message={member.error} />;
   if (!member.data) return <LoadingSkeleton />;
   const data = member.data;

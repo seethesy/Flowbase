@@ -70,9 +70,9 @@ export function ClientList() {
   // The API searches client and contact names across every client (FLOW-179).
   const term = useDebounced(search.trim());
   const clients = usePagedList(
+    ["clients", "list", archived, term],
     (cursor) =>
       clientsApi.list({ archived, search: term || undefined }, cursor),
-    [archived, term],
   );
   const data = clients.data ?? [];
   const columns: ColumnDef<Client, unknown>[] = [
@@ -457,10 +457,13 @@ export function ClientForm({
 export function ClientDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const client = useResource(() => clientsApi.get(id), [id]);
+  const client = useResource(
+    ["clients", id],
+    () => clientsApi.get(id),
+  );
   const events = useResource(
+    ["events", { clientId: id }, "all"],
     () => allPages((cursor) => eventsApi.list({ clientId: id }, cursor)),
-    [id],
   );
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useOpenFor(id);
