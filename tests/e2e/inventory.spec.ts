@@ -72,7 +72,8 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   await dialog.getByLabel(/^Storage section/).selectOption({
     label: "Kitchen – Refrigerated",
   });
-  await dialog.getByLabel("Milk", { exact: true }).check();
+  // Allergens are set on dishes, not ingredients (FLOW-95).
+  await expect(dialog.getByRole("group", { name: "Allergens" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("case of 6 × 1 qt")).toBeVisible();
