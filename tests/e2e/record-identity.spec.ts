@@ -1,10 +1,12 @@
 import type { Page, Request, Route } from "@playwright/test";
 import { test, expect } from "./auth-fixture";
-import { juniper, mockRecordsApi } from "./mock-api";
+import { juniper } from "./fixtures";
+import { seedRecords } from "./database";
 import type { Client } from "../../shared/core-records";
 
 // FLOW-197: a draft, a late response or a finished save for one record must never
-// land on another. Responses are held and released by hand to force the races.
+// land on another. Runs on the real stack with both clients seeded; responses are
+// held and released by hand to force the races.
 const alpha = juniper();
 const beta: Client = {
   ...juniper(),
@@ -42,7 +44,7 @@ const heading = (page: Page, name: string) =>
 test("a delayed record never offers the previous record's data to edit (AC1)", async ({
   page,
 }) => {
-  await mockRecordsApi(page, { clients: [alpha, beta] });
+  await seedRecords({ clients: [alpha, beta] });
   const puts = recordPuts(page);
   await page.goto(`/#/clients/${alpha.id}`);
   await expect(heading(page, alpha.name)).toBeVisible();
@@ -68,7 +70,7 @@ test("a delayed record never offers the previous record's data to edit (AC1)", a
 test("navigating away closes an open draft without saving it (AC2)", async ({
   page,
 }) => {
-  await mockRecordsApi(page, { clients: [alpha, beta] });
+  await seedRecords({ clients: [alpha, beta] });
   const puts = recordPuts(page);
   await page.goto(`/#/clients/${alpha.id}`);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -90,7 +92,7 @@ test("navigating away closes an open draft without saving it (AC2)", async ({
 test("a save that finishes after navigating away doesn't replace the record on screen (AC2)", async ({
   page,
 }) => {
-  await mockRecordsApi(page, { clients: [alpha, beta] });
+  await seedRecords({ clients: [alpha, beta] });
   const puts = recordPuts(page);
   await page.goto(`/#/clients/${alpha.id}`);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -118,7 +120,7 @@ test("a save that finishes after navigating away doesn't replace the record on s
 test("an older response arriving last doesn't win, and back/forward keep the right record (AC3)", async ({
   page,
 }) => {
-  await mockRecordsApi(page, { clients: [alpha, beta] });
+  await seedRecords({ clients: [alpha, beta] });
   await page.goto("/#/clients");
   const releaseAlpha = await hold(page, exactly(alpha.id));
   await goTo(page, `#/clients/${alpha.id}`);
