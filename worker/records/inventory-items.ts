@@ -34,7 +34,13 @@ import { setArchived } from "./archive";
 import { conflict, type ItemRow, round } from "./inventory-common";
 import { recordCostChange } from "./inventory-costs";
 import { requireStockSection } from "./inventory-sections";
-import { keyset, type Page, type PageRequest } from "./paging";
+import {
+  groupBy,
+  indexBy,
+  keyset,
+  type Page,
+  type PageRequest,
+} from "./paging";
 
 // ---- Items ----
 
@@ -84,14 +90,17 @@ export async function toItems(
       .from(inventoryBarDetails)
       .where(inArray(inventoryBarDetails.itemId, ids)),
   ]);
+  const rentalById = indexBy(rentals, (detail) => detail.itemId);
+  const serviceById = indexBy(services, (detail) => detail.itemId);
+  const consumableById = indexBy(consumables, (detail) => detail.details.itemId);
+  const barById = indexBy(bars, (detail) => detail.itemId);
+  const stockByItem = groupBy(stock, (level) => level.itemId);
   return rows.map((row): InventoryItem => {
-    const rental = rentals.find((detail) => detail.itemId === row.id);
-    const service = services.find((detail) => detail.itemId === row.id);
-    const consumable = consumables.find(
-      (detail) => detail.details.itemId === row.id,
-    );
-    const levels = stock
-      .filter((level) => level.itemId === row.id && level.quantity !== 0)
+    const rental = rentalById.get(row.id);
+    const service = serviceById.get(row.id);
+    const consumable = consumableById.get(row.id);
+    const levels = (stockByItem.get(row.id) ?? [])
+      .filter((level) => level.quantity !== 0)
       .map(({ sectionId, sectionName, quantity }) => ({
         sectionId,
         sectionName,
@@ -101,7 +110,7 @@ export async function toItems(
       levels.reduce((sum, level) => sum + level.quantity, 0),
     );
     const c = consumable?.details;
-    const bar = bars.find((detail) => detail.itemId === row.id);
+    const bar = barById.get(row.id);
     const par = c?.parLevel ?? null;
     return serializeFields<InventoryItem>(actor, "inventory_item", {
       id: row.id,

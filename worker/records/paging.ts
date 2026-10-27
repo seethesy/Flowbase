@@ -117,3 +117,21 @@ export function keyset<R>(keys: SortKey<R>[], request: PageRequest = {}) {
     },
   };
 }
+
+// Detail rows keyed by their parent's id, for joining a page in one pass
+// (FLOW-180) instead of a .find or .filter per row.
+export function groupBy<T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> {
+  const groups = new Map<K, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const group = groups.get(k);
+    if (group) group.push(row);
+    else groups.set(k, [row]);
+  }
+  return groups;
+}
+export function indexBy<T, K>(rows: T[], key: (row: T) => K): Map<K, T> {
+  const index = new Map<K, T>();
+  for (const row of rows) if (!index.has(key(row))) index.set(key(row), row);
+  return index;
+}

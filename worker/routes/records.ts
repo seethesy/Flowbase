@@ -202,7 +202,10 @@ export function recordRoutes(options: {
       from: query(c, "from"),
       to: query(c, "to"),
       search: query(c, "search"),
-      status: eventStatusSchema.safeParse(c.req.query("status")).data,
+      // ?status=a,b: events in any of these statuses; unknown values are ignored.
+      statuses: (c.req.query("status") ?? "")
+        .split(",")
+        .flatMap((value) => eventStatusSchema.safeParse(value).data ?? []),
     };
     for (const key of ["clientId", "venueId"] as const)
       if (filter[key] && !uuid.safeParse(filter[key]).success)

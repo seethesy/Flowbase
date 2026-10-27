@@ -47,7 +47,13 @@ import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
 import { setArchived } from "./archive";
-import { keyset, type Page, type PageRequest } from "./paging";
+import {
+  groupBy,
+  indexBy,
+  keyset,
+  type Page,
+  type PageRequest,
+} from "./paging";
 import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
@@ -112,6 +118,9 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       .where(and(inArray(eventAreas.eventId, ids), isNull(eventAreas.archivedAt)))
       .orderBy(asc(eventAreas.sortOrder)),
   ]);
+  const clientById = indexBy(clientNames, (client) => client.id);
+  const venueById = indexBy(venueNames, (venue) => venue.id);
+  const areasByEvent = groupBy(areas, (area) => area.eventId);
   return rows.map((row) => {
     const start = utcToBusinessTime(row.startsAt);
     return {
@@ -122,16 +131,14 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       endTime: row.endsAt ? utcToBusinessTime(row.endsAt).time : null,
       startsAt: row.startsAt.toISOString(),
       endsAt: row.endsAt?.toISOString() ?? null,
-      client: clientNames.find((client) => client.id === row.clientId) ?? {
-        id: row.clientId,
-        name: "",
-      },
+      client: clientById.get(row.clientId) ?? { id: row.clientId, name: "" },
       pocContactId: row.pocContactId,
-      venue: venueNames.find((venue) => venue.id === row.venueId) ?? null,
+      venue: (row.venueId && venueById.get(row.venueId)) || null,
       address: row.address,
-      areas: areas
-        .filter((area) => area.eventId === row.id)
-        .map(({ id, name }) => ({ id, name })),
+      areas: (areasByEvent.get(row.id) ?? []).map(({ id, name }) => ({
+        id,
+        name,
+      })),
       eventType: row.eventType,
       serviceType: row.serviceType,
       foodServiceStyle: row.foodServiceStyle,
@@ -164,7 +171,8 @@ export async function listEvents(
     to?: string;
     // Title, client or venue name (FLOW-179).
     search?: string;
-    status?: EventStatus;
+    // Any of these statuses (one label can cover several).
+    statuses?: EventStatus[];
   },
   page: PageRequest = {},
 ): Promise<Page<FlowEvent>> {
@@ -185,7 +193,9 @@ export async function listEvents(
         filter.archived ? isNotNull(events.archivedAt) : isNull(events.archivedAt),
         filter.clientId ? eq(events.clientId, filter.clientId) : undefined,
         filter.venueId ? eq(events.venueId, filter.venueId) : undefined,
-        filter.status ? eq(events.status, filter.status) : undefined,
+        filter.statuses?.length
+          ? inArray(events.status, filter.statuses)
+          : undefined,
         filter.from
           ? gte(events.startsAt, businessTimeToUtc(filter.from, "00:00"))
           : undefined,

@@ -25,7 +25,13 @@ import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { clientScope, type Scope } from "../policy";
 import { setArchived } from "./archive";
-import { keyset, type Page, type PageRequest } from "./paging";
+import {
+  groupBy,
+  indexBy,
+  keyset,
+  type Page,
+  type PageRequest,
+} from "./paging";
 import { phoneDigits, syncChildren } from "./sync";
 
 type ClientRow = typeof clients.$inferSelect;
@@ -83,6 +89,8 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
           .from(clients)
           .where(inArray(clients.id, duplicateIds))
       : [];
+  const contactsByClient = groupBy(contacts, (contact) => contact.clientId);
+  const duplicateById = indexBy(duplicates, (duplicate) => duplicate.id);
   return rows.map((row): Client =>
     serializeFields<Client>(actor, "client", {
       id: row.id,
@@ -91,13 +99,13 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
       assignedSalespersonId: row.assignedSalespersonId,
       notes: row.notes,
       tags: row.tags,
-      contacts: contacts
-        .filter((contact) => contact.clientId === row.id)
-        .map((contact) => toContact(contact, actor)),
+      contacts: (contactsByClient.get(row.id) ?? []).map((contact) =>
+        toContact(contact, actor),
+      ),
       possibleDuplicateOf:
-        duplicates.find(
-          (duplicate) => duplicate.id === row.possibleDuplicateOfId,
-        ) ?? null,
+        (row.possibleDuplicateOfId &&
+          duplicateById.get(row.possibleDuplicateOfId)) ||
+        null,
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
