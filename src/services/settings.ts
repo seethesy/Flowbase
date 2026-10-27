@@ -25,7 +25,7 @@ const publish = (settings: BusinessSettings) => {
   return settings;
 };
 
-export function loadSettings(force = false): Promise<BusinessSettings> {
+function loadSettings(force = false): Promise<BusinessSettings> {
   if (current && !force) return Promise.resolve(current);
   if (loading && !force) return loading;
   const pending = request(businessSettingsSchema, "/api/settings")
