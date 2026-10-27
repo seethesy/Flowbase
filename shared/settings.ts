@@ -148,7 +148,8 @@ export const businessDefaultsSchema = z.object({
       "Each category can have one ratio default.",
     ),
   paymentTerms: text(2000).default(""),
-  // Notification types sent by SMS as well as in the app and by email.
+  // Notification types (shared/notifications.ts keys, FLOW-43) sent by SMS as
+  // well as in the app and by email.
   urgentNotificationTypes: keyList.default([]),
   // SMS messages the app may send in a calendar month; 0 sends none.
   monthlySmsCap: z.number().int().min(0).max(100_000).default(0),

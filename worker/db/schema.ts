@@ -23,6 +23,8 @@ import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
 import { importStatuses } from "../../shared/imports";
+import { taskPriorities, taskStatuses, taskTypes } from "../../shared/tasks";
+import { notificationTypes } from "../../shared/notifications";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -981,5 +983,132 @@ export const activitySessions = pgTable(
     index("activity_sessions_started_idx").on(table.startedAt),
     index("activity_sessions_record_idx").on(table.recordType, table.recordId),
     oneOf("activity_sessions_record_type_check", table.recordType, activityRecordTypes),
+  ],
+).enableRLS();
+
+// Task engine (FLOW-58): the one task table every module writes through the task
+// service (worker/records/tasks.ts). created_by is the creator; completed_by and
+// completed_at say who marked it done and when. User, event, client and item ids
+// have no foreign keys, like created_by: the DB suite truncates those tables
+// without CASCADE, and the service checks the ids instead.
+export const tasks = pgTable(
+  "tasks",
+  {
+    ...baseColumns(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    type: text("type", { enum: taskTypes }).notNull().default("general"),
+    status: text("status", { enum: taskStatuses }).notNull().default("todo"),
+    priority: text("priority", { enum: taskPriorities })
+      .notNull()
+      .default("normal"),
+    dueAt: timestamptz("due_at"),
+    overseerId: uuid("overseer_id"),
+    eventId: uuid("event_id"),
+    clientId: uuid("client_id"),
+    inventoryItemId: uuid("inventory_item_id"),
+    // No BEO table yet; the id is stored as given.
+    beoId: uuid("beo_id"),
+    completedAt: timestamptz("completed_at"),
+    completedBy: uuid("completed_by"),
+  },
+  (table) => [
+    index("tasks_status_due_idx").on(table.status, table.dueAt),
+    index("tasks_event_idx").on(table.eventId),
+    index("tasks_overseer_idx").on(table.overseerId),
+    index("tasks_created_by_idx").on(table.createdBy),
+    oneOf("tasks_type_check", table.type, taskTypes),
+    oneOf("tasks_status_check", table.status, taskStatuses),
+    oneOf("tasks_priority_check", table.priority, taskPriorities),
+  ],
+).enableRLS();
+
+// A task's assignees. Removing someone archives their row.
+export const taskAssignees = pgTable(
+  "task_assignees",
+  {
+    ...baseColumns(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    userId: uuid("user_id").notNull(),
+  },
+  (table) => [
+    uniqueIndex("task_assignees_task_user_idx")
+      .on(table.taskId, table.userId)
+      .where(sql`${table.archivedAt} is null`),
+    index("task_assignees_user_idx").on(table.userId),
+  ],
+).enableRLS();
+
+export const taskChecklistItems = pgTable(
+  "task_checklist_items",
+  {
+    ...baseColumns(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    doneAt: timestamptz("done_at"),
+    doneBy: uuid("done_by"),
+  },
+  (table) => [index("task_checklist_items_task_idx").on(table.taskId)],
+).enableRLS();
+
+// Comments on a task; created_by is the author.
+export const taskComments = pgTable(
+  "task_comments",
+  {
+    ...baseColumns(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    body: text("body").notNull(),
+  },
+  (table) => [index("task_comments_task_idx").on(table.taskId, table.createdAt)],
+).enableRLS();
+
+// Notifications (FLOW-43): one row per recipient per domain event. source_key is
+// the event job's idempotency key, so a retried job never notifies anyone twice
+// (AC1). emailed_at is set once the email is accepted by the provider.
+export const notifications = pgTable(
+  "notifications",
+  {
+    ...baseColumns(),
+    userId: uuid("user_id").notNull(),
+    type: text("type", { enum: notificationTypes }).notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    link: text("link"),
+    sourceKey: text("source_key").notNull(),
+    readAt: timestamptz("read_at"),
+    emailedAt: timestamptz("emailed_at"),
+  },
+  (table) => [
+    uniqueIndex("notifications_source_user_idx").on(
+      table.sourceKey,
+      table.userId,
+    ),
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
+    oneOf("notifications_type_check", table.type, notificationTypes),
+  ],
+).enableRLS();
+
+// Email on or off per user and notification type. No row means on.
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    ...baseColumns(),
+    userId: uuid("user_id").notNull(),
+    type: text("type", { enum: notificationTypes }).notNull(),
+    email: boolean("email").notNull(),
+  },
+  (table) => [
+    uniqueIndex("notification_preferences_user_type_idx").on(
+      table.userId,
+      table.type,
+    ),
+    oneOf("notification_preferences_type_check", table.type, notificationTypes),
   ],
 ).enableRLS();

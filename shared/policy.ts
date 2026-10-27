@@ -18,6 +18,12 @@ const common = [
   "staff.update_self",
   // Business settings and lists (FLOW-45): forms read them; Admin changes them.
   "settings.read",
+  // Tasks (FLOW-58): everyone creates tasks and works the ones they can see;
+  // taskScope limits which ones. Assigning others needs tasks.delegate.
+  "tasks.read",
+  "tasks.write",
+  // Their own notifications and email preferences (FLOW-43).
+  "notifications.read",
 ] as const;
 const sales = [
   "clients.read",
@@ -68,6 +74,9 @@ export const actions = [
     "events.status",
     // Naming an event's Production Leads (FLOW-140 Q-40): Admin and Sales Manager.
     "events.production_leads",
+    // Assigning tasks to other people (FLOW-58, from FLOW-60): Admin, Sales
+    // Manager, Kitchen Lead and any FT+ user.
+    "tasks.delegate",
     "beos.approve",
     "rentals.apply_directly",
     "inventory.consumables.count",
@@ -90,6 +99,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "recipes.write",
       "attachments.write",
       "inventory.consumables.count",
+      "tasks.delegate",
     ]),
   },
   sales_manager: {
@@ -100,6 +110,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "events.production_leads",
       "rentals.apply_directly",
       "inventory.consumables.count",
+      "tasks.delegate",
     ]),
   },
   salesperson: {
@@ -107,17 +118,20 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
     "inventory.consumables.count": isFtPlus,
     // Recipes: the kitchen and full-time staff edit them (Ash, 2026-10-27).
     "recipes.write": isFtPlus,
+    "tasks.delegate": isFtPlus,
   },
   kitchen_lead: {
     ...grants(common, inventory, kitchen, [
       "recipes.write",
       "attachments.write",
+      "tasks.delegate",
     ]),
     "inventory.consumables.count": isFtPlus,
   },
   kitchen_staff: {
     ...grants(common, kitchen, ["recipes.write"]),
     "inventory.consumables.count": isFtPlus,
+    "tasks.delegate": isFtPlus,
   },
   staff: {
     ...grants(common),
@@ -126,6 +140,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
     "inventory.move": isFtPlus,
     "inventory.rentals.move": isFtPlus,
     "inventory.consumables.count": isFtPlus,
+    "tasks.delegate": isFtPlus,
   },
 };
 export const can = (actor: Actor, action: Action): boolean =>
@@ -168,6 +183,20 @@ export const eventScope = (actor: Actor): Scope =>
   recordScopes[actor.role].event;
 export const timeReportScope = (actor: Actor): "all" | "own" =>
   actor.role === "admin" || actor.role === "sales_manager" ? "all" : "own";
+// Tasks (FLOW-58): FT+ see every task (the communal list, FLOW-59); everyone
+// else sees the tasks they are assigned to, oversee or created.
+export const taskScope = (actor: Actor): "all" | "own" =>
+  isFtPlus(actor) ? "all" : "own";
+// Changing a task's details, assignees or overseer: its creator, its overseer, or
+// anyone who may delegate. Assignees who can't still update status, checklist and
+// comments.
+export const mayManageTask = (
+  actor: Actor,
+  task: { createdBy: string | null; overseerId: string | null },
+) =>
+  can(actor, "tasks.delegate") ||
+  task.createdBy === actor.userId ||
+  task.overseerId === actor.userId;
 export const mayOverrideStatus = (
   actor: Actor,
   event: { assignedSalespersonId: string | null },
@@ -182,4 +211,5 @@ export const attachmentWriteActions = {
   event: "events.write",
   inventory_item: "inventory.write",
   recipe: "recipes.write",
+  task: "tasks.write",
 } as const satisfies Record<string, Action>;

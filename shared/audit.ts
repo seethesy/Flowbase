@@ -29,7 +29,10 @@ export type AuditEntity =
   | "inventory_section"
   | "lead"
   // One create row per stock movement (FLOW-168).
-  | "stock_movement";
+  | "stock_movement"
+  // Tasks and their comments (FLOW-58); checklist changes are task updates.
+  | "task"
+  | "task_comment";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";
