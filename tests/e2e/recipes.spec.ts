@@ -108,7 +108,7 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
     .check();
   const dietary = dialog.getByRole("group", { name: "Dietary tags" });
   await expect(dietary.getByText("No ingredient contains meat.")).toBeVisible();
-  await dietary.getByLabel(/^Gluten-free/).check();
+  await dietary.getByLabel("Gluten-free", { exact: true }).check();
   // FLOW-93 AC2: a recipe saves without a yield.
   await dialog.getByLabel(/^Yield/).fill("");
   await dialog.getByRole("button", { name: "Save recipe" }).click();

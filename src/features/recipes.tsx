@@ -224,9 +224,19 @@ function TagChoices<T extends string>({
             }
           />
           {labels[option]}
-          {hints && <small className="muted"> ({hints[option]})</small>}
         </label>
       ))}
+      {hints && (
+        <ul className="muted">
+          {options.map((option) => (
+            <li key={option}>
+              <small>
+                {labels[option]}: {hints[option]}
+              </small>
+            </li>
+          ))}
+        </ul>
+      )}
     </fieldset>
   );
 }
