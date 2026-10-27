@@ -49,11 +49,16 @@ export const isOpenProposal = (stage: ProposalStage) =>
 // Where a person may move a proposal by hand: any manual stage, or Lost, from any
 // open stage. A finalized, approved or sent proposal can go back to Revisions when
 // the client asks for changes. Signed and Lost are final.
-export function manualProposalTargets(from: ProposalStage): ProposalStage[] {
+const manualTargets = [
+  ...manualProposalStages,
+  "lost",
+] as const satisfies readonly ProposalStage[];
+export type ManualProposalTarget = (typeof manualTargets)[number];
+export function manualProposalTargets(
+  from: ProposalStage,
+): ManualProposalTarget[] {
   if (!isOpenProposal(from)) return [];
-  return [...manualProposalStages, "lost"].filter(
-    (stage): stage is ProposalStage => stage !== from,
-  );
+  return manualTargets.filter((stage) => stage !== from);
 }
 
 // Uploading a version finalizes the proposal (FLOW-123) from a manual stage, or
@@ -66,12 +71,6 @@ export const uploadableProposalStages = [
 ] as const satisfies readonly ProposalStage[];
 
 export const lostReasonRequired = "Enter why the proposal was lost.";
-const manualTargets = [
-  "client_communication",
-  "menu_curation",
-  "revisions",
-  "lost",
-] as const satisfies readonly ProposalStage[];
 export const proposalStageChangeSchema = z
   .object({
     stage: z.enum(manualTargets, {

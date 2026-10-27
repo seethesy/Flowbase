@@ -5,6 +5,7 @@ import {
   manualProposalTargets,
   proposalStageLabels,
   uploadableProposalStages,
+  type ManualProposalTarget,
   type Proposal,
   type ProposalDetail,
   type ProposalStage,
@@ -292,7 +293,7 @@ function ProposalDrawer({
                         value=""
                         disabled={busy}
                         onChange={(e) => {
-                          const stage = e.target.value as ProposalStage;
+                          const stage = e.target.value as ManualProposalTarget | "";
                           if (!stage) return;
                           if (stage === "lost") return setLosing(true);
                           void run(() =>
