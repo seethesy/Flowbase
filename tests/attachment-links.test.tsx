@@ -103,7 +103,8 @@ const renderVenueFiles = () =>
   );
 const photoLink = () =>
   screen.getByRole("img", { name: "plan.jpg" }).closest("a")!;
-const documentLink = () => screen.getByText("menu.pdf").closest("a")!;
+const documentLink = () =>
+  screen.getByText("menu.pdf", { selector: "a span" }).closest("a")!;
 
 it("renews links before they expire while the page stays open, once for every group", async () => {
   renderVenueFiles();
@@ -170,7 +171,7 @@ it("reports lost access and exposes no link when renewal is refused", async () =
     (await screen.findAllByText(/You don't have access to these files/)).length,
   ).toBeGreaterThan(0);
   // The expired links are gone from the page, not left to be clicked.
-  expect(screen.queryByText("menu.pdf")).not.toBeInTheDocument();
+  expect(screen.queryAllByText("menu.pdf")).toEqual([]);
   expect(screen.queryByRole("img", { name: "plan.jpg" })).not.toBeInTheDocument();
 });
 
