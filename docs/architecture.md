@@ -107,3 +107,37 @@ context, after record authorization. `client_recipe` suppresses internal costs;
 including Admin. Financials require the record's assigned salesperson ID; omitting
 it never grants a salesperson access. BEO and recipe-book feature tickets consume
 these projections when their document modules are implemented.
+
+## ADR-11 freshness (FLOW-206)
+
+An open screen shows another user's committed change without navigating.
+
+- **Ping.** `announceChanges` (`worker/realtime.ts`) runs on every `/api/*` request.
+  After a write (any method but GET/HEAD/OPTIONS) answers 2xx, which means its
+  transaction committed, it broadcasts one `changed` event on the Supabase Realtime
+  channel `flowbase-changes` (`shared/realtime.ts`). A failed or rolled-back write
+  answers with an error and sends nothing. Demo, dev and sign-in writes are skipped.
+  The ping runs after the response (`waitUntil`); a failed ping is logged, never
+  returned. Without `SUPABASE_URL`/`SUPABASE_SECRET_KEY` nothing is sent.
+- **No data.** The payload is only `{ at }`. The channel is a public broadcast
+  channel, so it must never carry ids or fields; browsers read records only through
+  the Worker API, which applies the reader's role and assignment scope.
+- **Client.** `src/app/liveUpdates.ts` holds one subscription and at most one timer
+  for the whole app (reference-counted; AuthGate mounts it while someone is signed
+  in). A ping (bursts within 500 ms count once) invalidates the TanStack Query cache
+  and refetches only queries a mounted screen uses. Until Realtime confirms the
+  subscription, and whenever it drops, visible pages poll every 30 s instead
+  (`POLL_FALLBACK_MS`); reconnecting refetches once for pings lost meanwhile.
+  While the tab is hidden nothing is fetched or polled; a change seen meanwhile (or
+  no Realtime) refetches once when the tab is shown again.
+- **Access changes.** Each refresh re-reads `/api/auth/me`. A changed role or
+  employment type resets every cached query; a different user or sign-out clears
+  the cache (FLOW-189). `useResource` and `usePagedList` stop returning cached data
+  once a refetch answers 403 or 404, so a record the reader lost stays hidden.
+- **Consumers.** Every `useResource` / `usePagedList` screen takes part with no
+  extra code. A new screen (e.g. the FLOW-155 day-of board) loads its data with
+  `useResource` under a key that names it; it must not open its own Realtime
+  channel or timer. Something outside the query cache that must react (e.g. a
+  board's own "last updated" note) can listen with `onDataChanged`, which fires
+  after each visible refresh. Data with its own expiry, such as signed attachment
+  links (FLOW-201), uses `useResource`'s `expiresAt` option instead.

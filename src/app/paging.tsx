@@ -7,6 +7,7 @@ import {
 import type { Page } from "../services/core";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
+import { isRefused } from "./useResource";
 
 // A list screen's rows, one API page at a time (FLOW-179), cached by TanStack
 // Query (FLOW-189). `key` names the list and must include every filter `load`
@@ -28,7 +29,9 @@ export function usePagedList<T>(
     queryClient,
   );
   return {
-    data: query.data?.pages.flatMap((page) => page.rows),
+    data: isRefused(query.error)
+      ? undefined
+      : query.data?.pages.flatMap((page) => page.rows),
     loading: query.isFetching && !query.isFetchingNextPage,
     loadingMore: query.isFetchingNextPage,
     error: query.error?.message,

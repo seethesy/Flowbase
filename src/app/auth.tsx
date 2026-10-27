@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -10,6 +11,7 @@ import { userSchema, type User } from "../../shared/users";
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
+import { onDataChanged, useLiveUpdates } from "./liveUpdates";
 
 export const AuthContext = createContext<{
   user: User;
@@ -30,9 +32,26 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // Cached data belongs to the signed-in user (FLOW-189): drop it whenever
   // the user changes, including sign-out and an expired session.
   useEffect(() => () => queryClient.clear(), [user?.id]);
+  // It also depends on what they may see (FLOW-206): when an Admin changes
+  // their role or employment type, empty every screen and load it again.
+  const shownUser = useRef<User | null>(null);
+  useEffect(() => {
+    const previous = shownUser.current;
+    shownUser.current = user;
+    if (
+      previous &&
+      user &&
+      previous.id === user.id &&
+      (previous.role !== user.role ||
+        previous.employmentType !== user.employmentType)
+    )
+      void queryClient.resetQueries();
+  }, [user]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [client, setClient] = useState<SupabaseClient | null>(null);
+  // Open screens follow other users' changes while someone is signed in.
+  useLiveUpdates(user ? client : null);
   useEffect(() => {
     let active = true;
     let dispose = () => {};
@@ -147,7 +166,29 @@ export function AuthGate({ children }: { children: ReactNode }) {
             }, 0);
           }
         });
-        unsubscribe = () => subscription.data.subscription.unsubscribe();
+        // Another user's change may be to this user's own role or status:
+        // re-check the profile whenever open screens refresh (FLOW-206).
+        // A refused account is signed out by authFetch; other failures keep
+        // the current profile until the next check.
+        const stopWatching = onDataChanged(() => {
+          const current = revision;
+          void authFetch("/api/auth/me")
+            .then(async (response) => {
+              if (!response.ok) return;
+              const profile = userSchema.parse(await response.json());
+              if (active && current === revision)
+                setUser((shown) =>
+                  JSON.stringify(shown) === JSON.stringify(profile)
+                    ? shown
+                    : profile,
+                );
+            })
+            .catch(() => undefined);
+        });
+        unsubscribe = () => {
+          subscription.data.subscription.unsubscribe();
+          stopWatching();
+        };
         await loadUser();
       })
       .catch((err: unknown) =>

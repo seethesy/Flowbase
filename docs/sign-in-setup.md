@@ -48,7 +48,7 @@ disabled (FLOW-176).
    | --- | --- | --- |
    | `SUPABASE_URL` | Text | Project URL for the same database bound by Hyperdrive |
    | `SUPABASE_PUBLISHABLE_KEY` | Text | Supabase publishable key (legacy anon key also works) |
-   | `SUPABASE_SECRET_KEY` | Secret | Supabase secret key (legacy service-role key also works); server only, used to send Admin invitations |
+   | `SUPABASE_SECRET_KEY` | Secret | Supabase secret key (legacy service-role key also works); server only, used to send Admin invitations and the Realtime "changed" pings (FLOW-206) |
    | `APP_URL` | Text | This environment's app origin, with no route/query |
 
    The production Supabase project is `hzmgxkyitvlzcnecywai`; dev is
@@ -68,6 +68,11 @@ disabled (FLOW-176).
    then clear those shell variables. The script uses Drizzle for the data write
    and refuses if a pending/active Admin exists. It creates a pending allowlist
    entry only; sign in with Google to activate it. The script sends no email.
+8. Live updates (FLOW-206, ADR-11): in Supabase **Realtime → Settings**, keep
+   **Allow public access** on. Flowbase pings the public broadcast channel
+   `flowbase-changes` after each saved change; the ping carries no record data.
+   With public access off, open screens still update through the 30-second
+   polling fallback, just more slowly.
 
 ## Manual completion check
 

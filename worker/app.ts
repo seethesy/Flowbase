@@ -32,6 +32,7 @@ import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
+import { announceChanges } from "./realtime";
 import * as fixtures from "../src/data/mock/fixtures";
 
 type DbCheck = {
@@ -47,6 +48,8 @@ type Options = {
   ingestSources?: Map<string, IngestSource>;
   // Module importers (FLOW-47); the registered ones by default.
   importModules?: ImportModule[];
+  // Sends the "changed" ping after a write (FLOW-206); Supabase Realtime by default.
+  publishChanged?: (env: Bindings | undefined) => Promise<void>;
 };
 export function createApp(options: Options = {}) {
   const app = new Hono<AppEnv>();
@@ -66,6 +69,7 @@ export function createApp(options: Options = {}) {
       }),
     );
   });
+  app.use("/api/*", announceChanges(options.publishChanged));
   app.onError((error, c) => {
     const requestId = c.get("requestId") ?? crypto.randomUUID();
     c.header("X-Request-ID", requestId);
