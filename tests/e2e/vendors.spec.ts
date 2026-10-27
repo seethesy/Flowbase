@@ -10,8 +10,10 @@ test("creates a vendor and finds it in the global search", async ({ page }) => {
   await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
   await expect(dialog.getByLabel(/password/i)).toHaveCount(0);
   await dialog.getByLabel("Name *", { exact: true }).fill("Imperio");
+  // A select's accessible name includes its selected option ("Type Food
+  // distributor"), so match the start.
   await dialog
-    .getByLabel("Type", { exact: true })
+    .getByRole("combobox", { name: /^Type\b/ })
     .selectOption({ label: "Beverage distributor" });
   await dialog
     .getByLabel("Vendor portal URL", { exact: true })
