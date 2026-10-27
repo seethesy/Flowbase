@@ -65,17 +65,17 @@ export function Breadcrumbs() {
       <span>Workspace</span>
       <span>/</span>
       <Link to={parts[0] ? `/${parts[0]}` : "/"}>{name}</Link>
-      {parts[1] && (parts[0] === "clients" || (parts[0] === "inventory" && !["ingredients", "bar", "counts", "sections", "low-stock"].includes(parts[1]))) && (
+      {parts[1] && (parts[0] === "clients" || (parts[0] === "inventory" && !["ingredients", "bar", "supplies", "counts", "sections", "low-stock"].includes(parts[1]))) && (
         <RecordBreadcrumb key={location.pathname} resource={parts[0]} id={parts[1]} />
       )}
     </nav>
   );
 }
 function RecordBreadcrumb({ resource, id }: { resource: string; id: string }) {
-  const record = useResource(async () => {
+  const record = useResource(["breadcrumb", resource, id], async () => {
     const result = resource === "clients" ? await clientsApi.get(id) : await inventoryApi.get(id);
     return { name: result.name };
-  }, [resource, id]);
+  });
   return record.data ? <><span>/</span><span>{record.data.name}</span></> : null;
 }
 function Sidebar({

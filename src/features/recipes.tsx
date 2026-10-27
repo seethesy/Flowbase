@@ -39,7 +39,7 @@ import {
   SearchInput,
   Section,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { centsLabel, quantityLabel } from "./inventory-labels";
 import "./inventory.css";
