@@ -10,8 +10,9 @@ import {
   type StockCount,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
-import { countsApi, inventoryApi, sectionsApi } from "../services/core";
+import { allPages, countsApi, inventoryApi, sectionsApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { LoadMore, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -39,7 +40,11 @@ export function CountList() {
     () => sectionsApi.list({ kind: "consumable" }),
     [],
   );
-  const open = useResource(() => countsApi.list({ status: "open" }), []);
+  // Every open count: at most one per section, so this stays small (FLOW-179).
+  const open = useResource(
+    () => allPages((cursor) => countsApi.list({ status: "open" }, cursor)),
+    [],
+  );
   const [error, setError] = useState("");
   const start = async (sectionId: string) => {
     setError("");
@@ -309,8 +314,8 @@ export function CountMode() {
 // Consumables below par (FLOW-82): ingredients, bar stock and supplies.
 export function LowStockList() {
   const navigate = useNavigate();
-  const items = useResource(
-    () => inventoryApi.list({ kind: "consumable", belowPar: true }),
+  const items = usePagedList(
+    (cursor) => inventoryApi.list({ kind: "consumable", belowPar: true }, cursor),
     [],
   );
   const columns: ColumnDef<InventoryItem, unknown>[] = [
@@ -373,13 +378,16 @@ export function LowStockList() {
       ) : !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={items.data}
-          columns={columns}
-          onRow={(item) => navigate(`/inventory/${item.id}`)}
-          label="items below par"
-          exportName="low stock"
-        />
+        <>
+          <DataTable
+            data={items.data}
+            columns={columns}
+            onRow={(item) => navigate(`/inventory/${item.id}`)}
+            label="items below par"
+            exportName="low stock"
+          />
+          <LoadMore list={items} label="Load more items" />
+        </>
       )}
     </>
   );
