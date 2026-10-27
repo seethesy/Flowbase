@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TestAuth } from "./auth-provider";
 import { Attachments } from "../src/features/attachments";
 import type { Attachment } from "../shared/attachments";
+import { queryClient } from "../src/app/queryClient";
 
 // FLOW-201: signed attachment links (five minutes, FLOW-42) are renewed while
 // a record page stays open, without leaving the record.
@@ -57,6 +58,9 @@ beforeEach(() => {
     get: () => visibility,
   });
   vi.useFakeTimers({ shouldAdvanceTime: true });
+  // The app mounts the client through QueryClientProvider (App.tsx), which is
+  // what makes it refetch when a hidden page is shown again.
+  queryClient.mount();
   vi.mocked(fetch).mockImplementation(async (input) => {
     if (!String(input).startsWith("/api/attachments"))
       return Response.json([]);
@@ -66,7 +70,7 @@ beforeEach(() => {
           error: {
             code: "FORBIDDEN",
             message: "You don't have access to these files.",
-            requestId: "req-1",
+            requestId: "a0000000-0000-4000-8000-0000000000e1",
           },
         },
         { status: 403 },
@@ -79,6 +83,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  queryClient.unmount();
   vi.useRealTimers();
   delete (document as { visibilityState?: unknown }).visibilityState;
 });
