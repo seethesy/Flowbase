@@ -28,6 +28,8 @@ export type AuditEntity =
   | "inventory_item"
   | "inventory_section"
   | "lead"
+  // Proposals and their stage changes and versions (FLOW-122/123).
+  | "proposal"
   // One create row per stock movement (FLOW-168).
   | "stock_movement";
 export type HistoryEntry = {
