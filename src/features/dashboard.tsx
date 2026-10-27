@@ -31,7 +31,7 @@ import {
 import { RecordForm } from "./forms";
 import { ProposalDrawer } from "./proposals";
 import "./dashboard.css";
-export function ActivityFeed() {
+function ActivityFeed() {
   const icons = [Check, MessageSquare, Truck, UserPlus, Send];
   return (
     <div className="activity-feed">
@@ -109,39 +109,39 @@ export function Dashboard() {
         <div>
           <strong>A good day to keep things flowing.</strong>
           <p>
-            You have {open.length} open proposals and {alerts.length} inventory
+            Sample data: {open.length} open proposals and {alerts.length} inventory
             items that need a little attention.
           </p>
         </div>
         <span className="live-pill">
           <span />
-          Demo workspace
+          Sample data
         </span>
       </div>
       <div className="kpi-grid">
         <KpiCard
-          label="Active Clients"
+          label="Active Clients (sample data)"
           value={active.length}
           icon={<Users size={19} />}
           comparison="Client relationships"
           onClick={() => navigate("/clients?status=Active")}
         />
         <KpiCard
-          label="Open Proposals"
+          label="Open Proposals (sample data)"
           value={open.length}
           icon={<FileText size={19} />}
           comparison={`${money(open.reduce((a, c) => a + c.value, 0))} in pipeline`}
           onClick={() => navigate("/proposals?open=1")}
         />
         <KpiCard
-          label="Proposals Won This Month"
+          label="Proposals Won This Month (sample data)"
           value={signed.length}
           icon={<CheckCheck size={19} />}
           comparison={`${money(signed.reduce((a, c) => a + c.value, 0))} in signed value`}
           onClick={() => navigate("/proposals?stage=Signed")}
         />
         <KpiCard
-          label="Inventory Alerts"
+          label="Inventory Alerts (sample data)"
           value={alerts.length}
           icon={<Package size={19} />}
           comparison={`${alerts.filter((i) => stockStatus(i) === "Out of Stock").length} out of stock · needs review`}
@@ -151,7 +151,7 @@ export function Dashboard() {
       <div className="dashboard-grid">
         <div className="dashboard-main">
           <Section
-            title="Recent activity"
+            title="Recent activity (sample data)"
             action={
               <span className="subtle-tag">
                 <Clock size={12} /> Today
@@ -161,7 +161,7 @@ export function Dashboard() {
             <ActivityFeed />
           </Section>
           <Section
-            title="Recent proposals"
+            title="Recent proposals (sample data)"
             action={
               <Link className="text-link" to="/proposals?view=table">
                 View all <ArrowUpRight size={14} />
@@ -216,7 +216,7 @@ export function Dashboard() {
         </div>
         <div className="dashboard-aside">
           <Section
-            title="Proposals by status"
+            title="Proposals by status (sample data)"
             action={
               <Link to="/proposals" aria-label="View proposal pipeline">
                 <ArrowUpRight size={17} />
@@ -267,7 +267,7 @@ export function Dashboard() {
             </p>
           </Section>
           <Section
-            title="Stock needs attention"
+            title="Stock needs attention (sample data)"
             action={<span className="alert-count">{alerts.length}</span>}
           >
             <div className="low-stock-list">
@@ -292,7 +292,7 @@ export function Dashboard() {
             </Link>
           </Section>
           <Section
-            title="Coming up"
+            title="Coming up (sample data)"
             action={
               <Link to="/events" aria-label="View events">
                 <ArrowUpRight size={17} />

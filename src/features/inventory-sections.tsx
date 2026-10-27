@@ -17,7 +17,7 @@ import {
   FormField,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import "./inventory.css";
 
 // Sections (FLOW-70): Admin adds, renames and archives them.

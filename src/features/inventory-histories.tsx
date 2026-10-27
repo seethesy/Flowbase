@@ -10,7 +10,7 @@ import { unitLabel } from "../../shared/units";
 import { inventoryApi } from "../services/core";
 import { LoadMore, usePagedList } from "../app/paging";
 import { Button, Section, LoadingSkeleton } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
 import { CorrectionForm } from "./inventory-stock-forms";
 import "./inventory.css";

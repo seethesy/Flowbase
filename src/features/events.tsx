@@ -31,12 +31,12 @@ import {
   LoadingSkeleton,
   Select,
 } from "../components/shared";
-import { hidden, initials, LoadError } from "./clients";
+import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
-export const statusLabels = eventStatusLabels;
+const statusLabels = eventStatusLabels;
 
 // Today in New York as YYYY-MM-DD.
 const businessToday = () => utcToBusinessTime(new Date()).date;

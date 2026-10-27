@@ -6,7 +6,7 @@ import { leadsApi } from "../services/leads";
 import { useResource } from "../app/useResource";
 import { useDebounced } from "../app/paging";
 import { Button, DetailDrawer, FormField } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { leadTitle } from "./lead-shared";
 
 function ClientPicker({

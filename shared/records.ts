@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const note = z.object({ text: z.string(), date: z.string() });
-export const stageSchema = z.enum([
+const stageSchema = z.enum([
   "Draft",
   "Sent",
   "Negotiating",

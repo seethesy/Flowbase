@@ -21,7 +21,7 @@ import {
   ConfirmationDialog,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
 import "./stock-counts.css";
 

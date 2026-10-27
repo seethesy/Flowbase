@@ -159,6 +159,7 @@ const recordScopes: Record<Role, { client: Scope; lead: Scope; event: Scope }> =
   };
 export const clientScope = (actor: Actor): Scope =>
   recordScopes[actor.role].client;
+// Admin, Technical and Sales Manager see all leads; salespeople see their own.
 export const leadScope = (actor: Actor): Scope => recordScopes[actor.role].lead;
 export const eventScope = (actor: Actor): Scope =>
   recordScopes[actor.role].event;

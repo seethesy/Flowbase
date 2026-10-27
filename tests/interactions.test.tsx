@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { it, expect, vi } from "vitest";
-import { DemoProvider } from "../src/app/store";
+import { DemoProvider, DemoScreen } from "../src/app/store";
 import { AppShell } from "../src/components/layout/AppShell";
 import { ClientList } from "../src/features/clients";
 import { ProposalDrawer } from "../src/features/proposals";
@@ -23,7 +23,8 @@ async function mount(node: ReactNode, path = "/") {
 }
 it("updates a proposal and rejects an invalid stage", async () => {
   const user = userEvent.setup();
-  await mount(<ProposalDrawer id="FB-2026" onClose={() => {}} />);
+  await mount(<DemoScreen><ProposalDrawer id="FB-2026" onClose={() => {}} /></DemoScreen>);
+  await screen.findByLabelText("Proposal stage");
   await user.selectOptions(screen.getByLabelText("Proposal stage"), "Signed");
   expect(screen.getByRole("alert")).toHaveTextContent(
     "Cannot move Draft to Signed",
@@ -54,10 +55,6 @@ it("navigates using the sidebar and exposes mobile navigation", async () => {
 it("shows a load failure instead of treating missing API data as an empty workspace", async () => {
   vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 503 }));
   await mount(<ClientList />);
-  expect(screen.getByRole("alert")).toHaveTextContent(
-    "Unable to load demo records",
-  );
-  expect(
-    screen.queryByRole("heading", { name: "Clients" }),
-  ).not.toBeInTheDocument();
+  expect(await screen.findByRole("alert")).toHaveTextContent("503");
+  expect(screen.getByRole("heading", { name: "Clients" })).toBeInTheDocument();
 });

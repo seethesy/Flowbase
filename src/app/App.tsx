@@ -16,8 +16,6 @@ export function App() {
 
 function Workspace() {
   return (
-    <DemoProvider>
-      <RouterProvider router={getRouter()} />
-    </DemoProvider>
+    <DemoProvider><RouterProvider router={getRouter()} /></DemoProvider>
   );
 }

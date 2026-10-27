@@ -19,7 +19,7 @@ import {
   FormField,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
 import { summaryLine } from "./lead-inbox";

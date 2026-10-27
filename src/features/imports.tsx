@@ -20,7 +20,7 @@ import {
 } from "../components/shared";
 import { readImportFile, type Sheet } from "../services/import-files";
 import { importsApi } from "../services/imports";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { dateTimeLabel } from "./inventory-labels";
 import "./inventory.css";
 import "./imports.css";

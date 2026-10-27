@@ -10,7 +10,6 @@ import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { timeApi } from "../services/time-tracking";
 import { useResource } from "../app/useResource";
 import {
-  Button,
   DataTable,
   EmptyState,
   FilterBar,
@@ -19,54 +18,14 @@ import {
   PageHeader,
   Section,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { useBusinessSettings } from "../services/settings";
 import "./time-tracking.css";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
 // Settings entry and the reports.
 
-// The idle cutoff is a business setting (FLOW-45).
-export const trackingNoticeText = (idleMinutes: number) =>
-  `Flowbase records how long you actively work on each screen, so the team can see the effort behind each booking and everyone's workload. Only time inside Flowbase counts: time stops when this tab is hidden or after ${idleMinutes} minutes without typing or clicking.`;
-
-const NOTICE_KEY = "flowbase.trackingNoticeSeen";
-const noticeSeen = () => {
-  try {
-    return window.localStorage.getItem(NOTICE_KEY) === "1";
-  } catch {
-    return false;
-  }
-};
-
-// Shown on first use. Until sign-in (FLOW-36) it's remembered per browser; then
-// it becomes the first sign-in notice.
-export function TrackingNotice() {
-  const [open, setOpen] = useState(() => !noticeSeen());
-  const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
-  if (!open) return null;
-  return (
-    <aside className="demo-callout tracking-notice" aria-label="Time tracking">
-      <p>
-        <strong>Time tracking is on.</strong> {trackingNoticeText(idleMinutes)}{" "}
-        <Link to="/settings">More about time tracking</Link>
-      </p>
-      <Button
-        variant="outline"
-        onClick={() => {
-          try {
-            window.localStorage.setItem(NOTICE_KEY, "1");
-          } catch {
-            // Storage blocked: the notice just shows again next time.
-          }
-          setOpen(false);
-        }}
-      >
-        Got it
-      </Button>
-    </aside>
-  );
-}
+import { trackingNoticeText } from "../components/TrackingNotice";
 
 // The time tracking section of the Settings screen.
 export function TimeTrackingSettings() {
@@ -86,7 +45,7 @@ export function TimeTrackingSettings() {
   );
 }
 
-export const duration = (seconds: number) => {
+const duration = (seconds: number) => {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")} min`;
