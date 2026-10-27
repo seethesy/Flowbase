@@ -414,7 +414,12 @@ function ImportLogTable({
   module?: string;
   version?: number;
 }) {
-  const logs = useResource(["imports", "logs", module, version], () => importsApi.list(module));
+  // Re-keyed after each import; the previous logs stay until the new ones load.
+  const logs = useResource(
+    ["imports", "logs", module, version],
+    () => importsApi.list(module),
+    { keepPrevious: true },
+  );
   return (
     <Section title="Recent imports">
       {logs.error ? (

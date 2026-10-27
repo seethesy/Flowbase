@@ -5,7 +5,11 @@ import { expect, it, vi } from "vitest";
 import { useResource } from "../src/app/useResource";
 import { request } from "../src/services/core";
 import { MovementForm, StockForm } from "../src/features/inventory-stock-forms";
-import type { InventoryItem, Section } from "../shared/inventory";
+import {
+  rentalDetailsSchema,
+  type InventoryItem,
+  type Section,
+} from "../shared/inventory";
 import { z } from "zod";
 
 // FLOW-189 AC3: data several forms on one page use is fetched once (TanStack
@@ -32,7 +36,7 @@ const item: InventoryItem = {
   tier: "",
   ratio: null,
   active: true,
-  rental: { priceCents: null },
+  rental: rentalDetailsSchema.parse({}),
   consumable: null,
   service: null,
   bar: null,
