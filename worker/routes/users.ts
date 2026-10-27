@@ -1,11 +1,11 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import {
   authConfigSchema,
   inviteInputSchema,
   userActionSchema,
 } from "../../shared/users";
+import { id as uuid } from "../../shared/schema-primitives";
 import { requirePermission } from "../auth";
 import {
   ApiError,
@@ -89,7 +89,7 @@ export function userRoutes(options: { withDb?: RunWithDb }) {
     return c.json(user, 201);
   });
   routes.post("/:id/:action", requirePermission("users.manage"), async (c) => {
-    const id = z.uuid().safeParse(c.req.param("id"));
+    const id = uuid.safeParse(c.req.param("id"));
     const action = userActionSchema.safeParse(c.req.param("action"));
     if (!id.success || !action.success)
       throw new ApiError(400, "INVALID_REQUEST", "Invalid user action.");

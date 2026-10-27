@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import {
   correctionInputSchema,
   countInputSchema,
@@ -14,6 +13,7 @@ import {
   startCountInputSchema,
   transferInputSchema,
 } from "../../shared/inventory";
+import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
@@ -45,8 +45,6 @@ import {
   transferStock,
   updateItem,
 } from "../records/inventory";
-
-const uuid = z.string().uuid();
 
 // Inventory API (FLOW-69/70/71/81/82/83/90), mounted at /api/inventory. Every route
 // needs a signed-in user; item writes need inventory.write, section changes

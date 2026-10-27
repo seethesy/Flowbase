@@ -1,17 +1,11 @@
 import { z } from "zod";
+import { email, id, localDate, text, timestamp } from "./schema-primitives";
 
 // Core records (FLOW-53 clients, FLOW-54 venues, FLOW-55 events), shared by the API
 // and the app. Contact email and phone come back as null when the caller isn't FT+
 // (F-01-04); in an update, an omitted email or phone keeps the stored value.
-const id = z.string().uuid();
-const text = (max: number) => z.string().trim().max(max);
 const name = z.string().trim().min(1, "Name is required.").max(200);
-const email = text(254).refine(
-  (value) => value === "" || /^\S+@\S+\.\S+$/.test(value),
-  "Enter a valid email address.",
-);
 const phone = text(40);
-const timestamp = z.string().datetime();
 
 export const contactRoleSchema = z.enum([
   "primary_poc",
@@ -169,9 +163,6 @@ export const eventStatusDetailLabels: Record<EventStatus, string> = {
   negotiation: "Pending (Negotiation)",
   closing: "Pending (Closing)",
 };
-const localDate = z
-  .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, "Enter a date.");
 const localTime = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a time.");

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { activityBatchSchema } from "../../shared/time-tracking";
-import { utcToBusinessTime } from "../../shared/time";
+import { id as uuid, localDate } from "../../shared/schema-primitives";
+import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   ApiError,
@@ -11,9 +11,6 @@ import {
   type RunWithDb,
 } from "../hono";
 import { recordSessions, timeReport } from "../records/time-tracking";
-
-const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const uuid = z.string().uuid();
 
 // Activity time tracking (FLOW-119), mounted at /api/time. Every signed-in user
 // records their own sessions; reports follow timeReportScope in worker/policy.ts.
@@ -36,17 +33,16 @@ export function timeTrackingRoutes(options: {
   // ?from=&to= (New York dates, inclusive; the last 30 days by default) and, for
   // Admin and Sales Manager, ?userId= to narrow to one person.
   routes.get("/report", requirePermission("time.read"), async (c) => {
-    const today = new Date();
-    const date = (key: string, fallback: Date) => {
+    const today = utcToBusinessTime(new Date()).date;
+    const date = (key: string, fallback: string) => {
       const value = c.req.query(key);
-      return value && localDate.safeParse(value).success
-        ? value
-        : utcToBusinessTime(fallback).date;
+      if (!value) return fallback;
+      // An impossible date (2026-02-31) is refused, never rolled into March.
+      if (!localDate.safeParse(value).success)
+        throw new ApiError(400, "INVALID_REQUEST", "Enter a date.");
+      return value;
     };
-    const from = date(
-      "from",
-      new Date(today.getTime() - 29 * 24 * 60 * 60_000),
-    );
+    const from = date("from", addLocalDays(today, -29));
     const to = date("to", today);
     if (from > to)
       throw new ApiError(

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { id, text, timestamp } from "./schema-primitives";
 import { convert, unitSchema, type ItemConversions, type Unit } from "./units";
 
 // Inventory (FLOW-69 item model, FLOW-70 sections, FLOW-81 ingredient catalog,
@@ -7,9 +8,6 @@ import { convert, unitSchema, type ItemConversions, type Unit } from "./units";
 // ingredients, bar stock, disposables and non-stock service offerings. Kind-specific
 // fields live in typed sub-records so later tickets extend them without touching
 // the base item.
-const id = z.string().uuid();
-const text = (max: number) => z.string().trim().max(max);
-const timestamp = z.string().datetime();
 const quantity = z.number().finite().min(0).max(1_000_000);
 const cents = z.number().int().min(0).max(100_000_000);
 
