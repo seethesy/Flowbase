@@ -68,14 +68,14 @@ test("a salesperson selects ten dishes and prints a branded client PDF or catego
   await expect(page.locator(".client-recipe-grid")).not.toContainText("Internal");
   for (const dish of dishes) await page.getByRole("checkbox", { name: `Select ${dish.name}`, exact: true }).check();
   await page.getByRole("link", { name: "Print selected (10)" }).click();
-  const document = page.locator(".print-document");
-  await expect(document.locator("article")).toHaveCount(10);
-  await expect(document.locator(".print-header strong")).not.toBeEmpty();
-  await expect(document).not.toContainText("Sear until golden.");
-  await expect(document).not.toContainText("Internal");
-  await expect(document).not.toContainText("servings");
-  await expect(document).not.toContainText("$40");
-  await expect(document.locator("article").first()).toContainText("Chicken Breast");
+  const printedDocument = page.locator(".print-document");
+  await expect(printedDocument.locator("article")).toHaveCount(10);
+  await expect(printedDocument.locator(".print-header strong")).not.toBeEmpty();
+  await expect(printedDocument).not.toContainText("Sear until golden.");
+  await expect(printedDocument).not.toContainText("Internal");
+  await expect(printedDocument).not.toContainText("servings");
+  await expect(printedDocument).not.toContainText("$40");
+  await expect(printedDocument.locator("article").first()).toContainText("Chicken Breast");
   await page.evaluate(() => { window.print = () => { document.body.dataset.printed = "yes"; }; });
   await page.getByRole("button", { name: "Print or save as PDF" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-printed", "yes");
@@ -91,3 +91,4 @@ test("a salesperson selects ten dishes and prints a branded client PDF or catego
   await expect(page.locator(".print-document article")).toHaveCount(1);
   await expect(page.locator(".print-document article")).toContainText("Dish 10");
 });
+
