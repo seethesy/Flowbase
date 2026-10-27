@@ -212,6 +212,7 @@ export function InventoryList() {
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label="items"
             exportName="inventory"
+            exportAll={items.loadAll}
           />
           <LoadMore list={items} label="Load more items" />
         </>
@@ -401,6 +402,7 @@ export function IngredientList({
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label={supplies ? "supplies" : "ingredients"}
             exportName={supplies ? "supplies" : "ingredients"}
+            exportAll={items.loadAll}
           />
           <LoadMore list={items} label={supplies ? "Load more supplies" : "Load more ingredients"} />
         </>
@@ -630,6 +632,7 @@ export function BarList() {
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label="bar items"
             exportName="bar"
+            exportAll={items.loadAll}
           />
           <LoadMore list={items} label="Load more bar items" />
         </>

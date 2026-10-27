@@ -160,6 +160,7 @@ export function ClientList() {
             onRow={(client) => navigate(`/clients/${client.id}`)}
             label="clients"
             exportName="clients"
+            exportAll={clients.loadAll}
           />
           <LoadMore list={clients} label="Load more clients" />
         </>

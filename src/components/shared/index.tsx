@@ -12,6 +12,7 @@ import {
   Download,
 } from "lucide-react";
 import {
+  createTable,
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
@@ -69,6 +70,32 @@ export function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
         ),
       ),
   );
+}
+// The CSV of rows the table doesn't hold (FLOW-216: every page of a paged list),
+// with the table's columns and current sort, through a headless copy of it.
+export function rowsCsv<T>(
+  table: Table<T>,
+  rows: T[],
+  actor: Actor | null,
+): string {
+  const full = createTable<T>({
+    data: rows,
+    columns: table.options.columns,
+    state: {},
+    onStateChange: () => {},
+    renderFallbackValue: null,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+  full.setOptions((options) => ({
+    ...options,
+    state: {
+      ...full.initialState,
+      sorting: table.getState().sorting,
+      columnVisibility: table.getState().columnVisibility,
+    },
+  }));
+  return tableCsv(full, actor);
 }
 export function StatusBadge({ status }: { status: string }) {
   const tone = ["Active", "Signed", "In Stock", "Received"].includes(status)
@@ -188,6 +215,7 @@ export function DataTable<T>({
   onRow,
   label = "records",
   exportName,
+  exportAll,
 }: {
   data: T[];
   columns: ColumnDef<T, unknown>[];
@@ -195,9 +223,15 @@ export function DataTable<T>({
   label?: string;
   // Shows "Export CSV"; the file is named after it, e.g. "ingredients".
   exportName?: string;
+  // A paged list's every matching row (usePagedList's loadAll, FLOW-216); the
+  // export fetches them instead of writing only the rows loaded so far.
+  exportAll?: (onProgress: (rows: number) => void) => Promise<T[]>;
 }) {
   const { actor } = usePermissions();
   const [sorting, setSorting] = useState<SortingState>([]);
+  // Rows fetched so far while an export runs; null when none is running.
+  const [exporting, setExporting] = useState<number | null>(null);
+  const [exportError, setExportError] = useState("");
   const table = useReactTable({
     data,
     columns,
@@ -208,19 +242,40 @@ export function DataTable<T>({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 8 } },
   });
+  const exportCsv = async (name: string) => {
+    if (!exportAll) return downloadCsv(csvFileName(name), tableCsv(table, actor));
+    setExportError("");
+    setExporting(0);
+    try {
+      const rows = await exportAll((count) => setExporting(count));
+      downloadCsv(csvFileName(name), rowsCsv(table, rows, actor));
+    } catch (error) {
+      // Nothing is downloaded when any page fails (AC3).
+      setExportError(
+        `Export failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setExporting(null);
+    }
+  };
   return (
     <div className="table-card">
       {exportName && (
         <div className="table-toolbar">
+          {exportError && (
+            <p role="alert" className="error-message">
+              {exportError}
+            </p>
+          )}
           <Button
             variant="outline"
-            disabled={!data.length}
-            onClick={() =>
-              downloadCsv(csvFileName(exportName), tableCsv(table, actor))
-            }
+            disabled={!data.length || exporting !== null}
+            onClick={() => void exportCsv(exportName)}
           >
             <Download size={16} />
-            Export CSV
+            {exporting === null
+              ? "Export CSV"
+              : `Exporting… ${exporting} ${exporting === 1 ? "row" : "rows"}`}
           </Button>
         </div>
       )}

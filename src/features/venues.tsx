@@ -103,6 +103,7 @@ export function VenueList() {
             onRow={(venue) => navigate(`/venues/${venue.id}`)}
             label="venues"
             exportName="venues"
+            exportAll={venues.loadAll}
           />
           <LoadMore list={venues} label="Load more venues" />
         </>
