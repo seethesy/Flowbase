@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+import { DemoScreen } from "./store";
 import {
   createHashRouter,
   Link,
@@ -6,31 +8,93 @@ import {
   useParams,
 } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
-import { Dashboard } from "../features/dashboard";
-import { ClientList, ClientDetail } from "../features/clients";
-import { LeadInbox, LeadDetail } from "../features/leads";
-import { LeadDashboardPage } from "../features/lead-dashboard";
-import { EventList, EventDetail } from "../features/events";
-import { VenueList, VenueDetail } from "../features/venues";
-import { PrintSample } from "../features/print-sample";
-import { Proposals } from "../features/proposals";
-import { TimeReports } from "../features/time-tracking";
-import { SettingsPage } from "../features/settings";
-import { StaffDetail, StaffDirectory, StaffProfile } from "../features/staff";
-import {
-  InventoryList,
-  InventoryDetail,
-  IngredientList,
-  BarList,
-  SectionList,
-} from "../features/inventory";
-import { CountList, CountMode, LowStockList } from "../features/stock-counts";
-import { ImportList, ImportPage } from "../features/imports";
-import { RecipeDetail, RecipeList } from "../features/recipes";
+const Dashboard = lazy(() =>
+  import("../features/dashboard").then((module) => ({ default: module.Dashboard })),
+);
+const ClientList = lazy(() =>
+  import("../features/clients").then((module) => ({ default: module.ClientList })),
+);
+const ClientDetail = lazy(() =>
+  import("../features/clients").then((module) => ({ default: module.ClientDetail })),
+);
+const LeadInbox = lazy(() =>
+  import("../features/leads").then((module) => ({ default: module.LeadInbox })),
+);
+const LeadDetail = lazy(() =>
+  import("../features/leads").then((module) => ({ default: module.LeadDetail })),
+);
+const LeadDashboardPage = lazy(() =>
+  import("../features/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })),
+);
+const EventList = lazy(() =>
+  import("../features/events").then((module) => ({ default: module.EventList })),
+);
+const EventDetail = lazy(() =>
+  import("../features/events").then((module) => ({ default: module.EventDetail })),
+);
+const VenueList = lazy(() =>
+  import("../features/venues").then((module) => ({ default: module.VenueList })),
+);
+const VenueDetail = lazy(() =>
+  import("../features/venues").then((module) => ({ default: module.VenueDetail })),
+);
+const PrintSample = lazy(() =>
+  import("../features/print-sample").then((module) => ({ default: module.PrintSample })),
+);
+const Proposals = lazy(() =>
+  import("../features/proposals").then((module) => ({ default: module.Proposals })),
+);
+const TimeReports = lazy(() =>
+  import("../features/time-tracking").then((module) => ({ default: module.TimeReports })),
+);
+const SettingsPage = lazy(() =>
+  import("../features/settings").then((module) => ({ default: module.SettingsPage })),
+);
+const StaffDetail = lazy(() =>
+  import("../features/staff").then((module) => ({ default: module.StaffDetail })),
+);
+const StaffDirectory = lazy(() =>
+  import("../features/staff").then((module) => ({ default: module.StaffDirectory })),
+);
+const StaffProfile = lazy(() =>
+  import("../features/staff").then((module) => ({ default: module.StaffProfile })),
+);
+const InventoryList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.InventoryList })),
+);
+const InventoryDetail = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.InventoryDetail })),
+);
+const IngredientList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.IngredientList })),
+);
+const BarList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.BarList })),
+);
+const SectionList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.SectionList })),
+);
+const CountList = lazy(() =>
+  import("../features/stock-counts").then((module) => ({ default: module.CountList })),
+);
+const CountMode = lazy(() =>
+  import("../features/stock-counts").then((module) => ({ default: module.CountMode })),
+);
+const LowStockList = lazy(() =>
+  import("../features/stock-counts").then((module) => ({ default: module.LowStockList })),
+);
+const SuppliesList = lazy(() => import("../features/inventory").then((module) => ({ default: module.SuppliesList })));
+const ImportList = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportList })));
+const ImportPage = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportPage })));
+const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeList })));
+const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
-import { UserManagement, roleLabel } from "../features/users";
+import { roleLabel } from "../services/users";
+const UserManagement = lazy(() =>
+  import("../features/users").then((module) => ({ default: module.UserManagement })),
+);
 function Placeholder() {
   return (
     <>
@@ -90,11 +154,11 @@ let router: ReturnType<typeof createHashRouter> | undefined;
 export const getRouter = () =>
   (router ??= createHashRouter([
     // Printable documents render without the app shell.
-    { path: "/print/sample", element: <PrintSample /> },
+    { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense> },
     {
       element: <AppShell />,
       children: [
-        { path: "/", element: <Dashboard /> },
+        { path: "/", element: <DemoScreen><Dashboard /></DemoScreen> },
         { path: "/leads", element: <LeadInbox /> },
         { path: "/leads/dashboard", element: <LeadDashboardPage /> },
         { path: "/leads/:id", element: <LeadDetail /> },
@@ -105,10 +169,11 @@ export const getRouter = () =>
         { path: "/customers", element: <LegacyRoute to="/clients" /> },
         { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
         { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
-        { path: "/proposals", element: <Proposals /> },
+        { path: "/proposals", element: <DemoScreen><Proposals /></DemoScreen> },
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/ingredients", element: <IngredientList /> },
         { path: "/inventory/bar", element: <BarList /> },
+        { path: "/inventory/supplies", element: <SuppliesList /> },
         { path: "/inventory/low-stock", element: <LowStockList /> },
         { path: "/inventory/counts", element: <CountList /> },
         { path: "/inventory/counts/:id", element: <CountMode /> },

@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { userSchema, type User } from "../../shared/users";
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
+import { queryClient } from "./queryClient";
 
 export const AuthContext = createContext<{
   user: User;
@@ -26,6 +27,9 @@ const restoreRoute = () => {
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  // Cached data belongs to the signed-in user (FLOW-189): drop it whenever
+  // the user changes, including sign-out and an expired session.
+  useEffect(() => () => queryClient.clear(), [user?.id]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [client, setClient] = useState<SupabaseClient | null>(null);

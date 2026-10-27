@@ -12,11 +12,7 @@ import { useResource } from "../app/useResource";
 import { request } from "../services/core";
 import { Button, PageHeader, Section } from "../components/shared";
 
-export const roleLabel = (role: string) =>
-  role
-    .split("_")
-    .map((s) => s[0].toUpperCase() + s.slice(1))
-    .join(" ");
+import { roleLabel } from "../services/users";
 const actions: Record<User["status"], UserAction[]> = {
   pending: ["resend", "revoke"],
   active: ["deactivate"],
@@ -38,10 +34,11 @@ export function UserManagement() {
 }
 
 function UserList() {
-  const [version, setVersion] = useState(0);
+  // One key: after a change the list reloads in place (FLOW-189), keeping the
+  // current rows on screen until the new ones arrive.
   const resource = useResource(
+    ["admin-users"],
     () => request(userSchema.array(), "/api/admin/users"),
-    [version],
   );
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -64,7 +61,7 @@ function UserList() {
       setError(err instanceof Error ? err.message : "Unable to update user.");
     } finally {
       setBusy(false);
-      setVersion((v) => v + 1);
+      resource.reload();
     }
   };
   return (
@@ -108,7 +105,7 @@ function UserList() {
               );
             } finally {
               setBusy(false);
-              setVersion((v) => v + 1);
+              resource.reload();
             }
           }}
         >

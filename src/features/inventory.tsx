@@ -7,13 +7,15 @@
 // -stock-forms, -histories, -detail and -sections, with shared labels in
 // inventory-labels.ts.
 export {
-  centsLabel,
   changeLabel,
   dateTimeLabel,
-  purchaseLabel,
   quantityLabel,
 } from "./inventory-labels";
-export { BarList, IngredientList, InventoryList } from "./inventory-lists";
-export { ItemForm } from "./inventory-item-form";
+export {
+  BarList,
+  IngredientList,
+  InventoryList,
+  SuppliesList,
+} from "./inventory-lists";
 export { InventoryDetail } from "./inventory-detail";
 export { SectionList } from "./inventory-sections";

@@ -6,7 +6,7 @@ import { leadsApi } from "../services/leads";
 import { useResource } from "../app/useResource";
 import { useDebounced } from "../app/paging";
 import { Button, DetailDrawer, FormField } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { leadTitle } from "./lead-shared";
 
 function ClientPicker({
@@ -20,13 +20,15 @@ function ClientPicker({
   const [search, setSearch] = useState("");
   const term = useDebounced(search.trim());
   const clients = useResource(
+    ["clients", "search", term],
     async () => (await clientsApi.list({ search: term || undefined })).rows,
-    [term],
+    { reference: true, keepPrevious: true },
   );
   const listed = clients.data?.find((client) => client.id === value);
   const fetched = useResource(
-    async () => (value && !listed ? clientsApi.get(value) : undefined),
-    [value, Boolean(listed)],
+    ["clients", value],
+    () => clientsApi.get(value),
+    { enabled: Boolean(value && !listed) },
   );
   const chosen = !listed && fetched.data?.id === value ? fetched.data : undefined;
   if (clients.error) return <LoadError message={clients.error} />;

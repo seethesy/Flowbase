@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { Client, FlowEvent } from "../../shared/core-records";
-import type { InventoryItem, Section } from "../../shared/inventory";
+import {
+  rentalDetailsSchema,
+  type InventoryItem,
+  type Section,
+} from "../../shared/inventory";
 import type { Lead } from "../../shared/leads";
 
 export const fallGala = (): FlowEvent => ({
@@ -77,6 +81,7 @@ export const defaultSections = [
   sectionRow(5, "Kitchen – Dry Storage", "consumable"),
   sectionRow(6, "Kitchen – Refrigerated", "consumable"),
   sectionRow(7, "Bar Storage", "consumable"),
+  sectionRow(8, "Supplies", "consumable"),
 ];
 
 export const chairs = (): InventoryItem => ({
@@ -93,7 +98,7 @@ export const chairs = (): InventoryItem => ({
   tier: "",
   ratio: { quantity: 1, basis: "per_guest" },
   active: true,
-  rental: { priceCents: 800 },
+  rental: rentalDetailsSchema.parse({ priceCents: 800 }),
   service: null,
   consumable: null,
   bar: null,

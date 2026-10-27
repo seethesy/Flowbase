@@ -26,7 +26,7 @@ import {
   DataTable,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { ItemForm } from "./inventory-item-form";
 import { useListLabels } from "./list-fields";
 import {
@@ -57,7 +57,11 @@ function SectionFilter({
   kind?: SectionKind;
   label?: string;
 }) {
-  const sections = useResource(() => sectionsApi.list({ kind }), [kind]);
+  const sections = useResource(
+    ["sections", { kind }],
+    () => sectionsApi.list({ kind }),
+    { reference: true },
+  );
   return (
     <select
       aria-label={label}
@@ -84,6 +88,7 @@ export function InventoryList() {
   // Search and filters run on the server across every item (FLOW-179/180).
   const term = useDebounced(search.trim());
   const items = usePagedList(
+    ["inventory-items", "list", archived, kind, sectionId, term],
     (cursor) =>
       inventoryApi.list(
         {
@@ -94,7 +99,6 @@ export function InventoryList() {
         },
         cursor,
       ),
-    [archived, kind, sectionId, term],
   );
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
@@ -119,7 +123,8 @@ export function InventoryList() {
     {
       id: "quantity",
       header: "On hand",
-      accessorFn: (item) => item.totalQuantity,
+      accessorFn: (item) =>
+        item.kind === "service" ? null : item.totalQuantity,
       sortingFn: "basic",
       cell: (c) =>
         c.row.original.kind === "service"
@@ -139,6 +144,9 @@ export function InventoryList() {
         </Button>
         <Button variant="outline" asChild>
           <Link to="/inventory/bar">Bar</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/inventory/supplies">Supplies</Link>
         </Button>
         <Allowed action="inventory.count">
           <Button variant="outline" asChild>
@@ -219,7 +227,9 @@ export function InventoryList() {
 }
 
 // The kitchen ingredient catalog (FLOW-81): consumables of subtype ingredient.
-export function IngredientList() {
+export function IngredientList({
+  supplies = false,
+}: { supplies?: boolean } = {}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -230,11 +240,12 @@ export function IngredientList() {
   const term = useDebounced(search.trim());
   const vendorTerm = useDebounced(vendor.trim());
   const items = usePagedList(
+    ["inventory-items", "ingredients", supplies, category, sectionId, belowPar, term, vendorTerm],
     (cursor) =>
       inventoryApi.list(
         {
           kind: "consumable",
-          subtype: "ingredient",
+          subtype: supplies ? "supply" : "ingredient",
           category: category || undefined,
           sectionId: sectionId || undefined,
           belowPar,
@@ -243,17 +254,19 @@ export function IngredientList() {
         },
         cursor,
       ),
-    [category, sectionId, belowPar, term, vendorTerm],
+
   );
   // Business settings' categories (FLOW-45), archived ones included so old items
   // can still be found.
-  const listed = useListLabels("ingredient_category");
+  const listed = useListLabels(
+    supplies ? "supply_category" : "ingredient_category",
+  );
   const categories = [
     ...new Set([...listed, ...(items.data ?? []).map((item) => item.category)]),
   ].filter(Boolean);
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
-    { accessorKey: "name", header: "Ingredient" },
+    { accessorKey: "name", header: supplies ? "Supply" : "Ingredient" },
     { accessorKey: "category", header: "Category" },
     {
       id: "purchase",
@@ -308,14 +321,30 @@ export function IngredientList() {
         ← All inventory
       </Link>
       <PageHeader
-        title="Ingredients"
-        subtitle="What the kitchen buys, how it's used in recipes, and where it's kept."
-        eyebrow="KITCHEN"
+        title={supplies ? "Supplies" : "Ingredients"}
+        subtitle={
+          supplies
+            ? "Disposables, pack sizes, stock and low-stock supplies."
+            : "What the kitchen buys, how it's used in recipes, and where it's kept."
+        }
+        eyebrow={supplies ? "SUPPLIES" : "KITCHEN"}
       >
+        {supplies && (
+          <>
+            <Allowed action="inventory.count">
+              <Button variant="outline" asChild>
+                <Link to="/inventory/counts">Count</Link>
+              </Button>
+            </Allowed>
+            <Button variant="outline" asChild>
+              <Link to="/inventory/low-stock">Low stock</Link>
+            </Button>
+          </>
+        )}
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Ingredient
+            {supplies ? "New Supply" : "New Ingredient"}
           </Button>
         </Allowed>
       </PageHeader>
@@ -323,7 +352,7 @@ export function IngredientList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search ingredients…"
+          placeholder={supplies ? "Search supplies…" : "Search ingredients…"}
         />
         <select
           aria-label="Category"
@@ -357,7 +386,7 @@ export function IngredientList() {
         </label>
         <span className="result-count">
           {data.length}
-          {items.hasMore ? "+" : ""} ingredients
+          {items.hasMore ? "+" : ""} {supplies ? "supplies" : "ingredients"}
         </span>
       </FilterBar>
       {items.error ? (
@@ -368,23 +397,30 @@ export function IngredientList() {
         <>
           <DataTable
             data={data}
-            columns={columns}
+            columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label="ingredients"
-            exportName="ingredients"
+            label={supplies ? "supplies" : "ingredients"}
+            exportName={supplies ? "supplies" : "ingredients"}
           />
-          <LoadMore list={items} label="Load more ingredients" />
+          <LoadMore list={items} label={supplies ? "Load more supplies" : "Load more ingredients"} />
         </>
       )}
       {create && (
         <ItemForm
-          preset={{ kind: "consumable", subtype: "ingredient" }}
+          preset={{
+            kind: "consumable",
+            subtype: supplies ? "supply" : "ingredient",
+          }}
           onClose={() => setCreate(false)}
           onSaved={() => items.reload()}
         />
       )}
     </>
   );
+}
+
+export function SuppliesList() {
+  return <IngredientList supplies />;
 }
 
 // Bar stock (FLOW-90): consumables of subtype bar, counted, flagged below par and
@@ -401,6 +437,7 @@ export function BarList() {
   const term = useDebounced(search.trim());
   const distributorTerm = useDebounced(distributor.trim());
   const items = usePagedList(
+    ["inventory-items", "bar", category, subcategory, tier, belowPar, term, distributorTerm],
     (cursor) =>
       inventoryApi.list(
         {
@@ -415,7 +452,6 @@ export function BarList() {
         },
         cursor,
       ),
-    [category, subcategory, tier, belowPar, term, distributorTerm],
   );
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [

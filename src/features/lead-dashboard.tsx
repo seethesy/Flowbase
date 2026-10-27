@@ -29,7 +29,7 @@ import {
   PageHeader,
   Section,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 
 // Lead dashboard (FLOW-113): which lead sources are worth paying for. Dollar
 // figures are estimates until proposals exist (FLOW-122): each closed lead counts at
@@ -38,7 +38,7 @@ const money = (cents: number) =>
   `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 const percent = (rate: number | null) =>
   rate === null ? "—" : `${Math.round(rate * 100)}%`;
-export const responseTime = (seconds: number | null) => {
+const responseTime = (seconds: number | null) => {
   if (seconds === null) return "—";
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
@@ -102,7 +102,11 @@ const channelColumns: ColumnDef<ChannelRow, unknown>[] = [
 export function LeadDashboardPage() {
   const navigate = useNavigate();
   const [range, setRange] = useState<{ from?: string; to?: string }>({});
-  const dashboard = useResource(() => leadsApi.dashboard(range), [range.from, range.to]);
+  const dashboard = useResource(
+    ["lead-dashboard", range.from, range.to],
+    () => leadsApi.dashboard(range),
+    { keepPrevious: true },
+  );
   const data = dashboard.data;
   return (
     <>

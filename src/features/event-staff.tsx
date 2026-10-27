@@ -46,8 +46,8 @@ export const conflictText = (conflict: ShiftConflict) =>
   `${conflict.eventTitle ?? "another event"} (${shiftKindLabels[conflict.shiftKind]}, ${range(conflict.startsAt, conflict.endsAt)})`;
 
 export function EventStaffSection({ event }: { event: FlowEvent }) {
-  const roster = useResource(() => eventStaffApi.roster(event.id), [event.id]);
-  const staff = useResource(() => staffApi.list(), []);
+  const roster = useResource(["event-staff", event.id], () => eventStaffApi.roster(event.id));
+  const staff = useResource(["staff"], () => staffApi.list());
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [shiftForm, setShiftForm] = useState<EventShift | "new" | null>(null);

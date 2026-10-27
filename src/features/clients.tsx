@@ -18,6 +18,7 @@ import {
   eventsApi,
 } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor } from "../app/useOpenFor";
 import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
@@ -37,28 +38,11 @@ import { EventForm, EventTable } from "./events";
 import { Attachments } from "./attachments";
 import "./clients.css";
 
-export const initials = (name: string) =>
-  name
-    .replace(/&/g, "")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("");
-
-export function LoadError({ message }: { message: string }) {
-  return (
-    <p role="alert" className="error-message">
-      {message}
-    </p>
-  );
-}
+import { initials, hidden, LoadError } from "../components/record-display";
 
 const primaryContact = (client: Client) =>
   client.contacts.find((contact) => contact.role === "primary_poc") ??
   client.contacts[0];
-export const hidden = (value: string | null) =>
-  value === null ? "Hidden" : value || "—";
 
 // Real client records (FLOW-53), replacing the prototype's mock clients.
 export function ClientList() {
@@ -69,9 +53,9 @@ export function ClientList() {
   // The API searches client and contact names across every client (FLOW-179).
   const term = useDebounced(search.trim());
   const clients = usePagedList(
+    ["clients", "list", archived, term],
     (cursor) =>
       clientsApi.list({ archived, search: term || undefined }, cursor),
-    [archived, term],
   );
   const data = clients.data ?? [];
   const columns: ColumnDef<Client, unknown>[] = [
@@ -456,15 +440,18 @@ export function ClientForm({
 export function ClientDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const client = useResource(() => clientsApi.get(id), [id]);
+  const client = useResource(
+    ["clients", id],
+    () => clientsApi.get(id),
+  );
   const events = useResource(
+    ["events", { clientId: id }, "all"],
     () => allPages((cursor) => eventsApi.list({ clientId: id }, cursor)),
-    [id],
   );
   const [tab, setTab] = useState("Overview");
-  const [edit, setEdit] = useState(false);
-  const [archive, setArchive] = useState(false);
-  const [newEvent, setNewEvent] = useState(false);
+  const [edit, setEdit] = useOpenFor(id);
+  const [archive, setArchive] = useOpenFor(id);
+  const [newEvent, setNewEvent] = useOpenFor(id);
   if (client.error)
     return (
       <>

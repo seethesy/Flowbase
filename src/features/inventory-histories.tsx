@@ -10,7 +10,7 @@ import { unitLabel } from "../../shared/units";
 import { inventoryApi } from "../services/core";
 import { LoadMore, usePagedList } from "../app/paging";
 import { Button, Section, LoadingSkeleton } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
 import { CorrectionForm } from "./inventory-stock-forms";
 import "./inventory.css";
@@ -28,8 +28,8 @@ export function MovementHistory({
   // Newest first, a page at a time (FLOW-179). Corrections are newer than the
   // movement they correct, so they're loaded before it and its total is right.
   const movements = usePagedList(
+    ["movements", item.id, version],
     (cursor) => inventoryApi.movements(item.id, cursor),
-    [item.id, version],
   );
   const [correcting, setCorrecting] = useState<StockMovement | null>(null);
   const all = movements.data ?? [];
@@ -74,7 +74,10 @@ export function MovementHistory({
                       <span className="badge warning">Corrected</span>
                     )}
                   </td>
-                  <td>{movement.sectionName}</td>
+                  <td>
+                    {movement.sectionName}
+                    {movement.color ? ` · ${movement.color}` : ""}
+                  </td>
                   <td>{changeLabel(movement.quantity)}</td>
                   <td>{movement.reason || "—"}</td>
                   <td>
@@ -121,8 +124,8 @@ export function CostHistory({
   version: number;
 }) {
   const history = usePagedList(
+    ["cost-history", item.id, version],
     (cursor) => inventoryApi.costHistory(item.id, cursor),
-    [item.id, version],
   );
   const unit = item.consumable ? unitLabel(item.consumable.purchaseUnit) : "";
   return (

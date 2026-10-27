@@ -10,7 +10,7 @@ import {
 import { at, query, request, requestPage } from "./core";
 
 // Client for the leads API (FLOW-100/111/112, duplicates FLOW-110).
-export type LeadFilter = {
+type LeadFilter = {
   status?: string;
   source?: string;
   channel?: string;

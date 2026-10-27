@@ -9,7 +9,7 @@ import type {
 import { attachmentsApi, uploadAttachment } from "../services/attachments";
 import { useResource } from "../app/useResource";
 import { Button, Section } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import "./attachments.css";
 
 const ACCEPT =
@@ -30,8 +30,8 @@ export function Attachments({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const files = useResource(
+    ["attachments", recordType, recordId],
     () => attachmentsApi.list(recordType, recordId),
-    [recordType, recordId],
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

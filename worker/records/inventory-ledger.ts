@@ -15,6 +15,8 @@ import type { Db, DbLike } from "../db/client";
 import {
   events,
   inventorySections,
+  inventoryRentalDetails,
+  inventoryItems,
   inventoryStock,
   stockMovements,
 } from "../db/schema";
@@ -37,6 +39,7 @@ import { keyset, type Page, type PageRequest } from "./paging";
 // ---- Stock ledger (FLOW-71) ----
 
 export type Movement = {
+  color?: string;
   type: MovementType;
   // One signed change per section; a transfer has two.
   changes: { sectionId: string; quantity: number }[];
@@ -55,6 +58,11 @@ export async function recordMovement(
   item: Pick<ItemRow, "id" | "kind" | "archivedAt">,
   movement: Movement,
 ): Promise<string[]> {
+  await tx
+    .select({ id: inventoryItems.id })
+    .from(inventoryItems)
+    .where(eq(inventoryItems.id, item.id))
+    .for("update");
   const sectionKind = sectionKindFor(item.kind);
   if (!sectionKind)
     throw conflict(
@@ -66,6 +74,19 @@ export async function recordMovement(
       "ITEM_ARCHIVED",
       "Restore the item before changing its stock.",
     );
+  const color = movement.color ?? "";
+  if (color) {
+    const [rental] = await tx
+      .select()
+      .from(inventoryRentalDetails)
+      .where(eq(inventoryRentalDetails.itemId, item.id));
+    // Historic colors remain correctable after they have been removed from the catalog.
+    if (!rental?.colors.includes(color) && !movement.correctsId)
+      throw conflict(
+        "INVALID_COLOR",
+        "Pick a color from this item's color list.",
+      );
+  }
   const sections = await Promise.all(
     movement.changes.map((change) =>
       requireStockSection(tx, change.sectionId, sectionKind),
@@ -74,7 +95,9 @@ export async function recordMovement(
   const sectionIds = movement.changes.map((change) => change.sectionId);
   await tx
     .insert(inventoryStock)
-    .values(sectionIds.map((sectionId) => ({ itemId: item.id, sectionId })))
+    .values(
+      sectionIds.map((sectionId) => ({ itemId: item.id, sectionId, color })),
+    )
     .onConflictDoNothing();
   const levels = await tx
     .select()
@@ -83,6 +106,7 @@ export async function recordMovement(
       and(
         eq(inventoryStock.itemId, item.id),
         inArray(inventoryStock.sectionId, sectionIds),
+        eq(inventoryStock.color, color),
       ),
     )
     .for("update");
@@ -101,6 +125,7 @@ export async function recordMovement(
         and(
           eq(inventoryStock.itemId, item.id),
           eq(inventoryStock.sectionId, change.sectionId),
+          eq(inventoryStock.color, color),
         ),
       );
   }
@@ -114,6 +139,7 @@ export async function recordMovement(
         type: movement.type,
         quantity: round(change.quantity),
         reason: movement.reason,
+        color,
         transferId,
         correctsId: movement.correctsId ?? null,
         linkType: movement.link?.type ?? null,
@@ -134,6 +160,7 @@ export async function recordMovement(
       after: {
         itemId: item.id,
         sectionId: change.sectionId,
+        ...(color && { color }),
         type: movement.type,
         quantity: round(change.quantity),
         reason: movement.reason,
@@ -167,6 +194,7 @@ export async function recordImportedStock(
     fileName: string;
   },
 ): Promise<string | null> {
+  await tx.select({ id: inventoryItems.id }).from(inventoryItems).where(eq(inventoryItems.id, item.id)).for("update");
   requireCountStep(item, input.quantity);
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
@@ -175,6 +203,7 @@ export async function recordImportedStock(
       and(
         eq(inventoryStock.itemId, item.id),
         eq(inventoryStock.sectionId, input.sectionId),
+        eq(inventoryStock.color, ""),
       ),
     )
     .for("update");
@@ -236,6 +265,7 @@ export async function listMovements(
       itemId: m.itemId,
       sectionId: m.sectionId,
       sectionName,
+      ...(m.color && { color: m.color }),
       type: m.type,
       quantity: m.quantity,
       reason: m.reason,
@@ -261,6 +291,7 @@ export async function transferStock(
   await db.transaction((tx) =>
     recordMovement(tx, actor, item, {
       type: "transfer",
+      color: input.color,
       changes: [
         { sectionId: input.fromSectionId, quantity: -input.quantity },
         { sectionId: input.toSectionId, quantity: input.quantity },
@@ -297,8 +328,14 @@ export async function recordCount(
   sectionId: string,
   counted: number,
   reason: string,
+  color = "",
 ) {
   if (!canCountItem(actor, item)) throw forbidden();
+  await tx
+    .select({ id: inventoryItems.id })
+    .from(inventoryItems)
+    .where(eq(inventoryItems.id, item.id))
+    .for("update");
   requireCountStep(item, counted);
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
@@ -307,12 +344,14 @@ export async function recordCount(
       and(
         eq(inventoryStock.itemId, item.id),
         eq(inventoryStock.sectionId, sectionId),
+        eq(inventoryStock.color, color),
       ),
     )
     .for("update");
   const difference = countDifference(counted, level?.quantity ?? 0);
   const [movementId] = await recordMovement(tx, actor, item, {
     type: "count",
+    color,
     changes: [{ sectionId, quantity: difference }],
     reason,
   });
@@ -327,7 +366,15 @@ export async function countStock(
 ): Promise<InventoryItem> {
   const item = await findItem(db, itemId);
   await db.transaction((tx) =>
-    recordCount(tx, actor, item, input.sectionId, input.quantity, input.reason),
+    recordCount(
+      tx,
+      actor,
+      item,
+      input.sectionId,
+      input.quantity,
+      input.reason,
+      input.color,
+    ),
   );
   return getItem(db, actor, itemId);
 }
@@ -352,6 +399,7 @@ export async function addMovement(
   await db.transaction((tx) =>
     recordMovement(tx, actor, item, {
       type: input.type,
+      color: input.color,
       changes: [
         {
           sectionId: input.sectionId,
@@ -401,6 +449,11 @@ export async function correctMovement(
   const item = await findItem(db, original.itemId);
   if (!canMoveItem(actor, item)) throw forbidden();
   await db.transaction(async (tx) => {
+    await tx
+      .select({ id: inventoryItems.id })
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, item.id))
+      .for("update");
     const [{ total }] = await tx
       .select({
         total: sql<string>`coalesce(sum(${stockMovements.quantity}), 0)`,
@@ -420,6 +473,7 @@ export async function correctMovement(
       );
     await recordMovement(tx, actor, item, {
       type: original.type,
+      color: original.color,
       changes: [{ sectionId: original.sectionId, quantity: difference }],
       reason: input.reason,
       correctsId: original.id,

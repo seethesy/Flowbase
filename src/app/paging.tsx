@@ -1,82 +1,45 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  type QueryKey,
+} from "@tanstack/react-query";
 import type { Page } from "../services/core";
 import { Button } from "../components/shared";
+import { queryClient } from "./queryClient";
 
-// A list screen's rows, one API page at a time (FLOW-179). The first page loads
-// whenever `inputs` (filters, search) change; loadMore appends the next. A
-// response for filters that have since changed is ignored, so a slow page can't
-// replace a newer list. Rows stay on screen while a new first page loads.
+// A list screen's rows, one API page at a time (FLOW-179), cached by TanStack
+// Query (FLOW-189). `key` names the list and must include every filter `load`
+// sends; a new key loads its first page and loadMore appends the next. The rows
+// for the previous filters stay on screen while the new first page loads, and a
+// response for filters that have since changed never replaces the newer list.
 export function usePagedList<T>(
+  key: QueryKey,
   load: (cursor?: string) => Promise<Page<T>>,
-  inputs: unknown[],
 ) {
-  const [state, setState] = useState<{
-    rows?: T[];
-    next: string | null;
-    loading: boolean;
-    loadingMore: boolean;
-    error?: string;
-  }>({ next: null, loading: true, loadingMore: false });
-  const generation = useRef(0);
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    const current = ++generation.current;
-    setState((previous) => ({ ...previous, loading: true, error: undefined }));
-    load().then(
-      (page) => {
-        if (generation.current === current)
-          setState({
-            rows: page.rows,
-            next: page.next,
-            loading: false,
-            loadingMore: false,
-          });
-      },
-      (error: Error) => {
-        if (generation.current === current)
-          setState({
-            next: null,
-            loading: false,
-            loadingMore: false,
-            error: error.message,
-          });
-      },
-    );
-    // load is recreated every render; inputs decide when to refetch.
-  }, [...inputs, version]);
-  const loadMore = () => {
-    const cursor = state.next;
-    if (!cursor || state.loadingMore) return;
-    const current = generation.current;
-    setState((previous) => ({ ...previous, loadingMore: true }));
-    load(cursor).then(
-      (page) => {
-        if (generation.current === current)
-          setState((previous) => ({
-            ...previous,
-            rows: [...(previous.rows ?? []), ...page.rows],
-            next: page.next,
-            loadingMore: false,
-          }));
-      },
-      (error: Error) => {
-        if (generation.current === current)
-          setState((previous) => ({
-            ...previous,
-            loadingMore: false,
-            error: error.message,
-          }));
-      },
-    );
-  };
+  const query = useInfiniteQuery(
+    {
+      queryKey: key,
+      queryFn: ({ pageParam }) => load(pageParam),
+      initialPageParam: undefined as string | undefined,
+      getNextPageParam: (last: Page<T>) => last.next ?? undefined,
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
   return {
-    data: state.rows,
-    loading: state.loading,
-    loadingMore: state.loadingMore,
-    error: state.error,
-    hasMore: state.next !== null,
-    loadMore,
-    reload: () => setVersion((current) => current + 1),
+    data: query.data?.pages.flatMap((page) => page.rows),
+    loading: query.isFetching && !query.isFetchingNextPage,
+    loadingMore: query.isFetchingNextPage,
+    error: query.error?.message,
+    hasMore: query.hasNextPage,
+    loadMore: () => {
+      if (query.hasNextPage && !query.isFetchingNextPage)
+        void query.fetchNextPage();
+    },
+    reload: () => {
+      void query.refetch();
+    },
   };
 }
 

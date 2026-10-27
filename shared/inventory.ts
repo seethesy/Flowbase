@@ -131,11 +131,57 @@ const eachSizeSchema = z.object({
 export const rentalDetailsSchema = z.object({
   // Price to the client for one unit, when the item is priced on its own.
   priceCents: cents.nullable().default(null),
+  internalCostCents: cents.nullable().optional(),
+  replacementCostCents: cents.nullable().optional(),
+  dimensions: text(200).default(""),
+  colors: z
+    .array(z.string().trim().min(1).max(60))
+    .max(100)
+    .default([])
+    .refine(
+      (colors) =>
+        new Set(colors.map((color) => color.toLowerCase())).size ===
+        colors.length,
+      "Each color must be unique.",
+    ),
+  notes: text(5000).default(""),
+  assemblyNotes: text(5000).default(""),
+  bufferDaysBefore: z.number().int().min(0).max(30).default(1),
+  bufferDaysAfter: z.number().int().min(0).max(30).default(1),
+  components: z
+    .array(z.object({ itemId: id, quantity: quantity.positive() }))
+    .max(100)
+    .default([]),
 });
-export const serviceDetailsSchema = z.object({
-  priceCents: cents.nullable().default(null),
-  priceBasis: ratioBasisSchema.default("per_event"),
+export const includedItemSchema = z.object({
+  itemId: id,
+  quantity: quantity.positive(),
+  basis: z.enum(["per_guest", "per_event"]),
 });
+export const serviceDetailsSchema = z
+  .object({
+    priceCents: cents.nullable().default(null),
+    priceBasis: ratioBasisSchema.default("per_event"),
+    pricedByQuote: z.boolean().default(false),
+    includes: z.array(includedItemSchema).max(100).default([]),
+    addons: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1).max(200),
+          priceCents: cents,
+        }),
+      )
+      .max(50)
+      .default([]),
+  })
+  .superRefine((service, ctx) => {
+    if (service.pricedByQuote && service.priceCents !== null)
+      ctx.addIssue({
+        code: "custom",
+        path: ["priceCents"],
+        message: "A quoted service has no fixed price.",
+      });
+  });
 export const consumableDetailsInputSchema = z.object({
   // How it is bought: a case of packCount × eachSize (12 × 750 ml), a 50 lb bag
   // (purchaseUnit lb), a dozen eggs.
@@ -205,6 +251,20 @@ export const itemInputSchema = z
         path: ["consumable"],
         message: "Purchase details are required.",
       });
+    if (item.rental?.components.length && item.subtype !== "decor")
+      ctx.addIssue({
+        code: "custom",
+        path: ["rental", "components"],
+        message: "Only decor items have kit components.",
+      });
+    const references = item.rental?.components ?? item.service?.includes ?? [];
+    if (
+      new Set(references.map((line) => line.itemId)).size !== references.length
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Include each component only once.",
+      });
     for (const kind of itemKindSchema.options)
       if (kind !== item.kind && item[kind])
         ctx.addIssue({
@@ -258,6 +318,7 @@ export const stockLevelSchema = z.object({
   sectionId: id,
   sectionName: z.string(),
   quantity: z.number(),
+  color: text(60).optional(),
 });
 export const itemSchema = z.object({
   id,
@@ -361,6 +422,7 @@ export const movementSchema = z.object({
   itemId: id,
   sectionId: id,
   sectionName: z.string(),
+  color: text(60).optional(),
   type: movementTypeSchema,
   // Signed: positive adds stock to the section.
   quantity: z.number(),
@@ -390,6 +452,7 @@ export const manualMovementTypes = [
 const signedQuantity = z.number().finite().min(-1_000_000).max(1_000_000);
 export const movementInputSchema = z
   .object({
+    color: text(60).default(""),
     type: z.enum(manualMovementTypes),
     sectionId: id,
     // How many, for a type with a direction; the signed change for an adjustment.
@@ -428,6 +491,7 @@ export type CorrectionInput = z.input<typeof correctionInputSchema>;
 
 export const transferInputSchema = z
   .object({
+    color: text(60).default(""),
     fromSectionId: id,
     toSectionId: id,
     quantity: quantity.positive("Enter a quantity above zero."),
@@ -440,6 +504,7 @@ export const transferInputSchema = z
 export type TransferInput = z.input<typeof transferInputSchema>;
 // A section's counted quantity; the difference is recorded as a count movement.
 export const countInputSchema = z.object({
+  color: text(60).default(""),
   sectionId: id,
   quantity,
   reason: text(500).default(""),

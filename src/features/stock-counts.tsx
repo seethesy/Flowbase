@@ -21,7 +21,7 @@ import {
   ConfirmationDialog,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
 import "./stock-counts.css";
 
@@ -37,13 +37,14 @@ const subtypeLabels: Record<string, string> = {
 export function CountList() {
   const navigate = useNavigate();
   const sections = useResource(
+    ["sections", { kind: "consumable" }],
     () => sectionsApi.list({ kind: "consumable" }),
-    [],
+    { reference: true },
   );
   // Every open count: at most one per section, so this stays small (FLOW-179).
   const open = useResource(
+    ["counts", { status: "open" }, "all"],
     () => allPages((cursor) => countsApi.list({ status: "open" }, cursor)),
-    [],
   );
   const [error, setError] = useState("");
   const start = async (sectionId: string) => {
@@ -235,7 +236,10 @@ function CountLineRow({
 export function CountMode() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const count = useResource(() => countsApi.get(id), [id]);
+  const count = useResource(
+    ["counts", id],
+    () => countsApi.get(id),
+  );
   const [completing, setCompleting] = useState(false);
   const back = (
     <Link to="/inventory/counts" className="back-link">
@@ -315,8 +319,8 @@ export function CountMode() {
 export function LowStockList() {
   const navigate = useNavigate();
   const items = usePagedList(
+    ["inventory-items", "below-par"],
     (cursor) => inventoryApi.list({ kind: "consumable", belowPar: true }, cursor),
-    [],
   );
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item" },

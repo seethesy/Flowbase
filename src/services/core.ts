@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { queryClient } from "../app/queryClient";
 import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
 import {
@@ -78,6 +79,11 @@ async function send(path: string, method = "GET", body?: unknown) {
       duplicate.success ? duplicate.data.duplicates : [],
     );
   }
+  // A save can change anything another screen has cached (FLOW-189): mark it
+  // all stale, so each screen refetches the next time it opens. Screens on view
+  // reload what they show themselves, as before.
+  if (method !== "GET")
+    void queryClient.invalidateQueries({ refetchType: "none" });
   return { json, response };
 }
 

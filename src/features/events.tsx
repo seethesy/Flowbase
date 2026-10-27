@@ -16,6 +16,7 @@ import type { HubSection } from "../../shared/event-hub";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { allPages, clientsApi, eventsApi, venuesApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor } from "../app/useOpenFor";
 import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
@@ -30,14 +31,14 @@ import {
   LoadingSkeleton,
   Select,
 } from "../components/shared";
-import { hidden, initials, LoadError } from "./clients";
+import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { date, time } from "./event-format";
 import { EventStaffSection } from "./event-staff";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
-export const statusLabels = eventStatusLabels;
+const statusLabels = eventStatusLabels;
 
 // Today in New York as YYYY-MM-DD.
 const businessToday = () => utcToBusinessTime(new Date()).date;
@@ -111,6 +112,7 @@ export function EventList() {
     ? eventStatusSchema.options.filter((value) => statusLabels[value] === status)
     : [];
   const events = usePagedList(
+    ["events", "list", archived, term, statuses.join(","), range.from, range.to],
     (cursor) =>
       eventsApi.list(
         {
@@ -122,7 +124,6 @@ export function EventList() {
         },
         cursor,
       ),
-    [archived, term, statuses.join(","), range.from, range.to],
   );
   const data = events.data ?? [];
   return (
@@ -248,15 +249,16 @@ export function EventForm({
   const [clientSearch, setClientSearch] = useState("");
   const clientTerm = useDebounced(clientSearch.trim());
   const clients = useResource(
+    ["clients", "search", clientTerm],
     async () =>
       (await clientsApi.list({ search: clientTerm || undefined })).rows,
-    [clientTerm],
+    { reference: true, keepPrevious: true },
   );
   const listed = clients.data?.find((client) => client.id === draft.clientId);
   const fetched = useResource(
-    async () =>
-      draft.clientId && !listed ? clientsApi.get(draft.clientId) : undefined,
-    [draft.clientId, Boolean(listed)],
+    ["clients", draft.clientId],
+    () => clientsApi.get(draft.clientId),
+    { enabled: Boolean(draft.clientId && !listed) },
   );
   const chosen =
     listed ?? (fetched.data?.id === draft.clientId ? fetched.data : undefined);
@@ -265,8 +267,9 @@ export function EventForm({
     ...(clients.data ?? []),
   ];
   const venues = useResource(
+    ["venues", "all"],
     () => allPages((cursor) => venuesApi.list({}, cursor)),
-    [],
+    { reference: true },
   );
   const contacts = chosen?.contacts ?? [];
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
@@ -501,8 +504,8 @@ function EventStatusPanel({
   onChanged: (event: FlowEvent) => void;
 }) {
   const history = usePagedList(
+    ["event-status-history", event.id, event.status],
     (cursor) => eventsApi.statusHistory(event.id, cursor),
-    [event.id, event.status],
   );
   const others = eventStatusSchema.options.filter(
     (status) => status !== event.status,
@@ -597,9 +600,12 @@ function EventStatusPanel({
 export function EventDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const hub = useResource(() => eventsApi.hub(id), [id]);
-  const [edit, setEdit] = useState(false);
-  const [archive, setArchive] = useState(false);
+  const hub = useResource(
+    ["event-hub", id],
+    () => eventsApi.hub(id),
+  );
+  const [edit, setEdit] = useOpenFor(id);
+  const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/events" className="back-link">
       ← All events
@@ -697,7 +703,7 @@ export function EventDetail() {
           ))}
         </Section>
       ),
-    staff: () => <EventStaffSection key="staff" event={e} />,
+    staff: () => <EventStaffSection key={`staff:${e.id}`} event={e} />,
     files: () => (
       <Attachments
         key="files"

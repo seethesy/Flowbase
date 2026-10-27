@@ -130,15 +130,19 @@ describe("inventory items", () => {
     admin.send<InventoryItem>("PUT", `/api/inventory/items/${id}`, input);
 
   it("AC1: a price change writes one row with only the changed fields, and history returns it", async () => {
-    const item = await create(chairs);
-    await update(item.id, { ...chairs, rental: { priceCents: 650 } });
+    const item = await create({
+      ...chairs,
+      rental: { priceCents: 500, internalCostCents: 250, replacementCostCents: 900 },
+    });
+    const updated = await update(item.id, { ...chairs, rental: { priceCents: 650 } });
+    expect(updated.rental).toMatchObject({ internalCostCents: 250, replacementCostCents: 900 });
     const rows = await rowsFor("inventory_item", item.id);
     expect(rows.map((row) => [row.action, row.createdBy])).toEqual([
       ["create", people.admin],
       ["update", people.admin],
     ]);
     expect(rows[1].changes).toEqual({
-      rental: { before: { priceCents: 500 }, after: { priceCents: 650 } },
+      rental: { before: item.rental, after: updated.rental },
     });
     // Stock is the ledger's; it isn't in item snapshots.
     expect(Object.keys(rows[0].changes)).not.toContain("totalQuantity");
@@ -150,7 +154,10 @@ describe("inventory items", () => {
     expect(history[0]).toMatchObject({
       actorId: people.admin,
       changes: {
-        rental: { before: { priceCents: 500 }, after: { priceCents: 650 } },
+        rental: {
+          before: { priceCents: 500, internalCostCents: null, replacementCostCents: null },
+          after: { priceCents: 650, internalCostCents: null, replacementCostCents: null },
+        },
       },
     });
   });

@@ -17,15 +17,15 @@ import {
   FormField,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import "./inventory.css";
 
 // Sections (FLOW-70): Admin adds, renames and archives them.
 export function SectionList() {
   const [archived, setArchived] = useState(false);
   const sections = useResource(
+    ["sections", { archived }],
     () => sectionsApi.list({ archived }),
-    [archived],
   );
   const [name, setName] = useState("");
   const [kind, setKind] = useState<SectionKind>("rental");

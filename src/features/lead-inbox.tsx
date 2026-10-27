@@ -27,7 +27,7 @@ import {
   LoadingSkeleton,
   Select,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { useListLabels } from "./list-fields";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
@@ -54,7 +54,10 @@ export const summaryLine = (lead: LeadSummary) =>
 // Cross-owner ones (two different salespeople) only reach Admin and the Sales
 // Manager.
 function DuplicateQueue() {
-  const duplicates = usePagedList((cursor) => leadsApi.duplicates(cursor), []);
+  const duplicates = usePagedList(
+    ["lead-duplicates"],
+    (cursor) => leadsApi.duplicates(cursor),
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const act = async (run: () => Promise<unknown>) => {
@@ -179,6 +182,7 @@ export function LeadInbox() {
   // The API searches name, email and phone across every lead (FLOW-179).
   const term = useDebounced(search.trim());
   const leads = usePagedList(
+    ["leads", "list", view, status, source, channel, term],
     async (cursor): Promise<Page<Lead>> =>
       view === "Duplicates"
         ? { rows: [], next: null }
@@ -193,7 +197,6 @@ export function LeadInbox() {
             },
             cursor,
           ),
-    [view, status, source, channel, term],
   );
   const data = leads.data ?? [];
   // Lead sources from business settings (FLOW-45) plus any a lead arrived with.
