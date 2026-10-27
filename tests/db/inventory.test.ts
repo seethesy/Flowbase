@@ -179,18 +179,28 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
       ["Gold", 10],
       ["Silver", 5],
     ] as const)
-      await admin.send("POST", `/api/inventory/items/${row.id}/movements`, {
-        type: "receive",
-        sectionId: warehouse.id,
-        color,
-        quantity,
-      });
-    await admin.send("POST", `/api/inventory/items/${row.id}/transfers`, {
-      fromSectionId: warehouse.id,
-      toSectionId: cafe.id,
-      color: "Gold",
-      quantity: 4,
-    });
+      await admin.send(
+        "POST",
+        `/api/inventory/items/${row.id}/movements`,
+        {
+          type: "receive",
+          sectionId: warehouse.id,
+          color,
+          quantity,
+        },
+        201,
+      );
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${row.id}/transfers`,
+      {
+        fromSectionId: warehouse.id,
+        toSectionId: cafe.id,
+        color: "Gold",
+        quantity: 4,
+      },
+      201,
+    );
     await admin.send(
       "POST",
       `/api/inventory/items/${row.id}/transfers`,
@@ -202,11 +212,16 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
       },
       409,
     );
-    await admin.send("POST", `/api/inventory/items/${row.id}/counts`, {
-      sectionId: warehouse.id,
-      color: "Gold",
-      quantity: 5,
-    });
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${row.id}/counts`,
+      {
+        sectionId: warehouse.id,
+        color: "Gold",
+        quantity: 5,
+      },
+      201,
+    );
     const movements = await admin.get<StockMovement[]>(
       `/api/inventory/items/${row.id}/movements`,
     );
@@ -217,6 +232,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
       "POST",
       `/api/inventory/movements/${receipt.id}/corrections`,
       { quantity: 7, reason: "Invoice" },
+      201,
     );
     const result = await admin.get<InventoryItem>(
       `/api/inventory/items/${row.id}`,
