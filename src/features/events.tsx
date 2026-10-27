@@ -32,6 +32,8 @@ import {
 } from "../components/shared";
 import { hidden, initials, LoadError } from "./clients";
 import { Attachments } from "./attachments";
+import { ListSelect, ListSuggestions } from "./list-fields";
+import type { ListKey } from "../../shared/settings";
 
 export const statusLabels = eventStatusLabels;
 
@@ -59,9 +61,11 @@ const when = (event: FlowEvent) =>
 export function EventTable({
   events,
   error,
+  exportName,
 }: {
   events: FlowEvent[];
   error?: string;
+  exportName?: string;
 }) {
   const navigate = useNavigate();
   if (error) return <LoadError message={error} />;
@@ -95,6 +99,7 @@ export function EventTable({
       columns={columns}
       onRow={(event) => navigate(`/events/${event.id}`)}
       label="events"
+      exportName={exportName}
     />
   );
 }
@@ -189,7 +194,7 @@ export function EventList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <EventTable events={data} error={events.error} />
+          <EventTable events={data} error={events.error} exportName="events" />
           <LoadMore list={events} label="Load more events" />
         </>
       )}
@@ -285,6 +290,20 @@ export function EventForm({
         onChange={(e) =>
           set(key, (e.target.value || (key === "endTime" ? null : "")) as never)
         }
+      />
+    </FormField>
+  );
+  // Choices come from business settings (FLOW-45).
+  const list = (
+    key: "eventType" | "serviceType" | "foodServiceStyle",
+    label: string,
+    listKey: ListKey,
+  ) => (
+    <FormField label={label}>
+      <ListSelect
+        list={listKey}
+        value={draft[key] ?? ""}
+        onChange={(value) => set(key, value)}
       />
     </FormField>
   );
@@ -425,10 +444,17 @@ export function EventForm({
               onChange={(e) => set("address", e.target.value)}
             />
           </FormField>
-          {text("eventType", "Event type")}
-          {text("serviceType", "Service type")}
-          {text("foodServiceStyle", "Food service style")}
-          {text("dressCode", "Dress code")}
+          {list("eventType", "Event type", "event_type")}
+          {list("serviceType", "Service type", "service_type")}
+          {list("foodServiceStyle", "Food service style", "food_service_style")}
+          <FormField label="Dress code" hint="Pick a preset or type your own.">
+            <input
+              list="dress-code-presets"
+              value={draft.dressCode ?? ""}
+              onChange={(e) => set("dressCode", e.target.value)}
+            />
+            <ListSuggestions id="dress-code-presets" list="dress_code" />
+          </FormField>
           {text("guestCount", "Guest count", "number")}
           {text("servingsCount", "Servings count", "number")}
         </div>

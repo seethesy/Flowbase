@@ -121,7 +121,8 @@ it("asks for the view's filters from the API", async () => {
   await screen.findByText("0 leads");
   await user.click(screen.getByRole("tab", { name: "Triage" }));
   await user.click(screen.getByRole("tab", { name: "Needs review" }));
-  expect(requested).toEqual([
+  // The inbox also loads business settings (lead sources, FLOW-45).
+  expect(requested.filter((path) => path.startsWith("/api/leads"))).toEqual([
     "/api/leads",
     "/api/leads?triage=true",
     "/api/leads?needsReview=true",

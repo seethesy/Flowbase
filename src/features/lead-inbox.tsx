@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRightLeft } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
-  defaultLeadSources,
   leadChannelLabels,
   leadDuplicateReasonLabels,
   leadChannelSchema,
@@ -29,6 +28,7 @@ import {
   Select,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import { useListLabels } from "./list-fields";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
 import {
@@ -196,9 +196,11 @@ export function LeadInbox() {
     [view, status, source, channel, term],
   );
   const data = leads.data ?? [];
+  // Lead sources from business settings (FLOW-45) plus any a lead arrived with.
+  const listedSources = useListLabels("lead_source");
   const sources = [
     ...new Set([
-      ...defaultLeadSources,
+      ...listedSources,
       ...(leads.data ?? []).map((l) => l.source),
     ]),
   ];
@@ -229,6 +231,7 @@ export function LeadInbox() {
       header: "Received",
       accessorFn: (lead) => lead.receivedAt,
       cell: (c) => businessDate(c.row.original.receivedAt),
+      meta: { csv: (lead) => businessDate(lead.receivedAt) },
     },
     {
       id: "lead",
@@ -369,7 +372,12 @@ export function LeadInbox() {
               <LoadingSkeleton />
             ) : (
               <>
-                <DataTable data={data} columns={columns} label="leads" />
+                <DataTable
+                  data={data}
+                  columns={columns}
+                  label="leads"
+                  exportName="leads"
+                />
                 <LoadMore list={leads} label="Load more leads" />
               </>
             )}

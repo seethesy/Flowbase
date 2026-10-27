@@ -384,6 +384,7 @@ export function LowStockList() {
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label="items below par"
+            exportName="low stock"
           />
           <LoadMore list={items} label="Load more items" />
         </>

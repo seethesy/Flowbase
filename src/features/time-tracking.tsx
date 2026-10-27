@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   activityLabels,
-  IDLE_CUTOFF_MS,
   type EffortRow,
   type WorkloadRow,
 } from "../../shared/time-tracking";
@@ -21,14 +20,15 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "./clients";
-import { usePermissions } from "../app/permissions";
+import { useBusinessSettings } from "../services/settings";
 import "./time-tracking.css";
 
 // Automatic activity time tracking (FLOW-119): the notice that it's on, the
 // Settings entry and the reports.
 
-const idleMinutes = IDLE_CUTOFF_MS / 60_000;
-export const trackingNoticeText = `Flowbase records how long you actively work on each screen, so the team can see the effort behind each booking and everyone's workload. Only time inside Flowbase counts: time stops when this tab is hidden or after ${idleMinutes} minutes without typing or clicking.`;
+// The idle cutoff is a business setting (FLOW-45).
+export const trackingNoticeText = (idleMinutes: number) =>
+  `Flowbase records how long you actively work on each screen, so the team can see the effort behind each booking and everyone's workload. Only time inside Flowbase counts: time stops when this tab is hidden or after ${idleMinutes} minutes without typing or clicking.`;
 
 const NOTICE_KEY = "flowbase.trackingNoticeSeen";
 const noticeSeen = () => {
@@ -43,11 +43,12 @@ const noticeSeen = () => {
 // it becomes the first sign-in notice.
 export function TrackingNotice() {
   const [open, setOpen] = useState(() => !noticeSeen());
+  const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
   if (!open) return null;
   return (
     <aside className="demo-callout tracking-notice" aria-label="Time tracking">
       <p>
-        <strong>Time tracking is on.</strong> {trackingNoticeText}{" "}
+        <strong>Time tracking is on.</strong> {trackingNoticeText(idleMinutes)}{" "}
         <Link to="/settings">More about time tracking</Link>
       </p>
       <Button
@@ -67,28 +68,21 @@ export function TrackingNotice() {
   );
 }
 
-export function SettingsPage() {
-  const permissions = usePermissions();
+// The time tracking section of the Settings screen.
+export function TimeTrackingSettings() {
+  const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
   return (
-    <>
-      <PageHeader title="Settings" subtitle="How Flowbase works for you." />
-      {permissions.can("users.manage") && (
-        <Section title="Staff access">
-          <Link to="/settings/users">Manage users</Link>
-        </Section>
-      )}
-      <Section title="Time tracking">
-        <p>
-          <strong>Time tracking is on.</strong> {trackingNoticeText}
-        </p>
-        <p>
-          Time is credited to the lead, client or event on screen and to the
-          kind of work the screen is for. Admin and Sales Managers see
-          everyone's time in <Link to="/reports">Reports</Link>; everyone else
-          sees only their own.
-        </p>
-      </Section>
-    </>
+    <Section title="Time tracking">
+      <p>
+        <strong>Time tracking is on.</strong> {trackingNoticeText(idleMinutes)}
+      </p>
+      <p>
+        Time is credited to the lead, client or event on screen and to the kind
+        of work the screen is for. Admin and Sales Managers see everyone's time
+        in <Link to="/reports">Reports</Link>; everyone else sees only their
+        own.
+      </p>
+    </Section>
   );
 }
 
@@ -122,6 +116,7 @@ export function TimeReports() {
       accessorKey: "seconds",
       header: "Time",
       cell: (c) => duration(c.row.original.seconds),
+      meta: { csv: (row) => duration(row.seconds) },
     },
   ];
   const workloadColumns: ColumnDef<WorkloadRow, unknown>[] = [
@@ -139,6 +134,7 @@ export function TimeReports() {
       accessorKey: "seconds",
       header: "Time",
       cell: (c) => duration(c.row.original.seconds),
+      meta: { csv: (row) => duration(row.seconds) },
     },
   ];
   const data = report.data;
@@ -183,6 +179,7 @@ export function TimeReports() {
                 data={data.effort}
                 columns={effortColumns}
                 label="events"
+                exportName="time by event"
               />
             ) : (
               <EmptyState
@@ -197,6 +194,7 @@ export function TimeReports() {
                 data={data.workload}
                 columns={workloadColumns}
                 label="rows"
+                exportName="workload"
               />
             ) : (
               <EmptyState

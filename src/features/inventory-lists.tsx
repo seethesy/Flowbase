@@ -9,7 +9,6 @@ import {
   barSubcategories,
   barTierLabels,
   barTierSchema,
-  ingredientCategories,
   itemKindSchema,
   type InventoryItem,
   type ItemKind,
@@ -29,6 +28,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "./clients";
 import { ItemForm } from "./inventory-item-form";
+import { useListLabels } from "./list-fields";
 import {
   barTierLabel,
   centsLabel,
@@ -39,6 +39,12 @@ import {
   variantLabel,
 } from "./inventory-labels";
 import "./inventory.css";
+
+// Unit cost in a CSV file: dollars without formatting, blank when unknown.
+const costCsv = (item: InventoryItem) => {
+  const cents = item.consumable?.unitCostCents;
+  return cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
+};
 
 function SectionFilter({
   value,
@@ -197,6 +203,7 @@ export function InventoryList() {
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label="items"
+            exportName="inventory"
           />
           <LoadMore list={items} label="Load more items" />
         </>
@@ -237,6 +244,12 @@ export function IngredientList() {
         cursor,
       ),
     [category, sectionId, belowPar, term, vendorTerm],
+  // Business settings' categories (FLOW-45), archived ones included so old items
+  // can still be found.
+  const listed = useListLabels("ingredient_category");
+  const categories = [
+    ...new Set([...listed, ...(items.data ?? []).map((item) => item.category)]),
+  ].filter(Boolean);
   );
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
@@ -262,6 +275,7 @@ export function IngredientList() {
         item.consumable?.costHidden
           ? "Hidden"
           : centsLabel(item.consumable?.unitCostCents ?? null),
+      meta: { fieldGroup: "internal_cost", csv: costCsv },
     },
     {
       id: "vendor",
@@ -317,7 +331,7 @@ export function IngredientList() {
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">All categories</option>
-          {ingredientCategories.map((option) => (
+          {categories.map((option) => (
             <option key={option}>{option}</option>
           ))}
         </select>
@@ -357,6 +371,7 @@ export function IngredientList() {
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label="ingredients"
+            exportName="ingredients"
           />
           <LoadMore list={items} label="Load more ingredients" />
         </>
@@ -451,6 +466,7 @@ export function BarList() {
         item.consumable?.costHidden
           ? "Hidden"
           : centsLabel(item.consumable?.unitCostCents ?? null),
+      meta: { fieldGroup: "internal_cost", csv: costCsv },
     },
     {
       id: "onHand",
@@ -577,6 +593,7 @@ export function BarList() {
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label="bar items"
+            exportName="bar"
           />
           <LoadMore list={items} label="Load more bar items" />
         </>

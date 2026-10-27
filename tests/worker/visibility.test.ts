@@ -22,6 +22,8 @@ for (const role of roles)
       lead_contact: privileged || role === "salesperson",
       internal_cost: cost,
       financials: privileged || role === "salesperson",
+      // Without a subject, only FT+ (the person themselves is checked below).
+      staff_contact: ft,
     };
     it(`${role}/${employmentType}: every group, serializers and history`, () => {
       for (const group of fieldGroups)
@@ -84,6 +86,22 @@ for (const role of roles)
         serializeFieldGroups(who, groups, { view: "client_recipe" })
           .internal_cost,
       ).toBeNull();
+      // Staff directory (FLOW-40): a phone number shows to FT+ and its owner;
+      // notes show to FT+ only, never because the notes are about you.
+      const member = { id: "someone-else", mobile: "2025550123", notes: "Drives the box truck" };
+      expect(
+        serializeFields(who, "staff_member", member, { subjectUserId: member.id }),
+      ).toEqual({
+        id: member.id,
+        mobile: ft ? member.mobile : null,
+        notes: ft ? member.notes : null,
+      });
+      const self = { ...member, id: userId };
+      expect(
+        serializeFields(who, "staff_member", self, { subjectUserId: userId }),
+      ).toEqual({ ...self, notes: ft ? self.notes : null });
+      expect(canSeeField(who, "staff_contact", { subjectUserId: userId })).toBe(true);
+      expect(canSeeField(who, "staff_contact", { subjectUserId: null })).toBe(ft);
       expect(
         serializeFields(
           who,

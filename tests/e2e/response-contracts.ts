@@ -31,6 +31,14 @@ import {
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
 import { historyEntrySchema } from "../../shared/audit";
+import {
+  businessDefaultsSchema,
+  businessSettingsSchema,
+  companyProfileSchema,
+  listValueSchema,
+  settingsHistoryEntrySchema,
+} from "../../shared/settings";
+import { staffMemberSchema } from "../../shared/staff";
 
 export function responseSchema(
   path: string,
@@ -92,6 +100,17 @@ export function responseSchema(
           : eventSchema;
     return !id && method === "GET" ? schema.array() : schema;
   }
+  if (resource === "settings") {
+    if (!id) return businessSettingsSchema;
+    if (id === "history") return settingsHistoryEntrySchema.array();
+    if (id === "company") return companyProfileSchema;
+    if (id === "defaults") return businessDefaultsSchema;
+    if (id === "lists" && path.split("/")[5] === "order")
+      return listValueSchema.array();
+    return listValueSchema;
+  }
+  if (resource === "staff")
+    return !id ? staffMemberSchema.array() : staffMemberSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
 }
 

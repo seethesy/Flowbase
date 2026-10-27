@@ -194,7 +194,12 @@ export function LeadDashboardPage() {
                 </ResponsiveContainer>
               </div>
             )}
-            <DataTable data={data.bySource} columns={sourceColumns} label="sources" />
+            <DataTable
+              data={data.bySource}
+              columns={sourceColumns}
+              label="sources"
+              exportName="lead sources"
+            />
           </Section>
           <div className="detail-grid">
             <Section title="By channel">

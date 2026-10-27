@@ -9,6 +9,7 @@ import {
   FileText,
   Inbox,
   ArrowUpRight,
+  Download,
 } from "lucide-react";
 import {
   useReactTable,
@@ -17,10 +18,58 @@ import {
   getPaginationRowModel,
   flexRender,
   type ColumnDef,
+  type RowData,
   type SortingState,
+  type Table,
 } from "@tanstack/react-table";
 import { Button } from "../ui/button";
+import { canSeeField, type FieldGroup } from "../../../shared/visibility";
+import type { Actor } from "../../../shared/access";
+import { usePermissions } from "../../app/permissions";
+import {
+  csvFileName,
+  downloadCsv,
+  toCsv,
+  type CsvValue,
+} from "../../services/csv";
 export { Button };
+
+// List export (FLOW-48). A column's CSV value is its accessor's value unless meta.csv
+// gives a plainer one. A column holding a field group (shared/visibility.ts) is left
+// out of the file for anyone who may not see that group; meta.exportable: false
+// leaves a column out for everyone (e.g. selection checkboxes).
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> {
+    csv?: (row: TData, value: TValue) => CsvValue;
+    fieldGroup?: FieldGroup;
+    exportable?: boolean;
+  }
+}
+// The header row and every filtered row in the current sort order, not just the
+// page on screen.
+export function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
+  const columns = table.getVisibleLeafColumns().filter((column) => {
+    const { header, meta } = column.columnDef;
+    if (typeof header !== "string" || meta?.exportable === false) return false;
+    if (!column.accessorFn && !meta?.csv) return false;
+    return (
+      !meta?.fieldGroup ||
+      (actor !== null && canSeeField(actor, meta.fieldGroup))
+    );
+  });
+  return toCsv(
+    columns.map((column) => column.columnDef.header as string),
+    table
+      .getPrePaginationRowModel()
+      .rows.map((row) =>
+        columns.map((column) =>
+          column.columnDef.meta?.csv
+            ? column.columnDef.meta.csv(row.original, row.getValue(column.id))
+            : (row.getValue(column.id) as CsvValue),
+        ),
+      ),
+  );
+}
 export function StatusBadge({ status }: { status: string }) {
   const tone = ["Active", "Signed", "In Stock", "Received"].includes(status)
     ? "success"
@@ -138,12 +187,16 @@ export function DataTable<T>({
   columns,
   onRow,
   label = "records",
+  exportName,
 }: {
   data: T[];
   columns: ColumnDef<T, unknown>[];
   onRow?: (record: T) => void;
   label?: string;
+  // Shows "Export CSV"; the file is named after it, e.g. "ingredients".
+  exportName?: string;
 }) {
+  const { actor } = usePermissions();
   const [sorting, setSorting] = useState<SortingState>([]);
   const table = useReactTable({
     data,
@@ -157,6 +210,20 @@ export function DataTable<T>({
   });
   return (
     <div className="table-card">
+      {exportName && (
+        <div className="table-toolbar">
+          <Button
+            variant="outline"
+            disabled={!data.length}
+            onClick={() =>
+              downloadCsv(csvFileName(exportName), tableCsv(table, actor))
+            }
+          >
+            <Download size={16} />
+            Export CSV
+          </Button>
+        </div>
+      )}
       <div className="table-scroll">
         <table>
           <thead>

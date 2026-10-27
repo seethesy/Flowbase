@@ -8,6 +8,7 @@ import type { Client, FlowEvent } from "../../shared/core-records";
 import type { InventoryItem, Section } from "../../shared/inventory";
 import type { Lead, LeadDuplicateReason } from "../../shared/leads";
 import { businessTimeToUtc } from "../../shared/time";
+import { defaultListValues, listKeys } from "../../shared/settings";
 
 export async function browserDb<T>(run: (db: Db) => Promise<T>) {
   const client = postgres(assertTestDatabaseUrl(process.env.DATABASE_URL), {
@@ -41,6 +42,16 @@ export async function resetBrowserDatabase(sections: Section[]) {
           name: i === 0 ? "Test Admin" : u.name,
         })),
       );
+    // The truncate also clears the lists migration 0021 seeds (FLOW-45).
+    await db.insert(s.listValues).values(
+      listKeys.flatMap((listKey) =>
+        defaultListValues[listKey].map((label, sortOrder) => ({
+          listKey,
+          label,
+          sortOrder,
+        })),
+      ),
+    );
     await db
       .insert(s.inventorySections)
       .values(

@@ -12,7 +12,13 @@ export const historyEntrySchema = z.object({
   ),
 });
 // Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history.
-export type AuditEntity = "client" | "venue" | "event";
+export type AuditEntity =
+  | "client"
+  | "venue"
+  | "event"
+  | "user"
+  | "setting"
+  | "list_value";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

@@ -7,10 +7,13 @@ export const fieldGroups = [
   "lead_contact",
   "internal_cost",
   "financials",
+  "staff_contact",
 ] as const;
 export type FieldGroup = (typeof fieldGroups)[number];
 export type ViewContext = {
   assignedSalespersonId?: string | null;
+  // The staff member a staff_contact value belongs to (FLOW-40).
+  subjectUserId?: string | null;
   view?: "internal" | "client_recipe" | "beo";
 };
 const fieldRules: Record<
@@ -28,6 +31,10 @@ const fieldRules: Record<
     ["admin", "technical", "sales_manager"].includes(actor.role) ||
     (actor.role === "salesperson" &&
       context.assignedSalespersonId === actor.userId),
+  // A staff member's phone number: FT+ and the person themselves (FLOW-40 AC3).
+  staff_contact: (actor, context) =>
+    isFtPlus(actor) ||
+    (Boolean(context.subjectUserId) && context.subjectUserId === actor.userId),
 };
 export function canSeeField(
   actor: Actor,
@@ -51,6 +58,7 @@ type Rule =
   | "lead_payload"
   | "duplicate_match"
   | "pricing"
+  | "staff_notes"
   | { [key: string]: Rule };
 const contact: Rule = { email: "client_contact", phone: "client_contact" };
 const shapes = {
@@ -67,6 +75,7 @@ const shapes = {
     rental: { priceCents: "pricing" },
     service: { priceCents: "pricing" },
   },
+  staff_member: { mobile: "staff_contact", notes: "staff_notes" },
 } satisfies Record<string, Rule>;
 export type VisibilityShape = keyof typeof shapes;
 function visible(actor: Actor, rule: string, context: ViewContext): boolean {
@@ -75,6 +84,8 @@ function visible(actor: Actor, rule: string, context: ViewContext): boolean {
   if (rule === "duplicate_match") return clientScope(actor) === "all";
   // Catalog selling prices are public to staff; BEOs omit all pricing.
   if (rule === "pricing") return context.view !== "beo";
+  // Notes about a staff member: FT+ only; being the person doesn't grant them.
+  if (rule === "staff_notes") return isFtPlus(actor);
   return canSeeField(actor, rule as FieldGroup, context);
 }
 function project(
