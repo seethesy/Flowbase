@@ -14,7 +14,7 @@ export type ViewContext = {
   assignedSalespersonId?: string | null;
   // The staff member a staff_contact value belongs to (FLOW-40).
   subjectUserId?: string | null;
-  view?: "internal" | "client_recipe" | "beo";
+  view?: "internal" | "internal_recipe" | "client_recipe" | "beo";
 };
 const fieldRules: Record<
   FieldGroup,
@@ -48,6 +48,9 @@ export function canSeeField(
     return false;
   if (context.view === "client_recipe" && group === "internal_cost")
     return false;
+  // FLOW-96: recipe costs are FT+ only, even for part-time kitchen roles.
+  if (context.view === "internal_recipe" && group === "internal_cost")
+    return isFtPlus(actor);
   return fieldRules[group](actor, context);
 }
 

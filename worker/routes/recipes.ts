@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import {
+  dietaryTagSchema,
   recipeCategorySchema,
   recipeInputSchema,
   scaleQuerySchema,
 } from "../../shared/recipes";
+import { allergenSchema } from "../../shared/inventory";
 import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
@@ -19,6 +21,7 @@ import {
   createRecipe,
   getRecipe,
   listRecipes,
+  listClientRecipes,
   recipeHistory,
   scaleRecipeFor,
   setRecipeArchived,
@@ -41,15 +44,25 @@ export function recipeRoutes(options: {
     return parsed.data;
   };
 
-  routes.get("/", requirePermission("recipes.read"), async (c) => {
+  const filters = (c: AppContext) => {
     const category = recipeCategorySchema.safeParse(c.req.query("category"));
+    const allergen = allergenSchema.safeParse(c.req.query("allergen"));
+    const dietaryTag = dietaryTagSchema.safeParse(c.req.query("dietaryTag"));
+    return {
+      archived: c.req.query("archived") === "true",
+      category: category.success ? category.data : undefined,
+      search: c.req.query("search") || undefined,
+      allergen: allergen.success ? allergen.data : undefined,
+      dietaryTag: dietaryTag.success ? dietaryTag.data : undefined,
+    };
+  };
+  routes.get("/client", requirePermission("recipes.read"), async (c) =>
+    c.json(await record(c, (db, actor) => listClientRecipes(db, actor, c.env ?? {}, filters(c)))),
+  );
+  routes.get("/", requirePermission("recipes.read"), async (c) => {
     return c.json(
       await record(c, (db, actor) =>
-        listRecipes(db, actor, {
-          archived: c.req.query("archived") === "true",
-          category: category.success ? category.data : undefined,
-          search: c.req.query("search") || undefined,
-        }),
+        listRecipes(db, actor, filters(c)),
       ),
     );
   });

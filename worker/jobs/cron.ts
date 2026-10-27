@@ -6,6 +6,7 @@ import {
   registerNotifications,
   type NotificationOptions,
 } from "../notifications/fanout";
+import { registerRecipeCostChanges } from "../records/recipes";
 import { emitDueTaskEvents } from "../records/tasks";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
@@ -13,6 +14,7 @@ import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 export function createJobRegistry(options: NotificationOptions = {}) {
   const registry = new JobRegistry();
   registerIngestProcessing(registry);
+  registerRecipeCostChanges(registry);
   // Notifications (FLOW-43): one subscriber per notification type, plus email.
   registerNotifications(registry, options);
   return registry;
