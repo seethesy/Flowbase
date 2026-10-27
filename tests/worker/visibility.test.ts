@@ -19,6 +19,7 @@ for (const role of roles)
     const expected = {
       client_contact: ft,
       venue_contact: ft,
+      vendor_contact: ft,
       lead_contact: privileged || role === "salesperson",
       internal_cost: cost,
       financials: privileged || role === "salesperson",
@@ -53,6 +54,17 @@ for (const role of roles)
       expect(serializeFields(who, "venue", client).contacts).toEqual(
         ft ? client.contacts : null,
       );
+      // FLOW-84 AC3: vendor contacts and account numbers are FT+ only.
+      const vendor = serializeFields(who, "vendor", {
+        name: "Imperio",
+        accountNumber: "ACCT-778",
+        contacts: [contact],
+      });
+      expect(vendor).toEqual({
+        name: "Imperio",
+        accountNumber: ft ? "ACCT-778" : null,
+        contacts: ft ? [contact] : null,
+      });
       const item = serializeFields(who, "inventory_item", {
         consumable: { unitCostCents: 9876, costHidden: false },
       });

@@ -30,6 +30,7 @@ import {
   leadConversionSchema,
 } from "../../shared/leads";
 import { searchResultSchema } from "../../shared/search";
+import { vendorDetailSchema, vendorSchema } from "../../shared/vendors";
 import {
   timeReportSchema,
   activityRecordedSchema,
@@ -113,6 +114,11 @@ export function responseSchema(
     if (action === "history") return historyEntrySchema.array();
     if (action === "scale") return scaledRecipeSchema;
     return !id && method === "GET" ? recipeSchema.array() : recipeSchema;
+  }
+  // Vendor directory (FLOW-84): the list, otherwise the vendor with its items.
+  if (resource === "vendors") {
+    if (action === "history") return historyEntrySchema.array();
+    return !id && method === "GET" ? vendorSchema.array() : vendorDetailSchema;
   }
   if (["clients", "venues", "events"].includes(resource)) {
     if (action === "history") return historyEntrySchema.array();

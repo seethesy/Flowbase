@@ -33,6 +33,7 @@ import {
   inventorySections,
   inventoryServiceDetails,
   inventoryStock,
+  vendors,
 } from "../db/schema";
 import { forbidden, notFound } from "../hono";
 import { can } from "../policy";
@@ -41,6 +42,7 @@ import { setArchived } from "./archive";
 import { conflict, type ItemRow, round } from "./inventory-common";
 import { recordCostChange } from "./inventory-costs";
 import { requireStockSection } from "./inventory-sections";
+import { findVendor, requireLiveVendor } from "./vendors";
 import {
   groupBy,
   indexBy,
@@ -77,8 +79,12 @@ export async function toItems(
           assemblyNotes: inventoryRentalDetails.assemblyNotes,
           bufferDaysBefore: inventoryRentalDetails.bufferDaysBefore,
           bufferDaysAfter: inventoryRentalDetails.bufferDaysAfter,
+          vendorId: inventoryRentalDetails.vendorId,
+          vendorCostCents: inventoryRentalDetails.vendorCostCents,
+          leadTimeDays: inventoryRentalDetails.leadTimeDays,
           components: inventoryRentalDetails.components,
         },
+        rentalVendorName: vendors.name,
         service: {
           itemId: inventoryServiceDetails.itemId,
           priceCents: inventoryServiceDetails.priceCents,
@@ -96,6 +102,7 @@ export async function toItems(
           recipeUnit: inventoryConsumableDetails.recipeUnit,
           unitCostCents: inventoryConsumableDetails.unitCostCents,
           preferredVendor: inventoryConsumableDetails.preferredVendor,
+          preferredVendorId: inventoryConsumableDetails.preferredVendorId,
           parLevel: inventoryConsumableDetails.parLevel,
           allergens: inventoryConsumableDetails.allergens,
           storageSectionId: inventoryConsumableDetails.storageSectionId,
@@ -114,6 +121,7 @@ export async function toItems(
         inventoryRentalDetails,
         eq(inventoryRentalDetails.itemId, inventoryItems.id),
       )
+      .leftJoin(vendors, eq(vendors.id, inventoryRentalDetails.vendorId))
       .leftJoin(
         inventoryServiceDetails,
         eq(inventoryServiceDetails.itemId, inventoryItems.id),
@@ -201,6 +209,10 @@ export async function toItems(
               assemblyNotes: rental?.assemblyNotes ?? "",
               bufferDaysBefore: rental?.bufferDaysBefore ?? 1,
               bufferDaysAfter: rental?.bufferDaysAfter ?? 1,
+              vendorId: rental?.vendorId ?? null,
+              vendorCostCents: rental?.vendorCostCents ?? null,
+              leadTimeDays: rental?.leadTimeDays ?? null,
+              vendorName: detail?.rentalVendorName ?? null,
               components: rental?.components ?? [],
             }
           : null,
@@ -226,6 +238,7 @@ export async function toItems(
             unitCostCents: c.unitCostCents,
             costHidden: false,
             preferredVendor: c.preferredVendor,
+            preferredVendorId: c.preferredVendorId,
             parLevel: c.parLevel,
             allergens: c.allergens as Allergen[],
             storageSectionId: c.storageSectionId,
@@ -472,10 +485,20 @@ async function saveDetails(
     const r = input.rental;
     if (
       (r?.internalCostCents !== undefined ||
-        r?.replacementCostCents !== undefined) &&
+        r?.replacementCostCents !== undefined ||
+        r?.vendorCostCents !== undefined) &&
       !canSeeRentalCosts(actor)
     )
       throw forbidden();
+    const [stored] = await tx
+      .select({ vendorId: inventoryRentalDetails.vendorId })
+      .from(inventoryRentalDetails)
+      .where(eq(inventoryRentalDetails.itemId, itemId));
+    const vendorId = r?.vendorId ?? null;
+    // Linking to a vendor needs a live one; an existing link may stay after the
+    // vendor is archived.
+    if (vendorId && vendorId !== (stored?.vendorId ?? null))
+      await requireLiveVendor(tx, vendorId);
     const values = {
       priceCents: r?.priceCents ?? null,
       dimensions: r?.dimensions ?? "",
@@ -485,6 +508,14 @@ async function saveDetails(
       bufferDaysBefore: r?.bufferDaysBefore ?? 1,
       bufferDaysAfter: r?.bufferDaysAfter ?? 1,
       components: r?.components ?? [],
+      vendorId,
+      leadTimeDays: vendorId ? (r?.leadTimeDays ?? null) : null,
+      // A rental that's no longer sub-rented has no vendor cost.
+      ...(!vendorId
+        ? { vendorCostCents: null }
+        : r?.vendorCostCents !== undefined && {
+            vendorCostCents: r.vendorCostCents,
+          }),
       ...(r?.internalCostCents !== undefined && {
         internalCostCents: r.internalCostCents,
       }),
@@ -537,16 +568,29 @@ async function saveDetails(
     if (storageSectionId)
       await requireStockSection(tx, storageSectionId, "consumable");
     const [stored] = await tx
-      .select({ unitCostCents: inventoryConsumableDetails.unitCostCents })
+      .select({
+        unitCostCents: inventoryConsumableDetails.unitCostCents,
+        preferredVendorId: inventoryConsumableDetails.preferredVendorId,
+      })
       .from(inventoryConsumableDetails)
       .where(eq(inventoryConsumableDetails.itemId, itemId));
+    // A directory vendor (FLOW-84) sets the preferred vendor's name.
+    let preferredVendor = c.preferredVendor;
+    if (c.preferredVendorId) {
+      const vendor =
+        c.preferredVendorId === (stored?.preferredVendorId ?? null)
+          ? await findVendor(tx, c.preferredVendorId)
+          : await requireLiveVendor(tx, c.preferredVendorId);
+      preferredVendor = vendor.name;
+    }
     const values = {
       purchaseUnit: c.purchaseUnit,
       packCount: c.packCount,
       eachSizeQuantity: c.eachSize?.quantity ?? null,
       eachSizeUnit: c.eachSize?.unit ?? null,
       recipeUnit: c.recipeUnit,
-      preferredVendor: c.preferredVendor,
+      preferredVendor,
+      preferredVendorId: c.preferredVendorId,
       parLevel: c.parLevel,
       allergens: c.allergens,
       storageSectionId,

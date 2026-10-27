@@ -20,7 +20,8 @@ import {
   type Section as StockSection,
 } from "../../shared/inventory";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
-import { inventoryApi, sectionsApi } from "../services/core";
+import { allPages, inventoryApi, sectionsApi } from "../services/core";
+import { vendorsApi } from "../services/vendors";
 import { useResource } from "../app/useResource";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { kindLabels, subtypeLabel } from "./inventory-labels";
@@ -80,6 +81,9 @@ type FieldName =
   | "priceBasis"
   | "internalCost"
   | "replacementCost"
+  | "rentalVendorId"
+  | "vendorCost"
+  | "leadTimeDays"
   | "dimensions"
   | "notes"
   | "assemblyNotes"
@@ -93,6 +97,7 @@ type FieldName =
   | "recipeUnit"
   | "unitCost"
   | "preferredVendor"
+  | "preferredVendorId"
   | "parLevel"
   | "storageSectionId"
   | "storageOrder"
@@ -132,6 +137,9 @@ export function ItemForm({
     priceBasis: item?.service?.priceBasis ?? "per_event",
     internalCost: dollars(item?.rental?.internalCostCents),
     replacementCost: dollars(item?.rental?.replacementCostCents),
+    rentalVendorId: item?.rental?.vendorId ?? "",
+    vendorCost: dollars(item?.rental?.vendorCostCents),
+    leadTimeDays: numberText(item?.rental?.leadTimeDays),
     dimensions: item?.rental?.dimensions ?? "",
     notes: item?.rental?.notes ?? "",
     assemblyNotes: item?.rental?.assemblyNotes ?? "",
@@ -145,6 +153,7 @@ export function ItemForm({
     recipeUnit: item?.consumable?.recipeUnit ?? "",
     unitCost: dollars(item?.consumable?.unitCostCents),
     preferredVendor: item?.consumable?.preferredVendor ?? "",
+    preferredVendorId: item?.consumable?.preferredVendorId ?? "",
     parLevel: numberText(item?.consumable?.parLevel),
     storageSectionId: item?.consumable?.storageSectionId ?? "",
     storageOrder: numberText(item?.consumable?.storageOrder),
@@ -184,6 +193,18 @@ export function ItemForm({
         ? sectionsApi.list({ kind: "consumable" })
         : Promise.resolve([] as StockSection[]),
     { reference: true },
+  );
+  // The vendor directory (FLOW-84), for sub-rentals and preferred vendors.
+  const vendors = useResource(
+    ["vendors", "options"],
+    () => allPages((cursor) => vendorsApi.list({}, cursor)),
+    { reference: true },
+  );
+  const vendorOptions = (vendors.data ?? []).filter(
+    (vendor) =>
+      vendor.id === fields.rentalVendorId ||
+      vendor.id === fields.preferredVendorId ||
+      !vendor.archivedAt,
   );
   const set = (key: FieldName) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
@@ -268,6 +289,16 @@ export function ItemForm({
           assemblyNotes: fields.assemblyNotes,
           bufferDaysBefore: Number(fields.bufferDaysBefore),
           bufferDaysAfter: Number(fields.bufferDaysAfter),
+          // Sub-rental (FLOW-75).
+          vendorId: fields.rentalVendorId || null,
+          leadTimeDays: fields.rentalVendorId
+            ? toNumber(fields.leadTimeDays)
+            : null,
+          ...(rentalCostsVisible && {
+            vendorCostCents: fields.rentalVendorId
+              ? toCents(fields.vendorCost)
+              : null,
+          }),
           colors: fields.colors
             .split("\n")
             .map((color) => color.trim())
@@ -293,6 +324,7 @@ export function ItemForm({
           recipeUnit: (fields.recipeUnit || null) as Unit | null,
           ...(!costHidden && { unitCostCents: toCents(fields.unitCost) }),
           preferredVendor: fields.preferredVendor,
+          preferredVendorId: fields.preferredVendorId || null,
           parLevel: toNumber(fields.parLevel),
           allergens,
           storageSectionId: storageSectionId || null,
@@ -543,6 +575,45 @@ export function ItemForm({
                   </FormField>
                 </>
               )}
+              <FormField
+                label="Rented from"
+                hint="A sub-rented item is available on request, never owned stock."
+              >
+                <select
+                  value={fields.rentalVendorId}
+                  onChange={(e) => {
+                    const vendor = vendorOptions.find(
+                      (option) => option.id === e.target.value,
+                    );
+                    setFields((current) => ({
+                      ...current,
+                      rentalVendorId: e.target.value,
+                      leadTimeDays:
+                        current.leadTimeDays ||
+                        numberText(vendor?.leadTimeDays),
+                    }));
+                  }}
+                >
+                  <option value="">Owned (not sub-rented)</option>
+                  {vendorOptions.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              {fields.rentalVendorId && (
+                <>
+                  {rentalCostsVisible && (
+                    <FormField label="Vendor cost ($ per unit)">
+                      {input("vendorCost", { type: "number" })}
+                    </FormField>
+                  )}
+                  <FormField label="Lead time (days)">
+                    {input("leadTimeDays", { type: "number" })}
+                  </FormField>
+                </>
+              )}
               <FormField label="Dimensions">{input("dimensions")}</FormField>
               <FormField label="Buffer days before">
                 {input("bufferDaysBefore", { type: "number" })}
@@ -706,9 +777,24 @@ export function ItemForm({
                   {input("unitCost", { type: "number" })}
                 </FormField>
               )}
-              <FormField label={isBar ? "Distributor" : "Preferred vendor"}>
-                {input("preferredVendor")}
+              <FormField label="Vendor directory">
+                <select
+                  value={fields.preferredVendorId}
+                  onChange={(e) => set("preferredVendorId")(e.target.value)}
+                >
+                  <option value="">Not in the directory</option>
+                  {vendorOptions.map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
               </FormField>
+              {!fields.preferredVendorId && (
+                <FormField label={isBar ? "Distributor" : "Preferred vendor"}>
+                  {input("preferredVendor")}
+                </FormField>
+              )}
               <FormField
                 label={`Par level (${unitLabel(fields.unit as Unit)})`}
               >

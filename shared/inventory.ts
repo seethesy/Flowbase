@@ -148,6 +148,14 @@ export const rentalDetailsSchema = z.object({
   assemblyNotes: text(5000).default(""),
   bufferDaysBefore: z.number().int().min(0).max(30).default(1),
   bufferDaysAfter: z.number().int().min(0).max(30).default(1),
+  // Sub-rental (FLOW-75): the vendor (FLOW-84) the item is rented from. A rental
+  // with a vendor is available on request, never owned stock.
+  vendorId: id.nullable().default(null),
+  // What the vendor charges for one. Hidden like the other rental costs; omitted
+  // keeps the stored value.
+  vendorCostCents: cents.nullable().optional(),
+  // Days' notice the vendor needs.
+  leadTimeDays: z.number().int().min(0).max(365).nullable().default(null),
   components: z
     .array(z.object({ itemId: id, quantity: quantity.positive() }))
     .max(100)
@@ -194,6 +202,9 @@ export const consumableDetailsInputSchema = z.object({
   // Cost of one purchase unit. FT+ only (F-01-04): omitted keeps the stored cost.
   unitCostCents: cents.nullable().optional(),
   preferredVendor: text(200).default(""),
+  // The preferred vendor from the directory (FLOW-84). When set, preferredVendor
+  // is saved as the vendor's name.
+  preferredVendorId: id.nullable().default(null),
   // In the item's stock unit.
   parLevel: quantity.nullable().default(null),
   allergens: z.array(allergenSchema).max(20).default([]),
@@ -250,6 +261,17 @@ export const itemInputSchema = z
         code: "custom",
         path: ["consumable"],
         message: "Purchase details are required.",
+      });
+    if (
+      item.rental &&
+      !item.rental.vendorId &&
+      (item.rental.leadTimeDays !== null ||
+        (item.rental.vendorCostCents ?? null) !== null)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["rental", "vendorId"],
+        message: "Pick the vendor this item is rented from.",
       });
     if (item.rental?.components.length && item.subtype !== "decor")
       ctx.addIssue({
@@ -334,7 +356,9 @@ export const itemSchema = z.object({
   tier: z.string(),
   ratio: ratioSchema.nullable(),
   active: z.boolean(),
-  rental: rentalDetailsSchema.nullable(),
+  rental: rentalDetailsSchema
+    .extend({ vendorName: z.string().nullable().default(null) })
+    .nullable(),
   consumable: consumableDetailsInputSchema
     .extend({
       // null, with costHidden, when the caller isn't FT+.

@@ -4,6 +4,8 @@ import { clientScope, leadScope } from "./policy";
 export const fieldGroups = [
   "client_contact",
   "venue_contact",
+  // Vendor contacts and the business's account number with them (FLOW-84).
+  "vendor_contact",
   "lead_contact",
   "internal_cost",
   "financials",
@@ -22,6 +24,7 @@ const fieldRules: Record<
 > = {
   client_contact: isFtPlus,
   venue_contact: isFtPlus,
+  vendor_contact: isFtPlus,
   lead_contact: (actor) => leadScope(actor) !== "none",
   internal_cost: (actor) =>
     isFtPlus(actor) ||
@@ -69,6 +72,7 @@ const shapes = {
   client_contact: contact,
   client: { contacts: contact, possibleDuplicateOf: "duplicate_match" },
   venue: { contacts: "venue_contact" },
+  vendor: { contacts: "vendor_contact", accountNumber: "vendor_contact" },
   lead: {
     email: "lead_contact",
     phone: "lead_contact",
@@ -80,6 +84,7 @@ const shapes = {
       priceCents: "pricing",
       internalCostCents: "rental_cost",
       replacementCostCents: "rental_cost",
+      vendorCostCents: "rental_cost",
     },
     service: { priceCents: "pricing", addons: { priceCents: "pricing" } },
   },
