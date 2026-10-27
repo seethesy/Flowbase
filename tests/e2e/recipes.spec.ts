@@ -47,7 +47,7 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
       name: `Ingredient line ${index + 1}`,
     });
     await line
-      .getByLabel(new RegExp(`^Ingredient ${index + 1}\\b`))
+      .getByRole("combobox", { name: `Ingredient ${index + 1}`, exact: true })
       .selectOption({ label: name });
     if (quantity) await line.getByLabel(/^Quantity/).fill(quantity);
     if (cost) await line.getByLabel(/^Entered cost/).fill(cost);
@@ -56,7 +56,7 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
   await expect(
     dialog
       .getByRole("group", { name: "Ingredient line 2" })
-      .getByLabel(/^Unit/),
+      .getByRole("combobox", { name: "Unit", exact: true }),
   ).toHaveValue("cup");
   await dialog
     .getByLabel(/^Steps/)
