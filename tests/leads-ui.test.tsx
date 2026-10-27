@@ -1,5 +1,5 @@
 import { TestAuth } from "./auth-provider";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -54,13 +54,20 @@ const juniper: Client = {
   createdAt: now,
   updatedAt: now,
 };
-type Handler = (init?: RequestInit) => Response | Promise<Response>;
+type Handler = (
+  init?: RequestInit,
+  url?: URL,
+) => Response | Promise<Response>;
+// Routes by "METHOD /path?query", or by "METHOD /path" for any query (the
+// handler gets the URL).
 const mockApi = (routes: Record<string, Handler>) =>
   vi.mocked(fetch).mockImplementation(async (input, init) => {
-    const key = `${init?.method ?? "GET"} ${String(input)}`;
-    const handler = routes[key];
+    const method = init?.method ?? "GET";
+    const url = new URL(String(input), "http://localhost");
+    const key = `${method} ${String(input)}`;
+    const handler = routes[key] ?? routes[`${method} ${url.pathname}`];
     if (!handler) throw new Error(`Unexpected request ${key}`);
-    return handler(init);
+    return handler(init, url);
   });
 const mount = (node: ReactNode) =>
   render(
@@ -71,17 +78,22 @@ const mount = (node: ReactNode) =>
 
 it("lists leads, flags the ones that need review and filters by search", async () => {
   mockApi({
-    "GET /api/leads": () =>
-      Response.json([
-        lead({ status: "new" }),
-        lead({
-          id: "d0000000-0000-4000-8000-000000000002",
-          name: "Noah Kim",
-          eventDate: null,
-          needsReview: true,
-          status: "new",
-        }),
-      ]),
+    "GET /api/leads": (_init, url) => {
+      // The search runs on the server (FLOW-179); stand in for it here.
+      const search = (url?.searchParams.get("search") ?? "").toLowerCase();
+      return Response.json(
+        [
+          lead({ status: "new" }),
+          lead({
+            id: "d0000000-0000-4000-8000-000000000002",
+            name: "Noah Kim",
+            eventDate: null,
+            needsReview: true,
+            status: "new",
+          }),
+        ].filter((row) => row.name.toLowerCase().includes(search)),
+      );
+    },
   });
   const user = userEvent.setup();
   mount(<LeadInbox />);
@@ -92,7 +104,10 @@ it("lists leads, flags the ones that need review and filters by search", async (
     screen.getByRole("textbox", { name: "Search name, email or phone…" }),
     "noah",
   );
-  expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("Noah Kim")).toBeInTheDocument();
 });
 
 it("asks for the view's filters from the API", async () => {

@@ -57,9 +57,13 @@ const mount = (node: ReactNode) =>
   );
 
 it("lists clients from the API and hides contact details it isn't given", async () => {
+  const searches: string[] = [];
   mockApi({
-    "GET /api/clients": () =>
-      Response.json([
+    "GET /api/clients": (_init, url) => {
+      // The search runs on the server (FLOW-179); stand in for it here.
+      const search = url?.searchParams.get("search") ?? "";
+      searches.push(search);
+      const clients = [
         client(),
         client({
           id: "c0000000-0000-4000-8000-000000000002",
@@ -75,7 +79,13 @@ it("lists clients from the API and hides contact details it isn't given", async 
             },
           ],
         }),
-      ]),
+      ];
+      return Response.json(
+        clients.filter((row) =>
+          JSON.stringify(row).toLowerCase().includes(search.toLowerCase()),
+        ),
+      );
+    },
   });
   const user = userEvent.setup();
   mount(<ClientList />);
@@ -85,8 +95,13 @@ it("lists clients from the API and hides contact details it isn't given", async 
     screen.getByRole("textbox", { name: "Search clients or contacts…" }),
     "Olivia",
   );
-  expect(screen.queryByText("The Glasshouse")).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByText("The Glasshouse")).not.toBeInTheDocument(),
+  );
   expect(screen.getByText("Juniper & Co.")).toBeInTheDocument();
+  // One request for the settled search, not one per keystroke.
+  expect(searches.at(-1)).toBe("Olivia");
+  expect(searches.length).toBeLessThan(4);
 });
 
 it("shows the API's message and reference when the list can't load", async () => {
