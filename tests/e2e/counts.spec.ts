@@ -1,5 +1,6 @@
 import { test, expect } from "./auth-fixture";
-import { consumable, defaultSections, mockInventoryApi } from "./mock-api";
+import { consumable, defaultSections } from "./fixtures";
+import { seedInventory } from "./database";
 
 // Count mode (FLOW-82) is used on a phone in the storage area.
 test.use({ viewport: { width: 390, height: 844 } });
@@ -8,7 +9,7 @@ test("counts a storage section on a phone and resumes a partial count", async ({
   page,
 }) => {
   const fridge = defaultSections[5];
-  await mockInventoryApi(page, {
+  await seedInventory({
     items: [
       consumable("Heavy Cream", {
         unit: "qt",
