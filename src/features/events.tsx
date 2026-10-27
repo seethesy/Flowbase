@@ -448,7 +448,7 @@ export function EventForm({
             />
             <ListSuggestions id="dress-code-presets" list="dress_code" />
           </FormField>
-          {text("arrivalTime", "Venue arrival time", "time")}
+          {text("arrivalTime", "Arrival time at venue", "time")}
           {text("guestCount", "Guest count", "number")}
           {text("servingsCount", "Servings count", "number")}
         </div>
@@ -627,7 +627,7 @@ export function EventDetail() {
     ["Guests", e.guestCount?.toString() ?? "—"],
     ["Servings", e.servingsCount?.toString() ?? "—"],
     ["Dress code", e.dressCode || "—"],
-    ["Venue arrival", e.arrivalTime ? time(e.arrivalTime) : "—"],
+    ["Arrival at venue", e.arrivalTime ? time(e.arrivalTime) : "—"],
     ["Status", statusLabels[e.status]],
   ];
   const render: Partial<Record<HubSection, () => ReactNode>> = {
