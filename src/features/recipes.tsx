@@ -24,7 +24,7 @@ import {
 } from "../../shared/recipes";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { canSeeField } from "../../shared/visibility";
-import { inventoryApi, recipesApi } from "../services/core";
+import { allPages, inventoryApi, recipesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import {
   Button,
@@ -290,8 +290,13 @@ export function RecipeForm({
   const [active, setActive] = useState(recipe?.active ?? true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Every ingredient, whatever the page size (FLOW-179): the picker must be
+  // complete.
   const ingredients = useResource(
-    () => inventoryApi.list({ kind: "consumable", subtype: "ingredient" }),
+    () =>
+      allPages((cursor) =>
+        inventoryApi.list({ kind: "consumable", subtype: "ingredient" }, cursor),
+      ),
     [],
   );
   const catalog = ingredients.data ?? [];
