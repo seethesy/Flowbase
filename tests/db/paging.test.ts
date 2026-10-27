@@ -254,11 +254,11 @@ describe("movement history", () => {
     `);
     const [original] = await db.execute<{ id: string }>(sql`
       insert into stock_movements (item_id, section_id, type, quantity, created_at)
-      values (${item.id}, ${section.id}, 'receipt', 10, now() - interval '1 day') returning id
+      values (${item.id}, ${section.id}, 'receive', 10, now() - interval '1 day') returning id
     `);
     await db.execute(sql`
       insert into stock_movements (item_id, section_id, type, quantity, corrects_id, created_at)
-      select ${item.id}, ${section.id}, 'receipt', 1, ${original.id}, now() - n * interval '1 hour'
+      select ${item.id}, ${section.id}, 'receive', 1, ${original.id}, now() - n * interval '1 hour'
       from generate_series(1, 3) as n
     `);
     const pages = await everyPage<{ id: string; correctedBy: string[] }>(

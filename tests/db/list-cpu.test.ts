@@ -29,8 +29,10 @@ const admin: Actor = {
 const app = createApp({ withDb, resolveActor: async () => admin });
 const BUDGET_MS = 10;
 
-async function medianCpuMs(path: string, runs = 15) {
-  for (let i = 0; i < 3; i += 1) await (await app.request(path, {}, env)).text();
+// A Worker isolate serves many requests, so only warm calls are measured: the
+// first ones pay for compiling the handler, as they do once per isolate.
+async function medianCpuMs(path: string, runs = 21) {
+  for (let i = 0; i < 10; i += 1) await (await app.request(path, {}, env)).text();
   const samples: number[] = [];
   for (let i = 0; i < runs; i += 1) {
     const start = process.cpuUsage();

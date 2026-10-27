@@ -51,26 +51,40 @@ export async function toItems(
 ): Promise<InventoryItem[]> {
   if (!rows.length) return [];
   const ids = rows.map((row) => row.id);
-  const [rentals, services, consumables, stock, bars] = await Promise.all([
-    db
-      .select()
-      .from(inventoryRentalDetails)
-      .where(inArray(inventoryRentalDetails.itemId, ids)),
-    db
-      .select()
-      .from(inventoryServiceDetails)
-      .where(inArray(inventoryServiceDetails.itemId, ids)),
+  // Two queries per page whatever its size (FLOW-180): the kind-specific details
+  // in one left-joined row per item, and the stock it holds.
+  const [details, stock] = await Promise.all([
     db
       .select({
-        details: inventoryConsumableDetails,
+        itemId: inventoryItems.id,
+        rental: inventoryRentalDetails,
+        service: inventoryServiceDetails,
+        consumable: inventoryConsumableDetails,
         storageSectionName: inventorySections.name,
+        bar: inventoryBarDetails,
       })
-      .from(inventoryConsumableDetails)
+      .from(inventoryItems)
+      .leftJoin(
+        inventoryRentalDetails,
+        eq(inventoryRentalDetails.itemId, inventoryItems.id),
+      )
+      .leftJoin(
+        inventoryServiceDetails,
+        eq(inventoryServiceDetails.itemId, inventoryItems.id),
+      )
+      .leftJoin(
+        inventoryConsumableDetails,
+        eq(inventoryConsumableDetails.itemId, inventoryItems.id),
+      )
       .leftJoin(
         inventorySections,
         eq(inventoryConsumableDetails.storageSectionId, inventorySections.id),
       )
-      .where(inArray(inventoryConsumableDetails.itemId, ids)),
+      .leftJoin(
+        inventoryBarDetails,
+        eq(inventoryBarDetails.itemId, inventoryItems.id),
+      )
+      .where(inArray(inventoryItems.id, ids)),
     db
       .select({
         itemId: inventoryStock.itemId,
@@ -83,22 +97,20 @@ export async function toItems(
         inventorySections,
         eq(inventoryStock.sectionId, inventorySections.id),
       )
-      .where(inArray(inventoryStock.itemId, ids))
+      .where(
+        and(
+          inArray(inventoryStock.itemId, ids),
+          sql`${inventoryStock.quantity} <> 0`,
+        ),
+      )
       .orderBy(asc(inventorySections.sortOrder), asc(inventorySections.name)),
-    db
-      .select()
-      .from(inventoryBarDetails)
-      .where(inArray(inventoryBarDetails.itemId, ids)),
   ]);
-  const rentalById = indexBy(rentals, (detail) => detail.itemId);
-  const serviceById = indexBy(services, (detail) => detail.itemId);
-  const consumableById = indexBy(consumables, (detail) => detail.details.itemId);
-  const barById = indexBy(bars, (detail) => detail.itemId);
+  const detailsById = indexBy(details, (detail) => detail.itemId);
   const stockByItem = groupBy(stock, (level) => level.itemId);
   return rows.map((row): InventoryItem => {
-    const rental = rentalById.get(row.id);
-    const service = serviceById.get(row.id);
-    const consumable = consumableById.get(row.id);
+    const detail = detailsById.get(row.id);
+    const rental = detail?.rental;
+    const service = detail?.service;
     const levels = (stockByItem.get(row.id) ?? [])
       .filter((level) => level.quantity !== 0)
       .map(({ sectionId, sectionName, quantity }) => ({
@@ -109,8 +121,8 @@ export async function toItems(
     const totalQuantity = round(
       levels.reduce((sum, level) => sum + level.quantity, 0),
     );
-    const c = consumable?.details;
-    const bar = barById.get(row.id);
+    const c = detail?.consumable;
+    const bar = detail?.bar;
     const par = c?.parLevel ?? null;
     return serializeFields<InventoryItem>(actor, "inventory_item", {
       id: row.id,
@@ -155,7 +167,7 @@ export async function toItems(
             parLevel: c.parLevel,
             allergens: c.allergens as Allergen[],
             storageSectionId: c.storageSectionId,
-            storageSectionName: consumable.storageSectionName,
+            storageSectionName: detail?.storageSectionName ?? null,
             storageOrder: c.storageOrder,
           }
         : null,
