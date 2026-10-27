@@ -183,6 +183,13 @@
       "when": 1793121186412,
       "tag": "0025_event_staff_roster",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793130986718,
+      "tag": "0026_proposals",
+      "breakpoints": true
     }
   ]
 }

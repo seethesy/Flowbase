@@ -263,9 +263,16 @@ export async function eventHistory(db: DbLike, actor: Actor, id: string, page: P
 }
 
 // Hub sections whose module exists (FLOW-57), in display order. Each module ticket
-// adds its section here: proposal and versions, booking and payments, BEO, pull list,
-// tasks (FLOW-58), timeline, staff, trucks and history (FLOW-41).
-const builtSections: HubSection[] = ["details", "client", "staff", "files"];
+// adds its section here: booking and payments, BEO, pull list, tasks (FLOW-58),
+// timeline, trucks and history (FLOW-41).
+const builtSections: HubSection[] = [
+  "details",
+  "client",
+  // Proposals and their versions (FLOW-122/123), for those who read proposals.
+  "proposal",
+  "staff",
+  "files",
+];
 
 // Everything the event hub shows, limited to what the actor may see. The client
 // section needs access to the client record itself: staff who only work the event
@@ -287,7 +294,9 @@ export async function getEventHub(
     event,
     client,
     sections: builtSections.filter(
-      (section) => section !== "client" || client !== null,
+      (section) =>
+        (section !== "client" || client !== null) &&
+        (section !== "proposal" || can(actor, "proposals.read")),
     ),
     canEdit: can(actor, "events.write"),
     canChangeStatus: mayOverrideStatus(actor, event),

@@ -30,7 +30,7 @@ import {
 } from "../../shared/leads";
 import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { clientContacts, leads } from "../db/schema";
+import { clientContacts, events, leads } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, leadScope, type Scope } from "../policy";
@@ -43,6 +43,7 @@ import {
   requireClientAccess,
 } from "./clients";
 import { insertEvent } from "./events";
+import { insertProposal } from "./proposals";
 import { auditLead, leadSnapshot } from "./lead-audit";
 import {
   leadMatchesFor,
@@ -486,9 +487,9 @@ const staleLead = () =>
 
 const clip = (value: string, max: number) => value.slice(0, max);
 
-// Converts a qualified lead into a client (new or linked), a contact and an inquiry
-// event, all pre-filled from the lead, in ONE transaction: any failure leaves
-// nothing behind (FLOW-112). The proposal step waits for the proposals table.
+// Converts a qualified lead into a client (new or linked), a contact, an inquiry
+// event and its first proposal (FLOW-163), all pre-filled from the lead, in ONE
+// transaction: any failure leaves nothing behind (FLOW-112).
 export async function convertLead(
   db: Db,
   actor: Actor,
@@ -652,6 +653,19 @@ export async function convertLead(
         status: "inquiry",
       }),
     );
+    // The proposal starts in Client communication with the event's title and
+    // salesperson, before the lead is marked converted.
+    const [event] = await tx
+      .select({ salespersonId: events.assignedSalespersonId })
+      .from(events)
+      .where(eq(events.id, eventId));
+    const proposalId = await insertProposal(tx, actor, {
+      eventId,
+      clientId,
+      title,
+      assignedSalespersonId: event.salespersonId,
+      notes: "",
+    });
 
     const converted = await tx
       .update(leads)
@@ -668,14 +682,15 @@ export async function convertLead(
     await emitDomainEvent(tx, {
       name: "lead.converted",
       entityId: id,
-      data: { clientId, eventId },
+      data: { clientId, eventId, proposalId },
     });
-    return { clientId, clientName, eventId, title };
+    return { clientId, clientName, eventId, title, proposalId };
   });
 
   return {
     lead: await getLead(db, actor, id),
     client: { id: result.clientId, name: result.clientName },
     event: { id: result.eventId, title: result.title },
+    proposal: { id: result.proposalId, title: result.title },
   };
 }

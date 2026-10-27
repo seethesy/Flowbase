@@ -64,6 +64,8 @@ const expected: Record<Action, string> = {
   "rentals.write": "1111000",
   "rentals.apply_directly": "1010000",
   "rentals.approve": "1000000",
+  "proposals.read": "1111000",
+  "proposals.write": "1111000",
   "proposals.approve": "1000000",
   "order_lists.approve": "1000000",
   "beos.approve": "1010000",

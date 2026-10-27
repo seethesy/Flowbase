@@ -11,6 +11,11 @@ import {
 import { eventHubSchema } from "../../shared/event-hub";
 import { eventRosterSchema } from "../../shared/event-staff";
 import {
+  proposalDetailSchema,
+  proposalSchema,
+  proposalUploadTicketSchema,
+} from "../../shared/proposals";
+import {
   itemSchema,
   sectionSchema,
   movementSchema,
@@ -116,6 +121,14 @@ export function responseSchema(
           ? venueSchema
           : eventSchema;
     return !id && method === "GET" ? schema.array() : schema;
+  }
+  // Proposals (FLOW-122/123): the event's list, the upload ticket, and otherwise
+  // the proposal with its versions and stage history.
+  if (resource === "proposals") {
+    if (!id && method === "GET") return proposalSchema.array();
+    if (action === "versions" && !path.split("/")[5])
+      return proposalUploadTicketSchema;
+    return proposalDetailSchema;
   }
   if (resource === "settings") {
     if (!id) return businessSettingsSchema;

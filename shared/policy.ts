@@ -28,6 +28,9 @@ const sales = [
   "leads.update",
   "leads.convert",
   "leads.merge",
+  // Proposals (FLOW-122/123): on the events the user can open.
+  "proposals.read",
+  "proposals.write",
   "bookings.record",
   "addendums.record",
   "payments.record",
