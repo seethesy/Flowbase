@@ -2,6 +2,166 @@ import { test, expect } from "./auth-fixture";
 import { chairs } from "./fixtures";
 import { seedInventory } from "./database";
 
+test("edits rental details and maintains separate color stock on one item", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto(`/#/inventory/${chairs().id}`);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel("Dimensions", { exact: true })
+    .fill("18 × 18 × 36 inches");
+  await dialog
+    .getByLabel("Assembly notes", { exact: true })
+    .fill("Attach cushion");
+  await dialog.getByLabel("Buffer days before", { exact: true }).fill("2");
+  await dialog.getByLabel("Internal cost ($)", { exact: true }).fill("12.50");
+  await dialog.getByLabel("Replacement cost ($)", { exact: true }).fill("80");
+  await dialog.getByLabel("Colors", { exact: true }).fill("Gold\nSilver");
+  await expect(
+    dialog.getByLabel("Price ($ per unit)", { exact: true }),
+  ).toBeEnabled();
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByText("18 × 18 × 36 inches", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Attach cushion", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Record movement" }).click();
+  await dialog.getByLabel("Color", { exact: true }).selectOption("Silver");
+  await dialog
+    .getByLabel("Section", { exact: true })
+    .selectOption({ label: "Warehouse" });
+  await dialog.getByLabel("Quantity in (each)").fill("6");
+  await dialog.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page
+      .locator(".stock-table")
+      .first()
+      .getByRole("row", { name: "Warehouse · Silver 6 each" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".stock-table")
+      .first()
+      .getByRole("row", { name: "Total 56 each" }),
+  ).toBeVisible();
+});
+
+test("creates and edits fixed, per-person and quoted services with includes and add-ons", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  for (const [name, basis] of [
+    ["Balloon arch", "per_event"],
+    ["Plasticware package", "per_guest"],
+    ["Florals", "quote"],
+  ]) {
+    await page.goto("/#/inventory");
+    await page.getByRole("button", { name: "New Item", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Name *", { exact: true }).fill(name);
+    await dialog.getByLabel("Kind", { exact: true }).selectOption("service");
+    if (basis === "quote")
+      await dialog.getByLabel("Priced by quote", { exact: true }).check();
+    else {
+      await dialog.getByLabel("Price ($)", { exact: true }).fill("3.50");
+      await dialog.getByLabel("Priced", { exact: true }).selectOption(basis);
+    }
+    await dialog
+      .getByRole("button", { name: "Add component", exact: true })
+      .click();
+    await dialog
+      .getByLabel("Component 1", { exact: true })
+      .selectOption(chairs().id);
+    await dialog.getByLabel("Component 1 quantity", { exact: true }).fill("2");
+    await dialog
+      .getByRole("button", { name: "Add per-person add-on", exact: true })
+      .click();
+    await dialog.getByLabel("Add-on 1 name", { exact: true }).fill("Upgrade");
+    await dialog
+      .getByLabel("Add-on 1 price ($ per guest)", { exact: true })
+      .fill("0.50");
+    await dialog.getByRole("button", { name: "Save item" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Services aren't stocked.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Chiavari Chair", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await dialog
+      .getByLabel("Description", { exact: true })
+      .fill("Updated offering");
+    await dialog.getByRole("button", { name: "Save item" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByText("Updated offering", { exact: true }),
+    ).toBeVisible();
+    if (basis === "quote")
+      await expect(
+        page.getByText("Priced by quote", { exact: true }),
+      ).toBeVisible();
+  }
+});
+
+test("creates a decor kit and supply, filters low stock and reaches supply count mode", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto("/#/inventory/supplies");
+  await page.getByRole("button", { name: "New Supply", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Candles");
+  await dialog.getByLabel(/^Par level/).fill("10");
+  await expect(dialog.getByLabel(/^Storage section/)).not.toHaveValue("");
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByLabel("Below par only").check();
+  await expect(
+    page.getByRole("button", { name: "Candles", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Count", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Start counting Supplies", exact: true })
+    .click();
+  await expect(page.getByText("Candles", { exact: true })).toBeVisible();
+  await page.goto("/#/inventory");
+  await page.getByRole("button", { name: "New Item", exact: true }).click();
+  await dialog
+    .getByLabel("Name *", { exact: true })
+    .fill("Centerpiece Candle Set");
+  await dialog.getByLabel("Subtype", { exact: true }).selectOption("decor");
+  await dialog
+    .getByRole("button", { name: "Add component", exact: true })
+    .click();
+  await dialog
+    .getByLabel("Component 1", { exact: true })
+    .selectOption(chairs().id);
+  await dialog
+    .getByRole("button", { name: "Add component", exact: true })
+    .click();
+  await dialog
+    .getByLabel("Component 2", { exact: true })
+    .selectOption({ label: "Candles" });
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Kit components", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Candles", exact: true }),
+  ).toBeVisible();
+});
+
 test("transfers stock between sections from the item page", async ({
   page,
 }) => {

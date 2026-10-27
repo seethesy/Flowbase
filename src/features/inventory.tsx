@@ -13,7 +13,12 @@ export {
   purchaseLabel,
   quantityLabel,
 } from "./inventory-labels";
-export { BarList, IngredientList, InventoryList } from "./inventory-lists";
+export {
+  BarList,
+  IngredientList,
+  InventoryList,
+  SuppliesList,
+} from "./inventory-lists";
 export { ItemForm } from "./inventory-item-form";
 export { InventoryDetail } from "./inventory-detail";
 export { SectionList } from "./inventory-sections";

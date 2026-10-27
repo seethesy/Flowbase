@@ -18,6 +18,8 @@ import { eventStatuses } from "../../shared/core-records";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { listKeys, settingKeys } from "../../shared/settings";
+import type { z } from "zod";
+import type { includedItemSchema } from "../../shared/inventory";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -593,6 +595,18 @@ export const inventoryRentalDetails = pgTable("inventory_rental_details", {
   ...baseColumns(),
   itemId: itemReference(),
   priceCents: moneyCents("price_cents"),
+  internalCostCents: moneyCents("internal_cost_cents"),
+  replacementCostCents: moneyCents("replacement_cost_cents"),
+  dimensions: text("dimensions").notNull().default(""),
+  colors: jsonb("colors").$type<string[]>().notNull().default([]),
+  notes: text("notes").notNull().default(""),
+  assemblyNotes: text("assembly_notes").notNull().default(""),
+  bufferDaysBefore: integer("buffer_days_before").notNull().default(1),
+  bufferDaysAfter: integer("buffer_days_after").notNull().default(1),
+  components: jsonb("components")
+    .$type<{ itemId: string; quantity: number }[]>()
+    .notNull()
+    .default([]),
 }).enableRLS();
 
 export const inventoryServiceDetails = pgTable(
@@ -604,8 +618,23 @@ export const inventoryServiceDetails = pgTable(
     priceBasis: text("price_basis", { enum: priceBases })
       .notNull()
       .default("per_event"),
+    pricedByQuote: boolean("priced_by_quote").notNull().default(false),
+    includes: jsonb("includes")
+      .$type<z.infer<typeof includedItemSchema>[]>()
+      .notNull()
+      .default([]),
+    addons: jsonb("addons")
+      .$type<{ name: string; priceCents: number }[]>()
+      .notNull()
+      .default([]),
   },
-  (table) => [oneOf("inventory_service_details_price_basis_check", table.priceBasis, priceBases)],
+  (table) => [
+    oneOf(
+      "inventory_service_details_price_basis_check",
+      table.priceBasis,
+      priceBases,
+    ),
+  ],
 ).enableRLS();
 
 export const inventoryConsumableDetails = pgTable(
@@ -681,11 +710,13 @@ export const inventoryStock = pgTable(
       .notNull()
       .references(() => inventorySections.id),
     quantity: quantity("quantity").notNull().default(0),
+    color: text("color").notNull().default(""),
   },
   (table) => [
     uniqueIndex("inventory_stock_item_section_idx").on(
       table.itemId,
       table.sectionId,
+      table.color,
     ),
     index("inventory_stock_section_idx").on(table.sectionId),
     // Stock never goes below zero (FLOW-187); the code checks first, this is the
@@ -722,6 +753,7 @@ export const stockMovements = pgTable(
     type: text("type", { enum: movementTypes }).notNull(),
     quantity: quantity("quantity").notNull(),
     reason: text("reason").notNull().default(""),
+    color: text("color").notNull().default(""),
     transferId: uuid("transfer_id"),
     correctsId: uuid("corrects_id").references(
       (): AnyPgColumn => stockMovements.id,

@@ -21,6 +21,7 @@ import {
   InventoryList,
   InventoryDetail,
   IngredientList,
+  SuppliesList,
   BarList,
   SectionList,
 } from "../features/inventory";
@@ -107,6 +108,7 @@ export const getRouter = () =>
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/ingredients", element: <IngredientList /> },
         { path: "/inventory/bar", element: <BarList /> },
+        { path: "/inventory/supplies", element: <SuppliesList /> },
         { path: "/inventory/low-stock", element: <LowStockList /> },
         { path: "/inventory/counts", element: <CountList /> },
         { path: "/inventory/counts/:id", element: <CountMode /> },

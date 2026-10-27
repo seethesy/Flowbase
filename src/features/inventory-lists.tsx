@@ -116,7 +116,8 @@ export function InventoryList() {
     {
       id: "quantity",
       header: "On hand",
-      accessorFn: (item) => item.totalQuantity,
+      accessorFn: (item) =>
+        item.kind === "service" ? null : item.totalQuantity,
       sortingFn: "basic",
       cell: (c) =>
         c.row.original.kind === "service"
@@ -136,6 +137,9 @@ export function InventoryList() {
         </Button>
         <Button variant="outline" asChild>
           <Link to="/inventory/bar">Bar</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/inventory/supplies">Supplies</Link>
         </Button>
         <Allowed action="inventory.count">
           <Button variant="outline" asChild>
@@ -210,7 +214,9 @@ export function InventoryList() {
 }
 
 // The kitchen ingredient catalog (FLOW-81): consumables of subtype ingredient.
-export function IngredientList() {
+export function IngredientList({
+  supplies = false,
+}: { supplies?: boolean } = {}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -222,16 +228,18 @@ export function IngredientList() {
     () =>
       inventoryApi.list({
         kind: "consumable",
-        subtype: "ingredient",
+        subtype: supplies ? "supply" : "ingredient",
         category: category || undefined,
         sectionId: sectionId || undefined,
         belowPar,
       }),
-    [category, sectionId, belowPar],
+    [category, sectionId, belowPar, supplies],
   );
   // Business settings' categories (FLOW-45), archived ones included so old items
   // can still be found.
-  const listed = useListLabels("ingredient_category");
+  const listed = useListLabels(
+    supplies ? "supply_category" : "ingredient_category",
+  );
   const categories = [
     ...new Set([...listed, ...(items.data ?? []).map((item) => item.category)]),
   ].filter(Boolean);
@@ -245,7 +253,7 @@ export function IngredientList() {
         .includes(vendor.toLowerCase()),
   );
   const columns: ColumnDef<InventoryItem, unknown>[] = [
-    { accessorKey: "name", header: "Ingredient" },
+    { accessorKey: "name", header: supplies ? "Supply" : "Ingredient" },
     { accessorKey: "category", header: "Category" },
     {
       id: "purchase",
@@ -300,14 +308,30 @@ export function IngredientList() {
         ← All inventory
       </Link>
       <PageHeader
-        title="Ingredients"
-        subtitle="What the kitchen buys, how it's used in recipes, and where it's kept."
-        eyebrow="KITCHEN"
+        title={supplies ? "Supplies" : "Ingredients"}
+        subtitle={
+          supplies
+            ? "Disposables, pack sizes, stock and low-stock supplies."
+            : "What the kitchen buys, how it's used in recipes, and where it's kept."
+        }
+        eyebrow={supplies ? "SUPPLIES" : "KITCHEN"}
       >
+        {supplies && (
+          <>
+            <Allowed action="inventory.count">
+              <Button variant="outline" asChild>
+                <Link to="/inventory/counts">Count</Link>
+              </Button>
+            </Allowed>
+            <Button variant="outline" asChild>
+              <Link to="/inventory/low-stock">Low stock</Link>
+            </Button>
+          </>
+        )}
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Ingredient
+            {supplies ? "New Supply" : "New Ingredient"}
           </Button>
         </Allowed>
       </PageHeader>
@@ -315,7 +339,7 @@ export function IngredientList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search ingredients…"
+          placeholder={supplies ? "Search supplies…" : "Search ingredients…"}
         />
         <select
           aria-label="Category"
@@ -347,7 +371,9 @@ export function IngredientList() {
           />
           Below par only
         </label>
-        <span className="result-count">{data.length} ingredients</span>
+        <span className="result-count">
+          {data.length} {supplies ? "supplies" : "ingredients"}
+        </span>
       </FilterBar>
       {items.error ? (
         <LoadError message={items.error} />
@@ -356,21 +382,32 @@ export function IngredientList() {
       ) : (
         <DataTable
           data={data}
-          columns={columns}
+          columns={
+            supplies
+              ? columns.filter((column) => column.id !== "recipeUnit")
+              : columns
+          }
           onRow={(item) => navigate(`/inventory/${item.id}`)}
-          label="ingredients"
-          exportName="ingredients"
+          label={supplies ? "supplies" : "ingredients"}
+          exportName={supplies ? "supplies" : "ingredients"}
         />
       )}
       {create && (
         <ItemForm
-          preset={{ kind: "consumable", subtype: "ingredient" }}
+          preset={{
+            kind: "consumable",
+            subtype: supplies ? "supply" : "ingredient",
+          }}
           onClose={() => setCreate(false)}
           onSaved={() => items.reload()}
         />
       )}
     </>
   );
+}
+
+export function SuppliesList() {
+  return <IngredientList supplies />;
 }
 
 // Bar stock (FLOW-90): consumables of subtype bar, counted, flagged below par and

@@ -72,7 +72,10 @@ export function MovementHistory({
                       <span className="badge warning">Corrected</span>
                     )}
                   </td>
-                  <td>{movement.sectionName}</td>
+                  <td>
+                    {movement.sectionName}
+                    {movement.color ? ` · ${movement.color}` : ""}
+                  </td>
                   <td>{changeLabel(movement.quantity)}</td>
                   <td>{movement.reason || "—"}</td>
                   <td>
