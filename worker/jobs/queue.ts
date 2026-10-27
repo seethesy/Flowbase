@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { Job } from "../../shared/api";
+import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import { jobs, type jobStatuses } from "../db/schema";
 
@@ -69,7 +70,9 @@ export function emitDomainEvent(db: DbLike, event: DomainEvent) {
   });
 }
 
-export type JobContext = { db: Db };
+// env is the Worker's bindings when the cron runs the job (handlers that call
+// outside services read their configuration from it).
+export type JobContext = { db: Db; env?: Bindings };
 export type JobHandler = (job: JobRow, context: JobContext) => Promise<void>;
 
 // Handlers register by job type. Events without a subscriber succeed as no-ops;
@@ -125,6 +128,7 @@ export type RunOptions = {
   batchSize?: number;
   maxAttempts?: number;
   now?: () => Date;
+  env?: Bindings;
 };
 export type RunSummary = {
   claimed: number;
@@ -149,7 +153,7 @@ export async function runDueJobs(
   for (const job of claimed) {
     try {
       const handler = registry.get(job.type);
-      if (handler) await handler(job, { db });
+      if (handler) await handler(job, { db, env: options.env });
       else if (!job.type.startsWith("event:"))
         throw new Error(`No handler is registered for job type ${job.type}.`);
       await db

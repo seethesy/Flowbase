@@ -46,6 +46,12 @@ import {
 } from "../../shared/settings";
 import { staffMemberSchema } from "../../shared/staff";
 import {
+  notificationInboxSchema,
+  notificationPreferenceSchema,
+  notificationSchema,
+} from "../../shared/notifications";
+import { taskSchema, taskSummarySchema } from "../../shared/tasks";
+import {
   importBatchResultSchema,
   importLogSchema,
   importModuleSchema,
@@ -148,5 +154,14 @@ export function responseSchema(
   }
   if (resource === "staff")
     return !id ? staffMemberSchema.array() : staffMemberSchema;
+  // Notification center and email settings (FLOW-43).
+  if (resource === "notifications") {
+    if (id === "preferences") return notificationPreferenceSchema.array();
+    if (action === "read") return notificationSchema;
+    return notificationInboxSchema;
+  }
+  // Tasks (FLOW-58): every write answers with the whole task.
+  if (resource === "tasks")
+    return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
 }

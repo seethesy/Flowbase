@@ -15,6 +15,7 @@ import {
   type ListValue,
 } from "../../shared/settings";
 import { ratioBasisLabels, ratioBasisSchema } from "../../shared/inventory";
+import { notificationCatalog, notificationTypes } from "../../shared/notifications";
 import { settingsApi, useBusinessSettings } from "../services/settings";
 import {
   Button,
@@ -367,7 +368,6 @@ function ListSettings() {
 
 type DefaultsDraft = Omit<
   BusinessDefaults,
-  | "urgentNotificationTypes"
   | "beoKeyFields"
   | "rentalBufferDaysBefore"
   | "rentalBufferDaysAfter"
@@ -375,7 +375,6 @@ type DefaultsDraft = Omit<
   | "idleCutoffMinutes"
   | "ratioDefaults"
 > & {
-  urgentNotificationTypes: string;
   beoKeyFields: string;
   rentalBufferDaysBefore: string;
   rentalBufferDaysAfter: string;
@@ -390,7 +389,6 @@ const lines = (value: string) =>
     .filter(Boolean);
 const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   ...defaults,
-  urgentNotificationTypes: defaults.urgentNotificationTypes.join("\n"),
   beoKeyFields: defaults.beoKeyFields.join("\n"),
   rentalBufferDaysBefore: String(defaults.rentalBufferDaysBefore),
   rentalBufferDaysAfter: String(defaults.rentalBufferDaysAfter),
@@ -435,7 +433,6 @@ function DefaultSettings() {
     event.preventDefault();
     const parsed = businessDefaultsSchema.safeParse({
       ...draft,
-      urgentNotificationTypes: lines(draft.urgentNotificationTypes),
       beoKeyFields: lines(draft.beoKeyFields),
       rentalBufferDaysBefore: numberOf(draft.rentalBufferDaysBefore),
       rentalBufferDaysAfter: numberOf(draft.rentalBufferDaysAfter),
@@ -488,13 +485,27 @@ function DefaultSettings() {
           />
         </FormField>
         <div className="form-grid">
-          <FormField label="Urgent notification types (SMS)" hint="One notification type per line.">
-            <textarea
-              rows={3}
-              value={draft.urgentNotificationTypes}
-              onChange={(e) => set("urgentNotificationTypes", e.target.value)}
-            />
-          </FormField>
+          <fieldset className="settings-urgent">
+            <legend>Urgent notification types (SMS)</legend>
+            <p className="settings-hint">Sent by text as well, to staff who opted in (FLOW-52).</p>
+            {notificationTypes.map((type) => (
+              <label key={type}>
+                <input
+                  type="checkbox"
+                  checked={draft.urgentNotificationTypes.includes(type)}
+                  onChange={(e) =>
+                    set(
+                      "urgentNotificationTypes",
+                      e.target.checked
+                        ? [...draft.urgentNotificationTypes, type]
+                        : draft.urgentNotificationTypes.filter((t) => t !== type),
+                    )
+                  }
+                />
+                {notificationCatalog[type].label}
+              </label>
+            ))}
+          </fieldset>
           <FormField label="BEO key fields" hint="One field per line. A change to one sends an approved BEO back for approval.">
             <textarea
               rows={3}

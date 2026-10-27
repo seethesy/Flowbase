@@ -8,8 +8,9 @@ import {
 } from "../shared/realtime";
 
 const READS = ["GET", "HEAD", "OPTIONS"];
-// Writes that change no shared record: demo echoes, the dev check and sign-in.
-const UNSHARED = /^\/api\/(demo|dev|auth)\//;
+// Writes that change no shared record: demo echoes, the dev check, sign-in, and
+// a person's own notification read state and email preferences (FLOW-43).
+const UNSHARED = /^\/api\/(demo|dev|auth|notifications)\//;
 
 // Sends the "changed" ping (FLOW-206) through Supabase Realtime's broadcast REST
 // endpoint. Without Supabase configured it does nothing; clients then rely on

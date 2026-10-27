@@ -25,16 +25,16 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
-  Bell,
   Search,
   Menu,
   X,
   Leaf,
   Contact,
 } from "lucide-react";
-import { Button, DetailDrawer } from "../shared";
+import { DetailDrawer } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
 import { GlobalSearch } from "../../features/search";
+import { NotificationBell } from "../../features/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
 import { useAuth } from "../../app/auth";
 import { roleLabel } from "../../services/users";
@@ -208,7 +208,6 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const displayName = auth?.user.name ?? "Profile";
   const navigate = useNavigate();
   const [global, setGlobal] = useState(false);
-  const [alerts, setAlerts] = useState(false);
   const [profile, setProfile] = useState(false);
   return (
     <>
@@ -232,16 +231,7 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
             <kbd>/</kbd>
           </button>
           <span className="header-demo">DEMO</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Notifications"
-            className="notification-button"
-            onClick={() => setAlerts(true)}
-          >
-            <Bell size={19} />
-            <span className="notification-dot" />
-          </Button>
+          <NotificationBell />
           <div className="menu-wrap">
             <button
               className="avatar header-avatar"
@@ -280,46 +270,6 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
             setGlobal(false);
           }}
         />
-      </DetailDrawer>
-      <DetailDrawer
-        open={alerts}
-        onClose={() => setAlerts(false)}
-        title="Notifications"
-        description="Sample alerts from your demo workspace."
-      >
-        <Link
-          className="notification-row"
-          to="/inventory?status=Alerts"
-          onClick={() => setAlerts(false)}
-        >
-          <Package size={20} />
-          <div>
-            <strong>Inventory needs attention</strong>
-            <p>Review low-stock and out-of-stock items.</p>
-          </div>
-        </Link>
-        <Link
-          className="notification-row"
-          to="/proposals?stage=Sent"
-          onClick={() => setAlerts(false)}
-        >
-          <FileText size={20} />
-          <div>
-            <strong>Proposals ready for follow-up</strong>
-            <p>Your team has sent proposals to review.</p>
-          </div>
-        </Link>
-        <Link
-          className="notification-row"
-          to="/clients/cli-1"
-          onClick={() => setAlerts(false)}
-        >
-          <CalendarDays size={20} />
-          <div>
-            <strong>Tomorrow’s event</strong>
-            <p>Autumn leadership retreat · 40 guests</p>
-          </div>
-        </Link>
       </DetailDrawer>
     </>
   );
