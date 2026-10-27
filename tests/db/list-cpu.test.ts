@@ -94,12 +94,21 @@ afterAll(async () => {
   await client.end();
 });
 
-it.each([
+const lists: [string, string][] = [
   ["inventory items", "/api/inventory/items"],
   ["ingredients", "/api/inventory/items?kind=consumable&subtype=ingredient&belowPar=false"],
   ["clients", "/api/clients"],
   ["events", "/api/events"],
-])("lists %s within the CPU budget", async (_name, path) => {
+];
+
+// Shared code (routing, the query builder, the driver) compiles on whichever
+// list runs first; warm every list before measuring so the order doesn't matter.
+beforeAll(async () => {
+  for (const [, path] of lists)
+    for (let i = 0; i < 5; i += 1) await (await app.request(path, {}, env)).text();
+}, 60_000);
+
+it.each(lists)("lists %s within the CPU budget", async (_name, path) => {
   const median = await medianCpuMs(path);
   console.log(`median CPU for ${path}: ${median.toFixed(2)} ms`);
   expect(median).toBeLessThan(BUDGET_MS);

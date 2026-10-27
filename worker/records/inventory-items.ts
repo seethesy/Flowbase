@@ -56,12 +56,39 @@ export async function toItems(
   const [details, stock] = await Promise.all([
     db
       .select({
+        // Only the columns the item shows; each detail's item id keeps it
+        // present (not null) whenever its row exists.
         itemId: inventoryItems.id,
-        rental: inventoryRentalDetails,
-        service: inventoryServiceDetails,
-        consumable: inventoryConsumableDetails,
+        rental: {
+          itemId: inventoryRentalDetails.itemId,
+          priceCents: inventoryRentalDetails.priceCents,
+        },
+        service: {
+          itemId: inventoryServiceDetails.itemId,
+          priceCents: inventoryServiceDetails.priceCents,
+          priceBasis: inventoryServiceDetails.priceBasis,
+        },
+        consumable: {
+          itemId: inventoryConsumableDetails.itemId,
+          purchaseUnit: inventoryConsumableDetails.purchaseUnit,
+          packCount: inventoryConsumableDetails.packCount,
+          eachSizeQuantity: inventoryConsumableDetails.eachSizeQuantity,
+          eachSizeUnit: inventoryConsumableDetails.eachSizeUnit,
+          recipeUnit: inventoryConsumableDetails.recipeUnit,
+          unitCostCents: inventoryConsumableDetails.unitCostCents,
+          preferredVendor: inventoryConsumableDetails.preferredVendor,
+          parLevel: inventoryConsumableDetails.parLevel,
+          allergens: inventoryConsumableDetails.allergens,
+          storageSectionId: inventoryConsumableDetails.storageSectionId,
+          storageOrder: inventoryConsumableDetails.storageOrder,
+        },
         storageSectionName: inventorySections.name,
-        bar: inventoryBarDetails,
+        bar: {
+          itemId: inventoryBarDetails.itemId,
+          brand: inventoryBarDetails.brand,
+          subcategory: inventoryBarDetails.subcategory,
+          container: inventoryBarDetails.container,
+        },
       })
       .from(inventoryItems)
       .leftJoin(
