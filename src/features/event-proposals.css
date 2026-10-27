@@ -1,0 +1,50 @@
+/* The event's proposals (FLOW-122/123) on the event hub. */
+.proposal-list,
+.proposal-versions,
+.proposal-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.proposal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.proposal-row-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.proposal-row-title small,
+.proposal-versions small,
+.proposal-history small {
+  color: var(--muted);
+}
+.proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 12px 0;
+}
+.proposal-versions li,
+.proposal-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+.proposal-lost {
+  margin: 12px 0;
+}
+@media (max-width: 640px) {
+  .proposal-row {
+    flex-wrap: wrap;
+  }
+}

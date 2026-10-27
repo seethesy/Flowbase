@@ -19,6 +19,7 @@ import { departments, shiftKinds } from "../../shared/event-staff";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { recipeCategories } from "../../shared/recipes";
+import { proposalStages } from "../../shared/proposals";
 import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
@@ -369,6 +370,95 @@ export const eventStaffSlots = pgTable(
     index("event_staff_slots_shift_idx").on(table.shiftId),
     index("event_staff_slots_assignee_idx").on(table.assigneeId),
     oneOf("event_staff_slots_department_check", table.department, departments),
+  ],
+).enableRLS();
+
+// Proposals (FLOW-122): one or more per event, each tracked through its own stages
+// while it is written in Google Docs. current_version_id points at the version
+// marked current (FLOW-123); null before the first upload.
+export const proposals = pgTable(
+  "proposals",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => clients.id),
+    title: text("title").notNull(),
+    assignedSalespersonId: uuid("assigned_salesperson_id"),
+    notes: text("notes").notNull().default(""),
+    stage: text("stage", { enum: proposalStages })
+      .notNull()
+      .default("client_communication"),
+    lostReason: text("lost_reason").notNull().default(""),
+    currentVersionId: uuid("current_version_id").references(
+      (): AnyPgColumn => proposalVersions.id,
+    ),
+  },
+  (table) => [
+    index("proposals_event_idx").on(table.eventId),
+    index("proposals_salesperson_idx").on(table.assignedSalespersonId),
+    oneOf("proposals_stage_check", table.stage, proposalStages),
+  ],
+).enableRLS();
+
+// Stage history (FLOW-122): one row per stage change: who (created_by; null for the
+// system), when (created_at), from and to, and why.
+export const proposalStageHistory = pgTable(
+  "proposal_stage_history",
+  {
+    ...baseColumns(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id),
+    // null for the stage the proposal was created in.
+    fromStage: text("from_stage", { enum: proposalStages }),
+    toStage: text("to_stage", { enum: proposalStages }).notNull(),
+    reason: text("reason").notNull().default(""),
+    // false when an action (upload, approval, sending, booking) set the stage.
+    manual: boolean("manual").notNull().default(true),
+  },
+  (table) => [
+    index("proposal_stage_history_proposal_idx").on(table.proposalId),
+    oneOf("proposal_stage_history_from_stage_check", table.fromStage, proposalStages),
+    oneOf("proposal_stage_history_to_stage_check", table.toStage, proposalStages),
+  ],
+).enableRLS();
+
+// Proposal versions (FLOW-123, ADR-16): each finalized upload, immutable once ready.
+// A version gets its number when its upload completes, so an abandoned upload
+// leaves no gap; created_by and completed_at are the uploader and upload time.
+export type ProposalFile = {
+  key: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+};
+const proposalVersionStatuses = ["pending", "ready"] as const;
+export const proposalVersions = pgTable(
+  "proposal_versions",
+  {
+    ...baseColumns(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references((): AnyPgColumn => proposals.id),
+    number: integer("number"),
+    status: text("status", { enum: proposalVersionStatuses })
+      .notNull()
+      .default("pending"),
+    docx: jsonb("docx").$type<ProposalFile>().notNull(),
+    pdf: jsonb("pdf").$type<ProposalFile>(),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("proposal_versions_number_idx").on(table.proposalId, table.number),
+    oneOf("proposal_versions_status_check", table.status, proposalVersionStatuses),
+    check(
+      "proposal_versions_ready_numbered",
+      sql`${table.status} = 'pending' or (${table.number} is not null and ${table.completedAt} is not null)`,
+    ),
   ],
 ).enableRLS();
 

@@ -28,6 +28,8 @@ export type AuditEntity =
   | "inventory_item"
   | "inventory_section"
   | "lead"
+  // Proposals and their stage changes and versions (FLOW-122/123).
+  | "proposal"
   // One create row per stock movement (FLOW-168).
   | "stock_movement"
   // Tasks and their comments (FLOW-58); checklist changes are task updates.

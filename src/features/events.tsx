@@ -35,6 +35,7 @@ import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { date, time } from "./event-format";
 import { EventStaffSection } from "./event-staff";
+import { EventProposalsSection } from "./event-proposals";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
@@ -703,6 +704,13 @@ export function EventDetail() {
           ))}
         </Section>
       ),
+    proposal: () => (
+      <EventProposalsSection
+        key={`proposal:${e.id}`}
+        event={e}
+        onEventChanged={() => hub.reload()}
+      />
+    ),
     staff: () => <EventStaffSection key={`staff:${e.id}`} event={e} />,
     files: () => (
       <Attachments

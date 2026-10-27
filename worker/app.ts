@@ -34,6 +34,7 @@ import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { notificationRoutes } from "./routes/notifications";
 import { taskRoutes } from "./routes/tasks";
+import { proposalRoutes } from "./routes/proposals";
 import { announceChanges } from "./realtime";
 import * as fixtures from "../src/data/mock/fixtures";
 
@@ -248,6 +249,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));
+  app.route("/api/proposals", proposalRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));
