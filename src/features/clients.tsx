@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, TriangleAlert } from "lucide-react";
@@ -10,9 +11,15 @@ import {
   type Contact,
   type ContactInput,
 } from "../../shared/core-records";
-import { ApiRequestError, clientsApi, eventsApi } from "../services/core";
+import {
+  allPages,
+  ApiRequestError,
+  clientsApi,
+  eventsApi,
+} from "../services/core";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -60,14 +67,14 @@ export function ClientList() {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  const clients = useResource(() => clientsApi.list({ archived }), [archived]);
-  const term = search.toLowerCase();
-  const data = (clients.data ?? []).filter((client) =>
-    [client.name, ...client.contacts.map((contact) => contact.name)]
-      .join(" ")
-      .toLowerCase()
-      .includes(term),
+  // The API searches client and contact names across every client (FLOW-179).
+  const term = useDebounced(search.trim());
+  const clients = usePagedList(
+    (cursor) =>
+      clientsApi.list({ archived, search: term || undefined }, cursor),
+    [archived, term],
   );
+  const data = clients.data ?? [];
   const columns: ColumnDef<Client, unknown>[] = [
     {
       accessorKey: "name",
@@ -102,6 +109,10 @@ export function ClientList() {
         const contact = primaryContact(client);
         return contact ? hidden(contact.email) : "—";
       },
+      meta: {
+        fieldGroup: "client_contact",
+        csv: (client) => primaryContact(client)?.email ?? "",
+      },
     },
     {
       id: "phone",
@@ -109,6 +120,10 @@ export function ClientList() {
       accessorFn: (client) => {
         const contact = primaryContact(client);
         return contact ? hidden(contact.phone) : "—";
+      },
+      meta: {
+        fieldGroup: "client_contact",
+        csv: (client) => primaryContact(client)?.phone ?? "",
       },
     },
     {
@@ -124,10 +139,12 @@ export function ClientList() {
         subtitle="Good relationships start with the little details."
         eyebrow="Clients"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Client
-        </Button>
+        <Allowed action="clients.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Client
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -143,19 +160,26 @@ export function ClientList() {
           />
           Show archived
         </label>
-        <span className="result-count">{data.length} clients</span>
+        <span className="result-count">
+          {data.length}
+          {clients.hasMore ? "+" : ""} clients
+        </span>
       </FilterBar>
       {clients.error ? (
         <LoadError message={clients.error} />
       ) : clients.loading && !clients.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          onRow={(client) => navigate(`/clients/${client.id}`)}
-          label="clients"
-        />
+        <>
+          <DataTable
+            data={data}
+            columns={columns}
+            onRow={(client) => navigate(`/clients/${client.id}`)}
+            label="clients"
+            exportName="clients"
+          />
+          <LoadMore list={clients} label="Load more clients" />
+        </>
       )}
       {create && (
         <ClientForm
@@ -434,7 +458,10 @@ export function ClientDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const client = useResource(() => clientsApi.get(id), [id]);
-  const events = useResource(() => eventsApi.list({ clientId: id }), [id]);
+  const events = useResource(
+    () => allPages((cursor) => eventsApi.list({ clientId: id }, cursor)),
+    [id],
+  );
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useOpenFor(id);
   const [archive, setArchive] = useOpenFor(id);
@@ -467,29 +494,37 @@ export function ClientDetail() {
           </p>
         </div>
         <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
-          <Button onClick={() => setNewEvent(true)}>
-            <Plus size={16} />
-            New Event
-          </Button>
+          <Allowed action="clients.write">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </Allowed>
+          <Allowed action="events.write">
+            <Button onClick={() => setNewEvent(true)}>
+              <Plus size={16} />
+              New Event
+            </Button>
+          </Allowed>
           {c.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                client.replace(await clientsApi.setArchived(c.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
-            </Button>
+            <Allowed action="clients.write">
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  client.replace(await clientsApi.setArchived(c.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            </Allowed>
           ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
+            <Allowed action="clients.write">
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>

@@ -17,6 +17,7 @@ import {
 import { eventStatuses } from "../../shared/core-records";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
+import { listKeys, settingKeys } from "../../shared/settings";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -60,12 +61,50 @@ export const users = pgTable(
     status: text("status", { enum: userStatuses }).notNull().default("pending"),
     invitedAt: timestamptz("invited_at").notNull().defaultNow(),
     activatedAt: timestamptz("activated_at"),
+    // Staff directory (FLOW-40): Admin's notes, the positions this person can work
+    // (staff_position list labels) and when they opted in to SMS (null: not opted in).
+    notes: text("notes").notNull().default(""),
+    positions: jsonb("positions").$type<string[]>().notNull().default([]),
+    smsConsentAt: timestamptz("sms_consent_at"),
   },
   (table) => [
     uniqueIndex("users_email_idx").on(sql`lower(${table.email})`),
     oneOf("users_role_check", table.role, roles),
     oneOf("users_employment_type_check", table.employmentType, employmentTypes),
     oneOf("users_status_check", table.status, userStatuses),
+  ],
+).enableRLS();
+
+// Business settings (FLOW-45): one row per settings group (company profile,
+// defaults), its value validated by shared/settings.ts. A missing row means the
+// built-in defaults.
+export const settings = pgTable(
+  "settings",
+  {
+    ...baseColumns(),
+    key: text("key", { enum: settingKeys }).notNull().unique(),
+    value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+  },
+  (table) => [oneOf("settings_key_check", table.key, settingKeys)],
+).enableRLS();
+
+// Configurable lists (FLOW-45): event types, positions, vehicles, categories...
+// Archived values stay on old records and are not offered for new ones. Labels are
+// unique per list among active values.
+export const listValues = pgTable(
+  "list_values",
+  {
+    ...baseColumns(),
+    listKey: text("list_key", { enum: listKeys }).notNull(),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    index("list_values_list_idx").on(table.listKey, table.sortOrder),
+    uniqueIndex("list_values_label_idx")
+      .on(table.listKey, sql`lower(${table.label})`)
+      .where(sql`${table.archivedAt} is null`),
+    oneOf("list_values_list_key_check", table.listKey, listKeys),
   ],
 ).enableRLS();
 

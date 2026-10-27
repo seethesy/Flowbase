@@ -131,7 +131,8 @@ export async function resolveUser(
           authId: identity.sub,
           status: "active",
           activatedAt: new Date(),
-          name: identity.name || row.email,
+          // A name Admin set in the staff directory (FLOW-40) wins.
+          name: row.name || identity.name || row.email,
           updatedBy: row.id,
         })
         .where(eq(users.id, row.id));

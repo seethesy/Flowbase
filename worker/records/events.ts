@@ -1,9 +1,9 @@
 import {
   and,
   asc,
-  desc,
   eq,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
@@ -27,8 +27,13 @@ import {
   mayOverrideStatus,
 } from "../../shared/event-lifecycle";
 import type { EventHub, HubSection } from "../../shared/event-hub";
-import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
-import { listHistory, writeAudit } from "../audit/log";
+import {
+  addLocalDays,
+  businessTimeToUtc,
+  isBusinessTime,
+  utcToBusinessTime,
+} from "../../shared/time";
+import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   clientContacts,
@@ -42,6 +47,13 @@ import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
 import { setArchived } from "./archive";
+import {
+  groupBy,
+  indexBy,
+  keyset,
+  type Page,
+  type PageRequest,
+} from "./paging";
 import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
@@ -60,16 +72,26 @@ export function visibleEvents(actor: Actor): SQL | undefined {
   );
 }
 
-const DAY_MS = 24 * 60 * 60_000;
+// A New York wall-clock time as a UTC instant; a time that doesn't happen (skipped
+// when clocks spring forward) is a validation error, not a silently moved hour.
+function businessInstant(date: string, time: string) {
+  if (!isBusinessTime(date, time))
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      `${time} doesn't exist on ${date} in New York: clocks skip that hour. Pick another time.`,
+    );
+  return businessTimeToUtc(date, time);
+}
 
 // Stored as UTC instants from New York wall-clock times. An end time earlier than
-// the start runs past midnight.
+// the start runs past midnight, so it is that time on the next calendar date.
 function instants(input: Pick<EventInput, "date" | "startTime" | "endTime">) {
-  const startsAt = businessTimeToUtc(input.date, input.startTime);
+  const startsAt = businessInstant(input.date, input.startTime);
   if (!input.endTime) return { startsAt, endsAt: null };
-  let endsAt = businessTimeToUtc(input.date, input.endTime);
-  if (endsAt < startsAt) endsAt = new Date(endsAt.getTime() + DAY_MS);
-  return { startsAt, endsAt };
+  const endDate =
+    input.endTime < input.startTime ? addLocalDays(input.date, 1) : input.date;
+  return { startsAt, endsAt: businessInstant(endDate, input.endTime) };
 }
 
 async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
@@ -96,6 +118,9 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       .where(and(inArray(eventAreas.eventId, ids), isNull(eventAreas.archivedAt)))
       .orderBy(asc(eventAreas.sortOrder)),
   ]);
+  const clientById = indexBy(clientNames, (client) => client.id);
+  const venueById = indexBy(venueNames, (venue) => venue.id);
+  const areasByEvent = groupBy(areas, (area) => area.eventId);
   return rows.map((row) => {
     const start = utcToBusinessTime(row.startsAt);
     return {
@@ -106,16 +131,14 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       endTime: row.endsAt ? utcToBusinessTime(row.endsAt).time : null,
       startsAt: row.startsAt.toISOString(),
       endsAt: row.endsAt?.toISOString() ?? null,
-      client: clientNames.find((client) => client.id === row.clientId) ?? {
-        id: row.clientId,
-        name: "",
-      },
+      client: clientById.get(row.clientId) ?? { id: row.clientId, name: "" },
       pocContactId: row.pocContactId,
-      venue: venueNames.find((venue) => venue.id === row.venueId) ?? null,
+      venue: (row.venueId && venueById.get(row.venueId)) || null,
       address: row.address,
-      areas: areas
-        .filter((area) => area.eventId === row.id)
-        .map(({ id, name }) => ({ id, name })),
+      areas: (areasByEvent.get(row.id) ?? []).map(({ id, name }) => ({
+        id,
+        name,
+      })),
       eventType: row.eventType,
       serviceType: row.serviceType,
       foodServiceStyle: row.foodServiceStyle,
@@ -146,8 +169,21 @@ export async function listEvents(
     // New York dates, inclusive.
     from?: string;
     to?: string;
+    // Title, client or venue name (FLOW-179).
+    search?: string;
+    // Any of these statuses (one label can cover several).
+    statuses?: EventStatus[];
   },
-): Promise<FlowEvent[]> {
+  page: PageRequest = {},
+): Promise<Page<FlowEvent>> {
+  const paging = keyset<EventRow>(
+    [
+      { column: events.startsAt, type: "timestamp", of: (row) => row.startsAt },
+      { column: events.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  const term = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
     .from(events)
@@ -157,20 +193,28 @@ export async function listEvents(
         filter.archived ? isNotNull(events.archivedAt) : isNull(events.archivedAt),
         filter.clientId ? eq(events.clientId, filter.clientId) : undefined,
         filter.venueId ? eq(events.venueId, filter.venueId) : undefined,
+        filter.statuses?.length
+          ? inArray(events.status, filter.statuses)
+          : undefined,
         filter.from
           ? gte(events.startsAt, businessTimeToUtc(filter.from, "00:00"))
           : undefined,
         filter.to
-          ? lt(
-              events.startsAt,
-              new Date(businessTimeToUtc(filter.to, "00:00").getTime() + DAY_MS),
+          ? lt(events.startsAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00"))
+          : undefined,
+        term
+          ? or(
+              ilike(events.title, term),
+              sql`exists (select 1 from ${clients} where ${clients.id} = ${events.clientId} and ${clients.name} ilike ${term})`,
+              sql`exists (select 1 from ${venues} where ${venues.id} = ${events.venueId} and ${venues.name} ilike ${term})`,
             )
           : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(events.startsAt))
-    .limit(500);
-  return toEvents(db, rows);
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toEvents(db, kept));
 }
 
 export async function findVisibleEvent(db: DbLike, actor: Actor, id: string) {
@@ -202,9 +246,9 @@ async function eventSnapshot(db: DbLike, id: string) {
 }
 
 // Everyone who can open an event sees all of its fields, so nothing is hidden.
-export async function eventHistory(db: DbLike, actor: Actor, id: string) {
+export async function eventHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
   await findVisibleEvent(db, actor, id);
-  return listHistory(db, "event", id, (changes) => changes);
+  return listHistoryPage(db, "event", id, (changes) => changes, page);
 }
 
 // Hub sections whose module exists (FLOW-57), in display order. Each module ticket
@@ -535,23 +579,38 @@ export async function advanceEventStatus(
 }
 
 // The event's status changes, newest first.
-export async function eventStatusChanges(db: DbLike, actor: Actor, id: string) {
+export async function eventStatusChanges(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+): Promise<Page<EventStatusChange>> {
   await findVisibleEvent(db, actor, id);
+  type Row = typeof eventStatusHistory.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: eventStatusHistory.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: eventStatusHistory.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const rows = await db
     .select()
     .from(eventStatusHistory)
-    .where(eq(eventStatusHistory.eventId, id))
-    .orderBy(desc(eventStatusHistory.createdAt))
-    .limit(500);
-  return rows.map(
-    (row): EventStatusChange => ({
-      id: row.id,
-      manual: row.manual,
-      from: row.fromStatus,
-      to: row.toStatus,
-      reason: row.reason,
-      actorId: row.createdBy,
-      at: row.createdAt.toISOString(),
-    }),
+    .where(and(eq(eventStatusHistory.eventId, id), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) =>
+    kept.map(
+      (row): EventStatusChange => ({
+        id: row.id,
+        manual: row.manual,
+        from: row.fromStatus,
+        to: row.toStatus,
+        reason: row.reason,
+        actorId: row.createdBy,
+        at: row.createdAt.toISOString(),
+      }),
+    ),
   );
 }

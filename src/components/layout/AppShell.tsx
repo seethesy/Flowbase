@@ -1,3 +1,4 @@
+import { usePermissions } from "../../app/permissions";
 import { useState } from "react";
 import {
   NavLink,
@@ -27,6 +28,7 @@ import {
   X,
   Leaf,
   Plus,
+  Contact,
 } from "lucide-react";
 import { Button, DetailDrawer } from "../shared";
 import { useDemo } from "../../app/store";
@@ -45,6 +47,7 @@ const navigation = [
   { name: "Purchasing", to: "/purchasing", icon: ShoppingCart },
   { name: "Events", to: "/events", icon: CalendarDays },
   { name: "Venues", to: "/venues", icon: MapPin },
+  { name: "Staff", to: "/staff", icon: Contact },
   { name: "Reports", to: "/reports", icon: ChartNoAxesCombined },
 ];
 export function Breadcrumbs() {
@@ -201,6 +204,7 @@ export function Sidebar({
 }
 export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const auth = useAuth();
+  const permissions = usePermissions();
   const displayName = auth?.user.name ?? "Profile";
   const store = useDemo();
   const navigate = useNavigate();
@@ -259,7 +263,7 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
                 <Link to="/profile" onClick={() => setProfile(false)}>
                   Employee profile
                 </Link>
-                {auth?.user.role === "admin" && (
+                {permissions.can("users.manage") && (
                   <Link to="/settings/users" onClick={() => setProfile(false)}>
                     Manage users
                   </Link>

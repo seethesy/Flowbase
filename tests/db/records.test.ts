@@ -1,3 +1,6 @@
+import { roles, employmentTypes } from "../../shared/access";
+import type { EventHub } from "../../shared/event-hub";
+import type { HistoryEntry } from "../../shared/audit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
@@ -218,7 +221,11 @@ describe("clients", () => {
         name: "Juniper & Co. Events",
         kind: "organization",
         contacts: [
-          { id: created.contacts[0].id, name: "Olivia B.", role: "primary_poc" },
+          {
+            id: created.contacts[0].id,
+            name: "Olivia B.",
+            role: "primary_poc",
+          },
         ],
       },
     );
@@ -233,9 +240,9 @@ describe("clients", () => {
 
   it("keeps clients from roles without client access", async () => {
     expect((await lead.call("GET", "/api/clients")).status).toBe(403);
-    expect(
-      (await lead.call("POST", "/api/clients", newClient())).status,
-    ).toBe(403);
+    expect((await lead.call("POST", "/api/clients", newClient())).status).toBe(
+      403,
+    );
   });
 
   it("archives contacts removed from the list", async () => {
@@ -318,10 +325,7 @@ const newEvent = (clientId: string, overrides: Partial<EventInput> = {}) => ({
 describe("events", () => {
   it("creates an event from just a title, date, time and client", async () => {
     const owner = await sam.post<Client>("/api/clients", newClient());
-    const event = await sam.post<FlowEvent>(
-      "/api/events",
-      newEvent(owner.id),
-    );
+    const event = await sam.post<FlowEvent>("/api/events", newEvent(owner.id));
     expect(event).toMatchObject({
       title: "Fall gala",
       date: "2026-11-14",
@@ -407,20 +411,23 @@ describe("events", () => {
       "/api/events",
       newEvent(owner.id, { title: "Other" }),
     );
-    expect((await lead.get<FlowEvent[]>("/api/events")).map((e) => e.id)).toEqual(
-      [led.id],
-    );
+    expect(
+      (await lead.get<FlowEvent[]>("/api/events")).map((e) => e.id),
+    ).toEqual([led.id]);
     expect(
       (await helper.get<FlowEvent[]>("/api/events")).map((e) => e.id),
     ).toEqual([assisted.id]);
-    expect((await lead.call("POST", "/api/events", newEvent(owner.id))).status).toBe(
-      403,
-    );
+    expect(
+      (await lead.call("POST", "/api/events", newEvent(owner.id))).status,
+    ).toBe(403);
   });
 
   it("doesn't record booked_at when an event reaches Negotiation (FLOW-208)", async () => {
     const owner = await admin.post<Client>("/api/clients", newClient());
-    const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id));
+    const event = await admin.post<FlowEvent>(
+      "/api/events",
+      newEvent(owner.id),
+    );
     expect(event.bookedAt).toBeNull();
     const negotiating = await admin.post<FlowEvent>(
       `/api/events/${event.id}/status`,
@@ -457,6 +464,96 @@ describe("events", () => {
       await admin.get<FlowEvent[]>("/api/events?from=2026-11-15"),
     ).toHaveLength(0);
   });
+
+  it("filters exactly the requested New York dates across daylight saving (FLOW-200)", async () => {
+    const owner = await admin.post<Client>("/api/clients", newClient());
+    for (const [title, date, startTime] of [
+      ["Mar 7 late", "2026-03-07", "23:30"],
+      ["Mar 8 midnight", "2026-03-08", "00:00"],
+      ["Mar 8 late", "2026-03-08", "23:30"],
+      ["Mar 9 early", "2026-03-09", "00:30"],
+      ["Oct 31 late", "2026-10-31", "23:30"],
+      ["Nov 1 midnight", "2026-11-01", "00:00"],
+      ["Nov 1 late", "2026-11-01", "23:30"],
+      ["Nov 2 midnight", "2026-11-02", "00:00"],
+    ])
+      await admin.post<FlowEvent>(
+        "/api/events",
+        newEvent(owner.id, { title, date, startTime }),
+      );
+    const titles = async (query: string) =>
+      (await admin.get<FlowEvent[]>(`/api/events?${query}`)).map((e) => e.title);
+    // March 8 is 23 hours long and November 1 is 25.
+    expect(await titles("from=2026-03-08&to=2026-03-08")).toEqual([
+      "Mar 8 midnight",
+      "Mar 8 late",
+    ]);
+    expect(await titles("from=2026-11-01&to=2026-11-01")).toEqual([
+      "Nov 1 midnight",
+      "Nov 1 late",
+    ]);
+  });
+
+  it("ignores an impossible date filter instead of rolling it over (FLOW-191)", async () => {
+    const owner = await admin.post<Client>("/api/clients", newClient());
+    await admin.post<FlowEvent>(
+      "/api/events",
+      newEvent(owner.id, { date: "2026-03-01" }),
+    );
+    // 2026-02-31 used to become March 3, which hid the March 1 event.
+    expect(await admin.get<FlowEvent[]>("/api/events?from=2026-02-31")).toHaveLength(1);
+    expect(
+      (await admin.call("POST", "/api/events", newEvent(owner.id, { date: "2026-02-31" })))
+        .status,
+    ).toBe(400);
+  });
+
+  it("keeps an overnight event's end time across daylight saving (FLOW-200)", async () => {
+    const owner = await admin.post<Client>("/api/clients", newClient());
+    for (const [date, startTime, endTime, startsAt, endsAt] of [
+      // Spring forward: 3 am on March 8 is EDT.
+      ["2026-03-07", "22:00", "03:00", "2026-03-08T03:00:00.000Z", "2026-03-08T07:00:00.000Z"],
+      // Fall back: 3 am on November 1 is EST.
+      ["2026-10-31", "22:00", "03:00", "2026-11-01T02:00:00.000Z", "2026-11-01T08:00:00.000Z"],
+      // An ordinary overnight event and a same-day one are unchanged.
+      ["2026-11-14", "21:00", "01:00", "2026-11-15T02:00:00.000Z", "2026-11-15T06:00:00.000Z"],
+      ["2026-03-08", "01:00", "04:00", "2026-03-08T06:00:00.000Z", "2026-03-08T08:00:00.000Z"],
+    ]) {
+      const event = await admin.post<FlowEvent>(
+        "/api/events",
+        newEvent(owner.id, { date, startTime, endTime }),
+      );
+      expect(event).toMatchObject({ date, startTime, endTime, startsAt, endsAt });
+    }
+  });
+
+  it("rejects a time clocks skip in spring and keeps the first of a repeated fall time (FLOW-200)", async () => {
+    const owner = await admin.post<Client>("/api/clients", newClient());
+    for (const overrides of [
+      { date: "2026-03-08", startTime: "02:30" },
+      { date: "2026-03-08", startTime: "01:00", endTime: "02:30" },
+      // Overnight into the skipped hour.
+      { date: "2026-03-07", startTime: "22:00", endTime: "02:30" },
+    ]) {
+      const response = await admin.call("POST", "/api/events", newEvent(owner.id, overrides));
+      expect(response.status).toBe(400);
+      expect((await response.json()).error.message).toMatch(/doesn't exist on 2026-03-08/);
+    }
+    expect(await admin.get<FlowEvent[]>("/api/events")).toEqual([]);
+
+    // 1:30 am on November 1 happens twice; it stays the first (EDT) one.
+    const repeated = await admin.post<FlowEvent>(
+      "/api/events",
+      newEvent(owner.id, { date: "2026-11-01", startTime: "01:30", endTime: "01:45" }),
+    );
+    expect(repeated).toMatchObject({
+      date: "2026-11-01",
+      startTime: "01:30",
+      endTime: "01:45",
+      startsAt: "2026-11-01T05:30:00.000Z",
+      endsAt: "2026-11-01T05:45:00.000Z",
+    });
+  });
 });
 
 it("writes a domain event in the same transaction as each new client", async () => {
@@ -464,4 +561,58 @@ it("writes a domain event in the same transaction as each new client", async () 
   const [row] = await db.select().from(clients);
   const queued = await db.select().from(jobs);
   expect(queued.map((job) => job.payload)).toContainEqual({ entityId: row.id });
+});
+
+// FLOW-38/39: exercise the actual API and persisted snapshots for every role and
+// employment type, including the client embedded in an event hub.
+it("projects contacts consistently in records, event hubs and historical values", async () => {
+  const owner = await sam.post<Client>("/api/clients", newClient());
+  const venue = await admin.post<Venue>("/api/venues", newVenue());
+  const event = await sam.post<FlowEvent>(
+    "/api/events",
+    newEvent(owner.id, {
+      venueId: venue.id,
+      productionLeadId: people.sam,
+    }),
+  );
+  for (const role of roles)
+    for (const employmentType of employmentTypes) {
+      const who = signedInAs(people.sam, role, employmentType);
+      const manages = ["admin", "technical", "sales_manager"].includes(role);
+      const ft = manages || employmentType === "full_time";
+      const hub = await who.get<EventHub>(`/api/events/${event.id}/hub`);
+      const eventJson = JSON.stringify(hub);
+      const venueView = await who.get<Venue>(`/api/venues/${venue.id}`);
+      const venueHistory = await who.get<HistoryEntry[]>(
+        `/api/venues/${venue.id}/history`,
+      );
+      if (!ft) {
+        expect(eventJson).not.toContain("olivia@juniper.example");
+        expect(eventJson).not.toContain("(202) 555-0101");
+        expect(venueView.contacts).toBeNull();
+        expect(
+          venueHistory.every((entry) => !("contacts" in entry.changes)),
+        ).toBe(true);
+      } else {
+        expect(venueView.contacts).toHaveLength(1);
+        expect(venueHistory.some((entry) => "contacts" in entry.changes)).toBe(
+          true,
+        );
+      }
+      if (manages || role === "salesperson") {
+        const clientView = await who.get<Client>(`/api/clients/${owner.id}`);
+        expect(clientView.contacts[0].email).toBe(
+          ft ? "olivia@juniper.example" : null,
+        );
+        expect(hub.client?.contacts).toEqual(clientView.contacts);
+        const history = await who.get<HistoryEntry[]>(
+          `/api/clients/${owner.id}/history`,
+        );
+        expect(JSON.stringify(history).includes("olivia@juniper.example")).toBe(
+          ft,
+        );
+      } else {
+        expect(hub.client).toBeNull();
+      }
+    }
 });

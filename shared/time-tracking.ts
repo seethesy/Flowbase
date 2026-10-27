@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { id, timestamp } from "./schema-primitives";
 
 // Automatic activity time tracking (FLOW-119). The browser credits time while a
 // Flowbase tab is visible and the user has typed or clicked within the idle cutoff,
 // to the record on screen and an activity type derived from the screen.
 
-// 5 minutes (the developer's answer on FLOW-119; the ticket's default was 3). One
-// place to change it until business settings (FLOW-45) can hold it.
+// 5 minutes (the developer's answer on FLOW-119; the ticket's default was 3). The
+// default until business settings load; Admin changes it there (FLOW-45).
 export const IDLE_CUTOFF_MS = 5 * 60_000;
 // The browser sends at most one tracking request per this interval (free-tier limits).
 export const FLUSH_INTERVAL_MS = 60_000;
@@ -48,16 +49,15 @@ export const trackedRecordTypeSchema = z.enum([
 ]);
 export type TrackedRecordType = z.infer<typeof trackedRecordTypeSchema>;
 
-const timestamp = z.string().datetime();
 // One stretch of active time on one screen. The browser picks the id and resends
 // an open session with a later end, so a session is one row however often it's sent.
 export const activitySessionInputSchema = z
   .object({
-    id: z.string().uuid(),
+    id,
     startedAt: timestamp,
     endedAt: timestamp,
     recordType: trackedRecordTypeSchema.nullable().default(null),
-    recordId: z.string().uuid().nullable().default(null),
+    recordId: id.nullable().default(null),
     activity: activityTypeSchema,
   })
   .refine((s) => (s.recordType === null) === (s.recordId === null), {
@@ -73,13 +73,16 @@ export const activitySessionInputSchema = z
     },
   );
 export type ActivitySessionInput = z.input<typeof activitySessionInputSchema>;
+export const activityRecordedSchema = z.object({
+  recorded: z.number().int().nonnegative(),
+});
 export const activityBatchSchema = z.object({
   sessions: z.array(activitySessionInputSchema).min(1).max(100),
 });
 
 // Reports (Q-51). Dates are New York dates, inclusive; time is in seconds.
 export const effortRowSchema = z.object({
-  eventId: z.string().uuid(),
+  eventId: id,
   title: z.string(),
   date: z.string(),
   clientName: z.string(),
@@ -88,7 +91,7 @@ export const effortRowSchema = z.object({
 });
 export type EffortRow = z.infer<typeof effortRowSchema>;
 export const workloadRowSchema = z.object({
-  userId: z.string().uuid(),
+  userId: id,
   userName: z.string().optional(),
   activity: activityTypeSchema,
   seconds: z.number().int(),

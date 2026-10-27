@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import {
   barCountStep,
@@ -31,6 +31,7 @@ import {
 } from "./inventory-common";
 import { findItem, getItem } from "./inventory-items";
 import { requireStockSection } from "./inventory-sections";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // ---- Stock ledger (FLOW-71) ----
 
@@ -133,8 +134,18 @@ export async function recordMovement(
 export async function listMovements(
   db: Db,
   itemId: string,
-): Promise<StockMovement[]> {
+  page: PageRequest = {},
+): Promise<Page<StockMovement>> {
   await findItem(db, itemId);
+  type Row = { movement: typeof stockMovements.$inferSelect; sectionName: string };
+  const paging = keyset<Row>(
+    [
+      { column: stockMovements.createdAt, type: "timestamp", desc: true, of: (row) => row.movement.createdAt },
+      { column: stockMovements.quantity, type: "number", of: (row) => row.movement.quantity },
+      { column: stockMovements.id, type: "uuid", of: (row) => row.movement.id },
+    ],
+    page,
+  );
   const rows = await db
     .select({ movement: stockMovements, sectionName: inventorySections.name })
     .from(stockMovements)
@@ -142,30 +153,42 @@ export async function listMovements(
       inventorySections,
       eq(stockMovements.sectionId, inventorySections.id),
     )
-    .where(eq(stockMovements.itemId, itemId))
-    .orderBy(desc(stockMovements.createdAt), asc(stockMovements.quantity))
-    .limit(1000);
-  return rows.map(({ movement: m, sectionName }) => ({
-    id: m.id,
-    itemId: m.itemId,
-    sectionId: m.sectionId,
-    sectionName,
-    type: m.type,
-    quantity: m.quantity,
-    reason: m.reason,
-    transferId: m.transferId,
-    correctsId: m.correctsId,
-    correctedBy: rows
-      .filter((other) => other.movement.correctsId === m.id)
-      .sort(
-        (a, b) =>
-          a.movement.createdAt.getTime() - b.movement.createdAt.getTime(),
-      )
-      .map((other) => other.movement.id),
-    link: m.linkType && m.linkId ? { type: m.linkType, id: m.linkId } : null,
-    createdBy: m.createdBy,
-    createdAt: m.createdAt.toISOString(),
-  }));
+    .where(and(eq(stockMovements.itemId, itemId), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, async (kept) => {
+    // Corrections of these movements, oldest first, wherever they fall in the list.
+    const ids = kept.map((row) => row.movement.id);
+    const corrections = ids.length
+      ? await db
+          .select({ id: stockMovements.id, correctsId: stockMovements.correctsId })
+          .from(stockMovements)
+          .where(inArray(stockMovements.correctsId, ids))
+          .orderBy(asc(stockMovements.createdAt), asc(stockMovements.id))
+      : [];
+    const correctedBy = new Map<string, string[]>();
+    for (const correction of corrections) {
+      if (!correction.correctsId) continue;
+      const list = correctedBy.get(correction.correctsId) ?? [];
+      list.push(correction.id);
+      correctedBy.set(correction.correctsId, list);
+    }
+    return kept.map(({ movement: m, sectionName }) => ({
+      id: m.id,
+      itemId: m.itemId,
+      sectionId: m.sectionId,
+      sectionName,
+      type: m.type,
+      quantity: m.quantity,
+      reason: m.reason,
+      transferId: m.transferId,
+      correctsId: m.correctsId,
+      correctedBy: correctedBy.get(m.id) ?? [],
+      link: m.linkType && m.linkId ? { type: m.linkType, id: m.linkId } : null,
+      createdBy: m.createdBy,
+      createdAt: m.createdAt.toISOString(),
+    }));
+  });
 }
 
 // FLOW-70 AC2: one transfer, both sections updated.
@@ -343,5 +366,5 @@ export async function correctMovement(
           : null,
     });
   });
-  return listMovements(db, original.itemId);
+  return (await listMovements(db, original.itemId)).rows;
 }

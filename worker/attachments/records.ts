@@ -13,7 +13,7 @@ import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import { attachments, type AttachmentVariant } from "../db/schema";
 import { forbidden, notFound } from "../hono";
-import { can, type Action } from "../policy";
+import { can, attachmentWriteActions, type Action } from "../policy";
 import { findVisibleClient } from "../records/clients";
 import { findVisibleEvent } from "../records/events";
 import { findItem } from "../records/inventory";
@@ -32,13 +32,13 @@ const parents: Record<
     write: Action;
   }
 > = {
-  client: { find: findVisibleClient, write: "clients.write" },
-  venue: { find: (db, _actor, id) => findVenue(db, id), write: "venues.write" },
-  event: { find: findVisibleEvent, write: "events.write" },
+  client: { find: findVisibleClient, write: attachmentWriteActions.client },
+  venue: { find: (db, _actor, id) => findVenue(db, id), write: attachmentWriteActions.venue },
+  event: { find: findVisibleEvent, write: attachmentWriteActions.event },
   // Item photos (FLOW-69).
   inventory_item: {
     find: (db, _actor, id) => findItem(db, id),
-    write: "inventory.write",
+    write: attachmentWriteActions.inventory_item,
   },
 };
 

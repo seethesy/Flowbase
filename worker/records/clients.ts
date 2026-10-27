@@ -1,3 +1,4 @@
+import { serializeFields, redactFieldHistory } from "../../shared/visibility";
 import {
   and,
   asc,
@@ -10,27 +11,27 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import {
   clientCreateSchema,
   clientInputSchema,
   type Client,
 } from "../../shared/core-records";
 import type { z } from "zod";
-import {
-  fullView,
-  hideFields,
-  listHistory,
-  maskField,
-  redactAll,
-  writeAudit,
-} from "../audit/log";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { clientScope, type Scope } from "../policy";
 import { setArchived } from "./archive";
+import {
+  groupBy,
+  indexBy,
+  keyset,
+  type Page,
+  type PageRequest,
+} from "./paging";
 import { phoneDigits, syncChildren } from "./sync";
 
 type ClientRow = typeof clients.$inferSelect;
@@ -54,17 +55,15 @@ export function requireClientAccess(actor: Actor): Scope {
   return scope;
 }
 
-const toContact = (row: ContactRow, actor: Actor) => {
-  const visible = isFtPlus(actor);
-  return {
+const toContact = (row: ContactRow, actor: Actor) =>
+  serializeFields(actor, "client_contact", {
     id: row.id,
     name: row.name,
     role: row.role,
-    email: visible ? row.email : null,
-    phone: visible ? row.phone : null,
+    email: row.email,
+    phone: row.phone,
     notes: row.notes,
-  };
-};
+  });
 
 async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
   if (!rows.length) return [];
@@ -73,7 +72,10 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
     .select()
     .from(clientContacts)
     .where(
-      and(inArray(clientContacts.clientId, ids), isNull(clientContacts.archivedAt)),
+      and(
+        inArray(clientContacts.clientId, ids),
+        isNull(clientContacts.archivedAt),
+      ),
     )
     .orderBy(asc(clientContacts.sortOrder));
   const showDuplicates = clientScope(actor) === "all";
@@ -87,19 +89,22 @@ async function toClients(db: DbLike, actor: Actor, rows: ClientRow[]) {
           .from(clients)
           .where(inArray(clients.id, duplicateIds))
       : [];
-  return rows.map(
-    (row): Client => ({
+  const contactsByClient = groupBy(contacts, (contact) => contact.clientId);
+  const duplicateById = indexBy(duplicates, (duplicate) => duplicate.id);
+  return rows.map((row): Client =>
+    serializeFields<Client>(actor, "client", {
       id: row.id,
       name: row.name,
       kind: row.kind,
       assignedSalespersonId: row.assignedSalespersonId,
       notes: row.notes,
       tags: row.tags,
-      contacts: contacts
-        .filter((contact) => contact.clientId === row.id)
-        .map((contact) => toContact(contact, actor)),
+      contacts: (contactsByClient.get(row.id) ?? []).map((contact) =>
+        toContact(contact, actor),
+      ),
       possibleDuplicateOf:
-        duplicates.find((duplicate) => duplicate.id === row.possibleDuplicateOfId) ??
+        (row.possibleDuplicateOfId &&
+          duplicateById.get(row.possibleDuplicateOfId)) ||
         null,
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
@@ -112,24 +117,43 @@ export async function listClients(
   db: Db,
   actor: Actor,
   filter: { archived?: boolean; search?: string; flagged?: boolean },
-): Promise<Client[]> {
+  page: PageRequest = {},
+): Promise<Page<Client>> {
   const scope = requireClientAccess(actor);
+  const paging = keyset<ClientRow>(
+    [
+      { column: clients.name, type: "text", of: (row) => row.name },
+      { column: clients.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  // Search matches the client's name or any live contact's name (FLOW-179), as
+  // the Clients screen did on what it had loaded.
+  const term = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
     .from(clients)
     .where(
       and(
         visibleClients(actor),
-        filter.archived ? isNotNull(clients.archivedAt) : isNull(clients.archivedAt),
-        filter.search ? ilike(clients.name, `%${filter.search}%`) : undefined,
+        filter.archived
+          ? isNotNull(clients.archivedAt)
+          : isNull(clients.archivedAt),
+        term
+          ? or(
+              ilike(clients.name, term),
+              sql`exists (select 1 from ${clientContacts} where ${clientContacts.clientId} = ${clients.id} and ${clientContacts.archivedAt} is null and ${clientContacts.name} ilike ${term})`,
+            )
+          : undefined,
         filter.flagged && scope === "all"
           ? isNotNull(clients.possibleDuplicateOfId)
           : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(clients.name))
-    .limit(500);
-  return toClients(db, actor, rows);
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toClients(db, actor, kept));
 }
 
 // A client the actor may see, archived or not; otherwise 404, never 403.
@@ -159,21 +183,10 @@ async function clientSnapshot(db: DbLike, id: string) {
 
 // History hides what toClients hides from the caller: contact email and phone from
 // part-time users, and the possible-duplicate match from salespeople.
-export async function clientHistory(db: DbLike, actor: Actor, id: string) {
+export async function clientHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
   await findVisibleClient(db, actor, id);
-  const hideContactDetails = (value: unknown) =>
-    Array.isArray(value)
-      ? value.map((contact) => ({ ...contact, email: null, phone: null }))
-      : value;
-  return listHistory(
-    db,
-    "client",
-    id,
-    redactAll(
-      clientScope(actor) === "all" ? (c) => c : hideFields("possibleDuplicateOf"),
-      isFtPlus(actor) ? (c) => c : maskField("contacts", hideContactDetails),
-    ),
-  );
+  return listHistoryPage(db, "client", id, (changes) =>
+    redactFieldHistory(actor, "client", changes), page);
 }
 
 // Clients whose live contacts share an email or phone with the new contacts.
@@ -200,7 +213,9 @@ async function findDuplicates(db: DbLike, contacts: ContactInput[]) {
           emails.length
             ? inArray(sql`lower(${clientContacts.email})`, emails)
             : undefined,
-          phones.length ? inArray(clientContacts.phoneDigits, phones) : undefined,
+          phones.length
+            ? inArray(clientContacts.phoneDigits, phones)
+            : undefined,
         ),
       ),
     );
@@ -227,7 +242,10 @@ async function syncContacts(
     .select({ id: clientContacts.id })
     .from(clientContacts)
     .where(
-      and(eq(clientContacts.clientId, clientId), isNull(clientContacts.archivedAt)),
+      and(
+        eq(clientContacts.clientId, clientId),
+        isNull(clientContacts.archivedAt),
+      ),
     );
   await syncChildren(
     existing.map((row) => row.id),
@@ -346,7 +364,8 @@ export async function createClient(
     scope,
     input.contacts,
   );
-  if (visible.length && !input.allowDuplicate) throw duplicateClientError(visible);
+  if (visible.length && !input.allowDuplicate)
+    throw duplicateClientError(visible);
   const id = await db.transaction((tx) =>
     insertClient(tx, actor, scope, input, hidden),
   );

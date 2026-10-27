@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -88,25 +89,31 @@ export function InventoryDetail() {
           </p>
         </div>
         <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
+          <Allowed action="inventory.write">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </Allowed>
           {i.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                item.replace(await inventoryApi.setArchived(i.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
-            </Button>
+            <Allowed action="inventory.write">
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  item.replace(await inventoryApi.setArchived(i.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            </Allowed>
           ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
+            <Allowed action="inventory.write">
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>
@@ -149,7 +156,7 @@ export function InventoryDetail() {
             <small>Unit cost</small>
             <p>
               {c.costHidden
-                ? "Visible to full-time staff only."
+                ? "Cost hidden for your role and employment type."
                 : c.unitCostCents === null
                   ? "—"
                   : `${centsLabel(c.unitCostCents)} per ${unitLabel(c.purchaseUnit)}`}
@@ -193,24 +200,33 @@ export function InventoryDetail() {
           action={
             !i.archivedAt && (
               <div className="page-actions">
-                <Button
-                  variant="outline"
-                  onClick={() => setStockForm("movement")}
-                >
-                  <PackagePlus size={14} />
-                  Record movement
-                </Button>
-                <Button variant="outline" onClick={() => setStockForm("count")}>
-                  <ClipboardCheck size={14} />
-                  Count
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setStockForm("transfer")}
-                >
-                  <ArrowLeftRight size={14} />
-                  Transfer
-                </Button>
+                <Allowed action="inventory.move" item={i}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStockForm("movement")}
+                  >
+                    <PackagePlus size={14} />
+                    Record movement
+                  </Button>
+                </Allowed>
+                <Allowed action="inventory.count" item={i}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStockForm("count")}
+                  >
+                    <ClipboardCheck size={14} />
+                    Count
+                  </Button>
+                </Allowed>
+                <Allowed action="inventory.move" item={i}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStockForm("transfer")}
+                  >
+                    <ArrowLeftRight size={14} />
+                    Transfer
+                  </Button>
+                </Allowed>
               </div>
             )
           }

@@ -12,14 +12,14 @@ import { clientContacts, clients, leadDuplicates, leads } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, leadScope } from "../policy";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // Lead duplicate detection and merge (FLOW-110). A new lead is matched against
 // earlier leads and clients by email or phone, then by name and event date (the
 // same source lead id is handled in createLead: it updates the existing lead). A
 // match is stored as an open duplicate until someone merges the leads or dismisses
 // it. A match the caller can't see is never described to them: a salesperson only
-// learns that a duplicate is assigned to another salesperson, and Admin resolves it
-// (Q-41c).
+// sees no indication that another salesperson's records exist (FLOW-38).
 type LeadRow = typeof leads.$inferSelect;
 type DuplicateRow = typeof leadDuplicates.$inferSelect;
 type ClientRef = { id: string; name: string; assignedSalespersonId: string | null };
@@ -48,11 +48,6 @@ const clientVisibleTo = (actor: Actor, row: Pick<ClientRef, "assignedSalesperson
   const scope = clientScope(actor);
   return scope === "all" || (scope === "own" && row.assignedSalespersonId === actor.userId);
 };
-const assignedToSomeoneElse = (
-  actor: Actor,
-  row: { assignedSalespersonId: string | null },
-) => row.assignedSalespersonId !== null && row.assignedSalespersonId !== actor.userId;
-
 // Finds and stores the new lead's possible duplicates, inside createLead's
 // transaction. Emits lead.duplicates_found when there are any.
 export async function recordLeadDuplicates(tx: DbLike, lead: LeadRow) {
@@ -187,7 +182,6 @@ export async function leadMatchesFor(
     rows.map((row) => row.matchedClientId).filter((id): id is string => Boolean(id)),
   );
   const duplicates: LeadMatch[] = [];
-  let assignedElsewhere = false;
   for (const row of rows) {
     const other = otherId(row);
     if (other) {
@@ -200,7 +194,6 @@ export async function leadMatchesFor(
           lead: toLeadSummary(match),
           client: null,
         });
-      else if (assignedToSomeoneElse(actor, match)) assignedElsewhere = true;
     } else if (row.matchedClientId) {
       const match = matchedClients.get(row.matchedClientId);
       if (!match) continue;
@@ -211,10 +204,9 @@ export async function leadMatchesFor(
           lead: null,
           client: { id: match.id, name: match.name },
         });
-      else if (assignedToSomeoneElse(actor, match)) assignedElsewhere = true;
     }
   }
-  return { duplicates, assignedElsewhere };
+  return { duplicates, assignedElsewhere: false };
 }
 
 // Every source record behind the lead: its own, then each lead merged into it.
@@ -239,17 +231,36 @@ export async function sourceLinksFor(db: DbLike, lead: LeadRow): Promise<LeadSou
 // The duplicates queue: open duplicates whose records the actor can all see.
 // Admin and the Sales Manager see every one, including cross-owner duplicates; a
 // salesperson sees only duplicates among their own leads and clients.
+// A page holds the open pairs the caller may resolve; pairs they can't see are
+// skipped, so a page can be shorter than the limit while more remain.
 export async function listLeadDuplicates(
   db: DbLike,
   actor: Actor,
-): Promise<LeadDuplicate[]> {
+  page: PageRequest = {},
+): Promise<Page<LeadDuplicate>> {
   if (leadScope(actor) === "none") throw forbidden();
+  type Row = typeof leadDuplicates.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: leadDuplicates.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: leadDuplicates.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const rows = await db
     .select()
     .from(leadDuplicates)
-    .where(eq(leadDuplicates.status, "open"))
-    .orderBy(desc(leadDuplicates.createdAt))
-    .limit(500);
+    .where(and(eq(leadDuplicates.status, "open"), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => visibleDuplicates(db, actor, kept));
+}
+
+async function visibleDuplicates(
+  db: DbLike,
+  actor: Actor,
+  rows: (typeof leadDuplicates.$inferSelect)[],
+): Promise<LeadDuplicate[]> {
   const byId = await leadsById(
     db,
     rows.flatMap((row) => [row.leadId, ...(row.matchedLeadId ? [row.matchedLeadId] : [])]),

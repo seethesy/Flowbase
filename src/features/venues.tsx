@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -8,9 +9,10 @@ import {
   type Venue,
   type VenueInput,
 } from "../../shared/core-records";
-import { eventsApi, venuesApi } from "../services/core";
+import { allPages, eventsApi, venuesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -35,12 +37,13 @@ export function VenueList() {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  const venues = useResource(() => venuesApi.list({ archived }), [archived]);
-  const data = (venues.data ?? []).filter((venue) =>
-    `${venue.name} ${venue.address}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+  // The API searches names and addresses across every venue (FLOW-179).
+  const term = useDebounced(search.trim());
+  const venues = usePagedList(
+    (cursor) => venuesApi.list({ archived, search: term || undefined }, cursor),
+    [archived, term],
   );
+  const data = venues.data ?? [];
   const columns: ColumnDef<Venue, unknown>[] = [
     { accessorKey: "name", header: "Venue" },
     { accessorKey: "address", header: "Address" },
@@ -62,10 +65,12 @@ export function VenueList() {
         subtitle="Addresses, areas and load-in details, ready for every event."
         eyebrow="Venues"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Venue
-        </Button>
+        <Allowed action="venues.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Venue
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -81,19 +86,26 @@ export function VenueList() {
           />
           Show archived
         </label>
-        <span className="result-count">{data.length} venues</span>
+        <span className="result-count">
+          {data.length}
+          {venues.hasMore ? "+" : ""} venues
+        </span>
       </FilterBar>
       {venues.error ? (
         <LoadError message={venues.error} />
       ) : venues.loading && !venues.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          onRow={(venue) => navigate(`/venues/${venue.id}`)}
-          label="venues"
-        />
+        <>
+          <DataTable
+            data={data}
+            columns={columns}
+            onRow={(venue) => navigate(`/venues/${venue.id}`)}
+            label="venues"
+            exportName="venues"
+          />
+          <LoadMore list={venues} label="Load more venues" />
+        </>
       )}
       {create && (
         <VenueForm
@@ -381,7 +393,10 @@ export function VenueDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const venue = useResource(() => venuesApi.get(id), [id]);
-  const events = useResource(() => eventsApi.list({ venueId: id }), [id]);
+  const events = useResource(
+    () => allPages((cursor) => eventsApi.list({ venueId: id }, cursor)),
+    [id],
+  );
   const [edit, setEdit] = useOpenFor(id);
   const [archive, setArchive] = useOpenFor(id);
   const back = (
@@ -413,25 +428,31 @@ export function VenueDetail() {
           </p>
         </div>
         <div className="page-actions">
-          <Button variant="outline" onClick={() => setEdit(true)}>
-            <Pencil size={14} />
-            Edit
-          </Button>
+          <Allowed action="venues.write">
+            <Button variant="outline" onClick={() => setEdit(true)}>
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </Allowed>
           {v.archivedAt ? (
-            <Button
-              variant="outline"
-              onClick={async () =>
-                venue.replace(await venuesApi.setArchived(v.id, false))
-              }
-            >
-              <RotateCcw size={14} />
-              Restore
-            </Button>
+            <Allowed action="venues.write">
+              <Button
+                variant="outline"
+                onClick={async () =>
+                  venue.replace(await venuesApi.setArchived(v.id, false))
+                }
+              >
+                <RotateCcw size={14} />
+                Restore
+              </Button>
+            </Allowed>
           ) : (
-            <Button variant="outline" onClick={() => setArchive(true)}>
-              <Archive size={14} />
-              Archive
-            </Button>
+            <Allowed action="venues.write">
+              <Button variant="outline" onClick={() => setArchive(true)}>
+                <Archive size={14} />
+                Archive
+              </Button>
+            </Allowed>
           )}
         </div>
       </div>

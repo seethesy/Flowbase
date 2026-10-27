@@ -1,5 +1,24 @@
+import { z } from "zod";
+
+export const historyEntrySchema = z.object({
+  id: z.uuid(),
+  action: z.enum(["create", "update", "archive", "restore"]),
+  actorId: z.uuid().nullable(),
+  actorName: z.string().nullable().optional(),
+  at: z.iso.datetime(),
+  changes: z.record(
+    z.string(),
+    z.object({ before: z.unknown(), after: z.unknown() }),
+  ),
+});
 // Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history.
-export type AuditEntity = "client" | "venue" | "event";
+export type AuditEntity =
+  | "client"
+  | "venue"
+  | "event"
+  | "user"
+  | "setting"
+  | "list_value";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

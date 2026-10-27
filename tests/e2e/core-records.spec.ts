@@ -1,8 +1,9 @@
 import { test, expect } from "./auth-fixture";
-import { juniper, mockRecordsApi } from "./mock-api";
+import { juniper } from "./fixtures";
+import { seedRecords } from "./database";
 
 test("client create, edit, archive and restore", async ({ page }) => {
-  await mockRecordsApi(page);
+  await seedRecords();
   await page.goto("/#/clients");
   await page.getByRole("button", { name: "New Client", exact: true }).click();
   const dialog = page.getByRole("dialog");
@@ -47,7 +48,7 @@ test("client create, edit, archive and restore", async ({ page }) => {
 test("event created at a venue picks up its address and areas, then edits", async ({
   page,
 }) => {
-  await mockRecordsApi(page, { clients: [juniper()] });
+  await seedRecords({ clients: [juniper()] });
   await page.goto("/#/venues");
   await page.getByRole("button", { name: "New Venue", exact: true }).click();
   let dialog = page.getByRole("dialog");
@@ -76,9 +77,7 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await dialog
     .getByLabel(/^Client \*/)
     .selectOption({ label: "Juniper & Co." });
-  await dialog
-    .getByLabel(/^Venue/)
-    .selectOption({ label: "The Glasshouse" });
+  await dialog.getByLabel(/^Venue/).selectOption({ label: "The Glasshouse" });
   await dialog.getByRole("button", { name: "Save event" }).click();
   await expect(
     page.getByRole("heading", { name: "Fall gala", level: 1 }),

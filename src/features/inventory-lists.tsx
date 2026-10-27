@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, ClipboardCheck } from "lucide-react";
@@ -8,7 +9,6 @@ import {
   barSubcategories,
   barTierLabels,
   barTierSchema,
-  ingredientCategories,
   itemKindSchema,
   type InventoryItem,
   type ItemKind,
@@ -17,6 +17,7 @@ import {
 import { unitLabel } from "../../shared/units";
 import { inventoryApi, sectionsApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -27,6 +28,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "./clients";
 import { ItemForm } from "./inventory-item-form";
+import { useListLabels } from "./list-fields";
 import {
   barTierLabel,
   centsLabel,
@@ -37,6 +39,12 @@ import {
   variantLabel,
 } from "./inventory-labels";
 import "./inventory.css";
+
+// Unit cost in a CSV file: dollars without formatting, blank when unknown.
+const costCsv = (item: InventoryItem) => {
+  const cents = item.consumable?.unitCostCents;
+  return cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
+};
 
 function SectionFilter({
   value,
@@ -73,20 +81,22 @@ export function InventoryList() {
   const [sectionId, setSectionId] = useState("");
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  const items = useResource(
-    () =>
-      inventoryApi.list({
-        archived,
-        kind: kind || undefined,
-        sectionId: sectionId || undefined,
-      }),
-    [archived, kind, sectionId],
+  // Search and filters run on the server across every item (FLOW-179/180).
+  const term = useDebounced(search.trim());
+  const items = usePagedList(
+    (cursor) =>
+      inventoryApi.list(
+        {
+          archived,
+          kind: kind || undefined,
+          sectionId: sectionId || undefined,
+          search: term || undefined,
+        },
+        cursor,
+      ),
+    [archived, kind, sectionId, term],
   );
-  const data = (items.data ?? []).filter((item) =>
-    `${item.code} ${item.name} ${item.group}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+  const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item" },
     {
@@ -130,19 +140,25 @@ export function InventoryList() {
         <Button variant="outline" asChild>
           <Link to="/inventory/bar">Bar</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">Counts</Link>
-        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts">Counts</Link>
+          </Button>
+        </Allowed>
         <Button variant="outline" asChild>
           <Link to="/inventory/low-stock">Low stock</Link>
         </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/sections">Sections</Link>
-        </Button>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Item
-        </Button>
+        <Allowed action="inventory.sections">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/sections">Sections</Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Item
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -171,19 +187,26 @@ export function InventoryList() {
           />
           Show archived
         </label>
-        <span className="result-count">{data.length} items</span>
+        <span className="result-count">
+          {data.length}
+          {items.hasMore ? "+" : ""} items
+        </span>
       </FilterBar>
       {items.error ? (
         <LoadError message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          onRow={(item) => navigate(`/inventory/${item.id}`)}
-          label="items"
-        />
+        <>
+          <DataTable
+            data={data}
+            columns={columns}
+            onRow={(item) => navigate(`/inventory/${item.id}`)}
+            label="items"
+            exportName="inventory"
+          />
+          <LoadMore list={items} label="Load more items" />
+        </>
       )}
       {create && (
         <ItemForm
@@ -204,26 +227,31 @@ export function IngredientList() {
   const [sectionId, setSectionId] = useState("");
   const [belowPar, setBelowPar] = useState(false);
   const [create, setCreate] = useState(false);
-  const items = useResource(
-    () =>
-      inventoryApi.list({
-        kind: "consumable",
-        subtype: "ingredient",
-        category: category || undefined,
-        sectionId: sectionId || undefined,
-        belowPar,
-      }),
-    [category, sectionId, belowPar],
+  const term = useDebounced(search.trim());
+  const vendorTerm = useDebounced(vendor.trim());
+  const items = usePagedList(
+    (cursor) =>
+      inventoryApi.list(
+        {
+          kind: "consumable",
+          subtype: "ingredient",
+          category: category || undefined,
+          sectionId: sectionId || undefined,
+          belowPar,
+          search: term || undefined,
+          vendor: vendorTerm || undefined,
+        },
+        cursor,
+      ),
+    [category, sectionId, belowPar, term, vendorTerm],
   );
-  const data = (items.data ?? []).filter(
-    (item) =>
-      `${item.code} ${item.name}`
-        .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (item.consumable?.preferredVendor ?? "")
-        .toLowerCase()
-        .includes(vendor.toLowerCase()),
-  );
+  // Business settings' categories (FLOW-45), archived ones included so old items
+  // can still be found.
+  const listed = useListLabels("ingredient_category");
+  const categories = [
+    ...new Set([...listed, ...(items.data ?? []).map((item) => item.category)]),
+  ].filter(Boolean);
+  const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Ingredient" },
     { accessorKey: "category", header: "Category" },
@@ -247,6 +275,7 @@ export function IngredientList() {
         item.consumable?.costHidden
           ? "Hidden"
           : centsLabel(item.consumable?.unitCostCents ?? null),
+      meta: { fieldGroup: "internal_cost", csv: costCsv },
     },
     {
       id: "vendor",
@@ -283,10 +312,12 @@ export function IngredientList() {
         subtitle="What the kitchen buys, how it's used in recipes, and where it's kept."
         eyebrow="KITCHEN"
       >
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Ingredient
-        </Button>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Ingredient
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -300,7 +331,7 @@ export function IngredientList() {
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">All categories</option>
-          {ingredientCategories.map((option) => (
+          {categories.map((option) => (
             <option key={option}>{option}</option>
           ))}
         </select>
@@ -324,19 +355,26 @@ export function IngredientList() {
           />
           Below par only
         </label>
-        <span className="result-count">{data.length} ingredients</span>
+        <span className="result-count">
+          {data.length}
+          {items.hasMore ? "+" : ""} ingredients
+        </span>
       </FilterBar>
       {items.error ? (
         <LoadError message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          onRow={(item) => navigate(`/inventory/${item.id}`)}
-          label="ingredients"
-        />
+        <>
+          <DataTable
+            data={data}
+            columns={columns}
+            onRow={(item) => navigate(`/inventory/${item.id}`)}
+            label="ingredients"
+            exportName="ingredients"
+          />
+          <LoadMore list={items} label="Load more ingredients" />
+        </>
       )}
       {create && (
         <ItemForm
@@ -360,27 +398,26 @@ export function BarList() {
   const [distributor, setDistributor] = useState("");
   const [belowPar, setBelowPar] = useState(false);
   const [create, setCreate] = useState(false);
-  const items = useResource(
-    () =>
-      inventoryApi.list({
-        kind: "consumable",
-        subtype: "bar",
-        category: category || undefined,
-        subcategory: subcategory || undefined,
-        tier: tier || undefined,
-        belowPar,
-      }),
-    [category, subcategory, tier, belowPar],
+  const term = useDebounced(search.trim());
+  const distributorTerm = useDebounced(distributor.trim());
+  const items = usePagedList(
+    (cursor) =>
+      inventoryApi.list(
+        {
+          kind: "consumable",
+          subtype: "bar",
+          category: category || undefined,
+          subcategory: subcategory || undefined,
+          tier: tier || undefined,
+          belowPar,
+          search: term || undefined,
+          vendor: distributorTerm || undefined,
+        },
+        cursor,
+      ),
+    [category, subcategory, tier, belowPar, term, distributorTerm],
   );
-  const data = (items.data ?? []).filter(
-    (item) =>
-      `${item.code} ${item.name} ${item.bar?.brand ?? ""}`
-        .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (item.consumable?.preferredVendor ?? "")
-        .toLowerCase()
-        .includes(distributor.toLowerCase()),
-  );
+  const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item" },
     {
@@ -429,6 +466,7 @@ export function BarList() {
         item.consumable?.costHidden
           ? "Hidden"
           : centsLabel(item.consumable?.unitCostCents ?? null),
+      meta: { fieldGroup: "internal_cost", csv: costCsv },
     },
     {
       id: "onHand",
@@ -455,16 +493,20 @@ export function BarList() {
         subtitle="Beer, wine and liquor: what's in stock, what's low, and who supplies it."
         eyebrow="BAR"
       >
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">
-            <ClipboardCheck size={16} />
-            Count
-          </Link>
-        </Button>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Bar Item
-        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts">
+              <ClipboardCheck size={16} />
+              Count
+            </Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            New Bar Item
+          </Button>
+        </Allowed>
       </PageHeader>
       <FilterBar>
         <SearchInput
@@ -535,19 +577,26 @@ export function BarList() {
           />
           Below par only
         </label>
-        <span className="result-count">{data.length} bar items</span>
+        <span className="result-count">
+          {data.length}
+          {items.hasMore ? "+" : ""} bar items
+        </span>
       </FilterBar>
       {items.error ? (
         <LoadError message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          onRow={(item) => navigate(`/inventory/${item.id}`)}
-          label="bar items"
-        />
+        <>
+          <DataTable
+            data={data}
+            columns={columns}
+            onRow={(item) => navigate(`/inventory/${item.id}`)}
+            label="bar items"
+            exportName="bar"
+          />
+          <LoadMore list={items} label="Load more bar items" />
+        </>
       )}
       {create && (
         <ItemForm

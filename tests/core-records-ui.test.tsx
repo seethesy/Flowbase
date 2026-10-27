@@ -1,3 +1,4 @@
+import { TestAuth } from "./auth-provider";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -32,23 +33,37 @@ const client = (overrides: Partial<Client> = {}): Client => ({
   updatedAt: now,
   ...overrides,
 });
-type Handler = (init?: RequestInit) => Response | Promise<Response>;
-// Routes fetch calls by "METHOD /path"; anything unexpected fails the test.
+type Handler = (
+  init?: RequestInit,
+  url?: URL,
+) => Response | Promise<Response>;
+// Routes fetch calls by "METHOD /path?query", or by "METHOD /path" for any query
+// (the handler gets the URL); anything unexpected fails the test.
 const mockApi = (routes: Record<string, Handler>) =>
   vi.mocked(fetch).mockImplementation(async (input, init) => {
-    const key = `${init?.method ?? "GET"} ${String(input)}`;
-    const handler = routes[key];
-    if (!handler) throw new Error(`Unexpected request ${key}`);
-    return handler(init);
+    const method = init?.method ?? "GET";
+    const url = new URL(String(input), "http://localhost");
+    const handler =
+      routes[`${method} ${String(input)}`] ?? routes[`${method} ${url.pathname}`];
+    if (!handler) throw new Error(`Unexpected request ${method} ${String(input)}`);
+    return handler(init, url);
   });
 const bodyOf = (init?: RequestInit) => JSON.parse(String(init?.body));
 const mount = (node: ReactNode) =>
-  render(<MemoryRouter>{node}</MemoryRouter>);
+  render(
+    <TestAuth>
+      <MemoryRouter>{node}</MemoryRouter>
+    </TestAuth>,
+  );
 
 it("lists clients from the API and hides contact details it isn't given", async () => {
+  const searches: string[] = [];
   mockApi({
-    "GET /api/clients": () =>
-      Response.json([
+    "GET /api/clients": (_init, url) => {
+      // The search runs on the server (FLOW-179); stand in for it here.
+      const search = url?.searchParams.get("search") ?? "";
+      searches.push(search);
+      const clients = [
         client(),
         client({
           id: "c0000000-0000-4000-8000-000000000002",
@@ -64,7 +79,13 @@ it("lists clients from the API and hides contact details it isn't given", async 
             },
           ],
         }),
-      ]),
+      ];
+      return Response.json(
+        clients.filter((row) =>
+          JSON.stringify(row).toLowerCase().includes(search.toLowerCase()),
+        ),
+      );
+    },
   });
   const user = userEvent.setup();
   mount(<ClientList />);
@@ -74,8 +95,13 @@ it("lists clients from the API and hides contact details it isn't given", async 
     screen.getByRole("textbox", { name: "Search clients or contacts…" }),
     "Olivia",
   );
-  expect(screen.queryByText("The Glasshouse")).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByText("The Glasshouse")).not.toBeInTheDocument(),
+  );
   expect(screen.getByText("Juniper & Co.")).toBeInTheDocument();
+  // One request for the settled search, not one per keystroke.
+  expect(searches.at(-1)).toBe("Olivia");
+  expect(searches.length).toBeLessThan(4);
 });
 
 it("shows the API's message and reference when the list can't load", async () => {
@@ -235,7 +261,9 @@ it("offers every status when creating an event, and none when editing it", async
     },
   });
   const user = userEvent.setup();
-  const { unmount } = mount(<EventForm onClose={() => {}} onSaved={() => {}} />);
+  const { unmount } = mount(
+    <EventForm onClose={() => {}} onSaved={() => {}} />,
+  );
   const dialog = screen.getByRole("dialog");
   const status = within(dialog).getByLabelText("Status");
   expect(status).toHaveValue("inquiry");
@@ -260,7 +288,10 @@ it("offers every status when creating an event, and none when editing it", async
   await user.type(within(dialog).getByLabelText("Date *"), "2026-11-14");
   await user.type(within(dialog).getByLabelText("Start time *"), "18:00");
   await within(dialog).findByRole("option", { name: "Juniper & Co." });
-  await user.selectOptions(within(dialog).getByLabelText("Client *"), client().id);
+  await user.selectOptions(
+    within(dialog).getByLabelText("Client *"),
+    client().id,
+  );
   await user.click(within(dialog).getByRole("button", { name: "Save event" }));
   await waitFor(() => expect(sent).toMatchObject({ status: "negotiation" }));
   unmount();
@@ -307,7 +338,11 @@ it("offers every status when creating an event, and none when editing it", async
 });
 
 it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)", async () => {
-  const flowEvent = (n: number, title: string, status: FlowEvent["status"]): FlowEvent => ({
+  const flowEvent = (
+    n: number,
+    title: string,
+    status: FlowEvent["status"],
+  ): FlowEvent => ({
     id: `6b1f4c3e-2d5a-4e7b-8c9d-0a1b2c3d4e5${n}`,
     title,
     date: "2026-11-14",
@@ -337,13 +372,21 @@ it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)
     createdAt: now,
     updatedAt: now,
   });
+  const all = [
+    flowEvent(1, "Fall gala", "negotiation"),
+    flowEvent(2, "Winter ball", "closing"),
+    flowEvent(3, "Spring brunch", "closed"),
+  ];
+  const requested: URL[] = [];
+  // Filters by ?status= the way the API does (FLOW-179).
   mockApi({
-    "GET /api/events": () =>
-      Response.json([
-        flowEvent(1, "Fall gala", "negotiation"),
-        flowEvent(2, "Winter ball", "closing"),
-        flowEvent(3, "Spring brunch", "closed"),
-      ]),
+    "GET /api/events": (_init, url) => {
+      requested.push(url!);
+      const statuses = url!.searchParams.get("status")?.split(",");
+      return Response.json(
+        statuses ? all.filter((event) => statuses.includes(event.status)) : all,
+      );
+    },
   });
   const user = userEvent.setup();
   mount(<EventList />);
@@ -359,7 +402,18 @@ it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)
       .filter((option) => option.textContent === "Pending"),
   ).toHaveLength(1);
   await user.selectOptions(filter, "Pending");
+  await waitFor(() =>
+    expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument(),
+  );
   expect(within(table).getByText("Fall gala")).toBeInTheDocument();
   expect(within(table).getByText("Winter ball")).toBeInTheDocument();
-  expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument();
+  // "Pending" asks the API for both statuses it stands for.
+  expect(requested.at(-1)?.searchParams.get("status")).toBe("negotiation,closing");
+  // The list opens on the default window: the past 7 days to the next 30.
+  const first = requested[0].searchParams;
+  expect(first.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(first.get("to")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(
+    (Date.parse(first.get("to")!) - Date.parse(first.get("from")!)) / 86_400_000,
+  ).toBe(37);
 });

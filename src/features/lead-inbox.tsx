@@ -1,9 +1,9 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRightLeft } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
-  defaultLeadSources,
   leadChannelLabels,
   leadDuplicateReasonLabels,
   leadChannelSchema,
@@ -13,8 +13,9 @@ import {
   type LeadDuplicate,
   type LeadSummary,
 } from "../../shared/leads";
+import type { Page } from "../services/core";
 import { leadsApi } from "../services/leads";
-import { useResource } from "../app/useResource";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -27,6 +28,7 @@ import {
   Select,
 } from "../components/shared";
 import { LoadError } from "./clients";
+import { useListLabels } from "./list-fields";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
 import {
@@ -52,7 +54,7 @@ export const summaryLine = (lead: LeadSummary) =>
 // Cross-owner ones (two different salespeople) only reach Admin and the Sales
 // Manager.
 function DuplicateQueue() {
-  const duplicates = useResource(() => leadsApi.duplicates(), []);
+  const duplicates = usePagedList((cursor) => leadsApi.duplicates(cursor), []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const act = async (run: () => Promise<unknown>) => {
@@ -90,7 +92,9 @@ function DuplicateQueue() {
         <p>
           {other ? (
             <>
-              <Link to={`/leads/${other.id}`}>{other.name || "Unnamed lead"}</Link>{" "}
+              <Link to={`/leads/${other.id}`}>
+                {other.name || "Unnamed lead"}
+              </Link>{" "}
               <small>{summaryLine(other)}</small>
             </>
           ) : (
@@ -107,31 +111,41 @@ function DuplicateQueue() {
         <div className="page-actions">
           {other && (
             <>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  void act(() => leadsApi.merge(duplicate.id, duplicate.lead.id))
-                }
-              >
-                Keep {duplicate.lead.name || "first"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => void act(() => leadsApi.merge(duplicate.id, other.id))}
-              >
-                Keep {other.name || "second"}
-              </Button>
+              <Allowed action="leads.merge">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() =>
+                      leadsApi.merge(duplicate.id, duplicate.lead.id),
+                    )
+                  }
+                >
+                  Keep {duplicate.lead.name || "first"}
+                </Button>
+              </Allowed>
+              <Allowed action="leads.merge">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(() => leadsApi.merge(duplicate.id, other.id))
+                  }
+                >
+                  Keep {other.name || "second"}
+                </Button>
+              </Allowed>
             </>
           )}
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
-          >
-            Not a duplicate
-          </Button>
+          <Allowed action="leads.merge">
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
+            >
+              Not a duplicate
+            </Button>
+          </Allowed>
         </div>
       </li>
     );
@@ -146,6 +160,7 @@ function DuplicateQueue() {
       <ul className="duplicate-list" aria-label="Possible duplicates">
         {duplicates.data.map(pair)}
       </ul>
+      <LoadMore list={duplicates} label="Load more duplicates" />
     </>
   );
 }
@@ -161,25 +176,33 @@ export function LeadInbox() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [converting, setConverting] = useState<Lead | null>(null);
-  const leads = useResource(
-    async (): Promise<Lead[]> =>
+  // The API searches name, email and phone across every lead (FLOW-179).
+  const term = useDebounced(search.trim());
+  const leads = usePagedList(
+    async (cursor): Promise<Page<Lead>> =>
       view === "Duplicates"
-        ? []
-        : leadsApi.list({
-        triage: view === "Triage",
-        needsReview: view === "Needs review",
-        status: valueOf(leadStatusLabels, status),
-        source: source || undefined,
-        channel: valueOf(leadChannelLabels, channel),
-      }),
-    [view, status, source, channel],
+        ? { rows: [], next: null }
+        : leadsApi.list(
+            {
+              triage: view === "Triage",
+              needsReview: view === "Needs review",
+              status: valueOf(leadStatusLabels, status),
+              source: source || undefined,
+              channel: valueOf(leadChannelLabels, channel),
+              search: term || undefined,
+            },
+            cursor,
+          ),
+    [view, status, source, channel, term],
   );
-  const term = search.toLowerCase();
-  const data = (leads.data ?? []).filter((lead) =>
-    [lead.name, lead.email, lead.phone].join(" ").toLowerCase().includes(term),
-  );
+  const data = leads.data ?? [];
+  // Lead sources from business settings (FLOW-45) plus any a lead arrived with.
+  const listedSources = useListLabels("lead_source");
   const sources = [
-    ...new Set([...defaultLeadSources, ...(leads.data ?? []).map((l) => l.source)]),
+    ...new Set([
+      ...listedSources,
+      ...(leads.data ?? []).map((l) => l.source),
+    ]),
   ];
   const toggle = (id: string) =>
     setSelected((current) =>
@@ -193,12 +216,14 @@ export function LeadInbox() {
       header: "Select",
       enableSorting: false,
       cell: (c) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${leadTitle(c.row.original)}`}
-          checked={selected.includes(c.row.original.id)}
-          onChange={() => toggle(c.row.original.id)}
-        />
+        <Allowed action="leads.assign">
+          <input
+            type="checkbox"
+            aria-label={`Select ${leadTitle(c.row.original)}`}
+            checked={selected.includes(c.row.original.id)}
+            onChange={() => toggle(c.row.original.id)}
+          />
+        </Allowed>
       ),
     },
     {
@@ -206,6 +231,7 @@ export function LeadInbox() {
       header: "Received",
       accessorFn: (lead) => lead.receivedAt,
       cell: (c) => businessDate(c.row.original.receivedAt),
+      meta: { csv: (lead) => businessDate(lead.receivedAt) },
     },
     {
       id: "lead",
@@ -255,14 +281,16 @@ export function LeadInbox() {
       enableSorting: false,
       cell: (c) =>
         c.row.original.status === "qualified" ? (
-          <Button
-            variant="outline"
-            aria-label={`Convert ${leadTitle(c.row.original)}`}
-            onClick={() => setConverting(c.row.original)}
-          >
-            <ArrowRightLeft size={14} />
-            Convert
-          </Button>
+          <Allowed action="leads.convert">
+            <Button
+              variant="outline"
+              aria-label={`Convert ${leadTitle(c.row.original)}`}
+              onClick={() => setConverting(c.row.original)}
+            >
+              <ArrowRightLeft size={14} />
+              Convert
+            </Button>
+          </Allowed>
         ) : null,
     },
   ];
@@ -300,7 +328,9 @@ export function LeadInbox() {
                 label="Statuses"
                 value={status}
                 onChange={setStatus}
-                options={leadStatusSchema.options.map((s) => leadStatusLabels[s])}
+                options={leadStatusSchema.options.map(
+                  (s) => leadStatusLabels[s],
+                )}
               />
               <Select
                 label="Sources"
@@ -312,21 +342,28 @@ export function LeadInbox() {
                 label="Channels"
                 value={channel}
                 onChange={setChannel}
-                options={leadChannelSchema.options.map((c) => leadChannelLabels[c])}
+                options={leadChannelSchema.options.map(
+                  (c) => leadChannelLabels[c],
+                )}
               />
-              <span className="result-count">{data.length} leads</span>
+              <span className="result-count">
+                {data.length}
+                {leads.hasMore ? "+" : ""} leads
+              </span>
             </FilterBar>
             {selected.length > 0 && (
               <Section title={`${selected.length} selected`}>
-                <AssignForm
-                  label="Assign selected to (user ID)"
-                  button="Assign selected"
-                  onAssign={async (salespersonId) => {
-                    await leadsApi.bulkAssign(selected, salespersonId);
-                    setSelected([]);
-                    leads.reload();
-                  }}
-                />
+                <Allowed action="leads.assign">
+                  <AssignForm
+                    label="Assign selected to (user ID)"
+                    button="Assign selected"
+                    onAssign={async (salespersonId) => {
+                      await leadsApi.bulkAssign(selected, salespersonId);
+                      setSelected([]);
+                      leads.reload();
+                    }}
+                  />
+                </Allowed>
               </Section>
             )}
             {leads.error ? (
@@ -334,7 +371,15 @@ export function LeadInbox() {
             ) : leads.loading && !leads.data ? (
               <LoadingSkeleton />
             ) : (
-              <DataTable data={data} columns={columns} label="leads" />
+              <>
+                <DataTable
+                  data={data}
+                  columns={columns}
+                  label="leads"
+                  exportName="leads"
+                />
+                <LoadMore list={leads} label="Load more leads" />
+              </>
             )}
           </>
         )}

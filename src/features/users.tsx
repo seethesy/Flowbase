@@ -1,4 +1,6 @@
+import { usePermissions } from "../app/permissions";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   inviteInputSchema,
   userSchema,
@@ -6,7 +8,6 @@ import {
   type UserAction,
 } from "../../shared/users";
 import { roleSchema } from "../../shared/access";
-import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
 import { request } from "../services/core";
 import { Button, PageHeader, Section } from "../components/shared";
@@ -30,8 +31,8 @@ const labels: Record<UserAction, string> = {
 };
 
 export function UserManagement() {
-  const auth = useAuth();
-  if (auth?.user.role !== "admin")
+  const permissions = usePermissions();
+  if (!permissions.can("users.manage"))
     return <p role="alert">Only Admin can manage users.</p>;
   return <UserList />;
 }
@@ -149,7 +150,13 @@ function UserList() {
         {resource.data?.map((user) => (
           <article className="user-access-row" key={user.id}>
             <div>
-              <strong>{user.name}</strong>
+              <strong>
+                {user.status === "revoked" ? (
+                  user.name
+                ) : (
+                  <Link to={`/staff/${user.id}`}>{user.name}</Link>
+                )}
+              </strong>
               <p>
                 {user.email} · {roleLabel(user.role)} ·{" "}
                 {user.employmentType === "full_time"

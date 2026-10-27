@@ -51,3 +51,59 @@ Source: [FLOW-1](https://sybertechlabs.atlassian.net/browse/FLOW-1).
 ## Terms
 
 Use the business's terms: **Client** (prototype: Customer), **Proposal** (prototype: Contract pipeline), **Vendor** (prototype: Supplier). Roles: **Admin**, **Technical**, Sales Manager, Salesperson, Kitchen Lead, Kitchen Staff, Staff; full-time/part-time is a separate field. "FT+" = any full-time user plus Admin, Technical and Sales Manager.
+
+## ADR-07 enforcement (FLOW-38, FLOW-39)
+
+`shared/policy.ts` owns the role/action map, employment-dependent stock permissions,
+record scopes and event status override rule. `worker/policy.ts` re-exports it;
+`src/app/permissions.tsx` provides `usePermissions` and `Allowed` to hide actions.
+Role and employment type remain independent stored fields. FT+ means any full-time
+user plus Admin, Technical and Sales Manager.
+
+Routes own action checks: every concrete staff API endpoint attaches
+`requirePermission(action)` after sign-in. Record modules own row checks, including
+assignment predicates in list/search queries and 404 for individual inaccessible
+records. Stock functions check each item's count/movement permission; attachment
+functions check the parent record's visibility and write permission. Time reports
+retain their own-user scope except for Admin and Sales Manager. The route audit in
+`tests/worker/policy.test.ts` inspects actual Hono handlers and fails for an endpoint
+without policy middleware, even beneath a resource that already requires sign-in.
+The audit exempts health, public Auth configuration, demo fixtures, environment-gated
+dev routes and service-authenticated ingestion. Demo and dev routes retain their
+existing sign-in requirement. Wildcard middleware and the API 404 fallback are not
+record endpoints.
+
+Admin has every action. Technical sees all records and can record bookings,
+addendums and payments, but has no approval or user-management permissions. Admin
+approves rental Master changes, finalized proposals and order lists; Sales Manager
+approves BEOs and applies their own rental edits directly. These actions are policy
+capabilities; their feature tickets add the corresponding APIs. Existing stock,
+lead assignment and manual event status rules are retained. Salespeople see only
+their assigned leads, clients and events. Cross-owner lead duplicates no longer
+expose the `assignedElsewhere` signal; the compatibility field stays false.
+
+`shared/visibility.ts` defines each field group's rule once:
+
+| Group | Visibility |
+| --- | --- |
+| `client_contact`, `venue_contact` | FT+ |
+| `lead_contact` | Anyone with lead access, after record scoping |
+| `internal_cost` | FT+, Kitchen Lead and Kitchen Staff |
+| `financials` | Admin, Technical, Sales Manager and the assigned Salesperson |
+| `staff_contact` | FT+ and the staff member themselves (`subjectUserId`) |
+
+Staff notes (`staff_member.notes`) show to FT+ only (FLOW-40).
+
+`serializeFields` projects existing API shapes, with null for hidden values as
+required by their schemas. `redactFieldHistory` projects stored before/after values
+through those same field paths and drops changes with identical visible values.
+Search includes sensitive columns in matching only when `canSeeField` allows them.
+Raw lead payloads retain their FT+ restriction because they contain unclassified
+source data. Record modules do not inspect roles or call `isFtPlus` for visibility.
+
+Document builders use `serializeFields` and `serializeFieldGroups` with a view
+context, after record authorization. `client_recipe` suppresses internal costs;
+`beo` suppresses costs, financial groups and catalog prices for every role,
+including Admin. Financials require the record's assigned salesperson ID; omitting
+it never grants a salesperson access. BEO and recipe-book feature tickets consume
+these projections when their document modules are implemented.

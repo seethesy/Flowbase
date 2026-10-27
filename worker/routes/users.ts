@@ -1,11 +1,11 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import {
   authConfigSchema,
   inviteInputSchema,
   userActionSchema,
 } from "../../shared/users";
+import { id as uuid } from "../../shared/schema-primitives";
 import { requirePermission } from "../auth";
 import {
   ApiError,
@@ -59,7 +59,7 @@ export function authRoutes(options: { withDb?: RunWithDb }) {
       );
     return c.json(config.data);
   });
-  routes.get("/me", async (c) => {
+  routes.get("/me", requirePermission("auth.read"), async (c) => {
     const user = await record(c, async (db, actor) => {
       const [row] = await db
         .select()
@@ -78,21 +78,18 @@ export function authRoutes(options: { withDb?: RunWithDb }) {
 export function userRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  routes.use("*", requirePermission("users.manage"));
-  routes.get("/", async (c) =>
+  routes.get("/", requirePermission("users.manage"), async (c) =>
     c.json(await record(c, (db) => listUsers(db))),
   );
-  routes.post("/", async (c) => {
+  routes.post("/", requirePermission("users.manage"), async (c) => {
     const input = await parseBody(c, inviteInputSchema);
     const send = mailer(c.env);
-    const user = await record(c, (db, actor) =>
-      inviteUser(db, actor, input),
-    );
+    const user = await record(c, (db, actor) => inviteUser(db, actor, input));
     await send(user.email);
     return c.json(user, 201);
   });
-  routes.post("/:id/:action", async (c) => {
-    const id = z.uuid().safeParse(c.req.param("id"));
+  routes.post("/:id/:action", requirePermission("users.manage"), async (c) => {
+    const id = uuid.safeParse(c.req.param("id"));
     const action = userActionSchema.safeParse(c.req.param("action"));
     if (!id.success || !action.success)
       throw new ApiError(400, "INVALID_REQUEST", "Invalid user action.");

@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import {
   leadAssignSchema,
   leadBulkAssignSchema,
@@ -7,11 +6,14 @@ import {
   leadMergeSchema,
   leadStatusChangeSchema,
 } from "../../shared/leads";
+import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
+  pageRequest,
   parseBody,
   recordRunner,
+  sendPage,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -31,8 +33,6 @@ import {
   mergeLeadDuplicate,
 } from "../records/lead-duplicates";
 
-const uuid = z.string().uuid();
-
 // Leads API (FLOW-100/111/112), mounted at /api/leads. Every route needs a signed-in
 // user; leads the user can't see answer 404. There is no create route here: leads
 // arrive through createLead (collector, webhook, manual entry, import).
@@ -51,8 +51,9 @@ export function leadRoutes(options: {
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
-  routes.get("/", async (c) =>
-    c.json(
+  routes.get("/", requirePermission("leads.read"), async (c) =>
+    sendPage(
+      c,
       await record(c, (db, actor) =>
         listLeads(db, actor, {
           status: query(c, "status"),
@@ -62,7 +63,7 @@ export function leadRoutes(options: {
           needsReview: flag(c, "needsReview"),
           triage: flag(c, "triage"),
           search: query(c, "search"),
-        }),
+        }, pageRequest(c)),
       ),
     ),
   );
@@ -71,18 +72,13 @@ export function leadRoutes(options: {
     const input = await parseBody(c, leadBulkAssignSchema);
     return c.json(
       await record(c, (db, actor) =>
-        bulkAssignLeads(
-          db,
-          actor,
-          input.leadIds,
-          input.assignedSalespersonId,
-        ),
+        bulkAssignLeads(db, actor, input.leadIds, input.assignedSalespersonId),
       ),
     );
   });
   // Lead dashboard (FLOW-113): ?from=&to= are New York dates; the last 30 days by
   // default.
-  routes.get("/dashboard", async (c) =>
+  routes.get("/dashboard", requirePermission("leads.read"), async (c) =>
     c.json(
       await record(c, (db, actor) =>
         leadDashboard(db, actor, {
@@ -93,10 +89,11 @@ export function leadRoutes(options: {
     ),
   );
   // Possible duplicates (FLOW-110): the queue, merge into the kept lead, dismiss.
-  routes.get("/duplicates", async (c) =>
-    c.json(
+  routes.get("/duplicates", requirePermission("leads.read"), async (c) =>
+    sendPage(
+      c,
       await record(c, (db, actor) =>
-        listLeadDuplicates(db, actor),
+        listLeadDuplicates(db, actor, pageRequest(c)),
       ),
     ),
   );
@@ -127,17 +124,13 @@ export function leadRoutes(options: {
     requirePermission("leads.merge"),
     async (c) => {
       const id = duplicateParam(c);
-      await record(c, (db, actor) =>
-        dismissLeadDuplicate(db, actor, id),
-      );
+      await record(c, (db, actor) => dismissLeadDuplicate(db, actor, id));
       return c.body(null, 204);
     },
   );
-  routes.get("/:id", async (c) => {
+  routes.get("/:id", requirePermission("leads.read"), async (c) => {
     const id = param(c);
-    return c.json(
-      await record(c, (db, actor) => getLead(db, actor, id)),
-    );
+    return c.json(await record(c, (db, actor) => getLead(db, actor, id)));
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
     const id = param(c);
@@ -152,18 +145,14 @@ export function leadRoutes(options: {
     const id = param(c);
     const input = await parseBody(c, leadStatusChangeSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        changeLeadStatus(db, actor, id, input),
-      ),
+      await record(c, (db, actor) => changeLeadStatus(db, actor, id, input)),
     );
   });
   routes.post("/:id/convert", requirePermission("leads.convert"), async (c) => {
     const id = param(c);
     const input = await parseBody(c, leadConvertSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        convertLead(db, actor, id, input),
-      ),
+      await record(c, (db, actor) => convertLead(db, actor, id, input)),
     );
   });
   return routes;

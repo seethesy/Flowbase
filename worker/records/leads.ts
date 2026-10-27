@@ -1,3 +1,4 @@
+import { serializeFields } from "../../shared/visibility";
 import {
   and,
   desc,
@@ -10,7 +11,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { z } from "zod";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import { eventInputSchema } from "../../shared/core-records";
 import {
   isOpenLeadStatus,
@@ -45,6 +46,7 @@ import {
   recordLeadDuplicates,
   sourceLinksFor,
 } from "./lead-duplicates";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { phoneDigits } from "./sync";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion). Admin and
@@ -66,7 +68,7 @@ function requireLeadAccess(actor: Actor): Scope {
 }
 
 function toLead(row: LeadRow, actor: Actor, withRawPayload = false): Lead {
-  return {
+  return serializeFields<Lead>(actor, "lead", {
     id: row.id,
     receivedAt: row.receivedAt.toISOString(),
     channel: row.channel,
@@ -89,7 +91,9 @@ function toLead(row: LeadRow, actor: Actor, withRawPayload = false): Lead {
     firstResponseSeconds: row.firstRespondedAt
       ? Math.max(
           0,
-          Math.round((row.firstRespondedAt.getTime() - row.receivedAt.getTime()) / 1000),
+          Math.round(
+            (row.firstRespondedAt.getTime() - row.receivedAt.getTime()) / 1000,
+          ),
         )
       : null,
     assignedSalespersonId: row.assignedSalespersonId,
@@ -98,13 +102,13 @@ function toLead(row: LeadRow, actor: Actor, withRawPayload = false): Lead {
     needsReview: leadNeedsReview(row),
     // Never in a list; on the detail only for FT+ users (F-09-01).
     ...(withRawPayload && {
-      rawPayload: isFtPlus(actor) ? (row.rawPayload ?? null) : null,
+      rawPayload: row.rawPayload ?? null,
     }),
     mergedIntoLeadId: row.mergedIntoLeadId,
     archivedAt: row.archivedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-  };
+  });
 }
 
 type ParsedIntake = ReturnType<typeof leadIntakeSchema.parse>;
@@ -113,7 +117,8 @@ type ParsedIntake = ReturnType<typeof leadIntakeSchema.parse>;
 // updates): details it now carries replace the stored ones; the lead's status,
 // assignment and received time stay.
 function updatedFromSource(lead: ParsedIntake) {
-  const given = <T>(value: T) => (value === "" || value === null ? undefined : value);
+  const given = <T>(value: T) =>
+    value === "" || value === null ? undefined : value;
   return {
     sourceLeadUrl: given(lead.sourceLeadUrl),
     ...(lead.purchased && { purchased: true }),
@@ -149,14 +154,20 @@ export async function createLead(
         .select({ id: leads.id })
         .from(leads)
         .where(
-          and(eq(leads.source, lead.source), eq(leads.sourceLeadId, lead.sourceLeadId)),
+          and(
+            eq(leads.source, lead.source),
+            eq(leads.sourceLeadId, lead.sourceLeadId),
+          ),
         )
         .orderBy(leads.createdAt)
         .limit(1);
       if (existing) {
         await tx
           .update(leads)
-          .set({ ...updatedFromSource(lead), updatedBy: options.createdBy ?? null })
+          .set({
+            ...updatedFromSource(lead),
+            updatedBy: options.createdBy ?? null,
+          })
           .where(eq(leads.id, existing.id));
         await emitDomainEvent(tx, {
           name: "lead.updated",
@@ -221,20 +232,29 @@ export async function listLeads(
   db: DbLike,
   actor: Actor,
   filter: LeadFilter,
-): Promise<Lead[]> {
+  page: PageRequest = {},
+): Promise<Page<Lead>> {
   requireLeadAccess(actor);
+  const none: Page<Lead> = { rows: [], next: null };
   const status = filter.status ? leadStatusSchema.safeParse(filter.status) : undefined;
-  if (status && !status.success) return [];
+  if (status && !status.success) return none;
   const channel = filter.channel
     ? leadChannelSchema.safeParse(filter.channel)
     : undefined;
-  if (channel && !channel.success) return [];
+  if (channel && !channel.success) return none;
   if (
     filter.assigned &&
     filter.assigned !== "unassigned" &&
     !uuidPattern.test(filter.assigned)
   )
-    return [];
+    return none;
+  const paging = keyset<LeadRow>(
+    [
+      { column: leads.receivedAt, type: "timestamp", desc: true, of: (row) => row.receivedAt },
+      { column: leads.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const search = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
@@ -270,11 +290,12 @@ export async function listLeads(
               ilike(leads.phone, search),
             )
           : undefined,
+        paging.where,
       ),
     )
-    .orderBy(desc(leads.receivedAt))
-    .limit(500);
-  return rows.map((row) => toLead(row, actor));
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => kept.map((row) => toLead(row, actor)));
 }
 
 // A lead the actor may see; otherwise 404, never 403.
@@ -283,15 +304,25 @@ export async function findVisibleLead(db: DbLike, actor: Actor, id: string) {
   const [row] = await db
     .select()
     .from(leads)
-    .where(and(eq(leads.id, id), isNull(leads.archivedAt), visibleLeads(actor)));
+    .where(
+      and(eq(leads.id, id), isNull(leads.archivedAt), visibleLeads(actor)),
+    );
   if (!row) throw notFound("Lead");
   return row;
 }
 
 // The detail adds every source link and the possible duplicates the actor may see.
-export async function getLead(db: DbLike, actor: Actor, id: string): Promise<Lead> {
+export async function getLead(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+): Promise<Lead> {
   const row = await findVisibleLead(db, actor, id);
-  const { duplicates, assignedElsewhere } = await leadMatchesFor(db, actor, row);
+  const { duplicates, assignedElsewhere } = await leadMatchesFor(
+    db,
+    actor,
+    row,
+  );
   return {
     ...toLead(row, actor, true),
     sourceLinks: await sourceLinksFor(db, row),
@@ -419,7 +450,11 @@ export async function changeLeadStatus(
 }
 
 const staleLead = () =>
-  new ApiError(409, "STALE_LEAD", "This lead just changed. Reload and try again.");
+  new ApiError(
+    409,
+    "STALE_LEAD",
+    "This lead just changed. Reload and try again.",
+  );
 
 const clip = (value: string, max: number) => value.slice(0, max);
 
@@ -434,7 +469,11 @@ export async function convertLead(
 ): Promise<LeadConversion> {
   const lead = await findVisibleLead(db, actor, id);
   if (lead.status === "converted")
-    throw new ApiError(409, "INVALID_TRANSITION", "This lead was already converted.");
+    throw new ApiError(
+      409,
+      "INVALID_TRANSITION",
+      "This lead was already converted.",
+    );
   if (lead.status !== "qualified")
     throw new ApiError(
       409,
@@ -472,7 +511,12 @@ export async function convertLead(
             },
           ]
         : [];
-      const { visible, hidden } = await checkDuplicates(tx, actor, clients, contacts);
+      const { visible, hidden } = await checkDuplicates(
+        tx,
+        actor,
+        clients,
+        contacts,
+      );
       if (visible.length && !input.client.allowDuplicate)
         throw duplicateClientError(visible);
       clientId = await insertClient(
@@ -495,11 +539,17 @@ export async function convertLead(
         .where(eq(clientContacts.clientId, clientId));
       pocContactId = primary?.id ?? null;
     } else {
-      const client = await findVisibleClient(tx, actor, input.client.clientId).catch(
-        () => {
-          throw new ApiError(400, "INVALID_REQUEST", "Choose a client you can see.");
-        },
-      );
+      const client = await findVisibleClient(
+        tx,
+        actor,
+        input.client.clientId,
+      ).catch(() => {
+        throw new ApiError(
+          400,
+          "INVALID_REQUEST",
+          "Choose a client you can see.",
+        );
+      });
       clientId = client.id;
       clientName = client.name;
       if (hasContact) {
@@ -507,7 +557,10 @@ export async function convertLead(
           .select()
           .from(clientContacts)
           .where(
-            and(eq(clientContacts.clientId, clientId), isNull(clientContacts.archivedAt)),
+            and(
+              eq(clientContacts.clientId, clientId),
+              isNull(clientContacts.archivedAt),
+            ),
           );
         const email = lead.email.toLowerCase();
         const digits = phoneDigits(lead.phone);
@@ -532,7 +585,10 @@ export async function convertLead(
             })
             .returning({ id: clientContacts.id });
           pocContactId = added.id;
-          await emitDomainEvent(tx, { name: "client.updated", entityId: clientId });
+          await emitDomainEvent(tx, {
+            name: "client.updated",
+            entityId: clientId,
+          });
         }
       }
     }

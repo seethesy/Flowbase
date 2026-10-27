@@ -1,7 +1,8 @@
 import { and, avg, desc, eq, gte, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { LeadDashboard, LeadDashboardRow } from "../../shared/leads";
-import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
+import { isLocalDate } from "../../shared/schema-primitives";
+import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
 import { events, leads } from "../db/schema";
 import { ApiError, forbidden } from "../hono";
@@ -14,15 +15,6 @@ import { visibleLeads } from "./leads";
 // everyone's numbers; a salesperson sees only their own leads (visibleLeads).
 // Merged-away leads are archived and not counted twice.
 const DEFAULT_DAYS = 30;
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-const addDays = (date: string, days: number) => {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
-};
-// Checks the pattern first: addDays can't parse anything else.
-const validDate = (value: string) =>
-  datePattern.test(value) && addDays(value, 0) === value;
 
 // Events at Closed (paid and signed) or a later stage count as closed business.
 const isClosed = sql`${events.status} in ('closed', 'preparation', 'finished')`;
@@ -78,14 +70,14 @@ export async function leadDashboard(
   if (scope === "none" || scope === "staffed") throw forbidden();
   const invalid = () => new ApiError(400, "INVALID_REQUEST", "Enter a valid date range.");
   const to = range.to ?? utcToBusinessTime(now).date;
-  if (!validDate(to)) throw invalid();
-  const from = range.from ?? addDays(to, -(DEFAULT_DAYS - 1));
-  if (!validDate(from) || from > to) throw invalid();
+  if (!isLocalDate(to)) throw invalid();
+  const from = range.from ?? addLocalDays(to, -(DEFAULT_DAYS - 1));
+  if (!isLocalDate(from) || from > to) throw invalid();
   const where = and(
     visibleLeads(actor),
     isNull(leads.archivedAt),
     gte(leads.receivedAt, businessTimeToUtc(from, "00:00")),
-    lt(leads.receivedAt, businessTimeToUtc(addDays(to, 1), "00:00")),
+    lt(leads.receivedAt, businessTimeToUtc(addLocalDays(to, 1), "00:00")),
   );
 
   const [budget] = await db

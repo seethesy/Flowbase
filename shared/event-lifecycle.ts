@@ -1,4 +1,3 @@
-import type { Actor } from "./access";
 import { eventStatusSchema, type EventStatus } from "./core-records";
 
 // Event lifecycle (FLOW-56):
@@ -21,10 +20,4 @@ export const isAutomaticTransition = (from: EventStatus, to: EventStatus) =>
   automaticNextStatuses(from).includes(to);
 
 // Manual overrides: Admin on any event, a salesperson on an event assigned to them.
-export const mayOverrideStatus = (
-  actor: Actor,
-  event: { assignedSalespersonId: string | null },
-) =>
-  actor.role === "admin" ||
-  (actor.role === "salesperson" &&
-    event.assignedSalespersonId === actor.userId);
+export { mayOverrideStatus } from "./policy";

@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import {
   costSourceLabels,
@@ -7,7 +8,7 @@ import {
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
 import { inventoryApi } from "../services/core";
-import { useResource } from "../app/useResource";
+import { LoadMore, usePagedList } from "../app/paging";
 import { Button, Section, LoadingSkeleton } from "../components/shared";
 import { LoadError } from "./clients";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
@@ -24,8 +25,10 @@ export function MovementHistory({
   version: number;
   onCorrected: () => void;
 }) {
-  const movements = useResource(
-    () => inventoryApi.movements(item.id),
+  // Newest first, a page at a time (FLOW-179). Corrections are newer than the
+  // movement they correct, so they're loaded before it and its total is right.
+  const movements = usePagedList(
+    (cursor) => inventoryApi.movements(item.id, cursor),
     [item.id, version],
   );
   const [correcting, setCorrecting] = useState<StockMovement | null>(null);
@@ -78,13 +81,15 @@ export function MovementHistory({
                     {!movement.correctsId &&
                       movement.type !== "transfer" &&
                       !item.archivedAt && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => setCorrecting(movement)}
-                          aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
-                        >
-                          Correct
-                        </Button>
+                        <Allowed action="inventory.move" item={item}>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setCorrecting(movement)}
+                            aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
+                          >
+                            Correct
+                          </Button>
+                        </Allowed>
                       )}
                   </td>
                 </tr>
@@ -102,6 +107,7 @@ export function MovementHistory({
           onSaved={onCorrected}
         />
       )}
+      <LoadMore list={movements} label="Show older movements" />
     </Section>
   );
 }
@@ -114,8 +120,8 @@ export function CostHistory({
   item: InventoryItem;
   version: number;
 }) {
-  const history = useResource(
-    () => inventoryApi.costHistory(item.id),
+  const history = usePagedList(
+    (cursor) => inventoryApi.costHistory(item.id, cursor),
     [item.id, version],
   );
   const unit = item.consumable ? unitLabel(item.consumable.purchaseUnit) : "";
@@ -149,6 +155,7 @@ export function CostHistory({
           </tbody>
         </table>
       )}
+      <LoadMore list={history} label="Show older changes" />
     </Section>
   );
 }

@@ -1,13 +1,19 @@
-import { and, asc, eq, ilike, inArray, isNotNull, isNull } from "drizzle-orm";
+import {
+  canSeeField,
+  serializeFields,
+  redactFieldHistory,
+} from "../../shared/visibility";
+import { and, asc, eq, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import type { z } from "zod";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import type { Venue, venueInputSchema } from "../../shared/core-records";
-import { fullView, hideFields, listHistory, writeAudit } from "../audit/log";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { venueAreas, venueContacts, venues } from "../db/schema";
 import { forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { syncChildren } from "./sync";
 
 // Venues (FLOW-54) are shared reference data every signed-in user can read. Venue
@@ -23,7 +29,7 @@ async function toVenues(db: DbLike, actor: Actor, rows: VenueRow[]) {
     .from(venueAreas)
     .where(and(inArray(venueAreas.venueId, ids), isNull(venueAreas.archivedAt)))
     .orderBy(asc(venueAreas.sortOrder));
-  const contacts = isFtPlus(actor)
+  const contacts = canSeeField(actor, "venue_contact")
     ? await db
         .select()
         .from(venueContacts)
@@ -35,8 +41,8 @@ async function toVenues(db: DbLike, actor: Actor, rows: VenueRow[]) {
         )
         .orderBy(asc(venueContacts.sortOrder))
     : undefined;
-  return rows.map(
-    (row): Venue => ({
+  return rows.map((row): Venue =>
+    serializeFields<Venue>(actor, "venue", {
       id: row.id,
       name: row.name,
       address: row.address,
@@ -67,19 +73,34 @@ export async function listVenues(
   db: Db,
   actor: Actor,
   filter: { archived?: boolean; search?: string },
-): Promise<Venue[]> {
+  page: PageRequest = {},
+): Promise<Page<Venue>> {
+  const paging = keyset<VenueRow>(
+    [
+      { column: venues.name, type: "text", of: (row) => row.name },
+      { column: venues.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  // Search matches the name or the address, as the Venues screen did (FLOW-179).
+  const term = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
     .from(venues)
     .where(
       and(
-        filter.archived ? isNotNull(venues.archivedAt) : isNull(venues.archivedAt),
-        filter.search ? ilike(venues.name, `%${filter.search}%`) : undefined,
+        filter.archived
+          ? isNotNull(venues.archivedAt)
+          : isNull(venues.archivedAt),
+        term
+          ? or(ilike(venues.name, term), ilike(venues.address, term))
+          : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(venues.name))
-    .limit(500);
-  return toVenues(db, actor, rows);
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toVenues(db, actor, kept));
 }
 
 export async function findVenue(db: DbLike, id: string) {
@@ -100,14 +121,10 @@ async function venueSnapshot(db: DbLike, id: string) {
 }
 
 // History hides venue contacts from part-time users, as toVenues does.
-export async function venueHistory(db: DbLike, actor: Actor, id: string) {
+export async function venueHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
   await findVenue(db, id);
-  return listHistory(
-    db,
-    "venue",
-    id,
-    isFtPlus(actor) ? (changes) => changes : hideFields("contacts"),
-  );
+  return listHistoryPage(db, "venue", id, (changes) =>
+    redactFieldHistory(actor, "venue", changes), page);
 }
 
 // The venue's live areas, in order; events copy them when the venue is picked.
@@ -145,7 +162,7 @@ async function syncVenueChildren(
     },
   );
   if (!input.contacts) return;
-  if (!isFtPlus(actor)) throw forbidden();
+  if (!canSeeField(actor, "venue_contact")) throw forbidden();
   const liveContacts = await tx
     .select({ id: venueContacts.id })
     .from(venueContacts)
@@ -194,7 +211,8 @@ export async function createVenue(
   actor: Actor,
   input: VenueInput,
 ): Promise<Venue> {
-  if (input.contacts?.length && !isFtPlus(actor)) throw forbidden();
+  if (input.contacts?.length && !canSeeField(actor, "venue_contact"))
+    throw forbidden();
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(venues)

@@ -1,3 +1,4 @@
+import { roles, employmentTypes } from "../../shared/access";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
@@ -73,7 +74,11 @@ const staff = signedInAs(people.staff, "staff");
 const titles = (results: SearchResult[]) => results.map((r) => r.title);
 const ofType = (results: SearchResult[], type: SearchResult["type"]) =>
   titles(results.filter((r) => r.type === type));
-const newClient = (name: string, email: string, phone: string): ClientInput => ({
+const newClient = (
+  name: string,
+  email: string,
+  phone: string,
+): ClientInput => ({
   name,
   kind: "person",
   contacts: [{ name, role: "primary_poc", email, phone }],
@@ -93,15 +98,25 @@ afterAll(async () => {
 
 describe("global search (FLOW-46)", () => {
   it("finds a client whose name is misspelled by one letter (AC1)", async () => {
-    await admin.createClient(newClient("Katherine Gonzalez", "kg@example.com", "202-555-0111"));
-    await admin.createClient(newClient("Unrelated Person", "up@example.com", "202-555-0112"));
+    await admin.createClient(
+      newClient("Katherine Gonzalez", "kg@example.com", "202-555-0111"),
+    );
+    await admin.createClient(
+      newClient("Unrelated Person", "up@example.com", "202-555-0112"),
+    );
     for (const typo of ["Katherine Gonzales", "Gonzlez", "Katharine"])
-      expect(ofType(await admin.search(typo), "client")).toEqual(["Katherine Gonzalez"]);
+      expect(ofType(await admin.search(typo), "client")).toEqual([
+        "Katherine Gonzalez",
+      ]);
   });
 
   it("ranks an exact match above a fuzzy one", async () => {
-    await admin.createClient(newClient("Maya Ortiz", "maya@example.com", "202-555-0121"));
-    await admin.createClient(newClient("Mayo Ortez", "mayo@example.com", "202-555-0122"));
+    await admin.createClient(
+      newClient("Maya Ortiz", "maya@example.com", "202-555-0121"),
+    );
+    await admin.createClient(
+      newClient("Mayo Ortez", "mayo@example.com", "202-555-0122"),
+    );
     const results = await admin.search("Maya Ortiz");
     expect(titles(results)[0]).toBe("Maya Ortiz");
     expect(results[0].score).toBeGreaterThan(results[1]?.score ?? 0);
@@ -127,34 +142,71 @@ describe("global search (FLOW-46)", () => {
     await db.insert(venues).values({ name: "The Glasshouse", address: "Arlington, VA" });
     await db
       .insert(inventoryItems)
-      .values({ kind: "rental", subtype: "tableware", name: "Gold Charger Plate", code: "CHG-01" });
+      .values({
+        kind: "rental",
+        subtype: "tableware",
+        name: "Gold Charger Plate",
+        code: "CHG-01",
+      });
 
-    expect(ofType(await admin.search("Priya Raman"), "lead")).toEqual(["Priya Raman"]);
-    expect(ofType(await admin.search("priya@example"), "lead")).toEqual(["Priya Raman"]);
-    expect(ofType(await admin.search("555-0199"), "lead")).toEqual(["Priya Raman"]);
-    expect(ofType(await admin.search("events@juniper"), "client")).toEqual(["Juniper Hall"]);
-    expect(ofType(await admin.search("2025550131"), "client")).toEqual(["Juniper Hall"]);
+    expect(ofType(await admin.search("Priya Raman"), "lead")).toEqual([
+      "Priya Raman",
+    ]);
+    expect(ofType(await admin.search("priya@example"), "lead")).toEqual([
+      "Priya Raman",
+    ]);
+    expect(ofType(await admin.search("555-0199"), "lead")).toEqual([
+      "Priya Raman",
+    ]);
+    expect(ofType(await admin.search("events@juniper"), "client")).toEqual([
+      "Juniper Hall",
+    ]);
+    expect(ofType(await admin.search("2025550131"), "client")).toEqual([
+      "Juniper Hall",
+    ]);
     expect(ofType(await admin.search("anniversary"), "event")).toEqual([
       "Raman Anniversary Dinner",
     ]);
-    expect(ofType(await admin.search("glashouse"), "venue")).toEqual(["The Glasshouse"]);
-    expect(ofType(await admin.search("CHG-01"), "item")).toEqual(["Gold Charger Plate"]);
-    expect(ofType(await admin.search("charger"), "item")).toEqual(["Gold Charger Plate"]);
-    const [lead] = (await admin.search("Priya Raman")).filter((r) => r.type === "lead");
+    expect(ofType(await admin.search("glashouse"), "venue")).toEqual([
+      "The Glasshouse",
+    ]);
+    expect(ofType(await admin.search("CHG-01"), "item")).toEqual([
+      "Gold Charger Plate",
+    ]);
+    expect(ofType(await admin.search("charger"), "item")).toEqual([
+      "Gold Charger Plate",
+    ]);
+    const [lead] = (await admin.search("Priya Raman")).filter(
+      (r) => r.type === "lead",
+    );
     expect(lead.path).toBe(`/leads/${lead.id}`);
   });
 
   it("never shows a salesperson another salesperson's leads or clients (AC2)", async () => {
-    await sam.createClient(newClient("Harper Lane", "harper@example.com", "202-555-0141"));
-    await sue.createClient(newClient("Harper Lang", "lang@example.com", "202-555-0142"));
+    await sam.createClient(
+      newClient("Harper Lane", "harper@example.com", "202-555-0141"),
+    );
+    await sue.createClient(
+      newClient("Harper Lang", "lang@example.com", "202-555-0142"),
+    );
     const samLead = await createLead(
       db,
-      { channel: "webhook", source: "Bark", sourceLeadId: "b-1", name: "Harper Wedding" },
+      {
+        channel: "webhook",
+        source: "Bark",
+        sourceLeadId: "b-1",
+        name: "Harper Wedding",
+      },
       { assignedSalespersonId: people.sam },
     );
     await createLead(
       db,
-      { channel: "webhook", source: "Bark", sourceLeadId: "b-2", name: "Harper Gala" },
+      {
+        channel: "webhook",
+        source: "Bark",
+        sourceLeadId: "b-2",
+        name: "Harper Gala",
+      },
       { assignedSalespersonId: people.sue },
     );
     await createLead(db, {
@@ -168,7 +220,9 @@ describe("global search (FLOW-46)", () => {
     expect(ofType(samResults, "client")).toEqual(["Harper Lane"]);
     expect(ofType(samResults, "lead")).toEqual(["Harper Wedding"]);
     expect(samResults.find((r) => r.type === "lead")?.id).toBe(samLead.id);
-    expect(ofType(await sue.search("Harper"), "client")).toEqual(["Harper Lang"]);
+    expect(ofType(await sue.search("Harper"), "client")).toEqual([
+      "Harper Lang",
+    ]);
     expect(ofType(await sue.search("Harper"), "lead")).toEqual(["Harper Gala"]);
     expect(ofType(await manager.search("Harper"), "lead").sort()).toEqual([
       "Harper Gala",
@@ -180,15 +234,27 @@ describe("global search (FLOW-46)", () => {
   });
 
   it("matches contact email and phone only for users who may see them", async () => {
-    await sam.createClient(newClient("Quinn Avery", "quinn@example.com", "202-555-0151"));
-    expect(ofType(await sam.search("quinn@example.com"), "client")).toEqual(["Quinn Avery"]);
-    expect(ofType(await partTimeSam.search("quinn@example.com"), "client")).toEqual([]);
-    expect(ofType(await partTimeSam.search("2025550151"), "client")).toEqual([]);
-    expect(ofType(await partTimeSam.search("Quinn"), "client")).toEqual(["Quinn Avery"]);
+    await sam.createClient(
+      newClient("Quinn Avery", "quinn@example.com", "202-555-0151"),
+    );
+    expect(ofType(await sam.search("quinn@example.com"), "client")).toEqual([
+      "Quinn Avery",
+    ]);
+    expect(
+      ofType(await partTimeSam.search("quinn@example.com"), "client"),
+    ).toEqual([]);
+    expect(ofType(await partTimeSam.search("2025550151"), "client")).toEqual(
+      [],
+    );
+    expect(ofType(await partTimeSam.search("Quinn"), "client")).toEqual([
+      "Quinn Avery",
+    ]);
   });
 
   it("shows events only to the salesperson they are assigned to", async () => {
-    const owner = await admin.createClient(newClient("Event Owner", "eo@example.com", "202-555-0161"));
+    const owner = await admin.createClient(
+      newClient("Event Owner", "eo@example.com", "202-555-0161"),
+    );
     await db.insert(events).values([
       {
         title: "Sam's Tasting",
@@ -203,7 +269,9 @@ describe("global search (FLOW-46)", () => {
         assignedSalespersonId: people.sue,
       },
     ]);
-    expect(ofType(await sam.search("tasting"), "event")).toEqual(["Sam's Tasting"]);
+    expect(ofType(await sam.search("tasting"), "event")).toEqual([
+      "Sam's Tasting",
+    ]);
     expect(ofType(await admin.search("tasting"), "event")).toHaveLength(2);
   });
 
@@ -211,10 +279,46 @@ describe("global search (FLOW-46)", () => {
     const archived = await admin.createClient(
       newClient("Archived Client", "ac@example.com", "202-555-0171"),
     );
-    await db.execute(sql`update clients set archived_at = now() where id = ${archived.id}`);
+    await db.execute(
+      sql`update clients set archived_at = now() where id = ${archived.id}`,
+    );
     expect(await admin.search("Archived Client")).toEqual([]);
     await admin.createClient(newClient("A", "a@example.com", "202-555-0172"));
     expect(await admin.search("A")).toEqual([]);
     expect(await admin.search("%")).toEqual([]);
   });
+});
+
+it("uses the field-group policy for search matching across every role and employment type", async () => {
+  await sam.createClient(
+    newClient("Visible client", "privateclient@secret.example", "2025550187"),
+  );
+  await createLead(
+    db,
+    {
+      channel: "webhook",
+      source: "Bark",
+      sourceLeadId: "group-matrix",
+      name: "Visible lead",
+      email: "reachablelead@inquiry.example",
+      phone: "7035550188",
+    },
+    { assignedSalespersonId: people.sam },
+  );
+  for (const role of roles)
+    for (const employmentType of employmentTypes) {
+      const who = signedInAs(people.sam, role, employmentType);
+      const privileged = ["admin", "technical", "sales_manager"].includes(role);
+      const seesRecords = privileged || role === "salesperson";
+      const seesClientContact =
+        seesRecords && (privileged || employmentType === "full_time");
+      for (const query of ["privateclient@secret.example", "2025550187"])
+        expect(ofType(await who.search(query), "client")).toEqual(
+          seesClientContact ? ["Visible client"] : [],
+        );
+      for (const query of ["reachablelead@inquiry.example", "7035550188"])
+        expect(ofType(await who.search(query), "lead")).toEqual(
+          seesRecords ? ["Visible lead"] : [],
+        );
+    }
 });

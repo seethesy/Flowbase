@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { TestAuth } from "./auth-provider";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -53,29 +54,46 @@ const juniper: Client = {
   createdAt: now,
   updatedAt: now,
 };
-type Handler = (init?: RequestInit) => Response | Promise<Response>;
+type Handler = (
+  init?: RequestInit,
+  url?: URL,
+) => Response | Promise<Response>;
+// Routes by "METHOD /path?query", or by "METHOD /path" for any query (the
+// handler gets the URL).
 const mockApi = (routes: Record<string, Handler>) =>
   vi.mocked(fetch).mockImplementation(async (input, init) => {
-    const key = `${init?.method ?? "GET"} ${String(input)}`;
-    const handler = routes[key];
+    const method = init?.method ?? "GET";
+    const url = new URL(String(input), "http://localhost");
+    const key = `${method} ${String(input)}`;
+    const handler = routes[key] ?? routes[`${method} ${url.pathname}`];
     if (!handler) throw new Error(`Unexpected request ${key}`);
-    return handler(init);
+    return handler(init, url);
   });
-const mount = (node: ReactNode) => render(<MemoryRouter>{node}</MemoryRouter>);
+const mount = (node: ReactNode) =>
+  render(
+    <TestAuth>
+      <MemoryRouter>{node}</MemoryRouter>
+    </TestAuth>,
+  );
 
 it("lists leads, flags the ones that need review and filters by search", async () => {
   mockApi({
-    "GET /api/leads": () =>
-      Response.json([
-        lead({ status: "new" }),
-        lead({
-          id: "d0000000-0000-4000-8000-000000000002",
-          name: "Noah Kim",
-          eventDate: null,
-          needsReview: true,
-          status: "new",
-        }),
-      ]),
+    "GET /api/leads": (_init, url) => {
+      // The search runs on the server (FLOW-179); stand in for it here.
+      const search = (url?.searchParams.get("search") ?? "").toLowerCase();
+      return Response.json(
+        [
+          lead({ status: "new" }),
+          lead({
+            id: "d0000000-0000-4000-8000-000000000002",
+            name: "Noah Kim",
+            eventDate: null,
+            needsReview: true,
+            status: "new",
+          }),
+        ].filter((row) => row.name.toLowerCase().includes(search)),
+      );
+    },
   });
   const user = userEvent.setup();
   mount(<LeadInbox />);
@@ -86,7 +104,10 @@ it("lists leads, flags the ones that need review and filters by search", async (
     screen.getByRole("textbox", { name: "Search name, email or phone…" }),
     "noah",
   );
-  expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("Noah Kim")).toBeInTheDocument();
 });
 
 it("asks for the view's filters from the API", async () => {
@@ -100,7 +121,8 @@ it("asks for the view's filters from the API", async () => {
   await screen.findByText("0 leads");
   await user.click(screen.getByRole("tab", { name: "Triage" }));
   await user.click(screen.getByRole("tab", { name: "Needs review" }));
-  expect(requested).toEqual([
+  // The inbox also loads business settings (lead sources, FLOW-45).
+  expect(requested.filter((path) => path.startsWith("/api/leads"))).toEqual([
     "/api/leads",
     "/api/leads?triage=true",
     "/api/leads?needsReview=true",
@@ -143,14 +165,26 @@ it("warns about a matching client on convert and offers to link instead", async 
   });
   const onConverted = vi.fn();
   const user = userEvent.setup();
-  mount(<ConvertLeadForm lead={lead()} onClose={() => {}} onConverted={onConverted} />);
+  mount(
+    <ConvertLeadForm
+      lead={lead()}
+      onClose={() => {}}
+      onConverted={onConverted}
+    />,
+  );
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByLabelText("Client name *")).toHaveValue("Maya Ortiz");
-  expect(within(dialog).getByLabelText("Event date *")).toHaveValue("2026-12-05");
+  expect(within(dialog).getByLabelText("Client name *")).toHaveValue(
+    "Maya Ortiz",
+  );
+  expect(within(dialog).getByLabelText("Event date *")).toHaveValue(
+    "2026-12-05",
+  );
   fireEvent.change(within(dialog).getByLabelText("Start time *"), {
     target: { value: "18:00" },
   });
-  await user.click(within(dialog).getByRole("button", { name: "Convert lead" }));
+  await user.click(
+    within(dialog).getByRole("button", { name: "Convert lead" }),
+  );
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
     "A client with this email or phone already exists",
   );
@@ -159,7 +193,9 @@ it("warns about a matching client on convert and offers to link instead", async 
   );
   const picker = await within(dialog).findByLabelText("Existing client");
   await vi.waitFor(() => expect(picker).toHaveValue(juniper.id));
-  await user.click(within(dialog).getByRole("button", { name: "Convert lead" }));
+  await user.click(
+    within(dialog).getByRole("button", { name: "Convert lead" }),
+  );
   await vi.waitFor(() => expect(onConverted).toHaveBeenCalled());
   expect(posts).toEqual([
     {

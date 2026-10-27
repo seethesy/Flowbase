@@ -1,13 +1,13 @@
 import { test, expect } from "./auth-fixture";
-import { fallGala, juniper, mockAttachmentsApi, mockRecordsApi } from "./mock-api";
+import { fallGala, juniper } from "./fixtures";
+import { seedRecords } from "./database";
 
 // The event hub (FLOW-57). The calendar (FLOW-63) doesn't exist yet, so the hub is
 // reached from the client page and the event list.
 test("the event hub opens from the client page and the event list", async ({
   page,
 }) => {
-  await mockRecordsApi(page, { clients: [juniper()], events: [fallGala()] });
-  await mockAttachmentsApi(page);
+  await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await page.goto(`/#/clients/${juniper().id}`);
   await page.getByRole("button", { name: "Fall gala", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#/events/${fallGala().id}$`));
