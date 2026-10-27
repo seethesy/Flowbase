@@ -102,6 +102,10 @@ export function ClientList() {
         const contact = primaryContact(client);
         return contact ? hidden(contact.email) : "—";
       },
+      meta: {
+        fieldGroup: "client_contact",
+        csv: (client) => primaryContact(client)?.email ?? "",
+      },
     },
     {
       id: "phone",
@@ -109,6 +113,10 @@ export function ClientList() {
       accessorFn: (client) => {
         const contact = primaryContact(client);
         return contact ? hidden(contact.phone) : "—";
+      },
+      meta: {
+        fieldGroup: "client_contact",
+        csv: (client) => primaryContact(client)?.phone ?? "",
       },
     },
     {
@@ -157,6 +165,7 @@ export function ClientList() {
           columns={columns}
           onRow={(client) => navigate(`/clients/${client.id}`)}
           label="clients"
+          exportName="clients"
         />
       )}
       {create && (

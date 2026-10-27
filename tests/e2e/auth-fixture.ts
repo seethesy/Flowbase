@@ -1,5 +1,6 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { clients, proposals, inventory } from "../../src/data/mock/fixtures";
+import { fallbackSettings } from "../../shared/settings";
 
 export const signedInUser = {
   id: "36000000-0000-4000-8000-000000000003",
@@ -100,6 +101,30 @@ export async function mockBrowserAuth(
       },
     });
   });
+  // Every screen reads business settings (FLOW-45), and the profile page reads the
+  // user's staff profile (FLOW-40). The real Worker can't verify the mock token, so
+  // these answer here; suites that exercise them register their own routes.
+  await page.route("**/api/settings", (route) =>
+    route.fulfill({ json: fallbackSettings }),
+  );
+  await page.route(`**/api/staff/${signedInUser.id}`, (route) =>
+    route.fulfill({
+      json: {
+        id: signedInUser.id,
+        name: signedInUser.name,
+        email: signedInUser.email,
+        mobile: signedInUser.mobile,
+        role: signedInUser.role,
+        employmentType: signedInUser.employmentType,
+        status: signedInUser.status,
+        active: true,
+        positions: [],
+        notes: "",
+        smsConsent: false,
+        smsConsentAt: null,
+      },
+    }),
+  );
   // Other browser suites exercise their existing fake record APIs. Keep demo
   // fixtures here too: the real Worker now requires a verifiable JWT for them.
   const fixtures = { clients, proposals, inventory };

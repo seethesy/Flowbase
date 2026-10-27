@@ -5,8 +5,8 @@ import { id, timestamp } from "./schema-primitives";
 // Flowbase tab is visible and the user has typed or clicked within the idle cutoff,
 // to the record on screen and an activity type derived from the screen.
 
-// 5 minutes (the developer's answer on FLOW-119; the ticket's default was 3). One
-// place to change it until business settings (FLOW-45) can hold it.
+// 5 minutes (the developer's answer on FLOW-119; the ticket's default was 3). The
+// default until business settings load; Admin changes it there (FLOW-45).
 export const IDLE_CUTOFF_MS = 5 * 60_000;
 // The browser sends at most one tracking request per this interval (free-tier limits).
 export const FLUSH_INTERVAL_MS = 60_000;

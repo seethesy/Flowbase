@@ -11,6 +11,12 @@ const common = [
   "attachments.read",
   "time.record",
   "time.read",
+  // Staff directory (FLOW-40): everyone reads it and edits their own phone number
+  // and SMS consent; record modules limit the fields. users.manage edits everything.
+  "staff.read",
+  "staff.update_self",
+  // Business settings and lists (FLOW-45): forms read them; Admin changes them.
+  "settings.read",
 ] as const;
 const sales = [
   "clients.read",
@@ -42,6 +48,7 @@ const kitchen = [
 ] as const;
 const adminOnly = [
   "users.manage",
+  "settings.manage",
   "jobs.manage",
   "ingest.manage",
   "inventory.sections",

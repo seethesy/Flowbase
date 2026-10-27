@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Printer } from "lucide-react";
-import { company } from "../../config/company";
+import { useBusinessSettings } from "../../services/settings";
 import { Button } from "../ui/button";
 
 // Shared branded layout for browser-printed documents (FLOW-49, ADR-17): the
@@ -17,6 +17,8 @@ export function PrintLayout({
   subtitle?: string;
   children: ReactNode;
 }) {
+  // The company profile from business settings (FLOW-45).
+  const { company } = useBusinessSettings();
   return (
     <div className="print-document">
       <div className="print-toolbar">
@@ -30,10 +32,17 @@ export function PrintLayout({
           <tr>
             <td>
               <header className="print-header">
+                {company.logo && (
+                  <img
+                    className="print-logo"
+                    src={company.logo}
+                    alt={`${company.name} logo`}
+                  />
+                )}
                 <div>
                   <strong>{company.name}</strong>
-                  <span>{company.salesContact}</span>
-                  <span>{company.website}</span>
+                  {company.salesContact && <span>{company.salesContact}</span>}
+                  {company.website && <span>{company.website}</span>}
                 </div>
                 <div className="print-title">
                   <h1>{title}</h1>
