@@ -2,7 +2,11 @@ import { databaseTest as test, expect, mockBrowserAuth } from "./auth-fixture";
 import { seedDatabase, seedId, seedUsers } from "../../worker/db/seed";
 import { browserDb } from "./database";
 import { clients, events, leads } from "../../worker/db/schema";
-import { businessTimeToUtc } from "../../shared/time";
+import {
+  addLocalDays,
+  businessTimeToUtc,
+  utcToBusinessTime,
+} from "../../shared/time";
 
 for (const role of ["admin", "salesperson"] as const) {
   test(`${role}: clients, venues, events, leads, inventory, counts and time on the real stack`, async ({
@@ -28,7 +32,12 @@ for (const role of ["admin", "salesperson"] as const) {
         id: seedId(30, 2),
         title: "Other salesperson event",
         clientId: seedId(30, 1),
-        startsAt: businessTimeToUtc("2026-12-05", "18:00"),
+        // Inside the Events screen's default window (FLOW-179: the past 7
+        // days through the next 30) whatever day the test runs.
+        startsAt: businessTimeToUtc(
+          addLocalDays(utcToBusinessTime(new Date()).date, 10),
+          "18:00",
+        ),
         assignedSalespersonId: otherOwner,
       });
       await db.insert(leads).values({
