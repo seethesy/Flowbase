@@ -1,4 +1,9 @@
-import { canSeeField, serializeFields } from "../../shared/visibility";
+import {
+  canSeeField,
+  canSeeRentalCosts,
+  redactFieldHistory,
+  serializeFields,
+} from "../../shared/visibility";
 import {
   and,
   asc,
@@ -18,6 +23,7 @@ import type {
   ItemInputParsed,
 } from "../../shared/inventory";
 import type { Unit } from "../../shared/units";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   inventoryBarDetails,
@@ -29,6 +35,7 @@ import {
   inventoryStock,
 } from "../db/schema";
 import { forbidden, notFound } from "../hono";
+import { can } from "../policy";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
 import { conflict, type ItemRow, round } from "./inventory-common";
@@ -62,11 +69,23 @@ export async function toItems(
         rental: {
           itemId: inventoryRentalDetails.itemId,
           priceCents: inventoryRentalDetails.priceCents,
+          internalCostCents: inventoryRentalDetails.internalCostCents,
+          replacementCostCents: inventoryRentalDetails.replacementCostCents,
+          dimensions: inventoryRentalDetails.dimensions,
+          colors: inventoryRentalDetails.colors,
+          notes: inventoryRentalDetails.notes,
+          assemblyNotes: inventoryRentalDetails.assemblyNotes,
+          bufferDaysBefore: inventoryRentalDetails.bufferDaysBefore,
+          bufferDaysAfter: inventoryRentalDetails.bufferDaysAfter,
+          components: inventoryRentalDetails.components,
         },
         service: {
           itemId: inventoryServiceDetails.itemId,
           priceCents: inventoryServiceDetails.priceCents,
           priceBasis: inventoryServiceDetails.priceBasis,
+          pricedByQuote: inventoryServiceDetails.pricedByQuote,
+          includes: inventoryServiceDetails.includes,
+          addons: inventoryServiceDetails.addons,
         },
         consumable: {
           itemId: inventoryConsumableDetails.itemId,
@@ -118,6 +137,7 @@ export async function toItems(
         sectionId: inventoryStock.sectionId,
         sectionName: inventorySections.name,
         quantity: inventoryStock.quantity,
+        color: inventoryStock.color,
       })
       .from(inventoryStock)
       .innerJoin(
@@ -140,10 +160,11 @@ export async function toItems(
     const service = detail?.service;
     const levels = (stockByItem.get(row.id) ?? [])
       .filter((level) => level.quantity !== 0)
-      .map(({ sectionId, sectionName, quantity }) => ({
+      .map(({ sectionId, sectionName, quantity, color }) => ({
         sectionId,
         sectionName,
         quantity,
+        ...(color && { color }),
       }));
     const totalQuantity = round(
       levels.reduce((sum, level) => sum + level.quantity, 0),
@@ -170,13 +191,27 @@ export async function toItems(
       active: row.active,
       rental:
         row.kind === "rental"
-          ? { priceCents: rental?.priceCents ?? null }
+          ? {
+              priceCents: rental?.priceCents ?? null,
+              internalCostCents: rental?.internalCostCents ?? null,
+              replacementCostCents: rental?.replacementCostCents ?? null,
+              dimensions: rental?.dimensions ?? "",
+              colors: rental?.colors ?? [],
+              notes: rental?.notes ?? "",
+              assemblyNotes: rental?.assemblyNotes ?? "",
+              bufferDaysBefore: rental?.bufferDaysBefore ?? 1,
+              bufferDaysAfter: rental?.bufferDaysAfter ?? 1,
+              components: rental?.components ?? [],
+            }
           : null,
       service:
         row.kind === "service"
           ? {
               priceCents: service?.priceCents ?? null,
               priceBasis: service?.priceBasis ?? "per_event",
+              pricedByQuote: service?.pricedByQuote ?? false,
+              includes: service?.includes ?? [],
+              addons: service?.addons ?? [],
             }
           : null,
       consumable: c
@@ -312,6 +347,35 @@ export async function getItem(db: DbLike, actor: Actor, id: string) {
   return item;
 }
 
+// The item as an audit snapshot (FLOW-185): every field, whoever is writing.
+// Stock is left out; it changes only through movements, which the ledger audits
+// (FLOW-168).
+export async function itemSnapshot(db: DbLike, id: string) {
+  const snapshot: Record<string, unknown> = { ...(await getItem(db, fullView, id)) };
+  delete snapshot.stock;
+  delete snapshot.totalQuantity;
+  delete snapshot.belowPar;
+  return snapshot;
+}
+
+// History hides what toItems hides from the caller: consumable costs from users
+// who can't see internal costs (F-01-04).
+export async function itemHistory(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+) {
+  await findItem(db, id);
+  return listHistoryPage(
+    db,
+    "inventory_item",
+    id,
+    (changes) => redactFieldHistory(actor, "inventory_item", changes),
+    page,
+  );
+}
+
 async function requireUniqueCode(db: DbLike, code: string, exceptId?: string) {
   if (!code) return;
   const [clash] = await db
@@ -348,6 +412,54 @@ const itemValues = (input: ItemInputParsed, actor: Actor) => ({
   updatedBy: actor.userId,
 });
 
+async function validateComponents(
+  tx: DbLike,
+  input: ItemInputParsed,
+  itemId?: string,
+) {
+  // Serialize catalog graph edits so concurrent changes cannot introduce cycles.
+  await tx.execute(sql`select pg_advisory_xact_lock(720798092)`);
+  const rentals = await tx.select().from(inventoryRentalDetails);
+  const components = input.rental?.components ?? input.service?.includes ?? [];
+  const visited = new Set<string>();
+  const visit = async (id: string, path: Set<string>): Promise<void> => {
+    if (id === itemId || path.has(id))
+      throw conflict(
+        "KIT_CYCLE",
+        "A kit cannot contain itself, even through another kit.",
+      );
+    if (visited.has(id)) return;
+    const row = await findItem(tx, id);
+    if (row.kind === "service" || !row.active || row.archivedAt)
+      throw conflict(
+        "INVALID_COMPONENT",
+        `${row.name} must be an active rental or consumable.`,
+      );
+    for (const line of rentals.find((r) => r.itemId === id)?.components ?? [])
+      await visit(line.itemId, new Set(path).add(id));
+    visited.add(id);
+  };
+  for (const line of components) await visit(line.itemId, new Set());
+  if (itemId) {
+    const held = await tx
+      .select()
+      .from(inventoryStock)
+      .where(eq(inventoryStock.itemId, itemId));
+    if (
+      held.some(
+        (level) =>
+          level.quantity > 0 &&
+          level.color &&
+          !input.rental?.colors.includes(level.color),
+      )
+    )
+      throw conflict(
+        "COLOR_HAS_STOCK",
+        "Count or move out a color's stock before removing it.",
+      );
+  }
+}
+
 // Writes the item's kind-specific row. A part-time user can't set a cost; an
 // omitted cost keeps the stored one.
 async function saveDetails(
@@ -357,7 +469,29 @@ async function saveDetails(
   input: ItemInputParsed,
 ) {
   if (input.kind === "rental") {
-    const values = { priceCents: input.rental?.priceCents ?? null };
+    const r = input.rental;
+    if (
+      (r?.internalCostCents !== undefined ||
+        r?.replacementCostCents !== undefined) &&
+      !canSeeRentalCosts(actor)
+    )
+      throw forbidden();
+    const values = {
+      priceCents: r?.priceCents ?? null,
+      dimensions: r?.dimensions ?? "",
+      colors: r?.colors ?? [],
+      notes: r?.notes ?? "",
+      assemblyNotes: r?.assemblyNotes ?? "",
+      bufferDaysBefore: r?.bufferDaysBefore ?? 1,
+      bufferDaysAfter: r?.bufferDaysAfter ?? 1,
+      components: r?.components ?? [],
+      ...(r?.internalCostCents !== undefined && {
+        internalCostCents: r.internalCostCents,
+      }),
+      ...(r?.replacementCostCents !== undefined && {
+        replacementCostCents: r.replacementCostCents,
+      }),
+    };
     await tx
       .insert(inventoryRentalDetails)
       .values({ itemId, ...values })
@@ -370,6 +504,9 @@ async function saveDetails(
     const values = {
       priceCents: input.service?.priceCents ?? null,
       priceBasis: input.service?.priceBasis ?? "per_event",
+      pricedByQuote: input.service?.pricedByQuote ?? false,
+      includes: input.service?.includes ?? [],
+      addons: input.service?.addons ?? [],
     };
     await tx
       .insert(inventoryServiceDetails)
@@ -383,8 +520,22 @@ async function saveDetails(
   if (input.kind === "consumable" && c) {
     if (c.unitCostCents !== undefined && !canSeeField(actor, "internal_cost"))
       throw forbidden();
-    if (c.storageSectionId)
-      await requireStockSection(tx, c.storageSectionId, "consumable");
+    let storageSectionId = c.storageSectionId;
+    if (!storageSectionId && input.subtype === "supply") {
+      const [section] = await tx
+        .select({ id: inventorySections.id })
+        .from(inventorySections)
+        .where(
+          and(
+            eq(inventorySections.kind, "consumable"),
+            eq(inventorySections.name, "Supplies"),
+            isNull(inventorySections.archivedAt),
+          ),
+        );
+      storageSectionId = section?.id ?? null;
+    }
+    if (storageSectionId)
+      await requireStockSection(tx, storageSectionId, "consumable");
     const [stored] = await tx
       .select({ unitCostCents: inventoryConsumableDetails.unitCostCents })
       .from(inventoryConsumableDetails)
@@ -398,7 +549,7 @@ async function saveDetails(
       preferredVendor: c.preferredVendor,
       parLevel: c.parLevel,
       allergens: c.allergens,
-      storageSectionId: c.storageSectionId,
+      storageSectionId,
       storageOrder: c.storageOrder,
       ...(c.unitCostCents !== undefined && { unitCostCents: c.unitCostCents }),
     };
@@ -438,11 +589,19 @@ export async function createItem(
 ): Promise<InventoryItem> {
   await requireUniqueCode(db, input.code);
   const id = await db.transaction(async (tx) => {
+    await validateComponents(tx, input);
     const [row] = await tx
       .insert(inventoryItems)
       .values({ ...itemValues(input, actor), createdBy: actor.userId })
       .returning({ id: inventoryItems.id });
     await saveDetails(tx, actor, row.id, input);
+    await writeAudit(tx, actor, {
+      entityType: "inventory_item",
+      entityId: row.id,
+      action: "create",
+      before: null,
+      after: await itemSnapshot(tx, row.id),
+    });
     await emitDomainEvent(tx, {
       name: "inventory_item.created",
       entityId: row.id,
@@ -466,11 +625,40 @@ export async function updateItem(
     );
   await requireUniqueCode(db, input.code, id);
   await db.transaction(async (tx) => {
+    const before = await itemSnapshot(tx, id);
+    await tx
+      .select({ id: inventoryItems.id })
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, id))
+      .for("update");
+    await validateComponents(tx, input, id);
+    if (input.kind === "rental") {
+      const [stored] = await tx
+        .select()
+        .from(inventoryRentalDetails)
+        .where(eq(inventoryRentalDetails.itemId, id))
+        .for("update");
+      if (
+        !can(actor, "rentals.apply_directly") &&
+        (stored?.priceCents ?? null) !== (input.rental?.priceCents ?? null)
+      )
+        throw conflict(
+          "PRICE_APPROVAL_REQUIRED",
+          "Client price changes require approval. The approval workflow is not yet available.",
+        );
+    }
     await tx
       .update(inventoryItems)
       .set(itemValues(input, actor))
       .where(eq(inventoryItems.id, id));
     await saveDetails(tx, actor, id, input);
+    await writeAudit(tx, actor, {
+      entityType: "inventory_item",
+      entityId: id,
+      action: "update",
+      before,
+      after: await itemSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, { name: "inventory_item.updated", entityId: id });
   });
   return getItem(db, actor, id);
@@ -487,6 +675,7 @@ export async function setItemArchived(
   await setArchived(db, actor, id, archived, {
     update: (tx, values) =>
       tx.update(inventoryItems).set(values).where(eq(inventoryItems.id, id)),
+    audit: { entityType: "inventory_item", snapshot: itemSnapshot },
     event: "inventory_item",
   });
   return getItem(db, actor, id);

@@ -18,8 +18,10 @@ import { createActorResolver, requireActor, type ResolveActor } from "./auth";
 import { authRoutes, userRoutes } from "./routes/users";
 import { ApiError, type AppEnv, type RunWithDb } from "./hono";
 import type { IngestSource } from "./ingest/sources";
+import type { ImportModule } from "./records/imports";
 import { adminRoutes } from "./routes/admin";
 import { ingestRoutes } from "./routes/ingest";
+import { importRoutes } from "./routes/imports";
 import { inventoryRoutes } from "./routes/inventory";
 import { leadRoutes } from "./routes/leads";
 import { recipeRoutes } from "./routes/recipes";
@@ -42,6 +44,8 @@ type Options = {
   withDb?: RunWithDb;
   resolveActor?: ResolveActor;
   ingestSources?: Map<string, IngestSource>;
+  // Module importers (FLOW-47); the registered ones by default.
+  importModules?: ImportModule[];
 };
 export function createApp(options: Options = {}) {
   const app = new Hono<AppEnv>();
@@ -221,6 +225,14 @@ export function createApp(options: Options = {}) {
   }
   app.route("/api/admin", adminRoutes(options));
   app.route("/api/inventory", inventoryRoutes(options));
+  app.route(
+    "/api/imports",
+    importRoutes({
+      withDb: options.withDb,
+      resolveActor: options.resolveActor,
+      modules: options.importModules,
+    }),
+  );
   app.route("/api/leads", leadRoutes(options));
   app.route("/api/recipes", recipeRoutes(options));
   app.route("/api/search", searchRoutes(options));
