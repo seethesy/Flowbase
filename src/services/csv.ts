@@ -37,7 +37,7 @@ export function csvFileName(name: string, now = new Date()): string {
 
 export function downloadCsv(fileName: string, csv: string) {
   // The byte order mark makes Excel read the file as UTF-8.
-  const blob = new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

@@ -101,7 +101,7 @@ const exportFile = async (
     reader.onload = () => resolve(String(reader.result));
     reader.readAsText(exported[0]);
   });
-  return text.replace(/^﻿/, "").trimEnd().split("\r\n");
+  return text.replace(/^\ufeff/, "").trimEnd().split("\r\n");
 };
 
 it("exports every filtered row in the current sort, not just the page on screen (AC1)", async () => {

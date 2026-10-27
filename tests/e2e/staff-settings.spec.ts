@@ -104,7 +104,7 @@ test("filters the staff directory by position and employment type and exports th
   const file = await download;
   expect(file.suggestedFilename()).toMatch(/^staff-\d{4}-\d{2}-\d{2}\.csv$/);
   const lines = (await readFile((await file.path())!, "utf8"))
-    .replace(/^﻿/, "")
+    .replace(/^\ufeff/, "")
     .trimEnd()
     .split("\r\n");
   expect(lines[0]).toBe("Name,Positions,Role,Employment,Mobile,Email,Status");
