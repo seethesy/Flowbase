@@ -18,7 +18,7 @@ test("edits rental details and maintains separate color stock on one item", asyn
   await dialog.getByLabel("Buffer days before", { exact: true }).fill("2");
   await dialog.getByLabel("Internal cost ($)", { exact: true }).fill("12.50");
   await dialog.getByLabel("Replacement cost ($)", { exact: true }).fill("80");
-  await dialog.getByLabel("Colors", { exact: true }).fill("Gold\nSilver");
+  await dialog.getByLabel(/^Colors/).fill("Gold\nSilver");
   await expect(
     dialog.getByLabel("Price ($ per unit)", { exact: true }),
   ).toBeEnabled();
@@ -30,9 +30,11 @@ test("edits rental details and maintains separate color stock on one item", asyn
   ).toBeVisible();
   await expect(page.getByText("Attach cushion", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Record movement" }).click();
-  await dialog.getByLabel("Color", { exact: true }).selectOption("Silver");
   await dialog
-    .getByLabel("Section", { exact: true })
+    .getByRole("combobox", { name: "Color", exact: true })
+    .selectOption("Silver");
+  await dialog
+    .getByRole("combobox", { name: "Section", exact: true })
     .selectOption({ label: "Warehouse" });
   await dialog.getByLabel("Quantity in (each)").fill("6");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
@@ -64,18 +66,22 @@ test("creates and edits fixed, per-person and quoted services with includes and 
     await page.getByRole("button", { name: "New Item", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name *", { exact: true }).fill(name);
-    await dialog.getByLabel("Kind", { exact: true }).selectOption("service");
+    await dialog
+      .getByRole("combobox", { name: "Kind", exact: true })
+      .selectOption("service");
     if (basis === "quote")
       await dialog.getByLabel("Priced by quote", { exact: true }).check();
     else {
       await dialog.getByLabel("Price ($)", { exact: true }).fill("3.50");
-      await dialog.getByLabel("Priced", { exact: true }).selectOption(basis);
+      await dialog
+        .getByRole("combobox", { name: "Priced", exact: true })
+        .selectOption(basis);
     }
     await dialog
       .getByRole("button", { name: "Add component", exact: true })
       .click();
     await dialog
-      .getByLabel("Component 1", { exact: true })
+      .getByRole("combobox", { name: "Component 1", exact: true })
       .selectOption(chairs().id);
     await dialog.getByLabel("Component 1 quantity", { exact: true }).fill("2");
     await dialog
@@ -139,18 +145,20 @@ test("creates a decor kit and supply, filters low stock and reaches supply count
   await dialog
     .getByLabel("Name *", { exact: true })
     .fill("Centerpiece Candle Set");
-  await dialog.getByLabel("Subtype", { exact: true }).selectOption("decor");
+  await dialog
+    .getByRole("combobox", { name: "Subtype", exact: true })
+    .selectOption("decor");
   await dialog
     .getByRole("button", { name: "Add component", exact: true })
     .click();
   await dialog
-    .getByLabel("Component 1", { exact: true })
+    .getByRole("combobox", { name: "Component 1", exact: true })
     .selectOption(chairs().id);
   await dialog
     .getByRole("button", { name: "Add component", exact: true })
     .click();
   await dialog
-    .getByLabel("Component 2", { exact: true })
+    .getByRole("combobox", { name: "Component 2", exact: true })
     .selectOption({ label: "Candles" });
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
@@ -168,7 +176,7 @@ test("transfers stock between sections from the item page", async ({
   await seedInventory({ items: [chairs()] });
   await page.goto("/#/inventory");
   await page
-    .getByLabel("Section", { exact: true })
+    .getByRole("combobox", { name: "Section", exact: true })
     .selectOption({ label: "Cafe" });
   await page
     .getByRole("button", { name: "Chiavari Chair", exact: true })
