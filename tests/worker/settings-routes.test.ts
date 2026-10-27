@@ -4,6 +4,7 @@ import { createApp } from "../../worker/app";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
 import type { Actor } from "../../shared/access";
+import type { StaffMember } from "../../shared/staff";
 import {
   businessDefaultsSchema,
   companyProfileSchema,
@@ -164,7 +165,7 @@ it("rejects unknown lists, bad ids and empty labels before writing", async () =>
   expect(orderListValues).not.toHaveBeenCalled();
 });
 
-const member = {
+const member: StaffMember = {
   id: userId,
   name: "Sam Server",
   email: "sam@gmail.com",
@@ -177,7 +178,7 @@ const member = {
   notes: null,
   smsConsent: false,
   smsConsentAt: null,
-} as const;
+};
 
 it("serves the staff directory to every role and passes profile edits to the record module", async () => {
   vi.mocked(listStaff).mockResolvedValue([member]);
