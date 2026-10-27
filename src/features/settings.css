@@ -123,3 +123,16 @@
   gap: 8px;
   margin: 8px 0;
 }
+/* Urgent notification types (FLOW-43): one checkbox per catalog type. */
+.settings-urgent {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-urgent label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

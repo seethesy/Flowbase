@@ -34,7 +34,10 @@ export type AuditEntity =
   // Proposals and their stage changes and versions (FLOW-122/123).
   | "proposal"
   // One create row per stock movement (FLOW-168).
-  | "stock_movement";
+  | "stock_movement"
+  // Tasks and their comments (FLOW-58); checklist changes are task updates.
+  | "task"
+  | "task_comment";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

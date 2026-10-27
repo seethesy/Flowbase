@@ -24,7 +24,7 @@ Google sign-in is required to enter the workspace. Follow [Sign-in setup](docs/s
 - **Inventory:** real items from the API (see [Inventory](#inventory)): rentals, decor, ingredients, bar stock, supplies and services, with per-section stock, the stock ledger (movement history, transfers, counts, receipts, adjustments and corrections) on the item page, the kitchen ingredient catalog, the bar screen, count mode, the low-stock list, cost history, and Admin-managed sections. The Dashboard stock alerts still use the demo item fixtures.
 - **Vendors:** the vendor and distributor directory (see [Vendors](#vendors)): distributors, rental vendors and event partners, how to order from each, and the items they supply.
 - **Recipes:** the recipe book (see [Recipe book](#recipe-book)): dishes with ingredient lines, method, yield, cost, allergens and dietary tags, and a scaling tool.
-- Global search (header, see [Global search](#global-search)) finds real clients, leads, events, venues, inventory items and vendors; demo proposals are no longer in it. Notifications link to sample records. Purchasing and Help are labeled placeholders; Reports holds the time-tracking reports and Settings the time-tracking notice (see [Time tracking](#time-tracking)). Proposals and the Dashboard still use the demo client fixtures. The employee profile and header show the signed-in staff member. Admin manages invitations and access in Settings → Manage users.
+- Global search (header, see [Global search](#global-search)) finds real clients, leads, events, venues, inventory items and vendors; demo proposals are no longer in it. The header bell shows the signed-in person's real notifications (see [Notifications](#notifications)). Purchasing and Help are labeled placeholders; Reports holds the time-tracking reports and Settings the time-tracking notice (see [Time tracking](#time-tracking)). Proposals and the Dashboard still use the demo client fixtures. The employee profile and header show the signed-in staff member. Admin manages invitations and access in Settings → Manage users.
 
 Demo fixtures: 35 clients, 40 proposals, 50 items, 15 vendors, 10 events, 8 employee profiles, activity and attachment metadata. The separate development database seed is described below. Dashboard date ranges intentionally select different mock subsets rather than querying a backend.
 
@@ -307,13 +307,56 @@ Photos and documents attach to clients, venues and events (FLOW-42, ADR-08) thro
 
 `PrintLayout` (`src/components/print/PrintLayout.tsx`, FLOW-49, ADR-17) is the shared print layout for the recipe book, order list and BEO: a company header block (logo, name, sales contact and website from the company profile in business settings, FLOW-45; built-in placeholders until Admin fills it in), US Letter pages with the header repeated on every page, and page numbers where the browser supports CSS page margin boxes (Chrome; Safari prints without them). Users print or "Save as PDF" from the browser; there is no PDF server or library. `/#/print/sample` is a sample multi-page document for checking the layout.
 
+## Tasks
+
+One task model for every module (FLOW-58, `shared/tasks.ts`; service in `worker/records/tasks.ts`, API `worker/routes/tasks.ts`). A task has a title, description, type (`general | delegated | kitchen | production | truck_load | misc`), status (`todo | in_progress | blocked | done`), priority, due time, assignees, an overseer, its creator, links to an event, client, inventory item or BEO, a checklist, comments and attachments (`recordType: "task"`). Kitchen, production and truck-loading tasks are rows of the same `tasks` table, so they appear in the same lists.
+
+- **Service API:** other modules call `createTask(tx, actor, input)` and `updateTask(tx, actor, id, patch)` inside their own transaction (`actor` is `null` for system changes); there are no task tables per module. Linked records must exist, and a person may link only records they can open.
+- **Status rules:** moving to `done` records who completed it and when (`completedBy`, `completedAt`); saving `done` again keeps them; reopening clears them.
+- **Who sees and changes what** (`shared/policy.ts`): FT+ see every task, everyone else the tasks they are assigned to, oversee or created (`taskScope`). Anyone who can see a task changes its status, works its checklist and comments. Its details, assignees and overseer need `mayManageTask` (its creator, its overseer, or `tasks.delegate`: Admin, Sales Manager, Kitchen Lead and FT+). Without `tasks.delegate` you can only assign tasks to yourself.
+- **Audit and events:** every change writes an audit row (`task`; checklist changes are task updates, comments `task_comment`). A change of assignees emits `task.assigned` with `addedUserIds`, `removedUserIds` and `actorId`. Each cron run emits `task.due` once per open task and due time (`emitDueTaskEvents`; tasks more than 7 days overdue when first seen are skipped).
+- `/tasks/<id>` shows one task: status, checklist, comments and files. Lists, saved views and delegation screens are FLOW-59 and FLOW-60.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/tasks?type=&status=&assigneeId=&eventId=&mine=true&includeDone=true` | Tasks the caller can see, newest first, paged; done tasks only with `status=done` or `includeDone=true` |
+| `GET /api/tasks/<id>` | One task with checklist, comments and `canManage` |
+| `POST /api/tasks`, `PATCH /api/tasks/<id>` | Create, or change any subset |
+| `POST /api/tasks/<id>/archive` | Archive (needs `mayManageTask`) |
+| `POST /api/tasks/<id>/checklist`, `PATCH`/`POST …/checklist/<itemId>[/archive]` | Add, tick, rename or remove a checklist item |
+| `POST /api/tasks/<id>/comments` | Add a comment |
+
+## Notifications
+
+In-app and email notifications (FLOW-43, ADR-12; catalog in `shared/notifications.ts`, fan-out in `worker/notifications/fanout.ts`, API `worker/routes/notifications.ts`). Each notification type subscribes to one domain event through the job registry:
+
+| Type | Domain event | Who is told |
+| --- | --- | --- |
+| `task_assigned` | `task.assigned` | People added as assignees, except whoever assigned them |
+| `task_due` | `task.due` | The task's assignees and overseer, while it is still open |
+| `staff_assigned` | `event.staff_assigned` (FLOW-140) | The person put on the roster slot |
+| `approval_requested`, `approval_decided`, `inventory_conflict`, `production_alert`, `proposal_approved`, `payment_due`, `payment_overdue`, `collector_failure` | `approval.requested`, `approval.decided`, `inventory.conflict_detected`, `production.alert_raised`, `proposal.approved`, `payment.due`, `payment.overdue`, `collector.failed` | The producing module decides: its event's data carries `recipientIds`, `title`, `body` and an in-app `link` (`notifyPayloadSchema`). A payload without them fails the job so an admin sees it |
+
+- **Exactly once (AC1):** each notification stores its event job's idempotency key, and `(source_key, user_id)` is unique, so a retried or reclaimed job notifies nobody twice. Only active staff are notified.
+- **Email (AC2, AC3):** in-app is always on. Unless the person turned email off for that type (`notification_preferences`; no row means on), each notification queues its own `notification.email` job in the same transaction. That job sends through the `EmailProvider` interface (`worker/notifications/email.ts`; Resend's free tier, FLOW-33) with the job's key as Resend's `Idempotency-Key`, so a retry after a successful send emails nobody twice. A failed send logs `notification_email_failed` (no recipient address) and is retried by the jobs system with its usual backoff; preferences are checked again at send time. Without `EMAIL_API_KEY` and `EMAIL_FROM` emails are skipped and logged (`notification_email_skipped`), which is the case in dev and CI.
+- **Urgent:** business settings mark types as urgent (Settings → Defaults, one checkbox per type); the SMS channel (FLOW-52) reads that flag.
+- **In the app:** the header bell shows the unread count and the 50 newest notifications; opening one marks it read and goes to its record. The bell checks every minute while the page is visible, because the cron sends no "changed" ping. Reading notifications and changing preferences send no ping either (`worker/realtime.ts`). Email settings are on the profile page.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/notifications` | `{unreadCount, notifications}` for the caller |
+| `POST /api/notifications/<id>/read`, `POST /api/notifications/read-all` | Mark one or all read |
+| `GET /api/notifications/preferences`, `PUT …` `{email: {<type>: boolean}}` | Email on or off per type, with the urgent flag |
+
+**Email setup (production, after FLOW-33):** `npx wrangler secret put EMAIL_API_KEY --env production` (the Resend API key), and set `EMAIL_FROM` (the verified sender, e.g. `Flowbase <notifications@notifications.eventsbydmvcater.com>`) as a production var in `wrangler.jsonc` or a secret. `APP_URL` must be set for emails to link into the app.
+
 ## Background jobs
 
 `worker/jobs/queue.ts` (FLOW-27) is the outbox and work queue, stored in the `jobs` table.
 
 - **Enqueue inside the change's transaction.** `enqueueJob(tx, { type, payload, idempotencyKey })` and `emitDomainEvent(tx, { name, entityId, data })` take the caller's transaction, so a rolled-back change never leaves a job behind. A repeated idempotency key is ignored. Domain events are jobs of type `event:<name>` (`<entity>.<past-tense verb>`, e.g. `client.created`).
 - **Handlers** register by type in `createJobRegistry()` (`worker/jobs/cron.ts`). Handlers must be idempotent. An event with no subscriber succeeds as a no-op; any other job type without a handler fails.
-- **Cron.** One Cron Trigger (`*/5 * * * *` in `wrangler.jsonc`) runs `runDueJobs`, which claims at most 10 due jobs (`FOR UPDATE SKIP LOCKED`) so each run stays within the 10 ms CPU budget. A throwing handler retries after 30 s, 1 min, 2 min, … (capped at 1 h) and is marked `failed` after 5 attempts. A job stuck in `running` for 10 minutes is reclaimed. Without a Hyperdrive binding the cron logs `jobs_skipped` and does nothing.
+- **Cron.** One Cron Trigger (`*/5 * * * *` in `wrangler.jsonc`) first emits `task.due` for tasks that came due (FLOW-58), then runs `runDueJobs`, which claims at most 10 due jobs (`FOR UPDATE SKIP LOCKED`) so each run stays within the 10 ms CPU budget. A throwing handler retries after 30 s, 1 min, 2 min, … (capped at 1 h) and is marked `failed` after 5 attempts. A job stuck in `running` for 10 minutes is reclaimed. Without a Hyperdrive binding the cron logs `jobs_skipped` and does nothing.
 - **Admin API:** `GET /api/admin/jobs?status=failed` lists jobs; `POST /api/admin/jobs/<id>/retry` re-queues a failed job with fresh attempts.
 
 ## Machine ingestion

@@ -19,6 +19,11 @@ export type Bindings = {
   R2_BUCKET?: string;
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
+  // Notification email (FLOW-43, set up in FLOW-33): the Resend API key (Worker
+  // secret) and the verified sender, e.g. "Flowbase <notifications@…>". Without
+  // both, notifications stay in the app and emails are skipped.
+  EMAIL_API_KEY?: string;
+  EMAIL_FROM?: string;
   // Optional R2 binding to the same bucket, used only to confirm uploads arrived.
   FILES?: {
     head: (key: string) => Promise<{ size: number } | null>;

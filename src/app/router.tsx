@@ -95,6 +95,12 @@ import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
 import { roleLabel } from "../services/users";
+const NotificationSettings = lazy(() =>
+  import("../features/notifications").then((module) => ({ default: module.NotificationSettings })),
+);
+const TaskDetail = lazy(() =>
+  import("../features/tasks").then((module) => ({ default: module.TaskDetail })),
+);
 const VendorList = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorList })));
 const VendorDetail = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorDetail })));
 const UserManagement = lazy(() =>
@@ -140,6 +146,7 @@ function Profile() {
         <Button onClick={() => void auth?.signOut()}>Sign out</Button>
       </Section>
       {user && <StaffProfile id={user.id} heading={false} />}
+      {user && <NotificationSettings />}
     </>
   );
 }
@@ -198,6 +205,7 @@ export const getRouter = () =>
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/profile", element: <Profile /> },
+        { path: "/tasks/:id", element: <TaskDetail /> },
         { path: "/reports", element: <TimeReports /> },
         { path: "/imports", element: <ImportList /> },
         { path: "/imports/:module", element: <ImportPage /> },

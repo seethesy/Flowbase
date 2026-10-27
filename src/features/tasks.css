@@ -1,0 +1,66 @@
+/* Task detail (FLOW-58). Shared tokens and components stay in
+   src/styles/globals.css. */
+.task-detail dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 12px 0;
+}
+.task-detail dt {
+  color: var(--muted);
+}
+.task-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.task-description {
+  white-space: pre-wrap;
+}
+.task-checklist,
+.task-comments {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.task-checklist li,
+.task-comments li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.task-checklist label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.task-comments small {
+  margin-left: 8px;
+  color: var(--muted);
+}
+.task-comments p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.task-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+.task-inline-form input,
+.task-inline-form textarea {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+button.back-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
