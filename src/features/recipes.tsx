@@ -26,6 +26,7 @@ import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { canSeeField } from "../../shared/visibility";
 import { allPages, inventoryApi, recipesApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor } from "../app/useOpenFor";
 import {
   Button,
   ConfirmationDialog,
@@ -76,8 +77,9 @@ export function RecipeList() {
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
   const recipes = useResource(
+    ["recipes", { archived, category }],
     () => recipesApi.list({ archived, category: category || undefined }),
-    [archived, category],
+    { keepPrevious: true },
   );
   const data = (recipes.data ?? []).filter((recipe) =>
     recipe.name.toLowerCase().includes(search.toLowerCase()),
@@ -290,12 +292,15 @@ export function RecipeForm({
   const [active, setActive] = useState(recipe?.active ?? true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Every ingredient, whatever the page size (FLOW-179): the picker must be
+  // complete.
   const ingredients = useResource(
+    ["inventory-items", "ingredients", "all"],
     () =>
       allPages((cursor) =>
         inventoryApi.list({ kind: "consumable", subtype: "ingredient" }, cursor),
       ),
-    [],
+    { reference: true },
   );
   const catalog = ingredients.data ?? [];
   // Archived ingredients already on a line stay pickable for that line.
@@ -760,9 +765,10 @@ function ScaleSection({ recipe }: { recipe: Recipe }) {
 export function RecipeDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const recipe = useResource(() => recipesApi.get(id), [id]);
-  const [edit, setEdit] = useState(false);
-  const [archive, setArchive] = useState(false);
+  const recipe = useResource(["recipes", id], () => recipesApi.get(id));
+  // Dialogs belong to the recipe they were opened on (FLOW-197).
+  const [edit, setEdit] = useOpenFor(id);
+  const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/recipes" className="back-link">
       ← Recipe book

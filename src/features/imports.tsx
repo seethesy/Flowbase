@@ -31,7 +31,7 @@ import "./imports.css";
 // leads) appears here once its ticket registers it.
 
 export function ImportList() {
-  const modules = useResource(() => importsApi.modules(), []);
+  const modules = useResource(["imports", "modules"], () => importsApi.modules());
   return (
     <>
       <PageHeader
@@ -64,7 +64,7 @@ export function ImportList() {
 
 export function ImportPage() {
   const { module: key = "" } = useParams();
-  const module = useResource(() => importsApi.module(key), [key]);
+  const module = useResource(["imports", "module", key], () => importsApi.module(key));
   return (
     <>
       <PageHeader
@@ -414,7 +414,12 @@ function ImportLogTable({
   module?: string;
   version?: number;
 }) {
-  const logs = useResource(() => importsApi.list(module), [module, version]);
+  // Re-keyed after each import; the previous logs stay until the new ones load.
+  const logs = useResource(
+    ["imports", "logs", module, version],
+    () => importsApi.list(module),
+    { keepPrevious: true },
+  );
   return (
     <Section title="Recent imports">
       {logs.error ? (

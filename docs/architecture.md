@@ -6,7 +6,7 @@ Source: [FLOW-1](https://sybertechlabs.atlassian.net/browse/FLOW-1).
 
 | ADR | Decision |
 | --- | --- |
-| ADR-01 | Frontend: the existing Vite + React 19 + strict TypeScript SPA. Keep current libs (Tailwind 4, Radix/shadcn-style, React Router, TanStack Table, Recharts, dnd-kit); add TanStack Query, React Hook Form, Zod. |
+| ADR-01 | Frontend: the existing Vite + React 19 + strict TypeScript SPA. Keep current libs (Tailwind 4, Radix/shadcn-style, React Router, TanStack Table, Recharts, dnd-kit); add TanStack Query and Zod. Server data goes through TanStack Query (FLOW-189): one client (`src/app/queryClient.ts`), used by screens through `useResource(key, load)` and `usePagedList(key, load)`; data with the same key is fetched once and shared, reference lists (pickers, sections) are reused for 5 minutes, every save marks cached data stale, and the cache is cleared when the signed-in user changes. Forms stay on React state; React Hook Form is not adopted (FLOW-189 A1). |
 | ADR-02 | Hosting: one Cloudflare Worker (Workers Free) serves the SPA as static assets and the API on the same origin. Deploys run in **Cloudflare Workers Builds** from `main` (Free: 3,000 build minutes/month). |
 | ADR-03 | API: Hono on the Worker; Zod schemas/types shared between app and API. |
 | ADR-04 | Database: Supabase Free Postgres (prod + dev projects). Drizzle ORM + drizzle-kit is the only migration path. RLS on for every table with no browser-facing policies; the browser never queries the database directly. |

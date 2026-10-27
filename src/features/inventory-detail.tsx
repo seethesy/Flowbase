@@ -17,6 +17,7 @@ import {
 import { unitLabel } from "../../shared/units";
 import { allPages, inventoryApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { useOpenFor, useStateFor } from "../app/useOpenFor";
 import {
   Button,
   Section,
@@ -46,12 +47,15 @@ export function InventoryDetail() {
   const navigate = useNavigate();
   const settings = useBusinessSettings();
   const { actor } = usePermissions();
-  const item = useResource(() => inventoryApi.get(id), [id]);
-  const [edit, setEdit] = useState(false);
-  const [stockForm, setStockForm] = useState<
+  const item = useResource(
+    ["inventory-items", id],
+    () => inventoryApi.get(id),
+  );
+  const [edit, setEdit] = useOpenFor(id);
+  const [stockForm, setStockForm] = useStateFor<
     "transfer" | "count" | "movement" | null
-  >(null);
-  const [archive, setArchive] = useState(false);
+  >(id, null);
+  const [archive, setArchive] = useOpenFor(id);
   // Bumped on every stock or cost change so the histories reload.
   const [version, setVersion] = useState(0);
   const saved = (next: InventoryItem) => {
@@ -340,7 +344,7 @@ export function InventoryDetail() {
 }
 
 function IncludedItems({ item }: { item: InventoryItem }) {
-  const items = useResource(() => allPages((cursor) => inventoryApi.list({}, cursor)), []);
+  const items = useResource(["inventory-items", "all"], () => allPages((cursor) => inventoryApi.list({}, cursor)));
   const lines = item.rental?.components ?? item.service?.includes ?? [];
   return (
     <Section title={item.service ? "Includes" : "Kit components"}>

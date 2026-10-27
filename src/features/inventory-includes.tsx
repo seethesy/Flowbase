@@ -16,7 +16,7 @@ export function CatalogIncludes({
   value: Line[];
   onChange: (value: Line[]) => void;
 }) {
-  const items = useResource(() => allPages((cursor) => inventoryApi.list({}, cursor)), []);
+  const items = useResource(["inventory-items", "all"], () => allPages((cursor) => inventoryApi.list({}, cursor)));
   const options = (items.data ?? []).filter(
     (item) => item.id !== itemId && item.kind !== "service" && item.active,
   );
