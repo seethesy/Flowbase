@@ -23,7 +23,7 @@ import {
   type ScaledRecipe,
 } from "../../shared/recipes";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
-import { canSeeField } from "../../shared/visibility";
+import { isFtPlus } from "../../shared/access";
 import { allPages, inventoryApi, recipesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
@@ -75,6 +75,8 @@ export function RecipeList() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<RecipeCategory | "">("");
   const [archived, setArchived] = useState(false);
+  const [allergen, setAllergen] = useState("");
+  const [dietaryTag, setDietaryTag] = useState("");
   const [create, setCreate] = useState(false);
   const recipes = useResource(
     ["recipes", { archived, category }],
@@ -82,9 +84,12 @@ export function RecipeList() {
     { keepPrevious: true },
   );
   const data = (recipes.data ?? []).filter((recipe) =>
-    recipe.name.toLowerCase().includes(search.toLowerCase()),
+    [recipe.name, ...recipe.lines.map((line) => line.ingredientName)].some((name) => name.toLowerCase().includes(search.toLowerCase())) &&
+    (!allergen || recipe.allergens.some((tag) => tag === allergen)) &&
+    (!dietaryTag || recipe.dietaryTags.some((tag) => tag === dietaryTag)),
   );
-  const costHidden = data.some((recipe) => recipe.costHidden);
+  const { actor } = usePermissions();
+  const costHidden = !actor || !isFtPlus(actor);
   const columns: ColumnDef<Recipe, unknown>[] = [
     { accessorKey: "name", header: "Dish" },
     {
@@ -121,6 +126,7 @@ export function RecipeList() {
         subtitle="Every dish with its ingredients, method, cost and allergens."
         eyebrow="Kitchen"
       >
+        <Button asChild variant="outline"><Link to="/recipes/client">Client recipe book</Link></Button>
         <Allowed action="recipes.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
@@ -145,6 +151,14 @@ export function RecipeList() {
               {recipeCategoryLabels[option]}
             </option>
           ))}
+        </select>
+        <select aria-label="Allergen" value={allergen} onChange={(e) => setAllergen(e.target.value)}>
+          <option value="">All allergens</option>
+          {allergenSchema.options.map((tag) => <option key={tag} value={tag}>{allergenLabels[tag]}</option>)}
+        </select>
+        <select aria-label="Dietary tag" value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>
+          <option value="">All dietary tags</option>
+          {dietaryTagSchema.options.map((tag) => <option key={tag} value={tag}>{dietaryTagLabels[tag]}</option>)}
         </select>
         <label className="checkbox-filter">
           <input
@@ -256,7 +270,7 @@ export function RecipeForm({
   // Entered line costs are FT+ only; a form that can't see them leaves them alone.
   const showCost = recipe
     ? !recipe.costHidden
-    : actor !== null && canSeeField(actor, "internal_cost");
+    : actor !== null && isFtPlus(actor);
   const [name, setName] = useState(recipe?.name ?? "");
   const [category, setCategory] = useState<RecipeCategory>(
     recipe?.category ?? "mains",
@@ -295,10 +309,10 @@ export function RecipeForm({
   // Every ingredient, whatever the page size (FLOW-179): the picker must be
   // complete.
   const ingredients = useResource(
-    ["inventory-items", "ingredients", "all"],
+    ["inventory-items", "consumables", "all"],
     () =>
       allPages((cursor) =>
-        inventoryApi.list({ kind: "consumable", subtype: "ingredient" }, cursor),
+        inventoryApi.list({ kind: "consumable" }, cursor),
       ),
     { reference: true },
   );
@@ -799,6 +813,7 @@ export function RecipeDetail() {
           </p>
         </div>
         <div className="page-actions">
+          <Button asChild variant="outline"><Link to={`/print/recipes/${r.id}`}>Kitchen card</Link></Button>
           <Allowed action="recipes.write">
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />

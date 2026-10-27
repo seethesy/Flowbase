@@ -32,6 +32,7 @@ import {
   type TransferInput,
 } from "../../shared/inventory";
 import {
+  clientRecipeSchema,
   recipeSchema,
   scaledRecipeSchema,
   type RecipeCategory,
@@ -312,6 +313,8 @@ export const sectionsApi = {
 
 // Recipe book (FLOW-93/94/95/98).
 export const recipesApi = {
+  clientList: (filter: { category?: RecipeCategory } = {}) =>
+    request(clientRecipeSchema.array(), `/api/recipes/client${query(filter)}`),
   list: (
     filter: {
       archived?: boolean;

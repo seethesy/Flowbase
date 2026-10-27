@@ -1,4 +1,4 @@
-import { canSeeField } from "../../shared/visibility";
+import { isFtPlus } from "../../shared/access";
 import {
   and,
   asc,
@@ -7,12 +7,14 @@ import {
   inArray,
   isNotNull,
   isNull,
+  or,
   sql,
 } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { Allergen } from "../../shared/inventory";
 import {
   lineCost,
+  clientRecipe,
   recipeCost,
   scaleRecipe,
   type DietaryTag,
@@ -25,9 +27,11 @@ import {
 import type { Unit } from "../../shared/units";
 import { fullView, listHistory, maskField, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { inventoryItems, recipeLines, recipes } from "../db/schema";
+import { attachments, inventoryItems, recipeLines, recipes } from "../db/schema";
+import { fileStorage } from "../attachments/storage";
+import type { Bindings } from "../bindings";
 import { ApiError, forbidden, notFound } from "../hono";
-import { emitDomainEvent } from "../jobs/queue";
+import { emitDomainEvent, type JobRegistry } from "../jobs/queue";
 import { setArchived } from "./archive";
 import { toItems } from "./inventory-items";
 import { syncChildren } from "./sync";
@@ -101,7 +105,7 @@ async function toRecipes(
     ingredientsOf(db, lines),
     duplicatesOf(db, rows),
   ]);
-  const showCost = canSeeField(actor, "internal_cost");
+  const showCost = isFtPlus(actor);
   return rows.map((row): Recipe => {
     const own = lines.filter((line) => line.recipeId === row.id);
     const costs = own.map((line) =>
@@ -163,6 +167,8 @@ export type RecipeFilter = {
   archived?: boolean;
   category?: RecipeCategory;
   search?: string;
+  allergen?: Allergen;
+  dietaryTag?: DietaryTag;
 };
 
 export async function listRecipes(
@@ -179,12 +185,35 @@ export async function listRecipes(
           ? isNotNull(recipes.archivedAt)
           : isNull(recipes.archivedAt),
         filter.category ? eq(recipes.category, filter.category) : undefined,
-        filter.search ? ilike(recipes.name, `%${filter.search}%`) : undefined,
+        filter.search ? or(
+          ilike(recipes.name, `%${filter.search}%`),
+          sql`exists (select 1 from ${recipeLines} inner join ${inventoryItems} on ${inventoryItems.id} = ${recipeLines.itemId} where ${recipeLines.recipeId} = ${recipes.id} and ${recipeLines.archivedAt} is null and ${inventoryItems.name} ilike ${`%${filter.search}%`})`,
+        ) : undefined,
+        filter.allergen ? sql`${recipes.allergens} @> ${JSON.stringify([filter.allergen])}::jsonb` : undefined,
+        filter.dietaryTag ? sql`${recipes.dietaryTags} @> ${JSON.stringify([filter.dietaryTag])}::jsonb` : undefined,
       ),
     )
     .orderBy(asc(recipes.category), asc(recipes.name))
     .limit(2000);
   return toRecipes(db, actor, rows);
+}
+
+// Signed-in staff only. Project on the server as well as using a separate UI:
+// a salesperson showing this screen never downloads internal recipe fields.
+export async function listClientRecipes(db: Db, actor: Actor, env: Partial<Bindings>, filter: RecipeFilter) {
+  const dishes = (await listRecipes(db, actor, { ...filter, archived: false }))
+    .filter((dish) => dish.active);
+  if (!dishes.length) return [];
+  const photos = await db.select().from(attachments).where(and(
+    eq(attachments.recordType, "recipe"), eq(attachments.status, "ready"),
+    isNull(attachments.archivedAt), inArray(attachments.recordId, dishes.map((dish) => dish.id)),
+  )).orderBy(asc(attachments.sortOrder), asc(attachments.createdAt));
+  const now = new Date();
+  return Promise.all(dishes.map(async (dish) => {
+    const photo = photos.find((row) => row.recordId === dish.id && row.variants.some((variant) => variant.name === "display"));
+    const display = photo?.variants.find((variant) => variant.name === "display");
+    return clientRecipe(dish, display ? await fileStorage(env).downloadUrl(display.key, 300, now) : null);
+  }));
 }
 
 export async function findRecipe(db: DbLike, id: string) {
@@ -196,6 +225,29 @@ export async function findRecipe(db: DbLike, id: string) {
 export async function getRecipe(db: DbLike, actor: Actor, id: string) {
   const [recipe] = await toRecipes(db, actor, [await findRecipe(db, id)]);
   return recipe;
+}
+
+// FLOW-169: recalculate from current catalog data, never the event's old price.
+// Costs remain derived on reads (FLOW-94); the resulting domain events record
+// the background calculation without introducing a second, stale cost cache.
+export function registerRecipeCostChanges(registry: JobRegistry) {
+  registry.register("event:inventory_item.cost_changed", async (job, { db }) => {
+    const payload = job.payload as { entityId?: string };
+    if (!payload.entityId) throw new Error("Cost change needs an item id.");
+    await db.transaction(async (tx) => {
+      const affected = await tx.selectDistinct({ id: recipeLines.recipeId })
+        .from(recipeLines).where(and(eq(recipeLines.itemId, payload.entityId!), isNull(recipeLines.archivedAt)));
+      if (!affected.length) return;
+      const rows = await tx.select().from(recipes).where(inArray(recipes.id, affected.map((row) => row.id)));
+      for (const dish of await toRecipes(tx, fullView, rows)) {
+        await emitDomainEvent(tx, {
+          name: "recipe.cost_recalculated", entityId: dish.id,
+          data: { itemId: payload.entityId, costChangeJobId: job.id, cost: dish.cost },
+          idempotencyKey: `recipe-cost:${job.id}:${dish.id}`,
+        });
+      }
+    });
+  });
 }
 
 // The recipe as an audit snapshot (FLOW-41): what was entered, not what is worked
@@ -233,7 +285,7 @@ async function recipeSnapshot(db: DbLike, id: string) {
 // History hides entered line costs from callers who can't see costs.
 export async function recipeHistory(db: DbLike, actor: Actor, id: string) {
   await findRecipe(db, id);
-  const showCost = canSeeField(actor, "internal_cost");
+  const showCost = isFtPlus(actor);
   return listHistory(db, "recipe", id, (changes) =>
     showCost
       ? changes
@@ -266,7 +318,7 @@ async function requireIngredients(
     .where(inArray(inventoryItems.id, ids));
   for (const line of input.lines) {
     const item = rows.find((row) => row.id === line.itemId);
-    if (!item || item.kind !== "consumable" || item.subtype !== "ingredient")
+    if (!item || item.kind !== "consumable")
       throw invalid("Every line needs an ingredient from the catalog.");
     const kept = stored.some(
       (row) => row.id === line.id && row.itemId === line.itemId,
@@ -282,7 +334,7 @@ async function saveLines(
   recipeId: string,
   input: RecipeInputParsed,
 ) {
-  const showCost = canSeeField(actor, "internal_cost");
+  const showCost = isFtPlus(actor);
   if (
     !showCost &&
     input.lines.some((line) => line.enteredCostCents !== undefined)

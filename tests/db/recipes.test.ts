@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { createJobRegistry } from "../../worker/jobs/cron";
+import { runDueJobs } from "../../worker/jobs/queue";
+import { recordCostChange } from "../../worker/records/inventory-costs";
+import { listClientRecipes } from "../../worker/records/recipes";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -11,6 +15,7 @@ import type { HistoryEntry } from "../../shared/audit";
 import type { InventoryItem, ItemInput } from "../../shared/inventory";
 import type {
   Recipe,
+  ClientRecipe,
   RecipeInput,
   ScaledRecipe,
 } from "../../shared/recipes";
@@ -87,7 +92,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs`,
+    sql`truncate table attachments, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs`,
   );
   await db.execute(sql`delete from audit_log where entity_type = 'recipe'`);
   const created: Record<string, string> = {};
@@ -173,8 +178,10 @@ describe("recipe record (FLOW-93)", () => {
     expect((await partTimeStaff.call("POST", "/api/recipes", tuscanChicken(ids))).status).toBe(403);
     expect((await partTimeStaff.call("GET", "/api/recipes")).status).toBe(200);
     // The kitchen and full-time staff write recipes.
-    await createRecipe(tuscanChicken(ids), kitchenLead);
-    await createRecipe(tuscanChicken(ids), cook);
+    const noEnteredCosts = tuscanChicken(ids);
+    noEnteredCosts.lines = noEnteredCosts.lines?.map(({ enteredCostCents: _cost, ...line }) => { void _cost; return line; });
+    await createRecipe(noEnteredCosts, kitchenLead);
+    await createRecipe(noEnteredCosts, cook);
     await createRecipe(tuscanChicken(ids), fullTimeStaff);
   });
 });
@@ -206,12 +213,101 @@ describe("recipe costing (FLOW-94)", () => {
     expect(seen.cost).toBeNull();
     expect(seen.costHidden).toBe(true);
     expect(seen.lines.every((line) => line.cost === null && line.enteredCostCents === null)).toBe(true);
-    // Kitchen roles see costs (F-01-04).
-    expect((await getRecipe(recipe.id, kitchenLead)).cost?.batchCents).toBe(5415);
+    // FLOW-96: recipe costs are FT+ only, including kitchen roles.
+    expect((await getRecipe(recipe.id, kitchenLead)).cost).toBeNull();
+    expect((await getRecipe(recipe.id, cook)).cost).toBeNull();
+    expect((await getRecipe(recipe.id, cook)).steps).toEqual(recipe.steps);
+    expect((await getRecipe(recipe.id, fullTimeStaff)).cost?.batchCents).toBe(5415);
     const [created] = await partTimeStaff.send<HistoryEntry[]>("GET", `/api/recipes/${recipe.id}/history`);
     const lines = created.changes.lines.after as { enteredCostCents: number | null }[];
     expect(lines.every((line) => line.enteredCostCents === null)).toBe(true);
   });
+});
+
+describe("recipe books (FLOW-96/97)", () => {
+  it("searches names and live ingredients and combines category and tag filters", async () => {
+    const chicken = await createRecipe(tuscanChicken(ids, { dietaryTags: ["gluten_free"] }));
+    const cream = await createRecipe(tuscanChicken(ids, { name: "Cream sauce", category: "sides", lines: [{ itemId: ids.cream }] }));
+    const list = (query: string) => admin.send<Recipe[]>("GET", `/api/recipes?${query}`);
+    expect((await list("search=chicken")).map((dish) => dish.id)).toEqual([chicken.id]);
+    expect((await list("search=cream")).map((dish) => dish.id).sort()).toEqual([chicken.id, cream.id].sort());
+    expect((await list("search=cream&category=mains&allergen=milk&dietaryTag=gluten_free")).map((dish) => dish.id)).toEqual([chicken.id]);
+    expect(await list("dietaryTag=vegan")).toEqual([]);
+    await admin.send("PUT", `/api/recipes/${cream.id}`, tuscanChicken(ids, { name: "Cream sauce", lines: [] }));
+    expect((await list("search=heavy")).map((dish) => dish.id)).toEqual([chicken.id]);
+  });
+
+  it("serves only client fields and excludes archived and inactive dishes", async () => {
+    const dish = await createRecipe(tuscanChicken(ids, { description: "A creamy dish" }));
+    await createRecipe(tuscanChicken(ids, { name: "Inactive", active: false }));
+    const archived = await createRecipe(tuscanChicken(ids, { name: "Archived" }));
+    await admin.send("POST", `/api/recipes/${archived.id}/archive`, {});
+    const clientDishes = await signedInAs("salesperson", "part_time").send<ClientRecipe[]>("GET", "/api/recipes/client?category=mains");
+    expect(clientDishes).toHaveLength(1);
+    expect(clientDishes[0]).toEqual({ id: dish.id, name: dish.name, category: dish.category, description: dish.description, ingredients: dish.lines.map((line) => line.ingredientName), allergens: ["milk"], dietaryTags: [], photo: null });
+    expect(await admin.send("GET", "/api/recipes/client?category=desserts")).toEqual([]);
+    const app = createApp({ withDb, resolveActor: async () => null });
+    expect((await app.request("/api/recipes/client", {}, env)).status).toBe(401);
+  });
+
+  it("prevents part-time kitchen edits from reading or changing stored costs", async () => {
+    const dish = await createRecipe(tuscanChicken(ids));
+    expect((await cook.call("PUT", `/api/recipes/${dish.id}`, tuscanChicken(ids))).status).toBe(403);
+    const input = tuscanChicken(ids, { lines: dish.lines.map((line) => ({ id: line.id, itemId: line.itemId, quantity: line.quantity, unit: line.unit })), steps: ["New method"] });
+    const updated = await cook.send<Recipe>("PUT", `/api/recipes/${dish.id}`, input);
+    expect(updated.cost).toBeNull();
+    expect(updated.lines.every((line) => line.cost === null && line.enteredCostCents === null)).toBe(true);
+    expect((await getRecipe(dish.id)).cost).toEqual(dish.cost);
+    const history = await cook.send<HistoryEntry[]>("GET", `/api/recipes/${dish.id}/history`);
+    expect(JSON.stringify(history)).not.toContain('"enteredCostCents":5000');
+  });
+});
+
+describe("background recipe costs (FLOW-169)", () => {
+  it.each(["bar", "supply"])("recalculates recipes using %s consumables", async (subtype) => {
+    const item = await createItem({ ...tuscanIngredients.chicken, subtype, name: `Recipe ${subtype}` });
+    const dish = await createRecipe(tuscanChicken(ids, { lines: [{ itemId: item.id, quantity: 2, unit: "lb" }] }));
+    await admin.send("PUT", `/api/inventory/items/${item.id}`, { ...tuscanIngredients.chicken, subtype, name: item.name, consumable: { ...tuscanIngredients.chicken.consumable, unitCostCents: 300 } });
+    await runDueJobs(db, createJobRegistry(), { batchSize: 100 });
+    expect((await getRecipe(dish.id)).cost?.batchCents).toBe(600);
+    const results = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:recipe.cost_recalculated"));
+    expect(results).toHaveLength(1);
+    expect(results[0].payload).toMatchObject({ entityId: dish.id, cost: { batchCents: 600 } });
+  });
+  it.each(["manual", "receiving"] as const)("recalculates every Heavy Cream recipe after %s and safely replays", async (source) => {
+    const first = await createRecipe(tuscanChicken(ids));
+    const second = await createRecipe(tuscanChicken(ids, { name: "Cream sauce", lines: [{ itemId: ids.cream, quantity: 2, unit: "cup" }] }));
+    const unrelated = await createRecipe(tuscanChicken(ids, { name: "Plain chicken", lines: [{ itemId: ids.chicken, quantity: 1, unit: "each" }] }));
+    await db.transaction(async (tx) => {
+      await tx.update(schema.inventoryConsumableDetails).set({ unitCostCents: 2400 }).where(eq(schema.inventoryConsumableDetails.itemId, ids.cream));
+      await recordCostChange(tx, { userId: "c1000000-0000-4000-8000-000000000001", role: "admin", employmentType: "full_time" }, { itemId: ids.cream, previousCents: null, unitCostCents: 2400, source });
+    });
+    const [event] = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:inventory_item.cost_changed"));
+    expect(event.payload).toMatchObject({ entityId: ids.cream, source });
+    const registry = createJobRegistry();
+    await runDueJobs(db, registry, { batchSize: 100 });
+    const results = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:recipe.cost_recalculated"));
+    expect(results.map((job) => (job.payload as { entityId: string }).entityId).sort()).toEqual([first.id, second.id].sort());
+    expect(results.find((job) => (job.payload as { entityId: string }).entityId === second.id)?.payload).toMatchObject({ cost: { batchCents: 200, perServingCents: 2 } });
+    expect((await getRecipe(first.id)).cost?.batchCents).toBe(5335);
+    expect((await getRecipe(second.id)).cost?.batchCents).toBe(200);
+    expect((await getRecipe(unrelated.id)).cost?.batchCents).toBe(0);
+    await registry.get(event.type)!(event, { db });
+    expect(await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:recipe.cost_recalculated"))).toHaveLength(2);
+  });
+});
+
+it("projects only the first ready recipe photo with a signed URL", async () => {
+  const dish = await createRecipe(tuscanChicken(ids));
+  await db.insert(schema.attachments).values([
+    { recordType: "recipe", recordId: dish.id, status: "pending", fileName: "pending.jpg", sortOrder: 0, variants: [{ name: "display", key: "pending.jpg", contentType: "image/jpeg", size: 100 }] },
+    { recordType: "recipe", recordId: dish.id, status: "ready", fileName: "internal-filename.jpg", caption: "Internal caption", sortOrder: 1, variants: [{ name: "display", key: "recipe/photo.jpg", contentType: "image/jpeg", size: 100 }] },
+  ]);
+  const projected = await listClientRecipes(db, { userId: "c1000000-0000-4000-8000-000000000001", role: "salesperson", employmentType: "part_time" }, { R2_ACCOUNT_ID: "test", R2_BUCKET: "files", R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test" }, {});
+  expect(projected[0].photo).toContain("/files/recipe/photo.jpg?");
+  expect(projected[0].photo).toContain("X-Amz-Expires=300");
+  expect(JSON.stringify(projected)).not.toMatch(/internal-filename|Internal caption|pending.jpg/);
+  await db.delete(schema.attachments).where(eq(schema.attachments.recordId, dish.id));
 });
 
 describe("allergens and dietary tags (FLOW-95)", () => {

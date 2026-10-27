@@ -220,6 +220,26 @@ export const recipeSchema = z.object({
 });
 export type Recipe = z.infer<typeof recipeSchema>;
 
+// FLOW-97: an allowlist, shared by the client view and printed book. Never
+// spread a recipe into this projection: new internal fields must stay internal.
+export const clientRecipeSchema = recipeSchema.pick({
+  id: true, name: true, category: true, description: true,
+  allergens: true, dietaryTags: true,
+}).extend({
+  ingredients: z.array(z.string()),
+  photo: z.string().url().nullable(),
+}).strict();
+export type ClientRecipe = z.infer<typeof clientRecipeSchema>;
+export function clientRecipe(recipe: Recipe, photo: string | null = null): ClientRecipe {
+  return {
+    id: recipe.id, name: recipe.name, category: recipe.category,
+    description: recipe.description, allergens: recipe.allergens,
+    dietaryTags: recipe.dietaryTags,
+    ingredients: [...new Set(recipe.lines.map((line) => line.ingredientName))],
+    photo,
+  };
+}
+
 // ---- Scaling (FLOW-98) ----
 
 export const scaledLineSchema = z.object({
