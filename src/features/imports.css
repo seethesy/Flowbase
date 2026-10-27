@@ -1,0 +1,28 @@
+/* Data import (FLOW-47). */
+.import-modules {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+.import-mapping {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+}
+.import-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-weight: 600;
+}
+.import-progress {
+  margin: 1rem 0;
+}

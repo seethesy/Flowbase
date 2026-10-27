@@ -1,4 +1,8 @@
-import { canSeeField, serializeFields } from "../../shared/visibility";
+import {
+  canSeeField,
+  redactFieldHistory,
+  serializeFields,
+} from "../../shared/visibility";
 import {
   and,
   asc,
@@ -18,6 +22,7 @@ import type {
   ItemInputParsed,
 } from "../../shared/inventory";
 import type { Unit } from "../../shared/units";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   inventoryBarDetails,
@@ -312,6 +317,35 @@ export async function getItem(db: DbLike, actor: Actor, id: string) {
   return item;
 }
 
+// The item as an audit snapshot (FLOW-185): every field, whoever is writing.
+// Stock is left out; it changes only through movements, which the ledger audits
+// (FLOW-168).
+export async function itemSnapshot(db: DbLike, id: string) {
+  const snapshot: Record<string, unknown> = { ...(await getItem(db, fullView, id)) };
+  delete snapshot.stock;
+  delete snapshot.totalQuantity;
+  delete snapshot.belowPar;
+  return snapshot;
+}
+
+// History hides what toItems hides from the caller: consumable costs from users
+// who can't see internal costs (F-01-04).
+export async function itemHistory(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+) {
+  await findItem(db, id);
+  return listHistoryPage(
+    db,
+    "inventory_item",
+    id,
+    (changes) => redactFieldHistory(actor, "inventory_item", changes),
+    page,
+  );
+}
+
 async function requireUniqueCode(db: DbLike, code: string, exceptId?: string) {
   if (!code) return;
   const [clash] = await db
@@ -443,6 +477,13 @@ export async function createItem(
       .values({ ...itemValues(input, actor), createdBy: actor.userId })
       .returning({ id: inventoryItems.id });
     await saveDetails(tx, actor, row.id, input);
+    await writeAudit(tx, actor, {
+      entityType: "inventory_item",
+      entityId: row.id,
+      action: "create",
+      before: null,
+      after: await itemSnapshot(tx, row.id),
+    });
     await emitDomainEvent(tx, {
       name: "inventory_item.created",
       entityId: row.id,
@@ -466,11 +507,19 @@ export async function updateItem(
     );
   await requireUniqueCode(db, input.code, id);
   await db.transaction(async (tx) => {
+    const before = await itemSnapshot(tx, id);
     await tx
       .update(inventoryItems)
       .set(itemValues(input, actor))
       .where(eq(inventoryItems.id, id));
     await saveDetails(tx, actor, id, input);
+    await writeAudit(tx, actor, {
+      entityType: "inventory_item",
+      entityId: id,
+      action: "update",
+      before,
+      after: await itemSnapshot(tx, id),
+    });
     await emitDomainEvent(tx, { name: "inventory_item.updated", entityId: id });
   });
   return getItem(db, actor, id);
@@ -487,6 +536,7 @@ export async function setItemArchived(
   await setArchived(db, actor, id, archived, {
     update: (tx, values) =>
       tx.update(inventoryItems).set(values).where(eq(inventoryItems.id, id)),
+    audit: { entityType: "inventory_item", snapshot: itemSnapshot },
     event: "inventory_item",
   });
   return getItem(db, actor, id);
