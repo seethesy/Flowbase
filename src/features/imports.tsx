@@ -20,7 +20,7 @@ import {
 } from "../components/shared";
 import { readImportFile, type Sheet } from "../services/import-files";
 import { importsApi } from "../services/imports";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { dateTimeLabel } from "./inventory-labels";
 import "./inventory.css";
 import "./imports.css";
@@ -414,7 +414,12 @@ function ImportLogTable({
   module?: string;
   version?: number;
 }) {
-  const logs = useResource(["imports", "logs", module, version], () => importsApi.list(module));
+  // Re-keyed after each import; the previous logs stay until the new ones load.
+  const logs = useResource(
+    ["imports", "logs", module, version],
+    () => importsApi.list(module),
+    { keepPrevious: true },
+  );
   return (
     <Section title="Recent imports">
       {logs.error ? (
