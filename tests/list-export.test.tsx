@@ -23,9 +23,10 @@ it("escapes commas, quotes and line breaks per RFC 4180", () => {
 });
 
 it("keeps text that looks like a formula as text", () => {
-  for (const value of ["=HYPERLINK(\"x\")", "+1", "-2+3", "@SUM(A1)"])
+  for (const value of ["=HYPERLINK(1)", "+1", "-2+3", "@SUM(A1)"])
     expect(csvCell(value)).toBe(`'${value}`);
   expect(csvCell("=1,2")).toBe(`"'=1,2"`);
+  expect(csvCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
   // Numbers stay numbers.
   expect(csvCell(-3)).toBe("-3");
 });
