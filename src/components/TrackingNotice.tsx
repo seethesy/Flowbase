@@ -17,8 +17,7 @@ const noticeSeen = () => {
   }
 };
 
-// Shown on first use. Until sign-in (FLOW-36) it's remembered per browser; then
-// it becomes the first sign-in notice.
+// Shown on first use and remembered per browser.
 export function TrackingNotice() {
   const [open, setOpen] = useState(() => !noticeSeen());
   const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;

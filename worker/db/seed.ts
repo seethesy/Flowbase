@@ -103,8 +103,14 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
           })
           .onConflictDoNothing();
       }
-      for (const [i, row] of fixtures.contacts.entries()) {
-        const parent = fixtures.clients.findIndex((c) => c.id === row.clientId);
+      // Contact examples belong to the development database seed, not the SPA.
+      // Keep the established IDs and 35 primary + 10 coordinator contacts.
+      for (let i = 0; i < 45; i++) {
+        const parent = i % fixtures.clients.length;
+        const row = {
+          name: i < 35 ? fixtures.clients[i].contact : `${["Avery", "Riley", "Quinn"][i % 3]} Spencer`,
+          email: `contact${i + 1}@fictional.example`,
+        };
         await tx
           .insert(schema.clientContacts)
           .values({

@@ -8,7 +8,8 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("@tiptap") || id.includes("prosemirror")) return "editor";
+          if (id.includes("prosemirror") || id.includes("@tiptap/pm")) return "editor-engine";
+          if (id.includes("@tiptap")) return "editor";
           if (id.includes("recharts") || /node_modules\/d3-|node_modules\/(victory-vendor|internmap|decimal.js-light|react-smooth)\//.test(id)) return "charts";
           if (id.includes("@sentry")) return "observability";
           if (id.includes("@supabase")) return "auth";
