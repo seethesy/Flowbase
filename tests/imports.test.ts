@@ -25,7 +25,7 @@ describe("parseCsv", () => {
   it("reads quoted commas, quotes and line breaks, CRLF and a byte order mark", () => {
     expect(
       parseCsv(
-        '﻿Code,Name,Notes\r\nCH-1,"Chair, gold","He said ""hi"""\r\nTB-1,Table,"two\nlines"\n',
+        '\ufeffCode,Name,Notes\r\nCH-1,"Chair, gold","He said ""hi"""\r\nTB-1,Table,"two\nlines"\n',
       ),
     ).toEqual([
       ["Code", "Name", "Notes"],

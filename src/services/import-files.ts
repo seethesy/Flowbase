@@ -9,7 +9,7 @@ export type Sheet = string[][];
 // RFC 4180 CSV: quoted fields may hold commas, quotes ("") and line breaks. A
 // leading byte order mark is ignored; CRLF and LF both end a row.
 export function parseCsv(text: string): Sheet {
-  const source = text.replace(/^﻿/, "");
+  const source = text.replace(/^\ufeff/, "");
   const rows: Sheet = [];
   let row: string[] = [];
   let cell = "";
