@@ -95,6 +95,8 @@ import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
 import { roleLabel } from "../services/users";
+const VendorList = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorList })));
+const VendorDetail = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorDetail })));
 const UserManagement = lazy(() =>
   import("../features/users").then((module) => ({ default: module.UserManagement })),
 );
@@ -191,6 +193,8 @@ export const getRouter = () =>
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/venues", element: <VenueList /> },
         { path: "/venues/:id", element: <VenueDetail /> },
+        { path: "/vendors", element: <VendorList /> },
+        { path: "/vendors/:id", element: <VendorDetail /> },
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/profile", element: <Profile /> },

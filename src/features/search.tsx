@@ -12,8 +12,9 @@ import "./search.css";
 // Waits for typing to pause before asking the API.
 const DEBOUNCE_MS = 250;
 
-// Global search (FLOW-46): clients, leads, events, venues and inventory items from
-// one box, fuzzy enough to forgive a typo, and limited to what the user may see.
+// Global search (FLOW-46): clients, leads, events, venues, inventory items and
+// vendors (FLOW-84) from one box, fuzzy enough to forgive a typo, and limited to
+// what the user may see.
 export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
   const [search, setSearch] = useState("");
   const [state, setState] = useState<{
@@ -49,7 +50,7 @@ export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
       <SearchInput
         value={search}
         onChange={setSearch}
-        placeholder="Search clients, leads, events, venues, items…"
+        placeholder="Search clients, leads, events, venues, items, vendors…"
       />
       {state.error && ready && (
         <p role="alert" className="error-message">

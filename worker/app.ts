@@ -33,6 +33,7 @@ import { settingsRoutes } from "./routes/settings";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { proposalRoutes } from "./routes/proposals";
+import { vendorRoutes } from "./routes/vendors";
 import { announceChanges } from "./realtime";
 import * as fixtures from "../src/data/mock/fixtures";
 
@@ -246,6 +247,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/staff", staffRoutes(options));
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
+  app.route("/api/vendors", vendorRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));

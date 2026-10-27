@@ -24,6 +24,7 @@ import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
 import { importStatuses } from "../../shared/imports";
+import { vendorTypes } from "../../shared/vendors";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -715,6 +716,50 @@ export const attachments = pgTable(
   ],
 ).enableRLS();
 
+// Vendor and distributor directory (FLOW-84). There is no password column:
+// Flowbase never stores portal passwords. Contacts and the account number are
+// FT+ only (shared/visibility.ts).
+export const vendors = pgTable(
+  "vendors",
+  {
+    ...baseColumns(),
+    name: text("name").notNull(),
+    type: text("type", { enum: vendorTypes }).notNull(),
+    portalUrl: text("portal_url").notNull().default(""),
+    accountNumber: text("account_number").notNull().default(""),
+    orderCutoff: text("order_cutoff").notNull().default(""),
+    deliveryDays: jsonb("delivery_days").$type<string[]>().notNull().default([]),
+    minimumOrderCents: moneyCents("minimum_order_cents"),
+    leadTimeDays: integer("lead_time_days"),
+    orderingInstructions: text("ordering_instructions").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+  },
+  (table) => [
+    // One live vendor per name, so imports find "Imperio" instead of adding it twice.
+    uniqueIndex("vendors_name_idx")
+      .on(sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`),
+    trigram("vendors_name_trgm_idx", table.name),
+    oneOf("vendors_type_check", table.type, vendorTypes),
+  ],
+).enableRLS();
+
+export const vendorContacts = pgTable(
+  "vendor_contacts",
+  {
+    ...baseColumns(),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id),
+    name: text("name").notNull(),
+    role: text("role").notNull().default(""),
+    email: text("email").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [index("vendor_contacts_vendor_idx").on(table.vendorId)],
+).enableRLS();
+
 // Inventory (FLOW-69/70/81). Quantities can be fractional (2.5 lb), so they are
 // numeric, read as numbers. Units are the codes in shared/units.ts.
 const quantity = (name: string) =>
@@ -784,6 +829,11 @@ export const inventoryRentalDetails = pgTable("inventory_rental_details", {
   assemblyNotes: text("assembly_notes").notNull().default(""),
   bufferDaysBefore: integer("buffer_days_before").notNull().default(1),
   bufferDaysAfter: integer("buffer_days_after").notNull().default(1),
+  // Sub-rental (FLOW-75): the vendor it's rented from, what they charge for one,
+  // and the notice they need.
+  vendorId: uuid("vendor_id").references(() => vendors.id),
+  vendorCostCents: moneyCents("vendor_cost_cents"),
+  leadTimeDays: integer("lead_time_days"),
   components: jsonb("components")
     .$type<{ itemId: string; quantity: number }[]>()
     .notNull()
@@ -831,6 +881,8 @@ export const inventoryConsumableDetails = pgTable(
     // Cost of one purchase unit; FT+ only (F-01-04).
     unitCostCents: moneyCents("unit_cost_cents"),
     preferredVendor: text("preferred_vendor").notNull().default(""),
+    // The directory vendor (FLOW-84); preferredVendor then holds its name.
+    preferredVendorId: uuid("preferred_vendor_id").references(() => vendors.id),
     parLevel: quantity("par_level"),
     allergens: jsonb("allergens").$type<string[]>().notNull().default([]),
     storageSectionId: uuid("storage_section_id").references(

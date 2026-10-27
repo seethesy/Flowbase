@@ -15,7 +15,7 @@ test("global search finds a misspelled lead and opens it", async ({ page }) => {
   await page.goto("/#/");
   await page.getByRole("button", { name: "Search anything" }).click();
   const box = page.getByPlaceholder(
-    "Search clients, leads, events, venues, items…",
+    "Search clients, leads, events, venues, items, vendors…",
   );
   await box.fill("o");
   await expect(page.getByText("Everything, in one place")).toBeVisible();

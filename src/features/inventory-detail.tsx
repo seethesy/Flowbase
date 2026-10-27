@@ -149,6 +149,29 @@ export function InventoryDetail() {
                   <p>{centsLabel(i.rental.replacementCostCents ?? null)}</p>
                 </>
               )}
+              {i.rental.vendorId && (
+                <>
+                  <small>Sub-rented from</small>
+                  <p>
+                    <Link to={`/vendors/${i.rental.vendorId}`}>
+                      {i.rental.vendorName ?? "Vendor"}
+                    </Link>{" "}
+                    · available on request
+                  </p>
+                  {actor && canSeeRentalCosts(actor) && (
+                    <>
+                      <small>Vendor cost</small>
+                      <p>{centsLabel(i.rental.vendorCostCents ?? null)}</p>
+                    </>
+                  )}
+                  <small>Lead time</small>
+                  <p>
+                    {i.rental.leadTimeDays === null
+                      ? "—"
+                      : `${i.rental.leadTimeDays} day${i.rental.leadTimeDays === 1 ? "" : "s"}`}
+                  </p>
+                </>
+              )}
               <small>Dimensions</small>
               <p>{i.rental.dimensions || "—"}</p>
               <small>Buffer days before / after</small>
@@ -212,7 +235,15 @@ export function InventoryDetail() {
               </>
             )}
             <small>{i.bar ? "Distributor" : "Preferred vendor"}</small>
-            <p>{c.preferredVendor || "—"}</p>
+            <p>
+              {c.preferredVendorId ? (
+                <Link to={`/vendors/${c.preferredVendorId}`}>
+                  {c.preferredVendor}
+                </Link>
+              ) : (
+                c.preferredVendor || "—"
+              )}
+            </p>
             <small>Par level</small>
             <p>
               {c.parLevel === null ? "—" : quantityLabel(c.parLevel, i.unit)}

@@ -16,6 +16,8 @@ import {
   events,
   inventoryItems,
   leads,
+  vendorContacts,
+  vendors,
   venues,
 } from "../db/schema";
 import { clientScope, eventScope, leadScope } from "../policy";
@@ -192,6 +194,43 @@ async function searchItems(db: DbLike, q: Query) {
     .limit(PER_TYPE);
 }
 
+// Vendors (FLOW-84) are visible to every signed-in user; their contacts are
+// FT+ only, so only FT+ users match a vendor by a contact's name, email or phone.
+async function searchVendors(db: DbLike, actor: Actor, q: Query) {
+  const contactScore = best(
+    textScore(vendorContacts.name, q),
+    exactScore(vendorContacts.email, q),
+    phoneScore(sql`regexp_replace(${vendorContacts.phone}, '\\D', '', 'g')`, q),
+  );
+  const score = best(
+    textScore(vendors.name, q),
+    ...(canSeeField(actor, "vendor_contact")
+      ? [
+          sql`coalesce((
+            select max(${contactScore}) from ${vendorContacts}
+            where ${vendorContacts.vendorId} = ${vendors.id}
+              and ${vendorContacts.archivedAt} is null
+          ), 0)`,
+        ]
+      : []),
+  );
+  return db
+    .select({
+      id: vendors.id,
+      title: vendors.name,
+      subtitle: sql<string>`case ${vendors.type}
+        when 'food_distributor' then 'Food distributor'
+        when 'beverage_distributor' then 'Beverage distributor'
+        when 'rental_vendor' then 'Rental vendor'
+        else 'Event partner' end`,
+      score: toNumber(score),
+    })
+    .from(vendors)
+    .where(and(isNull(vendors.archivedAt), sql`${score} >= ${SEARCH_THRESHOLD}`))
+    .orderBy(desc(score))
+    .limit(PER_TYPE);
+}
+
 // The best matches across every type the caller may see, best first. A query
 // shorter than SEARCH_MIN_LENGTH returns nothing.
 export async function globalSearch(
@@ -212,6 +251,7 @@ export async function globalSearch(
     ["event", await searchEvents(db, actor, q)],
     ["venue", await searchVenues(db, q)],
     ["item", await searchItems(db, q)],
+    ["vendor", await searchVendors(db, actor, q)],
   ];
   return groups
     .flatMap(([type, rows]) =>
