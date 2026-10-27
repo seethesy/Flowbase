@@ -34,6 +34,7 @@ import {
   createSection,
   getCount,
   getItem,
+  itemHistory,
   listCostHistory,
   listCounts,
   listItems,
@@ -166,6 +167,18 @@ export function inventoryRoutes(options: {
       return c.json(
         await record(c, (db, actor) => correctMovement(db, actor, id, input)),
         201,
+      );
+    },
+  );
+  // Item history (FLOW-185): read-only; costs hidden per F-01-04.
+  routes.get(
+    "/items/:id/history",
+    requirePermission("inventory.read"),
+    async (c) => {
+      const id = param(c, "Item");
+      return sendPage(
+        c,
+        await record(c, (db, actor) => itemHistory(db, actor, id, pageRequest(c))),
       );
     },
   );

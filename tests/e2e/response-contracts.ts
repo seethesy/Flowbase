@@ -40,6 +40,12 @@ import {
   settingsHistoryEntrySchema,
 } from "../../shared/settings";
 import { staffMemberSchema } from "../../shared/staff";
+import {
+  importBatchResultSchema,
+  importLogSchema,
+  importModuleSchema,
+  importRowPlanSchema,
+} from "../../shared/imports";
 
 export function responseSchema(
   path: string,
@@ -72,6 +78,7 @@ export function responseSchema(
       return action ? leadSchema : leadDuplicateSchema.array();
     if (id === "assign") return leadSchema.array();
     if (action === "convert") return leadConversionSchema;
+    if (action === "history") return historyEntrySchema.array();
     return !id ? leadSchema.array() : leadSchema;
   }
   if (resource === "inventory") {
@@ -86,6 +93,7 @@ export function responseSchema(
         : stockCountSchema;
     if (id === "movements") return movementSchema.array();
     if (tail === "cost-history") return costChangeSchema.array();
+    if (tail === "history") return historyEntrySchema.array();
     if (tail === "movements" && method === "GET") return movementSchema.array();
     return !action && method === "GET" ? itemSchema.array() : itemSchema;
   }
@@ -116,6 +124,13 @@ export function responseSchema(
     if (id === "lists" && path.split("/")[5] === "order")
       return listValueSchema.array();
     return listValueSchema;
+  }
+  if (resource === "imports") {
+    if (id === "modules")
+      return action ? importModuleSchema : importModuleSchema.array();
+    if (id === "dry-run") return importRowPlanSchema.array();
+    if (action === "rows") return importBatchResultSchema;
+    return !id && method === "GET" ? importLogSchema.array() : importLogSchema;
   }
   if (resource === "staff")
     return !id ? staffMemberSchema.array() : staffMemberSchema;
