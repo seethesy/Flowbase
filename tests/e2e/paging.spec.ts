@@ -63,12 +63,23 @@ test("exports every matching client, not just the loaded page, in the current so
       select 'Gala Client ' || lpad(n::text, 3, '0'), 'organization'
       from generate_series(1, 250) as n
       union all
-      select 'Other ' || lpad(n::text, 3, '0'), 'organization'
+      select 'Aster ' || lpad(n::text, 3, '0'), 'organization'
       from generate_series(1, 50) as n
     `),
   );
   await page.goto("/#/clients");
+  // The non-matching clients sort first, so the unfiltered first page shows them.
+  await expect(page.getByText("Aster 001", { exact: true })).toBeVisible();
+  // The search is debounced: wait until the filtered list is on screen, since
+  // the export uses the search the list is showing.
+  const searched = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/clients" &&
+      new URL(response.url()).searchParams.get("search") === "Gala Client",
+  );
   await page.getByPlaceholder("Search clients or contacts…").fill("Gala Client");
+  await searched;
+  await expect(page.getByText("Aster 001", { exact: true })).toHaveCount(0);
   await expect(page.getByText("100+ clients", { exact: true })).toBeVisible();
   // Sort by name, descending (second click).
   const sort = page.locator("th").getByRole("button", { name: /^Client/ });
@@ -87,6 +98,6 @@ test("exports every matching client, not just the loaded page, in the current so
   expect(lines).toHaveLength(251);
   expect(lines[1].startsWith("Gala Client 250,")).toBe(true);
   expect(lines.at(-1)!.startsWith("Gala Client 001,")).toBe(true);
-  expect(lines.some((line) => line.startsWith("Other "))).toBe(false);
+  expect(lines.some((line) => line.startsWith("Aster "))).toBe(false);
   await expect(page.getByRole("button", { name: "Export CSV" })).toBeEnabled();
 });
