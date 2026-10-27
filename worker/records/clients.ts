@@ -149,7 +149,7 @@ export async function getClient(db: Db, actor: Actor, id: string) {
 }
 
 // The client as an audit snapshot (FLOW-41): every field, whoever is writing.
-async function clientSnapshot(db: DbLike, id: string) {
+export async function clientSnapshot(db: DbLike, id: string) {
   const [row] = await db.select().from(clients).where(eq(clients.id, id));
   const [client] = await toClients(db, fullView, [row]);
   return client;

@@ -17,6 +17,7 @@ export {
   createItem,
   findItem,
   getItem,
+  itemHistory,
   listItems,
   setItemArchived,
   updateItem,
@@ -29,6 +30,7 @@ export {
   countStock,
   listMovements,
   recordMovement,
+  recordStartingStock,
   transferStock,
 } from "./inventory-ledger";
 export type { Movement } from "./inventory-ledger";

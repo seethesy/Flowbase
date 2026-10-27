@@ -22,6 +22,7 @@ import {
   changeLeadStatus,
   convertLead,
   getLead,
+  leadHistory,
   listLeads,
 } from "../records/leads";
 import { leadDashboard } from "../records/lead-dashboard";
@@ -123,6 +124,11 @@ export function leadRoutes(options: {
   routes.get("/:id", requirePermission("leads.read"), async (c) => {
     const id = param(c);
     return c.json(await record(c, (db, actor) => getLead(db, actor, id)));
+  });
+  // Lead history (FLOW-185): read-only for anyone who can see the lead.
+  routes.get("/:id/history", requirePermission("leads.read"), async (c) => {
+    const id = param(c);
+    return c.json(await record(c, (db, actor) => leadHistory(db, actor, id)));
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
     const id = param(c);

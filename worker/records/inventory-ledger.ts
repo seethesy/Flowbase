@@ -10,6 +10,7 @@ import {
   type MovementType,
   type StockMovement,
 } from "../../shared/inventory";
+import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   events,
@@ -122,12 +123,68 @@ export async function recordMovement(
     )
     .returning({ id: stockMovements.id });
   const ids = rows.map((row) => row.id);
+  // One audit row per movement, in the movement's transaction (FLOW-168 AC2).
+  for (const [index, change] of movement.changes.entries())
+    await writeAudit(tx, actor, {
+      entityType: "stock_movement",
+      entityId: ids[index],
+      action: "create",
+      before: null,
+      after: {
+        itemId: item.id,
+        sectionId: change.sectionId,
+        type: movement.type,
+        quantity: round(change.quantity),
+        reason: movement.reason,
+        transferId,
+        correctsId: movement.correctsId ?? null,
+        link: movement.link ?? null,
+      },
+    });
   await emitDomainEvent(tx, {
     name: "stock.moved",
     entityId: item.id,
     data: { movementIds: ids, type: movement.type },
   });
   return ids;
+}
+
+// Imported starting quantities (FLOW-168 AC1). A module importer calls this inside
+// its row's transaction: the quantity enters the ledger as a count movement linked
+// to the import's log entry, never as a set quantity. It is a starting quantity,
+// so it applies only while the item has no movements in that section yet:
+// re-running an import doesn't recount stock that has moved since. Returns the
+// movement id, or null when nothing was recorded.
+export async function recordStartingStock(
+  tx: DbLike,
+  actor: Actor,
+  item: ItemRow,
+  input: {
+    sectionId: string;
+    quantity: number;
+    importId: string;
+    fileName: string;
+  },
+): Promise<string | null> {
+  requireCountStep(item, input.quantity);
+  const [moved] = await tx
+    .select({ id: stockMovements.id })
+    .from(stockMovements)
+    .where(
+      and(
+        eq(stockMovements.itemId, item.id),
+        eq(stockMovements.sectionId, input.sectionId),
+      ),
+    )
+    .limit(1);
+  if (moved || input.quantity === 0) return null;
+  const [movementId] = await recordMovement(tx, actor, item, {
+    type: "count",
+    changes: [{ sectionId: input.sectionId, quantity: input.quantity }],
+    reason: `Starting quantity from ${input.fileName}`,
+    link: { type: "import", id: input.importId },
+  });
+  return movementId;
 }
 
 export async function listMovements(
@@ -190,6 +247,22 @@ export async function transferStock(
   return getItem(db, actor, itemId);
 }
 
+// Bar stock is counted in steps: beer and wine to 0.5, liquor to 0.25 (FLOW-90).
+function requireCountStep(item: ItemRow, quantity: number) {
+  const step =
+    item.kind === "consumable" && item.subtype === "bar"
+      ? barCountStep(item.category)
+      : null;
+  if (!fitsCountStep(quantity, step))
+    throw new ApiError(
+      400,
+      "COUNT_STEP",
+      step === 0.5
+        ? "Count beer and wine to the nearest 0.5."
+        : "Count liquor to the nearest 0.25.",
+    );
+}
+
 // Records a counted quantity as a count movement for the difference (FLOW-82 AC1:
 // counting 12 where the section holds 15 writes -3). A count that matches still
 // writes a zero movement, so the ledger shows when it was counted.
@@ -202,18 +275,7 @@ export async function recordCount(
   reason: string,
 ) {
   if (!canCountItem(actor, item)) throw forbidden();
-  const step =
-    item.kind === "consumable" && item.subtype === "bar"
-      ? barCountStep(item.category)
-      : null;
-  if (!fitsCountStep(counted, step))
-    throw new ApiError(
-      400,
-      "COUNT_STEP",
-      step === 0.5
-        ? "Count beer and wine to the nearest 0.5."
-        : "Count liquor to the nearest 0.25.",
-    );
+  requireCountStep(item, counted);
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
     .from(inventoryStock)

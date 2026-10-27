@@ -11,7 +11,9 @@ import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients, leadDuplicates, leads } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
+import { writeAudit } from "../audit/log";
 import { can, clientScope, leadScope } from "../policy";
+import { auditLead, leadSnapshot } from "./lead-audit";
 
 // Lead duplicate detection and merge (FLOW-110). A new lead is matched against
 // earlier leads and clients by email or phone, then by name and event date (the
@@ -295,12 +297,25 @@ async function resolvableDuplicate(db: DbLike, actor: Actor, id: string) {
   return { row, byId };
 }
 
+// The dismissal shows in the history of the lead the duplicate was found for
+// (FLOW-185), naming the duplicate record rather than what it matched.
 export async function dismissLeadDuplicate(db: Db, actor: Actor, id: string) {
   const { row } = await resolvableDuplicate(db, actor, id);
-  await db
-    .update(leadDuplicates)
-    .set({ status: "dismissed", resolvedAt: new Date(), resolvedBy: actor.userId, updatedBy: actor.userId })
-    .where(and(eq(leadDuplicates.id, row.id), eq(leadDuplicates.status, "open")));
+  await db.transaction(async (tx) => {
+    const dismissed = await tx
+      .update(leadDuplicates)
+      .set({ status: "dismissed", resolvedAt: new Date(), resolvedBy: actor.userId, updatedBy: actor.userId })
+      .where(and(eq(leadDuplicates.id, row.id), eq(leadDuplicates.status, "open")))
+      .returning({ id: leadDuplicates.id });
+    if (dismissed.length)
+      await writeAudit(tx, actor, {
+        entityType: "lead",
+        entityId: row.leadId,
+        action: "update",
+        before: { dismissedDuplicateId: null },
+        after: { dismissedDuplicateId: row.id },
+      });
+  });
 }
 
 // The fields a merge copies to the kept lead when it has none of its own.
@@ -346,6 +361,8 @@ export async function mergeLeadDuplicate(
     );
   const now = new Date();
   await db.transaction(async (tx) => {
+    const keptBefore = await leadSnapshot(tx, keep.id);
+    const otherBefore = await leadSnapshot(tx, other.id);
     const archived = await tx
       .update(leads)
       .set({
@@ -418,6 +435,10 @@ export async function mergeLeadDuplicate(
         .set({ leadId, matchedLeadId, updatedBy: actor.userId })
         .where(eq(leadDuplicates.id, dup.id));
     }
+    // One row on each lead: the kept lead lists the merged one and any details it
+    // took; the merged lead is archived with a link to the kept one (FLOW-185).
+    await auditLead(tx, actor, keep.id, keptBefore);
+    await auditLead(tx, actor, other.id, otherBefore, "archive");
     await emitDomainEvent(tx, {
       name: "lead.merged",
       entityId: keep.id,
