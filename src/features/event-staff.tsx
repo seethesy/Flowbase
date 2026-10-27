@@ -28,7 +28,7 @@ import {
 } from "../components/shared";
 import { eventStaffApi } from "../services/event-staff";
 import { staffApi } from "../services/staff";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { date, time } from "./event-format";
 import { ListSelect } from "./list-fields";
 import "./event-staff.css";
