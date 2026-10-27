@@ -33,7 +33,7 @@ import { Attachments } from "./attachments";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
-export const statusLabels = eventStatusLabels;
+const statusLabels = eventStatusLabels;
 const date = (value: string) =>
   new Date(`${value}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "short",

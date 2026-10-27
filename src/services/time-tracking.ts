@@ -65,7 +65,7 @@ type OpenSession = {
   context: TrackingContext;
 };
 
-export type SendSessions = (sessions: ActivitySessionInput[]) => Promise<void>;
+type SendSessions = (sessions: ActivitySessionInput[]) => Promise<void>;
 
 // Unsent sessions kept while the API is unreachable; the oldest go first.
 const MAX_UNSENT = 100;

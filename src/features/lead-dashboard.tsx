@@ -38,7 +38,7 @@ const money = (cents: number) =>
   `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 const percent = (rate: number | null) =>
   rate === null ? "—" : `${Math.round(rate * 100)}%`;
-export const responseTime = (seconds: number | null) => {
+const responseTime = (seconds: number | null) => {
   if (seconds === null) return "—";
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m`;

@@ -25,7 +25,7 @@ import "./settings.css";
 // Staff directory and profiles (FLOW-40): one list of staff with the positions they
 // can work. Phone numbers show to FT+ and to the person; notes to FT+.
 
-export const employmentLabels: Record<EmploymentType, string> = {
+const employmentLabels: Record<EmploymentType, string> = {
   full_time: "Full-time",
   part_time: "Part-time",
 };

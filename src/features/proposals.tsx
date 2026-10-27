@@ -155,7 +155,7 @@ export function ProposalDrawer({
     </>
   );
 }
-export function ProposalCard({
+function ProposalCard({
   proposal,
   onOpen,
 }: {
@@ -212,7 +212,7 @@ export function ProposalCard({
     </article>
   );
 }
-export function KanbanColumn({
+function KanbanColumn({
   stage,
   count,
   total,

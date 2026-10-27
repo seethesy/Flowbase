@@ -1,5 +1,5 @@
 import { usePermissions } from "../../app/permissions";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useResource } from "../../app/useResource";
 import { clientsApi, inventoryApi } from "../../services/core";
 import {
@@ -336,7 +336,7 @@ export function AppShell() {
         <TopHeader setMobile={setMobile} />
         <main id="main-content">
           <TrackingNotice />
-          <Outlet />
+          <Suspense fallback={<p role="status">Loading screen…</p>}><Outlet /></Suspense>
         </main>
         <footer className="app-footer">
           <span>

@@ -8,36 +8,88 @@ import {
   useParams,
 } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
-const Dashboard = lazy(() => import("../features/dashboard").then((module) => ({ default: module.Dashboard })));
-const ClientList = lazy(() => import("../features/clients").then((module) => ({ default: module.ClientList })));
-const ClientDetail = lazy(() => import("../features/clients").then((module) => ({ default: module.ClientDetail })));
-const LeadInbox = lazy(() => import("../features/leads").then((module) => ({ default: module.LeadInbox })));
-const LeadDetail = lazy(() => import("../features/leads").then((module) => ({ default: module.LeadDetail })));
-const LeadDashboardPage = lazy(() => import("../features/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })));
-const EventList = lazy(() => import("../features/events").then((module) => ({ default: module.EventList })));
-const EventDetail = lazy(() => import("../features/events").then((module) => ({ default: module.EventDetail })));
-const VenueList = lazy(() => import("../features/venues").then((module) => ({ default: module.VenueList })));
-const VenueDetail = lazy(() => import("../features/venues").then((module) => ({ default: module.VenueDetail })));
-const PrintSample = lazy(() => import("../features/print-sample").then((module) => ({ default: module.PrintSample })));
-const Proposals = lazy(() => import("../features/proposals").then((module) => ({ default: module.Proposals })));
-const TimeReports = lazy(() => import("../features/time-tracking").then((module) => ({ default: module.TimeReports })));
-const SettingsPage = lazy(() => import("../features/settings").then((module) => ({ default: module.SettingsPage })));
-const StaffDetail = lazy(() => import("../features/staff").then((module) => ({ default: module.StaffDetail })));
-const StaffDirectory = lazy(() => import("../features/staff").then((module) => ({ default: module.StaffDirectory })));
-const StaffProfile = lazy(() => import("../features/staff").then((module) => ({ default: module.StaffProfile })));
-const InventoryList = lazy(() => import("../features/inventory").then((module) => ({ default: module.InventoryList })));
-const InventoryDetail = lazy(() => import("../features/inventory").then((module) => ({ default: module.InventoryDetail })));
-const IngredientList = lazy(() => import("../features/inventory").then((module) => ({ default: module.IngredientList })));
-const BarList = lazy(() => import("../features/inventory").then((module) => ({ default: module.BarList })));
-const SectionList = lazy(() => import("../features/inventory").then((module) => ({ default: module.SectionList })));
-const CountList = lazy(() => import("../features/stock-counts").then((module) => ({ default: module.CountList })));
-const CountMode = lazy(() => import("../features/stock-counts").then((module) => ({ default: module.CountMode })));
-const LowStockList = lazy(() => import("../features/stock-counts").then((module) => ({ default: module.LowStockList })));
+const Dashboard = lazy(() =>
+  import("../features/dashboard").then((module) => ({ default: module.Dashboard })),
+);
+const ClientList = lazy(() =>
+  import("../features/clients").then((module) => ({ default: module.ClientList })),
+);
+const ClientDetail = lazy(() =>
+  import("../features/clients").then((module) => ({ default: module.ClientDetail })),
+);
+const LeadInbox = lazy(() =>
+  import("../features/leads").then((module) => ({ default: module.LeadInbox })),
+);
+const LeadDetail = lazy(() =>
+  import("../features/leads").then((module) => ({ default: module.LeadDetail })),
+);
+const LeadDashboardPage = lazy(() =>
+  import("../features/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })),
+);
+const EventList = lazy(() =>
+  import("../features/events").then((module) => ({ default: module.EventList })),
+);
+const EventDetail = lazy(() =>
+  import("../features/events").then((module) => ({ default: module.EventDetail })),
+);
+const VenueList = lazy(() =>
+  import("../features/venues").then((module) => ({ default: module.VenueList })),
+);
+const VenueDetail = lazy(() =>
+  import("../features/venues").then((module) => ({ default: module.VenueDetail })),
+);
+const PrintSample = lazy(() =>
+  import("../features/print-sample").then((module) => ({ default: module.PrintSample })),
+);
+const Proposals = lazy(() =>
+  import("../features/proposals").then((module) => ({ default: module.Proposals })),
+);
+const TimeReports = lazy(() =>
+  import("../features/time-tracking").then((module) => ({ default: module.TimeReports })),
+);
+const SettingsPage = lazy(() =>
+  import("../features/settings").then((module) => ({ default: module.SettingsPage })),
+);
+const StaffDetail = lazy(() =>
+  import("../features/staff").then((module) => ({ default: module.StaffDetail })),
+);
+const StaffDirectory = lazy(() =>
+  import("../features/staff").then((module) => ({ default: module.StaffDirectory })),
+);
+const StaffProfile = lazy(() =>
+  import("../features/staff").then((module) => ({ default: module.StaffProfile })),
+);
+const InventoryList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.InventoryList })),
+);
+const InventoryDetail = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.InventoryDetail })),
+);
+const IngredientList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.IngredientList })),
+);
+const BarList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.BarList })),
+);
+const SectionList = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.SectionList })),
+);
+const CountList = lazy(() =>
+  import("../features/stock-counts").then((module) => ({ default: module.CountList })),
+);
+const CountMode = lazy(() =>
+  import("../features/stock-counts").then((module) => ({ default: module.CountMode })),
+);
+const LowStockList = lazy(() =>
+  import("../features/stock-counts").then((module) => ({ default: module.LowStockList })),
+);
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
 import { roleLabel } from "../services/users";
-const UserManagement = lazy(() => import("../features/users").then((module) => ({ default: module.UserManagement })));
+const UserManagement = lazy(() =>
+  import("../features/users").then((module) => ({ default: module.UserManagement })),
+);
 function Placeholder() {
   return (
     <>
@@ -99,7 +151,7 @@ export const getRouter = () =>
     // Printable documents render without the app shell.
     { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense> },
     {
-      element: <Suspense fallback={<p role="status">Loading screen…</p>}><AppShell /></Suspense>,
+      element: <AppShell />,
       children: [
         { path: "/", element: <DemoScreen><Dashboard /></DemoScreen> },
         { path: "/leads", element: <LeadInbox /> },

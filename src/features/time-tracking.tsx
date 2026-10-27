@@ -10,7 +10,6 @@ import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { timeApi } from "../services/time-tracking";
 import { useResource } from "../app/useResource";
 import {
-  Button,
   DataTable,
   EmptyState,
   FilterBar,
