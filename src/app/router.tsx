@@ -21,10 +21,12 @@ import {
   InventoryList,
   InventoryDetail,
   IngredientList,
+  SuppliesList,
   BarList,
   SectionList,
 } from "../features/inventory";
 import { CountList, CountMode, LowStockList } from "../features/stock-counts";
+import { ImportList, ImportPage } from "../features/imports";
 import { RecipeDetail, RecipeList } from "../features/recipes";
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
@@ -108,6 +110,7 @@ export const getRouter = () =>
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/ingredients", element: <IngredientList /> },
         { path: "/inventory/bar", element: <BarList /> },
+        { path: "/inventory/supplies", element: <SuppliesList /> },
         { path: "/inventory/low-stock", element: <LowStockList /> },
         { path: "/inventory/counts", element: <CountList /> },
         { path: "/inventory/counts/:id", element: <CountMode /> },
@@ -123,6 +126,8 @@ export const getRouter = () =>
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/profile", element: <Profile /> },
         { path: "/reports", element: <TimeReports /> },
+        { path: "/imports", element: <ImportList /> },
+        { path: "/imports/:module", element: <ImportPage /> },
         { path: "/settings", element: <SettingsPage /> },
         { path: "/settings/users", element: <UserManagement /> },
         ...["purchasing", "help", "*"].map((path) => ({

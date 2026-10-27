@@ -19,6 +19,9 @@ import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { recipeCategories } from "../../shared/recipes";
 import { listKeys, settingKeys } from "../../shared/settings";
+import type { z } from "zod";
+import type { includedItemSchema } from "../../shared/inventory";
+import { importStatuses } from "../../shared/imports";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -348,6 +351,51 @@ export const auditLog = pgTable(
   ],
 ).enableRLS();
 
+// Data imports (FLOW-47): one log row per import run of a module importer: who
+// (created_by), when (created_at), the file and the row counts. Stock movements
+// that set imported starting quantities link here (link_type "import").
+export const importLogs = pgTable(
+  "import_logs",
+  {
+    ...baseColumns(),
+    module: text("module").notNull(),
+    fileName: text("file_name").notNull(),
+    status: text("status", { enum: importStatuses })
+      .notNull()
+      .default("running"),
+    rowCount: integer("row_count").notNull().default(0),
+    created: integer("created").notNull().default(0),
+    updated: integer("updated").notNull().default(0),
+    skipped: integer("skipped").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => [
+    index("import_logs_module_idx").on(table.module, table.createdAt),
+    oneOf("import_logs_status_check", table.status, importStatuses),
+  ],
+).enableRLS();
+
+// The record each external key imported to, per module (FLOW-47 AC1): a re-run
+// updates that record instead of creating another. record_id has no foreign key
+// because each module imports into its own table.
+export const importKeys = pgTable(
+  "import_keys",
+  {
+    ...baseColumns(),
+    module: text("module").notNull(),
+    externalKey: text("external_key").notNull(),
+    recordId: uuid("record_id").notNull(),
+    // The import that last wrote the record.
+    importId: uuid("import_id")
+      .notNull()
+      .references(() => importLogs.id),
+  },
+  (table) => [
+    uniqueIndex("import_keys_module_key_idx").on(table.module, table.externalKey),
+  ],
+).enableRLS();
+
 // Status history (FLOW-56): one row per status change of an event: who
 // (created_by; null for the system), when (created_at), from and to, and why.
 export const eventStatusHistory = pgTable(
@@ -594,6 +642,18 @@ export const inventoryRentalDetails = pgTable("inventory_rental_details", {
   ...baseColumns(),
   itemId: itemReference(),
   priceCents: moneyCents("price_cents"),
+  internalCostCents: moneyCents("internal_cost_cents"),
+  replacementCostCents: moneyCents("replacement_cost_cents"),
+  dimensions: text("dimensions").notNull().default(""),
+  colors: jsonb("colors").$type<string[]>().notNull().default([]),
+  notes: text("notes").notNull().default(""),
+  assemblyNotes: text("assembly_notes").notNull().default(""),
+  bufferDaysBefore: integer("buffer_days_before").notNull().default(1),
+  bufferDaysAfter: integer("buffer_days_after").notNull().default(1),
+  components: jsonb("components")
+    .$type<{ itemId: string; quantity: number }[]>()
+    .notNull()
+    .default([]),
 }).enableRLS();
 
 export const inventoryServiceDetails = pgTable(
@@ -605,8 +665,23 @@ export const inventoryServiceDetails = pgTable(
     priceBasis: text("price_basis", { enum: priceBases })
       .notNull()
       .default("per_event"),
+    pricedByQuote: boolean("priced_by_quote").notNull().default(false),
+    includes: jsonb("includes")
+      .$type<z.infer<typeof includedItemSchema>[]>()
+      .notNull()
+      .default([]),
+    addons: jsonb("addons")
+      .$type<{ name: string; priceCents: number }[]>()
+      .notNull()
+      .default([]),
   },
-  (table) => [oneOf("inventory_service_details_price_basis_check", table.priceBasis, priceBases)],
+  (table) => [
+    oneOf(
+      "inventory_service_details_price_basis_check",
+      table.priceBasis,
+      priceBases,
+    ),
+  ],
 ).enableRLS();
 
 export const inventoryConsumableDetails = pgTable(
@@ -682,11 +757,13 @@ export const inventoryStock = pgTable(
       .notNull()
       .references(() => inventorySections.id),
     quantity: quantity("quantity").notNull().default(0),
+    color: text("color").notNull().default(""),
   },
   (table) => [
     uniqueIndex("inventory_stock_item_section_idx").on(
       table.itemId,
       table.sectionId,
+      table.color,
     ),
     index("inventory_stock_section_idx").on(table.sectionId),
     // Stock never goes below zero (FLOW-187); the code checks first, this is the
@@ -723,12 +800,13 @@ export const stockMovements = pgTable(
     type: text("type", { enum: movementTypes }).notNull(),
     quantity: quantity("quantity").notNull(),
     reason: text("reason").notNull().default(""),
+    color: text("color").notNull().default(""),
     transferId: uuid("transfer_id"),
     correctsId: uuid("corrects_id").references(
       (): AnyPgColumn => stockMovements.id,
     ),
-    // What the movement belongs to. No foreign key: orders and imports don't
-    // exist yet (FLOW-86, FLOW-47).
+    // What the movement belongs to: an event, an order or an import_logs row. No
+    // foreign key, since it points at a different table per type (orders: FLOW-86).
     linkType: text("link_type", { enum: linkTypes }),
     linkId: uuid("link_id"),
   },

@@ -59,6 +59,7 @@ type Rule =
   | "duplicate_match"
   | "pricing"
   | "staff_notes"
+  | "rental_cost"
   | { [key: string]: Rule };
 const contact: Rule = { email: "client_contact", phone: "client_contact" };
 const shapes = {
@@ -72,13 +73,18 @@ const shapes = {
   },
   inventory_item: {
     consumable: { unitCostCents: "internal_cost" },
-    rental: { priceCents: "pricing" },
-    service: { priceCents: "pricing" },
+    rental: {
+      priceCents: "pricing",
+      internalCostCents: "rental_cost",
+      replacementCostCents: "rental_cost",
+    },
+    service: { priceCents: "pricing", addons: { priceCents: "pricing" } },
   },
   staff_member: { mobile: "staff_contact", notes: "staff_notes" },
 } satisfies Record<string, Rule>;
 export type VisibilityShape = keyof typeof shapes;
 function visible(actor: Actor, rule: string, context: ViewContext): boolean {
+  if (rule === "rental_cost") return canSeeRentalCosts(actor, context);
   if (rule === "lead_payload")
     return canSeeField(actor, "client_contact", context);
   if (rule === "duplicate_match") return clientScope(actor) === "all";
@@ -88,6 +94,10 @@ function visible(actor: Actor, rule: string, context: ViewContext): boolean {
   if (rule === "staff_notes") return isFtPlus(actor);
   return canSeeField(actor, rule as FieldGroup, context);
 }
+export const canSeeRentalCosts = (actor: Actor, context: ViewContext = {}) =>
+  actor.role !== "staff" &&
+  actor.role !== "kitchen_staff" &&
+  canSeeField(actor, "internal_cost", context);
 function project(
   actor: Actor,
   value: unknown,

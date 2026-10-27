@@ -194,6 +194,7 @@ export async function seedInventory(seed: { items?: InventoryItem[] } = {}) {
             itemId: row.id,
             sectionId: level.sectionId,
             quantity: level.quantity,
+            color: level.color ?? "",
           });
     }
   });
