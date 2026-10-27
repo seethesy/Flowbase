@@ -1,3 +1,4 @@
+import { TestAuth } from "./auth-provider";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -61,7 +62,12 @@ const mockApi = (routes: Record<string, Handler>) =>
     if (!handler) throw new Error(`Unexpected request ${key}`);
     return handler(init);
   });
-const mount = (node: ReactNode) => render(<MemoryRouter>{node}</MemoryRouter>);
+const mount = (node: ReactNode) =>
+  render(
+    <TestAuth>
+      <MemoryRouter>{node}</MemoryRouter>
+    </TestAuth>,
+  );
 
 it("lists leads, flags the ones that need review and filters by search", async () => {
   mockApi({
@@ -143,14 +149,26 @@ it("warns about a matching client on convert and offers to link instead", async 
   });
   const onConverted = vi.fn();
   const user = userEvent.setup();
-  mount(<ConvertLeadForm lead={lead()} onClose={() => {}} onConverted={onConverted} />);
+  mount(
+    <ConvertLeadForm
+      lead={lead()}
+      onClose={() => {}}
+      onConverted={onConverted}
+    />,
+  );
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByLabelText("Client name *")).toHaveValue("Maya Ortiz");
-  expect(within(dialog).getByLabelText("Event date *")).toHaveValue("2026-12-05");
+  expect(within(dialog).getByLabelText("Client name *")).toHaveValue(
+    "Maya Ortiz",
+  );
+  expect(within(dialog).getByLabelText("Event date *")).toHaveValue(
+    "2026-12-05",
+  );
   fireEvent.change(within(dialog).getByLabelText("Start time *"), {
     target: { value: "18:00" },
   });
-  await user.click(within(dialog).getByRole("button", { name: "Convert lead" }));
+  await user.click(
+    within(dialog).getByRole("button", { name: "Convert lead" }),
+  );
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
     "A client with this email or phone already exists",
   );
@@ -159,7 +177,9 @@ it("warns about a matching client on convert and offers to link instead", async 
   );
   const picker = await within(dialog).findByLabelText("Existing client");
   await vi.waitFor(() => expect(picker).toHaveValue(juniper.id));
-  await user.click(within(dialog).getByRole("button", { name: "Convert lead" }));
+  await user.click(
+    within(dialog).getByRole("button", { name: "Convert lead" }),
+  );
   await vi.waitFor(() => expect(onConverted).toHaveBeenCalled());
   expect(posts).toEqual([
     {

@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import {
   costSourceLabels,
@@ -78,13 +79,15 @@ export function MovementHistory({
                     {!movement.correctsId &&
                       movement.type !== "transfer" &&
                       !item.archivedAt && (
-                        <Button
-                          variant="ghost"
-                          onClick={() => setCorrecting(movement)}
-                          aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
-                        >
-                          Correct
-                        </Button>
+                        <Allowed action="inventory.move" item={item}>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setCorrecting(movement)}
+                            aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
+                          >
+                            Correct
+                          </Button>
+                        </Allowed>
                       )}
                   </td>
                 </tr>

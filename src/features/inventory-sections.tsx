@@ -1,3 +1,4 @@
+import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
@@ -57,37 +58,39 @@ export function SectionList() {
         </p>
       )}
       {!archived && (
-        <form
-          className="inline-row"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!name.trim()) return setError("Name is required.");
-            void run(async () => {
-              await sectionsApi.create({ name, kind });
-              setName("");
-            });
-          }}
-        >
-          <FormField label="New section name">
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </FormField>
-          <FormField label="Holds">
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as SectionKind)}
-            >
-              {sectionKindSchema.options.map((option) => (
-                <option key={option} value={option}>
-                  {sectionKindLabels[option]}
-                </option>
-              ))}
-            </select>
-          </FormField>
-          <Button type="submit">
-            <Plus size={14} /> Add section
-          </Button>
-        </form>
+        <Allowed action="inventory.sections">
+          <form
+            className="inline-row"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim()) return setError("Name is required.");
+              void run(async () => {
+                await sectionsApi.create({ name, kind });
+                setName("");
+              });
+            }}
+          >
+            <FormField label="New section name">
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+            </FormField>
+            <FormField label="Holds">
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as SectionKind)}
+              >
+                {sectionKindSchema.options.map((option) => (
+                  <option key={option} value={option}>
+                    {sectionKindLabels[option]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <Button type="submit">
+              <Plus size={14} /> Add section
+            </Button>
+          </form>
+        </Allowed>
       )}
       <FilterBar>
         <label className="checkbox-filter">
@@ -150,39 +153,45 @@ export function SectionList() {
                       </td>
                       <td>
                         {archived ? (
-                          <Button
-                            variant="ghost"
-                            onClick={() =>
-                              run(() =>
-                                sectionsApi.setArchived(section.id, false),
-                              )
-                            }
-                          >
-                            Restore {section.name}
-                          </Button>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                setRenaming({
-                                  id: section.id,
-                                  name: section.name,
-                                })
-                              }
-                            >
-                              Rename {section.name}
-                            </Button>
+                          <Allowed action="inventory.sections">
                             <Button
                               variant="ghost"
                               onClick={() =>
                                 run(() =>
-                                  sectionsApi.setArchived(section.id, true),
+                                  sectionsApi.setArchived(section.id, false),
                                 )
                               }
                             >
-                              Archive {section.name}
+                              Restore {section.name}
                             </Button>
+                          </Allowed>
+                        ) : (
+                          <>
+                            <Allowed action="inventory.sections">
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  setRenaming({
+                                    id: section.id,
+                                    name: section.name,
+                                  })
+                                }
+                              >
+                                Rename {section.name}
+                              </Button>
+                            </Allowed>
+                            <Allowed action="inventory.sections">
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  run(() =>
+                                    sectionsApi.setArchived(section.id, true),
+                                  )
+                                }
+                              >
+                                Archive {section.name}
+                              </Button>
+                            </Allowed>
                           </>
                         )}
                       </td>

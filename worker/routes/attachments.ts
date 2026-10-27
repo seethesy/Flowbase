@@ -5,7 +5,7 @@ import {
   uploadRequestSchema,
 } from "../../shared/attachments";
 import { id as uuid } from "../../shared/schema-primitives";
-import { requireActor, type ResolveActor } from "../auth";
+import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   ApiError,
   notFound,
@@ -42,24 +42,18 @@ export function attachmentRoutes(options: {
     return parsed.data;
   };
 
-  routes.get("/", async (c) => {
+  routes.get("/", requirePermission("attachments.read"), async (c) => {
     const recordType = recordTypeSchema.safeParse(c.req.query("recordType"));
     const recordId = uuid.safeParse(c.req.query("recordId"));
     if (!recordType.success || !recordId.success)
       throw new ApiError(400, "INVALID_REQUEST", "Invalid request.");
     return c.json(
       await record(c, (db, actor) =>
-        listAttachments(
-          db,
-          actor,
-          c.env ?? {},
-          recordType.data,
-          recordId.data,
-        ),
+        listAttachments(db, actor, c.env ?? {}, recordType.data, recordId.data),
       ),
     );
   });
-  routes.post("/", async (c) => {
+  routes.post("/", requirePermission("attachments.write"), async (c) => {
     const input = await parseBody(c, uploadRequestSchema);
     return c.json(
       await record(c, (db, actor) =>
@@ -68,15 +62,19 @@ export function attachmentRoutes(options: {
       201,
     );
   });
-  routes.post("/:id/complete", async (c) => {
-    const attachmentId = id(c);
-    return c.json(
-      await record(c, (db, actor) =>
-        completeUpload(db, actor, c.env ?? {}, attachmentId),
-      ),
-    );
-  });
-  routes.patch("/:id", async (c) => {
+  routes.post(
+    "/:id/complete",
+    requirePermission("attachments.write"),
+    async (c) => {
+      const attachmentId = id(c);
+      return c.json(
+        await record(c, (db, actor) =>
+          completeUpload(db, actor, c.env ?? {}, attachmentId),
+        ),
+      );
+    },
+  );
+  routes.patch("/:id", requirePermission("attachments.write"), async (c) => {
     const attachmentId = id(c);
     const change = await parseBody(c, changeSchema);
     return c.json(
@@ -85,15 +83,19 @@ export function attachmentRoutes(options: {
       ),
     );
   });
-  routes.post("/:id/archive", async (c) => {
-    const attachmentId = id(c);
-    return c.json(
-      await record(c, (db, actor) =>
-        updateAttachment(db, actor, c.env ?? {}, attachmentId, {
-          archived: true,
-        }),
-      ),
-    );
-  });
+  routes.post(
+    "/:id/archive",
+    requirePermission("attachments.write"),
+    async (c) => {
+      const attachmentId = id(c);
+      return c.json(
+        await record(c, (db, actor) =>
+          updateAttachment(db, actor, c.env ?? {}, attachmentId, {
+            archived: true,
+          }),
+        ),
+      );
+    },
+  );
   return routes;
 }

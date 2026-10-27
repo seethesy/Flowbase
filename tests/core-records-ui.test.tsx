@@ -1,3 +1,4 @@
+import { TestAuth } from "./auth-provider";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -43,7 +44,11 @@ const mockApi = (routes: Record<string, Handler>) =>
   });
 const bodyOf = (init?: RequestInit) => JSON.parse(String(init?.body));
 const mount = (node: ReactNode) =>
-  render(<MemoryRouter>{node}</MemoryRouter>);
+  render(
+    <TestAuth>
+      <MemoryRouter>{node}</MemoryRouter>
+    </TestAuth>,
+  );
 
 it("lists clients from the API and hides contact details it isn't given", async () => {
   mockApi({
@@ -235,7 +240,9 @@ it("offers every status when creating an event, and none when editing it", async
     },
   });
   const user = userEvent.setup();
-  const { unmount } = mount(<EventForm onClose={() => {}} onSaved={() => {}} />);
+  const { unmount } = mount(
+    <EventForm onClose={() => {}} onSaved={() => {}} />,
+  );
   const dialog = screen.getByRole("dialog");
   const status = within(dialog).getByLabelText("Status");
   expect(status).toHaveValue("inquiry");
@@ -260,7 +267,10 @@ it("offers every status when creating an event, and none when editing it", async
   await user.type(within(dialog).getByLabelText("Date *"), "2026-11-14");
   await user.type(within(dialog).getByLabelText("Start time *"), "18:00");
   await within(dialog).findByRole("option", { name: "Juniper & Co." });
-  await user.selectOptions(within(dialog).getByLabelText("Client *"), client().id);
+  await user.selectOptions(
+    within(dialog).getByLabelText("Client *"),
+    client().id,
+  );
   await user.click(within(dialog).getByRole("button", { name: "Save event" }));
   await waitFor(() => expect(sent).toMatchObject({ status: "negotiation" }));
   unmount();
@@ -307,7 +317,11 @@ it("offers every status when creating an event, and none when editing it", async
 });
 
 it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)", async () => {
-  const flowEvent = (n: number, title: string, status: FlowEvent["status"]): FlowEvent => ({
+  const flowEvent = (
+    n: number,
+    title: string,
+    status: FlowEvent["status"],
+  ): FlowEvent => ({
     id: `6b1f4c3e-2d5a-4e7b-8c9d-0a1b2c3d4e5${n}`,
     title,
     date: "2026-11-14",

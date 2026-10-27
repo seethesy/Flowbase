@@ -1,6 +1,7 @@
+import { canSeeField } from "../../shared/visibility";
 import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { isFtPlus, type Actor } from "../../shared/access";
+import { type Actor } from "../../shared/access";
 import {
   SEARCH_MAX_LENGTH,
   SEARCH_MIN_LENGTH,
@@ -65,8 +66,11 @@ async function searchClients(db: DbLike, actor: Actor, q: Query) {
   if (clientScope(actor) === "none") return [];
   const contactScore = best(
     textScore(clientContacts.name, q),
-    ...(isFtPlus(actor)
-      ? [exactScore(clientContacts.email, q), phoneScore(clientContacts.phoneDigits, q)]
+    ...(canSeeField(actor, "client_contact")
+      ? [
+          exactScore(clientContacts.email, q),
+          phoneScore(clientContacts.phoneDigits, q),
+        ]
       : []),
   );
   const score = best(
@@ -101,8 +105,9 @@ async function searchLeads(db: DbLike, actor: Actor, q: Query) {
   if (leadScope(actor) === "none") return [];
   const score = best(
     textScore(leads.name, q),
-    exactScore(leads.email, q),
-    phoneScore(leads.phoneDigits, q),
+    ...(canSeeField(actor, "lead_contact")
+      ? [exactScore(leads.email, q), phoneScore(leads.phoneDigits, q)]
+      : []),
   );
   return db
     .select({
@@ -164,7 +169,10 @@ async function searchVenues(db: DbLike, q: Query) {
 }
 
 async function searchItems(db: DbLike, q: Query) {
-  const score = best(textScore(inventoryItems.name, q), exactScore(inventoryItems.code, q));
+  const score = best(
+    textScore(inventoryItems.name, q),
+    exactScore(inventoryItems.code, q),
+  );
   return db
     .select({
       id: inventoryItems.id,

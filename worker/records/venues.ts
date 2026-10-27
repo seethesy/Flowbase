@@ -1,8 +1,13 @@
+import {
+  canSeeField,
+  serializeFields,
+  redactFieldHistory,
+} from "../../shared/visibility";
 import { and, asc, eq, ilike, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { z } from "zod";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import type { Venue, venueInputSchema } from "../../shared/core-records";
-import { fullView, hideFields, listHistory, writeAudit } from "../audit/log";
+import { fullView, listHistory, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { venueAreas, venueContacts, venues } from "../db/schema";
 import { forbidden, notFound } from "../hono";
@@ -23,7 +28,7 @@ async function toVenues(db: DbLike, actor: Actor, rows: VenueRow[]) {
     .from(venueAreas)
     .where(and(inArray(venueAreas.venueId, ids), isNull(venueAreas.archivedAt)))
     .orderBy(asc(venueAreas.sortOrder));
-  const contacts = isFtPlus(actor)
+  const contacts = canSeeField(actor, "venue_contact")
     ? await db
         .select()
         .from(venueContacts)
@@ -35,8 +40,8 @@ async function toVenues(db: DbLike, actor: Actor, rows: VenueRow[]) {
         )
         .orderBy(asc(venueContacts.sortOrder))
     : undefined;
-  return rows.map(
-    (row): Venue => ({
+  return rows.map((row): Venue =>
+    serializeFields<Venue>(actor, "venue", {
       id: row.id,
       name: row.name,
       address: row.address,
@@ -73,7 +78,9 @@ export async function listVenues(
     .from(venues)
     .where(
       and(
-        filter.archived ? isNotNull(venues.archivedAt) : isNull(venues.archivedAt),
+        filter.archived
+          ? isNotNull(venues.archivedAt)
+          : isNull(venues.archivedAt),
         filter.search ? ilike(venues.name, `%${filter.search}%`) : undefined,
       ),
     )
@@ -102,11 +109,8 @@ async function venueSnapshot(db: DbLike, id: string) {
 // History hides venue contacts from part-time users, as toVenues does.
 export async function venueHistory(db: DbLike, actor: Actor, id: string) {
   await findVenue(db, id);
-  return listHistory(
-    db,
-    "venue",
-    id,
-    isFtPlus(actor) ? (changes) => changes : hideFields("contacts"),
+  return listHistory(db, "venue", id, (changes) =>
+    redactFieldHistory(actor, "venue", changes),
   );
 }
 
@@ -145,7 +149,7 @@ async function syncVenueChildren(
     },
   );
   if (!input.contacts) return;
-  if (!isFtPlus(actor)) throw forbidden();
+  if (!canSeeField(actor, "venue_contact")) throw forbidden();
   const liveContacts = await tx
     .select({ id: venueContacts.id })
     .from(venueContacts)
@@ -194,7 +198,8 @@ export async function createVenue(
   actor: Actor,
   input: VenueInput,
 ): Promise<Venue> {
-  if (input.contacts?.length && !isFtPlus(actor)) throw forbidden();
+  if (input.contacts?.length && !canSeeField(actor, "venue_contact"))
+    throw forbidden();
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(venues)

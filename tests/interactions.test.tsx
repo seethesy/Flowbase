@@ -1,3 +1,4 @@
+import { TestAuth } from "./auth-provider";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -9,9 +10,11 @@ import { ProposalDrawer } from "../src/features/proposals";
 import type { ReactNode } from "react";
 async function mount(node: ReactNode, path = "/") {
   const view = render(
-    <DemoProvider>
-      <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
-    </DemoProvider>,
+    <TestAuth>
+      <DemoProvider>
+        <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
+      </DemoProvider>
+    </TestAuth>,
   );
   await waitFor(() =>
     expect(screen.queryByText("Loading workspace…")).not.toBeInTheDocument(),

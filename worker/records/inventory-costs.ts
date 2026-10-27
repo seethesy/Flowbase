@@ -1,5 +1,6 @@
+import { canSeeField } from "../../shared/visibility";
 import { desc, eq } from "drizzle-orm";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import type { CostChange } from "../../shared/inventory";
 import type { Db, DbLike } from "../db/client";
 import { inventoryCostHistory } from "../db/schema";
@@ -44,7 +45,7 @@ export async function listCostHistory(
   actor: Actor,
   itemId: string,
 ): Promise<CostChange[]> {
-  if (!isFtPlus(actor)) throw forbidden();
+  if (!canSeeField(actor, "internal_cost")) throw forbidden();
   await findItem(db, itemId);
   const rows = await db
     .select()

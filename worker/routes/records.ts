@@ -64,7 +64,7 @@ export function recordRoutes(options: {
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
-  routes.get("/clients", async (c) =>
+  routes.get("/clients", requirePermission("clients.read"), async (c) =>
     c.json(
       await record(c, (db, actor) =>
         listClients(db, actor, {
@@ -75,13 +75,9 @@ export function recordRoutes(options: {
       ),
     ),
   );
-  routes.get("/clients/:id", async (c) => {
+  routes.get("/clients/:id", requirePermission("clients.read"), async (c) => {
     const id = param(c, "Client");
-    return c.json(
-      await record(c, (db, actor) =>
-        getClient(db, actor, id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getClient(db, actor, id)));
   });
   // Record history (FLOW-41): read-only for anyone who can see the record. There
   // are deliberately no routes that change or remove audit rows.
@@ -90,20 +86,18 @@ export function recordRoutes(options: {
     ["venues", "Venue", venueHistory],
     ["events", "Event", eventHistory],
   ] as const)
-    routes.get(`/${resource}/:id/history`, async (c) => {
-      const id = param(c, what);
-      return c.json(
-        await record(c, (db, actor) =>
-          history(db, actor, id),
-        ),
-      );
-    });
+    routes.get(
+      `/${resource}/:id/history`,
+      requirePermission(`${resource}.read`),
+      async (c) => {
+        const id = param(c, what);
+        return c.json(await record(c, (db, actor) => history(db, actor, id)));
+      },
+    );
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
     const input = await parseBody(c, clientCreateSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        createClient(db, actor, input),
-      ),
+      await record(c, (db, actor) => createClient(db, actor, input)),
       201,
     );
   });
@@ -111,9 +105,7 @@ export function recordRoutes(options: {
     const id = param(c, "Client");
     const input = await parseBody(c, clientInputSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        updateClient(db, actor, id, input),
-      ),
+      await record(c, (db, actor) => updateClient(db, actor, id, input)),
     );
   });
   for (const [action, archived] of [
@@ -158,7 +150,7 @@ export function recordRoutes(options: {
     );
   }
 
-  routes.get("/venues", async (c) =>
+  routes.get("/venues", requirePermission("venues.read"), async (c) =>
     c.json(
       await record(c, (db, actor) =>
         listVenues(db, actor, {
@@ -168,20 +160,14 @@ export function recordRoutes(options: {
       ),
     ),
   );
-  routes.get("/venues/:id", async (c) => {
+  routes.get("/venues/:id", requirePermission("venues.read"), async (c) => {
     const id = param(c, "Venue");
-    return c.json(
-      await record(c, (db, actor) =>
-        getVenue(db, actor, id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getVenue(db, actor, id)));
   });
   routes.post("/venues", requirePermission("venues.write"), async (c) => {
     const input = await parseBody(c, venueInputSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        createVenue(db, actor, input),
-      ),
+      await record(c, (db, actor) => createVenue(db, actor, input)),
       201,
     );
   });
@@ -189,13 +175,11 @@ export function recordRoutes(options: {
     const id = param(c, "Venue");
     const input = await parseBody(c, venueInputSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        updateVenue(db, actor, id, input),
-      ),
+      await record(c, (db, actor) => updateVenue(db, actor, id, input)),
     );
   });
 
-  routes.get("/events", async (c) => {
+  routes.get("/events", requirePermission("events.read"), async (c) => {
     const filter = {
       archived: flag(c, "archived"),
       clientId: query(c, "clientId"),
@@ -210,34 +194,22 @@ export function recordRoutes(options: {
       if (filter[key] && !localDate.safeParse(filter[key]).success)
         filter[key] = undefined;
     return c.json(
-      await record(c, (db, actor) =>
-        listEvents(db, actor, filter),
-      ),
+      await record(c, (db, actor) => listEvents(db, actor, filter)),
     );
   });
-  routes.get("/events/:id", async (c) => {
+  routes.get("/events/:id", requirePermission("events.read"), async (c) => {
     const id = param(c, "Event");
-    return c.json(
-      await record(c, (db, actor) =>
-        getEvent(db, actor, id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getEvent(db, actor, id)));
   });
   // The event hub (FLOW-57): the event, its client and the sections the user may see.
-  routes.get("/events/:id/hub", async (c) => {
+  routes.get("/events/:id/hub", requirePermission("events.read"), async (c) => {
     const id = param(c, "Event");
-    return c.json(
-      await record(c, (db, actor) =>
-        getEventHub(db, actor, id),
-      ),
-    );
+    return c.json(await record(c, (db, actor) => getEventHub(db, actor, id)));
   });
   routes.post("/events", requirePermission("events.write"), async (c) => {
     const input = await parseBody(c, eventInputSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        createEvent(db, actor, input),
-      ),
+      await record(c, (db, actor) => createEvent(db, actor, input)),
       201,
     );
   });
@@ -245,29 +217,33 @@ export function recordRoutes(options: {
     const id = param(c, "Event");
     const input = await parseBody(c, eventInputSchema);
     return c.json(
-      await record(c, (db, actor) =>
-        updateEvent(db, actor, id, input),
-      ),
+      await record(c, (db, actor) => updateEvent(db, actor, id, input)),
     );
   });
   // Manual status changes (FLOW-56): Admin or the event's salesperson, checked per
   // event in shared/event-lifecycle.ts. Automatic moves have no route.
-  routes.post("/events/:id/status", async (c) => {
-    const id = param(c, "Event");
-    const input = await parseBody(c, eventTransitionSchema);
-    return c.json(
-      await record(c, (db, actor) =>
-        overrideEventStatus(db, actor, id, input),
-      ),
-    );
-  });
-  routes.get("/events/:id/status-history", async (c) => {
-    const id = param(c, "Event");
-    return c.json(
-      await record(c, (db, actor) =>
-        eventStatusChanges(db, actor, id),
-      ),
-    );
-  });
+  routes.post(
+    "/events/:id/status",
+    requirePermission("events.status"),
+    async (c) => {
+      const id = param(c, "Event");
+      const input = await parseBody(c, eventTransitionSchema);
+      return c.json(
+        await record(c, (db, actor) =>
+          overrideEventStatus(db, actor, id, input),
+        ),
+      );
+    },
+  );
+  routes.get(
+    "/events/:id/status-history",
+    requirePermission("events.read"),
+    async (c) => {
+      const id = param(c, "Event");
+      return c.json(
+        await record(c, (db, actor) => eventStatusChanges(db, actor, id)),
+      );
+    },
+  );
   return routes;
 }

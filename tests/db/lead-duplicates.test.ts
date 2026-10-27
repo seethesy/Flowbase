@@ -11,7 +11,6 @@ import type { RunWithDb } from "../../worker/hono";
 import type { Actor, Role } from "../../shared/access";
 import type { Client, ClientInput } from "../../shared/core-records";
 import {
-  assignedElsewhereMessage,
   type Lead,
   type LeadDuplicate,
   type LeadIntake,
@@ -177,18 +176,17 @@ describe("matching (FLOW-110)", () => {
 });
 
 describe("cross-owner duplicates (FLOW-110, Q-41c)", () => {
-  it("tells a salesperson only that a match is assigned elsewhere, and Admin gets it to resolve (AC2)", async () => {
+  it("hides every indication of cross-owner matches from salespeople (FLOW-38)", async () => {
     const sues = await seed(intake(), people.sue);
     const sams = await seed(thumbtack(), people.sam);
     const detail = await sam.get<Lead>(`/api/leads/${sams}`);
     expect(detail.duplicates).toEqual([]);
-    expect(detail.assignedElsewhere).toBe(true);
+    expect(detail.assignedElsewhere).toBe(false);
     expect(JSON.stringify(detail)).not.toContain(sues);
-    expect(assignedElsewhereMessage).toContain("another salesperson");
     expect(await sam.get<LeadDuplicate[]>("/api/leads/duplicates")).toEqual([]);
     // The same holds the other way round.
     const suesView = await sue.get<Lead>(`/api/leads/${sues}`);
-    expect(suesView).toMatchObject({ duplicates: [], assignedElsewhere: true });
+    expect(suesView).toMatchObject({ duplicates: [], assignedElsewhere: false });
     expect(JSON.stringify(suesView)).not.toContain(sams);
 
     const queue = await admin.get<LeadDuplicate[]>("/api/leads/duplicates");
