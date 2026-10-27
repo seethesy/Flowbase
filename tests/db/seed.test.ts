@@ -6,6 +6,7 @@ import * as s from "../../worker/db/schema";
 import { seedDatabase, seedId, seedUsers } from "../../worker/db/seed";
 import { assertTestDatabaseUrl } from "./test-database";
 import { createApp } from "../../worker/app";
+import { inventory } from "../../src/data/mock/fixtures";
 
 it("seeds repeatable counts, all roles and employment types, lifecycle stages and balanced opening stock", async () => {
   const url = assertTestDatabaseUrl(process.env.DATABASE_URL);
@@ -73,6 +74,11 @@ it("seeds repeatable counts, all roles and employment types, lifecycle stages an
     const unbalanced =
       await client`select x.id from inventory_stock x where x.item_id::text like 'f026%' and x.quantity <> (select coalesce(sum(m.quantity),0) from stock_movements m where m.item_id=x.item_id and m.section_id=x.section_id)`;
     expect(unbalanced).toHaveLength(0);
+    for (const [i, item] of inventory.entries()) {
+      const [stock] =
+        await client`select sum(quantity)::float8 as quantity from inventory_stock where item_id=${seedId(8, i + 1)}`;
+      expect(stock.quantity, item.name).toBe(item.onHand);
+    }
     const app = createApp({
       withDb: (_env, run) => run(db),
       resolveActor: async () => ({

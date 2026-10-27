@@ -5,7 +5,7 @@ import { userSchema } from "../../shared/users";
 import { resetBrowserDatabase } from "./database";
 import { defaultSections } from "./fixtures";
 import { testIssuer, testSigningKey } from "./test-auth";
-import { validateApiResponse } from "./response-contracts";
+import { responseSchema } from "./response-contracts";
 
 export const signedInUser = userSchema.parse({
   ...seedUsers[0],
@@ -102,22 +102,43 @@ export const databaseTest = base.extend<{ database: void; contracts: void }>({
   ],
   contracts: [
     async ({ page }, use) => {
-      const pending: Promise<void>[] = [];
       const failures: string[] = [];
-      page.on("response", (response) => {
-        if (!new URL(response.url()).pathname.startsWith("/api/")) return;
-        pending.push(
-          (async () => {
-            try {
-              await validateApiResponse(response);
-            } catch (error) {
-              failures.push(`${response.url()}: ${String(error)}`);
-            }
-          })(),
+      const validations: Promise<void>[] = [];
+      // Forward actual Worker responses without synthesizing data. Reading the
+      // upstream body before forwarding also covers fetch/keepalive callers that
+      // don't consume their response and avoids CDP body reads hanging on reload.
+      await page.route("**/api/**", async (route) => {
+        const request = route.request();
+        const checked = (async () => {
+          const response = await route.fetch({ timeout: 10_000 });
+          if (response.status() !== 204)
+            responseSchema(
+              new URL(request.url()).pathname,
+              request.method(),
+              response.status(),
+            ).parse(await response.json());
+          return response;
+        })();
+        validations.push(
+          checked.then(
+            () => undefined,
+            (error) => {
+              failures.push(`${request.url()}: ${String(error)}`);
+            },
+          ),
         );
+        try {
+          const response = await checked;
+          await route.fulfill({ response });
+        } catch {
+          await route.abort().catch(() => undefined);
+        }
       });
       await use();
-      await Promise.all(pending);
+      // Validate every upstream response, but don't wait on browser delivery for
+      // requests abandoned by navigation. Delivery can stay pending until close.
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      await Promise.all(validations);
       expect(
         failures,
         "Every browser API response must match its shared contract",

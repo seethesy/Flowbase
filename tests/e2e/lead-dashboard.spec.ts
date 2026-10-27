@@ -43,7 +43,9 @@ test("the lead dashboard shows real conversion, estimated value and response tim
   await expect(
     page.getByRole("heading", { name: "Lead dashboard", level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText("40%")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Conversion rate 40%/ }),
+  ).toBeVisible();
   await expect(page.getByText("$17,500").first()).toBeVisible();
   await expect(
     page.getByText("Average budget $7,500 where none given"),

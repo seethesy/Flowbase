@@ -7,7 +7,7 @@ import { assertTestDatabaseUrl } from "../db/test-database";
 import type { Client, FlowEvent } from "../../shared/core-records";
 import type { InventoryItem, Section } from "../../shared/inventory";
 import type { Lead, LeadDuplicateReason } from "../../shared/leads";
-import { businessTimeToUtc } from "../../shared/time";
+import { addLocalDays, businessTimeToUtc } from "../../shared/time";
 import { defaultListValues, listKeys } from "../../shared/settings";
 
 export async function browserDb<T>(run: (db: Db) => Promise<T>) {
@@ -95,11 +95,13 @@ export async function seedRecords(
     for (const row of seed.events ?? []) {
       // Use the same wall-clock conversion as production. No retained event API mock.
       const startsAt = businessTimeToUtc(row.date, row.startTime);
-      let endsAt = row.endTime
-        ? businessTimeToUtc(row.date, row.endTime)
+      const endDate =
+        row.endTime && row.endTime < row.startTime
+          ? addLocalDays(row.date, 1)
+          : row.date;
+      const endsAt = row.endTime
+        ? businessTimeToUtc(endDate, row.endTime)
         : null;
-      if (endsAt && endsAt < startsAt)
-        endsAt = new Date(endsAt.getTime() + 86_400_000);
       await db
         .insert(s.events)
         .values({
