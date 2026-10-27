@@ -1,0 +1,91 @@
+/* Event staff roster (FLOW-140). Shared tokens and components stay in
+   src/styles/globals.css. */
+.staff-leads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  margin-bottom: 12px;
+}
+.staff-leads small {
+  display: block;
+  color: var(--muted);
+}
+.staff-breakdown {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.staff-warning,
+.staff-conflict {
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+.staff-shift {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.staff-shift-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.staff-shift-head h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.staff-shift-actions {
+  display: flex;
+  gap: 4px;
+}
+.staff-slots {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.staff-slots > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.staff-slots > li.open .staff-slot-label {
+  color: var(--muted);
+}
+.staff-slot-label {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.staff-slot-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.staff-slot-edit select,
+.staff-add-slots select,
+.staff-add-slots input {
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.staff-conflict {
+  flex-basis: 100%;
+}
+.staff-add-slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.staff-add-slots input[type="number"] {
+  width: 72px;
+}

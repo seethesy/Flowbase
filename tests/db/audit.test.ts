@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
-import { auditLog } from "../../worker/db/schema";
+import { auditLog, events } from "../../worker/db/schema";
 import type { Db } from "../../worker/db/client";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
@@ -123,7 +123,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -317,24 +317,29 @@ describe("event changes", () => {
     foodServiceStyle: event.foodServiceStyle,
     guestCount: event.guestCount,
     servingsCount: event.servingsCount,
-    productionLeadId: event.productionLeadId,
-    assistantLeadIds: event.assistantLeadIds,
     dressCode: event.dressCode,
+    arrivalTime: event.arrivalTime,
     transportationNotes: event.transportationNotes,
     internalNotes: event.internalNotes,
     status: event.status,
   });
   const newEvent = async () => {
     const owner = await sam.post<Client>("/api/clients", newClient());
-    return sam.post<FlowEvent>("/api/events", {
+    const event = await sam.post<FlowEvent>("/api/events", {
       title: "Juniper holiday party",
       date: "2026-12-12",
       startTime: "18:00",
       endTime: "22:00",
       clientId: owner.id,
       areas: ["Ballroom"],
-      productionLeadId: lead.actor.userId,
     } satisfies EventInput);
+    // The kitchen lead leads the event, so they can open it. Production Leads are
+    // named through their own route (FLOW-140), which needs real users.
+    await db
+      .update(events)
+      .set({ productionLeadId: lead.actor.userId })
+      .where(eq(events.id, event.id));
+    return event;
   };
 
   it("audits the create", async () => {

@@ -66,6 +66,8 @@ export const actions = [
     ...kitchen,
     ...adminOnly,
     "events.status",
+    // Naming an event's Production Leads (FLOW-140 Q-40): Admin and Sales Manager.
+    "events.production_leads",
     "beos.approve",
     "rentals.apply_directly",
     "inventory.consumables.count",
@@ -95,6 +97,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "recipes.write",
       "attachments.write",
       "beos.approve",
+      "events.production_leads",
       "rentals.apply_directly",
       "inventory.consumables.count",
     ]),

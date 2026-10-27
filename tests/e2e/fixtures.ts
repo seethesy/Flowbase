@@ -25,6 +25,7 @@ export const fallGala = (): FlowEvent => ({
   productionLeadId: null,
   assistantLeadIds: [],
   dressCode: "",
+  arrivalTime: null,
   transportationNotes: "",
   internalNotes: "",
   status: "closed",

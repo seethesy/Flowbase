@@ -163,7 +163,7 @@ export const eventStatusDetailLabels: Record<EventStatus, string> = {
   negotiation: "Pending (Negotiation)",
   closing: "Pending (Closing)",
 };
-const localTime = z
+export const localTime = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a time.");
 const count = z.number().int().min(0).max(100_000).nullable().default(null);
@@ -186,9 +186,11 @@ export const eventInputSchema = z.object({
   guestCount: count,
   servingsCount: count,
   assignedSalespersonId: id.nullable().optional(),
-  productionLeadId: id.nullable().default(null),
-  assistantLeadIds: z.array(id).max(10).default([]),
+  // Production Leads are named through PUT /api/events/<id>/production-leads
+  // (FLOW-140), which checks who may name them and who may be named.
   dressCode: text(500).default(""),
+  // When staff arrive at the venue on the event date (FLOW-140).
+  arrivalTime: localTime.nullable().default(null),
   transportationNotes: text(5000).default(""),
   internalNotes: text(5000).default(""),
   // Any status on create (FLOW-56 A4). Ignored on update: status changes go
@@ -218,6 +220,7 @@ export const eventSchema = z.object({
   productionLeadId: id.nullable(),
   assistantLeadIds: z.array(id),
   dressCode: z.string(),
+  arrivalTime: z.string().nullable(),
   transportationNotes: z.string(),
   internalNotes: z.string(),
   status: eventStatusSchema,

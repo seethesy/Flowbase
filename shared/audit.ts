@@ -17,6 +17,9 @@ export type AuditEntity =
   | "client"
   | "venue"
   | "event"
+  // The event's staff roster (FLOW-140).
+  | "event_shift"
+  | "event_staff_slot"
   | "user"
   | "setting"
   | "list_value"

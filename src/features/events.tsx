@@ -32,6 +32,8 @@ import {
 } from "../components/shared";
 import { hidden, initials, LoadError } from "./clients";
 import { Attachments } from "./attachments";
+import { date, time } from "./event-format";
+import { EventStaffSection } from "./event-staff";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
@@ -42,18 +44,6 @@ const businessToday = () => utcToBusinessTime(new Date()).date;
 const defaultEventWindow = () => {
   const today = businessToday();
   return { from: addLocalDays(today, -7), to: addLocalDays(today, 30) };
-};
-const date = (value: string) =>
-  new Date(`${value}T12:00:00`).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-const time = (value: string | null) => {
-  if (!value) return "";
-  const [hour, minute] = value.split(":").map(Number);
-  return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
 };
 const when = (event: FlowEvent) =>
   `${date(event.date)} · ${time(event.startTime)}${event.endTime ? `–${time(event.endTime)}` : ""}`;
@@ -226,9 +216,8 @@ const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
   foodServiceStyle: event?.foodServiceStyle ?? "",
   guestCount: event?.guestCount?.toString() ?? "",
   servingsCount: event?.servingsCount?.toString() ?? "",
-  productionLeadId: event?.productionLeadId ?? null,
-  assistantLeadIds: event?.assistantLeadIds ?? [],
   dressCode: event?.dressCode ?? "",
+  arrivalTime: event?.arrivalTime ?? null,
   transportationNotes: event?.transportationNotes ?? "",
   internalNotes: event?.internalNotes ?? "",
   status: event?.status ?? "inquiry",
@@ -288,7 +277,11 @@ export function EventForm({
         type={type}
         value={String(draft[key] ?? "")}
         onChange={(e) =>
-          set(key, (e.target.value || (key === "endTime" ? null : "")) as never)
+          set(
+            key,
+            (e.target.value ||
+              (key === "endTime" || key === "arrivalTime" ? null : "")) as never,
+          )
         }
       />
     </FormField>
@@ -455,6 +448,7 @@ export function EventForm({
             />
             <ListSuggestions id="dress-code-presets" list="dress_code" />
           </FormField>
+          {text("arrivalTime", "Venue arrival time", "time")}
           {text("guestCount", "Guest count", "number")}
           {text("servingsCount", "Servings count", "number")}
         </div>
@@ -633,6 +627,7 @@ export function EventDetail() {
     ["Guests", e.guestCount?.toString() ?? "—"],
     ["Servings", e.servingsCount?.toString() ?? "—"],
     ["Dress code", e.dressCode || "—"],
+    ["Venue arrival", e.arrivalTime ? time(e.arrivalTime) : "—"],
     ["Status", statusLabels[e.status]],
   ];
   const render: Partial<Record<HubSection, () => ReactNode>> = {
@@ -702,6 +697,7 @@ export function EventDetail() {
           ))}
         </Section>
       ),
+    staff: () => <EventStaffSection key="staff" event={e} />,
     files: () => (
       <Attachments
         key="files"

@@ -9,6 +9,7 @@ import {
   eventStatusChangeSchema,
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
+import { eventRosterSchema } from "../../shared/event-staff";
 import {
   itemSchema,
   sectionSchema,
@@ -97,6 +98,8 @@ export function responseSchema(
     if (action === "history") return historyEntrySchema.array();
     if (action === "status-history") return eventStatusChangeSchema.array();
     if (action === "hub") return eventHubSchema;
+    // Staff roster (FLOW-140): every roster call answers with the whole roster.
+    if (["roster", "shifts", "slots"].includes(action)) return eventRosterSchema;
     const schema =
       resource === "clients"
         ? clientSchema

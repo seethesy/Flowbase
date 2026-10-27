@@ -92,6 +92,10 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
       await tx.insert(schema.users).values(seedUsers).onConflictDoNothing();
       const salesperson = seedUsers.find((u) => u.role === "salesperson")!.id;
       const staff = seedUsers.find((u) => u.role === "staff")!.id;
+      // Assistants need a full-time primary Production Lead (FLOW-140).
+      const productionLead = seedUsers.find(
+        (u) => u.role === "kitchen_lead" && u.employmentType === "full_time",
+      )!.id;
       for (const [i, row] of fixtures.clients.entries()) {
         await tx
           .insert(schema.clients)
@@ -144,6 +148,7 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
             clientId: seedId(3, i + 1),
             venueId: seedId(5, 1),
             assignedSalespersonId: salesperson,
+            productionLeadId: productionLead,
             assistantLeadIds: [staff],
             guestCount: row.guests,
             status: eventStatuses[i % eventStatuses.length],

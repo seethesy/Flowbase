@@ -40,12 +40,16 @@ import {
   clients,
   eventAreas,
   events,
+  eventShifts,
+  eventStaffSlots,
   eventStatusHistory,
+  users,
   venues,
 } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
+import type { productionLeadsInputSchema } from "../../shared/event-staff";
 import { setArchived } from "./archive";
 import {
   groupBy,
@@ -58,7 +62,8 @@ import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
 
 // Events (FLOW-55), the record everything else attaches to. A salesperson sees the
-// events assigned to them; other staff see events they lead or assist (F-01-03).
+// events assigned to them; other staff see events they lead or assist (F-01-03) and
+// events with a shift they are assigned to (FLOW-140).
 type EventRow = typeof events.$inferSelect;
 type EventInput = z.output<typeof eventInputSchema>;
 
@@ -69,12 +74,13 @@ export function visibleEvents(actor: Actor): SQL | undefined {
   return or(
     eq(events.productionLeadId, actor.userId),
     sql`${events.assistantLeadIds} @> ${JSON.stringify([actor.userId])}::jsonb`,
+    sql`exists (select 1 from ${eventStaffSlots} join ${eventShifts} on ${eventShifts.id} = ${eventStaffSlots.shiftId} where ${eventShifts.eventId} = ${events.id} and ${eventStaffSlots.assigneeId} = ${actor.userId} and ${eventStaffSlots.archivedAt} is null and ${eventShifts.archivedAt} is null)`,
   );
 }
 
 // A New York wall-clock time as a UTC instant; a time that doesn't happen (skipped
 // when clocks spring forward) is a validation error, not a silently moved hour.
-function businessInstant(date: string, time: string) {
+export function businessInstant(date: string, time: string) {
   if (!isBusinessTime(date, time))
     throw new ApiError(
       400,
@@ -86,7 +92,11 @@ function businessInstant(date: string, time: string) {
 
 // Stored as UTC instants from New York wall-clock times. An end time earlier than
 // the start runs past midnight, so it is that time on the next calendar date.
-function instants(input: Pick<EventInput, "date" | "startTime" | "endTime">) {
+export function instants(input: {
+  date: string;
+  startTime: string;
+  endTime: string | null;
+}) {
   const startsAt = businessInstant(input.date, input.startTime);
   if (!input.endTime) return { startsAt, endsAt: null };
   const endDate =
@@ -148,6 +158,7 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       productionLeadId: row.productionLeadId,
       assistantLeadIds: row.assistantLeadIds,
       dressCode: row.dressCode,
+      arrivalTime: row.arrivesAt ? utcToBusinessTime(row.arrivesAt).time : null,
       transportationNotes: row.transportationNotes,
       internalNotes: row.internalNotes,
       status: row.status,
@@ -254,7 +265,7 @@ export async function eventHistory(db: DbLike, actor: Actor, id: string, page: P
 // Hub sections whose module exists (FLOW-57), in display order. Each module ticket
 // adds its section here: proposal and versions, booking and payments, BEO, pull list,
 // tasks (FLOW-58), timeline, staff, trucks and history (FLOW-41).
-const builtSections: HubSection[] = ["details", "client", "files"];
+const builtSections: HubSection[] = ["details", "client", "staff", "files"];
 
 // Everything the event hub shows, limited to what the actor may see. The client
 // section needs access to the client record itself: staff who only work the event
@@ -349,9 +360,10 @@ const eventValues = (input: EventInput, actor: Actor) => ({
   foodServiceStyle: input.foodServiceStyle,
   guestCount: input.guestCount,
   servingsCount: input.servingsCount,
-  productionLeadId: input.productionLeadId,
-  assistantLeadIds: input.assistantLeadIds,
   dressCode: input.dressCode,
+  arrivesAt: input.arrivalTime
+    ? businessInstant(input.date, input.arrivalTime)
+    : null,
   transportationNotes: input.transportationNotes,
   internalNotes: input.internalNotes,
   // Status is set on create and then only by the status changes below.
@@ -613,4 +625,77 @@ export async function eventStatusChanges(
       }),
     ),
   );
+}
+
+// Names the event's Production Leads (FLOW-140, Q-40): one primary, who must be
+// full-time (AC4), and optional assistants, who need a primary (AC3; checked by
+// productionLeadsInputSchema). Everyone named must be active staff. Emits
+// event.production_leads_changed, which production alerts (FLOW-153) follow.
+export async function setProductionLeads(
+  db: Db,
+  actor: Actor,
+  id: string,
+  input: z.output<typeof productionLeadsInputSchema>,
+): Promise<FlowEvent> {
+  if (!can(actor, "events.production_leads")) throw forbidden();
+  await findVisibleEvent(db, actor, id);
+  const named = [
+    ...(input.productionLeadId ? [input.productionLeadId] : []),
+    ...input.assistantLeadIds,
+  ];
+  const people = named.length
+    ? await db
+        .select({ id: users.id, employmentType: users.employmentType })
+        .from(users)
+        .where(
+          and(
+            inArray(users.id, named),
+            eq(users.status, "active"),
+            isNull(users.archivedAt),
+          ),
+        )
+    : [];
+  if (people.length !== named.length)
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      "Production Leads must be active staff members.",
+    );
+  const primary = people.find((person) => person.id === input.productionLeadId);
+  if (primary && primary.employmentType !== "full_time")
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      "Only full-time staff can be the primary Production Lead.",
+    );
+  await db.transaction(async (tx) => {
+    const current = await lockEvent(tx, id);
+    const before = await eventSnapshot(tx, id);
+    await tx
+      .update(events)
+      .set({
+        productionLeadId: input.productionLeadId,
+        assistantLeadIds: input.assistantLeadIds,
+        updatedBy: actor.userId,
+      })
+      .where(eq(events.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: "update",
+      before,
+      after: await eventSnapshot(tx, id),
+    });
+    await emitDomainEvent(tx, {
+      name: "event.production_leads_changed",
+      entityId: id,
+      data: {
+        productionLeadId: input.productionLeadId,
+        assistantLeadIds: input.assistantLeadIds,
+        previousProductionLeadId: current.productionLeadId,
+        previousAssistantLeadIds: current.assistantLeadIds,
+      },
+    });
+  });
+  return getEvent(db, actor, id);
 }

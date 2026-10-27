@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -93,15 +93,19 @@ async function seed() {
       startTime: "18:00",
       clientId: juniper.id,
       assignedSalespersonId: people.sam,
-      assistantLeadIds: [people.helper],
       ...overrides,
     });
+  const gala = await event("Fall gala");
+  // Stored directly: naming leads through the API needs real users (FLOW-140).
+  await db
+    .update(schema.events)
+    .set({ productionLeadId: people.admin, assistantLeadIds: [people.helper] })
+    .where(eq(schema.events.id, gala.id));
   return {
     juniper,
-    gala: await event("Fall gala"),
+    gala,
     brunch: await event("Board brunch", {
       assignedSalespersonId: people.sue,
-      assistantLeadIds: [],
     }),
   };
 }
@@ -134,7 +138,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
