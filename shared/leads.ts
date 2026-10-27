@@ -245,6 +245,8 @@ export const leadConversionSchema = z.object({
   lead: leadSchema,
   client: z.object({ id, name: z.string() }),
   event: z.object({ id, title: z.string() }),
+  // The event's first proposal, in Client communication (FLOW-163).
+  proposal: z.object({ id, title: z.string() }),
 });
 export type LeadConversion = z.infer<typeof leadConversionSchema>;
 

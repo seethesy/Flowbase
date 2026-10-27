@@ -149,6 +149,10 @@ it("warns about a matching client on convert and offers to link instead", async 
               id: "e0000000-0000-4000-8000-000000000001",
               title: "Juniper & Co. — Wedding",
             },
+            proposal: {
+              id: "f0000000-0000-4000-8000-000000000001",
+              title: "Juniper & Co. — Wedding",
+            },
           })
         : Response.json(
             {

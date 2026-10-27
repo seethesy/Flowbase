@@ -4,7 +4,14 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
-import { clients, events, jobs, leads } from "../../worker/db/schema";
+import {
+  clients,
+  events,
+  jobs,
+  leads,
+  proposals,
+  proposalStageHistory,
+} from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import { createLead } from "../../worker/records/leads";
 import type { RunWithDb } from "../../worker/hono";
@@ -108,7 +115,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -445,9 +452,62 @@ describe("conversion (FLOW-112)", () => {
       expect.arrayContaining([
         "event:client.created",
         "event:event.created",
+        "event:proposal.created",
         "event:lead.converted",
       ]),
     );
+  });
+
+  // FLOW-163 AC1
+  it("creates exactly one proposal in Client communication for the new event", async () => {
+    const id = await seed();
+    await admin.post(`/api/leads/${id}/assign`, {
+      assignedSalespersonId: people.sam,
+    });
+    await qualify(id);
+    const result = await admin.post<LeadConversion>(
+      `/api/leads/${id}/convert`,
+      convertBody(),
+    );
+    const rows = await db.select().from(proposals);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: result.proposal.id,
+      eventId: result.event.id,
+      clientId: result.client.id,
+      title: "Maya Ortiz — Wedding",
+      stage: "client_communication",
+      assignedSalespersonId: people.sam,
+      currentVersionId: null,
+    });
+    expect(
+      await db
+        .select({ from: proposalStageHistory.fromStage, to: proposalStageHistory.toStage })
+        .from(proposalStageHistory),
+    ).toEqual([{ from: null, to: "client_communication" }]);
+  });
+
+  // FLOW-163: linking to an existing client creates the proposal the same way.
+  it("creates the proposal when the lead is linked to an existing client", async () => {
+    const existing = await admin.post<Client>(
+      "/api/clients",
+      { name: "Juniper & Co.", kind: "organization", contacts: [] },
+      201,
+    );
+    const id = await seed();
+    await qualify(id);
+    const result = await admin.post<LeadConversion>(
+      `/api/leads/${id}/convert`,
+      convertBody({ client: { mode: "link", clientId: existing.id } }),
+    );
+    const rows = await db.select().from(proposals);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: result.proposal.id,
+      eventId: result.event.id,
+      clientId: existing.id,
+      stage: "client_communication",
+    });
   });
 
   it("converts a lead with a date and guest count into an event with both", async () => {
@@ -616,6 +676,9 @@ describe("conversion (FLOW-112)", () => {
     }
     expect(await db.select().from(clients)).toHaveLength(0);
     expect(await db.select().from(events)).toHaveLength(0);
+    // FLOW-163 AC2: the proposal goes with them.
+    expect(await db.select().from(proposals)).toHaveLength(0);
+    expect(await db.select().from(proposalStageHistory)).toHaveLength(0);
     const [row] = await db.select().from(leads);
     expect(row).toMatchObject({
       status: "qualified",
@@ -626,5 +689,36 @@ describe("conversion (FLOW-112)", () => {
     expect(types).not.toContain("event:lead.converted");
     expect(types).not.toContain("event:client.created");
     expect(types).not.toContain("event:event.created");
+    expect(types).not.toContain("event:proposal.created");
+  });
+
+  // FLOW-163 AC2: a failure while creating the proposal itself keeps nothing.
+  it("keeps no client, contact, event or lead change when the proposal insert fails", async () => {
+    const id = await seed();
+    await qualify(id);
+    await db.execute(sql`
+      create function fail_proposal_insert() returns trigger language plpgsql as $$
+      begin
+        raise exception 'simulated proposal failure';
+      end $$`);
+    await db.execute(sql`
+      create trigger fail_proposal_insert before insert on proposals
+      for each row execute function fail_proposal_insert()`);
+    try {
+      const response = await admin.call(
+        "POST",
+        `/api/leads/${id}/convert`,
+        convertBody(),
+      );
+      expect(response.status).toBe(500);
+    } finally {
+      await db.execute(sql`drop trigger if exists fail_proposal_insert on proposals`);
+      await db.execute(sql`drop function if exists fail_proposal_insert()`);
+    }
+    expect(await db.select().from(clients)).toHaveLength(0);
+    expect(await db.select().from(events)).toHaveLength(0);
+    expect(await db.select().from(proposals)).toHaveLength(0);
+    const [row] = await db.select().from(leads);
+    expect(row).toMatchObject({ status: "qualified", convertedEventId: null });
   });
 });
