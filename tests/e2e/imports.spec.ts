@@ -5,7 +5,7 @@ import * as s from "../../worker/db/schema";
 
 // Data import framework (FLOW-47) on the real Worker and database, signed in as
 // the seeded Admin, through the browser tests' rental importer
-// (tests/fixtures/rental-importer.ts). Starting quantities enter the ledger as
+// (tests/fixtures/rental-importer.ts). Imported quantities enter the ledger as
 // count movements linked to the import (FLOW-168).
 
 // A category heading row (SEATING), two good rows and one without a name.

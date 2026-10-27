@@ -30,7 +30,7 @@ export {
   countStock,
   listMovements,
   recordMovement,
-  recordStartingStock,
+  recordImportedStock,
   transferStock,
 } from "./inventory-ledger";
 export type { Movement } from "./inventory-ledger";

@@ -149,13 +149,13 @@ export async function recordMovement(
   return ids;
 }
 
-// Imported starting quantities (FLOW-168 AC1). A module importer calls this inside
-// its row's transaction: the quantity enters the ledger as a count movement linked
-// to the import's log entry, never as a set quantity. It is a starting quantity,
-// so it applies only while the item has no movements in that section yet:
-// re-running an import doesn't recount stock that has moved since. Returns the
-// movement id, or null when nothing was recorded.
-export async function recordStartingStock(
+// Imported quantities (FLOW-168 AC1). A module importer calls this inside its row's
+// transaction: the file's quantity becomes the section's on-hand through a count
+// movement for the difference, linked to the import's log entry, never as a set
+// quantity. Re-running an import sets the section back to the file's quantity,
+// even if stock moved since; a quantity that already matches records nothing.
+// Returns the movement id, or null when nothing was recorded.
+export async function recordImportedStock(
   tx: DbLike,
   actor: Actor,
   item: ItemRow,
@@ -167,21 +167,22 @@ export async function recordStartingStock(
   },
 ): Promise<string | null> {
   requireCountStep(item, input.quantity);
-  const [moved] = await tx
-    .select({ id: stockMovements.id })
-    .from(stockMovements)
+  const [level] = await tx
+    .select({ quantity: inventoryStock.quantity })
+    .from(inventoryStock)
     .where(
       and(
-        eq(stockMovements.itemId, item.id),
-        eq(stockMovements.sectionId, input.sectionId),
+        eq(inventoryStock.itemId, item.id),
+        eq(inventoryStock.sectionId, input.sectionId),
       ),
     )
-    .limit(1);
-  if (moved || input.quantity === 0) return null;
+    .for("update");
+  const difference = countDifference(input.quantity, level?.quantity ?? 0);
+  if (difference === 0) return null;
   const [movementId] = await recordMovement(tx, actor, item, {
     type: "count",
-    changes: [{ sectionId: input.sectionId, quantity: input.quantity }],
-    reason: `Starting quantity from ${input.fileName}`,
+    changes: [{ sectionId: input.sectionId, quantity: difference }],
+    reason: `Imported from ${input.fileName}`,
     link: { type: "import", id: input.importId },
   });
   return movementId;

@@ -27,7 +27,7 @@ import type {
 } from "../../shared/imports";
 import type { InventoryItem, Section } from "../../shared/inventory";
 
-// Data import framework (FLOW-47) and imported starting stock and movement
+// Data import framework (FLOW-47) and imported stock and movement
 // auditing (FLOW-168), against the CI Postgres service, with a test importer.
 const url = process.env.DATABASE_URL;
 if (!url)
@@ -365,7 +365,7 @@ describe("commit (FLOW-47)", () => {
   });
 });
 
-describe("imported starting stock (FLOW-168)", () => {
+describe("imported stock (FLOW-168)", () => {
   it("AC1: starting quantities arrive as count movements linked to the import log", async () => {
     const { log, results } = await runImport([chairs(), tables()]);
     const chairId = results[0].recordId!;
@@ -376,7 +376,7 @@ describe("imported starting stock (FLOW-168)", () => {
       sectionId: warehouse.id,
       linkType: "import",
       linkId: log.id,
-      reason: "Starting quantity from rentals.csv",
+      reason: "Imported from rentals.csv",
     });
     const item = await admin.send<InventoryItem>(
       "GET",
@@ -401,7 +401,7 @@ describe("imported starting stock (FLOW-168)", () => {
     expect(cached.quantity).toBe(120);
   });
 
-  it("doesn't recount stock that has moved since: a re-import leaves the ledger alone", async () => {
+  it("a re-import sets the section back to the file's quantity with a count for the difference", async () => {
     const { results } = await runImport([chairs()]);
     const chairId = results[0].recordId!;
     await admin.send(
@@ -410,16 +410,25 @@ describe("imported starting stock (FLOW-168)", () => {
       { type: "damage_loss", sectionId: warehouse.id, quantity: 2, reason: "Broken" },
       201,
     );
-    await runImport([chairs({ name: "Chiavari Chair, gold" })]);
-    expect((await movementsOf(chairId)).map((m) => m.type).sort()).toEqual([
-      "count",
-      "damage_loss",
+    const again = await runImport([chairs()], "recount.csv");
+    expect(again.results.map((result) => result.outcome)).toEqual(["updated"]);
+    const recount = (await movementsOf(chairId)).filter(
+      (movement) => movement.linkId === again.log.id,
+    );
+    expect(recount).toMatchObject([
+      { type: "count", quantity: 2, reason: "Imported from recount.csv" },
     ]);
     const item = await admin.send<InventoryItem>(
       "GET",
       `/api/inventory/items/${chairId}`,
     );
-    expect(item.totalQuantity).toBe(118);
+    expect(item.totalQuantity).toBe(120);
+
+    // A matching quantity records nothing; a blank one leaves stock alone.
+    const matching = await runImport([chairs()]);
+    expect(matching.results.map((result) => result.outcome)).toEqual(["skipped"]);
+    await runImport([chairs({ name: "Chiavari Chair, gold", quantity: "" })]);
+    expect(await movementsOf(chairId)).toHaveLength(3);
   });
 
   it("AC2: each stock movement has one audit row, written in its transaction", async () => {

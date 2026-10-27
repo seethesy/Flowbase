@@ -1,24 +1,29 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { itemInputSchema } from "../../shared/inventory";
 import type { Db, DbLike } from "../../worker/db/client";
-import { inventoryItems, inventorySections } from "../../worker/db/schema";
+import {
+  inventoryItems,
+  inventorySections,
+  inventoryStock,
+} from "../../worker/db/schema";
 import { defineImportModule } from "../../worker/records/imports";
 import {
   createItem,
   findItem,
-  recordStartingStock,
+  recordImportedStock,
   updateItem,
 } from "../../worker/records/inventory";
 
 // A test-only module importer for the import framework (FLOW-47) and imported
-// starting stock (FLOW-168): rental items keyed by code, with a starting quantity
-// in a named section. The real Master Inventory importer is FLOW-78.
+// stock (FLOW-168): rental items keyed by code, with a quantity in a named
+// section. The real Master Inventory importer is FLOW-78.
 type RentalRow = {
   code: string;
   name: string;
   category: string;
   section: string;
-  quantity: number;
+  // Blank leaves the section's stock as it is.
+  quantity: number | null;
 };
 
 const sectionNamed = async (db: DbLike, name: string) => {
@@ -42,16 +47,28 @@ const input = (row: RentalRow) =>
     name: row.name,
     category: row.category,
   });
-const startingStock = async (
+const sectionStock = async (tx: DbLike, itemId: string, sectionId: string) => {
+  const [level] = await tx
+    .select({ quantity: inventoryStock.quantity })
+    .from(inventoryStock)
+    .where(
+      and(
+        eq(inventoryStock.itemId, itemId),
+        eq(inventoryStock.sectionId, sectionId),
+      ),
+    );
+  return level?.quantity ?? 0;
+};
+const importedStock = async (
   tx: DbLike,
-  actor: Parameters<typeof recordStartingStock>[1],
+  actor: Parameters<typeof recordImportedStock>[1],
   itemId: string,
   row: RentalRow,
   context: { importId: string; fileName: string },
 ) => {
-  if (!row.section || !row.quantity) return;
+  if (!row.section || row.quantity === null) return;
   const section = await sectionNamed(tx, row.section);
-  await recordStartingStock(tx, actor, await findItem(tx, itemId), {
+  await recordImportedStock(tx, actor, await findItem(tx, itemId), {
     sectionId: section.id,
     quantity: row.quantity,
     ...context,
@@ -74,10 +91,11 @@ export const rentalImporter = defineImportModule<RentalRow>({
     const errors: string[] = [];
     const code = values.code?.trim() ?? "";
     const name = values.name?.trim() ?? "";
-    const quantity = Number(values.quantity?.trim() || 0);
+    const given = values.quantity?.trim() ?? "";
+    const quantity = given === "" ? null : Number(given);
     if (!code) errors.push("Code is required.");
     if (!name) errors.push("Name is required.");
-    if (!Number.isFinite(quantity) || quantity < 0)
+    if (quantity !== null && (!Number.isFinite(quantity) || quantity < 0))
       errors.push("Quantity must be a number of 0 or more.");
     if (errors.length) return { errors };
     return {
@@ -109,15 +127,18 @@ export const rentalImporter = defineImportModule<RentalRow>({
   },
   wouldChange: async (db, _actor, recordId, row) => {
     const item = await findItem(db, recordId);
-    return item.name !== row.name || item.category !== row.category;
+    if (item.name !== row.name || item.category !== row.category) return true;
+    if (!row.section || row.quantity === null) return false;
+    const section = await sectionNamed(db, row.section);
+    return (await sectionStock(db, recordId, section.id)) !== row.quantity;
   },
   create: async (tx, actor, row, context) => {
     const item = await createItem(tx as unknown as Db, actor, input(row));
-    await startingStock(tx, actor, item.id, row, context);
+    await importedStock(tx, actor, item.id, row, context);
     return item.id;
   },
   update: async (tx, actor, recordId, row, context) => {
     await updateItem(tx as unknown as Db, actor, recordId, input(row));
-    await startingStock(tx, actor, recordId, row, context);
+    await importedStock(tx, actor, recordId, row, context);
   },
 });
