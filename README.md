@@ -114,12 +114,13 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 
 | Resource | Routes |
 | --- | --- |
-| Clients | `GET /api/clients?archived=&flagged=`, `GET/PUT /api/clients/<id>`, `POST /api/clients`, `POST /api/clients/<id>/archive` and `/restore` |
+| Clients | `GET /api/clients?archived=&flagged=&search=`, `GET/PUT /api/clients/<id>`, `POST /api/clients`, `POST /api/clients/<id>/archive` and `/restore` |
 | Venues | the same shape under `/api/venues` |
 | History | `GET /api/clients/<id>/history`, and the same under `/api/venues` and `/api/events` |
 | Event status | `POST /api/events/<id>/status`, `GET /api/events/<id>/status-history` |
-| Events | the same shape under `/api/events`, with `?clientId=&venueId=&from=&to=` (New York dates). Lead conversion creates events in Inquiry; see Lifecycle below |
+| Events | the same shape under `/api/events`, with `?clientId=&venueId=&from=&to=` (New York dates), `&status=` (one or more, comma-separated) and `&search=` (title, client or venue name). Lead conversion creates events in Inquiry; see Lifecycle below |
 
+- **Paging** (FLOW-179, `worker/records/paging.ts`): every list endpoint (records, history, status history, leads and duplicates, inventory items, movements, cost history and counts) returns one page in its own order: 100 rows by default, `?limit=` up to 500. The body is still the array of rows; `X-Has-More: true|false` says whether more exist and `X-Next-Cursor` is passed back as `?cursor=` for the next page. Cursors are keyset positions (the last row's sort values, ending with its id), so paging returns every row once even while rows are added; a cursor the server can't read answers `400`. Screens search and filter on the server and show **Load more** (`src/app/paging.tsx`); pickers that must be complete load every page (`allPages` in `src/services/core.ts`), and the event form and lead conversion search clients as you type. The Events screen opens on the past 7 days through the next 30, soonest first, and its From/To dates reach any other range. List joins use maps (FLOW-180), and `tests/db/list-cpu.test.ts` keeps the median CPU of one list call under 10 ms with 2,000 items and 600 events.
 - **Who sees what** (`shared/policy.ts`, FLOW-38): Admin, Technical and Sales Manager see every client and event; a salesperson sees the clients and events assigned to them (their new clients are assigned to them); other staff see the events they lead or assist and no clients. Records a user can't see answer 404. Venues are visible to everyone. Writes are open to Admin, Technical, Sales Manager and salespeople.
 - **Contact details** (F-01-04): client contact email/phone and venue contacts come back as `null` for anyone who isn't FT+. An update that omits a contact's email or phone keeps the stored value.
 - **Duplicates:** creating a client whose contact email or phone matches an existing contact answers `409 POSSIBLE_DUPLICATE` with the matches, and the form offers "Create anyway" (`allowDuplicate: true`). A salesperson is only warned about their own clients; a match they can't see is saved as `possibleDuplicateOf`, which only Admin, Technical and Sales Manager see (`?flagged=true`), and emits `client.duplicate_flagged`.
@@ -131,7 +132,7 @@ Clients (FLOW-53), venues (FLOW-54) and events (FLOW-55) live in Postgres and ar
 
 ## Inventory
 
-Inventory items (FLOW-69), sections and stock (FLOW-70), the ingredient catalog (FLOW-81), the stock ledger (FLOW-71), count mode (FLOW-82), cost history (FLOW-83) and bar stock (FLOW-90) live in Postgres and are served by `worker/routes/inventory.ts`; Zod schemas in `shared/inventory.ts` are shared by the API and the screens in `src/features/inventory.tsx` (`/inventory`, `/inventory/ingredients`, `/inventory/bar`, `/inventory/sections`, `/inventory/<id>`) and `src/features/stock-counts.tsx` (`/inventory/counts`, `/inventory/counts/<id>`, `/inventory/low-stock`).
+Inventory items (FLOW-69), sections and stock (FLOW-70), the ingredient catalog (FLOW-81), the stock ledger (FLOW-71), count mode (FLOW-82), cost history (FLOW-83) and bar stock (FLOW-90) live in Postgres and are served by `worker/routes/inventory.ts`; Zod schemas in `shared/inventory.ts` are shared by the API and the screens in `src/features/inventory.tsx` (`/inventory`, `/inventory/ingredients`, `/inventory/bar`, `/inventory/sections`, `/inventory/<id>`) and `src/features/stock-counts.tsx` (`/inventory/counts`, `/inventory/counts/<id>`, `/inventory/low-stock`). Item lists are paged (see [Core records](#core-records)) and every item filter runs in SQL (FLOW-180).
 
 | Resource | Routes |
 | --- | --- |

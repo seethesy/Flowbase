@@ -33,14 +33,20 @@ const client = (overrides: Partial<Client> = {}): Client => ({
   updatedAt: now,
   ...overrides,
 });
-type Handler = (init?: RequestInit) => Response | Promise<Response>;
-// Routes fetch calls by "METHOD /path"; anything unexpected fails the test.
+type Handler = (
+  init?: RequestInit,
+  url?: URL,
+) => Response | Promise<Response>;
+// Routes fetch calls by "METHOD /path?query", or by "METHOD /path" for any query
+// (the handler gets the URL); anything unexpected fails the test.
 const mockApi = (routes: Record<string, Handler>) =>
   vi.mocked(fetch).mockImplementation(async (input, init) => {
-    const key = `${init?.method ?? "GET"} ${String(input)}`;
-    const handler = routes[key];
-    if (!handler) throw new Error(`Unexpected request ${key}`);
-    return handler(init);
+    const method = init?.method ?? "GET";
+    const url = new URL(String(input), "http://localhost");
+    const handler =
+      routes[`${method} ${String(input)}`] ?? routes[`${method} ${url.pathname}`];
+    if (!handler) throw new Error(`Unexpected request ${method} ${String(input)}`);
+    return handler(init, url);
   });
 const bodyOf = (init?: RequestInit) => JSON.parse(String(init?.body));
 const mount = (node: ReactNode) =>
@@ -351,13 +357,21 @@ it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)
     createdAt: now,
     updatedAt: now,
   });
+  const all = [
+    flowEvent(1, "Fall gala", "negotiation"),
+    flowEvent(2, "Winter ball", "closing"),
+    flowEvent(3, "Spring brunch", "closed"),
+  ];
+  const requested: URL[] = [];
+  // Filters by ?status= the way the API does (FLOW-179).
   mockApi({
-    "GET /api/events": () =>
-      Response.json([
-        flowEvent(1, "Fall gala", "negotiation"),
-        flowEvent(2, "Winter ball", "closing"),
-        flowEvent(3, "Spring brunch", "closed"),
-      ]),
+    "GET /api/events": (_init, url) => {
+      requested.push(url!);
+      const statuses = url!.searchParams.get("status")?.split(",");
+      return Response.json(
+        statuses ? all.filter((event) => statuses.includes(event.status)) : all,
+      );
+    },
   });
   const user = userEvent.setup();
   mount(<EventList />);
@@ -373,7 +387,18 @@ it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)
       .filter((option) => option.textContent === "Pending"),
   ).toHaveLength(1);
   await user.selectOptions(filter, "Pending");
+  await waitFor(() =>
+    expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument(),
+  );
   expect(within(table).getByText("Fall gala")).toBeInTheDocument();
   expect(within(table).getByText("Winter ball")).toBeInTheDocument();
-  expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument();
+  // "Pending" asks the API for both statuses it stands for.
+  expect(requested.at(-1)?.searchParams.get("status")).toBe("negotiation,closing");
+  // The list opens on the default window: the past 7 days to the next 30.
+  const first = requested[0].searchParams;
+  expect(first.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(first.get("to")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(
+    (Date.parse(first.get("to")!) - Date.parse(first.get("from")!)) / 86_400_000,
+  ).toBe(37);
 });
