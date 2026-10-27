@@ -1,6 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import type { HistoryEntry } from "../../shared/audit";
 import {
   defaultBusinessDefaults,
   defaultCompanyProfile,
@@ -11,6 +10,7 @@ import {
   type ListKey,
   type ListValue,
   type SettingKey,
+  type SettingsHistoryEntry,
 } from "../../shared/settings";
 import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
@@ -295,12 +295,6 @@ export async function assertListLabels(
     );
 }
 
-export type SettingsHistoryEntry = HistoryEntry & {
-  entityType: "setting" | "list_value";
-  entityId: string;
-  // What changed, e.g. "Company profile" or "Event types: Wedding".
-  subject: string;
-};
 
 // Recent changes to settings and lists, newest first, for the Settings screen.
 export async function settingsHistory(

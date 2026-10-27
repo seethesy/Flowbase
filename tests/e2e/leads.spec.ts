@@ -1,5 +1,6 @@
 import { test, expect } from "./auth-fixture";
-import { lead, mockLeadsApi } from "./mock-api";
+import { lead } from "./fixtures";
+import { seedLeads } from "./database";
 
 const maya = () => lead({ name: "Maya Ortiz", source: "Bark" });
 const noah = () =>
@@ -19,16 +20,24 @@ const priya = () =>
     assignedSalespersonId: "a0000000-0000-4000-8000-000000000003",
   });
 const dana = () =>
-  lead({ name: "Dana Cole", source: "Bark", email: "", phone: "", needsReview: true });
+  lead({
+    name: "Dana Cole",
+    source: "Bark",
+    email: "",
+    phone: "",
+    needsReview: true,
+  });
 const row = (page: import("@playwright/test").Page, name: string) =>
   page.getByRole("link", { name, exact: true });
 
 test("inbox filters by source, channel and status, with a needs review view", async ({
   page,
 }) => {
-  await mockLeadsApi(page, [maya(), noah(), priya(), dana()]);
+  await seedLeads([maya(), noah(), priya(), dana()]);
   await page.goto("/#/leads");
-  await expect(page.getByRole("heading", { name: "Leads", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Leads", level: 1 }),
+  ).toBeVisible();
   for (const name of ["Maya Ortiz", "Noah Kim", "Priya Shah", "Dana Cole"])
     await expect(row(page, name)).toBeVisible();
 
@@ -57,7 +66,7 @@ test("inbox filters by source, channel and status, with a needs review view", as
 test("triage queue shows unassigned open leads and bulk assigns them", async ({
   page,
 }) => {
-  await mockLeadsApi(page, [maya(), noah(), priya()]);
+  await seedLeads([maya(), noah(), priya()]);
   await page.goto("/#/leads");
   await page.getByRole("tab", { name: "Triage" }).click();
   await expect(row(page, "Maya Ortiz")).toBeVisible();
@@ -78,10 +87,12 @@ test("triage queue shows unassigned open leads and bulk assigns them", async ({
 test("a lead moves through the statuses and a lost reason is required", async ({
   page,
 }) => {
-  await mockLeadsApi(page, [maya()]);
+  await seedLeads([maya()]);
   await page.goto("/#/leads");
   await row(page, "Maya Ortiz").click();
-  await expect(page.getByRole("heading", { name: "Maya Ortiz", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Maya Ortiz", level: 1 }),
+  ).toBeVisible();
   await expect(page.getByText("Not yet")).toBeVisible();
 
   await page.getByRole("button", { name: "Mark contacted" }).click();
@@ -103,7 +114,7 @@ test("a lead moves through the statuses and a lost reason is required", async ({
 });
 
 test("a qualified lead converts from the inbox", async ({ page }) => {
-  await mockLeadsApi(page, [
+  await seedLeads([
     lead({ name: "Maya Ortiz", status: "qualified", eventType: "Wedding" }),
   ]);
   await page.goto("/#/leads");
@@ -121,15 +132,18 @@ test("a qualified lead converts from the inbox", async ({ page }) => {
 test("possible duplicates are merged into one lead that keeps both source links", async ({
   page,
 }) => {
-  const bark = lead({ name: "Maya Ortiz", source: "Bark", sourceLeadId: "bark-77" });
+  const bark = lead({
+    name: "Maya Ortiz",
+    source: "Bark",
+    sourceLeadId: "bark-77",
+  });
   const thumbtack = lead({
     name: "Maya O.",
     source: "Thumbtack",
     sourceLeadId: "tt-88",
     email: bark.email,
   });
-  await mockLeadsApi(
-    page,
+  await seedLeads(
     [bark, thumbtack],
     [{ leadId: thumbtack.id, matchedLeadId: bark.id, reason: "email" }],
   );

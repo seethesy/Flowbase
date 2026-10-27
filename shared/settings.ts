@@ -2,6 +2,7 @@ import { z } from "zod";
 import { id, text } from "./schema-primitives";
 import { ingredientCategories, ratioBasisSchema } from "./inventory";
 import { defaultLeadSources } from "./leads";
+import { historyEntrySchema } from "./audit";
 
 // Business settings and configurable lists (FLOW-45). Admin changes them on the
 // Settings screen without a deploy; every change is audited. Records keep the
@@ -173,6 +174,15 @@ export const defaultCompanyProfile: CompanyProfile = {
 };
 export const defaultBusinessDefaults: BusinessDefaults =
   businessDefaultsSchema.parse({});
+
+// GET /api/settings/history: recent setting and list changes, newest first.
+export const settingsHistoryEntrySchema = historyEntrySchema.extend({
+  entityType: z.enum(["setting", "list_value"]),
+  entityId: id,
+  // What changed, e.g. "Company profile" or "Event types: Wedding".
+  subject: z.string(),
+});
+export type SettingsHistoryEntry = z.infer<typeof settingsHistoryEntrySchema>;
 
 export const businessSettingsSchema = z.object({
   company: companyProfileSchema,

@@ -1,10 +1,11 @@
 import { test, expect } from "./auth-fixture";
-import { chairs, mockInventoryApi } from "./mock-api";
+import { chairs } from "./fixtures";
+import { seedInventory } from "./database";
 
 test("transfers stock between sections from the item page", async ({
   page,
 }) => {
-  await mockInventoryApi(page, { items: [chairs()] });
+  await seedInventory({ items: [chairs()] });
   await page.goto("/#/inventory");
   await page
     .getByLabel("Section", { exact: true })
@@ -46,7 +47,7 @@ test("transfers stock between sections from the item page", async ({
 });
 
 test("creates, edits and filters ingredients", async ({ page }) => {
-  await mockInventoryApi(page);
+  await seedInventory();
   await page.goto("/#/inventory/ingredients");
   await page
     .getByRole("button", { name: "New Ingredient", exact: true })
@@ -120,7 +121,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
 test("records and corrects a stock movement from the item page", async ({
   page,
 }) => {
-  await mockInventoryApi(page, { items: [chairs()] });
+  await seedInventory({ items: [chairs()] });
   await page.goto(`/#/inventory/${chairs().id}`);
   const stock = page.locator(".stock-table").first();
   await expect(

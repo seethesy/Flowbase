@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { useEffect, useState } from "react";
 import {
   businessDefaultsSchema,
@@ -6,6 +5,7 @@ import {
   companyProfileSchema,
   fallbackSettings,
   listValueSchema,
+  settingsHistoryEntrySchema,
   type BusinessDefaults,
   type BusinessSettings,
   type CompanyProfile,
@@ -51,21 +51,6 @@ export function useBusinessSettings(): BusinessSettings {
   return settings;
 }
 
-const historyEntrySchema = z.object({
-  id: z.string(),
-  entityType: z.enum(["setting", "list_value"]),
-  entityId: z.string(),
-  subject: z.string(),
-  action: z.enum(["create", "update", "archive", "restore"]),
-  actorId: z.string().nullable(),
-  actorName: z.string().nullable().optional(),
-  at: z.string(),
-  changes: z.record(
-    z.string(),
-    z.object({ before: z.unknown(), after: z.unknown() }),
-  ),
-});
-export type SettingsHistoryEntry = z.infer<typeof historyEntrySchema>;
 
 const refresh = async <T>(result: Promise<T>) => {
   const value = await result;
@@ -75,7 +60,8 @@ const refresh = async <T>(result: Promise<T>) => {
 const value = (id: string) => `/api/settings/values/${encodeURIComponent(id)}`;
 export const settingsApi = {
   load: () => loadSettings(true),
-  history: () => request(historyEntrySchema.array(), "/api/settings/history"),
+  history: () =>
+    request(settingsHistoryEntrySchema.array(), "/api/settings/history"),
   saveCompany: (input: CompanyProfile) =>
     refresh(request(companyProfileSchema, "/api/settings/company", "PUT", input)),
   saveDefaults: (input: BusinessDefaults) =>
