@@ -46,8 +46,8 @@ export const ingredientCategories = [
   "Frozen Food",
   "Dry Goods",
 ];
-// Allergen flags until allergen and dietary tags exist (FLOW-95): the US major
-// food allergens.
+// The US major food allergens. Dishes carry them (FLOW-95, shared/recipes.ts);
+// ingredients no longer show them, but keep any already saved.
 export const allergenSchema = z.enum([
   "milk",
   "eggs",

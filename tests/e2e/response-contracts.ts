@@ -30,6 +30,7 @@ import {
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
 import { historyEntrySchema } from "../../shared/audit";
+import { recipeSchema, scaledRecipeSchema } from "../../shared/recipes";
 import {
   businessDefaultsSchema,
   businessSettingsSchema,
@@ -86,6 +87,11 @@ export function responseSchema(
     if (tail === "cost-history") return costChangeSchema.array();
     if (tail === "movements" && method === "GET") return movementSchema.array();
     return !action && method === "GET" ? itemSchema.array() : itemSchema;
+  }
+  if (resource === "recipes") {
+    if (action === "history") return historyEntrySchema.array();
+    if (action === "scale") return scaledRecipeSchema;
+    return !id && method === "GET" ? recipeSchema.array() : recipeSchema;
   }
   if (["clients", "venues", "events"].includes(resource)) {
     if (action === "history") return historyEntrySchema.array();

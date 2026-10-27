@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import {
-  allergenLabels,
-  allergenSchema,
   barCategories,
   barContainerLabels,
   barContainerSchema,
@@ -14,7 +12,6 @@ import {
   ratioBasisSchema,
   recipeUnitProblem,
   subtypesByKind,
-  type Allergen,
   type BarContainer,
   type InventoryItem,
   type ItemInput,
@@ -138,9 +135,9 @@ export function ItemForm({
   }));
   // A new bar item is kept in Bar Storage unless the user picks another section.
   const [storageTouched, setStorageTouched] = useState(Boolean(item));
-  const [allergens, setAllergens] = useState<Allergen[]>(
-    item?.consumable?.allergens ?? [],
-  );
+  // Allergens are set on dishes, not ingredients (FLOW-95); an item keeps any it
+  // already has.
+  const allergens = item?.consumable?.allergens ?? [];
   const [active, setActive] = useState(item?.active ?? true);
   // An existing item whose cost came back hidden: the user isn't FT+, so the form
   // leaves the cost alone.
@@ -569,25 +566,6 @@ export function ItemForm({
                 each weighs or holds.
               </p>
             )}
-            <fieldset className="form-group" aria-label="Allergens">
-              <legend>Allergens</legend>
-              {allergenSchema.options.map((allergen) => (
-                <label className="checkbox-filter" key={allergen}>
-                  <input
-                    type="checkbox"
-                    checked={allergens.includes(allergen)}
-                    onChange={(e) =>
-                      setAllergens((current) =>
-                        e.target.checked
-                          ? [...current, allergen]
-                          : current.filter((other) => other !== allergen),
-                      )
-                    }
-                  />
-                  {allergenLabels[allergen]}
-                </label>
-              ))}
-            </fieldset>
           </>
         )}
         <label className="checkbox-filter">

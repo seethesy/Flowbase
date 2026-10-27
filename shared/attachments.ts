@@ -21,6 +21,7 @@ export const recordTypeSchema = z.enum([
   "venue",
   "event",
   "inventory_item",
+  "recipe",
 ]);
 export type AttachmentRecordType = z.infer<typeof recordTypeSchema>;
 export const variantNameSchema = z.enum(["thumb", "display", "original"]);

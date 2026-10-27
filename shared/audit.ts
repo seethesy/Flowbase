@@ -11,14 +11,16 @@ export const historyEntrySchema = z.object({
     z.object({ before: z.unknown(), after: z.unknown() }),
   ),
 });
-// Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history.
+// Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history
+// and GET /api/recipes/<id>/history (FLOW-93).
 export type AuditEntity =
   | "client"
   | "venue"
   | "event"
   | "user"
   | "setting"
-  | "list_value";
+  | "list_value"
+  | "recipe";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";
