@@ -171,10 +171,10 @@ export function ItemForm({
       [],
   );
   const [addons, setAddons] = useState(item?.service?.addons ?? []);
-  const { actor } = usePermissions();
+  const { actor, can } = usePermissions();
   const rentalCostsVisible = actor !== null && canSeeRentalCosts(actor);
   const priceNeedsApproval =
-    Boolean(item) && !["admin", "sales_manager"].includes(actor?.role ?? "");
+    Boolean(item) && !can("rentals.apply_directly");
   // An existing item whose cost came back hidden: the user isn't FT+, so the form
   // leaves the cost alone.
   const costHidden = item?.consumable?.costHidden ?? false;

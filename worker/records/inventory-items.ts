@@ -33,6 +33,7 @@ import {
   inventoryStock,
 } from "../db/schema";
 import { forbidden, notFound } from "../hono";
+import { can } from "../policy";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
 import { conflict, type ItemRow, round } from "./inventory-common";
@@ -512,7 +513,7 @@ export async function updateItem(
         .where(eq(inventoryRentalDetails.itemId, id))
         .for("update");
       if (
-        !["admin", "sales_manager"].includes(actor.role) &&
+        !can(actor, "rentals.apply_directly") &&
         (stored?.priceCents ?? null) !== (input.rental?.priceCents ?? null)
       )
         throw conflict(
