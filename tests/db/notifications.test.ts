@@ -422,8 +422,12 @@ describe("AC3: email failures", () => {
 
 describe("notification center", () => {
   it("shows a person only their own notifications, with an unread count, and marks them read", async () => {
+    // Drain after each task: one batch claims jobs in no particular order, and
+    // the inbox order below depends on which notification was created first.
     await newTask({ title: "First", assigneeIds: [people.casey] });
+    await drain();
     await newTask({ title: "Second", assigneeIds: [people.casey] });
+    await drain();
     await newTask({ title: "Drew's", assigneeIds: [people.drew] });
     await drain();
     const inbox = await casey.send<NotificationInbox>("GET", "/api/notifications");
