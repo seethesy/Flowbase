@@ -10,13 +10,12 @@ import {
   PackagePlus,
 } from "lucide-react";
 import {
-  allergenLabels,
   barContainerLabels,
   ratioBasisLabels,
   type InventoryItem,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
-import { inventoryApi } from "../services/core";
+import { allPages, inventoryApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import {
   Button,
@@ -216,12 +215,6 @@ export function InventoryDetail() {
             </p>
             <small>Storage</small>
             <p>{c.storageSectionName ?? "—"}</p>
-            <small>Allergens</small>
-            <p>
-              {c.allergens
-                .map((allergen) => allergenLabels[allergen])
-                .join(", ") || "None flagged"}
-            </p>
           </Section>
         )}
       </div>
@@ -347,7 +340,7 @@ export function InventoryDetail() {
 }
 
 function IncludedItems({ item }: { item: InventoryItem }) {
-  const items = useResource(() => inventoryApi.list({}), []);
+  const items = useResource(() => allPages((cursor) => inventoryApi.list({}, cursor)), []);
   const lines = item.rental?.components ?? item.service?.includes ?? [];
   return (
     <Section title={item.service ? "Includes" : "Kit components"}>

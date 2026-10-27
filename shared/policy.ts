@@ -7,6 +7,7 @@ const common = [
   "venues.read",
   "events.read",
   "inventory.read",
+  "recipes.read",
   "search.read",
   "attachments.read",
   "time.record",
@@ -68,6 +69,7 @@ export const actions = [
     "beos.approve",
     "rentals.apply_directly",
     "inventory.consumables.count",
+    "recipes.write",
     "attachments.write",
   ] as const),
 ];
@@ -83,12 +85,14 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
   admin: grants(actions),
   technical: {
     ...grants(common, sales, inventory, [
+      "recipes.write",
       "attachments.write",
       "inventory.consumables.count",
     ]),
   },
   sales_manager: {
     ...grants(common, sales, inventory, [
+      "recipes.write",
       "attachments.write",
       "beos.approve",
       "rentals.apply_directly",
@@ -98,17 +102,23 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
   salesperson: {
     ...grants(common, sales, ["events.status", "attachments.write"]),
     "inventory.consumables.count": isFtPlus,
+    // Recipes: the kitchen and full-time staff edit them (Ash, 2026-10-27).
+    "recipes.write": isFtPlus,
   },
   kitchen_lead: {
-    ...grants(common, inventory, kitchen, ["attachments.write"]),
+    ...grants(common, inventory, kitchen, [
+      "recipes.write",
+      "attachments.write",
+    ]),
     "inventory.consumables.count": isFtPlus,
   },
   kitchen_staff: {
-    ...grants(common, kitchen),
+    ...grants(common, kitchen, ["recipes.write"]),
     "inventory.consumables.count": isFtPlus,
   },
   staff: {
     ...grants(common),
+    "recipes.write": isFtPlus,
     "inventory.count": isFtPlus,
     "inventory.move": isFtPlus,
     "inventory.rentals.move": isFtPlus,
@@ -167,4 +177,5 @@ export const attachmentWriteActions = {
   venue: "venues.write",
   event: "events.write",
   inventory_item: "inventory.write",
+  recipe: "recipes.write",
 } as const satisfies Record<string, Action>;

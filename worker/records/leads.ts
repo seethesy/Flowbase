@@ -1,4 +1,4 @@
-import { serializeFields } from "../../shared/visibility";
+import { redactFieldHistory, serializeFields } from "../../shared/visibility";
 import {
   and,
   desc,
@@ -28,6 +28,7 @@ import {
   type leadConvertSchema,
   type leadStatusChangeSchema,
 } from "../../shared/leads";
+import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, leads } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
@@ -35,17 +36,20 @@ import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, leadScope, type Scope } from "../policy";
 import {
   checkDuplicates,
+  clientSnapshot,
   duplicateClientError,
   findVisibleClient,
   insertClient,
   requireClientAccess,
 } from "./clients";
 import { insertEvent } from "./events";
+import { auditLead, leadSnapshot } from "./lead-audit";
 import {
   leadMatchesFor,
   recordLeadDuplicates,
   sourceLinksFor,
 } from "./lead-duplicates";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { phoneDigits } from "./sync";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion). Admin and
@@ -231,20 +235,29 @@ export async function listLeads(
   db: DbLike,
   actor: Actor,
   filter: LeadFilter,
-): Promise<Lead[]> {
+  page: PageRequest = {},
+): Promise<Page<Lead>> {
   requireLeadAccess(actor);
+  const none: Page<Lead> = { rows: [], next: null };
   const status = filter.status ? leadStatusSchema.safeParse(filter.status) : undefined;
-  if (status && !status.success) return [];
+  if (status && !status.success) return none;
   const channel = filter.channel
     ? leadChannelSchema.safeParse(filter.channel)
     : undefined;
-  if (channel && !channel.success) return [];
+  if (channel && !channel.success) return none;
   if (
     filter.assigned &&
     filter.assigned !== "unassigned" &&
     !uuidPattern.test(filter.assigned)
   )
-    return [];
+    return none;
+  const paging = keyset<LeadRow>(
+    [
+      { column: leads.receivedAt, type: "timestamp", desc: true, of: (row) => row.receivedAt },
+      { column: leads.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const search = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
@@ -280,11 +293,12 @@ export async function listLeads(
               ilike(leads.phone, search),
             )
           : undefined,
+        paging.where,
       ),
     )
-    .orderBy(desc(leads.receivedAt))
-    .limit(500);
-  return rows.map((row) => toLead(row, actor));
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => kept.map((row) => toLead(row, actor)));
 }
 
 // A lead the actor may see; otherwise 404, never 403.
@@ -318,6 +332,24 @@ export async function getLead(
     duplicates,
     assignedElsewhere,
   };
+}
+
+// Lead history (FLOW-185), for anyone who can see the lead. Contact details are
+// hidden from those who can't see them; raw payloads are never in the history.
+export async function leadHistory(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+) {
+  await findVisibleLead(db, actor, id);
+  return listHistoryPage(
+    db,
+    "lead",
+    id,
+    (changes) => redactFieldHistory(actor, "lead", changes),
+    page,
+  );
 }
 
 function requireAssign(actor: Actor) {
@@ -354,6 +386,9 @@ export async function bulkAssignLeads(
     const changing = rows.filter(
       (row) => row.assignedSalespersonId !== salespersonId,
     );
+    const before = new Map<string, Record<string, unknown>>();
+    for (const row of changing)
+      before.set(row.id, await leadSnapshot(tx, row.id));
     if (changing.length)
       await tx
         .update(leads)
@@ -364,7 +399,8 @@ export async function bulkAssignLeads(
             changing.map((row) => row.id),
           ),
         );
-    for (const row of changing)
+    for (const row of changing) {
+      await auditLead(tx, actor, row.id, before.get(row.id)!);
       await emitDomainEvent(tx, {
         name: "lead.assigned",
         entityId: row.id,
@@ -373,6 +409,7 @@ export async function bulkAssignLeads(
           previousSalespersonId: row.assignedSalespersonId,
         },
       });
+    }
     return ids;
   });
   const rows = await db
@@ -410,6 +447,7 @@ export async function changeLeadStatus(
       `A ${leadStatusLabels[current.status].toLowerCase()} lead can't be marked ${leadStatusLabels[change.status].toLowerCase()}.`,
     );
   await db.transaction(async (tx) => {
+    const before = await leadSnapshot(tx, id);
     const changed = await tx
       .update(leads)
       .set({
@@ -425,6 +463,7 @@ export async function changeLeadStatus(
       .where(and(eq(leads.id, id), eq(leads.status, current.status)))
       .returning({ id: leads.id });
     if (!changed.length) throw staleLead();
+    await auditLead(tx, actor, id, before);
     await emitDomainEvent(tx, {
       name: "lead.status_changed",
       entityId: id,
@@ -475,6 +514,7 @@ export async function convertLead(
   requireClientAccess(actor);
 
   const result = await db.transaction(async (tx) => {
+    const before = await leadSnapshot(tx, id);
     const hasContact = Boolean(lead.name || lead.email || lead.phone);
     const contact = {
       name: lead.name,
@@ -560,6 +600,7 @@ export async function convertLead(
         );
         if (match) pocContactId = match.id;
         else {
+          const clientBefore = await clientSnapshot(tx, clientId);
           const [added] = await tx
             .insert(clientContacts)
             .values({
@@ -574,6 +615,14 @@ export async function convertLead(
             })
             .returning({ id: clientContacts.id });
           pocContactId = added.id;
+          // The added contact shows in the client's history (FLOW-185 AC3).
+          await writeAudit(tx, actor, {
+            entityType: "client",
+            entityId: clientId,
+            action: "update",
+            before: clientBefore,
+            after: await clientSnapshot(tx, clientId),
+          });
           await emitDomainEvent(tx, {
             name: "client.updated",
             entityId: clientId,
@@ -615,6 +664,7 @@ export async function convertLead(
       .where(and(eq(leads.id, id), eq(leads.status, "qualified")))
       .returning({ id: leads.id });
     if (!converted.length) throw staleLead();
+    await auditLead(tx, actor, id, before);
     await emitDomainEvent(tx, {
       name: "lead.converted",
       entityId: id,

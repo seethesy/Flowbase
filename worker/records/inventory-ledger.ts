@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import {
   barCountStep,
@@ -10,6 +10,7 @@ import {
   type MovementType,
   type StockMovement,
 } from "../../shared/inventory";
+import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   events,
@@ -33,6 +34,7 @@ import {
 } from "./inventory-common";
 import { findItem, getItem } from "./inventory-items";
 import { requireStockSection } from "./inventory-sections";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // ---- Stock ledger (FLOW-71) ----
 
@@ -148,6 +150,25 @@ export async function recordMovement(
     )
     .returning({ id: stockMovements.id });
   const ids = rows.map((row) => row.id);
+  // One audit row per movement, in the movement's transaction (FLOW-168 AC2).
+  for (const [index, change] of movement.changes.entries())
+    await writeAudit(tx, actor, {
+      entityType: "stock_movement",
+      entityId: ids[index],
+      action: "create",
+      before: null,
+      after: {
+        itemId: item.id,
+        sectionId: change.sectionId,
+        ...(color && { color }),
+        type: movement.type,
+        quantity: round(change.quantity),
+        reason: movement.reason,
+        transferId,
+        correctsId: movement.correctsId ?? null,
+        link: movement.link ?? null,
+      },
+    });
   await emitDomainEvent(tx, {
     name: "stock.moved",
     entityId: item.id,
@@ -156,11 +177,62 @@ export async function recordMovement(
   return ids;
 }
 
+// Imported quantities (FLOW-168 AC1). A module importer calls this inside its row's
+// transaction: the file's quantity becomes the section's on-hand through a count
+// movement for the difference, linked to the import's log entry, never as a set
+// quantity. Re-running an import sets the section back to the file's quantity,
+// even if stock moved since; a quantity that already matches records nothing.
+// Returns the movement id, or null when nothing was recorded.
+export async function recordImportedStock(
+  tx: DbLike,
+  actor: Actor,
+  item: ItemRow,
+  input: {
+    sectionId: string;
+    quantity: number;
+    importId: string;
+    fileName: string;
+  },
+): Promise<string | null> {
+  await tx.select({ id: inventoryItems.id }).from(inventoryItems).where(eq(inventoryItems.id, item.id)).for("update");
+  requireCountStep(item, input.quantity);
+  const [level] = await tx
+    .select({ quantity: inventoryStock.quantity })
+    .from(inventoryStock)
+    .where(
+      and(
+        eq(inventoryStock.itemId, item.id),
+        eq(inventoryStock.sectionId, input.sectionId),
+        eq(inventoryStock.color, ""),
+      ),
+    )
+    .for("update");
+  const difference = countDifference(input.quantity, level?.quantity ?? 0);
+  if (difference === 0) return null;
+  const [movementId] = await recordMovement(tx, actor, item, {
+    type: "count",
+    changes: [{ sectionId: input.sectionId, quantity: difference }],
+    reason: `Imported from ${input.fileName}`,
+    link: { type: "import", id: input.importId },
+  });
+  return movementId;
+}
+
 export async function listMovements(
   db: Db,
   itemId: string,
-): Promise<StockMovement[]> {
+  page: PageRequest = {},
+): Promise<Page<StockMovement>> {
   await findItem(db, itemId);
+  type Row = { movement: typeof stockMovements.$inferSelect; sectionName: string };
+  const paging = keyset<Row>(
+    [
+      { column: stockMovements.createdAt, type: "timestamp", desc: true, of: (row) => row.movement.createdAt },
+      { column: stockMovements.quantity, type: "number", of: (row) => row.movement.quantity },
+      { column: stockMovements.id, type: "uuid", of: (row) => row.movement.id },
+    ],
+    page,
+  );
   const rows = await db
     .select({ movement: stockMovements, sectionName: inventorySections.name })
     .from(stockMovements)
@@ -168,31 +240,43 @@ export async function listMovements(
       inventorySections,
       eq(stockMovements.sectionId, inventorySections.id),
     )
-    .where(eq(stockMovements.itemId, itemId))
-    .orderBy(desc(stockMovements.createdAt), asc(stockMovements.quantity))
-    .limit(1000);
-  return rows.map(({ movement: m, sectionName }) => ({
-    id: m.id,
-    itemId: m.itemId,
-    sectionId: m.sectionId,
-    sectionName,
-    ...(m.color && { color: m.color }),
-    type: m.type,
-    quantity: m.quantity,
-    reason: m.reason,
-    transferId: m.transferId,
-    correctsId: m.correctsId,
-    correctedBy: rows
-      .filter((other) => other.movement.correctsId === m.id)
-      .sort(
-        (a, b) =>
-          a.movement.createdAt.getTime() - b.movement.createdAt.getTime(),
-      )
-      .map((other) => other.movement.id),
-    link: m.linkType && m.linkId ? { type: m.linkType, id: m.linkId } : null,
-    createdBy: m.createdBy,
-    createdAt: m.createdAt.toISOString(),
-  }));
+    .where(and(eq(stockMovements.itemId, itemId), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, async (kept) => {
+    // Corrections of these movements, oldest first, wherever they fall in the list.
+    const ids = kept.map((row) => row.movement.id);
+    const corrections = ids.length
+      ? await db
+          .select({ id: stockMovements.id, correctsId: stockMovements.correctsId })
+          .from(stockMovements)
+          .where(inArray(stockMovements.correctsId, ids))
+          .orderBy(asc(stockMovements.createdAt), asc(stockMovements.id))
+      : [];
+    const correctedBy = new Map<string, string[]>();
+    for (const correction of corrections) {
+      if (!correction.correctsId) continue;
+      const list = correctedBy.get(correction.correctsId) ?? [];
+      list.push(correction.id);
+      correctedBy.set(correction.correctsId, list);
+    }
+    return kept.map(({ movement: m, sectionName }) => ({
+      id: m.id,
+      itemId: m.itemId,
+      sectionId: m.sectionId,
+      sectionName,
+      ...(m.color && { color: m.color }),
+      type: m.type,
+      quantity: m.quantity,
+      reason: m.reason,
+      transferId: m.transferId,
+      correctsId: m.correctsId,
+      correctedBy: correctedBy.get(m.id) ?? [],
+      link: m.linkType && m.linkId ? { type: m.linkType, id: m.linkId } : null,
+      createdBy: m.createdBy,
+      createdAt: m.createdAt.toISOString(),
+    }));
+  });
 }
 
 // FLOW-70 AC2: one transfer, both sections updated.
@@ -218,6 +302,22 @@ export async function transferStock(
   return getItem(db, actor, itemId);
 }
 
+// Bar stock is counted in steps: beer and wine to 0.5, liquor to 0.25 (FLOW-90).
+function requireCountStep(item: ItemRow, quantity: number) {
+  const step =
+    item.kind === "consumable" && item.subtype === "bar"
+      ? barCountStep(item.category)
+      : null;
+  if (!fitsCountStep(quantity, step))
+    throw new ApiError(
+      400,
+      "COUNT_STEP",
+      step === 0.5
+        ? "Count beer and wine to the nearest 0.5."
+        : "Count liquor to the nearest 0.25.",
+    );
+}
+
 // Records a counted quantity as a count movement for the difference (FLOW-82 AC1:
 // counting 12 where the section holds 15 writes -3). A count that matches still
 // writes a zero movement, so the ledger shows when it was counted.
@@ -236,18 +336,7 @@ export async function recordCount(
     .from(inventoryItems)
     .where(eq(inventoryItems.id, item.id))
     .for("update");
-  const step =
-    item.kind === "consumable" && item.subtype === "bar"
-      ? barCountStep(item.category)
-      : null;
-  if (!fitsCountStep(counted, step))
-    throw new ApiError(
-      400,
-      "COUNT_STEP",
-      step === 0.5
-        ? "Count beer and wine to the nearest 0.5."
-        : "Count liquor to the nearest 0.25.",
-    );
+  requireCountStep(item, counted);
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
     .from(inventoryStock)
@@ -394,5 +483,5 @@ export async function correctMovement(
           : null,
     });
   });
-  return listMovements(db, original.itemId);
+  return (await listMovements(db, original.itemId)).rows;
 }

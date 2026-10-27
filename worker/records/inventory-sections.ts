@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { Section, SectionKind } from "../../shared/inventory";
+import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { inventorySections, inventoryStock } from "../db/schema";
 import { notFound } from "../hono";
@@ -78,6 +79,17 @@ async function getSection(db: DbLike, id: string) {
   return section;
 }
 
+// The section as an audit snapshot (FLOW-185). Its stock total is left out: it
+// changes only through movements.
+async function sectionSnapshot(db: DbLike, id: string) {
+  const row = await findSection(db, id);
+  return {
+    name: row.name,
+    kind: row.kind,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
+  };
+}
+
 async function requireUniqueSectionName(
   db: DbLike,
   name: string,
@@ -112,17 +124,27 @@ export async function createSection(
     })
     .from(inventorySections)
     .where(eq(inventorySections.kind, input.kind));
-  const [row] = await db
-    .insert(inventorySections)
-    .values({
-      name: input.name,
-      kind: input.kind,
-      sortOrder: next,
-      createdBy: actor.userId,
-      updatedBy: actor.userId,
-    })
-    .returning({ id: inventorySections.id });
-  return getSection(db, row.id);
+  const id = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(inventorySections)
+      .values({
+        name: input.name,
+        kind: input.kind,
+        sortOrder: next,
+        createdBy: actor.userId,
+        updatedBy: actor.userId,
+      })
+      .returning({ id: inventorySections.id });
+    await writeAudit(tx, actor, {
+      entityType: "inventory_section",
+      entityId: row.id,
+      action: "create",
+      before: null,
+      after: await sectionSnapshot(tx, row.id),
+    });
+    return row.id;
+  });
+  return getSection(db, id);
 }
 
 export async function renameSection(
@@ -133,10 +155,20 @@ export async function renameSection(
 ): Promise<Section> {
   await findSection(db, id);
   await requireUniqueSectionName(db, name, id);
-  await db
-    .update(inventorySections)
-    .set({ name, updatedBy: actor.userId })
-    .where(eq(inventorySections.id, id));
+  await db.transaction(async (tx) => {
+    const before = await sectionSnapshot(tx, id);
+    await tx
+      .update(inventorySections)
+      .set({ name, updatedBy: actor.userId })
+      .where(eq(inventorySections.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "inventory_section",
+      entityId: id,
+      action: "update",
+      before,
+      after: await sectionSnapshot(tx, id),
+    });
+  });
   return getSection(db, id);
 }
 
@@ -156,10 +188,11 @@ export async function setSectionArchived(
         `${section.name} still holds stock. Move or count it out before archiving the section.`,
       );
   } else await requireUniqueSectionName(db, section.name, id);
-  // Sections aren't audited and have no lifecycle events.
+  // Sections have no lifecycle events.
   await setArchived(db, actor, id, archived, {
     update: (tx, values) =>
       tx.update(inventorySections).set(values).where(eq(inventorySections.id, id)),
+    audit: { entityType: "inventory_section", snapshot: sectionSnapshot },
   });
   return getSection(db, id);
 }

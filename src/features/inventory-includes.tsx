@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
-import { inventoryApi } from "../services/core";
+import { allPages, inventoryApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { Button, FormField } from "../components/shared";
 
@@ -16,7 +16,7 @@ export function CatalogIncludes({
   value: Line[];
   onChange: (value: Line[]) => void;
 }) {
-  const items = useResource(() => inventoryApi.list({}), []);
+  const items = useResource(() => allPages((cursor) => inventoryApi.list({}, cursor)), []);
   const options = (items.data ?? []).filter(
     (item) => item.id !== itemId && item.kind !== "service" && item.active,
   );

@@ -46,6 +46,9 @@ export function contextForPath(pathname: string): TrackingContext {
         recordType: null,
         recordId: null,
       };
+    // The recipe book (FLOW-93) is kitchen work.
+    case "recipes":
+      return { activity: "kitchen", recordType: null, recordId: null };
     default:
       return { activity: "general", recordType: null, recordId: null };
   }

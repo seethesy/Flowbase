@@ -13,7 +13,11 @@ import {
 import { createApp } from "../../worker/app";
 import { restoreDefaultSections } from "./reference-data";
 import type { RunWithDb } from "../../worker/hono";
-import { findItem, recordMovement } from "../../worker/records/inventory";
+import {
+  findItem,
+  recordMovement,
+  recordImportedStock,
+} from "../../worker/records/inventory";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
 import type {
   CostChange,
@@ -281,6 +285,20 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
           )
           .reduce((sum, m) => sum + m.quantity, 0),
       ).toBe(level.quantity);
+    const imported = () => db.transaction(async (tx) =>
+      recordImportedStock(tx, admin.actor, await findItem(tx, row.id), {
+        sectionId: warehouse.id,
+        quantity: 3,
+        importId: "e0000000-0000-4000-8000-000000000090",
+        fileName: "colors.csv",
+      }),
+    );
+    expect(await imported()).toBeTruthy();
+    expect(await imported()).toBeNull();
+    const afterImport = await admin.get<InventoryItem>(`/api/inventory/items/${row.id}`);
+    expect(afterImport.totalQuantity).toBe(19);
+    expect(afterImport.stock).toEqual(expect.arrayContaining(result.stock));
+    expect(afterImport.stock).toContainEqual(expect.objectContaining({ sectionId: warehouse.id, quantity: 3 }));
   });
 
   it("stores mixed kit/service components and rejects direct and indirect cycles, missing and non-stock references", async () => {
@@ -416,7 +434,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
+    sql`truncate table recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {

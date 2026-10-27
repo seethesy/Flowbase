@@ -1,5 +1,5 @@
 import { canSeeField } from "../../shared/visibility";
-import { desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { CostChange } from "../../shared/inventory";
 import type { Db, DbLike } from "../db/client";
@@ -7,6 +7,7 @@ import { inventoryCostHistory } from "../db/schema";
 import { forbidden } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { findItem } from "./inventory-items";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // ---- Costs (FLOW-83) ----
 
@@ -44,21 +45,32 @@ export async function listCostHistory(
   db: Db,
   actor: Actor,
   itemId: string,
-): Promise<CostChange[]> {
+  page: PageRequest = {},
+): Promise<Page<CostChange>> {
   if (!canSeeField(actor, "internal_cost")) throw forbidden();
   await findItem(db, itemId);
+  type Row = typeof inventoryCostHistory.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: inventoryCostHistory.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: inventoryCostHistory.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const rows = await db
     .select()
     .from(inventoryCostHistory)
-    .where(eq(inventoryCostHistory.itemId, itemId))
-    .orderBy(desc(inventoryCostHistory.createdAt))
-    .limit(500);
-  return rows.map((row) => ({
-    id: row.id,
-    previousCents: row.previousCents,
-    unitCostCents: row.unitCostCents,
-    source: row.source,
-    changedBy: row.createdBy,
-    changedAt: row.createdAt.toISOString(),
-  }));
+    .where(and(eq(inventoryCostHistory.itemId, itemId), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) =>
+    kept.map((row) => ({
+      id: row.id,
+      previousCents: row.previousCents,
+      unitCostCents: row.unitCostCents,
+      source: row.source,
+      changedBy: row.createdBy,
+      changedAt: row.createdAt.toISOString(),
+    })),
+  );
 }
