@@ -95,7 +95,7 @@ const imperio: VendorInput = {
     {
       name: "Dana Reyes",
       role: "Sales rep",
-      email: "dana@imperio.example",
+      email: "dana@bevco.example",
       phone: "(202) 555-0177",
     },
   ],
@@ -177,13 +177,13 @@ describe("vendor directory (FLOW-84)", () => {
         `/api/vendors/${vendor.id}/history`,
       );
       expect(JSON.stringify(history)).not.toContain("IMP-4410");
-      expect(JSON.stringify(history)).not.toContain("dana@imperio.example");
+      expect(JSON.stringify(history)).not.toContain("dana@bevco.example");
     }
     const seen = await fullTimeStaff.get<VendorDetail>(
       `/api/vendors/${vendor.id}`,
     );
     expect(seen.accountNumber).toBe("IMP-4410");
-    expect(seen.contacts?.[0].email).toBe("dana@imperio.example");
+    expect(seen.contacts?.[0].email).toBe("dana@bevco.example");
   });
 
   it("lets a part-time editor change ordering details without touching contacts", async () => {
@@ -323,7 +323,7 @@ describe("vendor directory (FLOW-84)", () => {
       });
       expect(first.path).toMatch(/^\/vendors\/[0-9a-f-]{36}$/);
     }
-    for (const query of ["dana@imperio", "555-0177", "Dana Reyes"]) {
+    for (const query of ["dana@bevco", "555-0177", "Dana Reyes"]) {
       expect(
         (await fullTimeStaff.search(query)).map((result) => result.title),
       ).toContain("Imperio");
