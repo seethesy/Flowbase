@@ -31,10 +31,29 @@ export function assertSeedDatabaseUrl(
     url.hostname === `db.${devProject}.supabase.co` ||
     (url.hostname.endsWith(".pooler.supabase.com") &&
       decodeURIComponent(url.username) === `postgres.${devProject}`);
+  // Postgres.js sends query parameters as startup parameters, so ?user= can
+  // override the URL username and route a Supabase pooler to another project.
+  const identityParameters = new Set([
+    "user",
+    "username",
+    "database",
+    "db",
+    "dbname",
+    "host",
+    "hostaddr",
+    "port",
+    "path",
+    "service",
+    "servicefile",
+    "options",
+  ]);
   if (
     !/^(postgres|postgresql):$/.test(url.protocol) ||
     mode === "production" ||
     identity.includes(prodProject) ||
+    [...url.searchParams.keys()].some((key) =>
+      identityParameters.has(key.toLowerCase()),
+    ) ||
     (!local && !dev)
   )
     throw new Error(

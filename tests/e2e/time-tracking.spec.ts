@@ -27,9 +27,8 @@ test("time accrues only while the tab is visible and the user is active", async 
     if (new URL(request.url()).pathname === "/api/time/sessions") {
       requests.push(request.postDataJSON().sessions);
       pending.push(
-        request.response().then(async (response) => {
+        request.response().then((response) => {
           expect(response?.status()).toBe(200);
-          await response?.finished();
         }),
       );
     }

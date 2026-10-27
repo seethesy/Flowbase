@@ -103,12 +103,13 @@ export const databaseTest = base.extend<{ database: void; contracts: void }>({
   contracts: [
     async ({ page }, use) => {
       const failures: string[] = [];
+      const validations: Promise<void>[] = [];
       // Forward actual Worker responses without synthesizing data. Reading the
       // upstream body before forwarding also covers fetch/keepalive callers that
       // don't consume their response and avoids CDP body reads hanging on reload.
       await page.route("**/api/**", async (route) => {
         const request = route.request();
-        try {
+        const checked = (async () => {
           const response = await route.fetch({ timeout: 10_000 });
           if (response.status() !== 204)
             responseSchema(
@@ -116,15 +117,28 @@ export const databaseTest = base.extend<{ database: void; contracts: void }>({
               request.method(),
               response.status(),
             ).parse(await response.json());
+          return response;
+        })();
+        validations.push(
+          checked.then(
+            () => undefined,
+            (error) => {
+              failures.push(`${request.url()}: ${String(error)}`);
+            },
+          ),
+        );
+        try {
+          const response = await checked;
           await route.fulfill({ response });
-        } catch (error) {
-          if (!request.failure())
-            failures.push(`${request.url()}: ${String(error)}`);
+        } catch {
           await route.abort().catch(() => undefined);
         }
       });
       await use();
-      await page.unrouteAll({ behavior: "wait" });
+      // Validate every upstream response, but don't wait on browser delivery for
+      // requests abandoned by navigation. Delivery can stay pending until close.
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      await Promise.all(validations);
       expect(
         failures,
         "Every browser API response must match its shared contract",
