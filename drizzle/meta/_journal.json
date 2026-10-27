@@ -169,6 +169,13 @@
       "when": 1793080193446,
       "tag": "0023_import_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793120260089,
+      "tag": "0024_rental-kits-services-colors",
+      "breakpoints": true
     }
   ]
 }

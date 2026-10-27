@@ -29,6 +29,7 @@ export function StockForm({
   const sections = useResource(() => sectionsApi.list({ kind }), [kind]);
   const [from, setFrom] = useState(item.stock[0]?.sectionId ?? "");
   const [to, setTo] = useState("");
+  const [color, setColor] = useState("");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -51,12 +52,14 @@ export function StockForm({
         mode === "transfer"
           ? await inventoryApi.transfer(item.id, {
               fromSectionId: from,
+              color,
               toSectionId: to,
               quantity: amount,
               reason,
             })
           : await inventoryApi.count(item.id, {
               sectionId: from,
+              color,
               quantity: amount,
               reason,
             }),
@@ -97,6 +100,7 @@ export function StockForm({
             {options}
           </select>
         </FormField>
+        <ColorSelect item={item} value={color} onChange={setColor} />
         {mode === "transfer" && (
           <FormField label="To section">
             <select value={to} onChange={(e) => setTo(e.target.value)}>
@@ -155,6 +159,7 @@ export function MovementForm({
   const [type, setType] =
     useState<(typeof handMovementTypes)[number]>("receive");
   const [sectionId, setSectionId] = useState(item.stock[0]?.sectionId ?? "");
+  const [color, setColor] = useState("");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
@@ -164,7 +169,13 @@ export function MovementForm({
     if (amount === null || Number.isNaN(amount) || amount === 0)
       return setError("Enter a quantity.");
     if (!sectionId) return setError("Pick a section.");
-    const input: MovementInput = { type, sectionId, quantity: amount, reason };
+    const input: MovementInput = {
+      type,
+      sectionId,
+      color,
+      quantity: amount,
+      reason,
+    };
     setSaving(true);
     setError("");
     try {
@@ -210,6 +221,7 @@ export function MovementForm({
             ))}
           </select>
         </FormField>
+        <ColorSelect item={item} value={color} onChange={setColor} />
         <FormField label="Section">
           <select
             value={sectionId}
@@ -249,6 +261,28 @@ export function MovementForm({
         </div>
       </form>
     </DetailDrawer>
+  );
+}
+
+function ColorSelect({
+  item,
+  value,
+  onChange,
+}: {
+  item: InventoryItem;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  if (!item.rental?.colors.length) return null;
+  return (
+    <FormField label="Color">
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Unassigned color</option>
+        {item.rental.colors.map((color) => (
+          <option key={color}>{color}</option>
+        ))}
+      </select>
+    </FormField>
   );
 }
 
