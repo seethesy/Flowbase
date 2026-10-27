@@ -14,6 +14,7 @@ import { emitDomainEvent } from "../jobs/queue";
 import { writeAudit } from "../audit/log";
 import { can, clientScope, leadScope } from "../policy";
 import { auditLead, leadSnapshot } from "./lead-audit";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // Lead duplicate detection and merge (FLOW-110). A new lead is matched against
 // earlier leads and clients by email or phone, then by name and event date (the
@@ -232,17 +233,36 @@ export async function sourceLinksFor(db: DbLike, lead: LeadRow): Promise<LeadSou
 // The duplicates queue: open duplicates whose records the actor can all see.
 // Admin and the Sales Manager see every one, including cross-owner duplicates; a
 // salesperson sees only duplicates among their own leads and clients.
+// A page holds the open pairs the caller may resolve; pairs they can't see are
+// skipped, so a page can be shorter than the limit while more remain.
 export async function listLeadDuplicates(
   db: DbLike,
   actor: Actor,
-): Promise<LeadDuplicate[]> {
+  page: PageRequest = {},
+): Promise<Page<LeadDuplicate>> {
   if (leadScope(actor) === "none") throw forbidden();
+  type Row = typeof leadDuplicates.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: leadDuplicates.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: leadDuplicates.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const rows = await db
     .select()
     .from(leadDuplicates)
-    .where(eq(leadDuplicates.status, "open"))
-    .orderBy(desc(leadDuplicates.createdAt))
-    .limit(500);
+    .where(and(eq(leadDuplicates.status, "open"), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => visibleDuplicates(db, actor, kept));
+}
+
+async function visibleDuplicates(
+  db: DbLike,
+  actor: Actor,
+  rows: (typeof leadDuplicates.$inferSelect)[],
+): Promise<LeadDuplicate[]> {
   const byId = await leadsById(
     db,
     rows.flatMap((row) => [row.leadId, ...(row.matchedLeadId ? [row.matchedLeadId] : [])]),

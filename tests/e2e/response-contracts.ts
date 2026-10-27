@@ -1,4 +1,3 @@
-import type { Response } from "@playwright/test";
 import type { z } from "zod";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 import { authConfigSchema, userSchema } from "../../shared/users";
@@ -31,6 +30,7 @@ import {
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
 import { historyEntrySchema } from "../../shared/audit";
+import { recipeSchema, scaledRecipeSchema } from "../../shared/recipes";
 import {
   businessDefaultsSchema,
   businessSettingsSchema,
@@ -96,6 +96,11 @@ export function responseSchema(
     if (tail === "movements" && method === "GET") return movementSchema.array();
     return !action && method === "GET" ? itemSchema.array() : itemSchema;
   }
+  if (resource === "recipes") {
+    if (action === "history") return historyEntrySchema.array();
+    if (action === "scale") return scaledRecipeSchema;
+    return !id && method === "GET" ? recipeSchema.array() : recipeSchema;
+  }
   if (["clients", "venues", "events"].includes(resource)) {
     if (action === "history") return historyEntrySchema.array();
     if (action === "status-history") return eventStatusChangeSchema.array();
@@ -127,13 +132,4 @@ export function responseSchema(
   if (resource === "staff")
     return !id ? staffMemberSchema.array() : staffMemberSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
-}
-
-export async function validateApiResponse(response: Response) {
-  if (response.status() === 204) return;
-  responseSchema(
-    new URL(response.url()).pathname,
-    response.request().method(),
-    response.status(),
-  ).parse(await response.json());
 }

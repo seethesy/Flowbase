@@ -13,8 +13,9 @@ import {
   type LeadDuplicate,
   type LeadSummary,
 } from "../../shared/leads";
+import type { Page } from "../services/core";
 import { leadsApi } from "../services/leads";
-import { useResource } from "../app/useResource";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -53,7 +54,7 @@ export const summaryLine = (lead: LeadSummary) =>
 // Cross-owner ones (two different salespeople) only reach Admin and the Sales
 // Manager.
 function DuplicateQueue() {
-  const duplicates = useResource(() => leadsApi.duplicates(), []);
+  const duplicates = usePagedList((cursor) => leadsApi.duplicates(cursor), []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const act = async (run: () => Promise<unknown>) => {
@@ -159,6 +160,7 @@ function DuplicateQueue() {
       <ul className="duplicate-list" aria-label="Possible duplicates">
         {duplicates.data.map(pair)}
       </ul>
+      <LoadMore list={duplicates} label="Load more duplicates" />
     </>
   );
 }
@@ -174,23 +176,26 @@ export function LeadInbox() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [converting, setConverting] = useState<Lead | null>(null);
-  const leads = useResource(
-    async (): Promise<Lead[]> =>
+  // The API searches name, email and phone across every lead (FLOW-179).
+  const term = useDebounced(search.trim());
+  const leads = usePagedList(
+    async (cursor): Promise<Page<Lead>> =>
       view === "Duplicates"
-        ? []
-        : leadsApi.list({
-            triage: view === "Triage",
-            needsReview: view === "Needs review",
-            status: valueOf(leadStatusLabels, status),
-            source: source || undefined,
-            channel: valueOf(leadChannelLabels, channel),
-          }),
-    [view, status, source, channel],
+        ? { rows: [], next: null }
+        : leadsApi.list(
+            {
+              triage: view === "Triage",
+              needsReview: view === "Needs review",
+              status: valueOf(leadStatusLabels, status),
+              source: source || undefined,
+              channel: valueOf(leadChannelLabels, channel),
+              search: term || undefined,
+            },
+            cursor,
+          ),
+    [view, status, source, channel, term],
   );
-  const term = search.toLowerCase();
-  const data = (leads.data ?? []).filter((lead) =>
-    [lead.name, lead.email, lead.phone].join(" ").toLowerCase().includes(term),
-  );
+  const data = leads.data ?? [];
   // Lead sources from business settings (FLOW-45) plus any a lead arrived with.
   const listedSources = useListLabels("lead_source");
   const sources = [
@@ -341,7 +346,10 @@ export function LeadInbox() {
                   (c) => leadChannelLabels[c],
                 )}
               />
-              <span className="result-count">{data.length} leads</span>
+              <span className="result-count">
+                {data.length}
+                {leads.hasMore ? "+" : ""} leads
+              </span>
             </FilterBar>
             {selected.length > 0 && (
               <Section title={`${selected.length} selected`}>
@@ -363,12 +371,15 @@ export function LeadInbox() {
             ) : leads.loading && !leads.data ? (
               <LoadingSkeleton />
             ) : (
-              <DataTable
-                data={data}
-                columns={columns}
-                label="leads"
-                exportName="leads"
-              />
+              <>
+                <DataTable
+                  data={data}
+                  columns={columns}
+                  label="leads"
+                  exportName="leads"
+                />
+                <LoadMore list={leads} label="Load more leads" />
+              </>
             )}
           </>
         )}

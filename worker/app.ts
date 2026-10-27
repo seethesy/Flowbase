@@ -24,6 +24,7 @@ import { ingestRoutes } from "./routes/ingest";
 import { importRoutes } from "./routes/imports";
 import { inventoryRoutes } from "./routes/inventory";
 import { leadRoutes } from "./routes/leads";
+import { recipeRoutes } from "./routes/recipes";
 import { recordRoutes } from "./routes/records";
 import { searchRoutes } from "./routes/search";
 import { attachmentRoutes } from "./routes/attachments";
@@ -233,6 +234,7 @@ export function createApp(options: Options = {}) {
     }),
   );
   app.route("/api/leads", leadRoutes(options));
+  app.route("/api/recipes", recipeRoutes(options));
   app.route("/api/search", searchRoutes(options));
   app.route("/api/settings", settingsRoutes(options));
   app.route("/api/staff", staffRoutes(options));

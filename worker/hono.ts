@@ -5,6 +5,7 @@ import type { Actor } from "../shared/access";
 import type { Bindings } from "./bindings";
 import type { Db } from "./db/client";
 import { DatabaseNotConfiguredError } from "./db/errors";
+import type { Page, PageRequest } from "./records/paging";
 
 export type AppEnv = {
   Bindings: Bindings;
@@ -37,6 +38,21 @@ export const recordRunner =
   (withDb: RunWithDb | undefined) =>
   <T>(c: AppContext, run: (db: Db, actor: Actor) => Promise<T>): Promise<T> =>
     runDb(withDb, c.env, (db) => run(db, c.get("actor")));
+
+// List paging (FLOW-179): ?cursor=&limit= in, the page's rows as the JSON body
+// (unchanged shape) with X-Has-More and, when there is one, X-Next-Cursor.
+export function pageRequest(c: AppContext): PageRequest {
+  const limit = Number(c.req.query("limit"));
+  return {
+    cursor: c.req.query("cursor") || undefined,
+    limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+  };
+}
+export function sendPage<T>(c: AppContext, page: Page<T>) {
+  c.header("X-Has-More", page.next ? "true" : "false");
+  if (page.next) c.header("X-Next-Cursor", page.next);
+  return c.json(page.rows);
+}
 
 export const fail = (
   c: AppContext,

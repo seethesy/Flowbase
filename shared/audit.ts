@@ -12,7 +12,8 @@ export const historyEntrySchema = z.object({
   ),
 });
 // Record history (FLOW-41), returned by GET /api/{clients,venues,events}/<id>/history,
-// GET /api/inventory/items/<id>/history and GET /api/leads/<id>/history (FLOW-185).
+// GET /api/inventory/items/<id>/history, GET /api/leads/<id>/history (FLOW-185),
+// and GET /api/recipes/<id>/history (FLOW-93).
 export type AuditEntity =
   | "client"
   | "venue"
@@ -20,6 +21,7 @@ export type AuditEntity =
   | "user"
   | "setting"
   | "list_value"
+  | "recipe"
   | "inventory_item"
   | "inventory_section"
   | "lead"

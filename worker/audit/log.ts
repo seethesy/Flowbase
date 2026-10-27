@@ -1,7 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { AuditEntity, HistoryEntry } from "../../shared/audit";
 import type { DbLike } from "../db/client";
+import { keyset, type Page, type PageRequest } from "../records/paging";
 import {
   auditLog,
   users,
@@ -96,33 +97,64 @@ export const redactAll =
 
 // A record's history, newest first. Updates left empty after redaction are hidden
 // so the caller can't tell that a hidden field changed.
+export async function listHistoryPage(
+  db: DbLike,
+  entityType: AuditEntity,
+  entityId: string,
+  redact: RedactHistory,
+  page: PageRequest = {},
+): Promise<Page<HistoryEntry>> {
+  type Row = {
+    entry: typeof auditLog.$inferSelect;
+    actorName: string | null;
+    actorEmail: string | null;
+  };
+  const paging = keyset<Row>(
+    [
+      { column: auditLog.createdAt, type: "timestamp", desc: true, of: (row) => row.entry.createdAt },
+      { column: auditLog.id, type: "uuid", desc: true, of: (row) => row.entry.id },
+    ],
+    page,
+  );
+  const rows = await db
+    .select({ entry: auditLog, actorName: users.name, actorEmail: users.email })
+    .from(auditLog)
+    .leftJoin(users, eq(users.id, auditLog.createdBy))
+    .where(
+      and(
+        eq(auditLog.entityType, entityType),
+        eq(auditLog.entityId, entityId),
+        paging.where,
+      ),
+    )
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  // Entries left empty by redaction are dropped, so a page can be shorter than
+  // the limit while more remain.
+  return paging.page(rows, (kept) =>
+    kept.flatMap(({ entry: row, actorName, actorEmail }) => {
+      const changes = redact(row.changes);
+      if (row.action === "update" && !Object.keys(changes).length) return [];
+      return [
+        {
+          id: row.id,
+          action: row.action,
+          actorId: row.createdBy,
+          actorName: actorName || actorEmail || null,
+          at: row.createdAt.toISOString(),
+          changes,
+        },
+      ];
+    }),
+  );
+}
+
+// The first page of a record's history.
 export async function listHistory(
   db: DbLike,
   entityType: AuditEntity,
   entityId: string,
   redact: RedactHistory,
 ): Promise<HistoryEntry[]> {
-  const rows = await db
-    .select({ entry: auditLog, actorName: users.name, actorEmail: users.email })
-    .from(auditLog)
-    .leftJoin(users, eq(users.id, auditLog.createdBy))
-    .where(
-      and(eq(auditLog.entityType, entityType), eq(auditLog.entityId, entityId)),
-    )
-    .orderBy(desc(auditLog.createdAt))
-    .limit(500);
-  return rows.flatMap(({ entry: row, actorName, actorEmail }) => {
-    const changes = redact(row.changes);
-    if (row.action === "update" && !Object.keys(changes).length) return [];
-    return [
-      {
-        id: row.id,
-        action: row.action,
-        actorId: row.createdBy,
-        actorName: actorName || actorEmail || null,
-        at: row.createdAt.toISOString(),
-        changes,
-      },
-    ];
-  });
+  return (await listHistoryPage(db, entityType, entityId, redact)).rows;
 }

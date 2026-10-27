@@ -13,8 +13,10 @@ import {
   type FlowEvent,
 } from "../../shared/core-records";
 import type { HubSection } from "../../shared/event-hub";
-import { clientsApi, eventsApi, venuesApi } from "../services/core";
+import { addLocalDays, utcToBusinessTime } from "../../shared/time";
+import { allPages, clientsApi, eventsApi, venuesApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -34,6 +36,13 @@ import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
 export const statusLabels = eventStatusLabels;
+
+// Today in New York as YYYY-MM-DD.
+const businessToday = () => utcToBusinessTime(new Date()).date;
+const defaultEventWindow = () => {
+  const today = businessToday();
+  return { from: addLocalDays(today, -7), to: addLocalDays(today, 30) };
+};
 const date = (value: string) =>
   new Date(`${value}T12:00:00`).toLocaleDateString("en-US", {
     weekday: "short",
@@ -103,15 +112,29 @@ export function EventList() {
   const [status, setStatus] = useState("");
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  const events = useResource(() => eventsApi.list({ archived }), [archived]);
-  const term = search.toLowerCase();
-  const data = (events.data ?? []).filter(
-    (event) =>
-      `${event.title} ${event.client.name} ${event.venue?.name ?? ""}`
-        .toLowerCase()
-        .includes(term) &&
-      (!status || statusLabels[event.status] === status),
+  // Opens on the past 7 days through the next 30, soonest first (FLOW-179 A1);
+  // the date range reaches anything else, and clearing it shows every event.
+  const [range, setRange] = useState(defaultEventWindow);
+  const term = useDebounced(search.trim());
+  // A label can stand for several statuses ("Pending"); ask for all of them.
+  const statuses = status
+    ? eventStatusSchema.options.filter((value) => statusLabels[value] === status)
+    : [];
+  const events = usePagedList(
+    (cursor) =>
+      eventsApi.list(
+        {
+          archived,
+          search: term || undefined,
+          statuses,
+          from: range.from || undefined,
+          to: range.to || undefined,
+        },
+        cursor,
+      ),
+    [archived, term, statuses.join(","), range.from, range.to],
   );
+  const data = events.data ?? [];
   return (
     <>
       <PageHeader
@@ -138,6 +161,22 @@ export function EventList() {
           value={status}
           onChange={setStatus}
         />
+        <label className="date-filter">
+          From
+          <input
+            type="date"
+            value={range.from}
+            onChange={(e) => setRange({ ...range, from: e.target.value })}
+          />
+        </label>
+        <label className="date-filter">
+          To
+          <input
+            type="date"
+            value={range.to}
+            onChange={(e) => setRange({ ...range, to: e.target.value })}
+          />
+        </label>
         <label className="checkbox-filter">
           <input
             type="checkbox"
@@ -146,12 +185,18 @@ export function EventList() {
           />
           Show archived
         </label>
-        <span className="result-count">{data.length} events</span>
+        <span className="result-count">
+          {data.length}
+          {events.hasMore ? "+" : ""} events
+        </span>
       </FilterBar>
       {events.loading && !events.data && !events.error ? (
         <LoadingSkeleton />
       ) : (
-        <EventTable events={data} error={events.error} exportName="events" />
+        <>
+          <EventTable events={data} error={events.error} exportName="events" />
+          <LoadMore list={events} label="Load more events" />
+        </>
       )}
       {create && (
         <EventForm
@@ -209,11 +254,32 @@ export function EventForm({
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const clients = useResource(() => clientsApi.list(), []);
-  const venues = useResource(() => venuesApi.list(), []);
-  const contacts =
-    clients.data?.find((client) => client.id === draft.clientId)?.contacts ??
-    [];
+  // The client picker searches the server as you type (FLOW-179); the chosen
+  // client stays selectable even when it isn't in the current matches.
+  const [clientSearch, setClientSearch] = useState("");
+  const clientTerm = useDebounced(clientSearch.trim());
+  const clients = useResource(
+    async () =>
+      (await clientsApi.list({ search: clientTerm || undefined })).rows,
+    [clientTerm],
+  );
+  const listed = clients.data?.find((client) => client.id === draft.clientId);
+  const fetched = useResource(
+    async () =>
+      draft.clientId && !listed ? clientsApi.get(draft.clientId) : undefined,
+    [draft.clientId, Boolean(listed)],
+  );
+  const chosen =
+    listed ?? (fetched.data?.id === draft.clientId ? fetched.data : undefined);
+  const clientOptions = [
+    ...(chosen && !listed ? [chosen] : []),
+    ...(clients.data ?? []),
+  ];
+  const venues = useResource(
+    () => allPages((cursor) => venuesApi.list({}, cursor)),
+    [],
+  );
+  const contacts = chosen?.contacts ?? [];
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
   const text = (key: keyof Draft, label: string, type = "text") => (
@@ -303,6 +369,14 @@ export function EventForm({
         </FormField>
         <div className="form-grid">
           {text("date", "Date *", "date")}
+          <FormField label="Find client">
+            <input
+              type="search"
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="Type a client or contact name"
+            />
+          </FormField>
           <FormField label="Client *">
             <select
               value={draft.clientId}
@@ -312,7 +386,7 @@ export function EventForm({
               }}
             >
               <option value="">Choose a client</option>
-              {clients.data?.map((client) => (
+              {clientOptions.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
                 </option>
@@ -432,8 +506,8 @@ function EventStatusPanel({
   canChange: boolean;
   onChanged: (event: FlowEvent) => void;
 }) {
-  const history = useResource(
-    () => eventsApi.statusHistory(event.id),
+  const history = usePagedList(
+    (cursor) => eventsApi.statusHistory(event.id, cursor),
     [event.id, event.status],
   );
   const others = eventStatusSchema.options.filter(
@@ -518,6 +592,7 @@ function EventStatusPanel({
           ))}
         </ul>
       )}
+      <LoadMore list={history} label="Show older changes" />
     </Section>
   );
 }

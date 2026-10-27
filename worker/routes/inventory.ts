@@ -17,8 +17,10 @@ import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
+  pageRequest,
   parseBody,
   recordRunner,
+  sendPage,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -71,8 +73,10 @@ export function inventoryRoutes(options: {
   routes.get("/items", requirePermission("inventory.read"), async (c) => {
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
-    if (query(c, "sectionId") && !sectionId.success) return c.json([]);
-    return c.json(
+    if (query(c, "sectionId") && !sectionId.success)
+      return sendPage(c, { rows: [], next: null });
+    return sendPage(
+      c,
       await record(c, (db, actor) =>
         listItems(db, actor, {
           archived: flag(c, "archived"),
@@ -85,7 +89,7 @@ export function inventoryRoutes(options: {
           search: query(c, "search"),
           tier: query(c, "tier"),
           subcategory: query(c, "subcategory"),
-        }),
+        }, pageRequest(c)),
       ),
     );
   });
@@ -136,7 +140,10 @@ export function inventoryRoutes(options: {
     requirePermission("inventory.read"),
     async (c) => {
       const id = param(c, "Item");
-      return c.json(await record(c, (db) => listMovements(db, id)));
+      return sendPage(
+        c,
+        await record(c, (db) => listMovements(db, id, pageRequest(c))),
+      );
     },
   );
   routes.post(
@@ -177,17 +184,25 @@ export function inventoryRoutes(options: {
     requirePermission("inventory.read"),
     async (c) => {
       const id = param(c, "Item");
-      return c.json(
-        await record(c, (db, actor) => listCostHistory(db, actor, id)),
+      return sendPage(
+        c,
+        await record(c, (db, actor) =>
+          listCostHistory(db, actor, id, pageRequest(c)),
+        ),
       );
     },
   );
 
   routes.get("/counts", requirePermission("inventory.count"), async (c) => {
     const status = countStatusSchema.safeParse(c.req.query("status"));
-    return c.json(
+    return sendPage(
+      c,
       await record(c, (db) =>
-        listCounts(db, { status: status.success ? status.data : undefined }),
+        listCounts(
+          db,
+          { status: status.success ? status.data : undefined },
+          pageRequest(c),
+        ),
       ),
     );
   });

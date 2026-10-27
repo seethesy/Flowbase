@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type {
   InventoryItem,
@@ -21,6 +21,7 @@ import { conflict, type CountLineInput, round } from "./inventory-common";
 import { findItem, toItems } from "./inventory-items";
 import { recordCount } from "./inventory-ledger";
 import { requireStockSection } from "./inventory-sections";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // ---- Count mode (FLOW-82) ----
 
@@ -71,12 +72,26 @@ const countQuery = (db: DbLike) =>
 export async function listCounts(
   db: Db,
   filter: { status?: CountRow["status"] },
-): Promise<StockCountSummary[]> {
+  page: PageRequest = {},
+): Promise<Page<StockCountSummary>> {
+  type Row = { count: CountRow; sectionName: string };
+  const paging = keyset<Row>(
+    [
+      { column: stockCounts.createdAt, type: "timestamp", desc: true, of: (row) => row.count.createdAt },
+      { column: stockCounts.id, type: "uuid", desc: true, of: (row) => row.count.id },
+    ],
+    page,
+  );
   const rows = await countQuery(db)
-    .where(filter.status ? eq(stockCounts.status, filter.status) : undefined)
-    .orderBy(desc(stockCounts.createdAt))
-    .limit(200);
-  return toCountSummaries(db, rows);
+    .where(
+      and(
+        filter.status ? eq(stockCounts.status, filter.status) : undefined,
+        paging.where,
+      ),
+    )
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toCountSummaries(db, kept));
 }
 
 // Everything count mode shows: the section's consumables (kept there, holding

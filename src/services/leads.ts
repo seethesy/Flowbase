@@ -7,7 +7,7 @@ import {
   type LeadConvertInput,
   type LeadStatusChange,
 } from "../../shared/leads";
-import { at, query, request } from "./core";
+import { at, query, request, requestPage } from "./core";
 
 // Client for the leads API (FLOW-100/111/112, duplicates FLOW-110).
 export type LeadFilter = {
@@ -16,11 +16,12 @@ export type LeadFilter = {
   channel?: string;
   needsReview?: boolean;
   triage?: boolean;
+  search?: string;
 };
 
 export const leadsApi = {
-  list: (filter: LeadFilter = {}) =>
-    request(leadSchema.array(), `/api/leads${query(filter)}`),
+  list: (filter: LeadFilter = {}, cursor?: string) =>
+    requestPage(leadSchema, `/api/leads${query({ ...filter, cursor })}`),
   get: (id: string) => request(leadSchema, at("leads", id)),
   assign: (id: string, assignedSalespersonId: string) =>
     request(leadSchema, at("leads", id, "assign"), "POST", {
@@ -37,7 +38,8 @@ export const leadsApi = {
     request(leadConversionSchema, at("leads", id, "convert"), "POST", input),
   dashboard: (range: { from?: string; to?: string } = {}) =>
     request(leadDashboardSchema, `/api/leads/dashboard${query(range)}`),
-  duplicates: () => request(leadDuplicateSchema.array(), "/api/leads/duplicates"),
+  duplicates: (cursor?: string) =>
+    requestPage(leadDuplicateSchema, `/api/leads/duplicates${query({ cursor })}`),
   // Returns the kept lead.
   merge: (duplicateId: string, keepLeadId: string) =>
     request(leadSchema, at("leads/duplicates", duplicateId, "merge"), "POST", {

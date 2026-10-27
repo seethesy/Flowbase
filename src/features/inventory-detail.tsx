@@ -10,7 +10,6 @@ import {
   PackagePlus,
 } from "lucide-react";
 import {
-  allergenLabels,
   barContainerLabels,
   ratioBasisLabels,
   type InventoryItem,
@@ -180,12 +179,6 @@ export function InventoryDetail() {
             </p>
             <small>Storage</small>
             <p>{c.storageSectionName ?? "—"}</p>
-            <small>Allergens</small>
-            <p>
-              {c.allergens
-                .map((allergen) => allergenLabels[allergen])
-                .join(", ") || "None flagged"}
-            </p>
           </Section>
         )}
       </div>

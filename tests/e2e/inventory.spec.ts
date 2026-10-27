@@ -43,7 +43,7 @@ test("transfers stock between sections from the item page", async ({
   await dialog.getByLabel(/^To section/).selectOption({ label: "Vendor" });
   await dialog.getByLabel("Quantity (each)").fill("11");
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Not enough stock");
+  await expect(dialog.getByRole("alert")).toContainText("Cafe only has 10");
 });
 
 test("creates, edits and filters ingredients", async ({ page }) => {
@@ -72,7 +72,8 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   await dialog.getByLabel(/^Storage section/).selectOption({
     label: "Kitchen – Refrigerated",
   });
-  await dialog.getByLabel("Milk", { exact: true }).check();
+  // Allergens are set on dishes, not ingredients (FLOW-95).
+  await expect(dialog.getByRole("group", { name: "Allergens" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("case of 6 × 1 qt")).toBeVisible();

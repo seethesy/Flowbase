@@ -11,8 +11,14 @@ import {
   type Contact,
   type ContactInput,
 } from "../../shared/core-records";
-import { ApiRequestError, clientsApi, eventsApi } from "../services/core";
+import {
+  allPages,
+  ApiRequestError,
+  clientsApi,
+  eventsApi,
+} from "../services/core";
 import { useResource } from "../app/useResource";
+import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -60,14 +66,14 @@ export function ClientList() {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  const clients = useResource(() => clientsApi.list({ archived }), [archived]);
-  const term = search.toLowerCase();
-  const data = (clients.data ?? []).filter((client) =>
-    [client.name, ...client.contacts.map((contact) => contact.name)]
-      .join(" ")
-      .toLowerCase()
-      .includes(term),
+  // The API searches client and contact names across every client (FLOW-179).
+  const term = useDebounced(search.trim());
+  const clients = usePagedList(
+    (cursor) =>
+      clientsApi.list({ archived, search: term || undefined }, cursor),
+    [archived, term],
   );
+  const data = clients.data ?? [];
   const columns: ColumnDef<Client, unknown>[] = [
     {
       accessorKey: "name",
@@ -153,20 +159,26 @@ export function ClientList() {
           />
           Show archived
         </label>
-        <span className="result-count">{data.length} clients</span>
+        <span className="result-count">
+          {data.length}
+          {clients.hasMore ? "+" : ""} clients
+        </span>
       </FilterBar>
       {clients.error ? (
         <LoadError message={clients.error} />
       ) : clients.loading && !clients.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          onRow={(client) => navigate(`/clients/${client.id}`)}
-          label="clients"
-          exportName="clients"
-        />
+        <>
+          <DataTable
+            data={data}
+            columns={columns}
+            onRow={(client) => navigate(`/clients/${client.id}`)}
+            label="clients"
+            exportName="clients"
+          />
+          <LoadMore list={clients} label="Load more clients" />
+        </>
       )}
       {create && (
         <ClientForm
@@ -445,7 +457,10 @@ export function ClientDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const client = useResource(() => clientsApi.get(id), [id]);
-  const events = useResource(() => eventsApi.list({ clientId: id }), [id]);
+  const events = useResource(
+    () => allPages((cursor) => eventsApi.list({ clientId: id }, cursor)),
+    [id],
+  );
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useState(false);
   const [archive, setArchive] = useState(false);

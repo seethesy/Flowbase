@@ -17,6 +17,7 @@ import { can, attachmentWriteActions, type Action } from "../policy";
 import { findVisibleClient } from "../records/clients";
 import { findVisibleEvent } from "../records/events";
 import { findItem } from "../records/inventory";
+import { findRecipe } from "../records/recipes";
 import { findVenue } from "../records/venues";
 import { fileStorage } from "./storage";
 
@@ -39,6 +40,11 @@ const parents: Record<
   inventory_item: {
     find: (db, _actor, id) => findItem(db, id),
     write: attachmentWriteActions.inventory_item,
+  },
+  // Dish photos (FLOW-93).
+  recipe: {
+    find: (db, _actor, id) => findRecipe(db, id),
+    write: attachmentWriteActions.recipe,
   },
 };
 
