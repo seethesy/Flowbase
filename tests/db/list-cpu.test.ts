@@ -90,7 +90,12 @@ beforeAll(async () => {
     from generate_series(1, 600) as n
   `);
 }, 120_000);
+// Leave no generated rows behind: other files count rows by id prefix
+// (tests/db/seed.test.ts), and random ids can match it.
 afterAll(async () => {
+  await db.execute(
+    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs cascade`,
+  );
   await client.end();
 });
 
