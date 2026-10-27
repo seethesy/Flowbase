@@ -23,7 +23,7 @@ import {
   type ScaledRecipe,
 } from "../../shared/recipes";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
-import { isFtPlus } from "../../shared/access";
+import { canSeeField } from "../../shared/visibility";
 import { allPages, inventoryApi, recipesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
@@ -89,7 +89,7 @@ export function RecipeList() {
     (!dietaryTag || recipe.dietaryTags.some((tag) => tag === dietaryTag)),
   );
   const { actor } = usePermissions();
-  const costHidden = !actor || !isFtPlus(actor);
+  const costHidden = !actor || !canSeeField(actor, "internal_cost", { view: "internal_recipe" });
   const columns: ColumnDef<Recipe, unknown>[] = [
     { accessorKey: "name", header: "Dish" },
     {
@@ -270,7 +270,7 @@ export function RecipeForm({
   // Entered line costs are FT+ only; a form that can't see them leaves them alone.
   const showCost = recipe
     ? !recipe.costHidden
-    : actor !== null && isFtPlus(actor);
+    : actor !== null && canSeeField(actor, "internal_cost", { view: "internal_recipe" });
   const [name, setName] = useState(recipe?.name ?? "");
   const [category, setCategory] = useState<RecipeCategory>(
     recipe?.category ?? "mains",
@@ -902,3 +902,4 @@ export function RecipeDetail() {
     </>
   );
 }
+

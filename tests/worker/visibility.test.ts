@@ -86,6 +86,7 @@ for (const role of roles)
         serializeFieldGroups(who, groups, { view: "client_recipe" })
           .internal_cost,
       ).toBeNull();
+      expect(canSeeField(who, "internal_cost", { view: "internal_recipe" })).toBe(ft);
       // Staff directory (FLOW-40): a phone number shows to FT+ and its owner;
       // notes show to FT+ only, never because the notes are about you.
       const member = { id: "someone-else", mobile: "2025550123", notes: "Drives the box truck" };

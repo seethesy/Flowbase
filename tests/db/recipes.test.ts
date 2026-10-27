@@ -265,9 +265,9 @@ describe("recipe books (FLOW-96/97)", () => {
 
 describe("background recipe costs (FLOW-169)", () => {
   it.each(["bar", "supply"])("recalculates recipes using %s consumables", async (subtype) => {
-    const item = await createItem({ ...tuscanIngredients.chicken, subtype, name: `Recipe ${subtype}` });
+    const item = await createItem({ ...tuscanIngredients.chicken, subtype, category: subtype === "bar" ? "Wine" : "Dry Goods", name: `Recipe ${subtype}` });
     const dish = await createRecipe(tuscanChicken(ids, { lines: [{ itemId: item.id, quantity: 2, unit: "lb" }] }));
-    await admin.send("PUT", `/api/inventory/items/${item.id}`, { ...tuscanIngredients.chicken, subtype, name: item.name, consumable: { ...tuscanIngredients.chicken.consumable, unitCostCents: 300 } });
+    await admin.send("PUT", `/api/inventory/items/${item.id}`, { ...tuscanIngredients.chicken, subtype, category: item.category, name: item.name, consumable: { ...tuscanIngredients.chicken.consumable, unitCostCents: 300 } });
     await runDueJobs(db, createJobRegistry(), { batchSize: 100 });
     expect((await getRecipe(dish.id)).cost?.batchCents).toBe(600);
     const results = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:recipe.cost_recalculated"));

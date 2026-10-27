@@ -1,4 +1,4 @@
-import { isFtPlus } from "../../shared/access";
+import { canSeeField } from "../../shared/visibility";
 import {
   and,
   asc,
@@ -105,7 +105,7 @@ async function toRecipes(
     ingredientsOf(db, lines),
     duplicatesOf(db, rows),
   ]);
-  const showCost = isFtPlus(actor);
+  const showCost = canSeeField(actor, "internal_cost", { view: "internal_recipe" });
   return rows.map((row): Recipe => {
     const own = lines.filter((line) => line.recipeId === row.id);
     const costs = own.map((line) =>
@@ -285,7 +285,7 @@ async function recipeSnapshot(db: DbLike, id: string) {
 // History hides entered line costs from callers who can't see costs.
 export async function recipeHistory(db: DbLike, actor: Actor, id: string) {
   await findRecipe(db, id);
-  const showCost = isFtPlus(actor);
+  const showCost = canSeeField(actor, "internal_cost", { view: "internal_recipe" });
   return listHistory(db, "recipe", id, (changes) =>
     showCost
       ? changes
@@ -334,7 +334,7 @@ async function saveLines(
   recipeId: string,
   input: RecipeInputParsed,
 ) {
-  const showCost = isFtPlus(actor);
+  const showCost = canSeeField(actor, "internal_cost", { view: "internal_recipe" });
   if (
     !showCost &&
     input.lines.some((line) => line.enteredCostCents !== undefined)
@@ -483,3 +483,4 @@ export async function scaleRecipeFor(
     servings,
   );
 }
+
