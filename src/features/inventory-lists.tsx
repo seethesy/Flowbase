@@ -244,13 +244,13 @@ export function IngredientList() {
         cursor,
       ),
     [category, sectionId, belowPar, term, vendorTerm],
+  );
   // Business settings' categories (FLOW-45), archived ones included so old items
   // can still be found.
   const listed = useListLabels("ingredient_category");
   const categories = [
     ...new Set([...listed, ...(items.data ?? []).map((item) => item.category)]),
   ].filter(Boolean);
-  );
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Ingredient" },
