@@ -55,6 +55,9 @@ for (const role of ["admin", "salesperson"] as const) {
     );
     await page.goto("/#/clients");
     await clientsLoaded;
+    await page
+      .getByPlaceholder("Search clients or contacts…")
+      .fill("Other salesperson client");
     await expect(
       page.getByText("Other salesperson client", { exact: true }),
     ).toHaveCount(role === "admin" ? 1 : 0);
@@ -89,6 +92,9 @@ for (const role of ["admin", "salesperson"] as const) {
     );
     await page.goto("/#/events");
     await eventsLoaded;
+    await page
+      .getByPlaceholder("Search events, clients or venues…")
+      .fill("Other salesperson event");
     await expect(
       page.getByRole("button", {
         name: "Other salesperson event",
@@ -145,7 +151,10 @@ for (const role of ["admin", "salesperson"] as const) {
       page.getByRole("heading", { name: "Linen napkins · sage", level: 1 }),
     ).toBeVisible();
     await expect(
-      page.locator(".stock-table").getByRole("row", { name: /Warehouse/ }),
+      page
+        .locator(".stock-table")
+        .first()
+        .getByRole("row", { name: /^Warehouse / }),
     ).toBeVisible();
 
     await page.goto("/#/inventory/counts");

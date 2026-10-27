@@ -1,4 +1,3 @@
-import type { Response } from "@playwright/test";
 import type { z } from "zod";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 import { authConfigSchema, userSchema } from "../../shared/users";
@@ -112,13 +111,4 @@ export function responseSchema(
   if (resource === "staff")
     return !id ? staffMemberSchema.array() : staffMemberSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
-}
-
-export async function validateApiResponse(response: Response) {
-  if (response.status() === 204) return;
-  responseSchema(
-    new URL(response.url()).pathname,
-    response.request().method(),
-    response.status(),
-  ).parse(await response.json());
 }
