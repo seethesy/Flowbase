@@ -43,7 +43,7 @@ test("transfers stock between sections from the item page", async ({
   await dialog.getByLabel(/^To section/).selectOption({ label: "Vendor" });
   await dialog.getByLabel("Quantity (each)").fill("11");
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Not enough stock");
+  await expect(dialog.getByRole("alert")).toContainText("Cafe only has 10");
 });
 
 test("creates, edits and filters ingredients", async ({ page }) => {
