@@ -1,5 +1,7 @@
 import { usePermissions } from "../../app/permissions";
 import { useState } from "react";
+import { useResource } from "../../app/useResource";
+import { clientsApi, inventoryApi } from "../../services/core";
 import {
   NavLink,
   Outlet,
@@ -27,17 +29,14 @@ import {
   Menu,
   X,
   Leaf,
-  Plus,
   Contact,
 } from "lucide-react";
 import { Button, DetailDrawer } from "../shared";
-import { useDemo } from "../../app/store";
-import { RecordForm } from "../../features/forms";
-import { TrackingNotice } from "../../features/time-tracking";
+import { TrackingNotice } from "../TrackingNotice";
 import { GlobalSearch } from "../../features/search";
 import { useActivityTracking } from "../../app/useActivityTracking";
 import { useAuth } from "../../app/auth";
-import { roleLabel } from "../../features/users";
+import { roleLabel } from "../../services/users";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
   { name: "Leads", to: "/leads", icon: Inbox },
@@ -52,7 +51,6 @@ const navigation = [
 ];
 export function Breadcrumbs() {
   const location = useLocation();
-  const store = useDemo();
   const parts = location.pathname.split("/").filter(Boolean);
   const name =
     parts[0] === "clients"
@@ -60,25 +58,25 @@ export function Breadcrumbs() {
       : parts[0]
         ? parts[0][0].toUpperCase() + parts[0].slice(1)
         : "Dashboard";
-  const record =
-    parts[0] === "clients"
-      ? store.clients.find(parts[1])?.name
-      : store.inventory.find(parts[1])?.name;
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       <span>Workspace</span>
       <span>/</span>
       <Link to={parts[0] ? `/${parts[0]}` : "/"}>{name}</Link>
-      {record && (
-        <>
-          <span>/</span>
-          <span>{record}</span>
-        </>
+      {parts[1] && (parts[0] === "clients" || (parts[0] === "inventory" && !["ingredients", "bar", "counts", "sections", "low-stock"].includes(parts[1]))) && (
+        <RecordBreadcrumb key={location.pathname} resource={parts[0]} id={parts[1]} />
       )}
     </nav>
   );
 }
-export function Sidebar({
+function RecordBreadcrumb({ resource, id }: { resource: string; id: string }) {
+  const record = useResource(async () => {
+    const result = resource === "clients" ? await clientsApi.get(id) : await inventoryApi.get(id);
+    return { name: result.name };
+  }, [resource, id]);
+  return record.data ? <><span>/</span><span>{record.data.name}</span></> : null;
+}
+function Sidebar({
   collapsed,
   setCollapsed,
   mobile,
@@ -202,20 +200,14 @@ export function Sidebar({
     </>
   );
 }
-export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
+function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const auth = useAuth();
   const permissions = usePermissions();
   const displayName = auth?.user.name ?? "Profile";
-  const store = useDemo();
   const navigate = useNavigate();
-  const location = useLocation();
   const [global, setGlobal] = useState(false);
   const [alerts, setAlerts] = useState(false);
-  const [create, setCreate] = useState(false);
   const [profile, setProfile] = useState(false);
-  // Clients are real records now (FLOW-53) with their own New Client form; quick
-  // create here covers the remaining demo modules.
-  const kind = location.pathname.startsWith("/inventory") ? "item" : "proposal";
   return (
     <>
       <header className="top-header">
@@ -269,24 +261,9 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
                   </Link>
                 )}
                 <button onClick={() => void auth?.signOut()}>Sign out</button>
-                <button
-                  onClick={() => {
-                    setProfile(false);
-                    store.notify("Demo data resets when you refresh the page.");
-                  }}
-                >
-                  About this session
-                </button>
               </div>
             )}
           </div>
-          <Button
-            size="icon"
-            aria-label={`Quick new ${kind}`}
-            onClick={() => setCreate(true)}
-          >
-            <Plus size={17} />
-          </Button>
         </div>
       </header>
       <DetailDrawer
@@ -342,7 +319,6 @@ export function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
           </div>
         </Link>
       </DetailDrawer>
-      {create && <RecordForm kind={kind} onClose={() => setCreate(false)} />}
     </>
   );
 }
@@ -364,9 +340,9 @@ export function AppShell() {
         </main>
         <footer className="app-footer">
           <span>
-            <span className="footer-dot" /> Fictional data. Real possibilities.
+            <span className="footer-dot" /> Flowbase workspace.
           </span>
-          <span>Interactive prototype · Changes reset on refresh</span>
+          <span>Dashboard and proposals contain sample data</span>
         </footer>
       </div>
       {mobile && (

@@ -25,7 +25,7 @@ import {
   DataTable,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { ItemForm } from "./inventory-item-form";
 import { useListLabels } from "./list-fields";
 import {

@@ -24,7 +24,7 @@ import {
   ConfirmationDialog,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { CostHistory, MovementHistory } from "./inventory-histories";
 import { ItemForm } from "./inventory-item-form";

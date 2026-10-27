@@ -23,7 +23,7 @@ import {
   FormField,
   LoadingSkeleton,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import { EventTable } from "./events";
 import { Attachments } from "./attachments";
 

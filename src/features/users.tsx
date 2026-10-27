@@ -12,11 +12,7 @@ import { useResource } from "../app/useResource";
 import { request } from "../services/core";
 import { Button, PageHeader, Section } from "../components/shared";
 
-export const roleLabel = (role: string) =>
-  role
-    .split("_")
-    .map((s) => s[0].toUpperCase() + s.slice(1))
-    .join(" ");
+import { roleLabel } from "../services/users";
 const actions: Record<User["status"], UserAction[]> = {
   pending: ["resend", "revoke"],
   active: ["deactivate"],

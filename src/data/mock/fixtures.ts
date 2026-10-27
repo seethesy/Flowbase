@@ -307,24 +307,6 @@ export const inventory: Item[] = itemNames.map((name, i) => ({
     },
   ],
 }));
-export const contacts = Array.from({ length: 45 }, (_, i) => ({
-  id: `contact-${i}`,
-  clientId: clients[i % 35].id,
-  name:
-    i < 35
-      ? clients[i].contact
-      : `${["Avery", "Riley", "Quinn"][i % 3]} Spencer`,
-  role: i < 35 ? "Primary contact" : "Event coordinator",
-  email: `contact${i + 1}@fictional.example`,
-}));
-export const purchaseOrders = Array.from({ length: 12 }, (_, i) => ({
-  id: `PO-${1200 + i}`,
-  vendor: vendors[i % 15].name,
-  itemId: inventory[i].id,
-  status: i % 3 === 0 ? "Received" : "Ordered",
-  value: 350 + i * 125,
-  date: "2026-10-12",
-}));
 export const events = Array.from({ length: 10 }, (_, i) => ({
   id: `evt-${i}`,
   name: proposalNames[i % 8],

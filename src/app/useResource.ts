@@ -22,7 +22,8 @@ export function useResource<T>(load: () => Promise<T>, inputs: unknown[]) {
     return () => {
       active = false;
     };
-    // load is recreated every render; inputs decide when to refetch.
+    // load is recreated every render; the caller supplies the refetch keys.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...inputs, version]);
   return {
     ...state,

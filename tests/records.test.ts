@@ -3,10 +3,8 @@ import { stockStatus, transitionProposal } from "../src/services/records";
 import {
   proposals,
   clients,
-  contacts,
   inventory,
   vendors,
-  purchaseOrders,
   events,
   employees,
 } from "../src/data/mock/fixtures";
@@ -48,11 +46,9 @@ describe("proposal stage rules", () => {
 it("seeds the requested fixture counts", () =>
   expect([
     clients.length,
-    contacts.length,
     proposals.length,
     inventory.length,
     vendors.length,
-    purchaseOrders.length,
     events.length,
     employees.length,
-  ]).toEqual([35, 45, 40, 50, 15, 12, 10, 8]));
+  ]).toEqual([35, 40, 50, 15, 10, 8]));

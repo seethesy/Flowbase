@@ -19,7 +19,9 @@
       "vitest/globals",
       "@testing-library/jest-dom"
     ],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": [
     "src",

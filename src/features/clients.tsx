@@ -31,28 +31,11 @@ import { EventForm, EventTable } from "./events";
 import { Attachments } from "./attachments";
 import "./clients.css";
 
-export const initials = (name: string) =>
-  name
-    .replace(/&/g, "")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("");
-
-export function LoadError({ message }: { message: string }) {
-  return (
-    <p role="alert" className="error-message">
-      {message}
-    </p>
-  );
-}
+import { initials, hidden, LoadError } from "../components/record-display";
 
 const primaryContact = (client: Client) =>
   client.contacts.find((contact) => contact.role === "primary_poc") ??
   client.contacts[0];
-export const hidden = (value: string | null) =>
-  value === null ? "Hidden" : value || "—";
 
 // Real client records (FLOW-53), replacing the prototype's mock clients.
 export function ClientList() {

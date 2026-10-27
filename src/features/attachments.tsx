@@ -9,7 +9,7 @@ import type {
 import { attachmentsApi, uploadAttachment } from "../services/attachments";
 import { useResource } from "../app/useResource";
 import { Button, Section } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 import "./attachments.css";
 
 const ACCEPT =

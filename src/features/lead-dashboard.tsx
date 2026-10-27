@@ -29,7 +29,7 @@ import {
   PageHeader,
   Section,
 } from "../components/shared";
-import { LoadError } from "./clients";
+import { LoadError } from "../components/record-display";
 
 // Lead dashboard (FLOW-113): which lead sources are worth paying for. Dollar
 // figures are estimates until proposals exist (FLOW-122): each closed lead counts at
