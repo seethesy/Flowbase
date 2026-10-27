@@ -1,6 +1,7 @@
 import { test, expect } from "./auth-fixture";
 import { lead } from "./fixtures";
-import { seedLeads } from "./database";
+import { browserDb, seedLeads } from "./database";
+import * as schema from "../../worker/db/schema";
 
 // Global search (FLOW-46): the header search asks the API and opens the record.
 test("global search finds a misspelled lead and opens it", async ({ page }) => {
@@ -15,7 +16,7 @@ test("global search finds a misspelled lead and opens it", async ({ page }) => {
   await page.goto("/#/");
   await page.getByRole("button", { name: "Search anything" }).click();
   const box = page.getByPlaceholder(
-    "Search clients, leads, events, venues, items, vendors…",
+    "Search clients, leads, events, venues, items, vendors, recipes…",
   );
   await box.fill("o");
   await expect(page.getByText("Everything, in one place")).toBeVisible();
@@ -31,4 +32,26 @@ test("global search finds a misspelled lead and opens it", async ({ page }) => {
   await page.getByRole("button", { name: "Search anything" }).click();
   await box.fill("nobody");
   await expect(page.getByText("No matching records")).toBeVisible();
+});
+
+// FLOW-217: a recipe is found from the header search, typo and all, and opens.
+test("global search finds a misspelled recipe and opens its page", async ({ page }) => {
+  const [recipe] = await browserDb((db) =>
+    db
+      .insert(schema.recipes)
+      .values({ name: "Tuscan Chicken", category: "mains" })
+      .returning({ id: schema.recipes.id }),
+  );
+  await page.goto("/#/");
+  await page.getByRole("button", { name: "Search anything" }).click();
+  await page
+    .getByPlaceholder("Search clients, leads, events, venues, items, vendors, recipes…")
+    .fill("tuscan chiken");
+  const result = page.getByRole("button", { name: /Tuscan Chicken/ });
+  await expect(result).toContainText("Recipe · Mains");
+  await result.click();
+  await expect(page).toHaveURL(new RegExp(`#/recipes/${recipe.id}$`));
+  await expect(
+    page.getByRole("heading", { name: "Tuscan Chicken", level: 1 }),
+  ).toBeVisible();
 });

@@ -37,7 +37,7 @@ test("creates a vendor and finds it in the global search", async ({ page }) => {
   await page.goto("/#/");
   await page.getByRole("button", { name: "Search anything" }).click();
   await page
-    .getByPlaceholder("Search clients, leads, events, venues, items, vendors…")
+    .getByPlaceholder("Search clients, leads, events, venues, items, vendors, recipes…")
     .fill("imperoi");
   const result = page.getByRole("button", { name: /Imperio/ });
   await expect(result).toContainText("Vendor · Beverage distributor");
