@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   lineCost,
+  clientRecipe,
+  clientRecipeSchema,
+  recipeSchema,
   recipeCost,
   recipeInputSchema,
   scaleRecipe,
@@ -33,6 +36,30 @@ const costsOf = (
     ),
   );
 };
+
+describe("client recipe projection (FLOW-97 AC1)", () => {
+  it("allowlists fields and drops all kitchen and financial data", () => {
+    const dish = recipeSchema.parse({
+      id: tuscanIds.chicken, name: "Tuscan Chicken", category: "mains",
+      description: "Creamy chicken", lines: [{
+        id: tuscanIds.cream, itemId: tuscanIds.cream, ingredientName: "Heavy Cream",
+        ingredientArchived: false, quantity: 1, unit: "cup", prepNote: "internal prep",
+        enteredCostCents: 180, cost: { source: "entered", cents: 180, problem: null },
+      }], steps: ["Secret method"], finishingNote: "Internal note",
+      yield: { servings: 100, portionSize: "6 oz" }, allergens: ["milk"], dietaryTags: [],
+      cost: { batchCents: 180, perServingCents: 2, noCostLines: 0 }, costHidden: false,
+      duplicates: [], active: true, archivedAt: null,
+      createdAt: "2026-10-27T12:00:00Z", updatedAt: "2026-10-27T12:00:00Z",
+    });
+    const projected = clientRecipe(dish, "https://example.com/photo.jpg");
+    expect(Object.keys(projected).sort()).toEqual(["allergens", "category", "description", "dietaryTags", "id", "ingredients", "name", "photo"]);
+    expect(projected.ingredients).toEqual(["Heavy Cream"]);
+    expect(clientRecipeSchema.parse(projected)).toEqual(projected);
+    expect(clientRecipeSchema.safeParse({ ...projected, steps: dish.steps }).success).toBe(false);
+    expect(JSON.stringify(projected)).not.toMatch(/internal prep|Secret method|Internal note|180|servings/);
+    expect(clientRecipe(dish).photo).toBeNull();
+  });
+});
 describe("recipe record (FLOW-93)", () => {
   it("takes Tuscan Chicken with all six lines, two without a quantity (AC1)", () => {
     const parsed = recipe();

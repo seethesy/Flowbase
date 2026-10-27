@@ -2,12 +2,14 @@ import type { Bindings } from "../bindings";
 import { withDb } from "../db/client";
 import type { RunWithDb } from "../hono";
 import { registerIngestProcessing } from "../ingest/receipts";
+import { registerRecipeCostChanges } from "../records/recipes";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
 export function createJobRegistry() {
   const registry = new JobRegistry();
   registerIngestProcessing(registry);
+  registerRecipeCostChanges(registry);
   return registry;
 }
 

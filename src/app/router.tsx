@@ -88,6 +88,9 @@ const ImportList = lazy(() => import("../features/imports").then((module) => ({ 
 const ImportPage = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportPage })));
 const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeList })));
 const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
+const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
+const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
+const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
 import { Button, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
@@ -155,6 +158,8 @@ export const getRouter = () =>
   (router ??= createHashRouter([
     // Printable documents render without the app shell.
     { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense> },
+    { path: "/print/recipes/client", element: <Suspense fallback={<p role="status">Loading document…</p>}><ClientRecipePrint /></Suspense> },
+    { path: "/print/recipes/:id", element: <Suspense fallback={<p role="status">Loading document…</p>}><KitchenRecipePrint /></Suspense> },
     {
       element: <AppShell />,
       children: [
@@ -180,6 +185,7 @@ export const getRouter = () =>
         { path: "/inventory/sections", element: <SectionList /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
         { path: "/recipes", element: <RecipeList /> },
+        { path: "/recipes/client", element: <ClientRecipeBook /> },
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
         { path: "/events/:id", element: <EventDetail /> },

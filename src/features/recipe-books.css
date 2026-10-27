@@ -1,0 +1,19 @@
+.client-recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 24px;
+}
+.recipe-card {
+  padding: 16px 0;
+  border-bottom: 1px solid #d6ddd7;
+  overflow-wrap: anywhere;
+}
+.recipe-card img {
+  width: 100%;
+  max-width: 360px;
+  max-height: 240px;
+  object-fit: contain;
+}
+@media print {
+  .recipe-card { break-inside: avoid; }
+}
