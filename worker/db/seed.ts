@@ -193,6 +193,10 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
           : [storage]
         ).entries()) {
           const movementId = seedId(11 + j, i + 1);
+          const quantity = rental
+            ? Math.floor(row.onHand / rentalSections.length) +
+              (j < row.onHand % rentalSections.length ? 1 : 0)
+            : row.onHand;
           // The stock cache and its opening ledger entry must agree, including on re-runs.
           const inserted = await tx
             .insert(schema.stockMovements)
@@ -201,7 +205,7 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
               itemId: id,
               sectionId: section.id,
               type: "receive",
-              quantity: row.onHand,
+              quantity,
               reason: "Development opening stock",
             })
             .onConflictDoNothing()
@@ -220,14 +224,12 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
               throw new Error(
                 "Seed stock exists without its opening movement; refusing to overwrite it.",
               );
-            await tx
-              .insert(schema.inventoryStock)
-              .values({
-                id: seedId(15 + j, i + 1),
-                itemId: id,
-                sectionId: section.id,
-                quantity: row.onHand,
-              });
+            await tx.insert(schema.inventoryStock).values({
+              id: seedId(15 + j, i + 1),
+              itemId: id,
+              sectionId: section.id,
+              quantity,
+            });
           }
         }
       }

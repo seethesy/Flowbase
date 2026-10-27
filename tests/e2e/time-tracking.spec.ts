@@ -22,10 +22,26 @@ test("time accrues only while the tab is visible and the user is active", async 
 }) => {
   await page.clock.install({ time: new Date(Date.now() - 60 * MIN) });
   const requests: ActivitySessionInput[][] = [];
+  const pending: Promise<unknown>[] = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname === "/api/time/sessions")
+    if (new URL(request.url()).pathname === "/api/time/sessions") {
       requests.push(request.postDataJSON().sessions);
+      pending.push(
+        request.response().then(async (response) => {
+          expect(response?.status()).toBe(200);
+          await response?.finished();
+        }),
+      );
+    }
   });
+  // Let each real database write finish before advancing another timer tick.
+  // Otherwise an entire fake idle interval can elapse while one fetch is in flight.
+  const advance = async (ms: number) => {
+    for (let elapsed = 0; elapsed < ms; elapsed += 15 * SECOND) {
+      await page.clock.runFor(Math.min(15 * SECOND, ms - elapsed));
+      await Promise.all(pending.splice(0));
+    }
+  };
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await page.goto(`/#/events/${fallGala().id}`);
   const heading = page.getByRole("heading", { name: "Fall gala", level: 1 });
@@ -49,32 +65,32 @@ test("time accrues only while the tab is visible and the user is active", async 
   // (the idle cutoff) after the last click.
   for (let i = 0; i < 6; i++) {
     await heading.click();
-    await page.clock.runFor(10 * SECOND);
+    await advance(10 * SECOND);
   }
-  await page.clock.runFor(7 * MIN);
+  await advance(7 * MIN);
   await expect.poll(total).toBeGreaterThanOrEqual(345);
   expect(total()).toBeLessThanOrEqual(365);
   const afterIdle = total();
 
   // Idle long past the cutoff: nothing more accrues.
-  await page.clock.runFor(3 * MIN);
+  await advance(3 * MIN);
   expect(total()).toBe(afterIdle);
 
   // Hidden: clicks don't count. Shown again: nothing until the next click.
   await setHidden(page, true);
   await heading.click();
-  await page.clock.runFor(2 * MIN);
+  await advance(2 * MIN);
   await setHidden(page, false);
-  await page.clock.runFor(2 * MIN);
+  await advance(2 * MIN);
   expect(total()).toBe(afterIdle);
 
   // Active again for a minute, then the tab is hidden: one more ~1 minute session.
   for (let i = 0; i < 6; i++) {
     await heading.click();
-    await page.clock.runFor(10 * SECOND);
+    await advance(10 * SECOND);
   }
   await setHidden(page, true);
-  await page.clock.runFor(2 * MIN);
+  await advance(2 * MIN);
   await expect.poll(() => credited().length).toBe(2);
   expect(total() - afterIdle).toBeGreaterThanOrEqual(55);
   expect(total() - afterIdle).toBeLessThanOrEqual(65);

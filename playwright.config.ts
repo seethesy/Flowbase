@@ -8,6 +8,8 @@ export default defineConfig({
   workers: 1,
   globalSetup: "./tests/e2e/global-setup.ts",
   retries: process.env.CI ? 2 : 0,
+  // Stop repeated systemic failures early instead of exhausting the CI budget.
+  maxFailures: process.env.CI ? 3 : undefined,
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: "http://127.0.0.1:4173", trace: "retain-on-failure" },
   webServer: {

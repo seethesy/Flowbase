@@ -5,7 +5,7 @@ import { userSchema } from "../../shared/users";
 import { resetBrowserDatabase } from "./database";
 import { defaultSections } from "./fixtures";
 import { testIssuer, testSigningKey } from "./test-auth";
-import { validateApiResponse } from "./response-contracts";
+import { responseSchema } from "./response-contracts";
 
 export const signedInUser = userSchema.parse({
   ...seedUsers[0],
@@ -102,22 +102,29 @@ export const databaseTest = base.extend<{ database: void; contracts: void }>({
   ],
   contracts: [
     async ({ page }, use) => {
-      const pending: Promise<void>[] = [];
       const failures: string[] = [];
-      page.on("response", (response) => {
-        if (!new URL(response.url()).pathname.startsWith("/api/")) return;
-        pending.push(
-          (async () => {
-            try {
-              await validateApiResponse(response);
-            } catch (error) {
-              failures.push(`${response.url()}: ${String(error)}`);
-            }
-          })(),
-        );
+      // Forward actual Worker responses without synthesizing data. Reading the
+      // upstream body before forwarding also covers fetch/keepalive callers that
+      // don't consume their response and avoids CDP body reads hanging on reload.
+      await page.route("**/api/**", async (route) => {
+        const request = route.request();
+        try {
+          const response = await route.fetch({ timeout: 10_000 });
+          if (response.status() !== 204)
+            responseSchema(
+              new URL(request.url()).pathname,
+              request.method(),
+              response.status(),
+            ).parse(await response.json());
+          await route.fulfill({ response });
+        } catch (error) {
+          if (!request.failure())
+            failures.push(`${request.url()}: ${String(error)}`);
+          await route.abort().catch(() => undefined);
+        }
       });
       await use();
-      await Promise.all(pending);
+      await page.unrouteAll({ behavior: "wait" });
       expect(
         failures,
         "Every browser API response must match its shared contract",
