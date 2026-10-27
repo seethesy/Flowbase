@@ -591,7 +591,12 @@ const describe = (value: unknown): string =>
 function SettingsHistory() {
   const settings = useBusinessSettings();
   // Reloads after each change, which republishes the settings.
-  const history = useResource(() => settingsApi.history(), [settings]);
+  const history = useResource(
+    ["settings-history", settings],
+    () => settingsApi.history(),
+    // Refetched after each save; the previous entries stay until it arrives.
+    { keepPrevious: true },
+  );
   return (
     <Section title="Recent changes">
       {history.error && <p role="alert">Unable to load the change history.</p>}

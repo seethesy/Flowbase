@@ -30,8 +30,8 @@ export function Attachments({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const files = useResource(
+    ["attachments", recordType, recordId],
     () => attachmentsApi.list(recordType, recordId),
-    [recordType, recordId],
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

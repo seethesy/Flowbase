@@ -34,10 +34,11 @@ export function UserManagement() {
 }
 
 function UserList() {
-  const [version, setVersion] = useState(0);
+  // One key: after a change the list reloads in place (FLOW-189), keeping the
+  // current rows on screen until the new ones arrive.
   const resource = useResource(
+    ["admin-users"],
     () => request(userSchema.array(), "/api/admin/users"),
-    [version],
   );
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -60,7 +61,7 @@ function UserList() {
       setError(err instanceof Error ? err.message : "Unable to update user.");
     } finally {
       setBusy(false);
-      setVersion((v) => v + 1);
+      resource.reload();
     }
   };
   return (
@@ -104,7 +105,7 @@ function UserList() {
               );
             } finally {
               setBusy(false);
-              setVersion((v) => v + 1);
+              resource.reload();
             }
           }}
         >

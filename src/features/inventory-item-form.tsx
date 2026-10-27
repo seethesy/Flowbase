@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import {
-  allergenLabels,
-  allergenSchema,
   barCategories,
   barContainerLabels,
   barContainerSchema,
@@ -14,7 +12,6 @@ import {
   ratioBasisSchema,
   recipeUnitProblem,
   subtypesByKind,
-  type Allergen,
   type BarContainer,
   type InventoryItem,
   type ItemInput,
@@ -30,6 +27,9 @@ import { kindLabels, subtypeLabel } from "./inventory-labels";
 import { ListSuggestions } from "./list-fields";
 import { useBusinessSettings } from "../services/settings";
 import { inventoryCategoryList } from "../../shared/settings";
+import { usePermissions } from "../app/permissions";
+import { canSeeRentalCosts } from "../../shared/visibility";
+import { CatalogIncludes } from "./inventory-includes";
 
 const dollars = (cents: number | null | undefined) =>
   cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
@@ -78,6 +78,14 @@ type FieldName =
   | "ratioBasis"
   | "price"
   | "priceBasis"
+  | "internalCost"
+  | "replacementCost"
+  | "dimensions"
+  | "notes"
+  | "assemblyNotes"
+  | "bufferDaysBefore"
+  | "bufferDaysAfter"
+  | "colors"
   | "purchaseUnit"
   | "packCount"
   | "eachSizeQuantity"
@@ -122,6 +130,14 @@ export function ItemForm({
     ratioBasis: item?.ratio?.basis ?? "per_guest",
     price: dollars(item?.rental?.priceCents ?? item?.service?.priceCents),
     priceBasis: item?.service?.priceBasis ?? "per_event",
+    internalCost: dollars(item?.rental?.internalCostCents),
+    replacementCost: dollars(item?.rental?.replacementCostCents),
+    dimensions: item?.rental?.dimensions ?? "",
+    notes: item?.rental?.notes ?? "",
+    assemblyNotes: item?.rental?.assemblyNotes ?? "",
+    bufferDaysBefore: String(item?.rental?.bufferDaysBefore ?? 1),
+    bufferDaysAfter: String(item?.rental?.bufferDaysAfter ?? 1),
+    colors: item?.rental?.colors.join("\n") ?? "",
     purchaseUnit: item?.consumable?.purchaseUnit ?? "each",
     packCount: numberText(item?.consumable?.packCount),
     eachSizeQuantity: numberText(item?.consumable?.eachSize?.quantity),
@@ -138,21 +154,36 @@ export function ItemForm({
   }));
   // A new bar item is kept in Bar Storage unless the user picks another section.
   const [storageTouched, setStorageTouched] = useState(Boolean(item));
-  const [allergens, setAllergens] = useState<Allergen[]>(
-    item?.consumable?.allergens ?? [],
-  );
+  // Allergens are set on dishes, not ingredients (FLOW-95); an item keeps any it
+  // already has.
+  const allergens = item?.consumable?.allergens ?? [];
   const [active, setActive] = useState(item?.active ?? true);
+  const [quoted, setQuoted] = useState(item?.service?.pricedByQuote ?? false);
+  const [includes, setIncludes] = useState(
+    item?.service?.includes ??
+      item?.rental?.components.map((line) => ({
+        ...line,
+        basis: "per_event" as const,
+      })) ??
+      [],
+  );
+  const [addons, setAddons] = useState(item?.service?.addons ?? []);
+  const { actor, can } = usePermissions();
+  const rentalCostsVisible = actor !== null && canSeeRentalCosts(actor);
+  const priceNeedsApproval =
+    Boolean(item) && !can("rentals.apply_directly");
   // An existing item whose cost came back hidden: the user isn't FT+, so the form
   // leaves the cost alone.
   const costHidden = item?.consumable?.costHidden ?? false;
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const storage = useResource(
+    ["sections", kind === "consumable" ? { kind: "consumable" } : "none"],
     () =>
       kind === "consumable"
         ? sectionsApi.list({ kind: "consumable" })
         : Promise.resolve([] as StockSection[]),
-    [kind],
+    { reference: true },
   );
   const set = (key: FieldName) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
@@ -163,21 +194,11 @@ export function ItemForm({
     kind,
     subtype: kind === "service" ? null : subtype,
   });
-  const pickCategory = (category: string) =>
-    setFields((current) => {
-      const ratio = settings.defaults.ratioDefaults.find(
-        (row) => row.category.toLowerCase() === category.trim().toLowerCase(),
-      );
-      // A new item without a ratio takes its category's default.
-      return !item && ratio && !current.ratioQuantity
-        ? {
-            ...current,
-            category,
-            ratioQuantity: String(ratio.quantity),
-            ratioBasis: ratio.basis,
-          }
-        : { ...current, category };
-    });
+  const pickCategory = set("category");
+  const defaultRatio = settings.defaults.ratioDefaults.find(
+    (row) =>
+      row.category.toLowerCase() === fields.category.trim().toLowerCase(),
+  );
   const storageSectionId = storageTouched
     ? fields.storageSectionId
     : fields.storageSectionId ||
@@ -185,7 +206,10 @@ export function ItemForm({
         ? ((storage.data ?? []).find(
             (section) => section.name === "Bar Storage",
           )?.id ?? "")
-        : "");
+        : subtype === "supply"
+          ? ((storage.data ?? []).find((section) => section.name === "Supplies")
+              ?.id ?? "")
+          : "");
   const input = (key: FieldName, props: { type?: string } = {}) => (
     <input
       type={props.type ?? "text"}
@@ -233,12 +257,34 @@ export function ItemForm({
         : null,
       active,
       ...(kind === "rental" && {
-        rental: { priceCents: toCents(fields.price) },
+        rental: {
+          priceCents: toCents(fields.price),
+          ...(rentalCostsVisible && {
+            internalCostCents: toCents(fields.internalCost),
+            replacementCostCents: toCents(fields.replacementCost),
+          }),
+          dimensions: fields.dimensions,
+          notes: fields.notes,
+          assemblyNotes: fields.assemblyNotes,
+          bufferDaysBefore: Number(fields.bufferDaysBefore),
+          bufferDaysAfter: Number(fields.bufferDaysAfter),
+          colors: fields.colors
+            .split("\n")
+            .map((color) => color.trim())
+            .filter(Boolean),
+          components:
+            subtype === "decor"
+              ? includes.map(({ itemId, quantity }) => ({ itemId, quantity }))
+              : [],
+        },
       }),
       ...(kind === "service" && {
         service: {
-          priceCents: toCents(fields.price),
+          priceCents: quoted ? null : toCents(fields.price),
           priceBasis: fields.priceBasis as RatioBasis,
+          pricedByQuote: quoted,
+          includes,
+          addons,
         },
       }),
       ...(kind === "consumable" && {
@@ -447,7 +493,11 @@ export function ItemForm({
         <div className="form-grid">
           <FormField
             label="Ratio"
-            hint="e.g. 2 per guest; leave empty for none"
+            hint={
+              defaultRatio
+                ? `Leave empty to use category default: ${defaultRatio.quantity} ${ratioBasisLabels[defaultRatio.basis]}`
+                : "e.g. 2 per guest; leave empty for category default"
+            }
           >
             {input("ratioQuantity", { type: "number" })}
           </FormField>
@@ -465,28 +515,153 @@ export function ItemForm({
           </FormField>
         </div>
         {kind === "rental" && (
-          <FormField label="Price ($ per unit)">
-            {input("price", { type: "number" })}
-          </FormField>
+          <>
+            <FormField
+              label="Price ($ per unit)"
+              hint={
+                priceNeedsApproval
+                  ? "Price changes require approval. The approval workflow is not yet available."
+                  : undefined
+              }
+            >
+              <input
+                type="number"
+                step="0.01"
+                value={fields.price}
+                disabled={priceNeedsApproval}
+                onChange={(e) => set("price")(e.target.value)}
+              />
+            </FormField>
+            <div className="form-grid">
+              {rentalCostsVisible && (
+                <>
+                  <FormField label="Internal cost ($)">
+                    {input("internalCost", { type: "number" })}
+                  </FormField>
+                  <FormField label="Replacement cost ($)">
+                    {input("replacementCost", { type: "number" })}
+                  </FormField>
+                </>
+              )}
+              <FormField label="Dimensions">{input("dimensions")}</FormField>
+              <FormField label="Buffer days before">
+                {input("bufferDaysBefore", { type: "number" })}
+              </FormField>
+              <FormField label="Buffer days after">
+                {input("bufferDaysAfter", { type: "number" })}
+              </FormField>
+              <FormField label="Assembly notes">
+                {input("assemblyNotes")}
+              </FormField>
+              <FormField label="Notes">{input("notes")}</FormField>
+              <FormField
+                label="Colors"
+                hint="One color per line. Stock is tracked separately for each color."
+              >
+                <textarea
+                  value={fields.colors}
+                  onChange={(e) => set("colors")(e.target.value)}
+                  rows={3}
+                />
+              </FormField>
+            </div>
+          </>
         )}
         {kind === "service" && (
-          <div className="form-grid">
-            <FormField label="Price ($)">
-              {input("price", { type: "number" })}
-            </FormField>
-            <FormField label="Priced">
-              <select
-                value={fields.priceBasis}
-                onChange={(e) => set("priceBasis")(e.target.value)}
-              >
-                {ratioBasisSchema.options.map((basis) => (
-                  <option key={basis} value={basis}>
-                    {ratioBasisLabels[basis]}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          </div>
+          <>
+            <label className="checkbox-filter">
+              <input
+                type="checkbox"
+                checked={quoted}
+                onChange={(e) => setQuoted(e.target.checked)}
+              />
+              Priced by quote
+            </label>
+            {!quoted && (
+              <div className="form-grid">
+                <FormField label="Price ($)">
+                  {input("price", { type: "number" })}
+                </FormField>
+                <FormField label="Priced">
+                  <select
+                    value={fields.priceBasis}
+                    onChange={(e) => set("priceBasis")(e.target.value)}
+                  >
+                    {["per_event", "per_guest"].map((basis) => (
+                      <option key={basis} value={basis}>
+                        {ratioBasisLabels[basis as RatioBasis]}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              </div>
+            )}
+            <h3 className="form-subheading">Per-person add-ons</h3>
+            {addons.map((addon, index) => (
+              <div className="form-grid" key={index}>
+                <FormField label={`Add-on ${index + 1} name`}>
+                  <input
+                    value={addon.name}
+                    onChange={(e) =>
+                      setAddons(
+                        addons.map((row, i) =>
+                          i === index ? { ...row, name: e.target.value } : row,
+                        ),
+                      )
+                    }
+                  />
+                </FormField>
+                <FormField label={`Add-on ${index + 1} price ($ per guest)`}>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={addon.priceCents / 100}
+                    onChange={(e) =>
+                      setAddons(
+                        addons.map((row, i) =>
+                          i === index
+                            ? {
+                                ...row,
+                                priceCents: Math.round(
+                                  Number(e.target.value) * 100,
+                                ),
+                              }
+                            : row,
+                        ),
+                      )
+                    }
+                  />
+                </FormField>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setAddons(addons.filter((_, i) => i !== index))
+                  }
+                >
+                  Remove add-on {index + 1}
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setAddons([...addons, { name: "", priceCents: 0 }])
+              }
+            >
+              Add per-person add-on
+            </Button>
+          </>
+        )}
+        {(kind === "service" || (kind === "rental" && subtype === "decor")) && (
+          <CatalogIncludes
+            itemId={item?.id}
+            service={kind === "service"}
+            value={includes}
+            onChange={setIncludes}
+          />
         )}
         {kind === "consumable" && (
           <>
@@ -568,25 +743,6 @@ export function ItemForm({
                 each weighs or holds.
               </p>
             )}
-            <fieldset className="form-group" aria-label="Allergens">
-              <legend>Allergens</legend>
-              {allergenSchema.options.map((allergen) => (
-                <label className="checkbox-filter" key={allergen}>
-                  <input
-                    type="checkbox"
-                    checked={allergens.includes(allergen)}
-                    onChange={(e) =>
-                      setAllergens((current) =>
-                        e.target.checked
-                          ? [...current, allergen]
-                          : current.filter((other) => other !== allergen),
-                      )
-                    }
-                  />
-                  {allergenLabels[allergen]}
-                </label>
-              ))}
-            </fieldset>
           </>
         )}
         <label className="checkbox-filter">

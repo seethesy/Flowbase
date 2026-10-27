@@ -10,8 +10,9 @@ import {
   type StockCount,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
-import { countsApi, inventoryApi, sectionsApi } from "../services/core";
+import { allPages, countsApi, inventoryApi, sectionsApi } from "../services/core";
 import { useResource } from "../app/useResource";
+import { LoadMore, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
@@ -36,10 +37,15 @@ const subtypeLabels: Record<string, string> = {
 export function CountList() {
   const navigate = useNavigate();
   const sections = useResource(
+    ["sections", { kind: "consumable" }],
     () => sectionsApi.list({ kind: "consumable" }),
-    [],
+    { reference: true },
   );
-  const open = useResource(() => countsApi.list({ status: "open" }), []);
+  // Every open count: at most one per section, so this stays small (FLOW-179).
+  const open = useResource(
+    ["counts", { status: "open" }, "all"],
+    () => allPages((cursor) => countsApi.list({ status: "open" }, cursor)),
+  );
   const [error, setError] = useState("");
   const start = async (sectionId: string) => {
     setError("");
@@ -230,7 +236,10 @@ function CountLineRow({
 export function CountMode() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const count = useResource(() => countsApi.get(id), [id]);
+  const count = useResource(
+    ["counts", id],
+    () => countsApi.get(id),
+  );
   const [completing, setCompleting] = useState(false);
   const back = (
     <Link to="/inventory/counts" className="back-link">
@@ -309,9 +318,9 @@ export function CountMode() {
 // Consumables below par (FLOW-82): ingredients, bar stock and supplies.
 export function LowStockList() {
   const navigate = useNavigate();
-  const items = useResource(
-    () => inventoryApi.list({ kind: "consumable", belowPar: true }),
-    [],
+  const items = usePagedList(
+    ["inventory-items", "below-par"],
+    (cursor) => inventoryApi.list({ kind: "consumable", belowPar: true }, cursor),
   );
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item" },
@@ -373,13 +382,16 @@ export function LowStockList() {
       ) : !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
-          data={items.data}
-          columns={columns}
-          onRow={(item) => navigate(`/inventory/${item.id}`)}
-          label="items below par"
-          exportName="low stock"
-        />
+        <>
+          <DataTable
+            data={items.data}
+            columns={columns}
+            onRow={(item) => navigate(`/inventory/${item.id}`)}
+            label="items below par"
+            exportName="low stock"
+          />
+          <LoadMore list={items} label="Load more items" />
+        </>
       )}
     </>
   );

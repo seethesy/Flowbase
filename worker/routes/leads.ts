@@ -10,8 +10,10 @@ import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
+  pageRequest,
   parseBody,
   recordRunner,
+  sendPage,
   type AppContext,
   type AppEnv,
   type RunWithDb,
@@ -22,6 +24,7 @@ import {
   changeLeadStatus,
   convertLead,
   getLead,
+  leadHistory,
   listLeads,
 } from "../records/leads";
 import { leadDashboard } from "../records/lead-dashboard";
@@ -50,7 +53,8 @@ export function leadRoutes(options: {
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
   routes.get("/", requirePermission("leads.read"), async (c) =>
-    c.json(
+    sendPage(
+      c,
       await record(c, (db, actor) =>
         listLeads(db, actor, {
           status: query(c, "status"),
@@ -60,7 +64,7 @@ export function leadRoutes(options: {
           needsReview: flag(c, "needsReview"),
           triage: flag(c, "triage"),
           search: query(c, "search"),
-        }),
+        }, pageRequest(c)),
       ),
     ),
   );
@@ -87,7 +91,12 @@ export function leadRoutes(options: {
   );
   // Possible duplicates (FLOW-110): the queue, merge into the kept lead, dismiss.
   routes.get("/duplicates", requirePermission("leads.read"), async (c) =>
-    c.json(await record(c, (db, actor) => listLeadDuplicates(db, actor))),
+    sendPage(
+      c,
+      await record(c, (db, actor) =>
+        listLeadDuplicates(db, actor, pageRequest(c)),
+      ),
+    ),
   );
   const duplicateParam = (c: AppContext) => {
     const parsed = uuid.safeParse(c.req.param("id"));
@@ -123,6 +132,14 @@ export function leadRoutes(options: {
   routes.get("/:id", requirePermission("leads.read"), async (c) => {
     const id = param(c);
     return c.json(await record(c, (db, actor) => getLead(db, actor, id)));
+  });
+  // Lead history (FLOW-185): read-only for anyone who can see the lead.
+  routes.get("/:id/history", requirePermission("leads.read"), async (c) => {
+    const id = param(c);
+    return sendPage(
+      c,
+      await record(c, (db, actor) => leadHistory(db, actor, id, pageRequest(c))),
+    );
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
     const id = param(c);

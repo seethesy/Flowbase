@@ -3,16 +3,17 @@ import {
   serializeFields,
   redactFieldHistory,
 } from "../../shared/visibility";
-import { and, asc, eq, ilike, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import type { Venue, venueInputSchema } from "../../shared/core-records";
-import { fullView, listHistory, writeAudit } from "../audit/log";
+import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { venueAreas, venueContacts, venues } from "../db/schema";
 import { forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
+import { keyset, type Page, type PageRequest } from "./paging";
 import { syncChildren } from "./sync";
 
 // Venues (FLOW-54) are shared reference data every signed-in user can read. Venue
@@ -72,7 +73,17 @@ export async function listVenues(
   db: Db,
   actor: Actor,
   filter: { archived?: boolean; search?: string },
-): Promise<Venue[]> {
+  page: PageRequest = {},
+): Promise<Page<Venue>> {
+  const paging = keyset<VenueRow>(
+    [
+      { column: venues.name, type: "text", of: (row) => row.name },
+      { column: venues.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  // Search matches the name or the address, as the Venues screen did (FLOW-179).
+  const term = filter.search ? `%${filter.search}%` : undefined;
   const rows = await db
     .select()
     .from(venues)
@@ -81,12 +92,15 @@ export async function listVenues(
         filter.archived
           ? isNotNull(venues.archivedAt)
           : isNull(venues.archivedAt),
-        filter.search ? ilike(venues.name, `%${filter.search}%`) : undefined,
+        term
+          ? or(ilike(venues.name, term), ilike(venues.address, term))
+          : undefined,
+        paging.where,
       ),
     )
-    .orderBy(asc(venues.name))
-    .limit(500);
-  return toVenues(db, actor, rows);
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toVenues(db, actor, kept));
 }
 
 export async function findVenue(db: DbLike, id: string) {
@@ -107,11 +121,10 @@ async function venueSnapshot(db: DbLike, id: string) {
 }
 
 // History hides venue contacts from part-time users, as toVenues does.
-export async function venueHistory(db: DbLike, actor: Actor, id: string) {
+export async function venueHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
   await findVenue(db, id);
-  return listHistory(db, "venue", id, (changes) =>
-    redactFieldHistory(actor, "venue", changes),
-  );
+  return listHistoryPage(db, "venue", id, (changes) =>
+    redactFieldHistory(actor, "venue", changes), page);
 }
 
 // The venue's live areas, in order; events copy them when the venue is picked.

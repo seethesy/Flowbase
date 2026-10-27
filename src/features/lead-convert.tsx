@@ -4,6 +4,7 @@ import type { Lead, LeadConversion } from "../../shared/leads";
 import { ApiRequestError, clientsApi } from "../services/core";
 import { leadsApi } from "../services/leads";
 import { useResource } from "../app/useResource";
+import { useDebounced } from "../app/paging";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { leadTitle } from "./lead-shared";
@@ -15,19 +16,45 @@ function ClientPicker({
   value: string;
   onChange: (id: string) => void;
 }) {
-  const clients = useResource(() => clientsApi.list(), []);
+  // Searches every client as you type (FLOW-179); the chosen client stays listed.
+  const [search, setSearch] = useState("");
+  const term = useDebounced(search.trim());
+  const clients = useResource(
+    ["clients", "search", term],
+    async () => (await clientsApi.list({ search: term || undefined })).rows,
+    { reference: true, keepPrevious: true },
+  );
+  const listed = clients.data?.find((client) => client.id === value);
+  const fetched = useResource(
+    ["clients", value],
+    () => clientsApi.get(value),
+    { enabled: Boolean(value && !listed) },
+  );
+  const chosen = !listed && fetched.data?.id === value ? fetched.data : undefined;
   if (clients.error) return <LoadError message={clients.error} />;
   return (
-    <FormField label="Existing client">
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Choose a client…</option>
-        {(clients.data ?? []).map((client) => (
-          <option key={client.id} value={client.id}>
-            {client.name}
-          </option>
-        ))}
-      </select>
-    </FormField>
+    <>
+      <FormField label="Find client">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Type a client or contact name"
+        />
+      </FormField>
+      <FormField label="Existing client">
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Choose a client…</option>
+          {[...(chosen ? [chosen] : []), ...(clients.data ?? [])].map(
+            (client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ),
+          )}
+        </select>
+      </FormField>
+    </>
   );
 }
 

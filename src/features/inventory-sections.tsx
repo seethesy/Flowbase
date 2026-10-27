@@ -24,8 +24,8 @@ import "./inventory.css";
 export function SectionList() {
   const [archived, setArchived] = useState(false);
   const sections = useResource(
+    ["sections", { archived }],
     () => sectionsApi.list({ archived }),
-    [archived],
   );
   const [name, setName] = useState("");
   const [kind, setKind] = useState<SectionKind>("rental");

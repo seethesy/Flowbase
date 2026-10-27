@@ -13,7 +13,11 @@ import {
 import { createApp } from "../../worker/app";
 import { restoreDefaultSections } from "./reference-data";
 import type { RunWithDb } from "../../worker/hono";
-import { findItem, recordMovement } from "../../worker/records/inventory";
+import {
+  findItem,
+  recordMovement,
+  recordImportedStock,
+} from "../../worker/records/inventory";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
 import type {
   CostChange,
@@ -87,6 +91,302 @@ const fullTimeStaff = signedInAs(people.cook, "staff", "full_time");
 const partTimeSales = signedInAs(people.cook, "salesperson", "part_time");
 const partTimeStaff = signedInAs(people.cook, "staff", "part_time");
 
+describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
+  it("persists rental details, redacts both costs, preserves hidden costs on edits and prevents direct repricing", async () => {
+    const input: ItemInput = {
+      kind: "rental",
+      subtype: "decor",
+      name: "Sash",
+      rental: {
+        priceCents: 300,
+        internalCostCents: 100,
+        replacementCostCents: 500,
+        colors: ["Gold", "Silver"],
+        dimensions: "8 × 100 inches",
+        assemblyNotes: "Tie to chair",
+        bufferDaysBefore: 2,
+        bufferDaysAfter: 3,
+      },
+    };
+    const row = await createItem(input);
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${row.id}`)).rental,
+    ).toMatchObject(input.rental!);
+    for (const user of [fullTimeStaff, partTimeStaff, cook]) {
+      const read = await user.get<InventoryItem>(
+        `/api/inventory/items/${row.id}`,
+      );
+      expect(read.rental).toMatchObject({
+        priceCents: 300,
+        internalCostCents: null,
+        replacementCostCents: null,
+      });
+    }
+    const changed = await admin.send<InventoryItem>(
+      "PUT",
+      `/api/inventory/items/${row.id}`,
+      {
+        ...input,
+        rental: {
+          ...input.rental,
+          internalCostCents: undefined,
+          replacementCostCents: undefined,
+          notes: "Keep clean",
+        },
+      },
+    );
+    expect(changed.rental).toMatchObject({
+      internalCostCents: 100,
+      replacementCostCents: 500,
+      notes: "Keep clean",
+    });
+    const proposer = signedInAs(people.lead, "technical");
+    await proposer.send(
+      "PUT",
+      `/api/inventory/items/${row.id}`,
+      {
+        ...input,
+        rental: {
+          ...input.rental,
+          priceCents: 400,
+          internalCostCents: undefined,
+          replacementCostCents: undefined,
+        },
+      },
+      409,
+    );
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${row.id}`)).rental
+        ?.priceCents,
+    ).toBe(300);
+    await admin.send("PUT", `/api/inventory/items/${row.id}`, {
+      ...input,
+      rental: { ...input.rental, priceCents: 400 },
+    });
+    expect(
+      (await admin.get<InventoryItem>(`/api/inventory/items/${row.id}`)).rental
+        ?.priceCents,
+    ).toBe(400);
+  });
+
+  it("keeps balances, transfers, counts and corrections separate for each color on one item", async () => {
+    const warehouse = await section("Warehouse");
+    const cafe = await section("Cafe");
+    const input: ItemInput = {
+      kind: "rental",
+      subtype: "linen",
+      name: "Chair sash",
+      rental: { colors: ["Gold", "Silver"] },
+    };
+    const row = await createItem(input);
+    for (const [color, quantity] of [
+      ["Gold", 10],
+      ["Silver", 5],
+    ] as const)
+      await admin.send(
+        "POST",
+        `/api/inventory/items/${row.id}/movements`,
+        {
+          type: "receive",
+          sectionId: warehouse.id,
+          color,
+          quantity,
+        },
+        201,
+      );
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${row.id}/transfers`,
+      {
+        fromSectionId: warehouse.id,
+        toSectionId: cafe.id,
+        color: "Gold",
+        quantity: 4,
+      },
+      201,
+    );
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${row.id}/transfers`,
+      {
+        fromSectionId: warehouse.id,
+        toSectionId: cafe.id,
+        color: "Silver",
+        quantity: 6,
+      },
+      409,
+    );
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${row.id}/counts`,
+      {
+        sectionId: warehouse.id,
+        color: "Gold",
+        quantity: 5,
+      },
+      201,
+    );
+    const movements = await admin.get<StockMovement[]>(
+      `/api/inventory/items/${row.id}/movements`,
+    );
+    const receipt = movements.find(
+      (m) => m.type === "receive" && m.color === "Silver",
+    )!;
+    await admin.send(
+      "POST",
+      `/api/inventory/movements/${receipt.id}/corrections`,
+      { quantity: 7, reason: "Invoice" },
+      201,
+    );
+    const result = await admin.get<InventoryItem>(
+      `/api/inventory/items/${row.id}`,
+    );
+    expect(result.totalQuantity).toBe(16);
+    expect(result.stock).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sectionId: warehouse.id,
+          color: "Gold",
+          quantity: 5,
+        }),
+        expect.objectContaining({
+          sectionId: warehouse.id,
+          color: "Silver",
+          quantity: 7,
+        }),
+        expect.objectContaining({
+          sectionId: cafe.id,
+          color: "Gold",
+          quantity: 4,
+        }),
+      ]),
+    );
+    await admin.send(
+      "PUT",
+      `/api/inventory/items/${row.id}`,
+      { ...input, rental: { colors: ["Gold"] } },
+      409,
+    );
+    await admin.send(
+      "POST",
+      `/api/inventory/items/${row.id}/movements`,
+      { type: "receive", sectionId: warehouse.id, color: "Blue", quantity: 1 },
+      409,
+    );
+    const ledger = await db
+      .select()
+      .from(stockMovements)
+      .where(eq(stockMovements.itemId, row.id));
+    for (const level of result.stock)
+      expect(
+        ledger
+          .filter(
+            (m) => m.sectionId === level.sectionId && m.color === level.color,
+          )
+          .reduce((sum, m) => sum + m.quantity, 0),
+      ).toBe(level.quantity);
+    const imported = () => db.transaction(async (tx) =>
+      recordImportedStock(tx, admin.actor, await findItem(tx, row.id), {
+        sectionId: warehouse.id,
+        quantity: 3,
+        importId: "e0000000-0000-4000-8000-000000000090",
+        fileName: "colors.csv",
+      }),
+    );
+    expect(await imported()).toBeTruthy();
+    expect(await imported()).toBeNull();
+    const afterImport = await admin.get<InventoryItem>(`/api/inventory/items/${row.id}`);
+    expect(afterImport.totalQuantity).toBe(19);
+    expect(afterImport.stock).toEqual(expect.arrayContaining(result.stock));
+    expect(afterImport.stock).toContainEqual(expect.objectContaining({ sectionId: warehouse.id, quantity: 3 }));
+  });
+
+  it("stores mixed kit/service components and rejects direct and indirect cycles, missing and non-stock references", async () => {
+    const glass = await createItem(chairs());
+    const supply = await createItem({
+      kind: "consumable",
+      subtype: "supply",
+      name: "Candle",
+      consumable: { purchaseUnit: "each" },
+    });
+    const input: ItemInput = {
+      kind: "rental",
+      subtype: "decor",
+      name: "Centerpiece",
+      rental: {
+        components: [
+          { itemId: glass.id, quantity: 1 },
+          { itemId: supply.id, quantity: 1 },
+        ],
+      },
+    };
+    const kit = await createItem(input);
+    expect(kit.rental?.components).toEqual(input.rental?.components);
+    const service = await createItem({
+      kind: "service",
+      name: "Setup",
+      service: {
+        pricedByQuote: true,
+        includes: [
+          { itemId: kit.id, quantity: 2, basis: "per_event" },
+          { itemId: supply.id, quantity: 1, basis: "per_guest" },
+        ],
+        addons: [{ name: "Upgrade", priceCents: 50 }],
+      },
+    });
+    expect(service.service).toMatchObject({
+      pricedByQuote: true,
+      addons: [{ name: "Upgrade", priceCents: 50 }],
+    });
+    expect(service.stock).toEqual([]);
+    for (const componentId of [
+      kit.id,
+      service.id,
+      "ffffffff-0000-4000-8000-000000000001",
+    ])
+      await admin.send(
+        "PUT",
+        `/api/inventory/items/${kit.id}`,
+        {
+          ...input,
+          rental: { components: [{ itemId: componentId, quantity: 1 }] },
+        },
+        componentId.startsWith("ffff") ? 404 : 409,
+      );
+    const second = await createItem({
+      kind: "rental",
+      subtype: "decor",
+      name: "Nested",
+      rental: { components: [{ itemId: kit.id, quantity: 1 }] },
+    });
+    await admin.send(
+      "PUT",
+      `/api/inventory/items/${kit.id}`,
+      {
+        ...input,
+        rental: { components: [{ itemId: second.id, quantity: 1 }] },
+      },
+      409,
+    );
+  });
+
+  it("defaults supplies to Supplies storage and includes below-par supplies in the low-stock list", async () => {
+    const storage = await section("Supplies", "consumable");
+    const supply = await createItem({
+      kind: "consumable",
+      subtype: "supply",
+      name: "Sternos",
+      ratio: { quantity: 2, basis: "per_event" },
+      consumable: { purchaseUnit: "case", packCount: 24, parLevel: 24 },
+    });
+    expect(supply.consumable?.storageSectionId).toBe(storage.id);
+    const low = await admin.get<InventoryItem[]>(
+      "/api/inventory/items?kind=consumable&subtype=supply&belowPar=true",
+    );
+    expect(low.map((row) => row.id)).toContain(supply.id);
+  });
+});
+
 const section = (name: string, kind: "rental" | "consumable" = "rental") =>
   admin.send<Section>("POST", "/api/inventory/sections", { name, kind }, 201);
 const createItem = (input: ItemInput, as = admin) =>
@@ -134,7 +434,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
+    sql`truncate table recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {

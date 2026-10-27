@@ -102,7 +102,11 @@ const channelColumns: ColumnDef<ChannelRow, unknown>[] = [
 export function LeadDashboardPage() {
   const navigate = useNavigate();
   const [range, setRange] = useState<{ from?: string; to?: string }>({});
-  const dashboard = useResource(() => leadsApi.dashboard(range), [range.from, range.to]);
+  const dashboard = useResource(
+    ["lead-dashboard", range.from, range.to],
+    () => leadsApi.dashboard(range),
+    { keepPrevious: true },
+  );
   const data = dashboard.data;
   return (
     <>

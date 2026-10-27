@@ -8,7 +8,7 @@ import {
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
 import { inventoryApi } from "../services/core";
-import { useResource } from "../app/useResource";
+import { LoadMore, usePagedList } from "../app/paging";
 import { Button, Section, LoadingSkeleton } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
@@ -25,9 +25,11 @@ export function MovementHistory({
   version: number;
   onCorrected: () => void;
 }) {
-  const movements = useResource(
-    () => inventoryApi.movements(item.id),
-    [item.id, version],
+  // Newest first, a page at a time (FLOW-179). Corrections are newer than the
+  // movement they correct, so they're loaded before it and its total is right.
+  const movements = usePagedList(
+    ["movements", item.id, version],
+    (cursor) => inventoryApi.movements(item.id, cursor),
   );
   const [correcting, setCorrecting] = useState<StockMovement | null>(null);
   const all = movements.data ?? [];
@@ -72,7 +74,10 @@ export function MovementHistory({
                       <span className="badge warning">Corrected</span>
                     )}
                   </td>
-                  <td>{movement.sectionName}</td>
+                  <td>
+                    {movement.sectionName}
+                    {movement.color ? ` · ${movement.color}` : ""}
+                  </td>
                   <td>{changeLabel(movement.quantity)}</td>
                   <td>{movement.reason || "—"}</td>
                   <td>
@@ -105,6 +110,7 @@ export function MovementHistory({
           onSaved={onCorrected}
         />
       )}
+      <LoadMore list={movements} label="Show older movements" />
     </Section>
   );
 }
@@ -117,9 +123,9 @@ export function CostHistory({
   item: InventoryItem;
   version: number;
 }) {
-  const history = useResource(
-    () => inventoryApi.costHistory(item.id),
-    [item.id, version],
+  const history = usePagedList(
+    ["cost-history", item.id, version],
+    (cursor) => inventoryApi.costHistory(item.id, cursor),
   );
   const unit = item.consumable ? unitLabel(item.consumable.purchaseUnit) : "";
   return (
@@ -152,6 +158,7 @@ export function CostHistory({
           </tbody>
         </table>
       )}
+      <LoadMore list={history} label="Show older changes" />
     </Section>
   );
 }

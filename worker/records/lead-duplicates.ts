@@ -11,7 +11,10 @@ import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients, leadDuplicates, leads } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
+import { writeAudit } from "../audit/log";
 import { can, clientScope, leadScope } from "../policy";
+import { auditLead, leadSnapshot } from "./lead-audit";
+import { keyset, type Page, type PageRequest } from "./paging";
 
 // Lead duplicate detection and merge (FLOW-110). A new lead is matched against
 // earlier leads and clients by email or phone, then by name and event date (the
@@ -230,17 +233,36 @@ export async function sourceLinksFor(db: DbLike, lead: LeadRow): Promise<LeadSou
 // The duplicates queue: open duplicates whose records the actor can all see.
 // Admin and the Sales Manager see every one, including cross-owner duplicates; a
 // salesperson sees only duplicates among their own leads and clients.
+// A page holds the open pairs the caller may resolve; pairs they can't see are
+// skipped, so a page can be shorter than the limit while more remain.
 export async function listLeadDuplicates(
   db: DbLike,
   actor: Actor,
-): Promise<LeadDuplicate[]> {
+  page: PageRequest = {},
+): Promise<Page<LeadDuplicate>> {
   if (leadScope(actor) === "none") throw forbidden();
+  type Row = typeof leadDuplicates.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: leadDuplicates.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: leadDuplicates.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
   const rows = await db
     .select()
     .from(leadDuplicates)
-    .where(eq(leadDuplicates.status, "open"))
-    .orderBy(desc(leadDuplicates.createdAt))
-    .limit(500);
+    .where(and(eq(leadDuplicates.status, "open"), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => visibleDuplicates(db, actor, kept));
+}
+
+async function visibleDuplicates(
+  db: DbLike,
+  actor: Actor,
+  rows: (typeof leadDuplicates.$inferSelect)[],
+): Promise<LeadDuplicate[]> {
   const byId = await leadsById(
     db,
     rows.flatMap((row) => [row.leadId, ...(row.matchedLeadId ? [row.matchedLeadId] : [])]),
@@ -295,12 +317,25 @@ async function resolvableDuplicate(db: DbLike, actor: Actor, id: string) {
   return { row, byId };
 }
 
+// The dismissal shows in the history of the lead the duplicate was found for
+// (FLOW-185), naming the duplicate record rather than what it matched.
 export async function dismissLeadDuplicate(db: Db, actor: Actor, id: string) {
   const { row } = await resolvableDuplicate(db, actor, id);
-  await db
-    .update(leadDuplicates)
-    .set({ status: "dismissed", resolvedAt: new Date(), resolvedBy: actor.userId, updatedBy: actor.userId })
-    .where(and(eq(leadDuplicates.id, row.id), eq(leadDuplicates.status, "open")));
+  await db.transaction(async (tx) => {
+    const dismissed = await tx
+      .update(leadDuplicates)
+      .set({ status: "dismissed", resolvedAt: new Date(), resolvedBy: actor.userId, updatedBy: actor.userId })
+      .where(and(eq(leadDuplicates.id, row.id), eq(leadDuplicates.status, "open")))
+      .returning({ id: leadDuplicates.id });
+    if (dismissed.length)
+      await writeAudit(tx, actor, {
+        entityType: "lead",
+        entityId: row.leadId,
+        action: "update",
+        before: { dismissedDuplicateId: null },
+        after: { dismissedDuplicateId: row.id },
+      });
+  });
 }
 
 // The fields a merge copies to the kept lead when it has none of its own.
@@ -346,6 +381,8 @@ export async function mergeLeadDuplicate(
     );
   const now = new Date();
   await db.transaction(async (tx) => {
+    const keptBefore = await leadSnapshot(tx, keep.id);
+    const otherBefore = await leadSnapshot(tx, other.id);
     const archived = await tx
       .update(leads)
       .set({
@@ -418,6 +455,10 @@ export async function mergeLeadDuplicate(
         .set({ leadId, matchedLeadId, updatedBy: actor.userId })
         .where(eq(leadDuplicates.id, dup.id));
     }
+    // One row on each lead: the kept lead lists the merged one and any details it
+    // took; the merged lead is archived with a link to the kept one (FLOW-185).
+    await auditLead(tx, actor, keep.id, keptBefore);
+    await auditLead(tx, actor, other.id, otherBefore, "archive");
     await emitDomainEvent(tx, {
       name: "lead.merged",
       entityId: keep.id,
