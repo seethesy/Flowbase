@@ -193,7 +193,7 @@ const exportPaged = async (
     reader.onload = () => resolve(String(reader.result));
     reader.readAsText(exported[0]);
   });
-  return text.replace(/^﻿/, "").trimEnd().split("\r\n");
+  return text.replace(/^\ufeff/, "").trimEnd().split("\r\n");
 };
 
 it("walks every page and reports progress (FLOW-216)", async () => {
