@@ -52,6 +52,7 @@ const expected: Record<Action, string> = {
   "venues.write": "1111000",
   "events.write": "1111000",
   "events.status": "1001000",
+  "events.production_leads": "1010000",
   "leads.read": "1111000",
   "leads.update": "1111000",
   "leads.convert": "1111000",

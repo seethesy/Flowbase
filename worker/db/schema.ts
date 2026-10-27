@@ -15,6 +15,7 @@ import {
   type ExtraConfigColumn,
 } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../shared/core-records";
+import { departments, shiftKinds } from "../../shared/event-staff";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { recipeCategories } from "../../shared/recipes";
@@ -293,6 +294,8 @@ export const events = pgTable(
       .notNull()
       .default([]),
     dressCode: text("dress_code").notNull().default(""),
+    // Venue arrival time on the event date (FLOW-140).
+    arrivesAt: timestamptz("arrives_at"),
     transportationNotes: text("transportation_notes").notNull().default(""),
     internalNotes: text("internal_notes").notNull().default(""),
     status: text("status", { enum: eventStatuses })
@@ -324,6 +327,47 @@ export const eventAreas = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [index("event_areas_event_idx").on(table.eventId)],
+).enableRLS();
+
+// The event's staff roster (FLOW-140): shifts on the pull/load day, the setup day
+// and the event day, each with its own times and activities.
+export const eventShifts = pgTable(
+  "event_shifts",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    kind: text("kind", { enum: shiftKinds }).notNull(),
+    startsAt: timestamptz("starts_at").notNull(),
+    endsAt: timestamptz("ends_at").notNull(),
+    activities: text("activities").notNull().default(""),
+  },
+  (table) => [
+    index("event_shifts_event_idx").on(table.eventId),
+    oneOf("event_shifts_kind_check", table.kind, shiftKinds),
+    check("event_shifts_ends_after_start", sql`${table.endsAt} > ${table.startsAt}`),
+  ],
+).enableRLS();
+
+// A staffing slot on a shift: a position, open until someone is assigned to it.
+export const eventStaffSlots = pgTable(
+  "event_staff_slots",
+  {
+    ...baseColumns(),
+    shiftId: uuid("shift_id")
+      .notNull()
+      .references(() => eventShifts.id),
+    position: text("position").notNull(),
+    department: text("department", { enum: departments }).notNull(),
+    assigneeId: uuid("assignee_id").references(() => users.id),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    index("event_staff_slots_shift_idx").on(table.shiftId),
+    index("event_staff_slots_assignee_idx").on(table.assigneeId),
+    oneOf("event_staff_slots_department_check", table.department, departments),
+  ],
 ).enableRLS();
 
 // Audit log (FLOW-41): one append-only row per create, update, archive or restore

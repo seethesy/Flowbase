@@ -3,7 +3,7 @@ import type { EventHub } from "../../shared/event-hub";
 import type { HistoryEntry } from "../../shared/audit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -79,6 +79,12 @@ const partTimeSam = signedInAs(people.sam, "salesperson", "part_time");
 const lead = signedInAs(people.lead, "kitchen_lead");
 const helper = signedInAs(people.helper, "staff", "part_time");
 
+const setLeads = (eventId: string, primary: string, assistants: string[]) =>
+  db
+    .update(schema.events)
+    .set({ productionLeadId: primary, assistantLeadIds: assistants })
+    .where(eq(schema.events.id, eventId));
+
 const newClient = (overrides: Partial<ClientInput> = {}): ClientInput => ({
   name: "Juniper & Co.",
   kind: "organization",
@@ -98,7 +104,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -398,15 +404,15 @@ describe("events", () => {
     const owner = await admin.post<Client>("/api/clients", newClient());
     const led = await admin.post<FlowEvent>(
       "/api/events",
-      newEvent(owner.id, { title: "Led", productionLeadId: people.lead }),
+      newEvent(owner.id, { title: "Led" }),
     );
     const assisted = await admin.post<FlowEvent>(
       "/api/events",
-      newEvent(owner.id, {
-        title: "Assisted",
-        assistantLeadIds: [people.helper],
-      }),
+      newEvent(owner.id, { title: "Assisted" }),
     );
+    // Stored directly: naming leads through the API needs real users (FLOW-140).
+    await setLeads(led.id, people.lead, []);
+    await setLeads(assisted.id, people.admin, [people.helper]);
     await admin.post<FlowEvent>(
       "/api/events",
       newEvent(owner.id, { title: "Other" }),
@@ -570,11 +576,9 @@ it("projects contacts consistently in records, event hubs and historical values"
   const venue = await admin.post<Venue>("/api/venues", newVenue());
   const event = await sam.post<FlowEvent>(
     "/api/events",
-    newEvent(owner.id, {
-      venueId: venue.id,
-      productionLeadId: people.sam,
-    }),
+    newEvent(owner.id, { venueId: venue.id }),
   );
+  await setLeads(event.id, people.sam, []);
   for (const role of roles)
     for (const employmentType of employmentTypes) {
       const who = signedInAs(people.sam, role, employmentType);
