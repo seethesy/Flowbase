@@ -1,41 +1,61 @@
 import { test as base, expect, type Page } from "@playwright/test";
-import { clients, proposals, inventory } from "../../src/data/mock/fixtures";
+import { SignJWT } from "jose";
+import { seedUsers } from "../../worker/db/seed";
+import { userSchema } from "../../shared/users";
+import { resetBrowserDatabase } from "./database";
+import { defaultSections } from "./fixtures";
+import { testIssuer, testSigningKey } from "./test-auth";
+import { validateApiResponse } from "./response-contracts";
 
-export const signedInUser = {
-  id: "36000000-0000-4000-8000-000000000003",
+export const signedInUser = userSchema.parse({
+  ...seedUsers[0],
   name: "Test Admin",
-  email: "admin@gmail.com",
-  role: "admin",
-  employmentType: "full_time",
-  mobile: "2025550101",
-  status: "active",
   invitedAt: "2026-10-20T00:00:00.000Z",
   activatedAt: "2026-10-20T00:00:00.000Z",
-};
+});
+
+// Simulate only the external OAuth provider. All /api requests reach the Worker,
+// including /auth/config and /auth/me; allowlist and permissions are real.
 export async function mockBrowserAuth(
   page: Page,
-  { signedIn = true, allowed = true } = {},
+  { signedIn = true, allowed = true, userId = signedInUser.id } = {},
 ) {
+  const staff = seedUsers.find((u) => u.id === userId)!;
+  const sub = allowed ? staff.authId : "ffffffff-0000-4000-8000-000000000001";
+  const email = allowed ? staff.email : "not-invited@flowbase.example";
+  const name = userId === signedInUser.id ? "Test Admin" : staff.name;
+  const accessToken = await new SignJWT({
+    email,
+    user_metadata: { full_name: name },
+    role: "authenticated",
+    app_metadata: { providers: ["google"] },
+    amr: [{ method: "oauth" }],
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(sub)
+    .setIssuer(testIssuer)
+    .setAudience("authenticated")
+    .setIssuedAt()
+    .setExpirationTime("2h")
+    .sign(testSigningKey);
   const user = {
-    id: signedInUser.id,
+    id: sub,
     aud: "authenticated",
     role: "authenticated",
-    email: signedInUser.email,
+    email,
     app_metadata: { providers: ["google"] },
-    user_metadata: { full_name: signedInUser.name },
+    user_metadata: { full_name: name },
     created_at: signedInUser.invitedAt,
   };
   const session = {
-    access_token: "mock-access-token",
-    refresh_token: "mock-refresh-token",
+    access_token: accessToken,
+    refresh_token: "test-refresh-token",
     token_type: "bearer",
-    expires_in: 3600,
-    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    expires_in: 7200,
     user,
   };
   await page.addInitScript(
     ({ signedIn, session }) => {
-      // Seed only once per browser context, so sign-out survives a reload.
       if (!localStorage.getItem("auth-fixture-initialized")) {
         localStorage.setItem("auth-fixture-initialized", "1");
         if (signedIn)
@@ -43,21 +63,12 @@ export async function mockBrowserAuth(
             "sb-test-auth-token",
             JSON.stringify({
               ...session,
-              // Use the browser's clock, including the tracking suite's fake date.
-              expires_at: Math.floor(Date.now() / 1000) + 3600,
+              expires_at: Math.floor(Date.now() / 1000) + 7200,
             }),
           );
       }
     },
     { signedIn, session },
-  );
-  await page.route("**/api/auth/config", (route) =>
-    route.fulfill({
-      json: {
-        url: "https://test.supabase.co",
-        publishableKey: "test-publishable-key",
-      },
-    }),
   );
   await page.route("https://test.supabase.co/auth/v1/**", async (route) => {
     const headers = {
@@ -67,58 +78,58 @@ export async function mockBrowserAuth(
         "authorization, apikey, content-type, x-client-info, x-supabase-api-version",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     };
-    if (route.request().method() === "OPTIONS")
+    if (
+      route.request().method() === "OPTIONS" ||
+      route.request().url().includes("/logout")
+    )
       return route.fulfill({ status: 204, headers });
-    if (route.request().url().includes("/logout"))
-      return route.fulfill({ status: 204, headers });
-    if (route.request().url().includes("/token"))
-      // Supabase's SDK derives expires_at from expires_in using the browser's
-      // clock. Returning the Node process's timestamp loops forever when the
-      // tracking suite advances the browser to a future date.
-      return route.fulfill({
-        json: { ...session, expires_at: undefined },
-        headers,
-      });
-    return route.fulfill({ json: user, headers });
-  });
-  await page.route("**/api/auth/me", async (route) => {
-    if (allowed) {
-      expect(route.request().headers().authorization).toBe(
-        "Bearer mock-access-token",
-      );
-      return route.fulfill({ json: signedInUser });
-    }
+    // Supabase's third-party SDK protocol has no Flowbase shared response schema.
     return route.fulfill({
-      status: 403,
-      json: {
-        error: {
-          code: "ACCOUNT_NOT_ALLOWED",
-          message:
-            "Your account isn't invited or is inactive. Contact your Admin.",
-          requestId: "auth-test",
-        },
-      },
-    });
-  });
-  // Other browser suites exercise their existing fake record APIs. Keep demo
-  // fixtures here too: the real Worker now requires a verifiable JWT for them.
-  const fixtures = { clients, proposals, inventory };
-  await page.route("**/api/demo/**", (route) => {
-    const resource = new URL(route.request().url()).pathname.split(
-      "/",
-    )[3] as keyof typeof fixtures;
-    const method = route.request().method();
-    if (method === "DELETE") return route.fulfill({ status: 204 });
-    return route.fulfill({
-      json:
-        method === "GET" ? fixtures[resource] : route.request().postDataJSON(),
+      json: route.request().url().includes("/token") ? session : user,
+      headers,
     });
   });
 }
 
-export const test = base.extend<{ authenticatedWorkspace: void }>({
-  authenticatedWorkspace: [
+export const databaseTest = base.extend<{ database: void; contracts: void }>({
+  database: [
+    async ({ request }, use) => {
+      void request;
+      await resetBrowserDatabase(defaultSections);
+      await use();
+    },
+    { auto: true },
+  ],
+  contracts: [
     async ({ page }, use) => {
+      const pending: Promise<void>[] = [];
+      const failures: string[] = [];
+      page.on("response", (response) => {
+        if (!new URL(response.url()).pathname.startsWith("/api/")) return;
+        pending.push(
+          (async () => {
+            try {
+              await validateApiResponse(response);
+            } catch (error) {
+              failures.push(`${response.url()}: ${String(error)}`);
+            }
+          })(),
+        );
+      });
+      await use();
+      await Promise.all(pending);
+      expect(
+        failures,
+        "Every browser API response must match its shared contract",
+      ).toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+export const test = databaseTest.extend<{ authenticatedWorkspace: void }>({
+  authenticatedWorkspace: [
+    async ({ page, database }, use) => {
+      void database;
       await mockBrowserAuth(page);
       await use();
     },

@@ -1,5 +1,6 @@
 import { test, expect } from "./auth-fixture";
-import { consumable, defaultSections, mockInventoryApi } from "./mock-api";
+import { consumable, defaultSections } from "./fixtures";
+import { seedInventory } from "./database";
 
 const barStorage = defaultSections[6];
 const bar = (
@@ -29,7 +30,7 @@ const bar = (
 test("filters the bar screen by category, subcategory, tier and distributor", async ({
   page,
 }) => {
-  await mockInventoryApi(page, {
+  await seedInventory({
     items: [
       bar("Tito's Vodka", "Liquor", "mid", {
         brand: "Tito's",
@@ -97,7 +98,7 @@ test("filters the bar screen by category, subcategory, tier and distributor", as
 });
 
 test("creates a bar item kept in Bar Storage", async ({ page }) => {
-  await mockInventoryApi(page);
+  await seedInventory();
   await page.goto("/#/inventory/bar");
   await page.getByRole("button", { name: "New Bar Item", exact: true }).click();
   const dialog = page.getByRole("dialog");

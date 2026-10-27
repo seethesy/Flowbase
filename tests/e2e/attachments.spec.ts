@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "./auth-fixture";
-import { mockAttachmentsApi, mockRecordsApi } from "./mock-api";
+import { seedRecords } from "./database";
+import { mockAttachmentsApi } from "./mock-api";
 
 const openNewVenue = async (page: Page) => {
   await page.goto("/#/venues");
@@ -17,7 +18,7 @@ const openNewVenue = async (page: Page) => {
 test("a large phone photo is resized in the browser and only the resized copies upload", async ({
   page,
 }) => {
-  await mockRecordsApi(page);
+  await seedRecords();
   const r2 = await mockAttachmentsApi(page);
   await openNewVenue(page);
   // A noisy 2400×1500 PNG compresses badly, like a ~10 MB phone photo.
@@ -53,7 +54,7 @@ test("a large phone photo is resized in the browser and only the resized copies 
 test("unsupported files are rejected before anything uploads", async ({
   page,
 }) => {
-  await mockRecordsApi(page);
+  await seedRecords();
   const r2 = await mockAttachmentsApi(page);
   await openNewVenue(page);
   await page.getByLabel("Add to Aerial images").setInputFiles({

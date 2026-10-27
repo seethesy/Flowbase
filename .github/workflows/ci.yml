@@ -59,6 +59,8 @@ jobs:
       # FLOW-182: a second run on the same database, in shuffled file order, keeps
       # the suite re-runnable and order-independent.
       - run: npm run test:db -- --sequence.shuffle.files
+      - name: Verify development seed command
+        run: npm run db:seed
       - run: npm run build
       - name: Cache Playwright Chromium
         if: steps.changes.outputs.code == 'true'

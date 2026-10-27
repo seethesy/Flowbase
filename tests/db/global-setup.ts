@@ -2,6 +2,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { assertTestDatabaseUrl } from "./test-database";
+import { seedDatabase } from "../../worker/db/seed";
 
 // Runs once per `npm run test:db` (FLOW-182): every run starts from an empty
 // public schema with the committed migrations applied once, so the suite passes
@@ -18,4 +19,5 @@ export default async function setup() {
   } finally {
     await client.end();
   }
+  await seedDatabase(url);
 }

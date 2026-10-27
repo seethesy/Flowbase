@@ -82,13 +82,16 @@ export async function verifyGoogleToken(
   }
 }
 
-export function createActorResolver(withDb?: RunWithDb): ResolveActor {
+export function createActorResolver(
+  withDb?: RunWithDb,
+  verify: typeof verifyGoogleToken = verifyGoogleToken,
+): ResolveActor {
   return async (c) => {
     const match = /^Bearer ([^\s]+)$/i.exec(
       c.req.header("Authorization") ?? "",
     );
     if (!match) return null;
-    const claims = await verifyGoogleToken(match[1], c.env);
+    const claims = await verify(match[1], c.env);
     if (!claims) return null;
     const meta = claims.user_metadata as
       { full_name?: string; name?: string } | undefined;

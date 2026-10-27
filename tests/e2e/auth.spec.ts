@@ -1,4 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { databaseTest as test, expect } from "./auth-fixture";
+import { apiErrorSchema } from "../../shared/api";
+import { userSchema } from "../../shared/users";
 import { mockBrowserAuth, signedInUser } from "./auth-fixture";
 
 test("an invited Google account reaches its current route and can sign out", async ({
@@ -50,13 +52,13 @@ test("a 401 returns to Google sign-in and retains the route and its filters", as
   await page.route("**/api/admin/users", (route) =>
     route.fulfill({
       status: 401,
-      json: {
+      json: apiErrorSchema.parse({
         error: {
           code: "UNAUTHENTICATED",
           message: "Expired session.",
-          requestId: "expired-test",
+          requestId: "36000000-0000-4000-8000-000000000099",
         },
-      },
+      }),
     }),
   );
   await page.goto("/#/settings/users?status=pending");
@@ -87,6 +89,7 @@ test("Admin can invite staff, resend/revoke pending invites, and deactivate/reac
   page,
 }) => {
   await mockBrowserAuth(page);
+  // Invitation delivery depends on Supabase mail; retain this transport scenario.
   let staff = {
     ...signedInUser,
     id: "36000000-0000-4000-8000-000000000004",
@@ -99,7 +102,10 @@ test("Admin can invite staff, resend/revoke pending invites, and deactivate/reac
   await page.route("**/api/admin/users**", async (route) => {
     const method = route.request().method();
     const path = new URL(route.request().url()).pathname;
-    if (method === "GET") return route.fulfill({ json: added ? [staff] : [] });
+    if (method === "GET")
+      return route.fulfill({
+        json: userSchema.array().parse(added ? [staff] : []),
+      });
     if (path === "/api/admin/users") {
       expect(route.request().postDataJSON()).toMatchObject({
         email: staff.email,
@@ -116,7 +122,7 @@ test("Admin can invite staff, resend/revoke pending invites, and deactivate/reac
       if (action === "reactivate") staff.status = "active";
     }
     return route.fulfill({
-      json: staff,
+      json: userSchema.parse(staff),
       status: path === "/api/admin/users" ? 201 : 200,
     });
   });

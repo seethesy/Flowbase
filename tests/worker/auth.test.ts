@@ -7,6 +7,7 @@ import type { Db } from "../../worker/db/client";
 import { resolveUser } from "../../worker/records/users";
 import { roleSchema } from "../../shared/access";
 import { nextUserStatus } from "../../shared/users";
+import { testSigningKey } from "../e2e/test-auth";
 
 vi.mock("../../worker/records/users", async (original) => ({
   ...(await original<typeof import("../../worker/records/users")>()),
@@ -112,6 +113,32 @@ it("refuses tampered signatures, malformed and missing tokens before accessing t
     );
     expect(response.status).toBe(401);
   }
+  expect(db).not.toHaveBeenCalled();
+});
+it("the production app rejects the browser fixture signing key before any database access", async () => {
+  const jwt = await new SignJWT({
+    sub: id,
+    email: "invited@gmail.com",
+    role: "authenticated",
+    app_metadata: { providers: ["google"] },
+    amr: [{ method: "oauth" }],
+  })
+    .setIssuer(issuer)
+    .setAudience("authenticated")
+    .setExpirationTime("1h")
+    .setProtectedHeader({ alg: "HS256" })
+    .sign(testSigningKey);
+  const db = vi.fn<RunWithDb>();
+  const response = await createApp({
+    withDb: db as unknown as RunWithDb,
+  }).request(
+    "/api/demo/clients",
+    {
+      headers: { Authorization: `Bearer ${jwt}` },
+    },
+    env,
+  );
+  expect(response.status).toBe(401);
   expect(db).not.toHaveBeenCalled();
 });
 it("refuses a deactivated/uninvited user on the next request with an existing valid JWT", async () => {

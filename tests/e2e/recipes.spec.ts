@@ -1,14 +1,26 @@
 import { test, expect } from "./auth-fixture";
-import { mockAttachmentsApi, mockInventoryApi } from "./mock-api";
-import { mockRecipesApi, tuscanCatalogItems } from "./mock-recipes";
+import { consumableDetailsInputSchema } from "../../shared/inventory";
+import { tuscanIngredients } from "../fixtures/tuscan-chicken";
+import { seedInventory } from "./database";
+import { consumable } from "./fixtures";
+
+// The Tuscan Chicken ingredients in the catalog, with no unit costs yet.
+const tuscanCatalogItems = () =>
+  Object.values(tuscanIngredients).map((input) =>
+    consumable(input.name, {
+      unit: input.unit,
+      category: input.category,
+      details: {
+        ...consumableDetailsInputSchema.parse(input.consumable),
+        unitCostCents: null,
+      },
+    }),
+  );
 
 // FLOW-93/94/95/98: enter Tuscan Chicken, see its cost and allergens, scale it,
 // then edit it.
 test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => {
-  const catalog = tuscanCatalogItems();
-  await mockInventoryApi(page, { items: catalog });
-  await mockRecipesApi(page, catalog);
-  await mockAttachmentsApi(page);
+  await seedInventory({ items: tuscanCatalogItems() });
   await page.goto("/");
   if (isMobile)
     await page.getByRole("button", { name: "Open navigation" }).click();
