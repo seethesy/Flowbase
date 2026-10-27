@@ -293,7 +293,7 @@ export function RecipeForm({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   // Every ingredient, whatever the page size (FLOW-179): the picker must be
-  // complete. Shared by every recipe form on the page (FLOW-189).
+  // complete.
   const ingredients = useResource(
     ["inventory-items", "ingredients", "all"],
     () =>
