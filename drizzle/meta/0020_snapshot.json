@@ -1,5 +1,5 @@
 {
-  "id": "38fe7a77-55c2-4e66-ba6b-e87788f9a9c4",
+  "id": "cdd0782f-5a3f-4964-965f-b4aa6eb4a14b",
   "prevId": "1c2cc9f0-2f4f-496e-8f7e-7e192874989d",
   "version": "7",
   "dialect": "postgresql",
@@ -1785,20 +1785,6 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
-        "dietary_tags": {
-          "name": "dietary_tags",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "allergens_verified": {
-          "name": "allergens_verified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "storage_section_id": {
           "name": "storage_section_id",
           "type": "uuid",
@@ -3328,8 +3314,8 @@
       },
       "isRLSEnabled": true
     },
-    "public.recipe_lines": {
-      "name": "recipe_lines",
+    "public.list_values": {
+      "name": "list_values",
       "schema": "",
       "columns": {
         "id": {
@@ -3371,42 +3357,17 @@
           "primaryKey": false,
           "notNull": false
         },
-        "recipe_id": {
-          "name": "recipe_id",
-          "type": "uuid",
+        "list_key": {
+          "name": "list_key",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "item_id": {
-          "name": "item_id",
-          "type": "uuid",
+        "label": {
+          "name": "label",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "numeric(14, 4)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "unit": {
-          "name": "unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "prep_note": {
-          "name": "prep_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "entered_cost_cents": {
-          "name": "entered_cost_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "sort_order": {
           "name": "sort_order",
@@ -3417,11 +3378,17 @@
         }
       },
       "indexes": {
-        "recipe_lines_recipe_idx": {
-          "name": "recipe_lines_recipe_idx",
+        "list_values_list_idx": {
+          "name": "list_values_list_idx",
           "columns": [
             {
-              "expression": "recipe_id",
+              "expression": "list_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_order",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3432,58 +3399,43 @@
           "method": "btree",
           "with": {}
         },
-        "recipe_lines_item_idx": {
-          "name": "recipe_lines_item_idx",
+        "list_values_label_idx": {
+          "name": "list_values_label_idx",
           "columns": [
             {
-              "expression": "item_id",
+              "expression": "list_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "lower(\"label\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
+          "where": "\"list_values\".\"archived_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
-      "foreignKeys": {
-        "recipe_lines_recipe_id_recipes_id_fk": {
-          "name": "recipe_lines_recipe_id_recipes_id_fk",
-          "tableFrom": "recipe_lines",
-          "tableTo": "recipes",
-          "columnsFrom": [
-            "recipe_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "recipe_lines_item_id_inventory_items_id_fk": {
-          "name": "recipe_lines_item_id_inventory_items_id_fk",
-          "tableFrom": "recipe_lines",
-          "tableTo": "inventory_items",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "list_values_list_key_check": {
+          "name": "list_values_list_key_check",
+          "value": "\"list_values\".\"list_key\" in ('staff_position', 'event_type', 'service_type', 'food_service_style', 'dress_code', 'lead_source', 'vehicle', 'recipe_category', 'rental_category', 'decor_category', 'kitchen_equipment_category', 'ingredient_category', 'supply_category')"
+        }
+      },
       "isRLSEnabled": true
     },
-    "public.recipes": {
-      "name": "recipes",
+    "public.settings": {
+      "name": "settings",
       "schema": "",
       "columns": {
         "id": {
@@ -3525,103 +3477,36 @@
           "primaryKey": false,
           "notNull": false
         },
-        "name": {
-          "name": "name",
+        "key": {
+          "name": "key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "category": {
-          "name": "category",
-          "type": "text",
+        "value": {
+          "name": "value",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "steps": {
-          "name": "steps",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "finishing_note": {
-          "name": "finishing_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "yield_servings": {
-          "name": "yield_servings",
-          "type": "numeric(14, 4)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "portion_size": {
-          "name": "portion_size",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "allergen_override": {
-          "name": "allergen_override",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dietary_override": {
-          "name": "dietary_override",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
         }
       },
-      "indexes": {
-        "recipes_name_idx": {
-          "name": "recipes_name_idx",
-          "columns": [
-            {
-              "expression": "category",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(\"name\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "settings_key_unique": {
+          "name": "settings_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "key"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
-        "recipes_category_check": {
-          "name": "recipes_category_check",
-          "value": "\"recipes\".\"category\" in ('appetizers', 'mains', 'sides', 'desserts', 'drinks', 'additional_items')"
+        "settings_key_check": {
+          "name": "settings_key_check",
+          "value": "\"settings\".\"key\" in ('company', 'defaults')"
         }
       },
       "isRLSEnabled": true
@@ -4161,6 +4046,26 @@
         },
         "activated_at": {
           "name": "activated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "positions": {
+          "name": "positions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "sms_consent_at": {
+          "name": "sms_consent_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

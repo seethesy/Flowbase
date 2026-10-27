@@ -7,7 +7,8 @@ import { assertTestDatabaseUrl } from "../db/test-database";
 import type { Client, FlowEvent } from "../../shared/core-records";
 import type { InventoryItem, Section } from "../../shared/inventory";
 import type { Lead, LeadDuplicateReason } from "../../shared/leads";
-import { businessTimeToUtc } from "../../shared/time";
+import { addLocalDays, businessTimeToUtc } from "../../shared/time";
+import { defaultListValues, listKeys } from "../../shared/settings";
 
 export async function browserDb<T>(run: (db: Db) => Promise<T>) {
   const client = postgres(assertTestDatabaseUrl(process.env.DATABASE_URL), {
@@ -41,6 +42,16 @@ export async function resetBrowserDatabase(sections: Section[]) {
           name: i === 0 ? "Test Admin" : u.name,
         })),
       );
+    // The truncate also clears the lists migration 0021 seeds (FLOW-45).
+    await db.insert(s.listValues).values(
+      listKeys.flatMap((listKey) =>
+        defaultListValues[listKey].map((label, sortOrder) => ({
+          listKey,
+          label,
+          sortOrder,
+        })),
+      ),
+    );
     await db
       .insert(s.inventorySections)
       .values(
@@ -84,11 +95,13 @@ export async function seedRecords(
     for (const row of seed.events ?? []) {
       // Use the same wall-clock conversion as production. No retained event API mock.
       const startsAt = businessTimeToUtc(row.date, row.startTime);
-      let endsAt = row.endTime
-        ? businessTimeToUtc(row.date, row.endTime)
+      const endDate =
+        row.endTime && row.endTime < row.startTime
+          ? addLocalDays(row.date, 1)
+          : row.date;
+      const endsAt = row.endTime
+        ? businessTimeToUtc(endDate, row.endTime)
         : null;
-      if (endsAt && endsAt < startsAt)
-        endsAt = new Date(endsAt.getTime() + 86_400_000);
       await db
         .insert(s.events)
         .values({
@@ -164,8 +177,6 @@ export async function seedInventory(seed: { items?: InventoryItem[] } = {}) {
             preferredVendor: c.preferredVendor,
             parLevel: c.parLevel,
             allergens: c.allergens,
-            dietaryTags: c.dietaryTags,
-            allergensVerified: c.allergensVerified,
             storageSectionId: c.storageSectionId,
             storageOrder: c.storageOrder,
           });

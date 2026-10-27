@@ -17,8 +17,8 @@ const tuscanCatalogItems = () =>
     }),
   );
 
-// FLOW-93/94/95/98: enter Tuscan Chicken, see its cost and allergens, scale it,
-// then edit it.
+// FLOW-93/94/95/98: enter Tuscan Chicken with its allergens, see its cost, scale
+// it, then edit it.
 test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => {
   await seedInventory({ items: tuscanCatalogItems() });
   await page.goto("/");
@@ -62,6 +62,11 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
     .getByLabel(/^Steps/)
     .fill("1. Sear the chicken.\n2. Simmer the sauce.");
   await dialog.getByLabel(/^Finishing note/).fill("garnish with basil");
+  // FLOW-95: allergens and dietary tags are set on the dish.
+  await dialog
+    .getByRole("group", { name: "Allergens" })
+    .getByLabel("Milk", { exact: true })
+    .check();
   await dialog.getByRole("button", { name: "Save recipe" }).click();
   await expect(dialog).toHaveCount(0);
 
@@ -73,12 +78,10 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
   await expect(page.getByRole("row", { name: /^Per serving \$0\.54/ })).toBeVisible();
   await expect(page.getByText("2 lines have no cost and count as $0.")).toBeVisible();
   await expect(page.getByText("As needed")).toHaveCount(2);
-  // FLOW-95 AC1.
   const tags = page.locator("section", {
     has: page.getByRole("heading", { name: "Allergens and dietary tags" }),
   });
   await expect(tags.getByText("Milk", { exact: true })).toBeVisible();
-  await expect(tags.getByText("Contains meat", { exact: true })).toBeVisible();
   const method = page.locator("section", {
     has: page.getByRole("heading", { name: "Method" }),
   });
@@ -98,20 +101,20 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
     scaled.getByRole("row", { name: "Heavy Cream 1.2 cup 0.05 case" }),
   ).toBeVisible();
 
-  // FLOW-95 AC3: an override is shown as one.
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog.getByLabel("Override allergens").check();
   await dialog
-    .getByRole("group", { name: "Allergen override" })
+    .getByRole("group", { name: "Allergens" })
     .getByLabel("Tree nuts", { exact: true })
     .check();
+  const dietary = dialog.getByRole("group", { name: "Dietary tags" });
+  await expect(dietary.getByText("No ingredient contains meat.")).toBeVisible();
+  await dietary.getByLabel(/^Gluten-free/).check();
   // FLOW-93 AC2: a recipe saves without a yield.
   await dialog.getByLabel(/^Yield/).fill("");
   await dialog.getByRole("button", { name: "Save recipe" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(tags).toContainText("Milk, Tree nuts");
-  await expect(tags.getByText("Override", { exact: true })).toBeVisible();
-  await expect(tags.getByText("From the ingredients: Milk")).toBeVisible();
+  await expect(tags).toContainText("Gluten-free");
   await expect(page.getByRole("row", { name: /^Per serving Needs a yield/ })).toBeVisible();
 
   // FLOW-98 AC2: no yield, no quantities.

@@ -76,7 +76,7 @@ const MAX_UNSENT = 100;
 export class ActivityTracker {
   private readonly now: () => number;
   private readonly send: SendSessions;
-  private readonly idleCutoffMs: number;
+  private idleCutoffMs: number;
   private readonly flushIntervalMs: number;
   private readonly newId: () => string;
   private visible: boolean;
@@ -102,6 +102,12 @@ export class ActivityTracker {
     this.idleCutoffMs = options.idleCutoffMs ?? IDLE_CUTOFF_MS;
     this.flushIntervalMs = options.flushIntervalMs ?? FLUSH_INTERVAL_MS;
     this.newId = options.newId ?? (() => crypto.randomUUID());
+  }
+
+  // Admin changed the idle cutoff in business settings (FLOW-45).
+  setIdleCutoff(ms: number) {
+    this.settle(this.now());
+    this.idleCutoffMs = ms;
   }
 
   // The user typed or clicked.

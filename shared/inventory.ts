@@ -46,9 +46,8 @@ export const ingredientCategories = [
   "Frozen Food",
   "Dry Goods",
 ];
-// Allergens and dietary tags are set on ingredients and rolled up to dishes
-// (FLOW-95, shared/recipes.ts). Built-in lists until business settings make them
-// configurable (FLOW-45). Allergens are the FDA major 9.
+// The US major food allergens. Dishes carry them (FLOW-95, shared/recipes.ts);
+// ingredients no longer show them, but keep any already saved.
 export const allergenSchema = z.enum([
   "milk",
   "eggs",
@@ -71,21 +70,6 @@ export const allergenLabels: Record<Allergen, string> = {
   wheat: "Wheat",
   soy: "Soy",
   sesame: "Sesame",
-};
-export const dietaryTagSchema = z.enum([
-  "vegan",
-  "vegetarian",
-  "gluten_free",
-  "dairy_free",
-  "contains_meat",
-]);
-export type DietaryTag = z.infer<typeof dietaryTagSchema>;
-export const dietaryTagLabels: Record<DietaryTag, string> = {
-  vegan: "Vegan",
-  vegetarian: "Vegetarian",
-  gluten_free: "Gluten-free",
-  dairy_free: "Dairy-free",
-  contains_meat: "Contains meat",
 };
 
 // Bar stock (FLOW-90), following the bar inventory masterlist. Built-in lists
@@ -167,10 +151,6 @@ export const consumableDetailsInputSchema = z.object({
   // In the item's stock unit.
   parLevel: quantity.nullable().default(null),
   allergens: z.array(allergenSchema).max(20).default([]),
-  dietaryTags: z.array(dietaryTagSchema).max(20).default([]),
-  // Someone checked the allergens, so an empty list means "none" rather than
-  // "not entered yet" (FLOW-95). A flagged allergen counts as checked.
-  allergensVerified: z.boolean().default(false),
   // Where it is normally kept (FLOW-70), and its shelf position there: count mode
   // lists items in this order (FLOW-82).
   storageSectionId: id.nullable().default(null),

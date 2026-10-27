@@ -10,12 +10,12 @@ import {
   sql,
 } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import type { Allergen, DietaryTag } from "../../shared/inventory";
+import type { Allergen } from "../../shared/inventory";
 import {
   lineCost,
   recipeCost,
-  recipeTags,
   scaleRecipe,
+  type DietaryTag,
   type Recipe,
   type RecipeCategory,
   type RecipeIngredient,
@@ -33,10 +33,10 @@ import { toItems } from "./inventory-items";
 import { syncChildren } from "./sync";
 
 // Recipe book (FLOW-93). Every signed-in user can read recipes; recipes.write
-// changes them. Costs (FLOW-94), allergens and dietary tags (FLOW-95) and scaled
-// quantities (FLOW-98) are worked out from the ingredients on every read, so a new
-// ingredient cost or allergen shows at once on every dish that uses it. Costs,
-// including entered line costs, are FT+ only (F-01-04).
+// changes them. Costs (FLOW-94) and scaled quantities (FLOW-98) are worked out
+// from the ingredients on every read, so a new ingredient cost shows at once on
+// every dish that uses it; allergens and dietary tags (FLOW-95) are set on the
+// dish. Costs, including entered line costs, are FT+ only (F-01-04).
 type RecipeRow = typeof recipes.$inferSelect;
 type LineRow = typeof recipeLines.$inferSelect;
 
@@ -114,7 +114,6 @@ async function toRecipes(
         ingredients.get(line.itemId),
       ),
     );
-    const used = own.flatMap((line) => ingredients.get(line.itemId) ?? []);
     return {
       id: row.id,
       name: row.name,
@@ -140,10 +139,8 @@ async function toRecipes(
         row.yieldServings === null
           ? null
           : { servings: row.yieldServings, portionSize: row.portionSize },
-      tags: recipeTags(used, {
-        allergenOverride: row.allergenOverride as Allergen[] | null,
-        dietaryOverride: row.dietaryOverride as DietaryTag[] | null,
-      }),
+      allergens: row.allergens as Allergen[],
+      dietaryTags: row.dietaryTags as DietaryTag[],
       cost: showCost ? recipeCost(costs, row.yieldServings) : null,
       costHidden: !showCost,
       duplicates: sameNames
@@ -226,8 +223,8 @@ async function recipeSnapshot(db: DbLike, id: string) {
       row.yieldServings === null
         ? null
         : { servings: row.yieldServings, portionSize: row.portionSize },
-    allergenOverride: row.allergenOverride,
-    dietaryOverride: row.dietaryOverride,
+    allergens: row.allergens,
+    dietaryTags: row.dietaryTags,
     active: row.active,
     archivedAt: row.archivedAt?.toISOString() ?? null,
   };
@@ -337,8 +334,8 @@ const recipeValues = (input: RecipeInputParsed, actor: Actor) => ({
   finishingNote: input.finishingNote,
   yieldServings: input.yield?.servings ?? null,
   portionSize: input.yield?.portionSize ?? "",
-  allergenOverride: input.allergenOverride,
-  dietaryOverride: input.dietaryOverride,
+  allergens: input.allergens,
+  dietaryTags: input.dietaryTags,
   active: input.active,
   updatedBy: actor.userId,
 });

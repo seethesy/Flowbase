@@ -1,19 +1,13 @@
 import { z } from "zod";
-import {
-  allergenSchema,
-  conversionsOf,
-  dietaryTagSchema,
-  type Allergen,
-  type DietaryTag,
-  type InventoryItem,
-} from "./inventory";
+import { allergenSchema, conversionsOf, type InventoryItem } from "./inventory";
 import { id, text, timestamp } from "./schema-primitives";
 import { convert, unitSchema, units, type Unit } from "./units";
 
 // Recipe book (FLOW-93 dish record, FLOW-94 costing, FLOW-95 allergens and
-// dietary tags, FLOW-98 scaling), shared by the API and the app. Costs, tags and
-// scaled quantities are worked out from the ingredients each time a recipe is
-// read, so a changed ingredient cost or allergen shows on every dish at once.
+// dietary tags, FLOW-98 scaling), shared by the API and the app. Costs and scaled
+// quantities are worked out from the ingredients each time a recipe is read, so a
+// changed ingredient cost shows on every dish at once. Allergens and dietary tags
+// are set on the dish itself, not on its ingredients.
 const cents = z.number().int().min(0).max(100_000_000);
 
 export const recipeCategories = [
@@ -24,6 +18,32 @@ export const recipeCategories = [
   "drinks",
   "additional_items",
 ] as const;
+// ---- Allergens and dietary tags (FLOW-95) ----
+
+// Set on the dish, not worked out from its ingredients. Allergens use the
+// inventory list (the FDA major 9). Built-in lists until business settings make
+// them configurable (FLOW-45).
+export const dietaryTagSchema = z.enum([
+  "vegan",
+  "vegetarian",
+  "gluten_free",
+  "dairy_free",
+]);
+export type DietaryTag = z.infer<typeof dietaryTagSchema>;
+export const dietaryTagLabels: Record<DietaryTag, string> = {
+  vegan: "Vegan",
+  vegetarian: "Vegetarian",
+  gluten_free: "Gluten-free",
+  dairy_free: "Dairy-free",
+};
+// What each tag promises, shown where the tags are picked.
+export const dietaryTagHints: Record<DietaryTag, string> = {
+  vegan: "No ingredient contains meat.",
+  vegetarian: "No meat or fish.",
+  gluten_free: "No ingredient contains gluten.",
+  dairy_free: "No milk or milk products.",
+};
+
 export const recipeCategorySchema = z.enum(recipeCategories);
 export type RecipeCategory = z.infer<typeof recipeCategorySchema>;
 export const recipeCategoryLabels: Record<RecipeCategory, string> = {
@@ -75,9 +95,9 @@ export const recipeInputSchema = z.object({
   finishingNote: text(1000).default(""),
   // Optional (FLOW-93 AC2); a dish with no yield can't be scaled (FLOW-98).
   yield: yieldSchema.nullable().default(null),
-  // Replace the allergens and dietary tags derived from the ingredients (FLOW-95).
-  allergenOverride: z.array(allergenSchema).max(20).nullable().default(null),
-  dietaryOverride: z.array(dietaryTagSchema).max(20).nullable().default(null),
+  // Set by hand on the dish (FLOW-95).
+  allergens: z.array(allergenSchema).max(20).default([]),
+  dietaryTags: z.array(dietaryTagSchema).max(20).default([]),
   active: z.boolean().default(true),
 });
 export type RecipeInput = z.input<typeof recipeInputSchema>;
@@ -161,69 +181,6 @@ export function recipeCost(
   };
 }
 
-// ---- Allergens and dietary tags (FLOW-95) ----
-
-// "Contains" tags apply when any ingredient has them; "free" tags only when every
-// ingredient does.
-export const dietaryTagRules: Record<DietaryTag, "any" | "all"> = {
-  vegan: "all",
-  vegetarian: "all",
-  gluten_free: "all",
-  dairy_free: "all",
-  contains_meat: "any",
-};
-export const hasAllergenInfo = (ingredient: RecipeIngredient) =>
-  !!ingredient.consumable &&
-  (ingredient.consumable.allergensVerified ||
-    ingredient.consumable.allergens.length > 0);
-
-export const recipeTagsSchema = z.object({
-  derivedAllergens: z.array(allergenSchema),
-  derivedDietaryTags: z.array(dietaryTagSchema),
-  allergenOverride: z.array(allergenSchema).nullable(),
-  dietaryOverride: z.array(dietaryTagSchema).nullable(),
-  // What the dish shows: the override when set, otherwise the derived tags.
-  allergens: z.array(allergenSchema),
-  dietaryTags: z.array(dietaryTagSchema),
-  // Ingredients with no allergen information; any makes the dish "allergens
-  // unverified".
-  unverifiedIngredients: z.array(z.string()),
-});
-export type RecipeTags = z.infer<typeof recipeTagsSchema>;
-
-export function recipeTags(
-  ingredients: RecipeIngredient[],
-  overrides: {
-    allergenOverride: Allergen[] | null;
-    dietaryOverride: DietaryTag[] | null;
-  },
-): RecipeTags {
-  const used = [
-    ...new Map(ingredients.map((item) => [item.id, item])).values(),
-  ];
-  const derivedAllergens = allergenSchema.options.filter((allergen) =>
-    used.some((item) => item.consumable?.allergens.includes(allergen)),
-  );
-  const has = (tag: DietaryTag) => (item: RecipeIngredient) =>
-    !!item.consumable?.dietaryTags.includes(tag);
-  const derivedDietaryTags = dietaryTagSchema.options.filter((tag) =>
-    dietaryTagRules[tag] === "any"
-      ? used.some(has(tag))
-      : used.length > 0 && used.every(has(tag)),
-  );
-  return {
-    derivedAllergens,
-    derivedDietaryTags,
-    allergenOverride: overrides.allergenOverride,
-    dietaryOverride: overrides.dietaryOverride,
-    allergens: overrides.allergenOverride ?? derivedAllergens,
-    dietaryTags: overrides.dietaryOverride ?? derivedDietaryTags,
-    unverifiedIngredients: used
-      .filter((item) => !hasAllergenInfo(item))
-      .map((item) => item.name),
-  };
-}
-
 // ---- The recipe as the API returns it ----
 
 export const recipeLineSchema = z.object({
@@ -248,7 +205,8 @@ export const recipeSchema = z.object({
   steps: z.array(z.string()),
   finishingNote: z.string(),
   yield: z.object({ servings: z.number(), portionSize: z.string() }).nullable(),
-  tags: recipeTagsSchema,
+  allergens: z.array(allergenSchema),
+  dietaryTags: z.array(dietaryTagSchema),
   // null, with costHidden, when the caller isn't FT+ (F-01-04).
   cost: recipeCostSchema.nullable(),
   costHidden: z.boolean(),

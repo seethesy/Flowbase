@@ -29,15 +29,13 @@ CREATE TABLE "recipes" (
 	"finishing_note" text DEFAULT '' NOT NULL,
 	"yield_servings" numeric(14, 4),
 	"portion_size" text DEFAULT '' NOT NULL,
-	"allergen_override" jsonb,
-	"dietary_override" jsonb,
+	"allergens" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"dietary_tags" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"active" boolean DEFAULT true NOT NULL,
 	CONSTRAINT "recipes_category_check" CHECK ("recipes"."category" in ('appetizers', 'mains', 'sides', 'desserts', 'drinks', 'additional_items'))
 );
 --> statement-breakpoint
 ALTER TABLE "recipes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "inventory_consumable_details" ADD COLUMN "dietary_tags" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
-ALTER TABLE "inventory_consumable_details" ADD COLUMN "allergens_verified" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "recipe_lines" ADD CONSTRAINT "recipe_lines_recipe_id_recipes_id_fk" FOREIGN KEY ("recipe_id") REFERENCES "public"."recipes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "recipe_lines" ADD CONSTRAINT "recipe_lines_item_id_inventory_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "public"."inventory_items"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "recipe_lines_recipe_idx" ON "recipe_lines" USING btree ("recipe_id");--> statement-breakpoint

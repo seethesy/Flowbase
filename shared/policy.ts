@@ -12,6 +12,12 @@ const common = [
   "attachments.read",
   "time.record",
   "time.read",
+  // Staff directory (FLOW-40): everyone reads it and edits their own phone number
+  // and SMS consent; record modules limit the fields. users.manage edits everything.
+  "staff.read",
+  "staff.update_self",
+  // Business settings and lists (FLOW-45): forms read them; Admin changes them.
+  "settings.read",
 ] as const;
 const sales = [
   "clients.read",
@@ -32,7 +38,6 @@ const sales = [
 ] as const;
 const inventory = [
   "inventory.write",
-  "recipes.write",
   "inventory.count",
   "inventory.move",
 ] as const;
@@ -44,6 +49,7 @@ const kitchen = [
 ] as const;
 const adminOnly = [
   "users.manage",
+  "settings.manage",
   "jobs.manage",
   "ingest.manage",
   "inventory.sections",
@@ -63,6 +69,7 @@ export const actions = [
     "beos.approve",
     "rentals.apply_directly",
     "inventory.consumables.count",
+    "recipes.write",
     "attachments.write",
   ] as const),
 ];
@@ -78,12 +85,14 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
   admin: grants(actions),
   technical: {
     ...grants(common, sales, inventory, [
+      "recipes.write",
       "attachments.write",
       "inventory.consumables.count",
     ]),
   },
   sales_manager: {
     ...grants(common, sales, inventory, [
+      "recipes.write",
       "attachments.write",
       "beos.approve",
       "rentals.apply_directly",
@@ -93,17 +102,23 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
   salesperson: {
     ...grants(common, sales, ["events.status", "attachments.write"]),
     "inventory.consumables.count": isFtPlus,
+    // Recipes: the kitchen and full-time staff edit them (Ash, 2026-10-27).
+    "recipes.write": isFtPlus,
   },
   kitchen_lead: {
-    ...grants(common, inventory, kitchen, ["attachments.write"]),
+    ...grants(common, inventory, kitchen, [
+      "recipes.write",
+      "attachments.write",
+    ]),
     "inventory.consumables.count": isFtPlus,
   },
   kitchen_staff: {
-    ...grants(common, kitchen),
+    ...grants(common, kitchen, ["recipes.write"]),
     "inventory.consumables.count": isFtPlus,
   },
   staff: {
     ...grants(common),
+    "recipes.write": isFtPlus,
     "inventory.count": isFtPlus,
     "inventory.move": isFtPlus,
     "inventory.rentals.move": isFtPlus,

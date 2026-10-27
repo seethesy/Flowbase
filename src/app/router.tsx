@@ -14,7 +14,9 @@ import { EventList, EventDetail } from "../features/events";
 import { VenueList, VenueDetail } from "../features/venues";
 import { PrintSample } from "../features/print-sample";
 import { Proposals } from "../features/proposals";
-import { SettingsPage, TimeReports } from "../features/time-tracking";
+import { TimeReports } from "../features/time-tracking";
+import { SettingsPage } from "../features/settings";
+import { StaffDetail, StaffDirectory, StaffProfile } from "../features/staff";
 import {
   InventoryList,
   InventoryDetail,
@@ -65,9 +67,9 @@ function Profile() {
         <p>
           {user?.employmentType === "full_time" ? "Full-time" : "Part-time"}
         </p>
-        <p>{user?.mobile}</p>
         <Button onClick={() => void auth?.signOut()}>Sign out</Button>
       </Section>
+      {user && <StaffProfile id={user.id} heading={false} />}
     </>
   );
 }
@@ -117,6 +119,8 @@ export const getRouter = () =>
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/venues", element: <VenueList /> },
         { path: "/venues/:id", element: <VenueDetail /> },
+        { path: "/staff", element: <StaffDirectory /> },
+        { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/profile", element: <Profile /> },
         { path: "/reports", element: <TimeReports /> },
         { path: "/settings", element: <SettingsPage /> },

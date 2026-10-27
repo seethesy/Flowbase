@@ -145,8 +145,22 @@
     {
       "idx": 20,
       "version": "7",
-      "when": 1793066117378,
-      "tag": "0020_recipe_book",
+      "when": 1793064136560,
+      "tag": "0020_staff_directory_and_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793064140324,
+      "tag": "0021_seed_settings_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793080193445,
+      "tag": "0022_recipe_book",
       "breakpoints": true
     }
   ]

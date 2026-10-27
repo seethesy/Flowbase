@@ -20,8 +20,6 @@ export const tuscanIngredients = {
       purchaseUnit: "lb",
       eachSize: { quantity: 8, unit: "oz" },
       recipeUnit: "each",
-      dietaryTags: ["contains_meat"],
-      allergensVerified: true,
     },
   },
   cream: {
@@ -35,8 +33,6 @@ export const tuscanIngredients = {
       packCount: 6,
       eachSize: { quantity: 1, unit: "qt" },
       recipeUnit: "cup",
-      allergens: ["milk"],
-      dietaryTags: ["vegetarian", "gluten_free"],
     },
   },
   tomatoes: {
@@ -48,8 +44,6 @@ export const tuscanIngredients = {
     consumable: {
       purchaseUnit: "lb",
       recipeUnit: "oz",
-      dietaryTags: ["vegan", "vegetarian", "gluten_free", "dairy_free"],
-      allergensVerified: true,
     },
   },
   spinach: {
@@ -61,8 +55,6 @@ export const tuscanIngredients = {
     consumable: {
       purchaseUnit: "lb",
       recipeUnit: "cup",
-      dietaryTags: ["vegan", "vegetarian", "gluten_free", "dairy_free"],
-      allergensVerified: true,
     },
   },
   seasoning: {
@@ -73,8 +65,6 @@ export const tuscanIngredients = {
     unit: "oz",
     consumable: {
       purchaseUnit: "oz",
-      dietaryTags: ["vegan", "vegetarian", "gluten_free", "dairy_free"],
-      allergensVerified: true,
     },
   },
   saltAndPepper: {
@@ -85,8 +75,6 @@ export const tuscanIngredients = {
     unit: "oz",
     consumable: {
       purchaseUnit: "oz",
-      dietaryTags: ["vegan", "vegetarian", "gluten_free", "dairy_free"],
-      allergensVerified: true,
     },
   },
 } satisfies Record<string, ItemInput>;
@@ -113,6 +101,7 @@ export const tuscanChicken = (
   ],
   finishingNote: "garnish with basil",
   yield: { servings: 100, portionSize: "" },
+  allergens: ["milk"],
   ...overrides,
 });
 

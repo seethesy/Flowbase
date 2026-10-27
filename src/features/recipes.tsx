@@ -6,16 +6,17 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   allergenLabels,
   allergenSchema,
-  dietaryTagLabels,
-  dietaryTagSchema,
   type Allergen,
-  type DietaryTag,
   type InventoryItem,
 } from "../../shared/inventory";
 import {
+  dietaryTagHints,
+  dietaryTagLabels,
+  dietaryTagSchema,
   lineCostSourceLabels,
   recipeCategoryLabels,
   recipeCategorySchema,
+  type DietaryTag,
   type Recipe,
   type RecipeCategory,
   type RecipeInput,
@@ -43,8 +44,8 @@ import { centsLabel, quantityLabel } from "./inventory-labels";
 import "./inventory.css";
 
 // Recipe book (FLOW-93): one record per dish, with its cost (FLOW-94), allergens
-// and dietary tags (FLOW-95) and a scaling tool (FLOW-98). The API works costs and
-// tags out from the ingredients on every read.
+// and dietary tags (FLOW-95) and a scaling tool (FLOW-98). The API works costs out
+// from the ingredients on every read; allergens and tags are set on the dish.
 const allergenList = (allergens: Allergen[]) =>
   allergens.map((allergen) => allergenLabels[allergen]).join(", ");
 const dietaryList = (tags: DietaryTag[]) =>
@@ -61,9 +62,6 @@ function RecipeFlags({ recipe }: { recipe: Recipe }) {
     <>
       {recipe.duplicates.length > 0 && (
         <span className="badge warning">Duplicate name</span>
-      )}
-      {recipe.tags.unverifiedIngredients.length > 0 && (
-        <span className="badge warning">Allergens unverified</span>
       )}
       {!recipe.yield && <span className="badge neutral">No yield</span>}
       {!recipe.active && <span className="badge error">Inactive</span>}
@@ -96,7 +94,7 @@ export function RecipeList() {
     {
       id: "allergens",
       header: "Allergens",
-      accessorFn: (recipe) => allergenList(recipe.tags.allergens) || "—",
+      accessorFn: (recipe) => allergenList(recipe.allergens) || "—",
     },
     ...(costHidden
       ? []
@@ -198,12 +196,14 @@ function TagChoices<T extends string>({
   label,
   options,
   labels,
+  hints,
   value,
   onChange,
 }: {
   label: string;
   options: readonly T[];
   labels: Record<T, string>;
+  hints?: Record<T, string>;
   value: T[];
   onChange: (value: T[]) => void;
 }) {
@@ -224,6 +224,7 @@ function TagChoices<T extends string>({
             }
           />
           {labels[option]}
+          {hints && <small className="muted"> ({hints[option]})</small>}
         </label>
       ))}
     </fieldset>
@@ -270,11 +271,11 @@ export function RecipeForm({
   const [finishingNote, setFinishingNote] = useState(
     recipe?.finishingNote ?? "",
   );
-  const [allergenOverride, setAllergenOverride] = useState<Allergen[] | null>(
-    recipe?.tags.allergenOverride ?? null,
+  const [allergens, setAllergens] = useState<Allergen[]>(
+    recipe?.allergens ?? [],
   );
-  const [dietaryOverride, setDietaryOverride] = useState<DietaryTag[] | null>(
-    recipe?.tags.dietaryOverride ?? null,
+  const [dietaryTags, setDietaryTags] = useState<DietaryTag[]>(
+    recipe?.dietaryTags ?? [],
   );
   const [active, setActive] = useState(recipe?.active ?? true);
   const [error, setError] = useState("");
@@ -334,8 +335,8 @@ export function RecipeForm({
       yield: servings.trim()
         ? { servings: servingsValue, portionSize }
         : null,
-      allergenOverride,
-      dietaryOverride,
+      allergens,
+      dietaryTags,
       active,
     };
     setSaving(true);
@@ -540,54 +541,21 @@ export function RecipeForm({
           />
         </FormField>
         <h3 className="form-subheading">Allergens and dietary tags</h3>
-        <p className="muted">
-          Worked out from the ingredients. Override them only when the dish
-          differs.
-        </p>
-        <label className="checkbox-filter">
-          <input
-            type="checkbox"
-            checked={allergenOverride !== null}
-            onChange={(e) =>
-              setAllergenOverride(
-                e.target.checked ? (recipe?.tags.derivedAllergens ?? []) : null,
-              )
-            }
-          />
-          Override allergens
-        </label>
-        {allergenOverride !== null && (
-          <TagChoices
-            label="Allergen override"
-            options={allergenSchema.options}
-            labels={allergenLabels}
-            value={allergenOverride}
-            onChange={setAllergenOverride}
-          />
-        )}
-        <label className="checkbox-filter">
-          <input
-            type="checkbox"
-            checked={dietaryOverride !== null}
-            onChange={(e) =>
-              setDietaryOverride(
-                e.target.checked
-                  ? (recipe?.tags.derivedDietaryTags ?? [])
-                  : null,
-              )
-            }
-          />
-          Override dietary tags
-        </label>
-        {dietaryOverride !== null && (
-          <TagChoices
-            label="Dietary override"
-            options={dietaryTagSchema.options}
-            labels={dietaryTagLabels}
-            value={dietaryOverride}
-            onChange={setDietaryOverride}
-          />
-        )}
+        <TagChoices
+          label="Allergens"
+          options={allergenSchema.options}
+          labels={allergenLabels}
+          value={allergens}
+          onChange={setAllergens}
+        />
+        <TagChoices
+          label="Dietary tags"
+          options={dietaryTagSchema.options}
+          labels={dietaryTagLabels}
+          hints={dietaryTagHints}
+          value={dietaryTags}
+          onChange={setDietaryTags}
+        />
         <label className="checkbox-filter">
           <input
             type="checkbox"
@@ -610,45 +578,12 @@ export function RecipeForm({
 }
 
 function TagsSection({ recipe }: { recipe: Recipe }) {
-  const t = recipe.tags;
   return (
     <Section title="Allergens and dietary tags">
       <small>Allergens</small>
-      <p>
-        {allergenList(t.allergens) || "None"}
-        {t.allergenOverride && (
-          <>
-            {" "}
-            <span className="badge info">Override</span>
-          </>
-        )}
-      </p>
-      {t.allergenOverride && (
-        <p className="muted">
-          From the ingredients: {allergenList(t.derivedAllergens) || "none"}
-        </p>
-      )}
+      <p>{allergenList(recipe.allergens) || "None"}</p>
       <small>Dietary tags</small>
-      <p>
-        {dietaryList(t.dietaryTags) || "None"}
-        {t.dietaryOverride && (
-          <>
-            {" "}
-            <span className="badge info">Override</span>
-          </>
-        )}
-      </p>
-      {t.dietaryOverride && (
-        <p className="muted">
-          From the ingredients: {dietaryList(t.derivedDietaryTags) || "none"}
-        </p>
-      )}
-      {t.unverifiedIngredients.length > 0 && (
-        <p role="status" className="error-message">
-          <AlertTriangle size={14} /> Allergens unverified: no allergen
-          information for {t.unverifiedIngredients.join(", ")}.
-        </p>
-      )}
+      <p>{dietaryList(recipe.dietaryTags) || "None"}</p>
     </Section>
   );
 }

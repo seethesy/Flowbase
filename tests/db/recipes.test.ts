@@ -72,6 +72,7 @@ const admin = signedInAs("admin");
 const kitchenLead = signedInAs("kitchen_lead", "part_time");
 const cook = signedInAs("kitchen_staff", "part_time");
 const partTimeStaff = signedInAs("staff", "part_time");
+const fullTimeStaff = signedInAs("staff", "full_time");
 
 const createItem = (input: ItemInput) =>
   admin.send<InventoryItem>("POST", "/api/inventory/items", input, 201);
@@ -169,10 +170,12 @@ describe("recipe record (FLOW-93)", () => {
     const chairs = await createItem({ kind: "rental", subtype: "furniture", name: "Chair" });
     const response = await admin.call("POST", "/api/recipes", tuscanChicken(ids, { lines: [{ itemId: chairs.id }] }));
     expect(response.status).toBe(400);
-    expect((await cook.call("POST", "/api/recipes", tuscanChicken(ids))).status).toBe(403);
+    expect((await partTimeStaff.call("POST", "/api/recipes", tuscanChicken(ids))).status).toBe(403);
     expect((await partTimeStaff.call("GET", "/api/recipes")).status).toBe(200);
-    // The kitchen lead writes recipes.
+    // The kitchen and full-time staff write recipes.
     await createRecipe(tuscanChicken(ids), kitchenLead);
+    await createRecipe(tuscanChicken(ids), cook);
+    await createRecipe(tuscanChicken(ids), fullTimeStaff);
   });
 });
 
@@ -212,40 +215,23 @@ describe("recipe costing (FLOW-94)", () => {
 });
 
 describe("allergens and dietary tags (FLOW-95)", () => {
-  it("derives Milk and contains meat, and follows a new peanut ingredient (AC1, AC2)", async () => {
+  it("stores them on the dish and audits a change", async () => {
     const recipe = await createRecipe(tuscanChicken(ids));
-    expect(recipe.tags).toMatchObject({ allergens: ["milk"], dietaryTags: ["contains_meat"], unverifiedIngredients: [] });
-    const peanuts = await createItem({
-      kind: "consumable",
-      subtype: "ingredient",
-      name: "Peanuts",
-      consumable: { purchaseUnit: "lb", allergens: ["peanuts"] },
-    });
-    const garlic = await createItem({
-      kind: "consumable",
-      subtype: "ingredient",
-      name: "Garlic",
-      consumable: { purchaseUnit: "lb" },
-    });
-    const input = tuscanChicken(ids);
+    expect(recipe).toMatchObject({ allergens: ["milk"], dietaryTags: [] });
     const updated = await admin.send<Recipe>("PUT", `/api/recipes/${recipe.id}`, {
-      ...input,
-      lines: [...(input.lines ?? []), { itemId: peanuts.id }, { itemId: garlic.id }],
+      ...tuscanChicken(ids),
+      allergens: ["milk", "peanuts"],
+      dietaryTags: ["gluten_free"],
     });
-    expect(updated.tags.allergens).toEqual(["milk", "peanuts"]);
-    expect(updated.tags.unverifiedIngredients).toEqual(["Garlic"]);
+    expect(updated).toMatchObject({ allergens: ["milk", "peanuts"], dietaryTags: ["gluten_free"] });
+    const [change] = await admin.send<HistoryEntry[]>("GET", `/api/recipes/${recipe.id}/history`);
+    expect(change.changes.allergens).toEqual({ before: ["milk"], after: ["milk", "peanuts"] });
+    expect(change.changes.dietaryTags).toEqual({ before: [], after: ["gluten_free"] });
   });
 
-  it("stores and shows a manual override (AC3)", async () => {
-    const recipe = await createRecipe(tuscanChicken(ids, { allergenOverride: ["milk", "tree_nuts"] }));
-    expect(recipe.tags).toMatchObject({
-      allergens: ["milk", "tree_nuts"],
-      derivedAllergens: ["milk"],
-      allergenOverride: ["milk", "tree_nuts"],
-      dietaryOverride: null,
-    });
-    const [created] = await admin.send<HistoryEntry[]>("GET", `/api/recipes/${recipe.id}/history`);
-    expect(created.changes.allergenOverride).toEqual({ before: null, after: ["milk", "tree_nuts"] });
+  it("rejects the old contains meat tag", async () => {
+    const response = await admin.call("POST", "/api/recipes", { ...tuscanChicken(ids), dietaryTags: ["contains_meat"] });
+    expect(response.status).toBe(400);
   });
 });
 

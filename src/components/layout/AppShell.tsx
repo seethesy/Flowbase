@@ -29,6 +29,7 @@ import {
   X,
   Leaf,
   Plus,
+  Contact,
 } from "lucide-react";
 import { Button, DetailDrawer } from "../shared";
 import { useDemo } from "../../app/store";
@@ -48,6 +49,7 @@ const navigation = [
   { name: "Purchasing", to: "/purchasing", icon: ShoppingCart },
   { name: "Events", to: "/events", icon: CalendarDays },
   { name: "Venues", to: "/venues", icon: MapPin },
+  { name: "Staff", to: "/staff", icon: Contact },
   { name: "Reports", to: "/reports", icon: ChartNoAxesCombined },
 ];
 export function Breadcrumbs() {

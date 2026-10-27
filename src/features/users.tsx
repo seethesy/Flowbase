@@ -1,5 +1,6 @@
 import { usePermissions } from "../app/permissions";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   inviteInputSchema,
   userSchema,
@@ -149,7 +150,13 @@ function UserList() {
         {resource.data?.map((user) => (
           <article className="user-access-row" key={user.id}>
             <div>
-              <strong>{user.name}</strong>
+              <strong>
+                {user.status === "revoked" ? (
+                  user.name
+                ) : (
+                  <Link to={`/staff/${user.id}`}>{user.name}</Link>
+                )}
+              </strong>
               <p>
                 {user.email} · {roleLabel(user.role)} ·{" "}
                 {user.employmentType === "full_time"

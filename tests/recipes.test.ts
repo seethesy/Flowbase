@@ -3,13 +3,11 @@ import {
   lineCost,
   recipeCost,
   recipeInputSchema,
-  recipeTags,
   scaleRecipe,
   type RecipeIngredient,
   type RecipeInput,
 } from "../shared/recipes";
 import {
-  asIngredient,
   tuscanCatalog,
   tuscanChicken,
   tuscanIds,
@@ -35,13 +33,6 @@ const costsOf = (
     ),
   );
 };
-const peanuts = asIngredient("peanuts", {
-  kind: "consumable",
-  subtype: "ingredient",
-  name: "Peanuts",
-  consumable: { purchaseUnit: "lb", allergens: ["peanuts"] },
-});
-
 describe("recipe record (FLOW-93)", () => {
   it("takes Tuscan Chicken with all six lines, two without a quantity (AC1)", () => {
     const parsed = recipe();
@@ -126,53 +117,24 @@ describe("recipe costing (FLOW-94)", () => {
 });
 
 describe("allergens and dietary tags (FLOW-95)", () => {
-  const none = { allergenOverride: null, dietaryOverride: null };
-
-  it("shows Milk and contains meat on Tuscan Chicken (AC1)", () => {
-    const tags = recipeTags(tuscanCatalog(), none);
-    expect(tags.allergens).toEqual(["milk"]);
-    expect(tags.dietaryTags).toEqual(["contains_meat"]);
-    expect(tags.unverifiedIngredients).toEqual([]);
-  });
-
-  it("adds Peanuts when a peanut ingredient is added (AC2)", () => {
-    const tags = recipeTags([...tuscanCatalog(), peanuts], none);
-    expect(tags.allergens).toEqual(["milk", "peanuts"]);
-  });
-
-  it("shows a manual override next to what was derived (AC3)", () => {
-    const tags = recipeTags(tuscanCatalog(), {
-      allergenOverride: ["milk", "tree_nuts"],
-      dietaryOverride: [],
-    });
-    expect(tags.allergens).toEqual(["milk", "tree_nuts"]);
-    expect(tags.derivedAllergens).toEqual(["milk"]);
-    expect(tags.allergenOverride).toEqual(["milk", "tree_nuts"]);
-    expect(tags.dietaryTags).toEqual([]);
-    expect(tags.derivedDietaryTags).toEqual(["contains_meat"]);
-  });
-
-  it("gives a free-from tag only when every ingredient has it", () => {
-    const veg = tuscanCatalog().filter(
-      (item) => item.id !== tuscanIds.chicken,
-    );
-    expect(recipeTags(veg, none).dietaryTags).toEqual([
-      "vegetarian",
-      "gluten_free",
-    ]);
-    expect(recipeTags([], none).dietaryTags).toEqual([]);
-  });
-
-  it("flags ingredients with no allergen information", () => {
-    const unchecked = asIngredient("garlic", {
-      kind: "consumable",
-      subtype: "ingredient",
-      name: "Garlic",
-      consumable: { purchaseUnit: "lb" },
-    });
+  it("sets them on the dish, empty by default", () => {
+    expect(recipe()).toMatchObject({ allergens: ["milk"], dietaryTags: [] });
+    expect(recipe({ allergens: undefined })).toMatchObject({ allergens: [] });
     expect(
-      recipeTags([...tuscanCatalog(), unchecked], none).unverifiedIngredients,
-    ).toEqual(["Garlic"]);
+      recipe({ allergens: ["milk", "peanuts"], dietaryTags: ["gluten_free"] }),
+    ).toMatchObject({
+      allergens: ["milk", "peanuts"],
+      dietaryTags: ["gluten_free"],
+    });
+  });
+
+  it("has no contains meat tag", () => {
+    const parsed = recipeInputSchema.safeParse(
+      tuscanChicken(tuscanIds, {
+        dietaryTags: ["contains_meat" as "vegan"],
+      }),
+    );
+    expect(parsed.success).toBe(false);
   });
 });
 

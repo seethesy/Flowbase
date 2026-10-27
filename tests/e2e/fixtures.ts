@@ -162,8 +162,6 @@ export const consumable = (
       preferredVendor: "",
       parLevel,
       allergens: [],
-      dietaryTags: [],
-      allergensVerified: false,
       storageSectionId: storage.id,
       storageSectionName: storage.name,
       storageOrder: null,
