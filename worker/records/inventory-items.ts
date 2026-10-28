@@ -719,8 +719,9 @@ export async function updateItem(
 // 10 oz (FLOW-198). A zero balance doesn't erase history. No conversion.
 async function requireNoStockHistory(
   tx: DbLike,
-  item: { id: string; unit: Unit },
+  item: { id: string; unit: string },
 ) {
+  const unit = units[item.unit as Unit]?.label ?? item.unit;
   const [moved] = await tx
     .select({ id: stockMovements.id })
     .from(stockMovements)
@@ -729,7 +730,7 @@ async function requireNoStockHistory(
   if (moved)
     throw conflict(
       "UNIT_LOCKED",
-      `This item's stock history is recorded in ${units[item.unit].label}, so its stock unit can't change. Keep ${units[item.unit].label}, or archive this item and create a new one in the new unit.`,
+      `This item's stock history is recorded in ${unit}, so its stock unit can't change. Keep ${unit}, or archive this item and create a new one in the new unit.`,
     );
 }
 
