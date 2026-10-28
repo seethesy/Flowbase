@@ -380,6 +380,7 @@ export function LeadInbox() {
                   columns={columns}
                   label="leads"
                   exportName="leads"
+                  exportAll={leads.loadAll}
                 />
                 <LoadMore list={leads} label="Load more leads" />
               </>

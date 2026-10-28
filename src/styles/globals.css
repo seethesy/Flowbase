@@ -872,7 +872,10 @@ strong {
 /* List export (FLOW-48). */
 .table-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }

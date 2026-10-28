@@ -54,10 +54,13 @@ export function EventTable({
   events,
   error,
   exportName,
+  exportAll,
 }: {
   events: FlowEvent[];
   error?: string;
   exportName?: string;
+  // Every matching event when the list is paged (FLOW-216).
+  exportAll?: (onProgress: (rows: number) => void) => Promise<FlowEvent[]>;
 }) {
   const navigate = useNavigate();
   if (error) return <LoadError message={error} />;
@@ -92,6 +95,7 @@ export function EventTable({
       onRow={(event) => navigate(`/events/${event.id}`)}
       label="events"
       exportName={exportName}
+      exportAll={exportAll}
     />
   );
 }
@@ -186,7 +190,12 @@ export function EventList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <EventTable events={data} error={events.error} exportName="events" />
+          <EventTable
+            events={data}
+            error={events.error}
+            exportName="events"
+            exportAll={events.loadAll}
+          />
           <LoadMore list={events} label="Load more events" />
         </>
       )}
