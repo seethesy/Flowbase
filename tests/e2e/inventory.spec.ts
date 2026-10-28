@@ -360,8 +360,11 @@ test("explains that an item with stock history can't change its stock unit", asy
   );
   // Other edits still save.
   await dialog.getByLabel(/^Stock unit/).selectOption("each");
-  await dialog.getByLabel("Name *", { exact: true }).fill("Chiavari chairs, gold");
-  await dialog.getByRole("button", { name: "Save item" }).click();
+  const name = dialog.getByLabel("Name *", { exact: true });
+  await name.fill("Chiavari chairs, gold");
+  // Submit from the field: on the mobile layout the button sits under the
+  // scrolled form once the alert is shown.
+  await name.press("Enter");
   await expect(dialog).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Chiavari chairs, gold", level: 1 }),
