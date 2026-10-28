@@ -35,6 +35,16 @@ if (!url)
   );
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
+
+// Version-checked saves (FLOW-186): an item PUT carries the item's current
+// updatedAt.
+const versionOf = async (id: string) =>
+  (
+    await db
+      .select({ updatedAt: schema.inventoryItems.updatedAt })
+      .from(schema.inventoryItems)
+      .where(eq(schema.inventoryItems.id, id))
+  )[0].updatedAt.toISOString();
 const withDb: RunWithDb = (_env, run) => run(db);
 const env = { ASSETS: { fetch } };
 
@@ -125,7 +135,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
     const changed = await admin.send<InventoryItem>(
       "PUT",
       `/api/inventory/items/${row.id}`,
-      {
+      { updatedAt: await versionOf(row.id),
         ...input,
         rental: {
           ...input.rental,
@@ -144,7 +154,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
     await proposer.send(
       "PUT",
       `/api/inventory/items/${row.id}`,
-      {
+      { updatedAt: await versionOf(row.id),
         ...input,
         rental: {
           ...input.rental,
@@ -160,6 +170,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
         ?.priceCents,
     ).toBe(300);
     await admin.send("PUT", `/api/inventory/items/${row.id}`, {
+      updatedAt: await versionOf(row.id),
       ...input,
       rental: { ...input.rental, priceCents: 400 },
     });
@@ -264,7 +275,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
     await admin.send(
       "PUT",
       `/api/inventory/items/${row.id}`,
-      { ...input, rental: { colors: ["Gold"] } },
+      { updatedAt: await versionOf(row.id), ...input, rental: { colors: ["Gold"] } },
       409,
     );
     await admin.send(
@@ -347,7 +358,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
       await admin.send(
         "PUT",
         `/api/inventory/items/${kit.id}`,
-        {
+        { updatedAt: await versionOf(kit.id),
           ...input,
           rental: { components: [{ itemId: componentId, quantity: 1 }] },
         },
@@ -362,7 +373,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
     await admin.send(
       "PUT",
       `/api/inventory/items/${kit.id}`,
-      {
+      { updatedAt: await versionOf(kit.id),
         ...input,
         rental: { components: [{ itemId: second.id, quantity: 1 }] },
       },
@@ -721,7 +732,7 @@ describe("items (FLOW-69)", () => {
     const response = await admin.call(
       "PUT",
       `/api/inventory/items/${item.id}`,
-      {
+      { updatedAt: await versionOf(item.id),
         ...chairs(),
         kind: "service",
         subtype: null,
@@ -768,6 +779,7 @@ describe("ingredients (FLOW-81)", () => {
       ).toBe(403);
     }
     await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+      updatedAt: await versionOf(item.id),
       ...cream(),
       name: "Heavy Cream 36%",
       consumable: { ...cream().consumable!, unitCostCents: undefined },
@@ -776,7 +788,10 @@ describe("ingredients (FLOW-81)", () => {
       (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
         .consumable?.unitCostCents,
     ).toBe(2400);
-    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, cream());
+    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+      ...cream(),
+      updatedAt: await versionOf(item.id),
+    });
   });
 
   it("filters by category, vendor, storage and below par", async () => {
@@ -985,6 +1000,7 @@ describe("stock ledger (FLOW-71)", () => {
     });
     // Quantities in an item update are ignored.
     await admin.send("PUT", `/api/inventory/items/${item.id}`, {
+      updatedAt: await versionOf(item.id),
       ...chairs(),
       totalQuantity: 100,
       stock: [{ sectionId: warehouse.id, quantity: 100 }],
@@ -1380,17 +1396,20 @@ describe("cost history (FLOW-83)", () => {
   it("logs every cost change with its source and emits a cost-changed event (AC2)", async () => {
     const item = await createItem(cream());
     await admin.send("PUT", `/api/inventory/items/${item.id}`, {
+      updatedAt: await versionOf(item.id),
       ...cream(),
       consumable: { ...cream().consumable!, unitCostCents: 2650 },
     });
     // Saving without a cost change, or as a part-time user who can't see the
     // cost, adds nothing.
     await admin.send("PUT", `/api/inventory/items/${item.id}`, {
+      updatedAt: await versionOf(item.id),
       ...cream(),
       name: "Heavy Cream 40%",
       consumable: { ...cream().consumable!, unitCostCents: 2650 },
     });
     await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+      updatedAt: await versionOf(item.id),
       ...cream(),
       consumable: { ...cream().consumable!, unitCostCents: undefined },
     });

@@ -274,12 +274,15 @@ describe("manual changes", () => {
   it("leaves the status alone when the event is edited", async () => {
     const event = await newEvent();
     const edited = await sam.json<FlowEvent>("PUT", `/api/events/${event.id}`, {
-      title: "Renamed",
-      date: event.date,
-      startTime: event.startTime,
-      clientId: event.client.id,
-      status: "closed",
-    } satisfies EventInput);
+      ...({
+        title: "Renamed",
+        date: event.date,
+        startTime: event.startTime,
+        clientId: event.client.id,
+        status: "closed",
+      } satisfies EventInput),
+      updatedAt: event.updatedAt,
+    });
     expect(edited).toMatchObject({ title: "Renamed", status: "inquiry" });
     expect((await historyOf(event.id)).length).toBe(1);
   });

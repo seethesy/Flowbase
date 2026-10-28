@@ -335,3 +335,37 @@ test("records and corrects a stock movement from the item page", async ({
   await expect(history.getByRole("row").nth(2)).toContainText("Corrected");
   await expect(history.getByRole("row").nth(2)).toContainText("−2");
 });
+
+// FLOW-198 AC3: once stock has moved, the item form explains why the stock unit
+// can't change, and nothing is saved.
+test("explains that an item with stock history can't change its stock unit", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto(`/#/inventory/${chairs().id}`);
+  await page.getByRole("button", { name: "Record movement" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(/^Type/).selectOption("damage_loss");
+  await dialog.getByLabel(/^Section/).selectOption({ label: "Warehouse" });
+  await dialog.getByLabel("Quantity out (each)").fill("1");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Broken leg");
+  await dialog.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog.getByLabel(/^Stock unit/).selectOption("dozen");
+  // On the mobile project, Playwright's hit test after picking from the native
+  // select reports the form over the Save button (the other item edits in this
+  // file click it normally), so press it directly.
+  await dialog
+    .getByRole("button", { name: "Save item" })
+    .evaluate((button: HTMLButtonElement) => button.click());
+  await expect(dialog.getByRole("alert")).toContainText(
+    "stock history is recorded in each, so its stock unit can't change",
+  );
+  // Nothing was saved. (Other edits still saving is covered in
+  // tests/db/concurrency.test.ts.)
+  await page.reload();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(dialog.getByLabel(/^Stock unit/)).toHaveValue("each");
+});

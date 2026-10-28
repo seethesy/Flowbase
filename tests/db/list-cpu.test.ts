@@ -43,7 +43,7 @@ async function medianCpuMs(path: string, runs = 21) {
     samples.push((used.user + used.system) / 1000);
   }
   samples.sort((a, b) => a - b);
-  return samples[Math.floor(samples.length / 2)];
+  return { median: samples[Math.floor(samples.length / 2)], samples };
 }
 
 beforeAll(async () => {
@@ -114,7 +114,9 @@ beforeAll(async () => {
 }, 60_000);
 
 it.each(lists)("lists %s within the CPU budget", async (_name, path) => {
-  const median = await medianCpuMs(path);
-  console.log(`median CPU for ${path}: ${median.toFixed(2)} ms`);
-  expect(median).toBeLessThan(BUDGET_MS);
+  const { median, samples } = await medianCpuMs(path);
+  const report = `median CPU for ${path}: ${median.toFixed(2)} ms (samples: ${samples.map((ms) => ms.toFixed(1)).join(", ")})`;
+  console.log(report);
+  // The report names the list and its spread, so a CI annotation shows which one is slow.
+  expect(median, report).toBeLessThan(BUDGET_MS);
 });

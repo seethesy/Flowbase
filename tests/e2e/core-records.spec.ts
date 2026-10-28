@@ -101,3 +101,45 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await expect(history.getByText("Inquiry → Lost")).toBeVisible();
   await expect(history.getByText("Went with another caterer")).toBeVisible();
 });
+
+// FLOW-186: a save made from a copy another page has since changed is refused,
+// and the form shows the current version.
+test("a stale client save from a second page shows the conflict and the current version", async ({
+  page,
+  context,
+}) => {
+  const client = juniper();
+  await seedRecords({ clients: [client] });
+  const second = await context.newPage();
+  await page.goto(`/#/clients/${client.id}`);
+  await second.goto(`/#/clients/${client.id}`);
+  // Both pages open the edit form on the same version.
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await second.getByRole("button", { name: "Edit", exact: true }).click();
+
+  await second
+    .getByRole("dialog")
+    .getByLabel("Name *", { exact: true })
+    .fill("Juniper Holdings");
+  await second.getByRole("button", { name: "Save client" }).click();
+  await expect(
+    second.getByRole("heading", { name: "Juniper Holdings", level: 1 }),
+  ).toBeVisible();
+
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Juniper Events");
+  await dialog.getByRole("button", { name: "Save client" }).click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "This client changed since you opened it",
+  );
+  await expect(dialog.getByLabel("Name *", { exact: true })).toHaveValue(
+    "Juniper Holdings",
+  );
+  // Saving from the current version works.
+  await dialog.getByLabel("Name *", { exact: true }).fill("Juniper Events");
+  await dialog.getByRole("button", { name: "Save client" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Juniper Events", level: 1 }),
+  ).toBeVisible();
+});

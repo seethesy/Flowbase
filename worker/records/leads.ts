@@ -1,6 +1,7 @@
 import { redactFieldHistory, serializeFields } from "../../shared/visibility";
 import {
   and,
+  asc,
   desc,
   eq,
   ilike,
@@ -315,6 +316,19 @@ export async function findVisibleLead(db: DbLike, actor: Actor, id: string) {
   return row;
 }
 
+// Locks the lead, then checks visibility on the current row (FLOW-199): a
+// reassignment that commits first is seen, so the previous salesperson's change
+// answers 404 and writes nothing; one that comes second waits for this change.
+async function lockVisibleLead(tx: DbLike, actor: Actor, id: string) {
+  requireLeadAccess(actor);
+  await tx
+    .select({ id: leads.id })
+    .from(leads)
+    .where(eq(leads.id, id))
+    .for("update");
+  return findVisibleLead(tx, actor, id);
+}
+
 // The detail adds every source link and the possible duplicates the actor may see.
 export async function getLead(
   db: DbLike,
@@ -378,10 +392,14 @@ export async function bulkAssignLeads(
   requireAssign(actor);
   const ids = [...new Set(leadIds)];
   const updated = await db.transaction(async (tx) => {
+    // Locked in id order (FLOW-199), so a conversion that commits first is seen
+    // and refused as no longer open, and one that comes second waits.
     const rows = await tx
       .select()
       .from(leads)
-      .where(and(inArray(leads.id, ids), isNull(leads.archivedAt)));
+      .where(and(inArray(leads.id, ids), isNull(leads.archivedAt)))
+      .orderBy(asc(leads.id))
+      .for("update");
     if (rows.length !== ids.length) throw notFound("Lead");
     rows.forEach(requireOpen);
     const changing = rows.filter(
@@ -440,14 +458,15 @@ export async function changeLeadStatus(
   id: string,
   change: z.output<typeof leadStatusChangeSchema>,
 ): Promise<Lead> {
-  const current = await findVisibleLead(db, actor, id);
-  if (!leadStatusTransitions[current.status].includes(change.status))
-    throw new ApiError(
-      409,
-      "INVALID_TRANSITION",
-      `A ${leadStatusLabels[current.status].toLowerCase()} lead can't be marked ${leadStatusLabels[change.status].toLowerCase()}.`,
-    );
   await db.transaction(async (tx) => {
+    // Authorized and checked against the current, locked lead (FLOW-199).
+    const current = await lockVisibleLead(tx, actor, id);
+    if (!leadStatusTransitions[current.status].includes(change.status))
+      throw new ApiError(
+        409,
+        "INVALID_TRANSITION",
+        `A ${leadStatusLabels[current.status].toLowerCase()} lead can't be marked ${leadStatusLabels[change.status].toLowerCase()}.`,
+      );
     const before = await leadSnapshot(tx, id);
     const changed = await tx
       .update(leads)
@@ -496,25 +515,29 @@ export async function convertLead(
   id: string,
   input: z.output<typeof leadConvertSchema>,
 ): Promise<LeadConversion> {
-  const lead = await findVisibleLead(db, actor, id);
-  if (lead.status === "converted")
-    throw new ApiError(
-      409,
-      "INVALID_TRANSITION",
-      "This lead was already converted.",
-    );
-  if (lead.status !== "qualified")
-    throw new ApiError(
-      409,
-      "INVALID_TRANSITION",
-      "Only a qualified lead can be converted.",
-    );
-  const date = input.event.date ?? lead.eventDate;
-  if (!date) throw new ApiError(400, "INVALID_REQUEST", "Enter the event date.");
   const clients = clientScope(actor);
   requireClientAccess(actor);
 
   const result = await db.transaction(async (tx) => {
+    // Every check runs on the current, locked lead (FLOW-199): a reassignment or
+    // another conversion that commits first stops this one before it creates a
+    // client, contact, event, proposal or outbox row.
+    const lead = await lockVisibleLead(tx, actor, id);
+    if (lead.status === "converted")
+      throw new ApiError(
+        409,
+        "INVALID_TRANSITION",
+        "This lead was already converted.",
+      );
+    if (lead.status !== "qualified")
+      throw new ApiError(
+        409,
+        "INVALID_TRANSITION",
+        "Only a qualified lead can be converted.",
+      );
+    const date = input.event.date ?? lead.eventDate;
+    if (!date)
+      throw new ApiError(400, "INVALID_REQUEST", "Enter the event date.");
     const before = await leadSnapshot(tx, id);
     const hasContact = Boolean(lead.name || lead.email || lead.phone);
     const contact = {
@@ -569,10 +592,12 @@ export async function convertLead(
         .where(eq(clientContacts.clientId, clientId));
       pocContactId = primary?.id ?? null;
     } else {
+      // Locked for share: the client can't be reassigned before this commits.
       const client = await findVisibleClient(
         tx,
         actor,
         input.client.clientId,
+        "share",
       ).catch(() => {
         throw new ApiError(
           400,

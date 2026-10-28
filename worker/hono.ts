@@ -99,3 +99,21 @@ export async function parseBody<S extends z.ZodType>(
     );
   return parsed.data;
 }
+
+// Version-checked saves (FLOW-186). `stored` is the record's updated_at, read
+// under the row lock in the saving transaction; `loaded` is the updatedAt the
+// user's copy had. A mismatch is a stale save: 409 STALE, nothing changes. The
+// PUT routes always pass one (withVersion); server-side callers such as module
+// importers have no loaded copy and pass none.
+export function requireVersion(
+  stored: Date,
+  loaded: string | undefined,
+  what: string,
+) {
+  if (loaded !== undefined && stored.getTime() !== Date.parse(loaded))
+    throw new ApiError(
+      409,
+      "STALE",
+      `This ${what} changed since you opened it. Load the current version and make your changes again.`,
+    );
+}

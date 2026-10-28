@@ -26,9 +26,14 @@ export async function setArchived(
     };
     // Domain event prefix, e.g. "client" for client.archived / client.restored.
     event?: string;
+    // Runs first in the transaction: locks the record and re-checks that the
+    // actor may still change it (FLOW-199), so a concurrent reassignment can't be
+    // overtaken by a change authorized against the old owner.
+    lock?: (tx: DbLike) => Promise<unknown>;
   },
 ) {
   await db.transaction(async (tx) => {
+    await record.lock?.(tx);
     const before = record.audit ? await record.audit.snapshot(tx, id) : null;
     await record.update(tx, {
       archivedAt: archived ? new Date() : null,

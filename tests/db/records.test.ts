@@ -233,6 +233,7 @@ describe("clients", () => {
             role: "primary_poc",
           },
         ],
+        updatedAt: seen.updatedAt,
       },
     );
     expect(response.status).toBe(200);
@@ -265,6 +266,7 @@ describe("clients", () => {
       name: created.name,
       kind: created.kind,
       contacts: [{ id: created.contacts[1].id, name: "B", role: "billing" }],
+      updatedAt: created.updatedAt,
     });
     const updated = (await response.json()) as Client;
     expect(updated.contacts.map((c) => c.name)).toEqual(["B"]);
@@ -315,6 +317,7 @@ describe("venues", () => {
     const response = await admin.call("PUT", `/api/venues/${venue.id}`, {
       ...newVenue({ name: "Glasshouse" }),
       contacts: undefined,
+      updatedAt: venue.updatedAt,
     });
     expect(((await response.json()) as Venue).contacts).toHaveLength(1);
   });
@@ -375,6 +378,7 @@ describe("events", () => {
     const response = await admin.call("PUT", `/api/events/${event.id}`, {
       ...newEvent(owner.id, { venueId: venue.id }),
       areas: ["Inside Tent", "Outside Tent", "Bar Patio"],
+      updatedAt: event.updatedAt,
     });
     const updated = (await response.json()) as FlowEvent;
     expect(updated.areas.map((area) => area.name)).toEqual([
@@ -394,8 +398,12 @@ describe("events", () => {
     const response = await sam.call("GET", `/api/events/${event.id}`);
     expect(response.status).toBe(404);
     expect(
-      (await sam.call("PUT", `/api/events/${event.id}`, newEvent(owner.id)))
-        .status,
+      (
+        await sam.call("PUT", `/api/events/${event.id}`, {
+          ...newEvent(owner.id),
+          updatedAt: event.updatedAt,
+        })
+      ).status,
     ).toBe(404);
     expect(await sam.get<FlowEvent[]>("/api/events")).toEqual([]);
   });

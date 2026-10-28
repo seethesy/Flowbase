@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { queryClient } from "../app/queryClient";
 import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
+import type { Version } from "../../shared/schema-primitives";
 import {
   clientSchema,
   duplicateErrorSchema,
@@ -146,7 +147,8 @@ export const clientsApi = {
   get: (id: string) => request(clientSchema, at("clients", id)),
   create: (input: ClientInput) =>
     request(clientSchema, "/api/clients", "POST", input),
-  update: (id: string, input: ClientInput) =>
+  // Carries the updatedAt the form loaded; a stale copy answers 409 STALE (FLOW-186).
+  update: (id: string, input: ClientInput & Version) =>
     request(clientSchema, at("clients", id), "PUT", input),
   setArchived: (id: string, archived: boolean) =>
     request(
@@ -163,7 +165,7 @@ export const venuesApi = {
   get: (id: string) => request(venueSchema, at("venues", id)),
   create: (input: VenueInput) =>
     request(venueSchema, "/api/venues", "POST", input),
-  update: (id: string, input: VenueInput) =>
+  update: (id: string, input: VenueInput & Version) =>
     request(venueSchema, at("venues", id), "PUT", input),
   setArchived: (id: string, archived: boolean) =>
     request(
@@ -197,7 +199,7 @@ export const eventsApi = {
   hub: (id: string) => request(eventHubSchema, at("events", id, "hub")),
   create: (input: EventInput) =>
     request(eventSchema, "/api/events", "POST", input),
-  update: (id: string, input: EventInput) =>
+  update: (id: string, input: EventInput & Version) =>
     request(eventSchema, at("events", id), "PUT", input),
   setArchived: (id: string, archived: boolean) =>
     request(
@@ -235,7 +237,7 @@ export const inventoryApi = {
   get: (id: string) => request(itemSchema, at("inventory/items", id)),
   create: (input: ItemInput) =>
     request(itemSchema, "/api/inventory/items", "POST", input),
-  update: (id: string, input: ItemInput) =>
+  update: (id: string, input: ItemInput & Version) =>
     request(itemSchema, at("inventory/items", id), "PUT", input),
   setArchived: (id: string, archived: boolean) =>
     request(

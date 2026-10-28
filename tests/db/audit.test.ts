@@ -66,8 +66,18 @@ const as = (
     get: async <T>(path: string) => expectJson<T>(await call("GET", path), 200),
     post: async <T>(path: string, body: unknown, status = 201) =>
       expectJson<T>(await call("POST", path, body), status),
-    put: async <T>(path: string, body: unknown) =>
-      expectJson<T>(await call("PUT", path, body), 200),
+    // Version-checked saves (FLOW-186): the PUT carries the record's current
+    // version unless the body names one.
+    put: async <T>(path: string, body: unknown) => {
+      const { updatedAt } = await expectJson<{ updatedAt: string }>(
+        await call("GET", path),
+        200,
+      );
+      return expectJson<T>(
+        await call("PUT", path, { updatedAt, ...(body as object) }),
+        200,
+      );
+    },
   };
 };
 const admin = as(people.admin, "admin");

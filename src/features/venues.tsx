@@ -10,6 +10,7 @@ import {
   type VenueInput,
 } from "../../shared/core-records";
 import { allPages, eventsApi, venuesApi } from "../services/core";
+import { StaleReload, isStale } from "../components/stale-reload";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
 import { LoadMore, useDebounced, usePagedList } from "../app/paging";
@@ -122,15 +123,41 @@ type Row<T> = T & { key: string };
 let nextKey = 0;
 const keyed = <T,>(value: T): Row<T> => ({ ...value, key: `row-${nextKey++}` });
 
-export function VenueForm({
-  venue,
-  onClose,
-  onSaved,
-}: {
+type VenueFormProps = {
   venue?: Venue;
   onClose: () => void;
   onSaved: (venue: Venue) => void;
-}) {
+};
+
+// Edits reload the current version when the save was made from a stale copy
+// (FLOW-186).
+export function VenueForm(props: VenueFormProps) {
+  return (
+    <StaleReload
+      record={props.venue}
+      load={(id) => venuesApi.get(id)}
+      what="venue"
+    >
+      {({ record, conflict, onStale }) => (
+        <VenueFormFields
+          key={record?.updatedAt ?? "new"}
+          {...props}
+          venue={record}
+          conflict={conflict}
+          onStale={onStale}
+        />
+      )}
+    </StaleReload>
+  );
+}
+
+function VenueFormFields({
+  venue,
+  onClose,
+  onSaved,
+  conflict,
+  onStale,
+}: VenueFormProps & { conflict: string; onStale: () => Promise<void> }) {
   const [name, setName] = useState(venue?.name ?? "");
   const [address, setAddress] = useState(venue?.address ?? "");
   const [jurisdiction, setJurisdiction] = useState<string>(
@@ -173,11 +200,18 @@ export function VenueForm({
     try {
       onSaved(
         venue
-          ? await venuesApi.update(venue.id, input)
+          ? await venuesApi.update(venue.id, {
+              ...input,
+              updatedAt: venue.updatedAt,
+            })
           : await venuesApi.create(input),
       );
       onClose();
     } catch (e) {
+      if (venue && isStale(e)) {
+        await onStale();
+        return;
+      }
       setError((e as Error).message);
     } finally {
       setSaving(false);
@@ -197,6 +231,11 @@ export function VenueForm({
           void save();
         }}
       >
+        {conflict && (
+          <p role="alert" className="error-message">
+            {conflict}
+          </p>
+        )}
         {error && (
           <p role="alert" className="error-message">
             {error}

@@ -18,10 +18,11 @@ import {
   type Client,
 } from "../../shared/core-records";
 import type { z } from "zod";
+import type { Version } from "../../shared/schema-primitives";
 import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { clientContacts, clients } from "../db/schema";
-import { ApiError, forbidden, notFound } from "../hono";
+import { ApiError, forbidden, notFound, requireVersion } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { clientScope, type Scope } from "../policy";
 import { setArchived } from "./archive";
@@ -37,7 +38,7 @@ import { phoneDigits, syncChildren } from "./sync";
 type ClientRow = typeof clients.$inferSelect;
 type ContactRow = typeof clientContacts.$inferSelect;
 type ClientCreate = z.output<typeof clientCreateSchema>;
-type ClientUpdate = z.output<typeof clientInputSchema>;
+type ClientUpdate = z.output<typeof clientInputSchema> & Partial<Version>;
 type ContactInput = ClientUpdate["contacts"][number];
 
 // Clients the actor may see (FLOW-53): all for Admin, Technical and Sales Manager,
@@ -157,8 +158,22 @@ export async function listClients(
 }
 
 // A client the actor may see, archived or not; otherwise 404, never 403.
-export async function findVisibleClient(db: DbLike, actor: Actor, id: string) {
+// With `lock`, the row is locked first (FLOW-199): the visibility check then runs
+// on the current row, after any concurrent reassignment has committed, and the
+// row can't be reassigned until the caller's transaction ends.
+export async function findVisibleClient(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  lock?: "update" | "share",
+) {
   requireClientAccess(actor);
+  if (lock)
+    await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(eq(clients.id, id))
+      .for(lock);
   const [row] = await db
     .select()
     .from(clients)
@@ -379,8 +394,11 @@ export async function updateClient(
   input: ClientUpdate,
 ): Promise<Client> {
   const scope = requireClientAccess(actor);
-  const current = await findVisibleClient(db, actor, id);
   await db.transaction(async (tx) => {
+    // Authorized and version-checked against the current row, locked until this
+    // save commits (FLOW-199, FLOW-186).
+    const current = await findVisibleClient(tx, actor, id, "update");
+    requireVersion(current.updatedAt, input.updatedAt, "client");
     const before = await clientSnapshot(tx, id);
     await tx
       .update(clients)
@@ -416,8 +434,8 @@ export async function setClientArchived(
   id: string,
   archived: boolean,
 ): Promise<Client> {
-  await findVisibleClient(db, actor, id);
   await setArchived(db, actor, id, archived, {
+    lock: (tx) => findVisibleClient(tx, actor, id, "update"),
     update: (tx, values) =>
       tx.update(clients).set(values).where(eq(clients.id, id)),
     audit: { entityType: "client", snapshot: clientSnapshot },

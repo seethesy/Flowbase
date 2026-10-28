@@ -21,6 +21,7 @@ import {
 } from "../../shared/inventory";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { allPages, inventoryApi, sectionsApi } from "../services/core";
+import { StaleReload, isStale } from "../components/stale-reload";
 import { vendorsApi } from "../services/vendors";
 import { useResource } from "../app/useResource";
 import { Button, DetailDrawer, FormField } from "../components/shared";
@@ -105,17 +106,43 @@ type FieldName =
   | "subcategory"
   | "container";
 
-export function ItemForm({
-  item,
-  preset,
-  onClose,
-  onSaved,
-}: {
+type ItemFormProps = {
   item?: InventoryItem;
   preset?: { kind: ItemKind; subtype: string };
   onClose: () => void;
   onSaved: (item: InventoryItem) => void;
-}) {
+};
+
+// Edits reload the current version when the save was made from a stale copy
+// (FLOW-186).
+export function ItemForm(props: ItemFormProps) {
+  return (
+    <StaleReload
+      record={props.item}
+      load={(id) => inventoryApi.get(id)}
+      what="item"
+    >
+      {({ record, conflict, onStale }) => (
+        <ItemFormFields
+          key={record?.updatedAt ?? "new"}
+          {...props}
+          item={record}
+          conflict={conflict}
+          onStale={onStale}
+        />
+      )}
+    </StaleReload>
+  );
+}
+
+function ItemFormFields({
+  item,
+  preset,
+  onClose,
+  onSaved,
+  conflict,
+  onStale,
+}: ItemFormProps & { conflict: string; onStale: () => Promise<void> }) {
   const [kind, setKind] = useState<ItemKind>(
     item?.kind ?? preset?.kind ?? "rental",
   );
@@ -348,11 +375,18 @@ export function ItemForm({
     try {
       onSaved(
         item
-          ? await inventoryApi.update(item.id, payload)
+          ? await inventoryApi.update(item.id, {
+              ...payload,
+              updatedAt: item.updatedAt,
+            })
           : await inventoryApi.create(payload),
       );
       onClose();
     } catch (e) {
+      if (item && isStale(e)) {
+        await onStale();
+        return;
+      }
       setError((e as Error).message);
     } finally {
       setSaving(false);
@@ -380,6 +414,11 @@ export function ItemForm({
           void save();
         }}
       >
+        {conflict && (
+          <p role="alert" className="error-message">
+            {conflict}
+          </p>
+        )}
         {error && (
           <p role="alert" className="error-message">
             {error}
