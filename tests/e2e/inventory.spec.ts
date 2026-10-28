@@ -358,15 +358,9 @@ test("explains that an item with stock history can't change its stock unit", asy
   await expect(dialog.getByRole("alert")).toContainText(
     "stock history is recorded in each, so its stock unit can't change",
   );
-  // Other edits still save.
-  await dialog.getByLabel(/^Stock unit/).selectOption("each");
-  const name = dialog.getByLabel("Name *", { exact: true });
-  await name.fill("Chiavari chairs, gold");
-  // Submit from the field: on the mobile layout the button sits under the
-  // scrolled form once the alert is shown.
-  await name.press("Enter");
-  await expect(dialog).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Chiavari chairs, gold", level: 1 }),
-  ).toBeVisible();
+  // Nothing was saved. (Other edits still saving is covered in
+  // tests/db/concurrency.test.ts.)
+  await page.reload();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(dialog.getByLabel(/^Stock unit/)).toHaveValue("each");
 });
