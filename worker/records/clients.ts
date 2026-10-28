@@ -38,7 +38,7 @@ import { phoneDigits, syncChildren } from "./sync";
 type ClientRow = typeof clients.$inferSelect;
 type ContactRow = typeof clientContacts.$inferSelect;
 type ClientCreate = z.output<typeof clientCreateSchema>;
-type ClientUpdate = z.output<typeof clientInputSchema> & Version;
+type ClientUpdate = z.output<typeof clientInputSchema> & Partial<Version>;
 type ContactInput = ClientUpdate["contacts"][number];
 
 // Clients the actor may see (FLOW-53): all for Admin, Technical and Sales Manager,

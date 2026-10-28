@@ -661,7 +661,7 @@ export async function updateItem(
   db: Db,
   actor: Actor,
   id: string,
-  input: ItemInputParsed & Version,
+  input: ItemInputParsed & Partial<Version>,
 ): Promise<InventoryItem> {
   const current = await findItem(db, id);
   if (current.kind !== input.kind)

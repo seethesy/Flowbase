@@ -237,7 +237,7 @@ export async function updateVenue(
   db: Db,
   actor: Actor,
   id: string,
-  input: VenueInput & Version,
+  input: VenueInput & Partial<Version>,
 ): Promise<Venue> {
   await db.transaction(async (tx) => {
     // Version-checked against the row, locked until this save commits (FLOW-186).

@@ -444,7 +444,7 @@ export async function updateEvent(
   db: Db,
   actor: Actor,
   id: string,
-  input: EventInput & Version,
+  input: EventInput & Partial<Version>,
 ): Promise<FlowEvent> {
   // input.status is ignored here: status changes go through overrideEventStatus.
   await db.transaction(async (tx) => {

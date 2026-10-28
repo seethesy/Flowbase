@@ -43,7 +43,7 @@ const as = (who: keyof typeof people) => {
     withDb,
     resolveActor: async () => ({ userId: people[who], role, employmentType }),
   });
-  const call = (method: string, path: string, body?: unknown) =>
+  const call = async (method: string, path: string, body?: unknown) =>
     app.request(
       path,
       {
