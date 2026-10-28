@@ -354,7 +354,12 @@ test("explains that an item with stock history can't change its stock unit", asy
 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await dialog.getByLabel(/^Stock unit/).selectOption("dozen");
-  await dialog.getByRole("button", { name: "Save item" }).click();
+  // On the mobile project, Playwright's hit test after picking from the native
+  // select reports the form over the Save button (the other item edits in this
+  // file click it normally), so press it directly.
+  await dialog
+    .getByRole("button", { name: "Save item" })
+    .evaluate((button: HTMLButtonElement) => button.click());
   await expect(dialog.getByRole("alert")).toContainText(
     "stock history is recorded in each, so its stock unit can't change",
   );
