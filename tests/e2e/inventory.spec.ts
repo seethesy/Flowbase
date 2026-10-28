@@ -353,13 +353,13 @@ test("explains that an item with stock history can't change its stock unit", asy
   await expect(dialog).toHaveCount(0);
 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog.getByLabel("Stock unit", { exact: true }).selectOption("dozen");
+  await dialog.getByLabel(/^Stock unit/).selectOption("dozen");
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog.getByRole("alert")).toContainText(
     "stock history is recorded in each, so its stock unit can't change",
   );
   // Other edits still save.
-  await dialog.getByLabel("Stock unit", { exact: true }).selectOption("each");
+  await dialog.getByLabel(/^Stock unit/).selectOption("each");
   await dialog.getByLabel("Name *", { exact: true }).fill("Chiavari chairs, gold");
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
