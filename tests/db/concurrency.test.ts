@@ -416,7 +416,8 @@ describe("FLOW-199: lead transitions hold under concurrent reassignment and conv
       { assignedSalespersonId: owner },
     );
     await db.update(schema.leads).set({ status: "qualified" }).where(eq(schema.leads.id, id));
-    await db.execute(sql`truncate table jobs`);
+    // Other tables reference jobs, so clear the lead's queued jobs by deleting.
+    await db.execute(sql`delete from jobs`);
     return id;
   };
   const conversion = { client: { mode: "create" }, event: { startTime: "18:00" } };

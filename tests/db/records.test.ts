@@ -233,6 +233,7 @@ describe("clients", () => {
             role: "primary_poc",
           },
         ],
+        updatedAt: seen.updatedAt,
       },
     );
     expect(response.status).toBe(200);
