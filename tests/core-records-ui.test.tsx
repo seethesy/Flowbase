@@ -469,15 +469,17 @@ it("reports a stale client save and loads the current version (FLOW-186 AC2)", a
   await user.clear(name);
   await user.type(name, "Juniper Events");
   await user.click(within(dialog).getByRole("button", { name: "Save client" }));
-  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+  // The form starts again from the current version, in a fresh drawer.
+  expect(await screen.findByRole("alert")).toHaveTextContent(
     "This client changed since you opened it, so your changes weren't saved. The form now shows the current version",
   );
+  const reloaded = screen.getByRole("dialog");
   expect(puts[0]).toMatchObject({ name: "Juniper Events", updatedAt: now });
   expect(onSaved).not.toHaveBeenCalled();
   // The form now holds the current version, with the contact someone else added.
-  expect(within(dialog).getByLabelText("Name *")).toHaveValue("Juniper Holdings");
-  expect(within(dialog).getAllByLabelText("Contact name *")).toHaveLength(2);
-  await user.click(within(dialog).getByRole("button", { name: "Save client" }));
+  expect(within(reloaded).getByLabelText("Name *")).toHaveValue("Juniper Holdings");
+  expect(within(reloaded).getAllByLabelText("Contact name *")).toHaveLength(2);
+  await user.click(within(reloaded).getByRole("button", { name: "Save client" }));
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith(current));
   expect(puts[1]).toMatchObject({ name: "Juniper Holdings", updatedAt: later });
   expect(puts[1].contacts).toHaveLength(2);
@@ -514,9 +516,11 @@ it("reports a stale venue save and loads the current version (FLOW-186 AC2)", as
   mount(<VenueForm venue={venue()} onClose={() => {}} onSaved={() => {}} />);
   const dialog = screen.getByRole("dialog");
   await user.click(within(dialog).getByRole("button", { name: "Save venue" }));
-  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+  expect(await screen.findByRole("alert")).toHaveTextContent(
     "This venue changed since you opened it",
   );
   expect(sent[0]).toMatchObject({ updatedAt: now });
-  expect(within(dialog).getByLabelText("Name *")).toHaveValue("Glasshouse Gardens");
+  expect(
+    within(screen.getByRole("dialog")).getByLabelText("Name *"),
+  ).toHaveValue("Glasshouse Gardens");
 });
