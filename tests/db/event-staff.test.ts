@@ -461,7 +461,10 @@ describe("Production Leads", () => {
         })
       ).status,
     ).toBe(200);
+    // Naming the leads changed the event: save from its current version.
+    const current = await sam.send<FlowEvent>("GET", `/api/events/${gala.id}`);
     const saved = await sam.send<FlowEvent>("PUT", `/api/events/${gala.id}`, {
+      updatedAt: current.updatedAt,
       title: "Fall gala",
       date: "2026-11-14",
       startTime: "18:00",

@@ -13,6 +13,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { z } from "zod";
+import type { Version } from "../../shared/schema-primitives";
 import type { Actor } from "../../shared/access";
 import {
   eventStatusDetailLabels,
@@ -46,7 +47,7 @@ import {
   users,
   venues,
 } from "../db/schema";
-import { ApiError, forbidden, notFound } from "../hono";
+import { ApiError, forbidden, notFound, requireVersion } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
 import type { productionLeadsInputSchema } from "../../shared/event-staff";
@@ -310,7 +311,9 @@ async function resolveReferences(
   input: EventInput,
   current?: EventRow,
 ) {
-  const client = await findVisibleClient(db, actor, input.clientId).catch(
+  // Locked for share (FLOW-199): the client can't be reassigned away from the
+  // actor between this check and the event's commit.
+  const client = await findVisibleClient(db, actor, input.clientId, "share").catch(
     () => {
       throw new ApiError(400, "INVALID_REQUEST", "Choose a client you can see.");
     },
@@ -441,12 +444,15 @@ export async function updateEvent(
   db: Db,
   actor: Actor,
   id: string,
-  input: EventInput,
+  input: EventInput & Version,
 ): Promise<FlowEvent> {
   // input.status is ignored here: status changes go through overrideEventStatus.
-  const current = await findVisibleEvent(db, actor, id);
-  const resolved = await resolveReferences(db, actor, input, current);
   await db.transaction(async (tx) => {
+    // Authorized and version-checked against the current row, locked until this
+    // save commits (FLOW-199, FLOW-186).
+    const current = await lockVisibleEvent(tx, actor, id);
+    requireVersion(current.updatedAt, input.updatedAt, "event");
+    const resolved = await resolveReferences(tx, actor, input, current);
     const before = await eventSnapshot(tx, id);
     await tx
       .update(events)
@@ -475,8 +481,8 @@ export async function setEventArchived(
   id: string,
   archived: boolean,
 ): Promise<FlowEvent> {
-  await findVisibleEvent(db, actor, id);
   await setArchived(db, actor, id, archived, {
+    lock: (tx) => lockVisibleEvent(tx, actor, id),
     update: (tx, values) =>
       tx.update(events).set(values).where(eq(events.id, id)),
     audit: { entityType: "event", snapshot: eventSnapshot },
@@ -541,6 +547,15 @@ async function lockEvent(tx: DbLike, id: string) {
     .for("update");
   if (!row) throw notFound("Event");
   return row;
+}
+
+// Locks the event, then checks visibility on the current row (FLOW-199). The
+// lock waits for any concurrent reassignment to commit, and the next statement
+// sees it, so a change authorized against the previous owner can't commit.
+// Not visible answers 404, as before.
+async function lockVisibleEvent(tx: DbLike, actor: Actor, id: string) {
+  await lockEvent(tx, id);
+  return findVisibleEvent(tx, actor, id);
 }
 
 const sameStatus = (status: EventStatus) =>

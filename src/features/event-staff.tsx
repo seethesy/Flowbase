@@ -45,7 +45,15 @@ const range = (startsAt: string, endsAt: string) => {
 export const conflictText = (conflict: ShiftConflict) =>
   `${conflict.eventTitle ?? "another event"} (${shiftKindLabels[conflict.shiftKind]}, ${range(conflict.startsAt, conflict.endsAt)})`;
 
-export function EventStaffSection({ event }: { event: FlowEvent }) {
+export function EventStaffSection({
+  event,
+  onEventChanged,
+}: {
+  event: FlowEvent;
+  // Naming the Production Leads changes the event itself; the page reloads it
+  // so its edit form saves from the current version (FLOW-186).
+  onEventChanged?: () => void;
+}) {
   const roster = useResource(["event-staff", event.id], () => eventStaffApi.roster(event.id));
   const staff = useResource(["staff"], () => staffApi.list());
   const [error, setError] = useState("");
@@ -192,6 +200,7 @@ export function EventStaffSection({ event }: { event: FlowEvent }) {
           onSave={async (input) => {
             await eventStaffApi.setProductionLeads(event.id, input);
             roster.reload();
+            onEventChanged?.();
             setLeadsForm(false);
           }}
         />

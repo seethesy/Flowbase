@@ -22,7 +22,8 @@ import type {
   InventoryItem,
   ItemInputParsed,
 } from "../../shared/inventory";
-import type { Unit } from "../../shared/units";
+import { units, type Unit } from "../../shared/units";
+import type { Version } from "../../shared/schema-primitives";
 import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
@@ -33,9 +34,10 @@ import {
   inventorySections,
   inventoryServiceDetails,
   inventoryStock,
+  stockMovements,
   vendors,
 } from "../db/schema";
-import { forbidden, notFound } from "../hono";
+import { forbidden, notFound, requireVersion } from "../hono";
 import { can } from "../policy";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
@@ -659,7 +661,7 @@ export async function updateItem(
   db: Db,
   actor: Actor,
   id: string,
-  input: ItemInputParsed,
+  input: ItemInputParsed & Version,
 ): Promise<InventoryItem> {
   const current = await findItem(db, id);
   if (current.kind !== input.kind)
@@ -669,12 +671,16 @@ export async function updateItem(
     );
   await requireUniqueCode(db, input.code, id);
   await db.transaction(async (tx) => {
-    const before = await itemSnapshot(tx, id);
-    await tx
-      .select({ id: inventoryItems.id })
+    // Locked before anything is read: recordMovement takes the same lock, so a
+    // first stock movement and this save can't interleave (FLOW-198 AC4).
+    const [locked] = await tx
+      .select()
       .from(inventoryItems)
       .where(eq(inventoryItems.id, id))
       .for("update");
+    requireVersion(locked.updatedAt, input.updatedAt, "item");
+    if (input.unit !== locked.unit) await requireNoStockHistory(tx, locked);
+    const before = await itemSnapshot(tx, id);
     await validateComponents(tx, input, id);
     if (input.kind === "rental") {
       const [stored] = await tx
@@ -706,6 +712,25 @@ export async function updateItem(
     await emitDomainEvent(tx, { name: "inventory_item.updated", entityId: id });
   });
   return getItem(db, actor, id);
+}
+
+// Stock movements are recorded in the item's unit and keep no unit of their own,
+// so once an item has any history its unit can't change: 10 lb would read as
+// 10 oz (FLOW-198). A zero balance doesn't erase history. No conversion.
+async function requireNoStockHistory(
+  tx: DbLike,
+  item: { id: string; unit: Unit },
+) {
+  const [moved] = await tx
+    .select({ id: stockMovements.id })
+    .from(stockMovements)
+    .where(eq(stockMovements.itemId, item.id))
+    .limit(1);
+  if (moved)
+    throw conflict(
+      "UNIT_LOCKED",
+      `This item's stock history is recorded in ${units[item.unit].label}, so its stock unit can't change. Keep ${units[item.unit].label}, or archive this item and create a new one in the new unit.`,
+    );
 }
 
 export async function setItemArchived(

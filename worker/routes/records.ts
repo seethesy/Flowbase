@@ -7,7 +7,7 @@ import {
   eventTransitionSchema,
   venueInputSchema,
 } from "../../shared/core-records";
-import { id as uuid, localDate } from "../../shared/schema-primitives";
+import { id as uuid, localDate, withVersion } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
@@ -115,7 +115,7 @@ export function recordRoutes(options: {
   });
   routes.put("/clients/:id", requirePermission("clients.write"), async (c) => {
     const id = param(c, "Client");
-    const input = await parseBody(c, clientInputSchema);
+    const input = await parseBody(c, withVersion(clientInputSchema));
     return c.json(
       await record(c, (db, actor) => updateClient(db, actor, id, input)),
     );
@@ -188,7 +188,7 @@ export function recordRoutes(options: {
   });
   routes.put("/venues/:id", requirePermission("venues.write"), async (c) => {
     const id = param(c, "Venue");
-    const input = await parseBody(c, venueInputSchema);
+    const input = await parseBody(c, withVersion(venueInputSchema));
     return c.json(
       await record(c, (db, actor) => updateVenue(db, actor, id, input)),
     );
@@ -238,7 +238,7 @@ export function recordRoutes(options: {
   });
   routes.put("/events/:id", requirePermission("events.write"), async (c) => {
     const id = param(c, "Event");
-    const input = await parseBody(c, eventInputSchema);
+    const input = await parseBody(c, withVersion(eventInputSchema));
     return c.json(
       await record(c, (db, actor) => updateEvent(db, actor, id, input)),
     );

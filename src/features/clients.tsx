@@ -36,6 +36,7 @@ import {
 } from "../components/shared";
 import { EventForm, EventTable } from "./events";
 import { Attachments } from "./attachments";
+import { StaleReload, isStale } from "../components/stale-reload";
 import "./clients.css";
 
 import { initials, hidden, LoadError } from "../components/record-display";
@@ -188,15 +189,41 @@ const draftOf = (contact: Contact, index: number): ContactDraft => ({
   hiddenDetails: contact.email === null,
 });
 
-export function ClientForm({
-  client,
-  onClose,
-  onSaved,
-}: {
+type ClientFormProps = {
   client?: Client;
   onClose: () => void;
   onSaved: (client: Client) => void;
-}) {
+};
+
+// Edits reload the current version when the save was made from a stale copy
+// (FLOW-186).
+export function ClientForm(props: ClientFormProps) {
+  return (
+    <StaleReload
+      record={props.client}
+      load={(id) => clientsApi.get(id)}
+      what="client"
+    >
+      {({ record, conflict, onStale }) => (
+        <ClientFormFields
+          key={record?.updatedAt ?? "new"}
+          {...props}
+          client={record}
+          conflict={conflict}
+          onStale={onStale}
+        />
+      )}
+    </StaleReload>
+  );
+}
+
+function ClientFormFields({
+  client,
+  onClose,
+  onSaved,
+  conflict,
+  onStale,
+}: ClientFormProps & { conflict: string; onStale: () => Promise<void> }) {
   const [name, setName] = useState(client?.name ?? "");
   const [kind, setKind] = useState<Client["kind"]>(
     client?.kind ?? "organization",
@@ -253,11 +280,18 @@ export function ClientForm({
     try {
       onSaved(
         client
-          ? await clientsApi.update(client.id, input)
+          ? await clientsApi.update(client.id, {
+              ...input,
+              updatedAt: client.updatedAt,
+            })
           : await clientsApi.create(input),
       );
       onClose();
     } catch (e) {
+      if (client && isStale(e)) {
+        await onStale();
+        return;
+      }
       if (e instanceof ApiRequestError && e.code === "POSSIBLE_DUPLICATE")
         setDuplicates(e.duplicates);
       else setError((e as Error).message);
@@ -279,6 +313,11 @@ export function ClientForm({
           void save(false);
         }}
       >
+        {conflict && (
+          <p role="alert" className="error-message">
+            {conflict}
+          </p>
+        )}
         {error && (
           <p role="alert" className="error-message">
             {error}

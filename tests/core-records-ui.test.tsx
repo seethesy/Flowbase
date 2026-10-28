@@ -6,7 +6,8 @@ import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { ClientForm, ClientList } from "../src/features/clients";
 import { EventForm, EventList } from "../src/features/events";
-import type { Client, FlowEvent } from "../shared/core-records";
+import { VenueForm } from "../src/features/venues";
+import type { Client, FlowEvent, Venue } from "../shared/core-records";
 
 const requestId = "81449b27-3ebd-41b3-bdad-58f725d7f319";
 const now = "2026-10-22T09:00:00.000Z";
@@ -418,4 +419,104 @@ it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)
   expect(
     (Date.parse(first.get("to")!) - Date.parse(first.get("from")!)) / 86_400_000,
   ).toBe(37);
+});
+
+// FLOW-186: a save made from a stale copy is refused (409 STALE); the form says
+// so and shows the current version, and the next save carries that version.
+const later = "2026-10-22T10:30:00.000Z";
+const stale = () =>
+  Response.json(
+    {
+      error: {
+        code: "STALE",
+        message: "This client changed since you opened it.",
+        requestId,
+      },
+    },
+    { status: 409 },
+  );
+
+it("reports a stale client save and loads the current version (FLOW-186 AC2)", async () => {
+  const current = client({
+    name: "Juniper Holdings",
+    updatedAt: later,
+    contacts: [
+      ...client().contacts,
+      {
+        id: "c0000000-0000-4000-8000-0000000000a3",
+        name: "Maya Ortiz",
+        role: "billing",
+        email: "maya@juniper.example",
+        phone: "",
+        notes: "",
+      },
+    ],
+  });
+  const puts: Record<string, unknown>[] = [];
+  const onSaved = vi.fn();
+  mockApi({
+    [`PUT /api/clients/${client().id}`]: (init) => {
+      const body = bodyOf(init);
+      puts.push(body);
+      return body.updatedAt === now ? stale() : Response.json(current);
+    },
+    [`GET /api/clients/${client().id}`]: () => Response.json(current),
+  });
+  const user = userEvent.setup();
+  mount(<ClientForm client={client()} onClose={() => {}} onSaved={onSaved} />);
+  const dialog = screen.getByRole("dialog");
+  const name = within(dialog).getByLabelText("Name *");
+  await user.clear(name);
+  await user.type(name, "Juniper Events");
+  await user.click(within(dialog).getByRole("button", { name: "Save client" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "This client changed since you opened it, so your changes weren't saved. The form now shows the current version",
+  );
+  expect(puts[0]).toMatchObject({ name: "Juniper Events", updatedAt: now });
+  expect(onSaved).not.toHaveBeenCalled();
+  // The form now holds the current version, with the contact someone else added.
+  expect(within(dialog).getByLabelText("Name *")).toHaveValue("Juniper Holdings");
+  expect(within(dialog).getAllByLabelText("Contact name *")).toHaveLength(2);
+  await user.click(within(dialog).getByRole("button", { name: "Save client" }));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledWith(current));
+  expect(puts[1]).toMatchObject({ name: "Juniper Holdings", updatedAt: later });
+  expect(puts[1].contacts).toHaveLength(2);
+});
+
+it("reports a stale venue save and loads the current version (FLOW-186 AC2)", async () => {
+  const venue = (overrides: Partial<Venue> = {}): Venue => ({
+    id: "d0000000-0000-4000-8000-000000000001",
+    name: "The Glasshouse",
+    address: "100 Garden Way",
+    jurisdiction: "VA",
+    loadInNotes: "",
+    parkingNotes: "",
+    areas: [{ id: "d0000000-0000-4000-8000-0000000000b1", name: "Inside Tent" }],
+    contacts: [],
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  });
+  const current = venue({ name: "Glasshouse Gardens", updatedAt: later });
+  const sent: Record<string, unknown>[] = [];
+  mockApi({
+    [`PUT /api/venues/${venue().id}`]: (init) => {
+      sent.push(bodyOf(init));
+      return Response.json(
+        { error: { code: "STALE", message: "This venue changed.", requestId } },
+        { status: 409 },
+      );
+    },
+    [`GET /api/venues/${venue().id}`]: () => Response.json(current),
+  });
+  const user = userEvent.setup();
+  mount(<VenueForm venue={venue()} onClose={() => {}} onSaved={() => {}} />);
+  const dialog = screen.getByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Save venue" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "This venue changed since you opened it",
+  );
+  expect(sent[0]).toMatchObject({ updatedAt: now });
+  expect(within(dialog).getByLabelText("Name *")).toHaveValue("Glasshouse Gardens");
 });

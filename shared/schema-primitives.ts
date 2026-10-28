@@ -19,3 +19,12 @@ export const email = text(254).refine(
   (value) => value === "" || /^\S+@\S+\.\S+$/.test(value),
   "Enter a valid email address.",
 );
+
+// Version-checked saves (FLOW-186): a PUT carries the updatedAt the user loaded,
+// and the server applies it only if the record still has that version; otherwise
+// it answers 409 STALE and changes nothing.
+export const versionSchema = z.object({ updatedAt: timestamp });
+export type Version = z.infer<typeof versionSchema>;
+export const withVersion = <S extends z.ZodType>(schema: S) =>
+  z.intersection(schema, versionSchema);
+export const STALE_CODE = "STALE";

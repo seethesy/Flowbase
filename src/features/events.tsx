@@ -15,6 +15,7 @@ import {
 import type { HubSection } from "../../shared/event-hub";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { allPages, clientsApi, eventsApi, venuesApi } from "../services/core";
+import { StaleReload, isStale } from "../components/stale-reload";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
 import { LoadMore, useDebounced, usePagedList } from "../app/paging";
@@ -236,17 +237,43 @@ const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
 const countOf = (value: string) =>
   value.trim() === "" ? null : Math.max(0, Math.round(Number(value)));
 
-export function EventForm({
-  event,
-  clientId,
-  onClose,
-  onSaved,
-}: {
+type EventFormProps = {
   event?: FlowEvent;
   clientId?: string;
   onClose: () => void;
   onSaved: (event: FlowEvent) => void;
-}) {
+};
+
+// Edits reload the current version when the save was made from a stale copy
+// (FLOW-186).
+export function EventForm(props: EventFormProps) {
+  return (
+    <StaleReload
+      record={props.event}
+      load={(id) => eventsApi.get(id)}
+      what="event"
+    >
+      {({ record, conflict, onStale }) => (
+        <EventFormFields
+          key={record?.updatedAt ?? "new"}
+          {...props}
+          event={record}
+          conflict={conflict}
+          onStale={onStale}
+        />
+      )}
+    </StaleReload>
+  );
+}
+
+function EventFormFields({
+  event,
+  clientId,
+  onClose,
+  onSaved,
+  conflict,
+  onStale,
+}: EventFormProps & { conflict: string; onStale: () => Promise<void> }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(event, clientId));
   // Left untouched, areas follow the venue: the API copies a newly picked venue's.
   const [areas, setAreas] = useState<string | undefined>(
@@ -333,11 +360,18 @@ export function EventForm({
     try {
       onSaved(
         event
-          ? await eventsApi.update(event.id, input)
+          ? await eventsApi.update(event.id, {
+              ...input,
+              updatedAt: event.updatedAt,
+            })
           : await eventsApi.create(input),
       );
       onClose();
     } catch (e) {
+      if (event && isStale(e)) {
+        await onStale();
+        return;
+      }
       setError((e as Error).message);
     } finally {
       setSaving(false);
@@ -358,6 +392,11 @@ export function EventForm({
           void save();
         }}
       >
+        {conflict && (
+          <p role="alert" className="error-message">
+            {conflict}
+          </p>
+        )}
         {error && (
           <p role="alert" className="error-message">
             {error}
@@ -720,7 +759,13 @@ export function EventDetail() {
         onEventChanged={() => hub.reload()}
       />
     ),
-    staff: () => <EventStaffSection key={`staff:${e.id}`} event={e} />,
+    staff: () => (
+      <EventStaffSection
+        key={`staff:${e.id}`}
+        event={e}
+        onEventChanged={() => hub.reload()}
+      />
+    ),
     files: () => (
       <Attachments
         key="files"

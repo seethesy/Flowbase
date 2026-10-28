@@ -5,12 +5,13 @@ import {
 } from "../../shared/visibility";
 import { and, asc, eq, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import type { z } from "zod";
+import type { Version } from "../../shared/schema-primitives";
 import type { Actor } from "../../shared/access";
 import type { Venue, venueInputSchema } from "../../shared/core-records";
 import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import { venueAreas, venueContacts, venues } from "../db/schema";
-import { forbidden, notFound } from "../hono";
+import { forbidden, notFound, requireVersion } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
 import { keyset, type Page, type PageRequest } from "./paging";
@@ -236,10 +237,17 @@ export async function updateVenue(
   db: Db,
   actor: Actor,
   id: string,
-  input: VenueInput,
+  input: VenueInput & Version,
 ): Promise<Venue> {
-  await findVenue(db, id);
   await db.transaction(async (tx) => {
+    // Version-checked against the row, locked until this save commits (FLOW-186).
+    const [current] = await tx
+      .select({ updatedAt: venues.updatedAt })
+      .from(venues)
+      .where(eq(venues.id, id))
+      .for("update");
+    if (!current) throw notFound("Venue");
+    requireVersion(current.updatedAt, input.updatedAt, "venue");
     const before = await venueSnapshot(tx, id);
     await tx
       .update(venues)

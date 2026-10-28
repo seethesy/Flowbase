@@ -31,6 +31,16 @@ if (!url)
   );
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
+
+// Version-checked saves (FLOW-186): an item PUT carries the item's current
+// updatedAt.
+const versionOf = async (id: string) =>
+  (
+    await db
+      .select({ updatedAt: schema.inventoryItems.updatedAt })
+      .from(schema.inventoryItems)
+      .where(eq(schema.inventoryItems.id, id))
+  )[0].updatedAt.toISOString();
 const withDb: RunWithDb = (_env, run) => run(db);
 const env = { ASSETS: { fetch } };
 
@@ -126,8 +136,11 @@ describe("inventory items", () => {
   };
   const create = (input: ItemInput) =>
     admin.send<InventoryItem>("POST", "/api/inventory/items", input, 201);
-  const update = (id: string, input: ItemInput) =>
-    admin.send<InventoryItem>("PUT", `/api/inventory/items/${id}`, input);
+  const update = async (id: string, input: ItemInput) =>
+    admin.send<InventoryItem>("PUT", `/api/inventory/items/${id}`, {
+      ...input,
+      updatedAt: await versionOf(id),
+    });
 
   it("AC1: a price change writes one row with only the changed fields, and history returns it", async () => {
     const item = await create({

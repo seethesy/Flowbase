@@ -13,7 +13,7 @@ import {
   startCountInputSchema,
   transferInputSchema,
 } from "../../shared/inventory";
-import { id as uuid } from "../../shared/schema-primitives";
+import { id as uuid, withVersion } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
   notFound,
@@ -106,7 +106,7 @@ export function inventoryRoutes(options: {
   });
   routes.put("/items/:id", requirePermission("inventory.write"), async (c) => {
     const id = param(c, "Item");
-    const input = await parseBody(c, itemInputSchema);
+    const input = await parseBody(c, withVersion(itemInputSchema));
     return c.json(
       await record(c, (db, actor) => updateItem(db, actor, id, input)),
     );
