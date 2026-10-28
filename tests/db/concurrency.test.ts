@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -71,7 +71,7 @@ const admin = as("admin");
 const manager = as("manager");
 const sam = as("sam");
 
-const tables = sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs, users cascade`;
+const tables = sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs cascade`;
 const SECTION = "FLOW-198 Dry Storage";
 let sectionId = "";
 
@@ -90,7 +90,9 @@ beforeEach(async () => {
       mobile: `20255593${i}`,
       status: "active" as const,
     })),
-  );
+  )
+  // Added once and kept, and removed after the file: other users stay as they were.
+  .onConflictDoNothing({ target: schema.users.id });
   const [existing] = await db
     .select({ id: schema.inventorySections.id })
     .from(schema.inventorySections)
@@ -109,6 +111,7 @@ afterAll(async () => {
   await db
     .delete(schema.inventorySections)
     .where(eq(schema.inventorySections.name, SECTION));
+  await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
   await other.end();
 });
