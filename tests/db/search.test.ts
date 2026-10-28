@@ -322,3 +322,57 @@ it("uses the field-group policy for search matching across every role and employ
         );
     }
 });
+
+// FLOW-217: recipes join global search by dish name.
+describe("recipes in global search (FLOW-217)", () => {
+  const addRecipe = async (
+    name: string,
+    values: Partial<typeof schema.recipes.$inferInsert> = {},
+  ) => {
+    const [row] = await db
+      .insert(schema.recipes)
+      .values({ name, category: "mains", ...values })
+      .returning();
+    return row;
+  };
+
+  it("finds a recipe whose name has a typo and links to its page (AC1, AC2)", async () => {
+    const recipe = await addRecipe("Tuscan Chicken");
+    await addRecipe("Lemon Tart", { category: "desserts" });
+    const results = await staff.search("tuscan chiken");
+    const found = results.filter((r) => r.type === "recipe");
+    expect(found).toHaveLength(1);
+    expect(found[0]).toEqual({
+      type: "recipe",
+      id: recipe.id,
+      title: "Tuscan Chicken",
+      subtitle: "Mains",
+      path: `/recipes/${recipe.id}`,
+      score: expect.any(Number),
+    });
+    expect(ofType(await admin.search("lemon tart"), "recipe")).toEqual(["Lemon Tart"]);
+    expect(
+      (await admin.search("lemon tart")).find((r) => r.type === "recipe")?.subtitle,
+    ).toBe("Desserts");
+  });
+
+  it("leaves out archived and inactive recipes (AC3)", async () => {
+    await addRecipe("Tuscan Chicken", { archivedAt: new Date() });
+    await addRecipe("Tuscan Chicken Soup", { active: false });
+    expect(ofType(await admin.search("tuscan chicken"), "recipe")).toEqual([]);
+    await addRecipe("Tuscan Chicken");
+    expect(ofType(await admin.search("tuscan chicken"), "recipe")).toEqual([
+      "Tuscan Chicken",
+    ]);
+  });
+
+  it("shows recipes to every role and employment type that may read them", async () => {
+    await addRecipe("Tuscan Chicken");
+    for (const role of roles)
+      for (const employmentType of employmentTypes)
+        expect(
+          ofType(await signedInAs(people.staff, role, employmentType).search("tuscan chiken"), "recipe"),
+          `${role} ${employmentType}`,
+        ).toEqual(["Tuscan Chicken"]);
+  });
+});

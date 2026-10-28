@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Global search (FLOW-46): one search box over every record type the caller may
-// see. Vendors joined with the directory (FLOW-84); recipes join with FLOW-217.
+// see. Vendors joined with the directory (FLOW-84), recipes with FLOW-217.
 export const searchResultTypes = [
   "client",
   "lead",
@@ -9,6 +9,7 @@ export const searchResultTypes = [
   "venue",
   "item",
   "vendor",
+  "recipe",
 ] as const;
 export type SearchResultType = (typeof searchResultTypes)[number];
 export const searchResultTypeLabels: Record<SearchResultType, string> = {
@@ -18,6 +19,7 @@ export const searchResultTypeLabels: Record<SearchResultType, string> = {
   venue: "Venue",
   item: "Inventory item",
   vendor: "Vendor",
+  recipe: "Recipe",
 };
 
 // Shorter queries match too much to be useful.
@@ -36,4 +38,4 @@ export const searchResultSchema = z.object({
 export type SearchResult = z.infer<typeof searchResultSchema>;
 
 export const searchResultPath = (type: SearchResultType, id: string) =>
-  `/${{ client: "clients", lead: "leads", event: "events", venue: "venues", item: "inventory", vendor: "vendors" }[type]}/${id}`;
+  `/${{ client: "clients", lead: "leads", event: "events", venue: "venues", item: "inventory", vendor: "vendors", recipe: "recipes" }[type]}/${id}`;

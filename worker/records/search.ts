@@ -16,11 +16,13 @@ import {
   events,
   inventoryItems,
   leads,
+  recipes,
   vendorContacts,
   vendors,
   venues,
 } from "../db/schema";
-import { clientScope, eventScope, leadScope } from "../policy";
+import { can, clientScope, eventScope, leadScope } from "../policy";
+import { recipeCategoryLabels } from "../../shared/recipes";
 import { visibleClients } from "./clients";
 import { visibleEvents } from "./events";
 import { visibleLeads } from "./leads";
@@ -231,6 +233,35 @@ async function searchVendors(db: DbLike, actor: Actor, q: Query) {
     .limit(PER_TYPE);
 }
 
+// Recipes (FLOW-217): fuzzy dish names for anyone with recipes.read, live and
+// active ones only, like inventory items. The category is the subtitle; no cost
+// fields are returned.
+async function searchRecipes(db: DbLike, actor: Actor, q: Query) {
+  if (!can(actor, "recipes.read")) return [];
+  const score = textScore(recipes.name, q);
+  const rows = await db
+    .select({
+      id: recipes.id,
+      title: recipes.name,
+      category: recipes.category,
+      score: toNumber(score),
+    })
+    .from(recipes)
+    .where(
+      and(
+        isNull(recipes.archivedAt),
+        eq(recipes.active, true),
+        sql`${score} >= ${SEARCH_THRESHOLD}`,
+      ),
+    )
+    .orderBy(desc(score))
+    .limit(PER_TYPE);
+  return rows.map(({ category, ...row }) => ({
+    ...row,
+    subtitle: recipeCategoryLabels[category],
+  }));
+}
+
 // The best matches across every type the caller may see, best first. A query
 // shorter than SEARCH_MIN_LENGTH returns nothing.
 export async function globalSearch(
@@ -252,6 +283,7 @@ export async function globalSearch(
     ["venue", await searchVenues(db, q)],
     ["item", await searchItems(db, q)],
     ["vendor", await searchVendors(db, actor, q)],
+    ["recipe", await searchRecipes(db, actor, q)],
   ];
   return groups
     .flatMap(([type, rows]) =>

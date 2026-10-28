@@ -1072,6 +1072,8 @@ export const recipes = pgTable(
   },
   (table) => [
     index("recipes_name_idx").on(table.category, sql`lower(${table.name})`),
+    // Global search (FLOW-217): fuzzy dish names.
+    trigram("recipes_name_trgm_idx", table.name),
     oneOf("recipes_category_check", table.category, recipeCategories),
   ],
 ).enableRLS();
