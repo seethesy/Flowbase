@@ -11,6 +11,8 @@ export const hubSectionSchema = z.enum([
   "booking",
   "beo",
   "pull_list",
+  // Equipment holds, conflicts and consumable needs (FLOW-76/77/85).
+  "inventory",
   "tasks",
   "timeline",
   "staff",

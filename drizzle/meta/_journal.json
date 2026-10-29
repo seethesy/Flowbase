@@ -225,6 +225,13 @@
       "when": 1793247101926,
       "tag": "0031_approval_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793285396731,
+      "tag": "0032_reservations_conflicts_allocations",
+      "breakpoints": true
     }
   ]
 }
