@@ -303,8 +303,8 @@ describe("time tracking", () => {
         title: "Fall gala",
         date: "2026-11-14",
         clientName: "Juniper & Co.",
-        seconds: 18 * 60,
-        people: 3,
+        seconds: 15 * 60,
+        people: 2,
       },
       {
         eventId: brunch.id,
@@ -342,7 +342,7 @@ describe("time tracking", () => {
         userId: people.sue,
         userName: people.sue,
         activity: "event_planning",
-        seconds: 5 * 60,
+        seconds: 2 * 60,
       },
     ]);
 
