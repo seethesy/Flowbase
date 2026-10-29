@@ -27,6 +27,7 @@ test("Bark lists stable IDs and preserves the purchased gate", async ({ page }) 
   const listed = await module.listLeads(site, null);
   expect(listed.length).toBeGreaterThan(1);
   expect(new Set(listed.map((lead) => lead.id)).size).toBe(listed.length);
+  await fixture(page, "bark", "lead");
   const selected = await page.locator(barkReadSelectors.detail).getAttribute("data-project-id");
   const bought = await module.readLead(site, selected!);
   expect(bought).toMatchObject({ sourceLeadId: selected, purchased: true, name: "Morgan", guestCount: 20, eventDate: "2027-02-13", email: "client1@example.com" });

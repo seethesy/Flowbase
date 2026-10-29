@@ -26,8 +26,14 @@ export function perfectVenueModule(baseUrl: string): SiteModule {
       await visit(sourceLeadUrl);
       const detail = page.locator(perfectVenueReadSelectors.detail);
       await detail.waitFor();
-      const input = async (selector: string) => clean(await detail.locator(selector).first().inputValue().catch(() => ""));
-      const text = async (selector: string) => clean(await detail.locator(selector).first().innerText().catch(() => ""));
+      const input = async (selector: string) => {
+        const field = detail.locator(selector).first();
+        return (await field.count()) ? clean(await field.inputValue()) : "";
+      };
+      const text = async (selector: string) => {
+        const field = detail.locator(selector).first();
+        return (await field.count()) ? clean(await field.innerText()) : "";
+      };
       const contact = await text('[data-cy="contact-item"]');
       const startTime = await text('[data-cy="event-page-start-time"] [role="combobox"]');
       const endTime = await text('[data-cy="event-page-end-time"] [role="combobox"]');
@@ -45,7 +51,7 @@ export function perfectVenueModule(baseUrl: string): SiteModule {
         location: await input('input[name]:not([name="budget"]):not([name="groupSize"]):not([name="space"]):not([name="eventTypeName"])'),
         eventType: await input('input[name="eventTypeName"]'),
         budgetCents: dollars(budgetText),
-        message: await text('[data-cy="message-body"]'),
+        message: clean(await page.locator('[data-cy="message-body"]').first().innerText().catch(() => "")),
         raw: { startTime, endTime, budgetText },
       };
     },
