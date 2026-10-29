@@ -323,10 +323,18 @@ export async function archiveShift(
   actor: Actor,
   eventId: string,
   shiftId: string,
+  notifyRemovedStaff = false,
 ) {
   await findVisibleEvent(db, actor, eventId);
+  if (notifyRemovedStaff && !can(actor, "events.production_leads"))
+    throw new ApiError(403, "FORBIDDEN", "Only an Admin or Sales Manager can notify removed staff.");
   await db.transaction(async (tx) => {
     const before = await findShift(tx, eventId, shiftId);
+    const assigned = notifyRemovedStaff
+      ? await tx.select().from(eventStaffSlots).where(and(
+          eq(eventStaffSlots.shiftId, shiftId), isNull(eventStaffSlots.archivedAt),
+        ))
+      : [];
     const archivedAt = new Date();
     const [after] = await tx
       .update(eventShifts)
@@ -349,6 +357,14 @@ export async function archiveShift(
       before: shiftSnapshot(before),
       after: shiftSnapshot(after),
     });
+    for (const slot of assigned)
+      if (slot.assigneeId)
+        await emitDomainEvent(tx, {
+          name: "event.staff_unassigned",
+          entityId: eventId,
+          data: { slotId: slot.id, shiftId, position: slot.position,
+            userId: null, previousUserId: slot.assigneeId, notifyRemovedStaff: true },
+        });
   });
   return rosterOf(db, actor, eventId);
 }
@@ -403,6 +419,8 @@ export async function updateSlot(
   input: SlotUpdate,
 ) {
   await findVisibleEvent(db, actor, eventId);
+  if (input.notifyRemovedStaff && !can(actor, "events.production_leads"))
+    throw new ApiError(403, "FORBIDDEN", "Only an Admin or Sales Manager can notify removed staff.");
   await db.transaction(async (tx) => {
     const before = await findSlot(tx, eventId, slotId);
     if (input.position)
@@ -427,9 +445,10 @@ export async function updateSlot(
           "Choose an active staff member.",
         );
     }
+    const { notifyRemovedStaff, ...changes } = input;
     const [after] = await tx
       .update(eventStaffSlots)
-      .set({ ...input, updatedBy: actor.userId })
+      .set({ ...changes, updatedBy: actor.userId })
       .where(eq(eventStaffSlots.id, slotId))
       .returning();
     await writeAudit(tx, actor, {
@@ -446,6 +465,7 @@ export async function updateSlot(
         position: after.position,
         userId: after.assigneeId,
         previousUserId: before.assigneeId,
+        notifyRemovedStaff: notifyRemovedStaff === true,
       };
       if (after.assigneeId)
         await emitDomainEvent(tx, {
@@ -453,7 +473,7 @@ export async function updateSlot(
           entityId: eventId,
           data,
         });
-      if (before.assigneeId)
+      if (before.assigneeId && notifyRemovedStaff)
         await emitDomainEvent(tx, {
           name: "event.staff_unassigned",
           entityId: eventId,
@@ -469,8 +489,11 @@ export async function archiveSlot(
   actor: Actor,
   eventId: string,
   slotId: string,
+  notifyRemovedStaff = false,
 ) {
   await findVisibleEvent(db, actor, eventId);
+  if (notifyRemovedStaff && !can(actor, "events.production_leads"))
+    throw new ApiError(403, "FORBIDDEN", "Only an Admin or Sales Manager can notify removed staff.");
   await db.transaction(async (tx) => {
     const before = await findSlot(tx, eventId, slotId);
     const [after] = await tx
@@ -485,7 +508,7 @@ export async function archiveSlot(
       before: slotSnapshot(before),
       after: slotSnapshot(after),
     });
-    if (before.assigneeId)
+    if (before.assigneeId && notifyRemovedStaff)
       await emitDomainEvent(tx, {
         name: "event.staff_unassigned",
         entityId: eventId,
@@ -495,6 +518,7 @@ export async function archiveSlot(
           position: before.position,
           userId: null,
           previousUserId: before.assigneeId,
+          notifyRemovedStaff: true,
         },
       });
   });

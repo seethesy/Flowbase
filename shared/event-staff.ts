@@ -81,8 +81,12 @@ export const slotUpdateSchema = z
     department: departmentSchema.optional(),
     // null opens the slot again.
     assigneeId: id.nullable().optional(),
+    notifyRemovedStaff: z.boolean().optional(),
   })
   .strict();
+export const removalOptionsSchema = z.object({
+  notifyRemovedStaff: z.boolean().default(false),
+});
 export type SlotUpdate = z.infer<typeof slotUpdateSchema>;
 
 // PUT /api/events/<id>/production-leads: one full-time primary and optional

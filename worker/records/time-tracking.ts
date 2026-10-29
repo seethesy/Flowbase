@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import type {
@@ -7,9 +8,16 @@ import type {
 } from "../../shared/time-tracking";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { Db } from "../db/client";
-import { activitySessions, clients, events, users } from "../db/schema";
+import {
+  activitySessions,
+  clients,
+  events,
+  proposals,
+  tasks,
+  users,
+} from "../db/schema";
 import { ApiError } from "../hono";
-import { timeReportScope } from "../policy";
+import { can, timeReportScope } from "../policy";
 import { visibleEvents } from "./events";
 
 // Automatic activity time tracking (FLOW-119). Sessions are always the caller's own:
@@ -67,8 +75,13 @@ export async function recordSessions(
 
 const seconds = sql<number>`coalesce(sum(extract(epoch from (${activitySessions.endedAt} - ${activitySessions.startedAt}))), 0)::int`;
 
-// Effort per booking (time per event) and workload (time per user and activity type)
-// for sessions that started between two New York dates, inclusive.
+// The record a session was credited to, when it's that kind of record.
+const onRecord = (type: "proposal" | "task", id: AnyPgColumn) =>
+  and(eq(activitySessions.recordType, type), eq(activitySessions.recordId, id));
+
+// Effort per booking (time per event, counting its proposals and tasks), time per
+// proposal (FLOW-167) and workload (time per user and activity type) for sessions
+// that started between two New York dates, inclusive.
 export async function timeReport(
   db: Db,
   actor: Actor,
@@ -82,7 +95,8 @@ export async function timeReport(
     lt(activitySessions.startedAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00")),
     userId ? eq(activitySessions.userId, userId) : undefined,
   );
-  const [effort, workload] = await Promise.all([
+  const people = sql<number>`count(distinct ${activitySessions.userId})::int`;
+  const [effort, proposalEffort, workload] = await Promise.all([
     db
       .select({
         eventId: events.id,
@@ -90,15 +104,17 @@ export async function timeReport(
         startsAt: events.startsAt,
         clientName: clients.name,
         seconds,
-        people: sql<number>`count(distinct ${activitySessions.userId})::int`,
+        people,
       })
       .from(activitySessions)
+      .leftJoin(proposals, onRecord("proposal", proposals.id))
+      .leftJoin(tasks, onRecord("task", tasks.id))
       .innerJoin(
         events,
-        and(
-          eq(activitySessions.recordType, "event"),
-          eq(activitySessions.recordId, events.id),
-        ),
+        sql`${events.id} = case ${activitySessions.recordType}
+          when 'event' then ${activitySessions.recordId}
+          when 'proposal' then ${proposals.eventId}
+          when 'task' then ${tasks.eventId} end`,
       )
       .innerJoin(clients, eq(clients.id, events.clientId))
       // An event the viewer can no longer see drops out of their report.
@@ -106,6 +122,25 @@ export async function timeReport(
       .groupBy(events.id, events.title, events.startsAt, clients.name)
       .orderBy(desc(seconds), events.title)
       .limit(500),
+    // Proposals stay hidden from roles that can't read them (FLOW-122).
+    can(actor, "proposals.read")
+      ? db
+          .select({
+            proposalId: proposals.id,
+            title: proposals.title,
+            eventId: events.id,
+            eventTitle: events.title,
+            seconds,
+            people,
+          })
+          .from(activitySessions)
+          .innerJoin(proposals, onRecord("proposal", proposals.id))
+          .innerJoin(events, eq(events.id, proposals.eventId))
+          .where(and(where, isNull(proposals.archivedAt), visibleEvents(actor)))
+          .groupBy(proposals.id, proposals.title, events.id, events.title)
+          .orderBy(desc(seconds), proposals.title)
+          .limit(500)
+      : [],
     db
       .select({
         userId: activitySessions.userId,
@@ -130,6 +165,7 @@ export async function timeReport(
       ...row,
       date: utcToBusinessTime(startsAt).date,
     })),
+    proposals: proposalEffort,
     workload: workload as TimeReport["workload"],
   };
 }

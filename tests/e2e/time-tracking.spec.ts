@@ -98,3 +98,83 @@ test("time accrues only while the tab is visible and the user is active", async 
   expect(requests.length).toBeGreaterThan(1);
   expect(requests.length).toBeLessThanOrEqual(19);
 });
+
+// FLOW-167 AC1: time in a proposal's drawer is credited to that proposal, and
+// closing it back to the event ends one session and starts another.
+test("time in a proposal is credited to the proposal, then to its event", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date(Date.now() - 60 * MIN) });
+  const requests: ActivitySessionInput[][] = [];
+  const pending: Promise<unknown>[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/time/sessions") {
+      requests.push(request.postDataJSON().sessions);
+      pending.push(request.response());
+    }
+  });
+  const advance = async (ms: number) => {
+    for (let elapsed = 0; elapsed < ms; elapsed += 15 * SECOND) {
+      await page.clock.runFor(Math.min(15 * SECOND, ms - elapsed));
+      await Promise.all(pending.splice(0));
+    }
+  };
+  await seedRecords({ clients: [juniper()], events: [fallGala()] });
+  await page.goto(`/#/events/${fallGala().id}`);
+  await page.getByRole("button", { name: "New proposal" }).click();
+  const form = page.getByRole("dialog", { name: "New proposal" });
+  await form.getByLabel("Title *").fill("Gala dinner");
+  await form.getByRole("button", { name: "Save proposal" }).click();
+  const drawer = page.getByRole("dialog", { name: "Gala dinner" });
+  await expect(drawer).toBeVisible();
+  await expect(page).toHaveURL(/[?&]proposal=[0-9a-f-]{36}/);
+  const proposalId = new URL(
+    new URL(page.url()).hash.slice(1),
+    "http://flowbase",
+  ).searchParams.get("proposal");
+
+  for (let i = 0; i < 6; i++) {
+    await drawer.getByRole("heading", { name: "Gala dinner" }).click();
+    await advance(10 * SECOND);
+  }
+  await drawer.getByRole("button", { name: "Close dialog" }).click();
+  await expect(page).not.toHaveURL(/proposal=/);
+  const heading = page.getByRole("heading", { name: "Fall gala", level: 1 });
+  for (let i = 0; i < 6; i++) {
+    await heading.click();
+    await advance(10 * SECOND);
+  }
+  await setHidden(page, true);
+  await advance(2 * MIN);
+
+  const latest = () => {
+    const sessions = new Map<string, ActivitySessionInput>();
+    for (const batch of requests) for (const s of batch) sessions.set(s.id, s);
+    return [...sessions.values()].map((s) => ({
+      recordType: s.recordType,
+      recordId: s.recordId,
+      activity: s.activity,
+      seconds: (Date.parse(s.endedAt) - Date.parse(s.startedAt)) / SECOND,
+    }));
+  };
+  // Real seconds pass while the proposal is created, so a short event session may
+  // come first; the proposal's session and the event's after it are what count.
+  const afterCreating = () =>
+    latest().slice(latest().findIndex((s) => s.recordType === "proposal"));
+  await expect.poll(() => afterCreating().length).toBe(2);
+  const [onProposal, onEvent] = afterCreating();
+  expect(onProposal).toMatchObject({
+    recordType: "proposal",
+    recordId: proposalId,
+    activity: "proposal_work",
+  });
+  expect(onEvent).toMatchObject({
+    recordType: "event",
+    recordId: fallGala().id,
+    activity: "event_planning",
+  });
+  for (const session of [onProposal, onEvent]) {
+    expect(session.seconds).toBeGreaterThanOrEqual(50);
+    expect(session.seconds).toBeLessThanOrEqual(70);
+  }
+});

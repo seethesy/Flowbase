@@ -1,5 +1,5 @@
 {
-  "id": "f02af344-10de-4ef2-a2a8-181ef8bcd03f",
+  "id": "00dc2f6d-5107-4823-a084-90071ed2e79c",
   "prevId": "7e7d05ef-77e0-4acb-948a-521fe2b71905",
   "version": "7",
   "dialect": "postgresql",
@@ -157,205 +157,6 @@
         "activity_sessions_record_type_check": {
           "name": "activity_sessions_record_type_check",
           "value": "\"activity_sessions\".\"record_type\" in ('lead', 'client', 'proposal', 'event', 'beo', 'task')"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.approval_requests": {
-      "name": "approval_requests",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "subject_type": {
-          "name": "subject_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subject_id": {
-          "name": "subject_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "summary": {
-          "name": "summary",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "link": {
-          "name": "link",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "proposed_change": {
-          "name": "proposed_change",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "requester_id": {
-          "name": "requester_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "approver_role": {
-          "name": "approver_role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "comment": {
-          "name": "comment",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "decided_by": {
-          "name": "decided_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "decided_at": {
-          "name": "decided_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "approval_requests_queue_idx": {
-          "name": "approval_requests_queue_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "approver_role",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "approval_requests_subject_idx": {
-          "name": "approval_requests_subject_idx",
-          "columns": [
-            {
-              "expression": "subject_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "subject_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "approval_requests_requester_idx": {
-          "name": "approval_requests_requester_idx",
-          "columns": [
-            {
-              "expression": "requester_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "approval_requests_approver_role_check": {
-          "name": "approval_requests_approver_role_check",
-          "value": "\"approval_requests\".\"approver_role\" in ('admin', 'technical', 'sales_manager', 'salesperson', 'kitchen_lead', 'kitchen_staff', 'staff')"
-        },
-        "approval_requests_status_check": {
-          "name": "approval_requests_status_check",
-          "value": "\"approval_requests\".\"status\" in ('pending', 'approved', 'rejected', 'withdrawn')"
         }
       },
       "isRLSEnabled": true
@@ -4395,7 +4196,7 @@
       "checkConstraints": {
         "notification_preferences_type_check": {
           "name": "notification_preferences_type_check",
-          "value": "\"notification_preferences\".\"type\" in ('task_assigned', 'task_due', 'staff_assigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
+          "value": "\"notification_preferences\".\"type\" in ('task_assigned', 'task_due', 'lead_assigned', 'staff_assigned', 'staff_unassigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
         }
       },
       "isRLSEnabled": true
@@ -4544,7 +4345,7 @@
       "checkConstraints": {
         "notifications_type_check": {
           "name": "notifications_type_check",
-          "value": "\"notifications\".\"type\" in ('task_assigned', 'task_due', 'staff_assigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
+          "value": "\"notifications\".\"type\" in ('task_assigned', 'task_due', 'lead_assigned', 'staff_assigned', 'staff_unassigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
         }
       },
       "isRLSEnabled": true

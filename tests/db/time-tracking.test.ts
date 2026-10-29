@@ -10,6 +10,7 @@ import type { RunWithDb } from "../../worker/hono";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
 import type { Client, EventInput, FlowEvent } from "../../shared/core-records";
 import type { EventHub } from "../../shared/event-hub";
+import type { ProposalDetail } from "../../shared/proposals";
 import type { TimeReport } from "../../shared/time-tracking";
 import { utcToBusinessTime } from "../../shared/time";
 
@@ -138,7 +139,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, task_comments, task_checklist_items, task_assignees, tasks, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -354,7 +355,120 @@ describe("time tracking", () => {
     const before = await manager.get<TimeReport>(
       "/api/time/report?from=2020-01-01&to=2020-01-31",
     );
-    expect(before).toEqual({ scope: "all", effort: [], workload: [] });
+    expect(before).toEqual({
+      scope: "all",
+      effort: [],
+      proposals: [],
+      workload: [],
+    });
+  });
+
+  // FLOW-167 AC1 (server side) and AC2 (time per proposal).
+  it("reports time per proposal and counts proposal and task time toward the event", async () => {
+    const { gala, brunch } = await seed();
+    const dinner = await admin.post<ProposalDetail>("/api/proposals", {
+      eventId: gala.id,
+      title: "Gala dinner",
+    });
+    const cocktails = await admin.post<ProposalDetail>("/api/proposals", {
+      eventId: gala.id,
+      title: "Cocktail hour",
+    });
+    const brunchMenu = await admin.post<ProposalDetail>("/api/proposals", {
+      eventId: brunch.id,
+      title: "Brunch menu",
+    });
+    const [task] = await db
+      .insert(schema.tasks)
+      .values({ title: "Call the florist", eventId: gala.id })
+      .returning();
+    const on = (
+      recordType: "proposal" | "task",
+      recordId: string,
+      from: number,
+      to: number,
+    ) => ({
+      id: sessionId(),
+      startedAt: ago(from),
+      endedAt: ago(to),
+      recordType,
+      recordId,
+      activity: recordType === "task" ? "assigning" : "proposal_work",
+    });
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          onEvent(gala.id, 60, 50),
+          on("proposal", dinner.id, 50, 40),
+          on("proposal", cocktails.id, 40, 37),
+          on("task", task.id, 37, 35),
+        ],
+      },
+      200,
+    );
+    await manager.post(
+      "/api/time/sessions",
+      { sessions: [on("proposal", dinner.id, 30, 25)] },
+      200,
+    );
+    await sue.post(
+      "/api/time/sessions",
+      { sessions: [on("proposal", brunchMenu.id, 30, 26)] },
+      200,
+    );
+
+    const all = await manager.get<TimeReport>(`/api/time/report${range}`);
+    // The gala's row counts its own page, both proposals and its task.
+    expect(all.effort.map((row) => [row.title, row.seconds, row.people])).toEqual([
+      ["Fall gala", 30 * 60, 2],
+      ["Board brunch", 4 * 60, 1],
+    ]);
+    expect(all.proposals).toEqual([
+      {
+        proposalId: dinner.id,
+        title: "Gala dinner",
+        eventId: gala.id,
+        eventTitle: "Fall gala",
+        seconds: 15 * 60,
+        people: 2,
+      },
+      {
+        proposalId: brunchMenu.id,
+        title: "Brunch menu",
+        eventId: brunch.id,
+        eventTitle: "Board brunch",
+        seconds: 4 * 60,
+        people: 1,
+      },
+      {
+        proposalId: cocktails.id,
+        title: "Cocktail hour",
+        eventId: gala.id,
+        eventTitle: "Fall gala",
+        seconds: 3 * 60,
+        people: 1,
+      },
+    ]);
+    expect(all.workload).toContainEqual({
+      userId: people.sam,
+      userName: people.sam,
+      activity: "assigning",
+      seconds: 2 * 60,
+    });
+
+    // Sam sees only his own time, on proposals of events he can open.
+    const sams = await sam.get<TimeReport>(`/api/time/report${range}`);
+    expect(sams.proposals.map((row) => [row.title, row.seconds])).toEqual([
+      ["Gala dinner", 10 * 60],
+      ["Cocktail hour", 3 * 60],
+    ]);
+    // Sue can't open the gala, so her report never names its proposals.
+    const sues = await sue.get<TimeReport>(`/api/time/report${range}`);
+    expect(sues.proposals.map((row) => row.title)).toEqual(["Brunch menu"]);
+    // Roles that can't read proposals get no proposal rows at all.
+    const helpers = await helper.get<TimeReport>(`/api/time/report${range}`);
+    expect(helpers.proposals).toEqual([]);
   });
 
   it("reports exactly the requested New York dates across daylight saving (FLOW-200)", async () => {

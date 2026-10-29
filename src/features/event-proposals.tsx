@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FileText, Plus, Upload } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import {
@@ -25,7 +26,9 @@ import "./event-proposals.css";
 
 // The event's proposals (FLOW-122) on the event hub: each one's stage, salesperson
 // and current version, and a drawer to move its stage, upload a new version
-// (FLOW-123) and read its versions and stage history.
+// (FLOW-123) and read its versions and stage history. The open drawer is
+// ?proposal=<id> in the address, so time spent in it is credited to that proposal
+// (FLOW-167).
 
 const stamp = (value: string) =>
   new Date(value).toLocaleString("en-US", {
@@ -48,7 +51,18 @@ export function EventProposalsSection({
   );
   const { can } = usePermissions();
   const [creating, setCreating] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const open = params.get("proposal");
+  const setOpen = (id: string | null) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (id) next.set("proposal", id);
+        else next.delete("proposal");
+        return next;
+      },
+      { replace: true },
+    );
   const canWrite = can("proposals.write");
   if (list.error)
     return (

@@ -1,11 +1,13 @@
 import {
   FLUSH_INTERVAL_MS,
   IDLE_CUTOFF_MS,
+  MAX_BATCH_SESSIONS,
   timeReportSchema,
   type ActivitySessionInput,
   type ActivityType,
   type TrackedRecordType,
 } from "../../shared/time-tracking";
+import type { Role } from "../../shared/access";
 import { ApiRequestError, query, request } from "./core";
 
 // Automatic activity time tracking in the browser (FLOW-119). ActivityTracker holds
@@ -21,23 +23,41 @@ export type TrackingContext = {
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// The record on screen and the kind of work the screen is for.
-export function contextForPath(pathname: string): TrackingContext {
+// The record on screen and the kind of work the screen is for. `search` is the
+// query string: an event's proposal drawer is ?proposal=<id> (FLOW-167). `role` is
+// the signed-in user's, for screens whose kind of work depends on it.
+export function contextForPath(
+  pathname: string,
+  search = "",
+  role: Role | null = null,
+): TrackingContext {
   const [section = "", id = ""] = pathname.split("/").filter(Boolean);
-  const record = (recordType: TrackedRecordType) =>
-    uuidPattern.test(id)
-      ? { recordType, recordId: id.toLowerCase() }
+  const record = (recordType: TrackedRecordType, recordId = id) =>
+    uuidPattern.test(recordId)
+      ? { recordType, recordId: recordId.toLowerCase() }
       : { recordType: null, recordId: null };
+  const proposalId = new URLSearchParams(search).get("proposal") ?? "";
   switch (section) {
     case "leads":
       return { activity: "lead_follow_up", ...record("lead") };
     case "clients":
       return { activity: "client_work", ...record("client") };
-    // Proposals are demo data until FLOW-122, so only the activity is credited.
+    // The proposals pipeline is demo data until FLOW-117, so only the activity is
+    // credited; real proposals open on their event (FLOW-122).
     case "proposals":
       return { activity: "proposal_work", recordType: null, recordId: null };
     case "events":
-      return { activity: "event_planning", ...record("event") };
+      // A proposal open on the event hub is credited to the proposal.
+      return uuidPattern.test(proposalId) && uuidPattern.test(id)
+        ? { activity: "proposal_work", ...record("proposal", proposalId) }
+        : { activity: "event_planning", ...record("event") };
+    // Task time is prep for Sales Managers and assigning for everyone else (Ash,
+    // 2026-10-29, FLOW-167).
+    case "tasks":
+      return {
+        activity: role === "sales_manager" ? "prep" : "assigning",
+        ...record("task"),
+      };
     case "venues":
       return { activity: "event_planning", recordType: null, recordId: null };
     case "inventory":
@@ -70,7 +90,8 @@ type OpenSession = {
 
 type SendSessions = (sessions: ActivitySessionInput[]) => Promise<void>;
 
-// Unsent sessions kept while the API is unreachable; the oldest go first.
+// Unsent sessions kept while the API is unreachable; when there are more, the
+// oldest are dropped. The oldest are also sent first.
 const MAX_UNSENT = 100;
 
 export class ActivityTracker {
@@ -149,7 +170,9 @@ export class ActivityTracker {
     return this.flush();
   }
 
-  // Sends finished sessions and the open one's progress, at most once per interval.
+  // Sends the oldest finished sessions and the open one's progress, at most once
+  // per interval and at most MAX_BATCH_SESSIONS in one request (FLOW-202); the rest
+  // go in later requests.
   async flush() {
     const at = this.now();
     if (
@@ -159,23 +182,31 @@ export class ActivityTracker {
     )
       return;
     this.settle(at);
-    const batch = [...this.unsent.values()];
     const open = this.open && this.toInput(this.open);
+    const room = MAX_BATCH_SESSIONS - (open ? 1 : 0);
+    const batch = [...this.unsent.values()].slice(0, room);
     if (open) batch.push(open);
     if (!batch.length) return;
     this.lastSentAt = at;
     this.sending = true;
-    try {
-      await this.send(batch);
+    // Only the versions in this batch leave the queue: a session that closed or
+    // grew while the request was out stays, and so does everything not sent.
+    const settled = () => {
       for (const session of batch)
         if (this.unsent.get(session.id) === session)
           this.unsent.delete(session.id);
+    };
+    try {
+      await this.send(batch);
+      settled();
     } catch (error) {
       const status = error instanceof ApiRequestError ? error.status : 0;
-      // Not signed in, or not allowed: stop for this page. A rejected batch won't
-      // succeed on a retry, so it's dropped; anything else is retried next time.
+      // Not signed in, or not allowed: stop for this page. A batch the API rejected
+      // won't succeed on a retry, so it's dropped; a timeout, rate limit or network
+      // failure is retried next time.
       if (status === 401 || status === 403) this.stopped = true;
-      if (status >= 400 && status < 500) this.unsent.clear();
+      if (status >= 400 && status < 500 && status !== 408 && status !== 429)
+        settled();
     } finally {
       this.sending = false;
     }

@@ -21,14 +21,14 @@ export const eventStaffApi = {
     request(eventRosterSchema, at("events", eventId, "shifts"), "POST", input),
   updateShift: (eventId: string, shiftId: string, input: ShiftInput) =>
     request(eventRosterSchema, shift(eventId, shiftId), "PUT", input),
-  archiveShift: (eventId: string, shiftId: string) =>
-    request(eventRosterSchema, shift(eventId, shiftId, "archive"), "POST", {}),
+  archiveShift: (eventId: string, shiftId: string, notifyRemovedStaff = false) =>
+    request(eventRosterSchema, shift(eventId, shiftId, "archive"), "POST", { notifyRemovedStaff }),
   addSlots: (eventId: string, input: SlotInput) =>
     request(eventRosterSchema, at("events", eventId, "slots"), "POST", input),
   updateSlot: (eventId: string, slotId: string, input: SlotUpdate) =>
     request(eventRosterSchema, slot(eventId, slotId), "PATCH", input),
-  archiveSlot: (eventId: string, slotId: string) =>
-    request(eventRosterSchema, slot(eventId, slotId, "archive"), "POST", {}),
+  archiveSlot: (eventId: string, slotId: string, notifyRemovedStaff = false) =>
+    request(eventRosterSchema, slot(eventId, slotId, "archive"), "POST", { notifyRemovedStaff }),
   setProductionLeads: (eventId: string, input: ProductionLeadsInput) =>
     request(
       eventSchema,

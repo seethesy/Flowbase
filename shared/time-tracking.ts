@@ -19,7 +19,10 @@ export const activityTypeSchema = z.enum([
   "proposal_work",
   "event_planning",
   "beo_editing",
-  "delegating",
+  // Time on a task page (FLOW-167): Sales Managers prep, everyone else assigns
+  // (Ash, 2026-10-29).
+  "prep",
+  "assigning",
   "inventory",
   "kitchen",
   "general",
@@ -31,14 +34,15 @@ export const activityLabels: Record<ActivityType, string> = {
   proposal_work: "Proposal work",
   event_planning: "Event planning",
   beo_editing: "BEO editing",
-  delegating: "Delegating",
+  prep: "Prep",
+  assigning: "Assigning",
   inventory: "Inventory",
   kitchen: "Kitchen",
   general: "General",
 };
 
-// Records time can be credited to. Proposals, BEOs and tasks are listed for when
-// those modules store records; until then their screens credit only the activity.
+// Records time can be credited to. BEOs are listed for when that module stores
+// records (FLOW-143); until then nothing credits a BEO.
 export const trackedRecordTypeSchema = z.enum([
   "lead",
   "client",
@@ -76,8 +80,10 @@ export type ActivitySessionInput = z.input<typeof activitySessionInputSchema>;
 export const activityRecordedSchema = z.object({
   recorded: z.number().int().nonnegative(),
 });
+// The most sessions one tracking request may carry, the open one included.
+export const MAX_BATCH_SESSIONS = 100;
 export const activityBatchSchema = z.object({
-  sessions: z.array(activitySessionInputSchema).min(1).max(100),
+  sessions: z.array(activitySessionInputSchema).min(1).max(MAX_BATCH_SESSIONS),
 });
 
 // Reports (Q-51). Dates are New York dates, inclusive; time is in seconds.
@@ -90,6 +96,16 @@ export const effortRowSchema = z.object({
   people: z.number().int(),
 });
 export type EffortRow = z.infer<typeof effortRowSchema>;
+// Time on each proposal (FLOW-167); it also counts toward its event's row above.
+export const proposalEffortRowSchema = z.object({
+  proposalId: id,
+  title: z.string(),
+  eventId: id,
+  eventTitle: z.string(),
+  seconds: z.number().int(),
+  people: z.number().int(),
+});
+export type ProposalEffortRow = z.infer<typeof proposalEffortRowSchema>;
 export const workloadRowSchema = z.object({
   userId: id,
   userName: z.string().optional(),
@@ -101,6 +117,7 @@ export const timeReportSchema = z.object({
   // "all" for Admin and Sales Manager; everyone else sees only their own time.
   scope: z.enum(["all", "own"]),
   effort: z.array(effortRowSchema),
+  proposals: z.array(proposalEffortRowSchema),
   workload: z.array(workloadRowSchema),
 });
 export type TimeReport = z.infer<typeof timeReportSchema>;
