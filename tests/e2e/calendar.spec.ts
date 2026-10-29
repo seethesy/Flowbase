@@ -29,12 +29,6 @@ test("shows an event at its New York times in every view and opens its hub", asy
   await expect(page.locator('.fc-daygrid-day[data-date="2026-09-18"]')).not.toContainText(
     "Fall gala",
   );
-  // Navigation: next month and back.
-  await page.locator(".fc-next-button").click();
-  await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
-  await expect(page.getByText("Fall gala · Closed")).toHaveCount(0);
-  await page.locator(".fc-prev-button").click();
-  await expect(day).toContainText("Fall gala");
 
   // Week: in the 9/17 column, from 5 to 10 PM.
   await page.getByRole("button", { name: "Week", exact: true }).click();
@@ -54,6 +48,13 @@ test("shows an event at its New York times in every view and opens its hub", asy
   await expect(page.locator('.fc-list-day[data-date="2026-09-17"]')).toBeVisible();
   const row = page.locator(".fc-list-event", { hasText: "Fall gala · Closed" });
   await expect(row.locator(".fc-list-event-time")).toHaveText(/5:00.*10:00/);
+  // Navigation: next month and back. (Done last: it moves the current date to
+  // the first of the month, which the week and day views above would follow.)
+  await page.locator(".fc-next-button").click();
+  await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
+  await expect(page.getByText("Fall gala · Closed")).toHaveCount(0);
+  await page.locator(".fc-prev-button").click();
+  await expect(page.getByRole("heading", { name: "September 2026" })).toBeVisible();
 
   // Clicking the event opens its hub, with its tasks and history (FLOW-166).
   await row.getByText("Fall gala · Closed").click();
