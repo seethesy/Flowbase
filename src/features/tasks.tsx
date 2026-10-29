@@ -8,24 +8,87 @@ import {
   type Task,
   type TaskStatus,
 } from "../../shared/tasks";
+import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
 import { Button, FormField, LoadingSkeleton, PageHeader, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { staffApi } from "../services/staff";
 import { tasksApi } from "../services/tasks";
 import { Attachments } from "./attachments";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
 
 // One task (FLOW-58): where a task notification leads (FLOW-43). Anyone who can
-// see the task changes its status, works its checklist and comments. Task lists,
-// filters and delegation screens are FLOW-59 and FLOW-60.
+// see the task changes its status, claims it, works its checklist and comments.
+// Whoever manages it reassigns it and changes its overseer (FLOW-60). The lists
+// and dashboard are in task-lists.tsx.
 
 const names = (people: { name: string }[]) =>
   people.map((person) => person.name).join(", ") || "—";
 
+// Reassigning (FLOW-60 AC3) and the overseer, for whoever manages the task.
+function Reassign({
+  task,
+  busy,
+  onSave,
+}: {
+  task: Task;
+  busy: boolean;
+  onSave: (assigneeIds: string[], overseerId: string | null) => void;
+}) {
+  const { can } = usePermissions();
+  const staff = useResource(["staff"], () => staffApi.list(), { reference: true });
+  const [assignees, setAssignees] = useState(task.assignees.map((person) => person.id));
+  const [overseer, setOverseer] = useState(task.overseer?.id ?? "");
+  if (!can("tasks.delegate")) return null;
+  const active = (staff.data ?? []).filter(
+    (member) => member.active || assignees.includes(member.id) || member.id === overseer,
+  );
+  return (
+    <form
+      className="task-reassign"
+      aria-label="Reassign"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(assignees, overseer || null);
+      }}
+    >
+      <FormField label="Assigned to" hint="Hold Ctrl or ⌘ to pick several people.">
+        <select
+          multiple
+          value={assignees}
+          onChange={(e) =>
+            setAssignees(Array.from(e.target.selectedOptions, (option) => option.value))
+          }
+        >
+          {active.map((member) => (
+            <option key={member.id} value={member.id}>
+              {member.name}
+            </option>
+          ))}
+        </select>
+      </FormField>
+      <FormField label="Overseer">
+        <select value={overseer} onChange={(e) => setOverseer(e.target.value)}>
+          <option value="">No overseer</option>
+          {active.map((member) => (
+            <option key={member.id} value={member.id}>
+              {member.name}
+            </option>
+          ))}
+        </select>
+      </FormField>
+      <Button type="submit" variant="outline" disabled={busy}>
+        Save assignment
+      </Button>
+    </form>
+  );
+}
+
 export function TaskDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const { actor } = usePermissions();
   const task = useResource(["tasks", id], () => tasksApi.get(id));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -90,6 +153,17 @@ export function TaskDetail() {
               ))}
             </select>
           </FormField>
+          {actor &&
+            data.status !== "done" &&
+            !data.assignees.some((person) => person.id === actor.userId) && (
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => void act(() => tasksApi.claim(id))}
+              >
+                Assign to me
+              </Button>
+            )}
           <dl>
             <dt>Due</dt>
             <dd>{data.dueAt ? dateTimeLabel(data.dueAt) : "—"}</dd>
@@ -97,6 +171,12 @@ export function TaskDetail() {
             <dd>{names(data.assignees)}</dd>
             <dt>Overseer</dt>
             <dd>{data.overseer?.name ?? "—"}</dd>
+            {data.position && (
+              <>
+                <dt>Position</dt>
+                <dd>{data.position}</dd>
+              </>
+            )}
             <dt>Created by</dt>
             <dd>{data.creator?.name ?? "System"}</dd>
             {data.eventId && (
@@ -122,6 +202,16 @@ export function TaskDetail() {
             )}
           </dl>
           {data.description && <p className="task-description">{data.description}</p>}
+          {data.canManage && (
+            <Reassign
+              key={data.updatedAt}
+              task={data}
+              busy={busy}
+              onSave={(assigneeIds, overseerId) =>
+                void act(() => tasksApi.update(id, { assigneeIds, overseerId }))
+              }
+            />
+          )}
         </div>
       </Section>
       <Section title={`Checklist (${data.checklistDone}/${data.checklistTotal})`}>

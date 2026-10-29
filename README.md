@@ -315,13 +315,23 @@ One task model for every module (FLOW-58, `shared/tasks.ts`; service in `worker/
 
 - **Service API:** other modules call `createTask(tx, actor, input)` and `updateTask(tx, actor, id, patch)` inside their own transaction (`actor` is `null` for system changes); there are no task tables per module. Linked records must exist, and a person may link only records they can open.
 - **Status rules:** moving to `done` records who completed it and when (`completedBy`, `completedAt`); saving `done` again keeps them; reopening clears them.
-- **Who sees and changes what** (`shared/policy.ts`): FT+ see every task, everyone else the tasks they are assigned to, oversee or created (`taskScope`). Anyone who can see a task changes its status, works its checklist and comments. Its details, assignees and overseer need `mayManageTask` (its creator, its overseer, or `tasks.delegate`: Admin, Sales Manager, Kitchen Lead and FT+). Without `tasks.delegate` you can only assign tasks to yourself.
+- **Who sees and changes what** (`shared/policy.ts`): FT+ see every task, everyone else the tasks they are assigned to, oversee or created (`taskScope`). The communal list (`GET /api/tasks` without `mine=true`, FLOW-59) answers 403 for anyone else; they list their own with `mine=true`. Anyone who can see a task changes its status, works its checklist and comments. Its details, assignees and overseer need `mayManageTask` (its creator, its overseer, or `tasks.delegate`: Admin, Sales Manager, Kitchen Lead and FT+). Without `tasks.delegate` you can only assign tasks to yourself.
 - **Audit and events:** every change writes an audit row (`task`; checklist changes are task updates, comments `task_comment`). A change of assignees emits `task.assigned` with `addedUserIds`, `removedUserIds` and `actorId`. Each cron run emits `task.due` once per open task and due time (`emitDueTaskEvents`; tasks more than 7 days overdue when first seen are skipped).
-- `/tasks/<id>` shows one task: status, checklist, comments and files. Lists, saved views and delegation screens are FLOW-59 and FLOW-60.
+- **Claim and delegation** (FLOW-59/60): anyone who can see an open task claims it ("assign to me", `POST …/claim`), joining whoever is already on it; that emits `task.claimed` for the overseer. Moving a task to `done` emits `task.completed`. Each cron run also emits `task.due_soon` once per open, assigned task due within 24 hours (`emitDueSoonTaskEvents`). The new-task form makes the person assigning others the overseer unless they pick one.
+- **Due buckets** (`dueBucket`, New York time): `overdue` = past its due time, `today` = later today, `upcoming` = after today or no due date. `GET /api/tasks?due=` filters by them.
+- **Saved views** (`task_views`, FLOW-59 AC3): a person's own named filter sets; nobody else sees them.
+- **Dashboard** (`GET /api/tasks/dashboard`, FLOW-61): my open tasks by due bucket, the open tasks I oversee, and for `tasks.triage` (Admin, Technical, Sales Manager, Kitchen Lead) "Needs delegation": open unassigned tasks on events starting today through 14 days out (not archived or Lost), plus unassigned tasks on no event due by then or undated. Each section returns its count and its 50 soonest-due tasks; the counts use the same conditions as the list (`mine=true&assigneeId=<me>&due=…`, `mine=true&overseerId=<me>`, `unassigned=true`), which "View all" opens.
+- **Templates** (`task_templates`, `task_template_items`, FLOW-62): a name, an optional SOP link (http/https; copied into each task's description) and items with a title, type, `offsetDays` from the event's date (negative = before), an optional time (`HH:MM`, otherwise the event's start time) and a default position (stored on the task as `position`). `templateDueAt` does the date math in New York time; a time skipped by the spring clock change moves an hour later. `tasks.templates` edits them; anyone with `tasks.delegate` who can open the event applies one. Applying creates unassigned tasks and records each task's `templateItemId`; `(event_id, template_item_id)` is unique on `tasks`, so re-applying only adds items the event doesn't have, and a task someone archived isn't brought back. Removing an item from a template archives it.
+- **Screens:** `/tasks` is the dashboard (with quick-assign under Needs delegation), `/tasks/all` the list with filters in the URL and saved views, `/tasks/templates` the templates, and the event hub's Tasks section lists the event's tasks and applies a template. `/tasks/<id>` shows one task: status, claim, reassignment and overseer (for whoever manages it), checklist, comments and files.
 
 | Route | Purpose |
 | --- | --- |
-| `GET /api/tasks?type=&status=&assigneeId=&eventId=&mine=true&includeDone=true` | Tasks the caller can see, newest first, paged; done tasks only with `status=done` or `includeDone=true` |
+| `GET /api/tasks?type=&status=&assigneeId=&overseerId=&eventId=&due=&unassigned=true&mine=true&includeDone=true` | Tasks the caller can see, newest first, paged; done tasks only with `status=done` or `includeDone=true`; 403 without `mine=true` for part-time staff |
+| `GET /api/tasks/dashboard` | The caller's dashboard sections |
+| `POST /api/tasks/<id>/claim` | Add the caller to the assignees (409 once done) |
+| `GET`/`POST /api/tasks/views`, `POST /api/tasks/views/<id>/archive` | The caller's saved views |
+| `GET`/`POST /api/tasks/templates`, `GET`/`PUT /api/tasks/templates/<id>`, `POST …/archive` | Task templates (writes need `tasks.templates`) |
+| `POST /api/tasks/templates/<id>/apply` `{eventId}` | Create the template's missing tasks on the event: `{created, skipped}` |
 | `GET /api/tasks/<id>` | One task with checklist, comments and `canManage` |
 | `POST /api/tasks`, `PATCH /api/tasks/<id>` | Create, or change any subset |
 | `POST /api/tasks/<id>/archive` | Archive (needs `mayManageTask`) |
@@ -353,8 +363,11 @@ In-app and email notifications (FLOW-43, ADR-12; catalog in `shared/notification
 
 | Type | Domain event | Who is told |
 | --- | --- | --- |
-| `task_assigned` | `task.assigned` | People added as assignees, except whoever assigned them |
-| `task_due` | `task.due` | The task's assignees and overseer, while it is still open |
+| `task_assigned` | `task.assigned` | People added as assignees, and people taken off ("Task reassigned", FLOW-60), except whoever made the change |
+| `task_claimed` | `task.claimed` (FLOW-59) | The task's overseer, unless they claimed it |
+| `task_due_soon` | `task.due_soon` (FLOW-60) | The task's assignees, while it is still open |
+| `task_due` | `task.due` | "Task overdue": the task's assignees and overseer, while it is still open |
+| `task_completed` | `task.completed` (FLOW-60) | The task's overseer and creator, except whoever completed it |
 | `staff_assigned` | `event.staff_assigned` (FLOW-140) | The person put on the roster slot |
 | `approval_requested`, `approval_decided`, `inventory_conflict`, `production_alert`, `proposal_approved`, `payment_due`, `payment_overdue`, `collector_failure` | `approval.requested`, `approval.decided`, `inventory.conflict_detected`, `production.alert_raised`, `proposal.approved`, `payment.due`, `payment.overdue`, `collector.failed` | The producing module decides: its event's data carries `recipientIds`, `title`, `body` and an in-app `link` (`notifyPayloadSchema`). A payload without them fails the job so an admin sees it |
 

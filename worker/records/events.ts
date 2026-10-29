@@ -264,13 +264,16 @@ export async function eventHistory(db: DbLike, actor: Actor, id: string, page: P
 }
 
 // Hub sections whose module exists (FLOW-57), in display order. Each module ticket
-// adds its section here: booking and payments, BEO, pull list, tasks (FLOW-58),
-// timeline, trucks and history (FLOW-41).
+// adds its section here: booking and payments, BEO, pull list, timeline, trucks
+// and history (FLOW-41).
 const builtSections: HubSection[] = [
   "details",
   "client",
   // Proposals and their versions (FLOW-122/123), for those who read proposals.
   "proposal",
+  // The event's tasks and its task templates (FLOW-59/62). Everyone reads tasks;
+  // the list itself keeps part-time staff to their own.
+  "tasks",
   "staff",
   "files",
 ];

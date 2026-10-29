@@ -159,13 +159,17 @@ describe("fan-out", () => {
     });
     expect(await notificationsOf("drew")).toHaveLength(1);
     expect(await notificationsOf("manager")).toEqual([]);
-    // Reassigning tells only the person added.
+    // Reassigning tells the person added and the person taken off (FLOW-60
+    // AC3), and nobody who stayed.
     await manager.send<Task>("PATCH", `/api/tasks/${task.id}`, {
       assigneeIds: [people.casey, people.sam],
     });
     await drain();
     expect(await notificationsOf("casey")).toHaveLength(1);
     expect(await notificationsOf("sam")).toHaveLength(1);
+    const forDrew = await notificationsOf("drew");
+    expect(forDrew).toHaveLength(2);
+    expect(forDrew.map((n) => n.title)).toContain("Task reassigned: Prep crudités");
   });
 
   it("emails each notification once through the provider, with a link into the app", async () => {
@@ -201,7 +205,7 @@ describe("fan-out", () => {
     await drain();
     const due = (await db.select().from(schema.notifications)).filter((n) => n.type === "task_due");
     expect(due.map((n) => n.userId).sort()).toEqual([people.casey, people.sam].sort());
-    expect(due[0]).toMatchObject({ title: "Task due: Confirm rentals", link: `/tasks/${task.id}` });
+    expect(due[0]).toMatchObject({ title: "Task overdue: Confirm rentals", link: `/tasks/${task.id}` });
   });
 
   it("tells a person they were put on an event's staff roster", async () => {
@@ -394,7 +398,12 @@ describe("AC1: exactly one notification per recipient", () => {
     await manager.send<Task>("PATCH", `/api/tasks/${task.id}`, { assigneeIds: [] });
     await manager.send<Task>("PATCH", `/api/tasks/${task.id}`, { assigneeIds: [people.casey] });
     await drain();
-    expect(await notificationsOf("casey")).toHaveLength(2);
+    // Assigned, taken off (FLOW-60 AC3), assigned again.
+    expect((await notificationsOf("casey")).map((n) => n.title).sort()).toEqual([
+      "Task assigned: Polish glasses",
+      "Task assigned: Polish glasses",
+      "Task reassigned: Polish glasses",
+    ]);
   });
 });
 
@@ -442,7 +451,7 @@ describe("AC2: email preferences", () => {
       "GET",
       "/api/notifications/preferences",
     );
-    expect(preferences).toHaveLength(13);
+    expect(preferences).toHaveLength(16);
     expect(preferences.every((p) => p.email)).toBe(true);
     expect(preferences.filter((p) => p.urgent).map((p) => p.type)).toEqual([
       "staff_assigned",

@@ -7,7 +7,7 @@ import {
   type NotificationOptions,
 } from "../notifications/fanout";
 import { registerRecipeCostChanges } from "../records/recipes";
-import { emitDueTaskEvents } from "../records/tasks";
+import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
@@ -21,7 +21,7 @@ export function createJobRegistry(options: NotificationOptions = {}) {
 }
 
 // The single Cron Trigger (wrangler.jsonc) announces tasks that came due
-// (FLOW-58), then runs one batch of due jobs.
+// (FLOW-58) or will soon (FLOW-60), then runs one batch of due jobs.
 export async function runScheduledJobs(
   env: Bindings,
   registry: JobRegistry,
@@ -35,9 +35,12 @@ export async function runScheduledJobs(
   }
   const run: RunWithDb = options.withDb ?? withDb;
   const summary = await run(env, async (db) => {
-    const tasksDue = await emitDueTaskEvents(db, options.now?.() ?? new Date());
+    const now = options.now?.() ?? new Date();
+    const tasksDue = await emitDueTaskEvents(db, now);
+    const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
     return {
       tasksDue,
+      tasksDueSoon,
       ...(await runDueJobs(db, registry, { ...options, env })),
     };
   });

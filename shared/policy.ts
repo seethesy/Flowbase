@@ -84,6 +84,10 @@ export const actions = [
     // Assigning tasks to other people (FLOW-58, from FLOW-60): Admin, Sales
     // Manager, Kitchen Lead and any FT+ user.
     "tasks.delegate",
+    // The dashboard's "Needs delegation" section (FLOW-61) and task templates
+    // (FLOW-62): Admin, Technical, Sales Manager and Kitchen Lead.
+    "tasks.triage",
+    "tasks.templates",
     "beos.approve",
     "rentals.apply_directly",
     "inventory.consumables.count",
@@ -107,6 +111,8 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "attachments.write",
       "inventory.consumables.count",
       "tasks.delegate",
+      "tasks.triage",
+      "tasks.templates",
     ]),
   },
   sales_manager: {
@@ -118,6 +124,8 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "rentals.apply_directly",
       "inventory.consumables.count",
       "tasks.delegate",
+      "tasks.triage",
+      "tasks.templates",
     ]),
   },
   salesperson: {
@@ -132,6 +140,8 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "recipes.write",
       "attachments.write",
       "tasks.delegate",
+      "tasks.triage",
+      "tasks.templates",
     ]),
     "inventory.consumables.count": isFtPlus,
   },
