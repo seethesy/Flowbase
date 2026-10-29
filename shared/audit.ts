@@ -41,7 +41,12 @@ export type AuditEntity =
   // Task templates and their items (FLOW-62).
   | "task_template"
   // Approval requests (FLOW-44): created, then decided or withdrawn.
-  | "approval_request";
+  | "approval_request"
+  // Equipment holds, their conflicts and resolutions (FLOW-76, FLOW-77), and
+  // the consumables an event needs (FLOW-85).
+  | "reservation"
+  | "reservation_conflict"
+  | "event_requirements";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

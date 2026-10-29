@@ -32,6 +32,7 @@ import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
+import { planningRoutes } from "./routes/planning";
 import { notificationRoutes } from "./routes/notifications";
 import { taskRoutes } from "./routes/tasks";
 import { approvalRoutes } from "./routes/approvals";
@@ -254,6 +255,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));
+  app.route("/api", planningRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));

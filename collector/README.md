@@ -15,9 +15,11 @@ CI, and never with credentials in this repo (ADR-21, ADR-26).
 - Each site is a module (`src/types.ts`, registered in `src/sites/index.ts`) with
   `checkLogin`, optional `logIn`, `listLeads` (new or updated since the last
   successful run) and `readLead(id)`, which returns the normalized lead fields
-  (F-09-01). FLOW-103 to FLOW-106 add the four site modules.
+  (F-09-01). FLOW-103 to FLOW-106 add the four site modules. Each module is
+  enabled when its `COLLECTOR_<SITE>_BASE_URL` is set; use the signed-in site's
+  origin, without a path. Missing URLs leave that site disabled.
 - `src/run.ts` drives them with one Chromium and one page at a time, a 2–6 s pause
-  between pages and a page limit per site (40). Leads left over at the limit wait
+  between page visits or in-page detail selections and a page limit per site (40). Leads left over at the limit wait
   for the next run. No new site starts after 4 minutes, inside the workflow's
   5-minute time box.
 - **Read-only:** modules only open and read pages. They never buy, answer or dismiss
@@ -51,6 +53,16 @@ repo and add these Actions secrets (names only here; values never enter Flowbase
 | `INGEST_TOKEN_LEADS` | Same value as the Worker secret `INGEST_TOKEN_LEADS` |
 | `COLLECTOR_STATE_KEY` | A long random string that encrypts saved sessions |
 | `COLLECTOR_<SITE>_USERNAME`, `COLLECTOR_<SITE>_PASSWORD` | Each site's login, for `BARK`, `PERFECT_VENUE`, `WEDDINGPRO`, `EVENTECTIVE` (added as each site module lands) |
+| `COLLECTOR_<SITE>_BASE_URL` | Signed-in origin for each of those four sites. Set explicitly from the account's browser URL; the fixtures contain relative paths only. |
+
+The saved fixtures contain signed-in pages, not login forms. On an expired session,
+the modules submit credentials only when a conventional login form is visible. An
+unrecognized form or two-factor challenge reports `needs_login` for manual renewal.
+WeddingPro's direct inbox URL may mark a lead as read when opened;
+the fixture cannot establish whether the site supports a non-mutating read path.
+Confirm this with a dedicated test account before enabling that module.
+Eventective's range and per-person budgets are retained as `raw.budgetText`;
+`budgetCents` stays empty when the page does not state an exact total.
 
 The workflow checks out Flowbase at the tag `ops-v1`, not `main` (FLOW-175), so a
 merged change to `collector/` runs with these secrets only after you review it and

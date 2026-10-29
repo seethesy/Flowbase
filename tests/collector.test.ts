@@ -125,8 +125,10 @@ describe("posting to the Worker", () => {
     ).rejects.toThrow("answered 401");
   });
 
-  it("ships no site modules until FLOW-103 to FLOW-106 add them", () => {
-    expect(siteModules).toEqual([]);
+  it("enables only site modules with a configured base URL", () => {
+    const known = ["bark", "perfect_venue", "weddingpro", "eventective"];
+    expect(siteModules.every((module) => known.includes(module.site))).toBe(true);
+    expect(new Set(siteModules.map((module) => module.site)).size).toBe(siteModules.length);
   });
 });
 

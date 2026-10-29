@@ -52,6 +52,8 @@ import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, eventScope } from "../policy";
 import type { productionLeadsInputSchema } from "../../shared/event-staff";
 import { setArchived } from "./archive";
+import { requestEventRecompute } from "./allocations";
+import { syncEventHolds } from "./holds";
 import {
   groupBy,
   indexBy,
@@ -271,6 +273,8 @@ const builtSections: HubSection[] = [
   "client",
   // Proposals and their versions (FLOW-122/123), for those who read proposals.
   "proposal",
+  // Equipment holds, conflicts and consumable needs (FLOW-76/77/85).
+  "inventory",
   // The event's tasks and its task templates (FLOW-59/62). Everyone reads tasks;
   // the list itself keeps part-time staff to their own.
   "tasks",
@@ -474,6 +478,9 @@ export async function updateEvent(
       after: await eventSnapshot(tx, id),
     });
     await emitDomainEvent(tx, { name: "event.updated", entityId: id });
+    // A new date, venue buffer or guest count moves holds and per-guest needs.
+    await syncEventHolds(tx, id);
+    await requestEventRecompute(tx, id);
   });
   return getEvent(db, actor, id);
 }
@@ -486,8 +493,13 @@ export async function setEventArchived(
 ): Promise<FlowEvent> {
   await setArchived(db, actor, id, archived, {
     lock: (tx) => lockVisibleEvent(tx, actor, id),
-    update: (tx, values) =>
-      tx.update(events).set(values).where(eq(events.id, id)),
+    update: async (tx, values) => {
+      await tx.update(events).set(values).where(eq(events.id, id));
+      // An archived event stops holding equipment and drawing on stock; a
+      // restored one starts again.
+      await syncEventHolds(tx, id, { reevaluateAll: true });
+      await requestEventRecompute(tx, id);
+    },
     audit: { entityType: "event", snapshot: eventSnapshot },
     event: "event",
   });
@@ -539,6 +551,10 @@ async function changeStatus(
     entityId: current.id,
     data: { from, to, reason, manual },
   });
+  // Holds follow the event's status (FLOW-76); closing or finishing an event
+  // changes what it draws from consumable stock (FLOW-85).
+  await syncEventHolds(tx, current.id, { reevaluateAll: true });
+  await requestEventRecompute(tx, current.id);
 }
 
 // Locked so two changes to the same event can't both succeed.
@@ -556,7 +572,7 @@ async function lockEvent(tx: DbLike, id: string) {
 // lock waits for any concurrent reassignment to commit, and the next statement
 // sees it, so a change authorized against the previous owner can't commit.
 // Not visible answers 404, as before.
-async function lockVisibleEvent(tx: DbLike, actor: Actor, id: string) {
+export async function lockVisibleEvent(tx: DbLike, actor: Actor, id: string) {
   await lockEvent(tx, id);
   return findVisibleEvent(tx, actor, id);
 }

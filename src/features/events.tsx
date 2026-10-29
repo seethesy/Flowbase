@@ -35,6 +35,7 @@ import {
 import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { date, time } from "./event-format";
+import { EventPlanningSection } from "./event-planning";
 import { EventStaffSection } from "./event-staff";
 import { EventProposalsSection } from "./event-proposals";
 import { EventTasksSection } from "./task-lists";
@@ -759,6 +760,9 @@ export function EventDetail() {
         event={e}
         onEventChanged={() => hub.reload()}
       />
+    ),
+    inventory: () => (
+      <EventPlanningSection key={`planning:${e.id}`} event={e} canEdit={canEdit} />
     ),
     tasks: () => <EventTasksSection key={`tasks:${e.id}`} event={e} />,
     staff: () => (

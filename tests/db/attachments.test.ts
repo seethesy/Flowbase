@@ -71,7 +71,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   stored.clear();
   await db.execute(
-    sql`truncate table lead_duplicates, leads, audit_log, event_status_history, attachments, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, attachments, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
