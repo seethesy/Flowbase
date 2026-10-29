@@ -99,7 +99,7 @@ const notificationsOf = (who: keyof typeof people) =>
 const titlesOf = async (who: keyof typeof people) =>
   (await notificationsOf(who)).map((n) => n.title).sort();
 
-const tables = sql`truncate table task_views, task_template_items, task_templates, task_comments, task_checklist_items, task_assignees, tasks, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, task_views, task_template_items, task_templates, task_comments, task_checklist_items, task_assignees, tasks, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
