@@ -232,6 +232,13 @@
       "when": 1793285396731,
       "tag": "0032_reservations_conflicts_allocations",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793306909365,
+      "tag": "0033_wild_boomerang",
+      "breakpoints": true
     }
   ]
 }

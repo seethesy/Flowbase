@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isFtPlus } from "../../shared/access";
 import { AlertTriangle } from "lucide-react";
 import {
   barCategories,
@@ -20,7 +21,7 @@ import {
   type Section as StockSection,
 } from "../../shared/inventory";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
-import { allPages, inventoryApi, sectionsApi } from "../services/core";
+import { allPages, inventoryApi, inventoryChangesApi, sectionsApi } from "../services/core";
 import { StaleReload, isStale } from "../components/stale-reload";
 import { vendorsApi } from "../services/vendors";
 import { useResource } from "../app/useResource";
@@ -212,6 +213,7 @@ function ItemFormFields({
   // leaves the cost alone.
   const costHidden = item?.consumable?.costHidden ?? false;
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const storage = useResource(
     ["sections", kind === "consumable" ? { kind: "consumable" } : "none"],
@@ -373,6 +375,14 @@ function ItemFormFields({
     setSaving(true);
     setError("");
     try {
+      if (kind !== "consumable" && !can("rentals.apply_directly")) {
+        if (!actor || !isFtPlus(actor)) throw new Error("Only full-time staff can propose Master inventory changes.");
+        await inventoryChangesApi.submit(item
+          ? [{ type: "replace", itemId: item.id, item: payload }]
+          : [{ type: "create", item: payload }]);
+        setNotice("Submitted for Admin approval. The published item is unchanged until approval.");
+        return;
+      }
       onSaved(
         item
           ? await inventoryApi.update(item.id, {
@@ -424,6 +434,7 @@ function ItemFormFields({
             {error}
           </p>
         )}
+        {notice && <p role="status" className="success-message">{notice}</p>}
         <div className="form-grid">
           <FormField label="Name *">
             <input
@@ -591,7 +602,7 @@ function ItemFormFields({
               label="Price ($ per unit)"
               hint={
                 priceNeedsApproval
-                  ? "Price changes require approval. The approval workflow is not yet available."
+                  ? "Price changes will be submitted for Admin approval."
                   : undefined
               }
             >
@@ -599,7 +610,6 @@ function ItemFormFields({
                 type="number"
                 step="0.01"
                 value={fields.price}
-                disabled={priceNeedsApproval}
                 onChange={(e) => set("price")(e.target.value)}
               />
             </FormField>
@@ -883,7 +893,7 @@ function ItemFormFields({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            Save item
+            {kind !== "consumable" && !can("rentals.apply_directly") ? "Submit for approval" : "Save item"}
           </Button>
         </div>
       </form>

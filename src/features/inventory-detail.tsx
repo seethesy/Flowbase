@@ -1,4 +1,5 @@
 import { Allowed, usePermissions } from "../app/permissions";
+import { isFtPlus } from "../../shared/access";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -15,7 +16,7 @@ import {
   type InventoryItem,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
-import { allPages, inventoryApi } from "../services/core";
+import { allPages, inventoryApi, inventoryChangesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { useOpenFor, useStateFor } from "../app/useOpenFor";
 import {
@@ -46,11 +47,13 @@ export function InventoryDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const settings = useBusinessSettings();
-  const { actor } = usePermissions();
+  const { actor, can } = usePermissions();
   const item = useResource(
     ["inventory-items", id],
     () => inventoryApi.get(id),
   );
+  const pending = useResource(["inventory-pending", id], () => inventoryChangesApi.pending([id]));
+  const [changeNotice, setChangeNotice] = useState("");
   const [edit, setEdit] = useOpenFor(id);
   const [stockForm, setStockForm] = useStateFor<
     "transfer" | "count" | "movement" | null
@@ -94,37 +97,47 @@ export function InventoryDetail() {
             {!i.active && <span className="badge error">Inactive</span>}
             {i.archivedAt && <span className="badge error">Archived</span>}
             {i.belowPar && <span className="badge warning">Below par</span>}
+            {(pending.data?.length ?? 0) > 0 && <span className="badge warning">Pending changes</span>}
           </p>
         </div>
         <div className="page-actions">
-          <Allowed action="inventory.write">
+          {actor && (can("inventory.write") || isFtPlus(actor)) && (
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
               Edit
             </Button>
-          </Allowed>
+          )}
           {i.archivedAt ? (
-            <Allowed action="inventory.write">
+            actor && (can("inventory.write") || isFtPlus(actor)) && (
               <Button
                 variant="outline"
-                onClick={async () =>
-                  item.replace(await inventoryApi.setArchived(i.id, false))
-                }
+                onClick={async () => {
+                  if (i.kind !== "consumable" && !can("rentals.apply_directly")) {
+                    await inventoryChangesApi.submit([{ type: "archive", itemId: i.id, archived: false }]);
+                    setChangeNotice("Restore submitted for Admin approval."); pending.reload();
+                  } else item.replace(await inventoryApi.setArchived(i.id, false));
+                }}
               >
                 <RotateCcw size={14} />
                 Restore
               </Button>
-            </Allowed>
+            )
           ) : (
-            <Allowed action="inventory.write">
+            actor && (can("inventory.write") || isFtPlus(actor)) && (
               <Button variant="outline" onClick={() => setArchive(true)}>
                 <Archive size={14} />
                 Archive
               </Button>
-            </Allowed>
+            )
           )}
         </div>
       </div>
+      {changeNotice && <p role="status">{changeNotice}</p>}
+      {!!pending.data?.length && <Section title="Pending changes"><ul>{pending.data.map((change) => (
+        <li key={`${change.approvalId}:${change.field}`}>
+          {change.field} proposed by {change.proposedBy} on {new Date(change.proposedAt).toLocaleString()}
+        </li>
+      ))}</ul></Section>}
       <div className="detail-grid">
         <Section title="Item details">
           <small>Category</small>
@@ -363,6 +376,12 @@ export function InventoryDetail() {
         onClose={() => setArchive(false)}
         title="Archive this item?"
         onConfirm={async () => {
+          if (i.kind !== "consumable" && !can("rentals.apply_directly")) {
+            await inventoryChangesApi.submit([{ type: "archive", itemId: i.id, archived: true }]);
+            setChangeNotice("Archive submitted for Admin approval."); pending.reload();
+            setArchive(false);
+            return;
+          }
           await inventoryApi.setArchived(i.id, true);
           setArchive(false);
           navigate("/inventory");

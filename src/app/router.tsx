@@ -62,6 +62,10 @@ const StaffProfile = lazy(() =>
 const InventoryList = lazy(() =>
   import("../features/inventory").then((module) => ({ default: module.InventoryList })),
 );
+const MasterInventory = lazy(() => import("../features/inventory-master").then((module) => ({ default: module.MasterInventory })));
+const OrderLists = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderLists })));
+const OrderListDetail = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderListDetail })));
+const ApprovalQueue = lazy(() => import("../features/approval-queue").then((module) => ({ default: module.ApprovalQueue })));
 const InventoryDetail = lazy(() =>
   import("../features/inventory").then((module) => ({ default: module.InventoryDetail })),
 );
@@ -185,6 +189,10 @@ export const getRouter = () =>
         { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
         { path: "/proposals", element: <DemoScreen><Proposals /></DemoScreen> },
         { path: "/inventory", element: <InventoryList /> },
+        { path: "/inventory/master", element: <MasterInventory /> },
+        { path: "/inventory/orders", element: <OrderLists /> },
+        { path: "/inventory/orders/:id", element: <OrderListDetail /> },
+        { path: "/approvals", element: <ApprovalQueue /> },
         { path: "/inventory/ingredients", element: <IngredientList /> },
         { path: "/inventory/bar", element: <BarList /> },
         { path: "/inventory/supplies", element: <SuppliesList /> },

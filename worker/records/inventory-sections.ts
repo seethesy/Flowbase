@@ -180,16 +180,18 @@ export async function setSectionArchived(
   archived: boolean,
 ): Promise<Section> {
   const section = await findSection(db, id);
-  if (archived) {
-    const total = (await sectionTotals(db, [id])).get(id) ?? 0;
-    if (total > 0)
-      throw conflict(
-        "SECTION_HAS_STOCK",
-        `${section.name} still holds stock. Move or count it out before archiving the section.`,
-      );
-  } else await requireUniqueSectionName(db, section.name, id);
+  if (!archived) await requireUniqueSectionName(db, section.name, id);
   // Sections have no lifecycle events.
   await setArchived(db, actor, id, archived, {
+    lock: async (tx) => {
+      await tx.select({ id: inventorySections.id }).from(inventorySections)
+        .where(eq(inventorySections.id, id)).for("update");
+      if (archived) {
+        const total = (await sectionTotals(tx, [id])).get(id) ?? 0;
+        if (total > 0)
+          throw conflict("SECTION_HAS_STOCK", `${section.name} still holds stock. Move or count it out before archiving the section.`);
+      }
+    },
     update: (tx, values) =>
       tx.update(inventorySections).set(values).where(eq(inventorySections.id, id)),
     audit: { entityType: "inventory_section", snapshot: sectionSnapshot },
@@ -199,7 +201,9 @@ export async function setSectionArchived(
 
 // A live section that can hold this kind of item.
 export async function requireStockSection(db: DbLike, id: string, kind: SectionKind) {
-  const section = await findSection(db, id);
+  const [section] = await db.select().from(inventorySections)
+    .where(eq(inventorySections.id, id)).for("update");
+  if (!section) throw notFound("Section");
   if (section.archivedAt)
     throw conflict("SECTION_ARCHIVED", `${section.name} is archived.`);
   if (section.kind !== kind)

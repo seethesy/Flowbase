@@ -243,11 +243,15 @@ export async function recordCountLine(
       "Count mode is for consumables. Count rentals from the item page.",
     );
   await db.transaction(async (tx) => {
+    const [lockedCount] = await tx.select().from(stockCounts)
+      .where(eq(stockCounts.id, countId)).for("update");
+    if (!lockedCount || lockedCount.status !== "open")
+      throw conflict("COUNT_COMPLETED", "This count is already complete.");
     const { movementId } = await recordCount(
       tx,
       actor,
       item,
-      count.sectionId,
+      lockedCount.sectionId,
       input.quantity,
       input.reason,
     );
@@ -281,6 +285,6 @@ export async function completeCount(
       completedAt: new Date(),
       updatedBy: actor.userId,
     })
-    .where(eq(stockCounts.id, countId));
+    .where(and(eq(stockCounts.id, countId), eq(stockCounts.status, "open")));
   return getCount(db, actor, countId);
 }

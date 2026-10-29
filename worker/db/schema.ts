@@ -29,6 +29,7 @@ import { notificationTypes } from "../../shared/notifications";
 import { vendorTypes } from "../../shared/vendors";
 import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
 import { requirementBases } from "../../shared/allocation";
+import type { OrderLine } from "../../shared/order-lists";
 import {
   conflictStates,
   holdStatuses,
@@ -226,6 +227,7 @@ export const clientContacts = pgTable(
   (table) => [
     index("client_contacts_client_idx").on(table.clientId),
     index("client_contacts_email_idx").on(table.email),
+    index("client_contacts_email_lower_idx").on(sql`lower(${table.email})`),
     index("client_contacts_phone_idx").on(table.phoneDigits),
     trigram("client_contacts_name_trgm_idx", table.name),
     oneOf("client_contacts_role_check", table.role, clientContactRoles),
@@ -622,6 +624,7 @@ export const leads = pgTable(
     index("leads_salesperson_idx").on(table.assignedSalespersonId),
     index("leads_source_idx").on(table.source, table.sourceLeadId),
     index("leads_email_idx").on(table.email),
+    index("leads_email_lower_idx").on(sql`lower(${table.email})`),
     index("leads_phone_idx").on(table.phoneDigits),
     trigram("leads_name_trgm_idx", table.name),
     oneOf("leads_channel_check", table.channel, leadChannels),
@@ -1297,6 +1300,23 @@ export const approvalRequests = pgTable(
     index("approval_requests_requester_idx").on(table.requesterId, table.createdAt),
     oneOf("approval_requests_approver_role_check", table.approverRole, roles),
     oneOf("approval_requests_status_check", table.status, approvalStatuses),
+  ],
+).enableRLS();
+
+export const orderLists = pgTable(
+  "order_lists",
+  {
+    ...baseColumns(),
+    fromDate: date("from_date", { mode: "string" }).notNull(),
+    toDate: date("to_date", { mode: "string" }).notNull(),
+    status: text("status", { enum: ["draft", "submitted", "approved", "rejected"] })
+      .notNull().default("draft"),
+    lines: jsonb("lines").$type<OrderLine[]>().notNull().default([]),
+    approvalId: uuid("approval_id").references(() => approvalRequests.id),
+  },
+  (table) => [
+    index("order_lists_status_idx").on(table.status, table.createdAt),
+    oneOf("order_lists_status_check", table.status, ["draft", "submitted", "approved", "rejected"] as const),
   ],
 ).enableRLS();
 

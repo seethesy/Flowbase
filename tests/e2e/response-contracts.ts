@@ -59,6 +59,8 @@ import {
 } from "../../shared/notifications";
 import { taskSchema, taskSummarySchema } from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
+import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
+import { orderListSchema } from "../../shared/order-lists";
 import {
   importBatchResultSchema,
   importLogSchema,
@@ -102,6 +104,8 @@ export function responseSchema(
   }
   if (resource === "inventory") {
     const tail = path.split("/")[5];
+    if (id === "items" && action === "changes") return inventoryChangeResultSchema;
+    if (id === "items" && action === "pending") return pendingInventoryChangeSchema.array();
     if (id === "sections")
       return !action && method === "GET"
         ? sectionSchema.array()
@@ -190,5 +194,7 @@ export function responseSchema(
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;
+  if (resource === "order-lists")
+    return !id && method === "GET" ? orderListSchema.array() : orderListSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
 }
