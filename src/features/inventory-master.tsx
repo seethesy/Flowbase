@@ -39,7 +39,7 @@ export function MasterInventory() {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const all = items.data ?? [];
+  const all = useMemo(() => items.data ?? [], [items.data]);
   const sections = [...new Set(all.flatMap((item) => item.stock.map((level) => level.sectionName)
     .concat(item.consumable?.storageSectionName ?? [])))].filter(Boolean).sort();
   const categories = [...new Set(all.map((item) => item.category))].filter(Boolean).sort();

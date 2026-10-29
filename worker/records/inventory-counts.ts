@@ -235,7 +235,7 @@ export async function recordCountLine(
   countId: string,
   input: CountLineInput,
 ): Promise<StockCount> {
-  const count = await findOpenCount(db, countId);
+  await findOpenCount(db, countId);
   const item = await findItem(db, input.itemId);
   if (item.kind !== "consumable")
     throw conflict(
