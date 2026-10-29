@@ -69,6 +69,9 @@ export function EventStaffSection({
   if (!roster.data) return <LoadingSkeleton />;
   const data = roster.data;
   const active = (staff.data ?? []).filter((member) => member.active);
+  const notifyRemoval = (names: string[]) =>
+    names.length > 0 && data.canNameLeads &&
+    window.confirm(`Notify ${names.join(", ")} that they were removed from the shift?\n\nOK: send notification. Cancel: continue without notification.`);
   // Applies a roster change and reports what went wrong, if anything.
   const change = async (
     run: () => Promise<EventRoster>,
@@ -86,7 +89,11 @@ export function EventStaffSection({
   };
   const assign = (slot: StaffSlot, assigneeId: string | null) =>
     change(
-      () => eventStaffApi.updateSlot(event.id, slot.id, { assigneeId }),
+      () => eventStaffApi.updateSlot(event.id, slot.id, {
+        assigneeId,
+        notifyRemovedStaff: slot.assignee && slot.assignee.id !== assigneeId
+          ? notifyRemoval([slot.assignee.name]) : false,
+      }),
       (next) => {
         const saved = next.shifts
           .flatMap((shift) => shift.slots)
@@ -157,10 +164,12 @@ export function EventStaffSection({
           onAssign={assign}
           onEdit={() => setShiftForm(shift)}
           onRemove={() =>
-            change(() => eventStaffApi.archiveShift(event.id, shift.id))
+            change(() => eventStaffApi.archiveShift(event.id, shift.id,
+              notifyRemoval(shift.slots.flatMap((slot) => slot.assignee ? [slot.assignee.name] : []))))
           }
           onRemoveSlot={(slot) =>
-            change(() => eventStaffApi.archiveSlot(event.id, slot.id))
+            change(() => eventStaffApi.archiveSlot(event.id, slot.id,
+              slot.assignee ? notifyRemoval([slot.assignee.name]) : false))
           }
           onChangeSlot={(slot, input) =>
             change(() => eventStaffApi.updateSlot(event.id, slot.id, input))

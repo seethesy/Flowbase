@@ -9,7 +9,9 @@ import { id, text, timestamp } from "./schema-primitives";
 export const notificationTypes = [
   "task_assigned",
   "task_due",
+  "lead_assigned",
   "staff_assigned",
+  "staff_unassigned",
   "approval_requested",
   "approval_decided",
   "inventory_conflict",
@@ -39,10 +41,20 @@ export const notificationCatalog: Record<NotificationType, NotificationTypeInfo>
     description: "A task you're assigned to or oversee reaches its due time.",
     event: "task.due",
   },
+  lead_assigned: {
+    label: "Lead assigned",
+    description: "A lead is assigned to you.",
+    event: "lead.assigned",
+  },
   staff_assigned: {
     label: "Event staff assignment",
     description: "You're assigned to a shift on an event's staff roster.",
     event: "event.staff_assigned",
+  },
+  staff_unassigned: {
+    label: "Removed from event staff",
+    description: "A manager chooses to tell you that you were removed from a shift.",
+    event: "event.staff_unassigned",
   },
   approval_requested: {
     label: "Approval requested",

@@ -41,6 +41,7 @@ const people = {
   casey: "c4300000-0000-4000-8000-000000000004",
   drew: "c4300000-0000-4000-8000-000000000005",
   gone: "c4300000-0000-4000-8000-000000000006",
+  sue: "c4300000-0000-4000-8000-000000000007",
 };
 const directory: [keyof typeof people, Role, EmploymentType][] = [
   ["admin", "admin", "full_time"],
@@ -49,6 +50,7 @@ const directory: [keyof typeof people, Role, EmploymentType][] = [
   ["casey", "staff", "full_time"],
   ["drew", "staff", "part_time"],
   ["gone", "staff", "full_time"],
+  ["sue", "salesperson", "full_time"],
 ];
 const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
@@ -227,9 +229,10 @@ describe("fan-out", () => {
       position: "Server",
       department: "service",
     });
+    const slotId = withSlot.shifts[0].slots[0].id;
     await sam.send<EventRoster>(
       "PATCH",
-      `/api/events/${gala.id}/slots/${withSlot.shifts[0].slots[0].id}`,
+      `/api/events/${gala.id}/slots/${slotId}`,
       { assigneeId: people.casey },
     );
     await drain();
@@ -237,10 +240,94 @@ describe("fan-out", () => {
       {
         type: "staff_assigned",
         title: "You're on the staff roster: Autumn gala",
-        body: "Server · Event day 2026-11-14 16:00",
+        body: "Server · Event day 2026-11-14 16:00–2026-11-14 23:30",
         link: `/events/${gala.id}`,
       },
     ]);
+    expect((await casey.call("GET", `/api/events/${gala.id}/roster`)).status).toBe(200);
+    await sam.send<EventRoster>("PATCH", `/api/events/${gala.id}/slots/${slotId}`, {
+      assigneeId: people.casey,
+    });
+    await drain();
+    expect(await notificationsOf("casey")).toHaveLength(1);
+    await manager.send<EventRoster>("PATCH", `/api/events/${gala.id}/slots/${slotId}`, {
+      assigneeId: people.drew,
+      notifyRemovedStaff: true,
+    });
+    await drain();
+    expect(await notificationsOf("drew")).toMatchObject([{ type: "staff_assigned" }]);
+    expect(await notificationsOf("casey")).toHaveLength(2);
+    expect((await notificationsOf("casey")).filter((row) => row.type === "staff_unassigned")).toHaveLength(1);
+    await manager.send<EventRoster>("PATCH", `/api/events/${gala.id}/slots/${slotId}`, {
+      assigneeId: people.casey,
+    });
+    await drain();
+    expect(await notificationsOf("drew")).toHaveLength(1);
+    // Retrying the assignment job cannot create another notification.
+    const [assignment] = await db.select().from(schema.jobs)
+      .where(eq(schema.jobs.type, "event:event.staff_assigned"));
+    await registry.get(assignment.type)!(assignment, { db });
+    expect(await notificationsOf("casey")).toHaveLength(3);
+    await manager.send<EventRoster>("POST", `/api/events/${gala.id}/slots/${slotId}/archive`, {
+      notifyRemovedStaff: false,
+    }, 200);
+    await drain();
+    expect(await notificationsOf("casey")).toHaveLength(3);
+    const next = await sam.send<EventRoster>("POST", `/api/events/${gala.id}/slots`, {
+      shiftId, position: "Server", department: "service",
+    });
+    const nextSlotId = next.shifts[0].slots[0].id;
+    await sam.send<EventRoster>("PATCH", `/api/events/${gala.id}/slots/${nextSlotId}`, {
+      assigneeId: people.drew,
+    });
+    await drain();
+    await manager.send<EventRoster>("POST", `/api/events/${gala.id}/slots/${nextSlotId}/archive`, {
+      notifyRemovedStaff: true,
+    }, 200);
+    await drain();
+    expect((await notificationsOf("drew")).filter((row) => row.type === "staff_unassigned")).toHaveLength(1);
+    const denied = await sam.call("POST", `/api/events/${gala.id}/shifts/${shiftId}/archive`, {
+      notifyRemovedStaff: true,
+    });
+    expect(denied.status).toBe(403);
+    const forShift = await sam.send<EventRoster>("POST", `/api/events/${gala.id}/slots`, {
+      shiftId, position: "Server", department: "service",
+    });
+    await sam.send<EventRoster>("PATCH", `/api/events/${gala.id}/slots/${forShift.shifts[0].slots[0].id}`, {
+      assigneeId: people.drew,
+    });
+    await drain();
+    await manager.send<EventRoster>("POST", `/api/events/${gala.id}/shifts/${shiftId}/archive`, {
+      notifyRemovedStaff: true,
+    }, 200);
+    await drain();
+    expect((await notificationsOf("drew")).filter((row) => row.type === "staff_unassigned")).toHaveLength(2);
+  });
+
+  it("notifies only the newly assigned salesperson about a lead", async () => {
+    const [lead] = await db.insert(schema.leads).values({
+      channel: "manual", source: "Manual", name: "Juniper inquiry",
+      createdBy: people.admin, updatedBy: people.admin,
+    }).returning();
+    await admin.send("POST", `/api/leads/${lead.id}/assign`, {
+      assignedSalespersonId: people.sam,
+    }, 200);
+    await drain();
+    expect(await notificationsOf("sam")).toMatchObject([{
+      type: "lead_assigned", title: "Lead assigned: Juniper inquiry",
+      link: `/leads/${lead.id}`,
+    }]);
+    await admin.send("POST", `/api/leads/${lead.id}/assign`, {
+      assignedSalespersonId: people.sam,
+    }, 200);
+    await drain();
+    expect(await notificationsOf("sam")).toHaveLength(1);
+    await admin.send("POST", `/api/leads/${lead.id}/assign`, {
+      assignedSalespersonId: people.sue,
+    }, 200);
+    await drain();
+    expect(await notificationsOf("sue")).toHaveLength(1);
+    expect(await notificationsOf("sam")).toHaveLength(1);
   });
 
   it("delivers the generic types from the recipients and message their event names, and skips inactive staff", async () => {
@@ -355,7 +442,7 @@ describe("AC2: email preferences", () => {
       "GET",
       "/api/notifications/preferences",
     );
-    expect(preferences).toHaveLength(11);
+    expect(preferences).toHaveLength(13);
     expect(preferences.every((p) => p.email)).toBe(true);
     expect(preferences.filter((p) => p.urgent).map((p) => p.type)).toEqual([
       "staff_assigned",
