@@ -27,6 +27,7 @@ import { importStatuses } from "../../shared/imports";
 import { taskPriorities, taskStatuses, taskTypes } from "../../shared/tasks";
 import { notificationTypes } from "../../shared/notifications";
 import { vendorTypes } from "../../shared/vendors";
+import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -1254,5 +1255,40 @@ export const notificationPreferences = pgTable(
       table.type,
     ),
     oneOf("notification_preferences_type_check", table.type, notificationTypes),
+  ],
+).enableRLS();
+
+// Approval requests (FLOW-44): one table for every module's approvals. The
+// subject type is the requesting module's own name, registered with the engine
+// in worker/records/approvals.ts, so it has no CHECK list here.
+export const approvalRequests = pgTable(
+  "approval_requests",
+  {
+    ...baseColumns(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    summary: text("summary").notNull(),
+    link: text("link"),
+    // Field -> { from, to }; null when the request approves the subject itself.
+    proposedChange: jsonb("proposed_change").$type<ProposedChange>(),
+    requesterId: uuid("requester_id"),
+    approverRole: text("approver_role", { enum: roles }).notNull(),
+    status: text("status", { enum: approvalStatuses })
+      .notNull()
+      .default("pending"),
+    comment: text("comment").notNull().default(""),
+    decidedBy: uuid("decided_by"),
+    decidedAt: timestamptz("decided_at"),
+  },
+  (table) => [
+    index("approval_requests_queue_idx").on(
+      table.status,
+      table.approverRole,
+      table.createdAt,
+    ),
+    index("approval_requests_subject_idx").on(table.subjectType, table.subjectId),
+    index("approval_requests_requester_idx").on(table.requesterId, table.createdAt),
+    oneOf("approval_requests_approver_role_check", table.approverRole, roles),
+    oneOf("approval_requests_status_check", table.status, approvalStatuses),
   ],
 ).enableRLS();
