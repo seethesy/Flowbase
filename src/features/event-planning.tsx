@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import { requirementBasisLabels, type Requirement } from "../../shared/allocation";
@@ -23,7 +23,35 @@ import "./event-planning.css";
 
 const number = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 4 });
 
-export function EventPlanningSection({
+// The section sits low on the page, so it loads when it scrolls into view rather
+// than adding five requests to every event page that is opened.
+export function EventPlanningSection(props: { event: FlowEvent; canEdit: boolean }) {
+  const anchor = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    const node = anchor.current;
+    if (near || !node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setNear(true);
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [near]);
+  if (!near)
+    return (
+      <div ref={anchor}>
+        <Section title="Equipment & stock">
+          <LoadingSkeleton />
+        </Section>
+      </div>
+    );
+  return <PlanningSections {...props} />;
+}
+
+function PlanningSections({
   event,
   canEdit,
 }: {
