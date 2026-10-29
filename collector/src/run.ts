@@ -115,15 +115,23 @@ async function runSite(
   const sleep = options.sleep ?? sleepFor;
   const pageLimit = options.pageLimit ?? DEFAULT_PAGE_LIMIT;
   let pages = 0;
+  const beforePage = async () => {
+    if (pages >= pageLimit) throw new PageLimitReached();
+    if (pages > 0) await sleep(minPause + Math.random() * (maxPause - minPause));
+    pages += 1;
+  };
   const site: SiteContext = {
     page,
     credentials: options.credentials?.(module.site),
     visit: async (url) => {
-      if (pages >= pageLimit) throw new PageLimitReached();
-      if (pages > 0) await sleep(minPause + Math.random() * (maxPause - minPause));
-      pages += 1;
+      await beforePage();
       const response = await page.goto(url, { waitUntil: "domcontentloaded" });
       await stopIfBlocked(page, response);
+    },
+    selectDetail: async (selector) => {
+      await beforePage();
+      await page.locator(selector).click();
+      await stopIfBlocked(page, null);
     },
   };
 
@@ -151,12 +159,13 @@ async function runSite(
     try {
       for (const { id } of due) {
         const read = await module.readLead(site, id);
-        const details = { ...read, source: module.source, sourceLeadId: id };
+        const sourceLeadId = read.sourceLeadId || id;
+        const details = { ...read, source: module.source, sourceLeadId };
         collected.push(
           collectedLeadSchema.parse({
             ...details,
             site: module.site,
-            sourceRecordId: leadRecordId(module.site, id, details),
+            sourceRecordId: leadRecordId(module.site, sourceLeadId, details),
           }),
         );
       }

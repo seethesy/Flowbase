@@ -29,6 +29,7 @@ async function main() {
     const password = process.env[`${prefix}_PASSWORD`];
     return username && password ? { username, password } : undefined;
   };
+  if (siteModules.length === 0) throw new Error("No collector site base URLs are configured.");
   const result = await runCollector({
     modules: siteModules,
     ingest: httpIngest({ baseUrl: env("FLOWBASE_URL"), token: env("INGEST_TOKEN_LEADS") }),
