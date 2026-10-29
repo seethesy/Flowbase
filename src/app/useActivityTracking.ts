@@ -13,7 +13,7 @@ const TICK_MS = 15_000;
 
 // Tracks active time in this tab against the screen on show (FLOW-119).
 export function useActivityTracking() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const tracker = useRef<ActivityTracker | null>(null);
   const closing = useRef(false);
   tracker.current ??= new ActivityTracker({
@@ -22,8 +22,8 @@ export function useActivityTracking() {
     visible: document.visibilityState === "visible",
   });
   useEffect(() => {
-    tracker.current!.setContext(contextForPath(pathname));
-  }, [pathname]);
+    tracker.current!.setContext(contextForPath(pathname, search));
+  }, [pathname, search]);
   const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
   useEffect(() => {
     tracker.current!.setIdleCutoff(idleMinutes * 60_000);

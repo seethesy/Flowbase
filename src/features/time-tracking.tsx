@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   activityLabels,
   type EffortRow,
+  type ProposalEffortRow,
   type WorkloadRow,
 } from "../../shared/time-tracking";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
@@ -36,8 +37,8 @@ export function TimeTrackingSettings() {
         <strong>Time tracking is on.</strong> {trackingNoticeText(idleMinutes)}
       </p>
       <p>
-        Time is credited to the lead, client or event on screen and to the kind
-        of work the screen is for. Admin and Sales Managers see everyone's time
+        Time is credited to the lead, client, event, proposal or task on screen
+        and to the kind of work the screen is for. Admin and Sales Managers see everyone's time
         in <Link to="/reports">Reports</Link>; everyone else sees only their
         own.
       </p>
@@ -74,6 +75,28 @@ export function TimeReports() {
     },
     { accessorKey: "date", header: "Date" },
     { accessorKey: "clientName", header: "Client" },
+    { accessorKey: "people", header: "People" },
+    {
+      accessorKey: "seconds",
+      header: "Time",
+      cell: (c) => duration(c.row.original.seconds),
+      meta: { csv: (row) => duration(row.seconds) },
+    },
+  ];
+  // FLOW-167: a proposal's time also counts toward its event's row above.
+  const proposalColumns: ColumnDef<ProposalEffortRow, unknown>[] = [
+    {
+      accessorKey: "title",
+      header: "Proposal",
+      cell: (c) => (
+        <Link
+          to={`/events/${c.row.original.eventId}?proposal=${c.row.original.proposalId}`}
+        >
+          {c.row.original.title}
+        </Link>
+      ),
+    },
+    { accessorKey: "eventTitle", header: "Event" },
     { accessorKey: "people", header: "People" },
     {
       accessorKey: "seconds",
@@ -147,10 +170,20 @@ export function TimeReports() {
             ) : (
               <EmptyState
                 title="No event time yet"
-                description="Time spent on event pages in this range shows here."
+                description="Time spent on an event, its proposals and its tasks in this range shows here."
               />
             )}
           </Section>
+          {data.proposals.length > 0 && (
+            <Section title="Effort per proposal">
+              <DataTable
+                data={data.proposals}
+                columns={proposalColumns}
+                label="proposals"
+                exportName="time by proposal"
+              />
+            </Section>
+          )}
           <Section title="Workload">
             {data.workload.length ? (
               <DataTable
