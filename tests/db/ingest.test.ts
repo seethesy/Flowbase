@@ -57,6 +57,15 @@ it("stores nothing for a request with an invalid token", async () => {
   expect(await db.select().from(ingestReceipts)).toEqual([]);
   expect(await db.select().from(jobs)).toEqual([]);
 });
+it("keeps expression indexes for case-insensitive duplicate email matching", async () => {
+  const indexes = await db.execute<{ indexname: string; indexdef: string }>(sql`
+    select indexname, indexdef from pg_indexes where schemaname = 'public'
+      and indexname in ('client_contacts_email_lower_idx', 'leads_email_lower_idx')`);
+  expect(indexes.map((row) => row.indexname).sort()).toEqual([
+    "client_contacts_email_lower_idx", "leads_email_lower_idx",
+  ]);
+  expect(indexes.every((row) => row.indexdef.includes("lower(email)"))).toBe(true);
+});
 
 it("creates one receipt and one job when the same record is posted twice", async () => {
   const first = await postLead({ sourceRecordId: "bark-1", name: "Jo" });
@@ -136,6 +145,21 @@ it("replays a failed processing job from the admin API", async () => {
     env,
   );
   expect(again.status).toBe(404);
+});
+it("lists and replays a receipt left unprocessed before its processor existed", async () => {
+  const { receiptId } = await (await postLead({ sourceRecordId: "late-source" })).json();
+  await runDueJobs(db, registerIngestProcessing(new JobRegistry(), new Map()));
+  const listed = await (await app.request("/api/admin/ingest-receipts?status=unprocessed", {}, env)).json();
+  expect(listed).toEqual([expect.objectContaining({ id: receiptId, jobStatus: "succeeded", processedAt: null })]);
+  const replay = await app.request(`/api/admin/ingest-receipts/${receiptId}/replay`, { method: "POST" }, env);
+  expect(replay.status).toBe(200);
+  expect(await replay.json()).toMatchObject({ id: receiptId, jobStatus: "pending" });
+  const processed: string[] = [];
+  await runDueJobs(db, registerIngestProcessing(new JobRegistry(), new Map([
+    ["leads", async (receipt) => { processed.push(receipt.sourceRecordId); }],
+  ])));
+  expect(processed).toEqual(["late-source"]);
+  expect((await db.select().from(ingestReceipts))[0].processedAt).toBeInstanceOf(Date);
 });
 
 it("retries a failed job from the admin API", async () => {

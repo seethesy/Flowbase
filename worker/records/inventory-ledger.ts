@@ -58,8 +58,8 @@ export async function recordMovement(
   item: Pick<ItemRow, "id" | "kind" | "archivedAt">,
   movement: Movement,
 ): Promise<string[]> {
-  await tx
-    .select({ id: inventoryItems.id })
+  const [lockedItem] = await tx
+    .select({ archivedAt: inventoryItems.archivedAt })
     .from(inventoryItems)
     .where(eq(inventoryItems.id, item.id))
     .for("update");
@@ -69,7 +69,7 @@ export async function recordMovement(
       "SERVICE_HAS_NO_STOCK",
       "Service items don't have stock, so they can't be moved or counted.",
     );
-  if (item.archivedAt)
+  if (!lockedItem || lockedItem.archivedAt)
     throw conflict(
       "ITEM_ARCHIVED",
       "Restore the item before changing its stock.",
@@ -87,11 +87,11 @@ export async function recordMovement(
         "Pick a color from this item's color list.",
       );
   }
-  const sections = await Promise.all(
-    movement.changes.map((change) =>
-      requireStockSection(tx, change.sectionId, sectionKind),
-    ),
-  );
+  // Use a stable lock order for transfers; archive takes the same section lock.
+  const sectionById = new Map<string, Awaited<ReturnType<typeof requireStockSection>>>();
+  for (const id of [...new Set(movement.changes.map((change) => change.sectionId))].sort())
+    sectionById.set(id, await requireStockSection(tx, id, sectionKind));
+  const sections = movement.changes.map((change) => sectionById.get(change.sectionId)!);
   const sectionIds = movement.changes.map((change) => change.sectionId);
   await tx
     .insert(inventoryStock)
@@ -337,6 +337,7 @@ export async function recordCount(
     .where(eq(inventoryItems.id, item.id))
     .for("update");
   requireCountStep(item, counted);
+  await tx.insert(inventoryStock).values({ itemId: item.id, sectionId, color }).onConflictDoNothing();
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
     .from(inventoryStock)
@@ -454,6 +455,8 @@ export async function correctMovement(
       .from(inventoryItems)
       .where(eq(inventoryItems.id, item.id))
       .for("update");
+    await tx.select({ id: stockMovements.id }).from(stockMovements)
+      .where(eq(stockMovements.id, original.id)).for("update");
     const [{ total }] = await tx
       .select({
         total: sql<string>`coalesce(sum(${stockMovements.quantity}), 0)`,

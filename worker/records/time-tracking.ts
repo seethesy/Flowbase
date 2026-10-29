@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
@@ -12,6 +12,7 @@ import {
   activitySessions,
   clients,
   events,
+  leads,
   proposals,
   tasks,
   users,
@@ -19,6 +20,9 @@ import {
 import { ApiError } from "../hono";
 import { can, timeReportScope } from "../policy";
 import { visibleEvents } from "./events";
+import { visibleClients } from "./clients";
+import { visibleLeads } from "./leads";
+import { visibleTasks } from "./tasks";
 
 // Automatic activity time tracking (FLOW-119). Sessions are always the caller's own:
 // the user comes from the sign-in, never from the request body.
@@ -47,6 +51,27 @@ export async function recordSessions(
       byId.set(session.id, session);
   }
   const sessions = [...byId.values()];
+  const recordIds = (type: NonNullable<SessionInput["recordType"]>) =>
+    [...new Set(sessions.filter((s) => s.recordType === type).map((s) => s.recordId!))];
+  const types = ["lead", "client", "event", "proposal", "task", "beo"] as const;
+  const found = await Promise.all(types.map(async (type) => {
+    const ids = recordIds(type);
+    if (!ids.length) return [] as string[];
+    if (type === "beo") return [] as string[];
+    if (type === "lead") return (await db.select({ id: leads.id }).from(leads)
+      .where(and(inArray(leads.id, ids), isNull(leads.archivedAt), visibleLeads(actor)))).map((r) => r.id);
+    if (type === "client") return (await db.select({ id: clients.id }).from(clients)
+      .where(and(inArray(clients.id, ids), isNull(clients.archivedAt), visibleClients(actor)))).map((r) => r.id);
+    if (type === "event") return (await db.select({ id: events.id }).from(events)
+      .where(and(inArray(events.id, ids), isNull(events.archivedAt), visibleEvents(actor)))).map((r) => r.id);
+    if (type === "task") return (await db.select({ id: tasks.id }).from(tasks)
+      .where(and(inArray(tasks.id, ids), isNull(tasks.archivedAt), visibleTasks(actor)))).map((r) => r.id);
+    return (await db.select({ id: proposals.id }).from(proposals)
+      .innerJoin(events, eq(proposals.eventId, events.id))
+      .where(and(inArray(proposals.id, ids), isNull(proposals.archivedAt), isNull(events.archivedAt), visibleEvents(actor)))).map((r) => r.id);
+  }));
+  if (types.some((type, index) => recordIds(type).some((id) => !found[index].includes(id))))
+    throw new ApiError(400, "INVALID_REQUEST", "A session refers to a record you can't access.");
   await db
     .insert(activitySessions)
     .values(

@@ -8,7 +8,8 @@ import {
   type StockMovement,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
-import { inventoryApi, sectionsApi } from "../services/core";
+import { inventoryApi, inventoryChangesApi, sectionsApi } from "../services/core";
+import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { toNumber } from "./inventory-item-form";
@@ -37,6 +38,8 @@ export function StockForm({
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const { can } = usePermissions();
   const [saving, setSaving] = useState(false);
   const options = (sections.data ?? []).map((section) => (
     <option key={section.id} value={section.id}>
@@ -52,6 +55,13 @@ export function StockForm({
     setSaving(true);
     setError("");
     try {
+      if (mode === "count" && item.kind === "rental" && !can("rentals.apply_directly")) {
+        if (color) throw new Error("Choose the uncolored stock quantity for a Master adjustment.");
+        await inventoryChangesApi.submit([{ type: "quantity", itemId: item.id,
+          sectionId: from, quantity: amount }]);
+        setNotice("Quantity adjustment submitted for Admin approval.");
+        return;
+      }
       onSaved(
         mode === "transfer"
           ? await inventoryApi.transfer(item.id, {
@@ -98,6 +108,7 @@ export function StockForm({
             {error}
           </p>
         )}
+        {notice && <p role="status">{notice}</p>}
         <FormField label={mode === "transfer" ? "From section" : "Section"}>
           <select value={from} onChange={(e) => setFrom(e.target.value)}>
             <option value="">Pick a section</option>
@@ -132,7 +143,8 @@ export function StockForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {mode === "transfer" ? "Transfer" : "Save count"}
+            {mode === "transfer" ? "Transfer" : mode === "count" && item.kind === "rental" && !can("rentals.apply_directly")
+              ? "Submit for approval" : "Save count"}
           </Button>
         </div>
       </form>

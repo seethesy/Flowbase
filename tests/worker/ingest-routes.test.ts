@@ -89,6 +89,52 @@ it("rejects an oversized payload before storing it", async () => {
   expect(response.status).toBe(413);
   expect(withDb).not.toHaveBeenCalled();
 });
+it("does not trust a misleading short Content-Length", async () => {
+  const response = await postLead("x".repeat(INGEST_MAX_BYTES + 1), {
+    Authorization: "Bearer new-lead-token", "Content-Length": "1",
+  });
+  expect(response.status).toBe(413);
+  expect(withDb).not.toHaveBeenCalled();
+});
+it("cancels an oversized stream without reading the remaining chunks", async () => {
+  let pulls = 0;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1;
+      controller.enqueue(new Uint8Array(pulls === 1 ? INGEST_MAX_BYTES : 1));
+    },
+    cancel() { cancelled = true; },
+  }, { highWaterMark: 0 });
+  const request = new Request("http://localhost/api/ingest/leads", {
+    method: "POST", body, duplex: "half",
+    headers: { Authorization: "Bearer new-lead-token" },
+  } as RequestInit);
+  const response = await app.fetch(request, env as never);
+  expect(response.status).toBe(413);
+  expect(pulls).toBe(2);
+  expect(cancelled).toBe(true);
+  expect(withDb).not.toHaveBeenCalled();
+});
+it("rejects an invalid bearer before reading its stream", async () => {
+  let pulls = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) { pulls += 1; controller.enqueue(new Uint8Array([123])); },
+  }, { highWaterMark: 0 });
+  const request = new Request("http://localhost/api/ingest/leads", {
+    method: "POST", body, duplex: "half",
+  } as RequestInit);
+  const response = await app.fetch(request, env as never);
+  expect(response.status).toBe(401);
+  expect(pulls).toBe(0);
+  expect(withDb).not.toHaveBeenCalled();
+});
+it("accepts a body exactly at the byte limit", async () => {
+  const prefix = '{"sourceRecordId":"edge","note":"';
+  const body = prefix + "x".repeat(INGEST_MAX_BYTES - prefix.length - 2) + '"}';
+  const response = await postLead(body, { Authorization: "Bearer new-lead-token" });
+  expect(response.status).toBe(202);
+});
 it.each([
   ["malformed JSON", "{"],
   ["a missing record id", JSON.stringify({ name: "Jo" })],
@@ -117,6 +163,18 @@ it("accepts a Shopify webhook signed with either rotated secret", async () => {
     });
     expect(response.status).toBe(202);
   }
+});
+it("verifies Shopify against the original bytes, including invalid UTF-8", async () => {
+  const bytes = new Uint8Array([123, 34, 120, 34, 58, 34, 255, 34, 125]);
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode("new-shop-secret"),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, bytes));
+  const response = await app.request("/api/ingest/shopify", {
+    method: "POST", body: bytes,
+    headers: { "X-Shopify-Hmac-Sha256": btoa(String.fromCharCode(...signature)),
+      "X-Shopify-Webhook-Id": "raw-bytes" },
+  }, env);
+  expect(response.status).toBe(202);
 });
 const badSignatures: [string, (body: string) => Promise<string>][] = [
   ["a wrong secret", (body) => sign("wrong", body)],

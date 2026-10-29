@@ -282,10 +282,16 @@ describe("time tracking", () => {
       { sessions: [onEvent(gala.id, 15, 10)] },
       200,
     );
-    // Sue can't see the gala any more than she could open it.
+    // A session can only be attached to a record Sue may open.
+    expect((await sue.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(gala.id, 28, 25)],
+    })).status).toBe(400);
+    expect((await sam.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(crypto.randomUUID(), 28, 25)],
+    })).status).toBe(400);
     await sue.post(
       "/api/time/sessions",
-      { sessions: [onEvent(brunch.id, 30, 28), onEvent(gala.id, 28, 25)] },
+      { sessions: [onEvent(brunch.id, 30, 28)] },
       200,
     );
 
@@ -297,8 +303,8 @@ describe("time tracking", () => {
         title: "Fall gala",
         date: "2026-11-14",
         clientName: "Juniper & Co.",
-        seconds: 18 * 60,
-        people: 3,
+        seconds: 15 * 60,
+        people: 2,
       },
       {
         eventId: brunch.id,
@@ -336,7 +342,7 @@ describe("time tracking", () => {
         userId: people.sue,
         userName: people.sue,
         activity: "event_planning",
-        seconds: 5 * 60,
+        seconds: 2 * 60,
       },
     ]);
 

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { inventoryChangesSchema } from "../../shared/inventory-changes";
 import {
   correctionInputSchema,
   countInputSchema,
@@ -15,8 +16,10 @@ import {
 } from "../../shared/inventory";
 import { id as uuid, withVersion } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
+import { can } from "../policy";
 import {
   notFound,
+  ApiError,
   pageRequest,
   parseBody,
   recordRunner,
@@ -25,12 +28,14 @@ import {
   type AppEnv,
   type RunWithDb,
 } from "../hono";
+import { pendingInventoryChanges, submitInventoryChanges } from "../records/inventory-approvals";
 import {
   addMovement,
   completeCount,
   correctMovement,
   countStock,
   createItem,
+  findItem,
   createSection,
   getCount,
   getItem,
@@ -93,12 +98,25 @@ export function inventoryRoutes(options: {
       ),
     );
   });
+  routes.post("/items/changes", requirePermission("inventory.changes.request"), async (c) => {
+    const input = await parseBody(c, inventoryChangesSchema);
+    const result = await record(c, (db, actor) => submitInventoryChanges(db, actor, input.changes));
+    return c.json(result, result.applied ? 200 : 202);
+  });
+  routes.get("/items/pending", requirePermission("inventory.read"), async (c) => {
+    const ids = (c.req.query("ids") ?? "").split(",").filter(Boolean);
+    if (ids.length > 100 || ids.some((id) => !uuid.safeParse(id).success))
+      throw new ApiError(400, "INVALID_REQUEST", "Invalid item ids.");
+    return c.json(await record(c, (db) => pendingInventoryChanges(db, ids)));
+  });
   routes.get("/items/:id", requirePermission("inventory.read"), async (c) => {
     const id = param(c, "Item");
     return c.json(await record(c, (db, actor) => getItem(db, actor, id)));
   });
   routes.post("/items", requirePermission("inventory.write"), async (c) => {
     const input = await parseBody(c, itemInputSchema);
+    if (input.kind !== "consumable" && !can(c.get("actor"), "rentals.apply_directly"))
+      throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
     return c.json(
       await record(c, (db, actor) => createItem(db, actor, input)),
       201,
@@ -107,6 +125,8 @@ export function inventoryRoutes(options: {
   routes.put("/items/:id", requirePermission("inventory.write"), async (c) => {
     const id = param(c, "Item");
     const input = await parseBody(c, withVersion(itemInputSchema));
+    if (input.kind !== "consumable" && !can(c.get("actor"), "rentals.apply_directly"))
+      throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
     return c.json(
       await record(c, (db, actor) => updateItem(db, actor, id, input)),
     );
@@ -130,7 +150,12 @@ export function inventoryRoutes(options: {
       const id = param(c, "Item");
       const input = await parseBody(c, countInputSchema);
       return c.json(
-        await record(c, (db, actor) => countStock(db, actor, id, input)),
+        await record(c, async (db, actor) => {
+          const item = await findItem(db, id);
+          if (item.kind === "rental" && !can(actor, "rentals.apply_directly"))
+            throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory quantity for approval.");
+          return countStock(db, actor, id, input);
+        }),
         201,
       );
     },
@@ -288,9 +313,12 @@ export function inventoryRoutes(options: {
       async (c) => {
         const id = param(c, "Item");
         return c.json(
-          await record(c, (db, actor) =>
-            setItemArchived(db, actor, id, archived),
-          ),
+          await record(c, async (db, actor) => {
+            const item = await findItem(db, id);
+            if (item.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
+              throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory archive for approval.");
+            return setItemArchived(db, actor, id, archived);
+          }),
         );
       },
     );

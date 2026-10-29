@@ -5,6 +5,15 @@
   color: #667663;
   font-family: Inter, Arial, sans-serif;
 }
+.master-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.master-filters input, .master-filters select { min-width: 130px; }
+.master-group { margin: 20px 0; }
+.master-group h2 { font-size: 16px; margin: 0 0 8px; }
+.master-item-cell { display: flex; align-items: center; gap: 8px; }
+.master-group .table-scroll { overflow-x: auto; }
+.master-group th:first-child, .master-group td:first-child { min-width: 70px; }
+.master-group th:nth-child(2), .master-group td:nth-child(2) { position: sticky; left: 0; background: var(--surface, white); min-width: 170px; z-index: 1; }
+.master-group td input { min-width: 110px; max-width: 220px; }
 .stock-table {
   width: 100%;
   border-collapse: collapse;

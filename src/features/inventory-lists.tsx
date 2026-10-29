@@ -1,4 +1,6 @@
 import { Allowed } from "../app/permissions";
+import { usePermissions } from "../app/permissions";
+import { isFtPlus } from "../../shared/access";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, ClipboardCheck } from "lucide-react";
@@ -80,6 +82,7 @@ function SectionFilter({
 
 export function InventoryList() {
   const navigate = useNavigate();
+  const { actor, can } = usePermissions();
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<ItemKind | "">("");
   const [sectionId, setSectionId] = useState("");
@@ -140,6 +143,15 @@ export function InventoryList() {
         eyebrow="STOCK & SUPPLIES"
       >
         <Button variant="outline" asChild>
+          <Link to="/inventory/master">Master sheet</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/inventory/orders">Order lists</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link to="/approvals">Approvals</Link>
+        </Button>
+        <Button variant="outline" asChild>
           <Link to="/inventory/ingredients">Ingredients</Link>
         </Button>
         <Button variant="outline" asChild>
@@ -161,12 +173,12 @@ export function InventoryList() {
             <Link to="/inventory/sections">Sections</Link>
           </Button>
         </Allowed>
-        <Allowed action="inventory.write">
+        {actor && (can("inventory.write") || isFtPlus(actor)) && (
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
             New Item
           </Button>
-        </Allowed>
+        )}
       </PageHeader>
       <FilterBar>
         <SearchInput
