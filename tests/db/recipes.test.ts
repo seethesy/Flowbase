@@ -1,10 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { createJobRegistry } from "../../worker/jobs/cron";
 import { runDueJobs } from "../../worker/jobs/queue";
 import { recordCostChange } from "../../worker/records/inventory-costs";
 import { listClientRecipes } from "../../worker/records/recipes";
+import { addListValue, getSettings, setListValueArchived } from "../../worker/records/settings";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -127,7 +129,7 @@ describe("recipe record (FLOW-93)", () => {
     ]);
     expect(recipe).toMatchObject({
       name: "Tuscan Chicken",
-      category: "mains",
+      category: "Mains",
       steps: tuscanChicken(ids).steps,
       finishingNote: "garnish with basil",
       yield: { servings: 100, portionSize: "" },
@@ -175,9 +177,9 @@ describe("recipe record (FLOW-93)", () => {
   it("flags a duplicate name in the same category, not in another", async () => {
     const first = await createRecipe(tuscanChicken(ids));
     const second = await createRecipe(tuscanChicken(ids, { name: "tuscan chicken" }));
-    await createRecipe(tuscanChicken(ids, { category: "appetizers" }));
+    await createRecipe(tuscanChicken(ids, { category: "Appetizers" }));
     expect(second.duplicates).toEqual([{ id: first.id, name: "Tuscan Chicken" }]);
-    const list = await admin.send<Recipe[]>("GET", "/api/recipes?category=mains");
+    const list = await admin.send<Recipe[]>("GET", "/api/recipes?category=Mains");
     expect(list.map((recipe) => recipe.duplicates.length)).toEqual([1, 1]);
   });
 
@@ -237,13 +239,13 @@ describe("recipe costing (FLOW-94)", () => {
 
 describe("recipe books (FLOW-96/97)", () => {
   it("searches names and live ingredients and combines category and tag filters", async () => {
-    const chicken = await createRecipe(tuscanChicken(ids, { dietaryTags: ["gluten_free"] }));
-    const cream = await createRecipe(tuscanChicken(ids, { name: "Cream sauce", category: "sides", lines: [{ itemId: ids.cream }] }));
+    const chicken = await createRecipe(tuscanChicken(ids, { dietaryTags: ["Gluten-free"] }));
+    const cream = await createRecipe(tuscanChicken(ids, { name: "Cream sauce", category: "Sides", lines: [{ itemId: ids.cream }] }));
     const list = (query: string) => admin.send<Recipe[]>("GET", `/api/recipes?${query}`);
     expect((await list("search=chicken")).map((dish) => dish.id)).toEqual([chicken.id]);
     expect((await list("search=cream")).map((dish) => dish.id).sort()).toEqual([chicken.id, cream.id].sort());
-    expect((await list("search=cream&category=mains&allergen=milk&dietaryTag=gluten_free")).map((dish) => dish.id)).toEqual([chicken.id]);
-    expect(await list("dietaryTag=vegan")).toEqual([]);
+    expect((await list("search=cream&category=Mains&allergen=Milk&dietaryTag=Gluten-free")).map((dish) => dish.id)).toEqual([chicken.id]);
+    expect(await list("dietaryTag=Vegan")).toEqual([]);
     await admin.send("PUT", `/api/recipes/${cream.id}`, tuscanChicken(ids, { name: "Cream sauce", lines: [] }));
     expect((await list("search=heavy")).map((dish) => dish.id)).toEqual([chicken.id]);
   });
@@ -253,10 +255,10 @@ describe("recipe books (FLOW-96/97)", () => {
     await createRecipe(tuscanChicken(ids, { name: "Inactive", active: false }));
     const archived = await createRecipe(tuscanChicken(ids, { name: "Archived" }));
     await admin.send("POST", `/api/recipes/${archived.id}/archive`, {});
-    const clientDishes = await signedInAs("salesperson", "part_time").send<ClientRecipe[]>("GET", "/api/recipes/client?category=mains");
+    const clientDishes = await signedInAs("salesperson", "part_time").send<ClientRecipe[]>("GET", "/api/recipes/client?category=Mains");
     expect(clientDishes).toHaveLength(1);
-    expect(clientDishes[0]).toEqual({ id: dish.id, name: dish.name, category: dish.category, description: dish.description, ingredients: dish.lines.map((line) => line.ingredientName), allergens: ["milk"], dietaryTags: [], photo: null });
-    expect(await admin.send("GET", "/api/recipes/client?category=desserts")).toEqual([]);
+    expect(clientDishes[0]).toEqual({ id: dish.id, name: dish.name, category: dish.category, description: dish.description, ingredients: dish.lines.map((line) => line.ingredientName), allergens: ["Milk"], dietaryTags: [], photo: null });
+    expect(await admin.send("GET", "/api/recipes/client?category=Desserts")).toEqual([]);
     const app = createApp({ withDb, resolveActor: async () => null });
     expect((await app.request("/api/recipes/client", {}, env)).status).toBe(401);
   });
@@ -324,21 +326,145 @@ it("projects only the first ready recipe photo with a signed URL", async () => {
 describe("allergens and dietary tags (FLOW-95)", () => {
   it("stores them on the dish and audits a change", async () => {
     const recipe = await createRecipe(tuscanChicken(ids));
-    expect(recipe).toMatchObject({ allergens: ["milk"], dietaryTags: [] });
+    expect(recipe).toMatchObject({ allergens: ["Milk"], dietaryTags: [] });
     const updated = await admin.send<Recipe>("PUT", `/api/recipes/${recipe.id}`, {
       ...tuscanChicken(ids),
-      allergens: ["milk", "peanuts"],
-      dietaryTags: ["gluten_free"],
+      allergens: ["Milk", "Peanuts"],
+      dietaryTags: ["Gluten-free"],
     });
-    expect(updated).toMatchObject({ allergens: ["milk", "peanuts"], dietaryTags: ["gluten_free"] });
+    expect(updated).toMatchObject({ allergens: ["Milk", "Peanuts"], dietaryTags: ["Gluten-free"] });
     const [change] = await admin.send<HistoryEntry[]>("GET", `/api/recipes/${recipe.id}/history`);
-    expect(change.changes.allergens).toEqual({ before: ["milk"], after: ["milk", "peanuts"] });
-    expect(change.changes.dietaryTags).toEqual({ before: [], after: ["gluten_free"] });
+    expect(change.changes.allergens).toEqual({ before: ["Milk"], after: ["Milk", "Peanuts"] });
+    expect(change.changes.dietaryTags).toEqual({ before: [], after: ["Gluten-free"] });
   });
 
-  it("rejects the old contains meat tag", async () => {
-    const response = await admin.call("POST", "/api/recipes", { ...tuscanChicken(ids), dietaryTags: ["contains_meat"] });
+  it("rejects a tag that is not in the dietary tag list", async () => {
+    const response = await admin.call("POST", "/api/recipes", { ...tuscanChicken(ids), dietaryTags: ["Contains meat"] });
     expect(response.status).toBe(400);
+  });
+});
+
+// FLOW-218: categories, allergens and dietary tags are settings lists.
+describe("recipe lists from settings (FLOW-218)", () => {
+  const settingsAdmin: Actor = {
+    userId: "c1000000-0000-4000-8000-000000000001",
+    role: "admin",
+    employmentType: "full_time",
+  };
+  const added: string[] = [];
+  const add = async (key: "recipe_category" | "allergen" | "dietary_tag", label: string) => {
+    const value = await addListValue(db, settingsAdmin, key, label);
+    added.push(value.id);
+    return value;
+  };
+  const status = async (body: unknown) =>
+    (await admin.call("POST", "/api/recipes", body)).status;
+  afterEach(async () => {
+    if (added.length)
+      await db.delete(schema.listValues).where(inArray(schema.listValues.id, added));
+    added.length = 0;
+  });
+
+  it("seeds the six categories, the FDA major 9 and the four dietary tags", async () => {
+    const { lists } = await getSettings(db);
+    expect(lists.recipe_category.map((value) => value.label)).toEqual([
+      "Appetizers", "Mains", "Sides", "Desserts", "Drinks", "Additional items",
+    ]);
+    expect(lists.allergen.map((value) => value.label)).toEqual([
+      "Milk", "Eggs", "Fish", "Shellfish", "Tree nuts", "Peanuts", "Wheat", "Soy", "Sesame",
+    ]);
+    expect(lists.dietary_tag.map((value) => value.label)).toEqual([
+      "Vegan", "Vegetarian", "Gluten-free", "Dairy-free",
+    ]);
+  });
+
+  it("offers an allergen Admin adds, on the recipe form's list and on the dish (AC1)", async () => {
+    expect(await status({ ...tuscanChicken(ids), allergens: ["Coconut"] })).toBe(400);
+    await add("allergen", "Coconut");
+    const dish = await createRecipe(tuscanChicken(ids, { allergens: ["Milk", "Coconut"] }));
+    expect((await getRecipe(dish.id)).allergens).toEqual(["Milk", "Coconut"]);
+  });
+
+  it("files a recipe under a category Admin adds (AC2)", async () => {
+    expect(await status({ ...tuscanChicken(ids), category: "Brunch" })).toBe(400);
+    await add("recipe_category", "Brunch");
+    const dish = await createRecipe(tuscanChicken(ids, { category: "Brunch" }));
+    const brunch = await admin.send<Recipe[]>("GET", "/api/recipes?category=Brunch");
+    expect(brunch.map((recipe) => recipe.id)).toEqual([dish.id]);
+    const client = await admin.send<ClientRecipe[]>("GET", "/api/recipes/client?category=Brunch");
+    expect(client.map((recipe) => recipe.category)).toEqual(["Brunch"]);
+  });
+
+  it("keeps an archived tag on the dishes that have it but offers it to no new one (AC3)", async () => {
+    const nutFree = await add("dietary_tag", "Nut-free");
+    const dish = await createRecipe(tuscanChicken(ids, { dietaryTags: ["Nut-free", "Vegan"] }));
+    await setListValueArchived(db, settingsAdmin, nutFree.id, true);
+    const settings = await getSettings(db);
+    expect(settings.lists.dietary_tag.find((value) => value.label === "Nut-free")?.archived).toBe(true);
+    expect((await getRecipe(dish.id)).dietaryTags).toEqual(["Nut-free", "Vegan"]);
+    // Saving the dish again with the tag it already has still works...
+    await admin.send("PUT", `/api/recipes/${dish.id}`, { ...tuscanChicken(ids, { dietaryTags: ["Nut-free", "Vegan"] }), description: "Edited" });
+    // ...but no other dish can take it, and the dish cannot take it back once dropped.
+    expect(await status({ ...tuscanChicken(ids), dietaryTags: ["Nut-free"] })).toBe(400);
+    await admin.send("PUT", `/api/recipes/${dish.id}`, tuscanChicken(ids, { dietaryTags: ["Vegan"] }));
+    const again = await admin.call("PUT", `/api/recipes/${dish.id}`, tuscanChicken(ids, { dietaryTags: ["Vegan", "Nut-free"] }));
+    expect(again.status).toBe(400);
+  });
+
+  it("keeps an archived category on its dishes", async () => {
+    const brunch = await add("recipe_category", "Brunch");
+    const dish = await createRecipe(tuscanChicken(ids, { category: "Brunch" }));
+    await setListValueArchived(db, settingsAdmin, brunch.id, true);
+    expect((await getRecipe(dish.id)).category).toBe("Brunch");
+    await admin.send("PUT", `/api/recipes/${dish.id}`, tuscanChicken(ids, { category: "Brunch", name: "Brunch chicken" }));
+    expect(await status({ ...tuscanChicken(ids), category: "Brunch" })).toBe(400);
+  });
+
+  it("rewrites the built-in codes dishes held before the migration to the same labels (AC4)", async () => {
+    const legacy = [
+      ["appetizers", "Appetizers"],
+      ["mains", "Mains"],
+      ["sides", "Sides"],
+      ["desserts", "Desserts"],
+      ["drinks", "Drinks"],
+      ["additional_items", "Additional items"],
+    ] as const;
+    const rows = await db
+      .insert(schema.recipes)
+      .values([
+        ...legacy.map(([category]) => ({ name: `Legacy ${category}`, category })),
+        {
+          name: "Legacy tags",
+          category: "mains",
+          allergens: ["tree_nuts", "milk", "sesame"],
+          dietaryTags: ["gluten_free", "vegan", "dairy_free"],
+        },
+        { name: "Legacy plain", category: "mains" },
+      ])
+      .returning({ id: schema.recipes.id, name: schema.recipes.name });
+    const before = await getSettings(db);
+    // The data steps of the migration; its constraint changes were applied by migrate().
+    const steps = readFileSync("drizzle/0030_recipe_settings_lists.sql", "utf8")
+      .split("--> statement-breakpoint")
+      .map((step) => step.replace(/^(--.*\n)+/, "").trim())
+      .filter((step) => /^(UPDATE|INSERT)/.test(step));
+    expect(steps).toHaveLength(4);
+    for (const step of steps) await client.unsafe(step);
+    const byName = new Map(
+      (await db.select().from(schema.recipes).where(inArray(schema.recipes.id, rows.map((row) => row.id)))).map(
+        (row) => [row.name, row],
+      ),
+    );
+    for (const [code, label] of legacy)
+      expect(byName.get(`Legacy ${code}`)?.category, code).toBe(label);
+    expect(byName.get("Legacy tags")).toMatchObject({
+      category: "Mains",
+      allergens: ["Tree nuts", "Milk", "Sesame"],
+      dietaryTags: ["Gluten-free", "Vegan", "Dairy-free"],
+    });
+    expect(byName.get("Legacy plain")).toMatchObject({ allergens: [], dietaryTags: [] });
+    // Running the seed again adds nothing.
+    expect(await getSettings(db)).toEqual(before);
   });
 });
 

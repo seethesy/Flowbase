@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultDietaryTags,
+  dietaryTagHints,
   lineCost,
   clientRecipe,
   clientRecipeSchema,
@@ -40,13 +42,13 @@ const costsOf = (
 describe("client recipe projection (FLOW-97 AC1)", () => {
   it("allowlists fields and drops all kitchen and financial data", () => {
     const dish = recipeSchema.parse({
-      id: tuscanIds.chicken, name: "Tuscan Chicken", category: "mains",
+      id: tuscanIds.chicken, name: "Tuscan Chicken", category: "Mains",
       description: "Creamy chicken", lines: [{
         id: tuscanIds.cream, itemId: tuscanIds.cream, ingredientName: "Heavy Cream",
         ingredientArchived: false, quantity: 1, unit: "cup", prepNote: "internal prep",
         enteredCostCents: 180, cost: { source: "entered", cents: 180, problem: null },
       }], steps: ["Secret method"], finishingNote: "Internal note",
-      yield: { servings: 100, portionSize: "6 oz" }, allergens: ["milk"], dietaryTags: [],
+      yield: { servings: 100, portionSize: "6 oz" }, allergens: ["Milk"], dietaryTags: [],
       cost: { batchCents: 180, perServingCents: 2, noCostLines: 0 }, costHidden: false,
       duplicates: [], active: true, archivedAt: null,
       createdAt: "2026-10-27T12:00:00Z", updatedAt: "2026-10-27T12:00:00Z",
@@ -145,23 +147,41 @@ describe("recipe costing (FLOW-94)", () => {
 
 describe("allergens and dietary tags (FLOW-95)", () => {
   it("sets them on the dish, empty by default", () => {
-    expect(recipe()).toMatchObject({ allergens: ["milk"], dietaryTags: [] });
+    expect(recipe()).toMatchObject({ allergens: ["Milk"], dietaryTags: [] });
     expect(recipe({ allergens: undefined })).toMatchObject({ allergens: [] });
     expect(
-      recipe({ allergens: ["milk", "peanuts"], dietaryTags: ["gluten_free"] }),
+      recipe({ allergens: ["Milk", "Peanuts"], dietaryTags: ["Gluten-free"] }),
     ).toMatchObject({
-      allergens: ["milk", "peanuts"],
-      dietaryTags: ["gluten_free"],
+      allergens: ["Milk", "Peanuts"],
+      dietaryTags: ["Gluten-free"],
     });
   });
 
-  it("has no contains meat tag", () => {
-    const parsed = recipeInputSchema.safeParse(
-      tuscanChicken(tuscanIds, {
-        dietaryTags: ["contains_meat" as "vegan"],
-      }),
-    );
-    expect(parsed.success).toBe(false);
+  // FLOW-218: the values come from the settings lists, which the API checks.
+  it("takes a category, allergen or tag from any settings label, but not a blank one", () => {
+    expect(
+      recipeInputSchema.safeParse(
+        tuscanChicken(tuscanIds, {
+          category: "Brunch",
+          allergens: ["Coconut"],
+          dietaryTags: ["Nut-free"],
+        }),
+      ).success,
+    ).toBe(true);
+    for (const overrides of [
+      { category: " " },
+      { allergens: [""] },
+      { dietaryTags: [" "] },
+    ])
+      expect(
+        recipeInputSchema.safeParse(tuscanChicken(tuscanIds, overrides)).success,
+      ).toBe(false);
+  });
+
+  it("keeps the hints of the built-in tags and has none for a tag added later", () => {
+    expect(Object.keys(dietaryTagHints)).toEqual([...defaultDietaryTags]);
+    expect(dietaryTagHints.Vegan).toBe("No ingredient contains meat.");
+    expect(dietaryTagHints["Nut-free"]).toBeUndefined();
   });
 });
 

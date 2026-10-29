@@ -18,7 +18,6 @@ import { eventStatuses } from "../../shared/core-records";
 import { departments, shiftKinds } from "../../shared/event-staff";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
-import { recipeCategories } from "../../shared/recipes";
 import { proposalStages } from "../../shared/proposals";
 import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
@@ -1086,7 +1085,7 @@ export const recipes = pgTable(
   {
     ...baseColumns(),
     name: text("name").notNull(),
-    category: text("category", { enum: recipeCategories }).notNull(),
+    category: text("category").notNull(),
     description: text("description").notNull().default(""),
     steps: jsonb("steps").$type<string[]>().notNull().default([]),
     finishingNote: text("finishing_note").notNull().default(""),
@@ -1100,7 +1099,6 @@ export const recipes = pgTable(
     index("recipes_name_idx").on(table.category, sql`lower(${table.name})`),
     // Global search (FLOW-217): fuzzy dish names.
     trigram("recipes_name_trgm_idx", table.name),
-    oneOf("recipes_category_check", table.category, recipeCategories),
   ],
 ).enableRLS();
 

@@ -1,11 +1,8 @@
 import { Hono } from "hono";
 import {
-  dietaryTagSchema,
-  recipeCategorySchema,
   recipeInputSchema,
   scaleQuerySchema,
 } from "../../shared/recipes";
-import { allergenSchema } from "../../shared/inventory";
 import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
@@ -45,15 +42,12 @@ export function recipeRoutes(options: {
   };
 
   const filters = (c: AppContext) => {
-    const category = recipeCategorySchema.safeParse(c.req.query("category"));
-    const allergen = allergenSchema.safeParse(c.req.query("allergen"));
-    const dietaryTag = dietaryTagSchema.safeParse(c.req.query("dietaryTag"));
     return {
       archived: c.req.query("archived") === "true",
-      category: category.success ? category.data : undefined,
+      category: c.req.query("category") || undefined,
       search: c.req.query("search") || undefined,
-      allergen: allergen.success ? allergen.data : undefined,
-      dietaryTag: dietaryTag.success ? dietaryTag.data : undefined,
+      allergen: c.req.query("allergen") || undefined,
+      dietaryTag: c.req.query("dietaryTag") || undefined,
     };
   };
   routes.get("/client", requirePermission("recipes.read"), async (c) =>
