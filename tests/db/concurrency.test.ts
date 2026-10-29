@@ -71,7 +71,7 @@ const admin = as("admin");
 const manager = as("manager");
 const sam = as("sam");
 
-const tables = sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs cascade`;
+const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs cascade`;
 const SECTION = "FLOW-198 Dry Storage";
 let sectionId = "";
 

@@ -139,7 +139,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, task_comments, task_checklist_items, task_assignees, tasks, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, task_comments, task_checklist_items, task_assignees, tasks, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -151,7 +151,7 @@ describe("event hub", () => {
   it("loads the details, client and files sections for Admin", async () => {
     const { gala, juniper } = await seed();
     const hub = await admin.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual(["details", "client", "proposal", "staff", "files"]);
+    expect(hub.sections).toEqual(["details", "client", "proposal", "inventory", "staff", "files"]);
     expect(hub.event.title).toBe("Fall gala");
     expect(hub.client?.id).toBe(juniper.id);
     expect(hub.client?.contacts[0].email).toBe("olivia@juniper.example");
@@ -162,7 +162,7 @@ describe("event hub", () => {
   it("hides contact details from a part-time salesperson", async () => {
     const { gala } = await seed();
     const hub = await partTimeSam.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual(["details", "client", "proposal", "staff", "files"]);
+    expect(hub.sections).toEqual(["details", "client", "proposal", "inventory", "staff", "files"]);
     expect(hub.client?.contacts[0]).toMatchObject({
       name: "Olivia Bennett",
       email: null,
@@ -174,7 +174,7 @@ describe("event hub", () => {
   it("shows part-time staff only the event, without the client or editing", async () => {
     const { gala, brunch } = await seed();
     const hub = await helper.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual(["details", "staff", "files"]);
+    expect(hub.sections).toEqual(["details", "inventory", "staff", "files"]);
     expect(hub.client).toBeNull();
     expect(hub.event.client.name).toBe("Juniper & Co.");
     expect(hub.canEdit).toBe(false);
@@ -186,7 +186,7 @@ describe("event hub", () => {
   it("drops the client section when the salesperson can't see the client", async () => {
     const { brunch } = await seed();
     const hub = await sue.get<EventHub>(`/api/events/${brunch.id}/hub`);
-    expect(hub.sections).toEqual(["details", "proposal", "staff", "files"]);
+    expect(hub.sections).toEqual(["details", "proposal", "inventory", "staff", "files"]);
     expect(hub.client).toBeNull();
     expect(hub.canEdit).toBe(true);
   });

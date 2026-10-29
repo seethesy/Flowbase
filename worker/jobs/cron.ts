@@ -6,6 +6,7 @@ import {
   registerNotifications,
   type NotificationOptions,
 } from "../notifications/fanout";
+import { registerInventoryPlanning } from "../records/allocations";
 import { registerRecipeCostChanges } from "../records/recipes";
 import { emitDueTaskEvents } from "../records/tasks";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
@@ -15,6 +16,8 @@ export function createJobRegistry(options: NotificationOptions = {}) {
   const registry = new JobRegistry();
   registerIngestProcessing(registry);
   registerRecipeCostChanges(registry);
+  // Reservation conflicts and consumable allocations follow stock (FLOW-77, FLOW-85).
+  registerInventoryPlanning(registry);
   // Notifications (FLOW-43): one subscriber per notification type, plus email.
   registerNotifications(registry, options);
   return registry;

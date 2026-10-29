@@ -28,6 +28,13 @@ import { taskPriorities, taskStatuses, taskTypes } from "../../shared/tasks";
 import { notificationTypes } from "../../shared/notifications";
 import { vendorTypes } from "../../shared/vendors";
 import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
+import { requirementBases } from "../../shared/allocation";
+import {
+  conflictStates,
+  holdStatuses,
+  issueKinds,
+  type ConflictResolution,
+} from "../../shared/reservations";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -1290,5 +1297,130 @@ export const approvalRequests = pgTable(
     index("approval_requests_requester_idx").on(table.requesterId, table.createdAt),
     oneOf("approval_requests_approver_role_check", table.approverRole, roles),
     oneOf("approval_requests_status_check", table.status, approvalStatuses),
+  ],
+).enableRLS();
+
+// Reservations (FLOW-76): a hold on a rental item for an event over a window of
+// New York calendar dates. Status follows the event (shared/reservations.ts).
+export const reservations = pgTable(
+  "reservations",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    quantity: quantity("quantity").notNull(),
+    status: text("status", { enum: holdStatuses }).notNull().default("tentative"),
+    windowStart: date("window_start", { mode: "string" }).notNull(),
+    windowEnd: date("window_end", { mode: "string" }).notNull(),
+  },
+  (table) => [
+    // One live hold per event and item; releasing keeps the row for its history.
+    uniqueIndex("reservations_event_item_idx")
+      .on(table.eventId, table.itemId)
+      .where(sql`${table.archivedAt} is null`),
+    index("reservations_item_window_idx").on(
+      table.itemId,
+      table.windowStart,
+      table.windowEnd,
+    ),
+    oneOf("reservations_status_check", table.status, holdStatuses),
+    check("reservations_quantity_check", sql`${table.quantity} > 0`),
+    check("reservations_window_check", sql`${table.windowEnd} >= ${table.windowStart}`),
+  ],
+).enableRLS();
+
+// Conflict detection (FLOW-77): a hold that can't get its full quantity. One live
+// row per hold; resolving or clearing it keeps the row as history. `signature`
+// describes the situation, so a notification repeats only when it changes.
+export const reservationConflicts = pgTable(
+  "reservation_conflicts",
+  {
+    ...baseColumns(),
+    reservationId: uuid("reservation_id")
+      .notNull()
+      .references(() => reservations.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    kind: text("kind", { enum: issueKinds }).notNull(),
+    state: text("state", { enum: conflictStates }).notNull().default("open"),
+    quantity: quantity("quantity").notNull(),
+    allocated: quantity("allocated").notNull(),
+    shortfall: quantity("shortfall").notNull(),
+    signature: text("signature").notNull(),
+    notifiedSignature: text("notified_signature"),
+    resolution: jsonb("resolution").$type<ConflictResolution>(),
+    resolvedBy: uuid("resolved_by"),
+    resolvedAt: timestamptz("resolved_at"),
+  },
+  (table) => [
+    uniqueIndex("reservation_conflicts_live_idx")
+      .on(table.reservationId)
+      .where(sql`${table.state} <> 'resolved' and ${table.archivedAt} is null`),
+    index("reservation_conflicts_item_idx").on(table.itemId, table.state),
+    index("reservation_conflicts_event_idx").on(table.eventId, table.state),
+    oneOf("reservation_conflicts_kind_check", table.kind, issueKinds),
+    oneOf("reservation_conflicts_state_check", table.state, conflictStates),
+  ],
+).enableRLS();
+
+// What an event needs of a consumable (FLOW-85). Menu, bar and supply planning
+// (FLOW-135, FLOW-170, FLOW-214) write their own `source`; people enter `manual` ones.
+export const eventRequirements = pgTable(
+  "event_requirements",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    basis: text("basis", { enum: requirementBases }).notNull().default("fixed"),
+    quantity: quantity("quantity").notNull(),
+    source: text("source").notNull().default("manual"),
+  },
+  (table) => [
+    uniqueIndex("event_requirements_line_idx")
+      .on(table.eventId, table.itemId, table.source)
+      .where(sql`${table.archivedAt} is null`),
+    index("event_requirements_item_idx").on(table.itemId),
+    oneOf("event_requirements_basis_check", table.basis, requirementBases),
+    check("event_requirements_quantity_check", sql`${table.quantity} >= 0`),
+  ],
+).enableRLS();
+
+// The result of the last recompute for one event and consumable (FLOW-85), read by
+// the order list (FLOW-86) and planning screens. Rewritten by the allocation job.
+export const consumableAllocations = pgTable(
+  "consumable_allocations",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => inventoryItems.id),
+    required: quantity("required").notNull(),
+    allocated: quantity("allocated").notNull(),
+    shortage: quantity("shortage").notNull(),
+    projectedStock: quantity("projected_stock").notNull(),
+    orderBy: date("order_by", { mode: "string" }),
+    computedAt: timestamptz("computed_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("consumable_allocations_event_item_idx").on(
+      table.eventId,
+      table.itemId,
+    ),
+    index("consumable_allocations_item_idx").on(table.itemId),
   ],
 ).enableRLS();

@@ -35,6 +35,7 @@ import {
 import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { date, time } from "./event-format";
+import { EventPlanningSection } from "./event-planning";
 import { EventStaffSection } from "./event-staff";
 import { EventProposalsSection } from "./event-proposals";
 import { ListSelect, ListSuggestions } from "./list-fields";
@@ -758,6 +759,9 @@ export function EventDetail() {
         event={e}
         onEventChanged={() => hub.reload()}
       />
+    ),
+    inventory: () => (
+      <EventPlanningSection key={`planning:${e.id}`} event={e} canEdit={canEdit} />
     ),
     staff: () => (
       <EventStaffSection

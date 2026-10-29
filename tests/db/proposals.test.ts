@@ -88,7 +88,7 @@ const sam = signedInAs(people.sam, "salesperson");
 const sue = signedInAs(people.sue, "salesperson");
 const kit = signedInAs(people.kit, "kitchen_staff");
 
-const tables = sql`truncate table proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`;
+const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });

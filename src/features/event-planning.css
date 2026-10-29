@@ -1,0 +1,50 @@
+/* Equipment holds, conflicts and consumable needs on the event hub
+   (FLOW-76/77/85). Shared tokens stay in src/styles/globals.css. */
+.planning-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.planning-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.planning-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.planning-actions input {
+  width: 6rem;
+}
+.planning-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.planning-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.85em;
+}
+.planning-badge.conflict,
+.planning-conflict.conflict {
+  background: var(--danger-bg, #fde8e8);
+}
+.planning-badge.warning,
+.planning-conflict.warning {
+  background: var(--warning-bg, #fff4d6);
+}
+.planning-badge.ok {
+  background: var(--success-bg, #e3f5e8);
+}
+.planning-conflict {
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
