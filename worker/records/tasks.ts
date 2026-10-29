@@ -1,10 +1,30 @@
-import { and, asc, eq, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import {
   completion,
+  DASHBOARD_SECTION_SIZE,
+  dueBounds,
+  NEEDS_DELEGATION_DAYS,
   type ChecklistItemUpdate,
   type Task,
+  type TaskDashboard,
+  type TaskDashboardSection,
+  type TaskDueBucket,
   type TaskFilter,
   type TaskPerson,
   type TaskSummary,
@@ -26,6 +46,7 @@ import {
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, mayManageTask, taskScope } from "../policy";
+import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { findVisibleClient } from "./clients";
 import { findVisibleEvent, visibleEvents } from "./events";
 import { findItem } from "./inventory-items";
@@ -39,21 +60,50 @@ import { groupBy, indexBy, keyset, type Page, type PageRequest } from "./paging"
 //
 // Every change writes an audit row (entity "task"), and a change of assignees
 // emits task.assigned with the users added and removed (AC2), which is how the
-// new assignees are notified (FLOW-43).
+// new assignees are notified (FLOW-43). Claiming emits task.claimed for the
+// overseer, and moving to done emits task.completed (FLOW-59/60).
 
 type TaskRow = typeof tasks.$inferSelect;
 export type NewTask = z.output<typeof taskInputSchema>;
 
+const assignedTo = (userId: string) =>
+  sql`exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.userId} = ${userId} and ${taskAssignees.archivedAt} is null)`;
+const unassigned = sql`not exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.archivedAt} is null)`;
+
 // Tasks this user is assigned to, oversees or created.
 const involving = (userId: string) =>
-  or(
-    eq(tasks.createdBy, userId),
-    eq(tasks.overseerId, userId),
-    sql`exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.userId} = ${userId} and ${taskAssignees.archivedAt} is null)`,
-  );
+  or(eq(tasks.createdBy, userId), eq(tasks.overseerId, userId), assignedTo(userId));
 
 export function visibleTasks(actor: Actor): SQL | undefined {
   return taskScope(actor) === "all" ? undefined : involving(actor.userId);
+}
+
+// Tasks in one due bucket (shared/tasks.ts dueBucket) as of now.
+function dueIn(bucket: TaskDueBucket, now: Date): SQL | undefined {
+  const { tomorrow } = dueBounds(now);
+  if (bucket === "overdue") return lt(tasks.dueAt, now);
+  if (bucket === "today") return and(gte(tasks.dueAt, now), lt(tasks.dueAt, tomorrow));
+  return or(isNull(tasks.dueAt), gte(tasks.dueAt, tomorrow));
+}
+
+// The conditions of a task list: visibility, then every given filter.
+function listWhere(actor: Actor, filter: TaskFilter, now: Date) {
+  return and(
+    isNull(tasks.archivedAt),
+    visibleTasks(actor),
+    filter.mine ? involving(actor.userId) : undefined,
+    filter.type ? eq(tasks.type, filter.type) : undefined,
+    filter.status
+      ? eq(tasks.status, filter.status)
+      : filter.includeDone
+        ? undefined
+        : ne(tasks.status, "done"),
+    filter.eventId ? eq(tasks.eventId, filter.eventId) : undefined,
+    filter.assigneeId ? assignedTo(filter.assigneeId) : undefined,
+    filter.overseerId ? eq(tasks.overseerId, filter.overseerId) : undefined,
+    filter.unassigned ? unassigned : undefined,
+    filter.due ? dueIn(filter.due, now) : undefined,
+  );
 }
 
 async function findTaskRow(
@@ -190,6 +240,7 @@ async function taskSnapshot(db: DbLike, id: string) {
     clientId: row.clientId,
     inventoryItemId: row.inventoryItemId,
     beoId: row.beoId,
+    position: row.position,
     checklist: checklist.map((item) => ({
       label: item.label,
       done: item.doneAt !== null,
@@ -219,11 +270,21 @@ async function emitAssigned(
   });
 }
 
-// Creates a task in the caller's transaction and returns its id.
+async function emitCompleted(db: DbLike, actor: Actor | null, taskId: string) {
+  await emitDomainEvent(db, {
+    name: "task.completed",
+    entityId: taskId,
+    data: { actorId: actor?.userId ?? null },
+  });
+}
+
+// Creates a task in the caller's transaction and returns its id. templateItemId
+// is set only by applying a template (task-templates.ts).
 export async function createTask(
   db: DbLike,
   actor: Actor | null,
   input: NewTask,
+  { templateItemId = null }: { templateItemId?: string | null } = {},
 ): Promise<string> {
   assertDelegation(actor, input.assigneeIds, input.overseerId);
   await assertPeople(db, [
@@ -247,6 +308,8 @@ export async function createTask(
       clientId: input.clientId,
       inventoryItemId: input.inventoryItemId,
       beoId: input.beoId,
+      position: input.position || null,
+      templateItemId,
       ...completion(
         { status: "todo", completedAt: null, completedBy: null },
         input.status,
@@ -284,6 +347,7 @@ export async function createTask(
     after: await taskSnapshot(db, row.id),
   });
   await emitAssigned(db, actor, row.id, input.assigneeIds, []);
+  if (input.status === "done") await emitCompleted(db, actor, row.id);
   return row.id;
 }
 
@@ -299,6 +363,7 @@ const managedFields: (keyof TaskUpdate)[] = [
   "clientId",
   "inventoryItemId",
   "beoId",
+  "position",
 ];
 
 // Updates a task in the caller's transaction. Anyone who can see the task may
@@ -345,6 +410,7 @@ export async function updateTask(
     clientId: patch.clientId,
     inventoryItemId: patch.inventoryItemId,
     beoId: patch.beoId,
+    position: patch.position === undefined ? undefined : patch.position || null,
   };
   await db
     .update(tasks)
@@ -381,6 +447,41 @@ export async function updateTask(
     after: await taskSnapshot(db, id),
   });
   await emitAssigned(db, actor, id, added, removed);
+  if (patch.status === "done" && row.status !== "done")
+    await emitCompleted(db, actor, id);
+}
+
+// Claim ("assign to me", FLOW-59 AC2): anyone who can see an open task adds
+// themselves to its assignees, without needing to manage it. Others assigned
+// stay. task.claimed tells the overseer, if there is one. Claiming a task you're
+// already on changes nothing.
+export async function claimTask(db: DbLike, actor: Actor, id: string) {
+  const row = await findTaskRow(db, actor, id, true);
+  if (row.status === "done")
+    throw new ApiError(409, "TASK_DONE", "This task is already done.");
+  const before = await taskSnapshot(db, id);
+  if (before.assigneeIds.includes(actor.userId)) return;
+  await assertPeople(db, [actor.userId]);
+  await db.insert(taskAssignees).values({
+    taskId: id,
+    userId: actor.userId,
+    createdBy: actor.userId,
+    updatedBy: actor.userId,
+  });
+  await db.update(tasks).set({ updatedBy: actor.userId }).where(eq(tasks.id, id));
+  await writeAudit(db, actor, {
+    entityType: "task",
+    entityId: id,
+    action: "update",
+    before,
+    after: await taskSnapshot(db, id),
+  });
+  await emitAssigned(db, actor, id, [actor.userId], []);
+  await emitDomainEvent(db, {
+    name: "task.claimed",
+    entityId: id,
+    data: { actorId: actor.userId, overseerId: row.overseerId },
+  });
 }
 
 // Archives a task (it leaves every list). Needs mayManageTask.
@@ -584,7 +685,7 @@ async function toSummaries(
   const assignedBy = groupBy(assigned, (a) => a.taskId);
   const countBy = indexBy(counts, (c) => c.taskId);
   return rows.map((row) => {
-    const count = countBy.get(row.id);
+    const tally = countBy.get(row.id);
     return {
       id: row.id,
       title: row.title,
@@ -600,14 +701,31 @@ async function toSummaries(
       clientId: row.clientId,
       inventoryItemId: row.inventoryItemId,
       beoId: row.beoId,
-      checklistDone: count?.done ?? 0,
-      checklistTotal: count?.total ?? 0,
+      position: row.position,
+      templateItemId: row.templateItemId,
+      checklistDone: tally?.done ?? 0,
+      checklistTotal: tally?.total ?? 0,
       completedAt: row.completedAt?.toISOString() ?? null,
       completedBy: person(row.completedBy),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
   });
+}
+
+// Summaries of the given tasks the actor can see, in the given order.
+export async function getTaskSummaries(db: DbLike, actor: Actor, ids: string[]) {
+  if (!ids.length) return [];
+  const rows = await db
+    .select()
+    .from(tasks)
+    .where(and(inArray(tasks.id, ids), isNull(tasks.archivedAt), visibleTasks(actor)));
+  const byId = indexBy(rows, (row) => row.id);
+  return toSummaries(
+    db,
+    actor,
+    ids.flatMap((id) => byId.get(id) ?? []),
+  );
 }
 
 export async function getTask(db: DbLike, actor: Actor, id: string): Promise<Task> {
@@ -650,12 +768,21 @@ export async function getTask(db: DbLike, actor: Actor, id: string): Promise<Tas
 }
 
 // Every task the actor can see, whichever module created it (AC1), newest first.
+// Without mine=true this is the communal list (FLOW-59), which only FT+ may open
+// (AC1); everyone else lists the tasks they're on with mine=true.
 export async function listTasksPage(
   db: DbLike,
   actor: Actor,
   filter: TaskFilter,
   page: PageRequest = {},
+  now = new Date(),
 ): Promise<Page<TaskSummary>> {
+  if (!filter.mine && taskScope(actor) !== "all")
+    throw new ApiError(
+      403,
+      "FORBIDDEN",
+      "The team task list is for full-time staff. Your own tasks are under My tasks.",
+    );
   const paging = keyset<TaskRow>(
     [
       { column: tasks.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
@@ -666,27 +793,81 @@ export async function listTasksPage(
   const rows = await db
     .select()
     .from(tasks)
-    .where(
-      and(
-        isNull(tasks.archivedAt),
-        visibleTasks(actor),
-        filter.mine ? involving(actor.userId) : undefined,
-        filter.type ? eq(tasks.type, filter.type) : undefined,
-        filter.status
-          ? eq(tasks.status, filter.status)
-          : filter.includeDone
-            ? undefined
-            : ne(tasks.status, "done"),
-        filter.eventId ? eq(tasks.eventId, filter.eventId) : undefined,
-        filter.assigneeId
-          ? sql`exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.userId} = ${filter.assigneeId} and ${taskAssignees.archivedAt} is null)`
-          : undefined,
-        paging.where,
-      ),
-    )
+    .where(and(listWhere(actor, filter, now), paging.where))
     .orderBy(...paging.orderBy)
     .limit(paging.limit);
   return paging.page(rows, (kept) => toSummaries(db, actor, kept));
+}
+
+// One dashboard section: how many tasks match, and the soonest-due of them.
+async function section(
+  db: DbLike,
+  actor: Actor,
+  where: SQL | undefined,
+): Promise<TaskDashboardSection> {
+  const [{ total }] = await db.select({ total: count() }).from(tasks).where(where);
+  const rows = await db
+    .select()
+    .from(tasks)
+    .where(where)
+    .orderBy(sql`${tasks.dueAt} asc nulls last`, asc(tasks.createdAt), asc(tasks.id))
+    .limit(DASHBOARD_SECTION_SIZE);
+  return { count: total, tasks: await toSummaries(db, actor, rows) };
+}
+
+// Unassigned open tasks that need someone (FLOW-61 AC1): those on events that
+// start between today and NEEDS_DELEGATION_DAYS from now (business dates), and
+// those on no event that are due by then or have no due date. Archived and lost
+// events don't count.
+function needsDelegationWhere(now: Date) {
+  const today = utcToBusinessTime(now).date;
+  const from = businessTimeToUtc(today, "00:00");
+  const until = businessTimeToUtc(addLocalDays(today, NEEDS_DELEGATION_DAYS + 1), "00:00");
+  return and(
+    unassigned,
+    or(
+      sql`exists (select 1 from ${events} where ${events.id} = ${tasks.eventId} and ${events.archivedAt} is null and ${events.status} <> 'lost' and ${events.startsAt} >= ${from.toISOString()}::timestamptz and ${events.startsAt} < ${until.toISOString()}::timestamptz)`,
+      and(isNull(tasks.eventId), or(isNull(tasks.dueAt), lte(tasks.dueAt, until))),
+    ),
+  );
+}
+
+// The task dashboard (FLOW-61): the actor's own open tasks by when they're due,
+// the open tasks they oversee, and for managers "Needs delegation". Each count
+// matches the task list with the same filters (AC2): mine=true&assigneeId=<me>&
+// due=<bucket>, mine=true&overseerId=<me>, and unassigned=true for Needs
+// delegation, which also keeps to the next 14 days.
+export async function taskDashboard(
+  db: DbLike,
+  actor: Actor,
+  now = new Date(),
+): Promise<TaskDashboard> {
+  const mine = (due: TaskDueBucket) =>
+    section(
+      db,
+      actor,
+      listWhere(actor, { mine: "true", assigneeId: actor.userId, due }, now),
+    );
+  return {
+    overdue: await mine("overdue"),
+    today: await mine("today"),
+    upcoming: await mine("upcoming"),
+    overseeing: await section(
+      db,
+      actor,
+      listWhere(actor, { mine: "true", overseerId: actor.userId }, now),
+    ),
+    needsDelegation: can(actor, "tasks.triage")
+      ? await section(
+          db,
+          actor,
+          and(
+            listWhere(actor, { unassigned: "true" }, now),
+            needsDelegationWhere(now),
+          ),
+        )
+      : null,
+  };
 }
 
 // How far back the due-task scan looks; a task further overdue than this when the
@@ -710,6 +891,30 @@ export async function emitDueTaskEvents(db: DbLike, now = new Date()) {
       and ${tasks.status} <> 'done'
       and ${tasks.dueAt} <= ${now.toISOString()}::timestamptz
       and ${tasks.dueAt} > ${since.toISOString()}::timestamptz
+    on conflict (idempotency_key) do nothing`);
+  return (result as unknown as { count?: number }).count ?? 0;
+}
+
+// How long before its due time a task counts as due soon (FLOW-60).
+export const DUE_SOON_MS = 24 * 60 * 60_000;
+
+// Emits task.due_soon once for each open, assigned task that will be due within
+// DUE_SOON_MS, keyed like task.due so a repeated scan adds nothing and a new due
+// time is announced again.
+export async function emitDueSoonTaskEvents(db: DbLike, now = new Date()) {
+  const until = new Date(now.getTime() + DUE_SOON_MS);
+  const result = await db.execute(sql`
+    insert into ${jobs} (type, payload, idempotency_key, run_at)
+    select 'event:task.due_soon',
+      jsonb_build_object('entityId', ${tasks.id}::text),
+      'event:task.due_soon:' || ${tasks.id}::text || ':' || floor(extract(epoch from ${tasks.dueAt}) * 1000)::bigint::text,
+      ${now.toISOString()}::timestamptz
+    from ${tasks}
+    where ${tasks.archivedAt} is null
+      and ${tasks.status} <> 'done'
+      and ${tasks.dueAt} > ${now.toISOString()}::timestamptz
+      and ${tasks.dueAt} <= ${until.toISOString()}::timestamptz
+      and exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.archivedAt} is null)
     on conflict (idempotency_key) do nothing`);
   return (result as unknown as { count?: number }).count ?? 0;
 }
