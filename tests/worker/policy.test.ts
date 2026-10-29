@@ -49,6 +49,8 @@ const expected: Record<Action, string> = {
   "tasks.read": "1111111",
   "tasks.write": "1111111",
   "tasks.delegate": "111F1FF",
+  "tasks.triage": "1110100",
+  "tasks.templates": "1110100",
   "notifications.read": "1111111",
   "approvals.read": "1111111",
   "approvals.write": "1111111",

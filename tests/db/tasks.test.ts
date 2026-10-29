@@ -169,6 +169,7 @@ describe("service API", () => {
           clientId: null,
           inventoryItemId: null,
           beoId: null,
+          position: null,
           checklist: [],
         });
         throw new Error("rollback fixture");
@@ -192,6 +193,7 @@ describe("AC1: one task list for every module", () => {
       clientId: null,
       inventoryItemId: null,
       beoId: null,
+      position: null,
       checklist: [],
     };
     await db.transaction(async (tx) => {
@@ -298,7 +300,9 @@ describe("visibility and delegation", () => {
   it("shows part-time staff only the tasks they're on, and full-time staff every task", async () => {
     const theirs = await newTask({ title: "Pat's task", assigneeIds: [people.pat] });
     const other = await newTask({ title: "Casey's task", assigneeIds: [people.casey] });
-    expect((await pat.send<TaskSummary[]>("GET", "/api/tasks")).map((t) => t.id)).toEqual([theirs.id]);
+    // The communal list is for FT+ (FLOW-59 AC1); their own list still works.
+    expect((await pat.call("GET", "/api/tasks")).status).toBe(403);
+    expect((await pat.send<TaskSummary[]>("GET", "/api/tasks?mine=true")).map((t) => t.id)).toEqual([theirs.id]);
     expect((await pat.call("GET", `/api/tasks/${other.id}`)).status).toBe(404);
     expect((await casey.send<TaskSummary[]>("GET", "/api/tasks")).map((t) => t.id)).toEqual([
       other.id,
@@ -359,7 +363,7 @@ describe("AC2: audited changes and task.assigned", () => {
       actorId: people.lead,
     });
     // Casey no longer sees it as theirs; Pat (part-time) now does.
-    expect((await pat.send<TaskSummary[]>("GET", "/api/tasks")).map((t) => t.id)).toEqual([task.id]);
+    expect((await pat.send<TaskSummary[]>("GET", "/api/tasks?mine=true")).map((t) => t.id)).toEqual([task.id]);
   });
 
   it("records every change in the task's history, checklist and comments included", async () => {

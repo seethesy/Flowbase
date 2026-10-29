@@ -105,6 +105,15 @@ const NotificationSettings = lazy(() =>
 const TaskDetail = lazy(() =>
   import("../features/tasks").then((module) => ({ default: module.TaskDetail })),
 );
+const TaskDashboardPage = lazy(() =>
+  import("../features/task-lists").then((module) => ({ default: module.TaskDashboardPage })),
+);
+const TaskList = lazy(() =>
+  import("../features/task-lists").then((module) => ({ default: module.TaskList })),
+);
+const TaskTemplates = lazy(() =>
+  import("../features/task-templates").then((module) => ({ default: module.TaskTemplates })),
+);
 const VendorList = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorList })));
 const VendorDetail = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorDetail })));
 const UserManagement = lazy(() =>
@@ -213,6 +222,9 @@ export const getRouter = () =>
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/profile", element: <Profile /> },
+        { path: "/tasks", element: <TaskDashboardPage /> },
+        { path: "/tasks/all", element: <TaskList /> },
+        { path: "/tasks/templates", element: <TaskTemplates /> },
         { path: "/tasks/:id", element: <TaskDetail /> },
         { path: "/reports", element: <TimeReports /> },
         { path: "/imports", element: <ImportList /> },

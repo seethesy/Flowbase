@@ -24,7 +24,7 @@ import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
 import { importStatuses } from "../../shared/imports";
-import { taskPriorities, taskStatuses, taskTypes } from "../../shared/tasks";
+import { taskPriorities, taskStatuses, taskTypes, type TaskFilter } from "../../shared/tasks";
 import { notificationTypes } from "../../shared/notifications";
 import { vendorTypes } from "../../shared/vendors";
 import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
@@ -1166,9 +1166,17 @@ export const tasks = pgTable(
     beoId: uuid("beo_id"),
     completedAt: timestamptz("completed_at"),
     completedBy: uuid("completed_by"),
+    // The staff position expected to do it (FLOW-62).
+    position: text("position"),
+    // The template item it came from (FLOW-62). One task per item and event, even
+    // archived, so re-applying a template never brings back a task someone removed.
+    templateItemId: uuid("template_item_id"),
   },
   (table) => [
     index("tasks_status_due_idx").on(table.status, table.dueAt),
+    uniqueIndex("tasks_event_template_item_idx")
+      .on(table.eventId, table.templateItemId)
+      .where(sql`${table.templateItemId} is not null`),
     index("tasks_event_idx").on(table.eventId),
     index("tasks_overseer_idx").on(table.overseerId),
     index("tasks_created_by_idx").on(table.createdBy),
@@ -1222,6 +1230,58 @@ export const taskComments = pgTable(
     body: text("body").notNull(),
   },
   (table) => [index("task_comments_task_idx").on(table.taskId, table.createdAt)],
+).enableRLS();
+
+// Saved task views (FLOW-59 AC3): one person's named set of task-list filters.
+export const taskViews = pgTable(
+  "task_views",
+  {
+    ...baseColumns(),
+    userId: uuid("user_id").notNull(),
+    name: text("name").notNull(),
+    filter: jsonb("filter").$type<TaskFilter>().notNull().default({}),
+  },
+  (table) => [
+    index("task_views_user_idx").on(table.userId, table.createdAt),
+  ],
+).enableRLS();
+
+// Task templates (FLOW-62): reusable sets of tasks with due dates relative to an
+// event (shared/tasks.ts templateDueAt). Removing an item archives it, so tasks
+// already made from it stay matched to it.
+export const taskTemplates = pgTable(
+  "task_templates",
+  {
+    ...baseColumns(),
+    name: text("name").notNull(),
+    sopUrl: text("sop_url"),
+  },
+  (table) => [
+    uniqueIndex("task_templates_name_idx")
+      .on(sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`),
+  ],
+).enableRLS();
+
+export const taskTemplateItems = pgTable(
+  "task_template_items",
+  {
+    ...baseColumns(),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => taskTemplates.id),
+    title: text("title").notNull(),
+    type: text("type", { enum: taskTypes }).notNull().default("production"),
+    offsetDays: integer("offset_days").notNull(),
+    // "HH:MM" in business time; null = the event's start time.
+    time: text("time"),
+    position: text("position"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    index("task_template_items_template_idx").on(table.templateId),
+    oneOf("task_template_items_type_check", table.type, taskTypes),
+  ],
 ).enableRLS();
 
 // Notifications (FLOW-43): one row per recipient per domain event. source_key is

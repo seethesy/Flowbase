@@ -1,5 +1,5 @@
 {
-  "id": "310c1a5e-c2b8-47af-bdcd-01a896b65fad",
+  "id": "8cc4fe2e-132f-4b1f-b93c-5b0291073bab",
   "prevId": "aacfa747-9521-4fc8-9f59-de5982ef4758",
   "version": "7",
   "dialect": "postgresql",
@@ -720,21 +720,6 @@
               "expression": "email",
               "isExpression": false,
               "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "client_contacts_email_lower_idx": {
-          "name": "client_contacts_email_lower_idx",
-          "columns": [
-            {
-              "expression": "lower(\"email\")",
-              "asc": true,
-              "isExpression": true,
               "nulls": "last"
             }
           ],
@@ -4438,21 +4423,6 @@
           "method": "btree",
           "with": {}
         },
-        "leads_email_lower_idx": {
-          "name": "leads_email_lower_idx",
-          "columns": [
-            {
-              "expression": "lower(\"email\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "leads_phone_idx": {
           "name": "leads_phone_idx",
           "columns": [
@@ -4753,7 +4723,7 @@
       "checkConstraints": {
         "notification_preferences_type_check": {
           "name": "notification_preferences_type_check",
-          "value": "\"notification_preferences\".\"type\" in ('task_assigned', 'task_due', 'lead_assigned', 'staff_assigned', 'staff_unassigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
+          "value": "\"notification_preferences\".\"type\" in ('task_assigned', 'task_claimed', 'task_due_soon', 'task_due', 'task_completed', 'lead_assigned', 'staff_assigned', 'staff_unassigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
         }
       },
       "isRLSEnabled": true
@@ -4902,132 +4872,7 @@
       "checkConstraints": {
         "notifications_type_check": {
           "name": "notifications_type_check",
-          "value": "\"notifications\".\"type\" in ('task_assigned', 'task_due', 'lead_assigned', 'staff_assigned', 'staff_unassigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.order_lists": {
-      "name": "order_lists",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "from_date": {
-          "name": "from_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "to_date": {
-          "name": "to_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'draft'"
-        },
-        "lines": {
-          "name": "lines",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "approval_id": {
-          "name": "approval_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "order_lists_status_idx": {
-          "name": "order_lists_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "order_lists_approval_id_approval_requests_id_fk": {
-          "name": "order_lists_approval_id_approval_requests_id_fk",
-          "tableFrom": "order_lists",
-          "tableTo": "approval_requests",
-          "columnsFrom": [
-            "approval_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "order_lists_status_check": {
-          "name": "order_lists_status_check",
-          "value": "\"order_lists\".\"status\" in ('draft', 'submitted', 'approved', 'rejected')"
+          "value": "\"notifications\".\"type\" in ('task_assigned', 'task_claimed', 'task_due_soon', 'task_due', 'task_completed', 'lead_assigned', 'staff_assigned', 'staff_unassigned', 'approval_requested', 'approval_decided', 'inventory_conflict', 'production_alert', 'proposal_approved', 'payment_due', 'payment_overdue', 'collector_failure')"
         }
       },
       "isRLSEnabled": true
@@ -7054,6 +6899,311 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.task_template_items": {
+      "name": "task_template_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'production'"
+        },
+        "offset_days": {
+          "name": "offset_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "task_template_items_template_idx": {
+          "name": "task_template_items_template_idx",
+          "columns": [
+            {
+              "expression": "template_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_template_items_template_id_task_templates_id_fk": {
+          "name": "task_template_items_template_id_task_templates_id_fk",
+          "tableFrom": "task_template_items",
+          "tableTo": "task_templates",
+          "columnsFrom": [
+            "template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "task_template_items_type_check": {
+          "name": "task_template_items_type_check",
+          "value": "\"task_template_items\".\"type\" in ('general', 'delegated', 'kitchen', 'production', 'truck_load', 'misc')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.task_templates": {
+      "name": "task_templates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sop_url": {
+          "name": "sop_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "task_templates_name_idx": {
+          "name": "task_templates_name_idx",
+          "columns": [
+            {
+              "expression": "lower(\"name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"task_templates\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.task_views": {
+      "name": "task_views",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filter": {
+          "name": "filter",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        }
+      },
+      "indexes": {
+        "task_views_user_idx": {
+          "name": "task_views_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.tasks": {
       "name": "tasks",
       "schema": "",
@@ -7178,6 +7328,18 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_item_id": {
+          "name": "template_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -7198,6 +7360,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_event_template_item_idx": {
+          "name": "tasks_event_template_item_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "template_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"tasks\".\"template_item_id\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

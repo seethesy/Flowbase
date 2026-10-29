@@ -38,6 +38,7 @@ import { date, time } from "./event-format";
 import { EventPlanningSection } from "./event-planning";
 import { EventStaffSection } from "./event-staff";
 import { EventProposalsSection } from "./event-proposals";
+import { EventTasksSection } from "./task-lists";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
@@ -763,6 +764,7 @@ export function EventDetail() {
     inventory: () => (
       <EventPlanningSection key={`planning:${e.id}`} event={e} canEdit={canEdit} />
     ),
+    tasks: () => <EventTasksSection key={`tasks:${e.id}`} event={e} />,
     staff: () => (
       <EventStaffSection
         key={`staff:${e.id}`}

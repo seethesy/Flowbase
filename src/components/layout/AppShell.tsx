@@ -31,6 +31,7 @@ import {
   X,
   Leaf,
   Contact,
+  ListChecks,
 } from "lucide-react";
 import { DetailDrawer } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
@@ -41,6 +42,7 @@ import { useAuth } from "../../app/auth";
 import { roleLabel } from "../../services/users";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
+  { name: "Tasks", to: "/tasks", icon: ListChecks },
   { name: "Leads", to: "/leads", icon: Inbox },
   { name: "Clients", to: "/clients", icon: Users },
   { name: "Proposals", to: "/proposals", icon: FileText },

@@ -57,7 +57,14 @@ import {
   notificationPreferenceSchema,
   notificationSchema,
 } from "../../shared/notifications";
-import { taskSchema, taskSummarySchema } from "../../shared/tasks";
+import {
+  applyTemplateResultSchema,
+  taskDashboardSchema,
+  taskSchema,
+  taskSummarySchema,
+  taskTemplateSchema,
+  taskViewSchema,
+} from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
 import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
 import { orderListSchema } from "../../shared/order-lists";
@@ -188,9 +195,17 @@ export function responseSchema(
     if (action === "read") return notificationSchema;
     return notificationInboxSchema;
   }
-  // Tasks (FLOW-58): every write answers with the whole task.
-  if (resource === "tasks")
+  // Tasks (FLOW-58): every write answers with the whole task. The dashboard
+  // (FLOW-61), saved views (FLOW-59) and templates (FLOW-62) have their own.
+  if (resource === "tasks") {
+    if (id === "dashboard") return taskDashboardSchema;
+    if (id === "views") return method === "GET" ? taskViewSchema.array() : taskViewSchema;
+    if (id === "templates") {
+      if (path.split("/")[5] === "apply") return applyTemplateResultSchema;
+      return !action && method === "GET" ? taskTemplateSchema.array() : taskTemplateSchema;
+    }
     return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
+  }
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;
