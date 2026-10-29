@@ -6,9 +6,10 @@ import type { CollectedLead, CollectorRunStatus } from "../../shared/collector.t
 // Eventective); the framework drives them one page at a time and posts what they
 // read to the Worker.
 
-// A lead as a module reads it: the normalized lead fields (F-09-01) without the
-// ids and source, which the framework fills in.
-export type ReadLead = Omit<CollectedLead, "sourceRecordId" | "site" | "source" | "sourceLeadId">;
+// A lead as a module reads it: the normalized lead fields (F-09-01) without
+// the record id and source, which the framework fills in. A module may return
+// the detail page's sourceLeadId when the list exposes only an in-page row.
+export type ReadLead = Omit<CollectedLead, "sourceRecordId" | "site" | "source">;
 
 export type ListedLead = {
   // The site's own lead id.
@@ -24,6 +25,8 @@ export type ListedLead = {
 export type SiteContext = {
   page: Page;
   visit: (url: string) => Promise<void>;
+  // Read-only in-page detail selection. Counted and paced like a navigation.
+  selectDetail?: (selector: string) => Promise<void>;
   // The site's login, from the ops repo secrets; undefined when not configured.
   credentials?: { username: string; password: string };
 };
