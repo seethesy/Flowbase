@@ -40,7 +40,10 @@ export const approveInputSchema = z.object({
 });
 // POST /api/approvals/<id>/reject. Rejecting needs a comment saying why (AC2).
 export const rejectInputSchema = z.object({
-  comment: text(2000).min(1, "Say why it's rejected."),
+  // A missing comment reads as empty, so it gets the same message.
+  comment: text(2000)
+    .default("")
+    .pipe(z.string().min(1, "Say why it's rejected.")),
 });
 export type DecisionInput = z.input<typeof approveInputSchema>;
 
