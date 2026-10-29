@@ -649,7 +649,7 @@ describe("FLOW-196: stock and archive ordering", () => {
       { sectionId, quantity: 12, reason: "Physical count" });
     const secondCount = secondCall(`/api/inventory/items/${item.id}/counts`,
       { sectionId, quantity: 12, reason: "Same count" });
-    expect(await stillWaiting(counting)).toBe(true);
+    expect(await stillWaiting(Promise.resolve(counting))).toBe(true);
     expect(await stillWaiting(secondCount)).toBe(true);
     await held.commit();
     expect((await counting).status).toBe(201);
@@ -701,7 +701,7 @@ describe("FLOW-196: stock and archive ordering", () => {
       { quantity: 12, reason: "Correct count" });
     const secondCorrection = secondCall(`/api/inventory/movements/${original.id}/corrections`,
       { quantity: 12, reason: "Same correction" });
-    expect(await stillWaiting(correcting)).toBe(true);
+    expect(await stillWaiting(Promise.resolve(correcting))).toBe(true);
     expect(await stillWaiting(secondCorrection)).toBe(true);
     await held.commit();
     const statuses = [(await correcting).status, (await secondCorrection).status].sort();

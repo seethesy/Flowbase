@@ -95,7 +95,7 @@ export const shopifyHmac =
         false,
         ["verify"],
       );
-      if (await crypto.subtle.verify("HMAC", key, signature, rawBody))
+      if (await crypto.subtle.verify("HMAC", key, signature, Uint8Array.from(rawBody)))
         return true;
     }
     return false;

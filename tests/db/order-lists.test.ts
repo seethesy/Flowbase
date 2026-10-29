@@ -37,7 +37,7 @@ beforeEach(async () => {
   await db.insert(schema.users).values(Object.entries(people).map(([name, id]) => ({
     id, email: `${name}@order-list.example`, name,
     role: name === "admin" ? "admin" as const : name === "lead" ? "kitchen_lead" as const : "staff" as const,
-    employmentType: "full_time" as const, status: "active" as const,
+    employmentType: "full_time" as const, status: "active" as const, mobile: "555-0100",
   }))).onConflictDoNothing({ target: schema.users.id });
 });
 afterAll(async () => {
