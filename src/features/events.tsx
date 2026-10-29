@@ -37,6 +37,7 @@ import { Attachments } from "./attachments";
 import { date, time } from "./event-format";
 import { EventStaffSection } from "./event-staff";
 import { EventProposalsSection } from "./event-proposals";
+import { EventHistorySection, EventTasksSection } from "./event-activity";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
@@ -759,6 +760,7 @@ export function EventDetail() {
         onEventChanged={() => hub.reload()}
       />
     ),
+    tasks: () => <EventTasksSection key={`tasks:${e.id}`} eventId={e.id} />,
     staff: () => (
       <EventStaffSection
         key={`staff:${e.id}`}
@@ -772,6 +774,13 @@ export function EventDetail() {
         recordType="event"
         recordId={e.id}
         title="Event files"
+      />
+    ),
+    history: () => (
+      <EventHistorySection
+        key={`history:${e.id}`}
+        eventId={e.id}
+        version={e.updatedAt}
       />
     ),
   };

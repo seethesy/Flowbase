@@ -2,8 +2,8 @@ import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { seedRecords } from "./database";
 
-// The event hub (FLOW-57). The calendar (FLOW-63) doesn't exist yet, so the hub is
-// reached from the client page and the event list.
+// The event hub (FLOW-57), reached from the client page and the event list. The
+// calendar's way in is in calendar.spec.ts (FLOW-166).
 test("the event hub opens from the client page and the event list", async ({
   page,
 }) => {

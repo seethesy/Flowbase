@@ -5,6 +5,8 @@ import { expect, it, vi } from "vitest";
 import { EventDetail } from "../src/features/events";
 import type { Client, FlowEvent } from "../shared/core-records";
 import type { EventHub } from "../shared/event-hub";
+import type { HistoryEntry } from "../shared/audit";
+import type { TaskSummary } from "../shared/tasks";
 
 // The event hub screen (FLOW-57): it shows only the sections the API lists.
 const now = "2026-10-22T09:00:00.000Z";
@@ -64,10 +66,62 @@ const client = (email: string | null): Client => ({
   updatedAt: now,
 });
 
+// The event's tasks and history (FLOW-166), as the API returns them.
+const task: TaskSummary = {
+  id: "d0000000-0000-4000-8000-000000000001",
+  title: "Polish the chafing dishes",
+  type: "kitchen",
+  status: "in_progress",
+  priority: "normal",
+  dueAt: "2026-11-13T15:00:00.000Z",
+  assignees: [{ id: "a0000000-0000-4000-8000-000000000006", name: "Casey" }],
+  overseer: null,
+  creator: null,
+  eventId,
+  eventTitle: "Fall gala",
+  clientId: null,
+  inventoryItemId: null,
+  beoId: null,
+  checklistDone: 0,
+  checklistTotal: 0,
+  completedAt: null,
+  completedBy: null,
+  createdAt: now,
+  updatedAt: now,
+};
+const history: HistoryEntry[] = [
+  {
+    id: "f0000000-0000-4000-8000-000000000002",
+    action: "update",
+    actorId: "a0000000-0000-4000-8000-000000000001",
+    actorName: "Ash",
+    at: "2026-10-23T14:30:00.000Z",
+    changes: {
+      title: { before: "Gala", after: "Fall gala" },
+      status: { before: "inquiry", after: "closed" },
+      assignedSalespersonId: {
+        before: null,
+        after: "a0000000-0000-4000-8000-000000000003",
+      },
+    },
+  },
+  {
+    id: "f0000000-0000-4000-8000-000000000001",
+    action: "create",
+    actorId: null,
+    actorName: null,
+    at: now,
+    changes: {},
+  },
+];
+
 function mountHub(hub: EventHub) {
   vi.mocked(fetch).mockImplementation(async (input) => {
     const path = String(input);
     if (path === `/api/events/${eventId}/hub`) return Response.json(hub);
+    if (path === `/api/tasks?eventId=${eventId}&includeDone=true`)
+      return Response.json([task]);
+    if (path === `/api/events/${eventId}/history`) return Response.json(history);
     if (path.startsWith("/api/attachments?")) return Response.json([]);
     if (path === `/api/events/${eventId}/status-history`) return Response.json([]);
     throw new Error(`Unexpected request ${path}`);
@@ -163,4 +217,46 @@ it("shows the status history without the form to everyone else", async () => {
   expect(
     screen.queryByRole("button", { name: "Change status" }),
   ).not.toBeInTheDocument();
+});
+
+it("loads the tasks and history sections from the API (FLOW-166)", async () => {
+  mountHub({
+    event,
+    client: null,
+    sections: ["details", "tasks", "files", "history"],
+    canEdit: false,
+    canChangeStatus: false,
+  });
+  expect(await screen.findByRole("link", { name: "Polish the chafing dishes" })).toHaveAttribute(
+    "href",
+    `/tasks/${task.id}`,
+  );
+  const tasks = screen.getByRole("list", { name: "Event tasks" });
+  expect(tasks).toHaveTextContent("In progress");
+  expect(tasks).toHaveTextContent("Due Nov 13, 2026, 10:00 AM · Casey");
+  const changes = await screen.findByRole("list", { name: "Event history" });
+  expect(changes).toHaveTextContent("Changed");
+  expect(changes).toHaveTextContent("Ash · Oct 23, 2026, 10:30 AM");
+  expect(changes).toHaveTextContent("Title: Gala → Fall gala");
+  expect(changes).toHaveTextContent("Status: Inquiry → Closed");
+  // Ids mean nothing on screen: the change is named without them.
+  expect(changes).toHaveTextContent("Salesperson changed");
+  expect(changes).not.toHaveTextContent("a0000000");
+  expect(changes).toHaveTextContent("Created");
+  expect(changes).toHaveTextContent("Flowbase");
+});
+
+it("leaves out the tasks and history sections the API doesn't list", async () => {
+  mountHub({
+    event,
+    client: null,
+    sections: ["details", "files"],
+    canEdit: false,
+    canChangeStatus: false,
+  });
+  expect(
+    await screen.findByRole("heading", { name: "Fall gala", level: 1 }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Tasks" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "History" })).not.toBeInTheDocument();
 });

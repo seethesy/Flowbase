@@ -44,8 +44,9 @@ import { groupBy, indexBy, keyset, type Page, type PageRequest } from "./paging"
 type TaskRow = typeof tasks.$inferSelect;
 export type NewTask = z.output<typeof taskInputSchema>;
 
-// Tasks this user is assigned to, oversees or created.
-const involving = (userId: string) =>
+// Tasks this user is assigned to, oversees or created (also the calendar's
+// "their tasks", FLOW-63).
+export const involving = (userId: string) =>
   or(
     eq(tasks.createdBy, userId),
     eq(tasks.overseerId, userId),

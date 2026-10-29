@@ -98,6 +98,10 @@ import { roleLabel } from "../services/users";
 const NotificationSettings = lazy(() =>
   import("../features/notifications").then((module) => ({ default: module.NotificationSettings })),
 );
+// FullCalendar lives in this chunk only (FLOW-63).
+const CalendarPage = lazy(() =>
+  import("../features/calendar").then((module) => ({ default: module.CalendarPage })),
+);
 const TaskDetail = lazy(() =>
   import("../features/tasks").then((module) => ({ default: module.TaskDetail })),
 );
@@ -198,6 +202,7 @@ export const getRouter = () =>
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
         { path: "/events/:id", element: <EventDetail /> },
+        { path: "/calendar", element: <CalendarPage /> },
         { path: "/venues", element: <VenueList /> },
         { path: "/venues/:id", element: <VenueDetail /> },
         { path: "/vendors", element: <VendorList /> },

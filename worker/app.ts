@@ -35,6 +35,7 @@ import { eventStaffRoutes } from "./routes/event-staff";
 import { notificationRoutes } from "./routes/notifications";
 import { taskRoutes } from "./routes/tasks";
 import { approvalRoutes } from "./routes/approvals";
+import { calendarRoutes } from "./routes/calendar";
 import { proposalRoutes } from "./routes/proposals";
 import { vendorRoutes } from "./routes/vendors";
 import { announceChanges } from "./realtime";
@@ -251,6 +252,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/approvals", approvalRoutes(options));
+  app.route("/api/calendar", calendarRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));
