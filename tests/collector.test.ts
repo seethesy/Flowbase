@@ -154,3 +154,32 @@ describe("no credentials in the repo (AC3)", () => {
       expect(readFileSync(path, "utf8")).not.toMatch(/secrets\./);
   });
 });
+
+// Saved pages from the real sites (FLOW-114), with every client detail replaced.
+describe("sanitized site fixtures", () => {
+  const sites = ["bark", "perfect-venue", "weddingpro", "eventective"];
+  // Placeholder addresses, and the sites' own public support address.
+  const allowedEmail = /@example\.com$|^vendorsupport@eventective\.com$/i;
+  // 555-01xx numbers are reserved for fiction; 000 is a phone input mask.
+  const allowedPhone = /^\(?(555|000)\)?/;
+
+  it.each(sites)("%s has a lead list page and a lead detail page", (site) => {
+    expect(readdirSync(join("collector/fixtures", site)).sort()).toEqual([
+      "lead.html",
+      "leads.html",
+    ]);
+  });
+
+  it.each(sites)("%s holds no real emails, phone numbers, tokens or scripts", (site) => {
+    for (const page of ["leads.html", "lead.html"]) {
+      const html = readFileSync(join("collector/fixtures", site, page), "utf8");
+      const emails = html.match(/[\w.%+-]+@[\w.-]+\.[a-z]{2,}/gi) ?? [];
+      expect(emails.filter((email) => !allowedEmail.test(email))).toEqual([]);
+      const phones = html.match(/\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}\b/g) ?? [];
+      expect(phones.filter((phone) => !allowedPhone.test(phone))).toEqual([]);
+      // Session tokens (JWTs) and the sites' own scripts are stripped.
+      expect(html).not.toMatch(/eyJ[\w-]{10,}\.|token=/);
+      expect(html).not.toMatch(/<script\b/i);
+    }
+  });
+});
