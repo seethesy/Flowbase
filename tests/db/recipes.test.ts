@@ -102,7 +102,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table attachments, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs`,
+    sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, attachments, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs`,
   );
   await db.execute(sql`delete from audit_log where entity_type = 'recipe'`);
   const created: Record<string, string> = {};
