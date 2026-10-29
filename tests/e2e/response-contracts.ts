@@ -9,7 +9,13 @@ import {
   eventStatusChangeSchema,
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
+import { itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { eventRosterSchema } from "../../shared/event-staff";
+import {
+  availabilitySchema,
+  conflictSchema,
+  reservationSchema,
+} from "../../shared/reservations";
 import {
   proposalDetailSchema,
   proposalSchema,
@@ -107,6 +113,10 @@ export function responseSchema(
     if (id === "movements") return movementSchema.array();
     if (tail === "cost-history") return costChangeSchema.array();
     if (tail === "history") return historyEntrySchema.array();
+    // Availability, conflicts and allocations of an item (FLOW-76/77/85).
+    if (tail === "availability") return availabilitySchema;
+    if (tail === "conflicts") return conflictSchema.array();
+    if (tail === "allocations") return itemAllocationSchema.array();
     if (tail === "movements" && method === "GET") return movementSchema.array();
     return !action && method === "GET" ? itemSchema.array() : itemSchema;
   }
@@ -127,6 +137,11 @@ export function responseSchema(
     if (action === "hub") return eventHubSchema;
     // Staff roster (FLOW-140): every roster call answers with the whole roster.
     if (["roster", "shifts", "slots"].includes(action)) return eventRosterSchema;
+    // Holds, conflicts and consumable needs (FLOW-76/77/85).
+    if (action === "reservations")
+      return method === "GET" ? reservationSchema.array() : reservationSchema;
+    if (action === "conflicts") return conflictSchema.array();
+    if (action === "requirements") return requirementSchema.array();
     const schema =
       resource === "clients"
         ? clientSchema
@@ -135,6 +150,8 @@ export function responseSchema(
           : eventSchema;
     return !id && method === "GET" ? schema.array() : schema;
   }
+  if (resource === "reservations") return reservationSchema;
+  if (resource === "reservation-conflicts") return conflictSchema;
   // Proposals (FLOW-122/123): the event's list, the upload ticket, and otherwise
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
