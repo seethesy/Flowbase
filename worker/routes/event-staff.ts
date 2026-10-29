@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   productionLeadsInputSchema,
+  removalOptionsSchema,
   shiftInputSchema,
   slotInputSchema,
   slotUpdateSchema,
@@ -81,8 +82,9 @@ export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
     async (c) => {
       const id = eventId(c);
       const shiftId = param(c, "shiftId", "Shift");
+      const options = await parseBody(c, removalOptionsSchema);
       return c.json(
-        await record(c, (db, actor) => archiveShift(db, actor, id, shiftId)),
+        await record(c, (db, actor) => archiveShift(db, actor, id, shiftId, options.notifyRemovedStaff)),
       );
     },
   );
@@ -114,9 +116,9 @@ export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
     async (c) => {
       const id = eventId(c);
       const slotId = param(c, "slotId", "Staffing slot");
-      return c.json(
-        await record(c, (db, actor) => archiveSlot(db, actor, id, slotId)),
-      );
+      const options = await parseBody(c, removalOptionsSchema);
+      return c.json(await record(c, (db, actor) =>
+        archiveSlot(db, actor, id, slotId, options.notifyRemovedStaff)));
     },
   );
   return routes;

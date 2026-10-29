@@ -12,6 +12,7 @@ import type { Db, DbLike } from "../db/client";
 import {
   events,
   eventShifts,
+  leads,
   notificationPreferences,
   notifications,
   taskAssignees,
@@ -179,6 +180,23 @@ const taskDue: Subscriber = async (job, db) => {
   }));
 };
 
+const leadAssigned: Subscriber = async (job, db) => {
+  const payload = payloadOf(job);
+  if (typeof payload.assignedSalespersonId !== "string" || typeof payload.entityId !== "string")
+    return [];
+  const [lead] = await db
+    .select({ id: leads.id, name: leads.name })
+    .from(leads)
+    .where(eq(leads.id, payload.entityId));
+  if (!lead) return [];
+  return [{
+    userId: payload.assignedSalespersonId,
+    title: `Lead assigned: ${lead.name || "New lead"}`,
+    body: "A lead has been assigned to you.",
+    link: `/leads/${lead.id}`,
+  }];
+};
+
 // event.staff_assigned (FLOW-140): the person assigned to the roster slot.
 const staffAssigned: Subscriber = async (job, db) => {
   const payload = payloadOf(job);
@@ -198,7 +216,7 @@ const staffAssigned: Subscriber = async (job, db) => {
       : [];
   const details = [
     typeof payload.position === "string" ? payload.position : "",
-    shift ? `${shiftKindLabels[shift.kind]} ${when(shift.startsAt)}` : "",
+    shift ? `${shiftKindLabels[shift.kind]} ${when(shift.startsAt)}–${when(shift.endsAt)}` : "",
   ].filter(Boolean);
   return [
     {
@@ -208,6 +226,29 @@ const staffAssigned: Subscriber = async (job, db) => {
       link: `/events/${event.id}`,
     },
   ];
+};
+
+const staffUnassigned: Subscriber = async (job, db) => {
+  const payload = payloadOf(job);
+  if (payload.notifyRemovedStaff !== true || typeof payload.previousUserId !== "string" ||
+      typeof payload.entityId !== "string") return [];
+  const [event] = await db
+    .select({ title: events.title })
+    .from(events)
+    .where(eq(events.id, payload.entityId));
+  if (!event) return [];
+  const [shift] = typeof payload.shiftId === "string"
+    ? await db.select().from(eventShifts).where(eq(eventShifts.id, payload.shiftId))
+    : [];
+  return [{
+    userId: payload.previousUserId,
+    title: `Removed from staff roster: ${event.title}`,
+    body: [
+      typeof payload.position === "string" ? payload.position : "",
+      shift ? `${shiftKindLabels[shift.kind]} ${when(shift.startsAt)}–${when(shift.endsAt)}` : "",
+    ].filter(Boolean).join(" · "),
+    link: null,
+  }];
 };
 
 // Every other type: the producing module names the recipients and the message
@@ -226,7 +267,9 @@ const fromPayload: Subscriber = async (job) => {
 const subscribers: Partial<Record<NotificationType, Subscriber>> = {
   task_assigned: taskAssigned,
   task_due: taskDue,
+  lead_assigned: leadAssigned,
   staff_assigned: staffAssigned,
+  staff_unassigned: staffUnassigned,
 };
 
 export type NotificationOptions = {
