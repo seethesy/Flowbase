@@ -8,11 +8,12 @@ import { seedUsers } from "../../worker/db/seed";
 import { approvalRequests, users } from "../../worker/db/schema";
 
 test("filters and exports the Master sheet with its displayed columns", async ({ page }) => {
-  await seedInventory({ items: [chairs()] });
+  await seedInventory({ items: [{ ...chairs(), group: "Seating" }] });
   await page.goto("/#/inventory/master");
   await expect(page.getByRole("heading", { name: "Master inventory" })).toBeVisible();
   await page.getByRole("combobox", { name: "Kind" }).selectOption("rental");
-  await page.getByRole("combobox", { name: "Group" }).selectOption({ index: 1 });
+  await page.getByRole("combobox", { name: "Group" }).selectOption("Seating");
+  await expect(page.getByRole("heading", { name: "Seating", level: 2 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
