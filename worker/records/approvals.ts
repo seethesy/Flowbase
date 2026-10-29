@@ -13,6 +13,7 @@ import type { DbLike } from "../db/client";
 import { approvalRequests, users } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
+import { approvalScope, mayDecideApproval } from "../policy";
 import { indexBy, keyset, type Page, type PageRequest } from "./paging";
 
 // Approval workflow engine (FLOW-44). Rental Master changes, finalized
@@ -73,7 +74,7 @@ function subjectOf(type: string) {
 
 // Requests the actor made, requests their role approves, and everything for Admin.
 export function visibleApprovals(actor: Actor): SQL | undefined {
-  if (actor.role === "admin") return undefined;
+  if (approvalScope(actor) === "all") return undefined;
   return or(
     eq(approvalRequests.requesterId, actor.userId),
     eq(approvalRequests.approverRole, actor.role),
@@ -81,8 +82,7 @@ export function visibleApprovals(actor: Actor): SQL | undefined {
 }
 
 export const mayDecide = (actor: Actor, row: ApprovalRow) =>
-  row.status === "pending" &&
-  (actor.role === "admin" || actor.role === row.approverRole);
+  row.status === "pending" && mayDecideApproval(actor, row.approverRole);
 export const mayWithdraw = (actor: Actor, row: ApprovalRow) =>
   row.status === "pending" && row.requesterId === actor.userId;
 
@@ -417,7 +417,7 @@ export async function listApprovalsPage(
         filter.queue
           ? and(
               eq(approvalRequests.status, "pending"),
-              actor.role === "admin"
+              approvalScope(actor) === "all"
                 ? undefined
                 : eq(approvalRequests.approverRole, actor.role),
             )

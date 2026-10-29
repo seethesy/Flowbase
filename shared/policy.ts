@@ -197,6 +197,12 @@ export const taskScope = (actor: Actor): "all" | "own" =>
 // Changing a task's details, assignees or overseer: its creator, its overseer, or
 // anyone who may delegate. Assignees who can't still update status, checklist and
 // comments.
+// Approval requests (FLOW-44): people see the requests they made and those their
+// role approves; Admin sees all. Only the approver role or Admin decides one (AC3).
+export const approvalScope = (actor: Actor): "all" | "own_and_role" =>
+  actor.role === "admin" ? "all" : "own_and_role";
+export const mayDecideApproval = (actor: Actor, approverRole: Role) =>
+  actor.role === "admin" || actor.role === approverRole;
 export const mayManageTask = (
   actor: Actor,
   task: { createdBy: string | null; overseerId: string | null },
