@@ -37,7 +37,9 @@ export type AuditEntity =
   | "stock_movement"
   // Tasks and their comments (FLOW-58); checklist changes are task updates.
   | "task"
-  | "task_comment";
+  | "task_comment"
+  // Approval requests (FLOW-44): created, then decided or withdrawn.
+  | "approval_request";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

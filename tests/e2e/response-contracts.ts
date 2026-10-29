@@ -52,6 +52,7 @@ import {
   notificationSchema,
 } from "../../shared/notifications";
 import { taskSchema, taskSummarySchema } from "../../shared/tasks";
+import { approvalRequestSchema } from "../../shared/approvals";
 import {
   importBatchResultSchema,
   importLogSchema,
@@ -169,5 +170,8 @@ export function responseSchema(
   // Tasks (FLOW-58): every write answers with the whole task.
   if (resource === "tasks")
     return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
+  // Approval requests (FLOW-44): every decision answers with the whole request.
+  if (resource === "approvals")
+    return !id ? approvalRequestSchema.array() : approvalRequestSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
 }

@@ -50,6 +50,8 @@ const expected: Record<Action, string> = {
   "tasks.write": "1111111",
   "tasks.delegate": "111F1FF",
   "notifications.read": "1111111",
+  "approvals.read": "1111111",
+  "approvals.write": "1111111",
   "settings.manage": "1000000",
   "clients.read": "1111000",
   "clients.write": "1111000",

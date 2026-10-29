@@ -24,6 +24,10 @@ const common = [
   "tasks.write",
   // Their own notifications and email preferences (FLOW-43).
   "notifications.read",
+  // Approval requests (FLOW-44): anyone may have made one or be its approver;
+  // the engine checks who may see, decide or withdraw each request.
+  "approvals.read",
+  "approvals.write",
 ] as const;
 const sales = [
   "clients.read",
