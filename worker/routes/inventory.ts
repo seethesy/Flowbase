@@ -98,7 +98,7 @@ export function inventoryRoutes(options: {
       ),
     );
   });
-  routes.post("/items/changes", requirePermission("inventory.read"), async (c) => {
+  routes.post("/items/changes", requirePermission("inventory.changes.request"), async (c) => {
     const input = await parseBody(c, inventoryChangesSchema);
     const result = await record(c, (db, actor) => submitInventoryChanges(db, actor, input.changes));
     return c.json(result, result.applied ? 200 : 202);

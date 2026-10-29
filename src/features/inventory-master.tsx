@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { InventoryItem, ItemKind } from "../../shared/inventory";
 import type { InventoryChangeInput } from "../../shared/inventory-changes";
-import { isFtPlus } from "../../shared/access";
 import { allPages, inventoryApi, inventoryChangesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
@@ -21,7 +20,7 @@ const valueOf = (item: InventoryItem, field: string) => field === "priceCents"
   : String(item[field as "name" | "description" | "category" | "group"] ?? "");
 
 export function MasterInventory() {
-  const { actor, can } = usePermissions();
+  const { can } = usePermissions();
   const items = useResource(["inventory", "master"], () => allPages((cursor) => inventoryApi.list({}, cursor), 500));
   const pending = useResource(["inventory", "master", "pending", items.data?.map((item) => item.id).join(",")], async () => {
     const ids = items.data?.map((item) => item.id) ?? [];
@@ -56,7 +55,7 @@ export function MasterInventory() {
     return a.name.localeCompare(b.name);
   }), [all, kind, section, category, group, search, sort]);
   const pendingIds = new Set(pending.data?.map((change) => change.itemId));
-  const canEdit = !!actor && isFtPlus(actor);
+  const canEdit = can("inventory.changes.request");
   const edit = (item: InventoryItem, field: string) => {
     const key = `${item.id}:${field}`;
     return <input aria-label={`${field} for ${item.name}`} value={draft[key] ?? valueOf(item, field)}

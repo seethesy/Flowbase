@@ -6,10 +6,11 @@ import type { Db, DbLike } from "../db/client";
 import { consumableAllocations, events, inventoryConsumableDetails, inventoryItems,
   inventoryStock, orderLists, vendors } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
+import { can } from "../policy";
 import { registerApprovalSubject, requestApproval } from "./approvals";
 
 const requireEditor = (actor: Actor) => {
-  if (actor.role !== "admin" && actor.role !== "kitchen_lead") throw forbidden();
+  if (!can(actor, "order_lists.write")) throw forbidden();
 };
 const toList = (row: typeof orderLists.$inferSelect): OrderList => ({
   id: row.id, from: row.fromDate, to: row.toDate, status: row.status,

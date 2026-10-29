@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { isFtPlus, type Actor } from "../../shared/access";
+import type { Actor } from "../../shared/access";
 import { inventoryChangeSchema, type InventoryChange } from "../../shared/inventory-changes";
 import { itemInputSchema } from "../../shared/inventory";
 import { writeAudit } from "../audit/log";
@@ -119,7 +119,7 @@ const subject = {
 registerApprovalSubject(subjectType, subject);
 
 export async function submitInventoryChanges(db: Db, actor: Actor, changes: InventoryChange[]) {
-  if (!isFtPlus(actor)) throw forbidden();
+  if (!can(actor, "inventory.changes.request")) throw forbidden();
   const direct = can(actor, "rentals.apply_directly");
   return db.transaction(async (tx) => {
     const keys = changes.map(keyOf);

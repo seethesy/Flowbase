@@ -38,7 +38,7 @@ export function OrderLists() {
 
 export function OrderListDetail() {
   const { id = "" } = useParams();
-  const { actor } = usePermissions();
+  const { can } = usePermissions();
   const list = useResource(["order-list", id], () => orderListsApi.get(id));
   const [draft, setDraft] = useState<OrderLine[] | null>(null);
   const [error, setError] = useState("");
@@ -47,7 +47,7 @@ export function OrderListDetail() {
   if (list.error) return <LoadError message={list.error} />;
   if (!data) return <LoadingSkeleton />;
   const lines = draft ?? data.lines;
-  const editing = data.status !== "submitted" && !!actor && ["admin", "kitchen_lead"].includes(actor.role);
+  const editing = data.status !== "submitted" && can("order_lists.write");
   const groups = [...new Set(lines.map((line) => line.vendorName))].sort();
   const update = (index: number, values: Partial<OrderLine>) => setDraft(lines.map((line, at) => at === index ? { ...line, ...values } : line));
   const save = async () => {
