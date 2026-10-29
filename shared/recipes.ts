@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { allergenSchema, conversionsOf, type InventoryItem } from "./inventory";
+import { conversionsOf, type InventoryItem } from "./inventory";
 import { id, text, timestamp } from "./schema-primitives";
 import { convert, unitSchema, units, type Unit } from "./units";
 
@@ -10,50 +10,34 @@ import { convert, unitSchema, units, type Unit } from "./units";
 // are set on the dish itself, not on its ingredients.
 const cents = z.number().int().min(0).max(100_000_000);
 
-export const recipeCategories = [
-  "appetizers",
-  "mains",
-  "sides",
-  "desserts",
-  "drinks",
-  "additional_items",
+// Categories, allergens and dietary tags are the settings lists recipe_category,
+// allergen and dietary_tag (FLOW-218), changed in Settings without a deploy. A dish
+// stores the label it was saved with, so archiving a value never changes an old dish.
+export const defaultRecipeCategories = [
+  "Appetizers",
+  "Mains",
+  "Sides",
+  "Desserts",
+  "Drinks",
+  "Additional items",
 ] as const;
-// ---- Allergens and dietary tags (FLOW-95) ----
-
-// Set on the dish, not worked out from its ingredients. Allergens use the
-// inventory list (the FDA major 9). Built-in lists until business settings make
-// them configurable (FLOW-45).
-export const dietaryTagSchema = z.enum([
-  "vegan",
-  "vegetarian",
-  "gluten_free",
-  "dairy_free",
-]);
-export type DietaryTag = z.infer<typeof dietaryTagSchema>;
-export const dietaryTagLabels: Record<DietaryTag, string> = {
-  vegan: "Vegan",
-  vegetarian: "Vegetarian",
-  gluten_free: "Gluten-free",
-  dairy_free: "Dairy-free",
-};
-// What each tag promises, shown where the tags are picked.
-export const dietaryTagHints: Record<DietaryTag, string> = {
-  vegan: "No ingredient contains meat.",
-  vegetarian: "No meat or fish.",
-  gluten_free: "No ingredient contains gluten.",
-  dairy_free: "No milk or milk products.",
+export const defaultDietaryTags = [
+  "Vegan",
+  "Vegetarian",
+  "Gluten-free",
+  "Dairy-free",
+] as const;
+// What each built-in tag promises, shown where tags are picked. A tag added in
+// Settings has no hint.
+export const dietaryTagHints: Readonly<Record<string, string>> = {
+  Vegan: "No ingredient contains meat.",
+  Vegetarian: "No meat or fish.",
+  "Gluten-free": "No ingredient contains gluten.",
+  "Dairy-free": "No milk or milk products.",
 };
 
-export const recipeCategorySchema = z.enum(recipeCategories);
-export type RecipeCategory = z.infer<typeof recipeCategorySchema>;
-export const recipeCategoryLabels: Record<RecipeCategory, string> = {
-  appetizers: "Appetizers",
-  mains: "Mains",
-  sides: "Sides",
-  desserts: "Desserts",
-  drinks: "Drinks",
-  additional_items: "Additional items",
-};
+// One value from a settings list. The API checks it against the list.
+const listLabel = text(100).min(1, "Pick a value.");
 // The Master Recipe Book is "based off 100 servings"; its import (FLOW-99) gives
 // recipes this yield.
 export const IMPORTED_RECIPE_SERVINGS = 100;
@@ -86,7 +70,7 @@ const yieldSchema = z.object({
 
 export const recipeInputSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(200),
-  category: recipeCategorySchema,
+  category: listLabel,
   description: text(5000).default(""),
   lines: z.array(recipeLineInputSchema).max(200).default([]),
   // The numbered method, in order.
@@ -96,8 +80,8 @@ export const recipeInputSchema = z.object({
   // Optional (FLOW-93 AC2); a dish with no yield can't be scaled (FLOW-98).
   yield: yieldSchema.nullable().default(null),
   // Set by hand on the dish (FLOW-95).
-  allergens: z.array(allergenSchema).max(20).default([]),
-  dietaryTags: z.array(dietaryTagSchema).max(20).default([]),
+  allergens: z.array(listLabel).max(20).default([]),
+  dietaryTags: z.array(listLabel).max(20).default([]),
   active: z.boolean().default(true),
 });
 export type RecipeInput = z.input<typeof recipeInputSchema>;
@@ -199,14 +183,14 @@ export type RecipeLine = z.infer<typeof recipeLineSchema>;
 export const recipeSchema = z.object({
   id,
   name: z.string(),
-  category: recipeCategorySchema,
+  category: z.string(),
   description: z.string(),
   lines: z.array(recipeLineSchema),
   steps: z.array(z.string()),
   finishingNote: z.string(),
   yield: z.object({ servings: z.number(), portionSize: z.string() }).nullable(),
-  allergens: z.array(allergenSchema),
-  dietaryTags: z.array(dietaryTagSchema),
+  allergens: z.array(z.string()),
+  dietaryTags: z.array(z.string()),
   // null, with costHidden, when the caller isn't FT+ (F-01-04).
   cost: recipeCostSchema.nullable(),
   costHidden: z.boolean(),

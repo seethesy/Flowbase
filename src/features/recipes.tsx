@@ -3,25 +3,15 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, Archive, Pencil, Plus, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  allergenLabels,
-  allergenSchema,
-  type Allergen,
-  type InventoryItem,
-} from "../../shared/inventory";
+import type { InventoryItem } from "../../shared/inventory";
 import {
   dietaryTagHints,
-  dietaryTagLabels,
-  dietaryTagSchema,
   lineCostSourceLabels,
-  recipeCategoryLabels,
-  recipeCategorySchema,
-  type DietaryTag,
   type Recipe,
-  type RecipeCategory,
   type RecipeInput,
   type ScaledRecipe,
 } from "../../shared/recipes";
+import { listOptions } from "../../shared/settings";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { canSeeField } from "../../shared/visibility";
 import { allPages, inventoryApi, recipesApi } from "../services/core";
@@ -40,17 +30,20 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { useBusinessSettings } from "../services/settings";
 import { Attachments } from "./attachments";
 import { centsLabel, quantityLabel } from "./inventory-labels";
+import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./inventory.css";
 
 // Recipe book (FLOW-93): one record per dish, with its cost (FLOW-94), allergens
 // and dietary tags (FLOW-95) and a scaling tool (FLOW-98). The API works costs out
 // from the ingredients on every read; allergens and tags are set on the dish.
-const allergenList = (allergens: Allergen[]) =>
-  allergens.map((allergen) => allergenLabels[allergen]).join(", ");
-const dietaryList = (tags: DietaryTag[]) =>
-  tags.map((tag) => dietaryTagLabels[tag]).join(", ");
+// Allergens, dietary tags and the category are saved as the labels of the settings
+// lists (FLOW-218); a value archived since is shown marked.
+const markedList = (values: string[], mark: (label: string) => string) =>
+  values.map(mark).join(", ");
+const uniqueLabels = (labels: string[]) => [...new Set(labels)];
 const yieldLabel = (recipe: Recipe) =>
   recipe.yield
     ? `${Number(recipe.yield.servings)} servings${recipe.yield.portionSize && ` · ${recipe.yield.portionSize}`}`
@@ -73,8 +66,14 @@ function RecipeFlags({ recipe }: { recipe: Recipe }) {
 export function RecipeList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<RecipeCategory | "">("");
+  const [category, setCategory] = useState("");
   const [archived, setArchived] = useState(false);
+  const categoryLabels = uniqueLabels(useListLabels("recipe_category"));
+  const allergenLabels = uniqueLabels(useListLabels("allergen"));
+  const dietaryTagLabels = uniqueLabels(useListLabels("dietary_tag"));
+  const markCategory = useArchivedMarks("recipe_category");
+  const markAllergen = useArchivedMarks("allergen");
+  const markDietaryTag = useArchivedMarks("dietary_tag");
   const [allergen, setAllergen] = useState("");
   const [dietaryTag, setDietaryTag] = useState("");
   const [create, setCreate] = useState(false);
@@ -95,13 +94,13 @@ export function RecipeList() {
     {
       id: "category",
       header: "Category",
-      accessorFn: (recipe) => recipeCategoryLabels[recipe.category],
+      accessorFn: (recipe) => markCategory(recipe.category),
     },
     { id: "yield", header: "Yield", accessorFn: yieldLabel },
     {
       id: "allergens",
       header: "Allergens",
-      accessorFn: (recipe) => allergenList(recipe.allergens) || "—",
+      accessorFn: (recipe) => markedList(recipe.allergens, markAllergen) || "—",
     },
     ...(costHidden
       ? []
@@ -143,22 +142,22 @@ export function RecipeList() {
         <select
           aria-label="Category"
           value={category}
-          onChange={(e) => setCategory(e.target.value as RecipeCategory | "")}
+          onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">All categories</option>
-          {recipeCategorySchema.options.map((option) => (
+          {categoryLabels.map((option) => (
             <option key={option} value={option}>
-              {recipeCategoryLabels[option]}
+              {markCategory(option)}
             </option>
           ))}
         </select>
         <select aria-label="Allergen" value={allergen} onChange={(e) => setAllergen(e.target.value)}>
           <option value="">All allergens</option>
-          {allergenSchema.options.map((tag) => <option key={tag} value={tag}>{allergenLabels[tag]}</option>)}
+          {allergenLabels.map((tag) => <option key={tag} value={tag}>{markAllergen(tag)}</option>)}
         </select>
         <select aria-label="Dietary tag" value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>
           <option value="">All dietary tags</option>
-          {dietaryTagSchema.options.map((tag) => <option key={tag} value={tag}>{dietaryTagLabels[tag]}</option>)}
+          {dietaryTagLabels.map((tag) => <option key={tag} value={tag}>{markDietaryTag(tag)}</option>)}
         </select>
         <label className="checkbox-filter">
           <input
@@ -208,46 +207,47 @@ const dollars = (cents: number | null) =>
 const toCents = (value: string) =>
   value.trim() === "" ? null : Math.round(Number(value) * 100);
 
-function TagChoices<T extends string>({
+// Checkboxes for a settings list: the active values, plus any the dish already has
+// that were archived since (marked, so saving never drops them).
+function TagChoices({
   label,
   options,
-  labels,
   hints,
   value,
   onChange,
 }: {
   label: string;
-  options: readonly T[];
-  labels: Record<T, string>;
-  hints?: Record<T, string>;
-  value: T[];
-  onChange: (value: T[]) => void;
+  options: { label: string; archived: boolean }[];
+  hints?: Readonly<Record<string, string>>;
+  value: string[];
+  onChange: (value: string[]) => void;
 }) {
+  const hinted = options.filter((option) => hints?.[option.label]);
   return (
     <fieldset className="form-group" aria-label={label}>
       <legend>{label}</legend>
       {options.map((option) => (
-        <label className="checkbox-filter" key={option}>
+        <label className="checkbox-filter" key={option.label}>
           <input
             type="checkbox"
-            checked={value.includes(option)}
+            checked={value.includes(option.label)}
             onChange={(e) =>
               onChange(
                 e.target.checked
-                  ? [...value, option]
-                  : value.filter((other) => other !== option),
+                  ? [...value, option.label]
+                  : value.filter((other) => other !== option.label),
               )
             }
           />
-          {labels[option]}
+          {option.archived ? `${option.label} (archived)` : option.label}
         </label>
       ))}
-      {hints && (
+      {hints && hinted.length > 0 && (
         <ul className="muted">
-          {options.map((option) => (
-            <li key={option}>
+          {hinted.map((option) => (
+            <li key={option.label}>
               <small>
-                {labels[option]}: {hints[option]}
+                {option.label}: {hints[option.label]}
               </small>
             </li>
           ))}
@@ -272,8 +272,13 @@ export function RecipeForm({
     ? !recipe.costHidden
     : actor !== null && canSeeField(actor, "internal_cost", { view: "internal_recipe" });
   const [name, setName] = useState(recipe?.name ?? "");
-  const [category, setCategory] = useState<RecipeCategory>(
-    recipe?.category ?? "mains",
+  const settings = useBusinessSettings();
+  const activeCategories = listOptions(settings.lists.recipe_category).map(
+    (option) => option.label,
+  );
+  const [category, setCategory] = useState(
+    recipe?.category ??
+      (activeCategories.includes("Mains") ? "Mains" : (activeCategories[0] ?? "")),
   );
   const [description, setDescription] = useState(recipe?.description ?? "");
   const [servings, setServings] = useState(
@@ -297,10 +302,10 @@ export function RecipeForm({
   const [finishingNote, setFinishingNote] = useState(
     recipe?.finishingNote ?? "",
   );
-  const [allergens, setAllergens] = useState<Allergen[]>(
+  const [allergens, setAllergens] = useState<string[]>(
     recipe?.allergens ?? [],
   );
-  const [dietaryTags, setDietaryTags] = useState<DietaryTag[]>(
+  const [dietaryTags, setDietaryTags] = useState<string[]>(
     recipe?.dietaryTags ?? [],
   );
   const [active, setActive] = useState(recipe?.active ?? true);
@@ -415,11 +420,11 @@ export function RecipeForm({
         <FormField label="Category">
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as RecipeCategory)}
+            onChange={(e) => setCategory(e.target.value)}
           >
-            {recipeCategorySchema.options.map((option) => (
-              <option key={option} value={option}>
-                {recipeCategoryLabels[option]}
+            {listOptions(settings.lists.recipe_category, category).map((option) => (
+              <option key={option.label} value={option.label}>
+                {option.archived ? `${option.label} (archived)` : option.label}
               </option>
             ))}
           </select>
@@ -575,15 +580,13 @@ export function RecipeForm({
         <h3 className="form-subheading">Allergens and dietary tags</h3>
         <TagChoices
           label="Allergens"
-          options={allergenSchema.options}
-          labels={allergenLabels}
+          options={listOptions(settings.lists.allergen, allergens)}
           value={allergens}
           onChange={setAllergens}
         />
         <TagChoices
           label="Dietary tags"
-          options={dietaryTagSchema.options}
-          labels={dietaryTagLabels}
+          options={listOptions(settings.lists.dietary_tag, dietaryTags)}
           hints={dietaryTagHints}
           value={dietaryTags}
           onChange={setDietaryTags}
@@ -609,13 +612,20 @@ export function RecipeForm({
   );
 }
 
+function CategoryBadge({ category }: { category: string }) {
+  const mark = useArchivedMarks("recipe_category");
+  return <span className="badge neutral">{mark(category)}</span>;
+}
+
 function TagsSection({ recipe }: { recipe: Recipe }) {
+  const markAllergen = useArchivedMarks("allergen");
+  const markDietaryTag = useArchivedMarks("dietary_tag");
   return (
     <Section title="Allergens and dietary tags">
       <small>Allergens</small>
-      <p>{allergenList(recipe.allergens) || "None"}</p>
+      <p>{markedList(recipe.allergens, markAllergen) || "None"}</p>
       <small>Dietary tags</small>
-      <p>{dietaryList(recipe.dietaryTags) || "None"}</p>
+      <p>{markedList(recipe.dietaryTags, markDietaryTag) || "None"}</p>
     </Section>
   );
 }
@@ -804,9 +814,7 @@ export function RecipeDetail() {
         <div>
           <h1>{r.name}</h1>
           <p>
-            <span className="badge neutral">
-              {recipeCategoryLabels[r.category]}
-            </span>
+            <CategoryBadge category={r.category} />
             {r.archivedAt && <span className="badge error">Archived</span>}
             <RecipeFlags recipe={r} />
             <span>{yieldLabel(r)}</span>

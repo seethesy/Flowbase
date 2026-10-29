@@ -128,3 +128,43 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
     page.getByRole("row", { name: /Tuscan Chicken/ }),
   ).toContainText("No yield");
 });
+
+// FLOW-218 AC1/AC2: an allergen and a category Admin adds in Settings are offered on
+// the recipe form and shown on the recipe, with no deploy.
+test("an allergen and a category added in Settings are used on a recipe", async ({ page }) => {
+  await page.goto("/#/settings");
+  for (const [list, value] of [
+    ["Allergens", "Coconut"],
+    ["Recipe categories", "Brunch"],
+  ]) {
+    await page.getByLabel(/^List/).selectOption({ label: list });
+    await page.getByLabel(`Add to ${list}`).fill(value);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByText(`${value} added.`, { exact: true })).toBeVisible();
+  }
+
+  await page.goto("/#/recipes");
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Coconut Pancakes");
+  await dialog.getByLabel("Category", { exact: true }).selectOption({ label: "Brunch" });
+  await dialog
+    .getByRole("group", { name: "Allergens" })
+    .getByLabel("Coconut", { exact: true })
+    .check();
+  await dialog.getByRole("button", { name: "Save recipe" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await expect(
+    page.getByRole("heading", { name: "Coconut Pancakes", level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator(".badge.neutral", { hasText: "Brunch" })).toBeVisible();
+  const tags = page.locator("section", {
+    has: page.getByRole("heading", { name: "Allergens and dietary tags" }),
+  });
+  await expect(tags.getByText("Coconut", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "← Recipe book" }).click();
+  await page.getByLabel("Category", { exact: true }).selectOption("Brunch");
+  await expect(page.getByRole("button", { name: "Coconut Pancakes" })).toBeVisible();
+});

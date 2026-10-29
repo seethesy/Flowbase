@@ -85,7 +85,7 @@ export const tuscanChicken = (
   overrides: Partial<RecipeInput> = {},
 ): RecipeInput => ({
   name: "Tuscan Chicken",
-  category: "mains",
+  category: "Mains",
   lines: [
     { itemId: ids.chicken, quantity: 10, unit: "each", enteredCostCents: 5000 },
     { itemId: ids.cream, quantity: 1, unit: "cup", enteredCostCents: 180 },
@@ -101,7 +101,7 @@ export const tuscanChicken = (
   ],
   finishingNote: "garnish with basil",
   yield: { servings: 100, portionSize: "" },
-  allergens: ["milk"],
+  allergens: ["Milk"],
   ...overrides,
 });
 

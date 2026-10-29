@@ -36,7 +36,6 @@ import {
   clientRecipeSchema,
   recipeSchema,
   scaledRecipeSchema,
-  type RecipeCategory,
   type RecipeInput,
 } from "../../shared/recipes";
 
@@ -315,12 +314,12 @@ export const sectionsApi = {
 
 // Recipe book (FLOW-93/94/95/98).
 export const recipesApi = {
-  clientList: (filter: { category?: RecipeCategory } = {}) =>
+  clientList: (filter: { category?: string } = {}) =>
     request(clientRecipeSchema.array(), `/api/recipes/client${query(filter)}`),
   list: (
     filter: {
       archived?: boolean;
-      category?: RecipeCategory;
+      category?: string;
       search?: string;
     } = {},
   ) => request(recipeSchema.array(), `/api/recipes${query(filter)}`),

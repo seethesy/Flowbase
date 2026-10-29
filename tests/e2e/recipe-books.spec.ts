@@ -13,10 +13,10 @@ async function seedDishes(count = 1) {
     const dishes = [];
     for (let i = 0; i < count; i++) dishes.push(await createRecipe(db, { userId: admin.id, role: admin.role, employmentType: admin.employmentType }, recipeInputSchema.parse({
       name: i === 0 ? "Tuscan Chicken" : `Dish ${i + 1}`,
-      category: i === count - 1 && count > 1 ? "sides" : "mains",
+      category: i === count - 1 && count > 1 ? "Sides" : "Mains",
       description: "A dish for your event", lines: [{ itemId: chicken.id, quantity: 10, unit: "each", prepNote: "Internal prep note" }],
       steps: ["Sear until golden."], finishingNote: "Internal finishing note",
-      yield: { servings: 100, portionSize: "6 oz" }, allergens: ["milk"], dietaryTags: ["gluten_free"],
+      yield: { servings: 100, portionSize: "6 oz" }, allergens: ["Milk"], dietaryTags: ["Gluten-free"],
     })));
     return dishes;
   });
@@ -29,11 +29,11 @@ test("browses by category, ingredient, allergen and dietary tag and prints a kit
   await page.getByPlaceholder("Search recipes…").fill("chicken");
   await expect(page.getByRole("button", { name: "Tuscan Chicken", exact: true })).toBeVisible();
   await page.getByPlaceholder("Search recipes…").fill("breast");
-  await page.getByLabel("Category", { exact: true }).selectOption("mains");
-  await page.getByLabel("Allergen", { exact: true }).selectOption("milk");
-  await page.getByLabel("Dietary tag", { exact: true }).selectOption("vegan");
+  await page.getByLabel("Category", { exact: true }).selectOption("Mains");
+  await page.getByLabel("Allergen", { exact: true }).selectOption("Milk");
+  await page.getByLabel("Dietary tag", { exact: true }).selectOption("Vegan");
   await expect(page.getByText("0 recipes", { exact: true })).toBeVisible();
-  await page.getByLabel("Dietary tag", { exact: true }).selectOption("gluten_free");
+  await page.getByLabel("Dietary tag", { exact: true }).selectOption("Gluten-free");
   await page.getByRole("button", { name: "Tuscan Chicken", exact: true }).click();
   await page.getByRole("link", { name: "Kitchen card" }).click();
   await expect(page).toHaveURL(new RegExp(`/print/recipes/${dish.id}`));
@@ -85,7 +85,7 @@ test("a salesperson selects ten dishes and prints a branded client PDF or catego
     await testInfo.attach("client-recipe-book.pdf", { body: pdf, contentType: "application/pdf" });
   }
   await page.goto("/#/recipes/client");
-  await page.getByLabel("Category", { exact: true }).selectOption("sides");
+  await page.getByLabel("Category", { exact: true }).selectOption("Sides");
   await expect(page.getByRole("checkbox")).toHaveCount(1);
   await page.getByRole("link", { name: "Print category" }).click();
   await expect(page.locator(".print-document article")).toHaveCount(1);
