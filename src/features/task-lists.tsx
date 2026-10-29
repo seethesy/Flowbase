@@ -507,7 +507,9 @@ export function TaskDashboardPage() {
           </DashboardGroup>
         </Section>
       )}
-      <NewTaskDrawer open={adding} onClose={() => setAdding(false)} onCreated={reload} />
+      {adding && (
+        <NewTaskDrawer open onClose={() => setAdding(false)} onCreated={reload} />
+      )}
     </>
   );
 }
@@ -751,7 +753,9 @@ export function TaskList() {
         <EmptyState title="No tasks" description="No tasks match these filters." />
       )}
       <LoadMore list={list} />
-      <NewTaskDrawer open={adding} onClose={() => setAdding(false)} onCreated={list.reload} />
+      {adding && (
+        <NewTaskDrawer open onClose={() => setAdding(false)} onCreated={list.reload} />
+      )}
     </>
   );
 }
@@ -841,12 +845,15 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
         <p className="task-empty">No tasks on this event yet.</p>
       )}
       <LoadMore list={list} />
-      <NewTaskDrawer
-        open={adding}
-        onClose={() => setAdding(false)}
-        onCreated={list.reload}
-        eventId={event.id}
-      />
+      {/* Mounted only when open: its staff and event pickers load nothing until then. */}
+      {adding && (
+        <NewTaskDrawer
+          open
+          onClose={() => setAdding(false)}
+          onCreated={list.reload}
+          eventId={event.id}
+        />
+      )}
     </Section>
   );
 }

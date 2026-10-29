@@ -133,11 +133,11 @@ test("builds a task template and applies it to an event once (FLOW-62)", async (
   const editor = page.getByRole("dialog");
   await editor.getByLabel("Template name").fill("Balloon arch (Large)");
   const first = editor.getByRole("listitem", { name: "Task 1" });
-  await first.getByLabel("Task").fill("Order balloons");
-  await first.getByLabel("Days").fill("14");
+  await first.getByLabel("Task", { exact: true }).fill("Order balloons");
+  await first.getByLabel("Days", { exact: true }).fill("14");
   await editor.getByRole("button", { name: "Add another task" }).click();
   const second = editor.getByRole("listitem", { name: "Task 2" });
-  await second.getByLabel("Task").fill("Inflate and build the frame");
+  await second.getByLabel("Task", { exact: true }).fill("Inflate and build the frame");
   await second.getByLabel("Time").fill("16:00");
   await expect(second).toContainText("Day before 4:00 PM");
   await editor.getByRole("button", { name: "Save template" }).click();
