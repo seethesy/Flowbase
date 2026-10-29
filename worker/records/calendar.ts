@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, ne, or } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { Calendar, CalendarRange } from "../../shared/calendar";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
@@ -45,9 +45,13 @@ export async function getCalendar(
         isNull(events.archivedAt),
         visibleEvents(actor),
         // Overlaps the range: starts before its end and ends (or, without an end
-        // time, starts) on or after its start.
+        // time, starts) on or after its start. Compared column by column, so each
+        // Date is sent the way its column's type encodes it.
         lt(events.startsAt, end),
-        gte(sql`coalesce(${events.endsAt}, ${events.startsAt})`, start),
+        or(
+          gte(events.endsAt, start),
+          and(isNull(events.endsAt), gte(events.startsAt, start)),
+        ),
       ),
     )
     .orderBy(asc(events.startsAt), asc(events.id))
