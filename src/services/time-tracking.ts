@@ -7,6 +7,7 @@ import {
   type ActivityType,
   type TrackedRecordType,
 } from "../../shared/time-tracking";
+import type { Role } from "../../shared/access";
 import { ApiRequestError, query, request } from "./core";
 
 // Automatic activity time tracking in the browser (FLOW-119). ActivityTracker holds
@@ -23,10 +24,12 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // The record on screen and the kind of work the screen is for. `search` is the
-// query string: an event's proposal drawer is ?proposal=<id> (FLOW-167).
+// query string: an event's proposal drawer is ?proposal=<id> (FLOW-167). `role` is
+// the signed-in user's, for screens whose kind of work depends on it.
 export function contextForPath(
   pathname: string,
   search = "",
+  role: Role | null = null,
 ): TrackingContext {
   const [section = "", id = ""] = pathname.split("/").filter(Boolean);
   const record = (recordType: TrackedRecordType, recordId = id) =>
@@ -48,9 +51,13 @@ export function contextForPath(
       return uuidPattern.test(proposalId) && uuidPattern.test(id)
         ? { activity: "proposal_work", ...record("proposal", proposalId) }
         : { activity: "event_planning", ...record("event") };
-    // Tasks are delegated work (FLOW-167).
+    // Task time is prep for Sales Managers and assigning for everyone else (Ash,
+    // 2026-10-29, FLOW-167).
     case "tasks":
-      return { activity: "delegating", ...record("task") };
+      return {
+        activity: role === "sales_manager" ? "prep" : "assigning",
+        ...record("task"),
+      };
     case "venues":
       return { activity: "event_planning", recordType: null, recordId: null };
     case "inventory":

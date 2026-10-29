@@ -393,7 +393,7 @@ describe("time tracking", () => {
       endedAt: ago(to),
       recordType,
       recordId,
-      activity: recordType === "task" ? "delegating" : "proposal_work",
+      activity: recordType === "task" ? "assigning" : "proposal_work",
     });
     await sam.post(
       "/api/time/sessions",
@@ -453,7 +453,7 @@ describe("time tracking", () => {
     expect(all.workload).toContainEqual({
       userId: people.sam,
       userName: people.sam,
-      activity: "delegating",
+      activity: "assigning",
       seconds: 2 * 60,
     });
 

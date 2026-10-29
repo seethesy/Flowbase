@@ -6,6 +6,7 @@ import {
   sendSessions,
 } from "../services/time-tracking";
 import { useBusinessSettings } from "../services/settings";
+import { usePermissions } from "./permissions";
 
 // How often the tracker checks for idleness and sends what's due; it still sends at
 // most once a minute (FLOW-119).
@@ -14,6 +15,7 @@ const TICK_MS = 15_000;
 // Tracks active time in this tab against the screen on show (FLOW-119).
 export function useActivityTracking() {
   const { pathname, search } = useLocation();
+  const role = usePermissions().actor?.role ?? null;
   const tracker = useRef<ActivityTracker | null>(null);
   const closing = useRef(false);
   tracker.current ??= new ActivityTracker({
@@ -22,8 +24,8 @@ export function useActivityTracking() {
     visible: document.visibilityState === "visible",
   });
   useEffect(() => {
-    tracker.current!.setContext(contextForPath(pathname, search));
-  }, [pathname, search]);
+    tracker.current!.setContext(contextForPath(pathname, search, role));
+  }, [pathname, search, role]);
   const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
   useEffect(() => {
     tracker.current!.setIdleCutoff(idleMinutes * 60_000);

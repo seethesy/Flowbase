@@ -381,10 +381,24 @@ describe("contextForPath", () => {
     ["/inventory/" + eventId, "inventory", null, null],
     ["/recipes/" + eventId, "kitchen", null, null],
     ["/venues", "event_planning", null, null],
-    ["/tasks/" + eventId, "delegating", "task", eventId],
     ["/", "general", null, null],
   ])("%s", (path, activity, recordType, recordId) => {
     expect(contextForPath(path)).toEqual({ activity, recordType, recordId });
+  });
+
+  // FLOW-167: task time is prep for Sales Managers, assigning for everyone else.
+  it.each([
+    ["sales_manager", "prep"],
+    ["admin", "assigning"],
+    ["salesperson", "assigning"],
+    ["kitchen_staff", "assigning"],
+    [null, "assigning"],
+  ] as const)("/tasks/<id> as %s", (role, activity) => {
+    expect(contextForPath(`/tasks/${eventId}`, "", role)).toEqual({
+      activity,
+      recordType: "task",
+      recordId: eventId,
+    });
   });
 
   // FLOW-167: an event's proposal drawer credits the proposal.

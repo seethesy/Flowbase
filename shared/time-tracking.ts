@@ -19,7 +19,10 @@ export const activityTypeSchema = z.enum([
   "proposal_work",
   "event_planning",
   "beo_editing",
-  "delegating",
+  // Time on a task page (FLOW-167): Sales Managers prep, everyone else assigns
+  // (Ash, 2026-10-29).
+  "prep",
+  "assigning",
   "inventory",
   "kitchen",
   "general",
@@ -31,7 +34,8 @@ export const activityLabels: Record<ActivityType, string> = {
   proposal_work: "Proposal work",
   event_planning: "Event planning",
   beo_editing: "BEO editing",
-  delegating: "Delegating",
+  prep: "Prep",
+  assigning: "Assigning",
   inventory: "Inventory",
   kitchen: "Kitchen",
   general: "General",
