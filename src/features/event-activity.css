@@ -1,0 +1,8 @@
+/* Event hub tasks and history (FLOW-166). */
+.event-activity-list > li + li {
+  margin-top: 8px;
+}
+.event-activity-list small {
+  display: block;
+  color: var(--muted);
+}

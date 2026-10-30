@@ -18,6 +18,8 @@ import {
   type VenueInput,
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
+import { historyEntrySchema } from "../../shared/audit";
+import { calendarSchema } from "../../shared/calendar";
 import {
   costChangeSchema,
   itemSchema,
@@ -217,6 +219,19 @@ export const eventsApi = {
       eventStatusChangeSchema,
       `${at("events", id, "status-history")}${query({ cursor })}`,
     ),
+  // Who changed what (FLOW-161), newest first.
+  history: (id: string, cursor?: string) =>
+    requestPage(
+      historyEntrySchema,
+      `${at("events", id, "history")}${query({ cursor })}`,
+    ),
+};
+
+// Basic calendar (FLOW-63): events and the caller's task due dates between two
+// New York dates, inclusive.
+export const calendarApi = {
+  get: (from: string, to: string) =>
+    request(calendarSchema, `/api/calendar${query({ from, to })}`),
 };
 
 export const inventoryApi = {

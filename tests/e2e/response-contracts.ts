@@ -66,6 +66,7 @@ import {
   taskViewSchema,
 } from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
+import { calendarSchema } from "../../shared/calendar";
 import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
 import { orderListSchema } from "../../shared/order-lists";
 import {
@@ -206,6 +207,8 @@ export function responseSchema(
     }
     return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
   }
+  // Basic calendar (FLOW-63).
+  if (resource === "calendar") return calendarSchema;
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;

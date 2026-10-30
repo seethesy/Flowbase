@@ -1,0 +1,38 @@
+/* Basic calendar (FLOW-63). FullCalendar brings its own layout styles. */
+.calendar-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.calendar-panel .fc-toolbar-title {
+  font-size: 18px;
+}
+.calendar-panel .fc-event {
+  cursor: pointer;
+}
+.calendar-panel .calendar-event {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.calendar-panel .calendar-task {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #78350f;
+}
+.calendar-panel .calendar-task .fc-event-title,
+.calendar-panel .calendar-task .fc-event-time {
+  color: #78350f;
+}
+.calendar-panel .calendar-status-lost {
+  opacity: 0.6;
+}
+@media (max-width: 767px) {
+  .calendar-panel {
+    padding: 8px;
+  }
+  .calendar-panel .fc-header-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
