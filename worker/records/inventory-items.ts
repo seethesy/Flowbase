@@ -743,6 +743,8 @@ export async function setItemArchived(
   const current = await findItem(db, id);
   if (!archived) await requireUniqueCode(db, current.code, id);
   await setArchived(db, actor, id, archived, {
+    lock: (tx) => tx.select({ id: inventoryItems.id }).from(inventoryItems)
+      .where(eq(inventoryItems.id, id)).for("update"),
     update: (tx, values) =>
       tx.update(inventoryItems).set(values).where(eq(inventoryItems.id, id)),
     audit: { entityType: "inventory_item", snapshot: itemSnapshot },

@@ -6,7 +6,6 @@ import { EventDetail } from "../src/features/events";
 import type { Client, FlowEvent } from "../shared/core-records";
 import type { EventHub } from "../shared/event-hub";
 import type { HistoryEntry } from "../shared/audit";
-import type { TaskSummary } from "../shared/tasks";
 
 // The event hub screen (FLOW-57): it shows only the sections the API lists.
 const now = "2026-10-22T09:00:00.000Z";
@@ -66,29 +65,7 @@ const client = (email: string | null): Client => ({
   updatedAt: now,
 });
 
-// The event's tasks and history (FLOW-166), as the API returns them.
-const task: TaskSummary = {
-  id: "d0000000-0000-4000-8000-000000000001",
-  title: "Polish the chafing dishes",
-  type: "kitchen",
-  status: "in_progress",
-  priority: "normal",
-  dueAt: "2026-11-13T15:00:00.000Z",
-  assignees: [{ id: "a0000000-0000-4000-8000-000000000006", name: "Casey" }],
-  overseer: null,
-  creator: null,
-  eventId,
-  eventTitle: "Fall gala",
-  clientId: null,
-  inventoryItemId: null,
-  beoId: null,
-  checklistDone: 0,
-  checklistTotal: 0,
-  completedAt: null,
-  completedBy: null,
-  createdAt: now,
-  updatedAt: now,
-};
+// The event's history (FLOW-166), as the API returns it.
 const history: HistoryEntry[] = [
   {
     id: "f0000000-0000-4000-8000-000000000002",
@@ -119,8 +96,6 @@ function mountHub(hub: EventHub) {
   vi.mocked(fetch).mockImplementation(async (input) => {
     const path = String(input);
     if (path === `/api/events/${eventId}/hub`) return Response.json(hub);
-    if (path === `/api/tasks?eventId=${eventId}&includeDone=true`)
-      return Response.json([task]);
     if (path === `/api/events/${eventId}/history`) return Response.json(history);
     if (path.startsWith("/api/attachments?")) return Response.json([]);
     if (path === `/api/events/${eventId}/status-history`) return Response.json([]);
@@ -219,21 +194,14 @@ it("shows the status history without the form to everyone else", async () => {
   ).not.toBeInTheDocument();
 });
 
-it("loads the tasks and history sections from the API (FLOW-166)", async () => {
+it("loads the history section from the API (FLOW-166)", async () => {
   mountHub({
     event,
     client: null,
-    sections: ["details", "tasks", "files", "history"],
+    sections: ["details", "files", "history"],
     canEdit: false,
     canChangeStatus: false,
   });
-  expect(await screen.findByRole("link", { name: "Polish the chafing dishes" })).toHaveAttribute(
-    "href",
-    `/tasks/${task.id}`,
-  );
-  const tasks = screen.getByRole("list", { name: "Event tasks" });
-  expect(tasks).toHaveTextContent("In progress");
-  expect(tasks).toHaveTextContent("Due Nov 13, 2026, 10:00 AM · Casey");
   const changes = await screen.findByRole("list", { name: "Event history" });
   expect(changes).toHaveTextContent("Changed");
   expect(changes).toHaveTextContent("Ash · Oct 23, 2026, 10:30 AM");
@@ -246,7 +214,7 @@ it("loads the tasks and history sections from the API (FLOW-166)", async () => {
   expect(changes).toHaveTextContent("Flowbase");
 });
 
-it("leaves out the tasks and history sections the API doesn't list", async () => {
+it("leaves out the history section when the API doesn't list it", async () => {
   mountHub({
     event,
     client: null,
@@ -257,6 +225,5 @@ it("leaves out the tasks and history sections the API doesn't list", async () =>
   expect(
     await screen.findByRole("heading", { name: "Fall gala", level: 1 }),
   ).toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "Tasks" })).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "History" })).not.toBeInTheDocument();
 });

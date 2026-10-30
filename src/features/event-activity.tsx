@@ -1,18 +1,14 @@
-import { Link } from "react-router-dom";
 import type { HistoryEntry } from "../../shared/audit";
 import { eventStatusDetailLabels, type EventStatus } from "../../shared/core-records";
-import { taskStatusLabels } from "../../shared/tasks";
 import { BUSINESS_TIME_ZONE } from "../../shared/time";
 import { LoadMore, usePagedList } from "../app/paging";
 import { LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { eventsApi } from "../services/core";
-import { tasksApi } from "../services/tasks";
 import "./event-activity.css";
 
-// The event hub's tasks and history sections (FLOW-166). The API decides what
-// each viewer gets: tasks as the task engine lets them see them, and the event's
-// change history for anyone who can open the event.
+// The event hub's history section (FLOW-166): the event's change history, for
+// anyone who can open the event. (The tasks section is FLOW-59's, in task-lists.)
 
 const stamp = (at: string) =>
   new Date(at).toLocaleString("en-US", {
@@ -20,42 +16,6 @@ const stamp = (at: string) =>
     dateStyle: "medium",
     timeStyle: "short",
   });
-
-export function EventTasksSection({ eventId }: { eventId: string }) {
-  const list = usePagedList(["event-tasks", eventId], (cursor) =>
-    tasksApi.list({ eventId, includeDone: "true" }, cursor),
-  );
-  if (list.error)
-    return (
-      <Section title="Tasks">
-        <LoadError message={list.error} />
-      </Section>
-    );
-  if (!list.data) return <LoadingSkeleton />;
-  return (
-    <Section title="Tasks">
-      {list.data.length ? (
-        <ul aria-label="Event tasks" className="event-activity-list">
-          {list.data.map((task) => (
-            <li key={task.id}>
-              <Link to={`/tasks/${task.id}`}>{task.title}</Link>{" "}
-              <span className="badge neutral">{taskStatusLabels[task.status]}</span>
-              <small>
-                {task.dueAt ? `Due ${stamp(task.dueAt)}` : "No due time"}
-                {task.assignees.length
-                  ? ` · ${task.assignees.map((person) => person.name).join(", ")}`
-                  : " · Unassigned"}
-              </small>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted">No tasks for this event.</p>
-      )}
-      <LoadMore list={list} label="Show more tasks" />
-    </Section>
-  );
-}
 
 // Field names as the event form labels them.
 const fieldLabels: Record<string, string> = {

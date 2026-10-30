@@ -84,8 +84,18 @@ export const actions = [
     // Assigning tasks to other people (FLOW-58, from FLOW-60): Admin, Sales
     // Manager, Kitchen Lead and any FT+ user.
     "tasks.delegate",
+    // The dashboard's "Needs delegation" section (FLOW-61) and task templates
+    // (FLOW-62): Admin, Technical, Sales Manager and Kitchen Lead.
+    "tasks.triage",
+    "tasks.templates",
     "beos.approve",
     "rentals.apply_directly",
+    // Master inventory changes (FLOW-73/74): FT+ staff submit rental and service
+    // item edits as a batch; rentals.apply_directly applies them without approval.
+    "inventory.changes.request",
+    // Order lists (FLOW-86): Admin and Kitchen Lead build, edit and submit them;
+    // order_lists.approve decides them.
+    "order_lists.write",
     "inventory.consumables.count",
     "recipes.write",
     "attachments.write",
@@ -106,7 +116,10 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "recipes.write",
       "attachments.write",
       "inventory.consumables.count",
+      "inventory.changes.request",
       "tasks.delegate",
+      "tasks.triage",
+      "tasks.templates",
     ]),
   },
   sales_manager: {
@@ -117,12 +130,16 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "events.production_leads",
       "rentals.apply_directly",
       "inventory.consumables.count",
+      "inventory.changes.request",
       "tasks.delegate",
+      "tasks.triage",
+      "tasks.templates",
     ]),
   },
   salesperson: {
     ...grants(common, sales, ["events.status", "attachments.write"]),
     "inventory.consumables.count": isFtPlus,
+    "inventory.changes.request": isFtPlus,
     // Recipes: the kitchen and full-time staff edit them (Ash, 2026-10-27).
     "recipes.write": isFtPlus,
     "tasks.delegate": isFtPlus,
@@ -132,12 +149,17 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "recipes.write",
       "attachments.write",
       "tasks.delegate",
+      "tasks.triage",
+      "tasks.templates",
+      "order_lists.write",
     ]),
     "inventory.consumables.count": isFtPlus,
+    "inventory.changes.request": isFtPlus,
   },
   kitchen_staff: {
     ...grants(common, kitchen, ["recipes.write"]),
     "inventory.consumables.count": isFtPlus,
+    "inventory.changes.request": isFtPlus,
     "tasks.delegate": isFtPlus,
   },
   staff: {
@@ -147,6 +169,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
     "inventory.move": isFtPlus,
     "inventory.rentals.move": isFtPlus,
     "inventory.consumables.count": isFtPlus,
+    "inventory.changes.request": isFtPlus,
     "tasks.delegate": isFtPlus,
   },
 };

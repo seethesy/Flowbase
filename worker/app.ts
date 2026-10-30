@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { ZodError } from "zod";
 import { recordSchemas } from "../shared/records";
 import {
   connectionCheckInputSchema,
@@ -32,12 +33,14 @@ import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
+import { planningRoutes } from "./routes/planning";
 import { notificationRoutes } from "./routes/notifications";
 import { taskRoutes } from "./routes/tasks";
 import { approvalRoutes } from "./routes/approvals";
 import { calendarRoutes } from "./routes/calendar";
 import { proposalRoutes } from "./routes/proposals";
 import { vendorRoutes } from "./routes/vendors";
+import { orderListRoutes } from "./routes/order-lists";
 import { announceChanges } from "./realtime";
 import * as fixtures from "../src/data/mock/fixtures";
 
@@ -87,6 +90,12 @@ export function createApp(options: Options = {}) {
         },
         error.status,
       );
+    if (error instanceof ZodError)
+      return c.json({ error: {
+        code: "INVALID_REQUEST",
+        message: error.issues[0]?.message ?? "Invalid request.",
+        requestId,
+      } }, 400);
     if (error instanceof DatabaseNotConfiguredError)
       return c.json(
         {
@@ -252,10 +261,12 @@ export function createApp(options: Options = {}) {
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/approvals", approvalRoutes(options));
+  app.route("/api/order-lists", orderListRoutes(options));
   app.route("/api/calendar", calendarRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));
+  app.route("/api", planningRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));

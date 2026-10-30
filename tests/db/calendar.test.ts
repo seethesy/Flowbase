@@ -249,6 +249,7 @@ describe("event hub tasks and history (FLOW-166)", () => {
     expect(hub.sections.indexOf("tasks")).toBeLessThan(hub.sections.indexOf("history"));
     expect((await helper.get<EventHub>(`/api/events/${gala.id}/hub`)).sections).toEqual([
       "details",
+      "inventory",
       "tasks",
       "staff",
       "files",

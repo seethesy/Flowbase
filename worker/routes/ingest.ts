@@ -30,14 +30,45 @@ export function ingestRoutes(options: {
       fail(c, 413, "PAYLOAD_TOO_LARGE", "The payload is too large.");
     if (Number(c.req.header("Content-Length") ?? 0) > INGEST_MAX_BYTES)
       return tooLarge();
-    const bytes = await c.req.arrayBuffer();
-    if (bytes.byteLength > INGEST_MAX_BYTES) return tooLarge();
-    const request = {
-      body: new TextDecoder().decode(bytes),
+    const credentials = {
+      body: "",
+      rawBody: new Uint8Array(),
       headers: c.req.raw.headers,
       pathToken: c.req.param("token"),
     };
-    if (!(await source.authenticate(request, c.env ?? {})))
+    if (source.authenticateBeforeBody && !(await source.authenticate(credentials, c.env ?? {})))
+      return fail(c, 401, "UNAUTHENTICATED", "Invalid credentials.");
+    const reader = c.req.raw.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    if (reader) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          length += value.byteLength;
+          if (length > INGEST_MAX_BYTES) {
+            await reader.cancel();
+            return tooLarge();
+          }
+          chunks.push(value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    const rawBody = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      rawBody.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const request = {
+      ...credentials,
+      body: new TextDecoder().decode(rawBody),
+      rawBody,
+    };
+    if (!source.authenticateBeforeBody && !(await source.authenticate(request, c.env ?? {})))
       return fail(c, 401, "UNAUTHENTICATED", "Invalid credentials.");
     let json: unknown;
     try {

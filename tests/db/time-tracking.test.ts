@@ -139,7 +139,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, task_comments, task_checklist_items, task_assignees, tasks, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, task_comments, task_checklist_items, task_assignees, tasks, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -151,15 +151,7 @@ describe("event hub", () => {
   it("loads the details, client and files sections for Admin", async () => {
     const { gala, juniper } = await seed();
     const hub = await admin.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual([
-      "details",
-      "client",
-      "proposal",
-      "tasks",
-      "staff",
-      "files",
-      "history",
-    ]);
+    expect(hub.sections).toEqual(["details", "client", "proposal", "inventory", "tasks", "staff", "files", "history"]);
     expect(hub.event.title).toBe("Fall gala");
     expect(hub.client?.id).toBe(juniper.id);
     expect(hub.client?.contacts[0].email).toBe("olivia@juniper.example");
@@ -170,15 +162,7 @@ describe("event hub", () => {
   it("hides contact details from a part-time salesperson", async () => {
     const { gala } = await seed();
     const hub = await partTimeSam.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual([
-      "details",
-      "client",
-      "proposal",
-      "tasks",
-      "staff",
-      "files",
-      "history",
-    ]);
+    expect(hub.sections).toEqual(["details", "client", "proposal", "inventory", "tasks", "staff", "files", "history"]);
     expect(hub.client?.contacts[0]).toMatchObject({
       name: "Olivia Bennett",
       email: null,
@@ -190,7 +174,7 @@ describe("event hub", () => {
   it("shows part-time staff only the event, without the client or editing", async () => {
     const { gala, brunch } = await seed();
     const hub = await helper.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual(["details", "tasks", "staff", "files", "history"]);
+    expect(hub.sections).toEqual(["details", "inventory", "tasks", "staff", "files", "history"]);
     expect(hub.client).toBeNull();
     expect(hub.event.client.name).toBe("Juniper & Co.");
     expect(hub.canEdit).toBe(false);
@@ -202,14 +186,7 @@ describe("event hub", () => {
   it("drops the client section when the salesperson can't see the client", async () => {
     const { brunch } = await seed();
     const hub = await sue.get<EventHub>(`/api/events/${brunch.id}/hub`);
-    expect(hub.sections).toEqual([
-      "details",
-      "proposal",
-      "tasks",
-      "staff",
-      "files",
-      "history",
-    ]);
+    expect(hub.sections).toEqual(["details", "proposal", "inventory", "tasks", "staff", "files", "history"]);
     expect(hub.client).toBeNull();
     expect(hub.canEdit).toBe(true);
   });
@@ -305,10 +282,16 @@ describe("time tracking", () => {
       { sessions: [onEvent(gala.id, 15, 10)] },
       200,
     );
-    // Sue can't see the gala any more than she could open it.
+    // A session can only be attached to a record Sue may open.
+    expect((await sue.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(gala.id, 28, 25)],
+    })).status).toBe(400);
+    expect((await sam.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(crypto.randomUUID(), 28, 25)],
+    })).status).toBe(400);
     await sue.post(
       "/api/time/sessions",
-      { sessions: [onEvent(brunch.id, 30, 28), onEvent(gala.id, 28, 25)] },
+      { sessions: [onEvent(brunch.id, 30, 28)] },
       200,
     );
 
@@ -320,8 +303,8 @@ describe("time tracking", () => {
         title: "Fall gala",
         date: "2026-11-14",
         clientName: "Juniper & Co.",
-        seconds: 18 * 60,
-        people: 3,
+        seconds: 15 * 60,
+        people: 2,
       },
       {
         eventId: brunch.id,
@@ -359,7 +342,7 @@ describe("time tracking", () => {
         userId: people.sue,
         userName: people.sue,
         activity: "event_planning",
-        seconds: 5 * 60,
+        seconds: 2 * 60,
       },
     ]);
 

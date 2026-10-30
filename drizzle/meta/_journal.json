@@ -225,6 +225,27 @@
       "when": 1793247101926,
       "tag": "0031_approval_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793285396731,
+      "tag": "0032_reservations_conflicts_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793308813999,
+      "tag": "0033_task_lists_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793310647574,
+      "tag": "0034_order_lists_email_indexes",
+      "breakpoints": true
     }
   ]
 }

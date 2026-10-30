@@ -1,4 +1,4 @@
-/* Task detail (FLOW-58). Shared tokens and components stay in
+/* Task detail (FLOW-58) and lists (FLOW-59–62). Shared tokens and components stay in
    src/styles/globals.css. */
 .task-detail dl {
   display: grid;
@@ -63,4 +63,96 @@ button.back-link {
   cursor: pointer;
   font: inherit;
   font-size: 11px;
+}
+
+/* Task lists, dashboard and templates (FLOW-59/60/61/62). */
+.task-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.task-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.task-line > div:first-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.task-line small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.task-line-actions,
+.task-quick-assign {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.task-group + .task-group {
+  margin-top: 16px;
+}
+.task-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.task-group-head h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+.task-empty {
+  color: var(--muted);
+  margin: 4px 0;
+}
+.task-form,
+.task-reassign {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.task-reassign {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.task-form select[multiple],
+.task-reassign select[multiple] {
+  min-height: 120px;
+}
+.task-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.task-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.template-items {
+  margin: 0;
+  padding-left: 20px;
+}
+.template-items li {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.template-offset {
+  margin: 0;
+  color: var(--muted);
 }

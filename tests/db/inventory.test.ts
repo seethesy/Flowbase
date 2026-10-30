@@ -445,7 +445,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
+    sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -563,17 +563,20 @@ describe("sections (FLOW-70)", () => {
     expect(transfers[1].transferId).toBe(transfers[0].transferId);
   });
 
-  it("lets sales, the kitchen and FT+ count and move rentals, but not edit them", async () => {
+  it("lets sales, the kitchen and FT+ move rentals, but not count or edit them directly", async () => {
     const warehouse = await section("Warehouse");
     const unlabeled = await section("Unlabeled");
     const item = await createItem(chairs());
+    await count(item.id, unlabeled.id, 12);
     for (const who of [partTimeSales, cook, fullTimeStaff]) {
-      await who.send<InventoryItem>(
+      // Rental counts follow the Master approval rules (FLOW-82, FLOW-73).
+      const counted = await who.call(
         "POST",
         `/api/inventory/items/${item.id}/counts`,
-        { sectionId: unlabeled.id, quantity: 12 },
-        201,
+        { sectionId: unlabeled.id, quantity: 20 },
       );
+      expect(counted.status).toBe(409);
+      expect((await counted.json()).error.code).toBe("APPROVAL_REQUIRED");
       await who.send<InventoryItem>(
         "POST",
         `/api/inventory/items/${item.id}/transfers`,

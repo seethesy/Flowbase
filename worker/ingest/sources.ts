@@ -9,12 +9,18 @@ export const INGEST_MAX_BYTES = 256 * 1024;
 
 // pathToken: the last path segment of POST /api/ingest/<source>/<token>, for senders
 // that can't set headers (Thumbtack).
-export type IngestRequest = { body: string; headers: Headers; pathToken?: string };
+export type IngestRequest = {
+  body: string;
+  rawBody: Uint8Array;
+  headers: Headers;
+  pathToken?: string;
+};
 export type IngestSource = {
   authenticate: (
     request: IngestRequest,
     env: Partial<Bindings>,
   ) => Promise<boolean>;
+  authenticateBeforeBody?: boolean;
   // The sender's own id for the record; undefined when it is missing.
   recordId: (request: IngestRequest, json: unknown) => string | undefined;
 };
@@ -77,7 +83,7 @@ const fromBase64 = (value: string) => {
 // Shopify signs the raw body: base64(HMAC-SHA256(secret, body)).
 export const shopifyHmac =
   (secret: (env: Partial<Bindings>) => string | undefined) =>
-  async ({ headers, body, pathToken }: IngestRequest, env: Partial<Bindings>) => {
+  async ({ headers, rawBody, pathToken }: IngestRequest, env: Partial<Bindings>) => {
     if (pathToken) return false;
     const signature = fromBase64(headers.get("X-Shopify-Hmac-Sha256") ?? "");
     if (!signature?.length) return false;
@@ -89,7 +95,7 @@ export const shopifyHmac =
         false,
         ["verify"],
       );
-      if (await crypto.subtle.verify("HMAC", key, signature, encode(body)))
+      if (await crypto.subtle.verify("HMAC", key, signature, Uint8Array.from(rawBody)))
         return true;
     }
     return false;
@@ -107,6 +113,7 @@ export const ingestSources = new Map<string, IngestSource>([
     "leads",
     {
       authenticate: bearerToken((env) => env.INGEST_TOKEN_LEADS),
+      authenticateBeforeBody: true,
       recordId: (_request, json) => stringField(json, "sourceRecordId"),
     },
   ],
@@ -115,6 +122,7 @@ export const ingestSources = new Map<string, IngestSource>([
     "collector-runs",
     {
       authenticate: bearerToken((env) => env.INGEST_TOKEN_LEADS),
+      authenticateBeforeBody: true,
       recordId: (_request, json) => stringField(json, "sourceRecordId"),
     },
   ],
@@ -123,6 +131,7 @@ export const ingestSources = new Map<string, IngestSource>([
     "thumbtack",
     {
       authenticate: tokenAnywhere((env) => env.INGEST_TOKEN_THUMBTACK),
+      authenticateBeforeBody: true,
       recordId: (_request, json) => thumbtackRecordId(json),
     },
   ],

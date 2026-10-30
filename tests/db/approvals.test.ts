@@ -356,6 +356,82 @@ describe("approving (AC1)", () => {
   });
 });
 
+describe("FLOW-73 Master inventory approvals", () => {
+  const createRental = () => admin.send<{ id: string; rental: { priceCents: number } }>(
+    "POST", "/api/inventory/items", { kind: "rental", subtype: "decor", name: "Gold chairs",
+      rental: { priceCents: 800 } }, 201);
+
+  it("keeps a salesperson's price pending until Admin approves it", async () => {
+    const item = await createRental();
+    const result = await sam.send<{ approvalId: string; applied: boolean }>(
+      "POST", "/api/inventory/items/changes", { changes: [{ type: "field", itemId: item.id,
+        field: "priceCents", value: 900 }] }, 202);
+    expect(result.applied).toBe(false);
+    const before = await admin.send<{ rental: { priceCents: number } }>("GET", `/api/inventory/items/${item.id}`);
+    expect(before.rental.priceCents).toBe(800);
+    const pending = await sam.send<{ field: string; proposedBy: string }[]>(
+      "GET", `/api/inventory/items/pending?ids=${item.id}`);
+    expect(pending).toMatchObject([{ field: "priceCents", proposedBy: "Sam" }]);
+    await admin.send("POST", `/api/approvals/${result.approvalId}/approve`, {});
+    const after = await admin.send<{ rental: { priceCents: number } }>("GET", `/api/inventory/items/${item.id}`);
+    expect(after.rental.priceCents).toBe(900);
+  });
+
+  it("applies a Sales Manager price edit directly and audits it", async () => {
+    const item = await createRental();
+    const result = await manager.send<{ approvalId: null; applied: boolean }>(
+      "POST", "/api/inventory/items/changes", { changes: [{ type: "field", itemId: item.id,
+        field: "priceCents", value: 950 }] });
+    expect(result).toEqual({ applied: true, approvalId: null });
+    expect((await admin.send<{ rental: { priceCents: number } }>("GET", `/api/inventory/items/${item.id}`)).rental.priceCents).toBe(950);
+    expect((await db.select().from(schema.auditLog).where(and(eq(schema.auditLog.entityId, item.id),
+      eq(schema.auditLog.action, "update")))).length).toBe(1);
+  });
+
+  it("sends the rejection reason to the proposer", async () => {
+    const item = await createRental();
+    const result = await sam.send<{ approvalId: string }>("POST", "/api/inventory/items/changes",
+      { changes: [{ type: "field", itemId: item.id, field: "priceCents", value: 1000 }] }, 202);
+    await admin.send("POST", `/api/approvals/${result.approvalId}/reject`, { comment: "Too expensive" });
+    const [decided] = await eventsNamed("approval.decided");
+    expect(decided.payload).toMatchObject({ recipientIds: [people.sam], body: "Too expensive" });
+  });
+
+  it("submits three Master grid cells in one approval request", async () => {
+    const item = await createRental();
+    const result = await sam.send<{ approvalId: string }>("POST", "/api/inventory/items/changes", {
+      changes: [
+        { type: "field", itemId: item.id, field: "name", value: "Gold banquet chairs" },
+        { type: "field", itemId: item.id, field: "group", value: "Premium seating" },
+        { type: "field", itemId: item.id, field: "priceCents", value: 1000 },
+      ],
+    }, 202);
+    const approval = await sam.send<ApprovalRequest>("GET", `/api/approvals/${result.approvalId}`);
+    expect(Object.keys(approval.proposedChange ?? {})).toHaveLength(3);
+    expect((await db.select().from(schema.approvalRequests).where(eq(schema.approvalRequests.subjectType, "inventory_batch"))).length).toBe(1);
+  });
+
+  it("refuses a part-time proposal", async () => {
+    const item = await createRental();
+    const app = createApp({ withDb, resolveActor: async () => ({ ...actorOf("sam"), employmentType: "part_time" }) });
+    const response = await app.request("/api/inventory/items/changes", { method: "POST",
+      body: JSON.stringify({ changes: [{ type: "field", itemId: item.id,
+        field: "priceCents", value: 1000 }] }) }, env);
+    expect(response.status).toBe(403);
+  });
+  it("routes service prices through the same approval decision", async () => {
+    const service = await admin.send<{ id: string }>("POST", "/api/inventory/items", {
+      kind: "service", name: "Balloon arch", service: { priceCents: 20000 },
+    }, 201);
+    const result = await sam.send<{ approvalId: string }>("POST", "/api/inventory/items/changes", {
+      changes: [{ type: "field", itemId: service.id, field: "priceCents", value: 22000 }],
+    }, 202);
+    expect((await admin.send<{ service: { priceCents: number } }>("GET", `/api/inventory/items/${service.id}`)).service.priceCents).toBe(20000);
+    await admin.send("POST", `/api/approvals/${result.approvalId}/approve`, {});
+    expect((await admin.send<{ service: { priceCents: number } }>("GET", `/api/inventory/items/${service.id}`)).service.priceCents).toBe(22000);
+  });
+});
+
 describe("rejecting (AC2)", () => {
   it("leaves the record unchanged, records the comment and tells the requester", async () => {
     const item = await chairs();

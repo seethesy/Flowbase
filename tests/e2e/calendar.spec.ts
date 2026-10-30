@@ -62,7 +62,7 @@ test("shows an event at its New York times in every view and opens its hub", asy
   await expect(page.getByRole("heading", { name: "Fall gala", level: 1 })).toBeVisible();
   for (const section of ["Tasks", "History"])
     await expect(page.getByRole("heading", { name: section, exact: true })).toBeVisible();
-  await expect(page.getByText("No tasks for this event.")).toBeVisible();
+  await expect(page.getByText("No tasks on this event yet.")).toBeVisible();
 
   // Back on the calendar, the view and date are kept.
   await page.goBack();

@@ -22,6 +22,8 @@ if (!url)
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
 const other = postgres(url, { max: 1 });
+const second = postgres(url, { max: 1 });
+const secondDb = drizzle(second, { schema });
 const withDb: RunWithDb = (_env, run) => run(db);
 const env = { ASSETS: { fetch } };
 
@@ -71,7 +73,7 @@ const admin = as("admin");
 const manager = as("manager");
 const sam = as("sam");
 
-const tables = sql`truncate table lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs cascade`;
+const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs cascade`;
 const SECTION = "FLOW-198 Dry Storage";
 let sectionId = "";
 
@@ -114,6 +116,7 @@ afterAll(async () => {
   await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
   await other.end();
+  await second.end();
 });
 
 // Runs `work` in a transaction on the other connection and keeps it open, with
@@ -621,5 +624,104 @@ describe("FLOW-198: stock units are fixed once stock has moved", () => {
     expect(await current(item.id)).toMatchObject({ unit: "kg", totalQuantity: 4 });
     // From now on the unit is fixed.
     expect((await update(item.id, flour({ unit: "lb" }))).status).toBe(409);
+  });
+});
+
+describe("FLOW-196: stock and archive ordering", () => {
+  const secondApp = createApp({ withDb: (_env, run) => run(secondDb),
+    resolveActor: async () => ({ userId: people.admin, role: "admin", employmentType: "full_time" }) });
+  const secondCall = (path: string, body: unknown) => secondApp.request(path,
+    { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }, env);
+  const create = () => admin.send<InventoryItem>("POST", "/api/inventory/items", gloves());
+  const move = (id: string, quantity: number) => admin.call("POST", `/api/inventory/items/${id}/movements`,
+    { type: "receive", sectionId, quantity });
+  const total = async (id: string) => {
+    const [cached] = await db.execute<{ quantity: string }>(sql`select coalesce(sum(quantity), 0) as quantity from inventory_stock where item_id = ${id}`);
+    const [ledger] = await db.execute<{ quantity: string }>(sql`select coalesce(sum(quantity), 0) as quantity from stock_movements where item_id = ${id}`);
+    expect(Number(cached.quantity)).toBe(Number(ledger.quantity));
+    return Number(cached.quantity);
+  };
+
+  it("counts a first stock row only once when another count has the item lock", async () => {
+    const item = await create();
+    const held = await holding((tx) => tx`select id from inventory_items where id = ${item.id} for update`);
+    const counting = admin.call("POST", `/api/inventory/items/${item.id}/counts`,
+      { sectionId, quantity: 12, reason: "Physical count" });
+    const secondCount = secondCall(`/api/inventory/items/${item.id}/counts`,
+      { sectionId, quantity: 12, reason: "Same count" });
+    expect(await stillWaiting(Promise.resolve(counting))).toBe(true);
+    expect(await stillWaiting(Promise.resolve(secondCount))).toBe(true);
+    await held.commit();
+    expect((await counting).status).toBe(201);
+    expect((await secondCount).status).toBe(201);
+    expect(await total(item.id)).toBe(12);
+  });
+
+  it("does not move stock into a section after its archive wins", async () => {
+    const item = await create();
+    const held = await holding((tx) => tx`select id from inventory_sections where id = ${sectionId} for update`);
+    const archiving = admin.call("POST", `/api/inventory/sections/${sectionId}/archive`);
+    expect(await stillWaiting(archiving)).toBe(true);
+    await held.commit();
+    expect((await archiving).status).toBe(200);
+    const moving = move(item.id, 3);
+    expect((await moving).status).toBe(409);
+    expect(await total(item.id)).toBe(0);
+    await db.execute(sql`update inventory_sections set archived_at = null where id = ${sectionId}`);
+  });
+
+  it("blocks an incoming movement behind a section archive transaction", async () => {
+    const item = await create();
+    const held = await holding((tx) => tx`update inventory_sections set archived_at = now() where id = ${sectionId}`);
+    const moving = move(item.id, 5);
+    expect(await stillWaiting(moving)).toBe(true);
+    await held.commit();
+    expect((await moving).status).toBe(409);
+    expect(await total(item.id)).toBe(0);
+    await db.execute(sql`update inventory_sections set archived_at = null where id = ${sectionId}`);
+  });
+
+  it("does not move stock after the item's archive wins", async () => {
+    const item = await create();
+    const held = await holding((tx) => tx`update inventory_items set archived_at = now() where id = ${item.id}`);
+    const moving = move(item.id, 3);
+    expect(await stillWaiting(moving)).toBe(true);
+    await held.commit();
+    expect((await moving).status).toBe(409);
+    expect(await total(item.id)).toBe(0);
+  });
+
+  it("serializes identical corrections at the intended total", async () => {
+    const item = await create();
+    expect((await move(item.id, 10)).status).toBe(201);
+    const [original] = await db.select({ id: schema.stockMovements.id }).from(schema.stockMovements)
+      .where(eq(schema.stockMovements.itemId, item.id));
+    const held = await holding((tx) => tx`select id from stock_movements where id = ${original.id} for update`);
+    const correcting = admin.call("POST", `/api/inventory/movements/${original.id}/corrections`,
+      { quantity: 12, reason: "Correct count" });
+    const secondCorrection = secondCall(`/api/inventory/movements/${original.id}/corrections`,
+      { quantity: 12, reason: "Same correction" });
+    expect(await stillWaiting(Promise.resolve(correcting))).toBe(true);
+    expect(await stillWaiting(Promise.resolve(secondCorrection))).toBe(true);
+    await held.commit();
+    const statuses = [(await correcting).status, (await secondCorrection).status].sort();
+    expect(statuses).toEqual([201, 409]);
+    const second = await admin.call("POST", `/api/inventory/movements/${original.id}/corrections`,
+      { quantity: 12, reason: "Same correction" });
+    expect(second.status).toBe(409);
+    expect(await total(item.id)).toBe(12);
+  });
+
+  it("refuses a count line after completion commits", async () => {
+    const item = await create();
+    const started = await admin.send<{ id: string }>("POST", "/api/inventory/counts",
+      { sectionId });
+    const held = await holding((tx) => tx`update stock_counts set status = 'completed' where id = ${started.id}`);
+    const line = admin.call("POST", `/api/inventory/counts/${started.id}/lines`,
+      { itemId: item.id, quantity: 4, reason: "Count" });
+    expect(await stillWaiting(line)).toBe(true);
+    await held.commit();
+    expect((await line).status).toBe(409);
+    expect(await total(item.id)).toBe(0);
   });
 });

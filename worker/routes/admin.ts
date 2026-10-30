@@ -36,13 +36,13 @@ export function adminRoutes(options: {
     requirePermission("ingest.manage"),
     async (c) => {
       const status = c.req.query("status") ?? "all";
-      if (status !== "all" && status !== "failed")
+      if (status !== "all" && status !== "failed" && status !== "unprocessed")
         return fail(c, 400, "INVALID_REQUEST", "Invalid request.");
       return c.json(
         await runDb(options.withDb, c.env, (db) =>
           listReceipts(db, {
             source: c.req.query("source"),
-            failedOnly: status === "failed",
+            status,
           }),
         ),
       );
@@ -61,7 +61,7 @@ export function adminRoutes(options: {
           c,
           404,
           "NOT_FOUND",
-          "No receipt with a failed processing job has that id.",
+          "No replayable receipt has that id.",
         );
       return c.json(receipt);
     },

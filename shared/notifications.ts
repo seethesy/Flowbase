@@ -8,7 +8,10 @@ import { id, text, timestamp } from "./schema-primitives";
 
 export const notificationTypes = [
   "task_assigned",
+  "task_claimed",
+  "task_due_soon",
   "task_due",
+  "task_completed",
   "lead_assigned",
   "staff_assigned",
   "staff_unassigned",
@@ -33,13 +36,28 @@ export type NotificationTypeInfo = {
 export const notificationCatalog: Record<NotificationType, NotificationTypeInfo> = {
   task_assigned: {
     label: "Task assigned",
-    description: "A task is assigned to you.",
+    description: "A task is assigned to you, or reassigned from you to someone else.",
     event: "task.assigned",
   },
+  task_claimed: {
+    label: "Task claimed",
+    description: "Someone claims a task you oversee.",
+    event: "task.claimed",
+  },
+  task_due_soon: {
+    label: "Task due soon",
+    description: "A task you're assigned to is due within a day.",
+    event: "task.due_soon",
+  },
   task_due: {
-    label: "Task due",
-    description: "A task you're assigned to or oversee reaches its due time.",
+    label: "Task overdue",
+    description: "A task you're assigned to or oversee is past its due time.",
     event: "task.due",
+  },
+  task_completed: {
+    label: "Task completed",
+    description: "A task you oversee or created is marked done.",
+    event: "task.completed",
   },
   lead_assigned: {
     label: "Lead assigned",

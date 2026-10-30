@@ -9,7 +9,13 @@ import {
   eventStatusChangeSchema,
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
+import { itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { eventRosterSchema } from "../../shared/event-staff";
+import {
+  availabilitySchema,
+  conflictSchema,
+  reservationSchema,
+} from "../../shared/reservations";
 import {
   proposalDetailSchema,
   proposalSchema,
@@ -51,9 +57,18 @@ import {
   notificationPreferenceSchema,
   notificationSchema,
 } from "../../shared/notifications";
-import { taskSchema, taskSummarySchema } from "../../shared/tasks";
+import {
+  applyTemplateResultSchema,
+  taskDashboardSchema,
+  taskSchema,
+  taskSummarySchema,
+  taskTemplateSchema,
+  taskViewSchema,
+} from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
 import { calendarSchema } from "../../shared/calendar";
+import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
+import { orderListSchema } from "../../shared/order-lists";
 import {
   importBatchResultSchema,
   importLogSchema,
@@ -97,6 +112,8 @@ export function responseSchema(
   }
   if (resource === "inventory") {
     const tail = path.split("/")[5];
+    if (id === "items" && action === "changes") return inventoryChangeResultSchema;
+    if (id === "items" && action === "pending") return pendingInventoryChangeSchema.array();
     if (id === "sections")
       return !action && method === "GET"
         ? sectionSchema.array()
@@ -108,6 +125,10 @@ export function responseSchema(
     if (id === "movements") return movementSchema.array();
     if (tail === "cost-history") return costChangeSchema.array();
     if (tail === "history") return historyEntrySchema.array();
+    // Availability, conflicts and allocations of an item (FLOW-76/77/85).
+    if (tail === "availability") return availabilitySchema;
+    if (tail === "conflicts") return conflictSchema.array();
+    if (tail === "allocations") return itemAllocationSchema.array();
     if (tail === "movements" && method === "GET") return movementSchema.array();
     return !action && method === "GET" ? itemSchema.array() : itemSchema;
   }
@@ -128,6 +149,11 @@ export function responseSchema(
     if (action === "hub") return eventHubSchema;
     // Staff roster (FLOW-140): every roster call answers with the whole roster.
     if (["roster", "shifts", "slots"].includes(action)) return eventRosterSchema;
+    // Holds, conflicts and consumable needs (FLOW-76/77/85).
+    if (action === "reservations")
+      return method === "GET" ? reservationSchema.array() : reservationSchema;
+    if (action === "conflicts") return conflictSchema.array();
+    if (action === "requirements") return requirementSchema.array();
     const schema =
       resource === "clients"
         ? clientSchema
@@ -136,6 +162,8 @@ export function responseSchema(
           : eventSchema;
     return !id && method === "GET" ? schema.array() : schema;
   }
+  if (resource === "reservations") return reservationSchema;
+  if (resource === "reservation-conflicts") return conflictSchema;
   // Proposals (FLOW-122/123): the event's list, the upload ticket, and otherwise
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
@@ -168,13 +196,23 @@ export function responseSchema(
     if (action === "read") return notificationSchema;
     return notificationInboxSchema;
   }
-  // Tasks (FLOW-58): every write answers with the whole task.
-  if (resource === "tasks")
+  // Tasks (FLOW-58): every write answers with the whole task. The dashboard
+  // (FLOW-61), saved views (FLOW-59) and templates (FLOW-62) have their own.
+  if (resource === "tasks") {
+    if (id === "dashboard") return taskDashboardSchema;
+    if (id === "views") return method === "GET" ? taskViewSchema.array() : taskViewSchema;
+    if (id === "templates") {
+      if (path.split("/")[5] === "apply") return applyTemplateResultSchema;
+      return !action && method === "GET" ? taskTemplateSchema.array() : taskTemplateSchema;
+    }
     return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
+  }
   // Basic calendar (FLOW-63).
   if (resource === "calendar") return calendarSchema;
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;
+  if (resource === "order-lists")
+    return !id && method === "GET" ? orderListSchema.array() : orderListSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
 }

@@ -1,0 +1,12 @@
+.order-list-builder { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.order-list-builder label { display: grid; gap: 4px; }
+.order-vendor { margin: 24px 0; break-inside: avoid; }
+.order-vendor h2 { margin-bottom: 4px; }
+.order-vendor table { width: 100%; border-collapse: collapse; }
+.order-vendor th, .order-vendor td { padding: 8px; border-bottom: 1px solid var(--border); text-align: left; }
+.order-vendor input[type="number"] { width: 75px; }
+@media print {
+  .order-list-page .back-link, .order-list-page button, .order-list-page .order-screen-only { display: none !important; }
+  .order-list-page { color: #000; background: #fff; }
+  .order-vendor { page-break-inside: avoid; }
+}

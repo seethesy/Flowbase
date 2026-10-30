@@ -3,6 +3,8 @@ import { queryClient } from "../app/queryClient";
 import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
 import type { Version } from "../../shared/schema-primitives";
+import { inventoryChangeResultSchema, pendingInventoryChangeSchema,
+  type InventoryChangeInput } from "../../shared/inventory-changes";
 import {
   clientSchema,
   duplicateErrorSchema,
@@ -284,6 +286,13 @@ export const inventoryApi = {
       costChangeSchema,
       `${at("inventory/items", id, "cost-history")}${query({ cursor })}`,
     ),
+};
+
+export const inventoryChangesApi = {
+  submit: (changes: InventoryChangeInput[]) =>
+    request(inventoryChangeResultSchema, "/api/inventory/items/changes", "POST", { changes }),
+  pending: (itemIds: string[]) =>
+    request(pendingInventoryChangeSchema.array(), `/api/inventory/items/pending?ids=${itemIds.join(",")}`),
 };
 
 // Count mode (FLOW-82).

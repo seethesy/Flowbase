@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { z } from "zod";
 import { createApp } from "../../worker/app";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 
@@ -30,6 +31,19 @@ it("captures an unhandled error with the response request ID without exposing in
   expect(parsed.error.code).toBe("INTERNAL_ERROR");
   expect(parsed.error.message).not.toContain("credential");
   expect(captureError).toHaveBeenCalledWith(failure, parsed.error.requestId);
+});
+it("returns an internal Zod validation failure as 400 without capturing it", async () => {
+  const captureError = vi.fn();
+  const app = createApp({ captureError, checkDatabase: async () => {
+    z.string().min(2).parse("x");
+    return "reachable";
+  } });
+  const response = await app.request("/api/health");
+  expect(response.status).toBe(400);
+  const parsed = apiErrorSchema.parse(await response.json());
+  expect(parsed.error).toMatchObject({ code: "INVALID_REQUEST" });
+  expect(parsed.error.message).toContain("2");
+  expect(captureError).not.toHaveBeenCalled();
 });
 it("returns independent request IDs and structured request logs", async () => {
   const log = vi.spyOn(console, "log").mockImplementation(() => {});

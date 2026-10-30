@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { IngestReceipt } from "../../shared/api";
-import type { Db } from "../db/client";
+import type { Db, DbLike } from "../db/client";
 import { ingestReceipts, jobs } from "../db/schema";
 import { enqueueJob, type JobContext, type JobRegistry } from "../jobs/queue";
 import { ingestProcessors } from "./processors";
@@ -100,7 +100,7 @@ const toReceipt = ({ receipt, jobStatus, lastError }: ReceiptListRow) => ({
 
 export async function listReceipts(
   db: Db,
-  filter: { source?: string; failedOnly?: boolean },
+  filter: { source?: string; status?: "all" | "failed" | "unprocessed" },
   limit = 50,
 ): Promise<IngestReceipt[]> {
   const rows = await db
@@ -111,7 +111,8 @@ export async function listReceipts(
       and(
         isNull(ingestReceipts.archivedAt),
         filter.source ? eq(ingestReceipts.source, filter.source) : undefined,
-        filter.failedOnly ? eq(jobs.status, "failed") : undefined,
+        filter.status === "failed" ? eq(jobs.status, "failed") : undefined,
+        filter.status === "unprocessed" ? isNull(ingestReceipts.processedAt) : undefined,
       ),
     )
     .orderBy(desc(ingestReceipts.createdAt))
@@ -119,7 +120,7 @@ export async function listReceipts(
   return rows.map(toReceipt);
 }
 
-async function getReceipt(db: Db, id: string) {
+async function getReceipt(db: DbLike, id: string) {
   const [row] = await db
     .select(receiptColumns)
     .from(ingestReceipts)
@@ -128,15 +129,18 @@ async function getReceipt(db: Db, id: string) {
   return row;
 }
 
-// Queues a new processing job for a receipt whose job failed. Returns undefined
-// when the receipt doesn't exist or its job hasn't failed.
+// A receipt with a failed job, or one that succeeded before its source had a
+// processor, can be queued again.
 export async function replayReceipt(
   db: Db,
   id: string,
 ): Promise<IngestReceipt | undefined> {
-  const current = await getReceipt(db, id);
-  if (!current || current.jobStatus !== "failed") return undefined;
-  await db.transaction(async (tx) => {
+  const queued = await db.transaction(async (tx) => {
+    await tx.select({ id: ingestReceipts.id }).from(ingestReceipts)
+      .where(eq(ingestReceipts.id, id)).for("update");
+    const current = await getReceipt(tx, id);
+    if (!current || current.receipt.processedAt ||
+      (current.jobStatus !== "failed" && current.jobStatus !== "succeeded")) return false;
     const job = await enqueueJob(tx, {
       type: INGEST_JOB_TYPE,
       payload: { receiptId: id },
@@ -146,7 +150,9 @@ export async function replayReceipt(
       .update(ingestReceipts)
       .set({ jobId: job?.id })
       .where(eq(ingestReceipts.id, id));
+    return true;
   });
+  if (!queued) return undefined;
   const replayed = await getReceipt(db, id);
   return replayed && toReceipt(replayed);
 }

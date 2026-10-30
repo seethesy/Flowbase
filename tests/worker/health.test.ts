@@ -19,9 +19,16 @@ it.each([true, false])(
     expect(
       await checkDatabase({
         ASSETS: { fetch },
-        HYPERDRIVE: { connectionString: "postgres://ci" },
+        HYPERDRIVE: { connectionString: `postgres://ci-${reachable}` },
       }),
     ).toBe(reachable ? "reachable" : "unreachable");
     expect(sql.end).toHaveBeenCalledWith({ timeout: 1 });
   },
 );
+it("reuses a recent database probe", async () => {
+  sql.mockResolvedValue([{ "?column?": 1 }]);
+  const env = { ASSETS: { fetch }, HYPERDRIVE: { connectionString: "postgres://cache" } };
+  expect(await checkDatabase(env)).toBe("reachable");
+  expect(await checkDatabase(env)).toBe("reachable");
+  expect(sql).toHaveBeenCalledTimes(1);
+});
