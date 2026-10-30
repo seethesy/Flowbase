@@ -269,11 +269,18 @@ describe("event hub tasks and history (FLOW-166)", () => {
       assigneeIds: [people.casey],
       eventId: gala.id,
     });
-    const tasksOf = async (who: ReturnType<typeof signedInAs>) =>
+    // As the hub's tasks section asks (FLOW-59): part-time users ask for their
+    // own tasks; the team list is refused to them.
+    const tasksOf = async (who: ReturnType<typeof signedInAs>, mine = false) =>
       (
-        await who.get<TaskSummary[]>(`/api/tasks?eventId=${gala.id}&includeDone=true`)
+        await who.get<TaskSummary[]>(
+          `/api/tasks?eventId=${gala.id}&includeDone=true${mine ? "&mine=true" : ""}`,
+        )
       ).map((task) => task.id);
-    expect(await tasksOf(helper)).toEqual([prep.id]);
+    expect(await tasksOf(helper, true)).toEqual([prep.id]);
+    expect(
+      (await helper.call("GET", `/api/tasks?eventId=${gala.id}&includeDone=true`)).status,
+    ).toBe(403);
     expect((await tasksOf(admin)).sort()).toEqual([prep.id, other.id].sort());
   });
 
