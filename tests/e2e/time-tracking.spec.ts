@@ -24,17 +24,20 @@ test("time accrues only while the tab is visible and the user is active", async 
   const requests: ActivitySessionInput[][] = [];
   const pending: Promise<unknown>[] = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname === "/api/time/sessions") {
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/time/sessions") {
       requests.push(request.postDataJSON().sessions);
       pending.push(
         request.response().then((response) => {
           expect(response?.status()).toBe(200);
         }),
       );
-    }
+    } else if (path.startsWith("/api/")) pending.push(request.response());
   });
-  // Let each real database write finish before advancing another timer tick.
-  // Otherwise an entire fake idle interval can elapse while one fetch is in flight.
+  // Let every API request finish before advancing another timer tick. Otherwise an
+  // entire fake idle interval can elapse while one fetch is in flight, and the
+  // 30-second refresh of every section on the hub (no Realtime here) piles up
+  // dozens of requests at once and some of them, time tracking's included, fail.
   const advance = async (ms: number) => {
     for (let elapsed = 0; elapsed < ms; elapsed += 15 * SECOND) {
       await page.clock.runFor(Math.min(15 * SECOND, ms - elapsed));
@@ -108,10 +111,11 @@ test("time in a proposal is credited to the proposal, then to its event", async 
   const requests: ActivitySessionInput[][] = [];
   const pending: Promise<unknown>[] = [];
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname === "/api/time/sessions") {
+    const path = new URL(request.url()).pathname;
+    if (path === "/api/time/sessions")
       requests.push(request.postDataJSON().sessions);
-      pending.push(request.response());
-    }
+    // As above: every API request finishes before the clock moves on.
+    if (path.startsWith("/api/")) pending.push(request.response());
   });
   const advance = async (ms: number) => {
     for (let elapsed = 0; elapsed < ms; elapsed += 15 * SECOND) {

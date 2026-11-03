@@ -1639,6 +1639,8 @@ tbody tr:last-child td {
     width: 240px;
     transform: translateX(-100%);
     padding: 25px 16px 0;
+    /* A phone is shorter than the full link list: scroll to the lower links. */
+    overflow-y: auto;
   }
   .sidebar.mobile-open {
     transform: translateX(0);

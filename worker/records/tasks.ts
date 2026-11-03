@@ -70,8 +70,9 @@ const assignedTo = (userId: string) =>
   sql`exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.userId} = ${userId} and ${taskAssignees.archivedAt} is null)`;
 const unassigned = sql`not exists (select 1 from ${taskAssignees} where ${taskAssignees.taskId} = ${tasks.id} and ${taskAssignees.archivedAt} is null)`;
 
-// Tasks this user is assigned to, oversees or created.
-const involving = (userId: string) =>
+// Tasks this user is assigned to, oversees or created (also the calendar's
+// "their tasks", FLOW-63).
+export const involving = (userId: string) =>
   or(eq(tasks.createdBy, userId), eq(tasks.overseerId, userId), assignedTo(userId));
 
 export function visibleTasks(actor: Actor): SQL | undefined {

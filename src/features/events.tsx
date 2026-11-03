@@ -39,6 +39,7 @@ import { EventPlanningSection } from "./event-planning";
 import { EventStaffSection } from "./event-staff";
 import { EventProposalsSection } from "./event-proposals";
 import { EventTasksSection } from "./task-lists";
+import { EventHistorySection } from "./event-activity";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 
@@ -778,6 +779,13 @@ export function EventDetail() {
         recordType="event"
         recordId={e.id}
         title="Event files"
+      />
+    ),
+    history: () => (
+      <EventHistorySection
+        key={`history:${e.id}`}
+        eventId={e.id}
+        version={e.updatedAt}
       />
     ),
   };
