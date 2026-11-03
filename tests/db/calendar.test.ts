@@ -11,10 +11,11 @@ import type { HistoryEntry } from "../../shared/audit";
 import type { Calendar } from "../../shared/calendar";
 import type { Client, EventInput, FlowEvent } from "../../shared/core-records";
 import type { EventHub } from "../../shared/event-hub";
+import type { EventRoster, ShiftInput } from "../../shared/event-staff";
 import type { Task, TaskInput, TaskSummary } from "../../shared/tasks";
 
-// Basic calendar (FLOW-63) and the event hub's tasks and history sections
-// (FLOW-166) against Postgres.
+// Basic calendar (FLOW-63), its overview mode (FLOW-64) and layers (FLOW-67), and
+// the event hub's tasks and history sections (FLOW-166) against Postgres.
 const url = process.env.DATABASE_URL;
 if (!url)
   throw new Error("DATABASE_URL must point to the disposable CI Postgres service.");
@@ -67,7 +68,7 @@ const sue = signedInAs("sue");
 const helper = signedInAs("helper");
 const casey = signedInAs("casey");
 
-const tables = sql`truncate table task_comments, task_checklist_items, task_assignees, tasks, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs cascade`;
+const tables = sql`truncate table reservation_conflicts, reservations, event_staff_slots, event_shifts, task_comments, task_checklist_items, task_assignees, tasks, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -89,8 +90,12 @@ beforeEach(async () => {
     )
     .onConflictDoNothing({ target: schema.users.id });
 });
+// Rental items the layer tests add, removed at the end.
+const items: string[] = [];
 afterAll(async () => {
   await db.execute(tables);
+  if (items.length)
+    await db.delete(schema.inventoryItems).where(inArray(schema.inventoryItems.id, items));
   await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
 });
@@ -150,6 +155,9 @@ describe("calendar (FLOW-63)", () => {
         end: "2026-09-17T22:00",
         clientName: "Juniper & Co.",
         venueName: null,
+        guestCount: null,
+        salespersonName: "Sam",
+        staffCount: 0,
       },
       expect.objectContaining({ id: brunch.id, start: "2026-09-20T10:00", end: null }),
       // Past midnight: it ends on the next day.
@@ -236,6 +244,216 @@ describe("calendar (FLOW-63)", () => {
     }
     // Six weeks, as a month view asks for, is fine.
     expect((await admin.call("GET", "/api/calendar?from=2026-08-30&to=2026-10-10")).status).toBe(200);
+  });
+});
+
+// Staffing (FLOW-140): a shift through the API, its slots stored directly (adding
+// them through the API checks the position list, which isn't this file's subject).
+const addShift = async (eventId: string, input: ShiftInput) => {
+  const roster = await admin.send<EventRoster>(
+    "POST",
+    `/api/events/${eventId}/shifts`,
+    input,
+    201,
+  );
+  return roster.shifts.find(
+    (shift) => shift.kind === input.kind && shift.date === input.date,
+  )!.id;
+};
+const addSlots = (shiftId: string, assignees: (string | null)[], archived = false) =>
+  db.insert(schema.eventStaffSlots).values(
+    assignees.map((assigneeId, sortOrder) => ({
+      shiftId,
+      position: "Server",
+      department: "service" as const,
+      assigneeId,
+      sortOrder,
+      archivedAt: archived ? new Date() : null,
+    })),
+  );
+
+describe("calendar overview mode (FLOW-64)", () => {
+  it("gives every event its venue, guest count, salesperson and staff count (AC1)", async () => {
+    const { gala, brunch } = await seed();
+    await db
+      .update(schema.events)
+      .set({ guestCount: 120 })
+      .where(eq(schema.events.id, gala.id));
+    const setup = await addShift(gala.id, {
+      kind: "setup",
+      date: "2026-09-16",
+      startTime: "14:00",
+      endTime: "18:00",
+    });
+    const day = await addShift(gala.id, {
+      kind: "event_day",
+      date: "2026-09-17",
+      startTime: "15:00",
+      endTime: "23:00",
+    });
+    // The helper works both shifts but counts once; open and removed slots don't count.
+    await addSlots(setup, [people.helper, people.casey, null]);
+    await addSlots(day, [people.helper]);
+    await addSlots(day, [people.sue], true);
+
+    const events = (await admin.get<Calendar>(september)).events;
+    expect(events.find((event) => event.id === gala.id)).toMatchObject({
+      guestCount: 120,
+      salespersonName: "Sam",
+      staffCount: 2,
+      venueName: null,
+    });
+    expect(events.find((event) => event.id === brunch.id)).toMatchObject({
+      guestCount: null,
+      salespersonName: "Sue",
+      staffCount: 0,
+    });
+  });
+
+  it("shows part-time staff the same overview, with no contact or pricing fields (AC1)", async () => {
+    const { gala } = await seed();
+    const mine = await helper.get<Calendar>(september);
+    const theirs = (await admin.get<Calendar>(september)).events.find((e) => e.id === gala.id);
+    expect(mine.events).toEqual([theirs]);
+    expect(Object.keys(mine.events[0]).sort()).toEqual(
+      [
+        "clientName",
+        "end",
+        "guestCount",
+        "id",
+        "salespersonName",
+        "staffCount",
+        "start",
+        "status",
+        "title",
+        "venueName",
+      ].sort(),
+    );
+  });
+});
+
+describe("calendar layers (FLOW-67)", () => {
+  const rental = async (name: string) => {
+    const [item] = await db
+      .insert(schema.inventoryItems)
+      .values({ kind: "rental", name, unit: "each" })
+      .returning();
+    items.push(item.id);
+    return item.id;
+  };
+  const hold = (
+    eventId: string,
+    itemId: string,
+    window: [string, string],
+    status: "tentative" | "confirmed" = "tentative",
+    quantity = 10,
+  ) =>
+    db.insert(schema.reservations).values({
+      eventId,
+      itemId,
+      quantity,
+      status,
+      windowStart: window[0],
+      windowEnd: window[1],
+    });
+
+  it("lists open production tasks the viewer may see", async () => {
+    const { gala } = await seed();
+    const crudites = await newTask({
+      title: "Prep crudités",
+      type: "production",
+      dueAt: "2026-09-17T13:00:00.000Z",
+      assigneeIds: [people.casey],
+      eventId: gala.id,
+    });
+    const mine = await newTask({
+      title: "Fold napkins",
+      type: "production",
+      dueAt: "2026-09-16T13:00:00.000Z",
+      assigneeIds: [people.helper],
+    });
+    await newTask({
+      title: "Count linens",
+      type: "general",
+      dueAt: "2026-09-16T15:00:00.000Z",
+      assigneeIds: [people.casey],
+    });
+    const done = await newTask({
+      title: "Bake rolls",
+      type: "production",
+      dueAt: "2026-09-15T13:00:00.000Z",
+      assigneeIds: [people.casey],
+    });
+    await admin.send("PATCH", `/api/tasks/${done.id}`, { status: "done" });
+
+    const all = await admin.get<Calendar>(september);
+    expect(all.layers.production).toEqual([
+      expect.objectContaining({ id: mine.id, due: "2026-09-16T09:00" }),
+      expect.objectContaining({ id: crudites.id, eventId: gala.id }),
+    ]);
+    // FT+ see every task; part-time staff only theirs.
+    expect((await casey.get<Calendar>(september)).layers.production.map((t) => t.id)).toEqual([
+      mine.id,
+      crudites.id,
+    ]);
+    expect((await helper.get<Calendar>(september)).layers.production.map((t) => t.id)).toEqual([
+      mine.id,
+    ]);
+  });
+
+  it("lists tentative holds per event and window, on the events the viewer may open", async () => {
+    const { gala, brunch } = await seed();
+    const chairs = await rental("Chiavari chairs");
+    const linens = await rental("Ivory linens");
+    await hold(gala.id, chairs, ["2026-09-16", "2026-09-18"], "tentative", 120);
+    await hold(gala.id, linens, ["2026-09-16", "2026-09-18"], "tentative", 12);
+    await hold(brunch.id, chairs, ["2026-09-19", "2026-09-21"], "confirmed");
+    // Outside the range.
+    await hold(brunch.id, linens, ["2026-10-01", "2026-10-03"]);
+
+    const expected = {
+      eventId: gala.id,
+      eventTitle: "Fall gala",
+      start: "2026-09-16",
+      end: "2026-09-18",
+      items: 2,
+      quantity: 132,
+    };
+    expect((await admin.get<Calendar>(september)).layers.holds).toEqual([expected]);
+    expect((await sam.get<Calendar>(september)).layers.holds).toEqual([expected]);
+    expect((await sue.get<Calendar>(september)).layers.holds).toEqual([]);
+    // A window that starts before the range still shows.
+    expect(
+      (await admin.get<Calendar>("/api/calendar?from=2026-09-18&to=2026-09-18")).layers.holds,
+    ).toEqual([expected]);
+  });
+
+  it("puts a day-before setup shift on its own date (AC2) for everyone who may open the event", async () => {
+    const { gala } = await seed();
+    const setup = await addShift(gala.id, {
+      kind: "setup",
+      date: "2026-09-16",
+      startTime: "14:00",
+      endTime: "18:00",
+    });
+    await addSlots(setup, [people.helper, null]);
+    const shift = {
+      id: setup,
+      eventId: gala.id,
+      eventTitle: "Fall gala",
+      kind: "setup",
+      start: "2026-09-16T14:00",
+      end: "2026-09-16T18:00",
+      slots: 2,
+      staffed: 1,
+    };
+    expect((await admin.get<Calendar>(september)).layers.shifts).toEqual([shift]);
+    expect((await helper.get<Calendar>(september)).layers.shifts).toEqual([shift]);
+    expect((await sue.get<Calendar>(september)).layers.shifts).toEqual([]);
+    // Only the day before is in this range: the shift, but not the event.
+    const dayBefore = await admin.get<Calendar>("/api/calendar?from=2026-09-16&to=2026-09-16");
+    expect(dayBefore.events).toEqual([]);
+    expect(dayBefore.layers.shifts.map((s) => s.id)).toEqual([setup]);
   });
 });
 
