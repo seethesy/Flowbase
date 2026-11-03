@@ -15,6 +15,7 @@ export const notificationTypes = [
   "lead_assigned",
   "staff_assigned",
   "staff_unassigned",
+  "event_day_change",
   "approval_requested",
   "approval_decided",
   "inventory_conflict",
@@ -73,6 +74,11 @@ export const notificationCatalog: Record<NotificationType, NotificationTypeInfo>
     label: "Removed from event staff",
     description: "A manager chooses to tell you that you were removed from a shift.",
     event: "event.staff_unassigned",
+  },
+  event_day_change: {
+    label: "Event-day change",
+    description: "An event you're staffing changes on its event day.",
+    event: "event.day_of_changed",
   },
   approval_requested: {
     label: "Approval requested",

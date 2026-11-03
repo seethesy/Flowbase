@@ -43,6 +43,7 @@ import { vendorRoutes } from "./routes/vendors";
 import { orderListRoutes } from "./routes/order-lists";
 import { announceChanges } from "./realtime";
 import * as fixtures from "../src/data/mock/fixtures";
+import { incrementUsage } from "./records/usage";
 
 type DbCheck = {
   list: (env: Bindings) => Promise<ConnectionCheck[]>;
@@ -67,6 +68,11 @@ export function createApp(options: Options = {}) {
     c.set("requestId", requestId);
     c.header("X-Request-ID", requestId);
     await next();
+    if (options.withDb && c.env?.HYPERDRIVE) try {
+      await options.withDb(c.env, (db) => incrementUsage(db, "worker_requests", 1));
+    } catch (error) {
+      console.error("usage_request_count_failed", error);
+    }
     console.log(
       JSON.stringify({
         event: "api_request",

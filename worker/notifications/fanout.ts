@@ -12,6 +12,7 @@ import type { Db, DbLike } from "../db/client";
 import {
   events,
   eventShifts,
+  eventStaffSlots,
   leads,
   notificationPreferences,
   notifications,
@@ -30,6 +31,7 @@ import {
   notificationEmail,
   type EmailProvider,
 } from "./email";
+import { routeSms } from "./sms";
 
 // Notification fan-out (FLOW-43). Each notification type subscribes to its domain
 // event (shared/notifications.ts). The subscriber works out who is told and what
@@ -46,6 +48,7 @@ export type Recipient = {
   title: string;
   body: string;
   link: string | null;
+  smsEligible?: boolean;
 };
 
 const when = (instant: Date) => {
@@ -114,7 +117,10 @@ export async function deliver(
       .onConflictDoNothing({
         target: [notifications.sourceKey, notifications.userId],
       })
-      .returning({ id: notifications.id, userId: notifications.userId });
+      .returning({ id: notifications.id, userId: notifications.userId,
+        title: notifications.title, body: notifications.body });
+    const fallback = await routeSms(tx, type, created.filter((row) =>
+      type !== "staff_assigned" || byUser.get(row.userId)?.smsEligible === true));
     // AC2: in-app always; email only where the person hasn't turned it off.
     const off = await emailOff(
       tx,
@@ -122,10 +128,10 @@ export async function deliver(
       type,
     );
     for (const row of created)
-      if (!off.has(row.userId))
+      if (!off.has(row.userId) || fallback.has(row.id))
         await enqueueJob(tx, {
           type: EMAIL_JOB,
-          payload: { notificationId: row.id },
+          payload: { notificationId: row.id, force: fallback.has(row.id) },
           idempotencyKey: `${EMAIL_JOB}:${row.id}`,
         });
     return created.length;
@@ -296,6 +302,8 @@ const staffAssigned: Subscriber = async (job, db) => {
       title: `You're on the staff roster: ${event.title}`,
       body: details.join(" · "),
       link: `/events/${event.id}`,
+      smsEligible: Boolean(shift &&
+        utcToBusinessTime(shift.startsAt).date === utcToBusinessTime(job.createdAt).date),
     },
   ];
 };
@@ -323,6 +331,21 @@ const staffUnassigned: Subscriber = async (job, db) => {
   }];
 };
 
+const eventDayChange: Subscriber = async (job, db) => {
+  const eventId = payloadOf(job).entityId;
+  if (typeof eventId !== "string") return [];
+  const [event] = await db.select({ title: events.title }).from(events)
+    .where(eq(events.id, eventId));
+  if (!event) return [];
+  const slots = await db.select({ userId: eventStaffSlots.assigneeId })
+    .from(eventStaffSlots).innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
+    .where(and(eq(eventShifts.eventId, eventId), isNull(eventStaffSlots.archivedAt),
+      isNull(eventShifts.archivedAt)));
+  return [...new Set(slots.map((slot) => slot.userId).filter((id): id is string => !!id))]
+    .map((userId) => ({ userId, title: `Event-day change: ${event.title}`,
+      body: "Event details changed today. Review the current plan.", link: `/events/${eventId}` }));
+};
+
 // Every other type: the producing module names the recipients and the message
 // (notifyPayloadSchema). A malformed payload fails the job so it shows up for an
 // admin instead of being dropped.
@@ -345,6 +368,7 @@ const subscribers: Partial<Record<NotificationType, Subscriber>> = {
   lead_assigned: leadAssigned,
   staff_assigned: staffAssigned,
   staff_unassigned: staffUnassigned,
+  event_day_change: eventDayChange,
 };
 
 export type NotificationOptions = {
@@ -378,7 +402,7 @@ export async function sendNotificationEmail(
   if (!row || row.notification.emailedAt || row.notification.archivedAt) return;
   if (row.status !== "active" || row.archivedAt) return;
   const off = await emailOff(db, [row.notification.userId], row.notification.type);
-  if (off.size) {
+  if (off.size && payloadOf(job).force !== true) {
     log("notification_email_skipped", { notificationId, reason: "turned_off" });
     return;
   }

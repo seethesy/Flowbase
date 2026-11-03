@@ -50,6 +50,10 @@ const TimeReports = lazy(() =>
 const SettingsPage = lazy(() =>
   import("../features/settings").then((module) => ({ default: module.SettingsPage })),
 );
+const CollectorHealthPage = lazy(() => import("../features/collector-health")
+  .then((module) => ({ default: module.CollectorHealthPage })));
+const UsagePage = lazy(() => import("../features/usage")
+  .then((module) => ({ default: module.UsagePage })));
 const StaffDetail = lazy(() =>
   import("../features/staff").then((module) => ({ default: module.StaffDetail })),
 );
@@ -235,6 +239,8 @@ export const getRouter = () =>
         { path: "/imports", element: <ImportList /> },
         { path: "/imports/:module", element: <ImportPage /> },
         { path: "/settings", element: <SettingsPage /> },
+        { path: "/settings/collector", element: <CollectorHealthPage /> },
+        { path: "/settings/usage", element: <UsagePage /> },
         { path: "/settings/users", element: <UserManagement /> },
         ...["purchasing", "help", "*"].map((path) => ({
           path,

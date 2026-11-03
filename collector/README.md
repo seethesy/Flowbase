@@ -54,6 +54,7 @@ repo and add these Actions secrets (names only here; values never enter Flowbase
 | `COLLECTOR_STATE_KEY` | A long random string that encrypts saved sessions |
 | `COLLECTOR_<SITE>_USERNAME`, `COLLECTOR_<SITE>_PASSWORD` | Each site's login, for `BARK`, `PERFECT_VENUE`, `WEDDINGPRO`, `EVENTECTIVE` (added as each site module lands) |
 | `COLLECTOR_<SITE>_BASE_URL` | Signed-in origin for each of those four sites. Set explicitly from the account's browser URL; the fixtures contain relative paths only. |
+| `GITHUB_BILLING_TOKEN` | Fine-grained PAT for the account's billing usage summary with Plan (read) permission. The ops workflow posts account-wide Actions minutes to Flowbase; without it, the usage metric is unavailable. |
 
 The saved fixtures contain signed-in pages, not login forms. On an expired session,
 the modules submit credentials only when a conventional login form is visible. An

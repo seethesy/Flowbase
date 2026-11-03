@@ -53,6 +53,7 @@ export function SettingsPage() {
       )}
       {manage && (
         <>
+          <Section title="Operations"><Link to="/settings/collector">Collector health and SMS outbox</Link> ·{" "}<Link to="/settings/usage">Free-tier usage</Link></Section>
           <CompanySettings />
           <ListSettings />
           <DefaultSettings />
@@ -487,7 +488,7 @@ function DefaultSettings() {
         <div className="form-grid">
           <fieldset className="settings-urgent">
             <legend>Urgent notification types (SMS)</legend>
-            <p className="settings-hint">Sent by text as well, to staff who opted in (FLOW-52).</p>
+            <p className="settings-hint">Recorded in the SMS outbox for staff who opted in. No text is sent by the stub provider.</p>
             {notificationTypes.map((type) => (
               <label key={type}>
                 <input
