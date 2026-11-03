@@ -17,7 +17,7 @@ import type {
 import type { Task } from "../../shared/tasks";
 import { createJobRegistry } from "../../worker/jobs/cron";
 import { emitDomainEvent, runDueJobs, type JobRegistry } from "../../worker/jobs/queue";
-import { EMAIL_JOB } from "../../worker/notifications/fanout";
+import { EMAIL_JOB, deliver } from "../../worker/notifications/fanout";
 import type { EmailMessage, EmailProvider } from "../../worker/notifications/email";
 
 // Notifications (FLOW-43) through the real jobs system and database: fan-out
@@ -112,7 +112,7 @@ const notificationsOf = (who: keyof typeof people) =>
 const emailJobs = () =>
   db.select().from(schema.jobs).where(eq(schema.jobs.type, EMAIL_JOB));
 
-const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, notifications, notification_preferences, task_comments, task_checklist_items, task_assignees, tasks, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table sms_outbox, consumable_allocations, event_requirements, reservation_conflicts, reservations, notifications, notification_preferences, task_comments, task_checklist_items, task_assignees, tasks, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -545,5 +545,40 @@ describe("notification center", () => {
     const all = await casey.send<NotificationInbox>("POST", "/api/notifications/read-all", {});
     expect(all.unreadCount).toBe(0);
     expect((await drew.send<NotificationInbox>("GET", "/api/notifications")).unreadCount).toBe(1);
+  });
+});
+
+describe("SMS stub routing", () => {
+  const send = async (key: string, type: "task_assigned" | "collector_failure", userId: string) => {
+    const [job] = await db.insert(schema.jobs).values({ type: `event:${key}`,
+      payload: {}, idempotencyKey: key }).returning();
+    await deliver(db, job, type, [{ userId, title: key, body: "Urgent update", link: null }]);
+  };
+  it("records one urgent message only for an opted-in recipient", async () => {
+    await db.insert(schema.settings).values({ key: "defaults",
+      value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 10 } });
+    await db.update(schema.users).set({ smsConsentAt: new Date() })
+      .where(eq(schema.users.id, people.casey));
+    await send("urgent-1", "task_assigned", people.casey);
+    await send("ordinary-1", "collector_failure", people.casey);
+    await send("urgent-no-consent", "task_assigned", people.drew);
+    const rows = await db.select().from(schema.smsOutbox);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: people.casey, status: "recorded", provider: "stub" });
+  });
+  it("forces email fallback at the cap and alerts Admin once", async () => {
+    await db.insert(schema.settings).values({ key: "defaults",
+      value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 1 } });
+    await db.update(schema.users).set({ smsConsentAt: new Date() })
+      .where(eq(schema.users.id, people.casey));
+    await casey.send("PUT", "/api/notifications/preferences", { email: { task_assigned: false } });
+    await send("first-urgent", "task_assigned", people.casey);
+    await send("second-urgent", "task_assigned", people.casey);
+    await send("third-urgent", "task_assigned", people.casey);
+    expect(await db.select().from(schema.smsOutbox)).toHaveLength(1);
+    const alerts = (await notificationsOf("admin")).filter((row) => row.title === "Monthly SMS cap reached");
+    expect(alerts).toHaveLength(1);
+    await drain();
+    expect(sent.filter((message) => message.to === "casey@notify.example")).toHaveLength(2);
   });
 });

@@ -659,6 +659,17 @@ export const collectorRuns = pgTable(
   ],
 ).enableRLS();
 
+export const collectorSites = pgTable(
+  "collector_sites",
+  {
+    ...baseColumns(),
+    site: text("site").notNull().unique(),
+    noLeadsGapHours: integer("no_leads_gap_hours").notNull().default(48),
+    failureThreshold: integer("failure_threshold").notNull().default(3),
+    alertState: text("alert_state").notNull().default("ok"),
+  },
+).enableRLS();
+
 // Possible duplicates (FLOW-110): a lead matched to an earlier lead, or to a client,
 // by email or phone, or by name and event date. Open until someone merges the
 // leads or dismisses the match.
@@ -1325,6 +1336,26 @@ export const notificationPreferences = pgTable(
       table.type,
     ),
     oneOf("notification_preferences_type_check", table.type, notificationTypes),
+  ],
+).enableRLS();
+
+// Stub SMS delivery log. A provider can later replace the recorder while keeping
+// the same consent, cap and idempotency rules.
+export const smsOutbox = pgTable(
+  "sms_outbox",
+  {
+    ...baseColumns(),
+    notificationId: uuid("notification_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    mobile: text("mobile").notNull(),
+    body: text("body").notNull(),
+    status: text("status", { enum: ["recorded", "sent", "failed"] }).notNull().default("recorded"),
+    provider: text("provider").notNull().default("stub"),
+  },
+  (table) => [
+    uniqueIndex("sms_outbox_notification_idx").on(table.notificationId),
+    index("sms_outbox_created_idx").on(table.createdAt),
+    oneOf("sms_outbox_status_check", table.status, ["recorded", "sent", "failed"]),
   ],
 ).enableRLS();
 

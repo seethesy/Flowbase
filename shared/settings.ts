@@ -150,9 +150,9 @@ export const businessDefaultsSchema = z.object({
   paymentTerms: text(2000).default(""),
   // Notification types (shared/notifications.ts keys, FLOW-43) sent by SMS as
   // well as in the app and by email.
-  urgentNotificationTypes: keyList.default([]),
+  urgentNotificationTypes: keyList.default(["staff_assigned", "collector_failure"]),
   // SMS messages the app may send in a calendar month; 0 sends none.
-  monthlySmsCap: z.number().int().min(0).max(100_000).default(0),
+  monthlySmsCap: z.number().int().min(0).max(100_000).default(1000),
   // Minutes without typing or clicking before time tracking stops (FLOW-119's
   // answer: 5).
   idleCutoffMinutes: z.number().int().min(1).max(60).default(5),

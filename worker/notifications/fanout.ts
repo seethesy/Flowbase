@@ -30,6 +30,7 @@ import {
   notificationEmail,
   type EmailProvider,
 } from "./email";
+import { routeSms } from "./sms";
 
 // Notification fan-out (FLOW-43). Each notification type subscribes to its domain
 // event (shared/notifications.ts). The subscriber works out who is told and what
@@ -114,7 +115,9 @@ export async function deliver(
       .onConflictDoNothing({
         target: [notifications.sourceKey, notifications.userId],
       })
-      .returning({ id: notifications.id, userId: notifications.userId });
+      .returning({ id: notifications.id, userId: notifications.userId,
+        title: notifications.title, body: notifications.body });
+    const fallback = await routeSms(tx, type, created);
     // AC2: in-app always; email only where the person hasn't turned it off.
     const off = await emailOff(
       tx,
@@ -122,10 +125,10 @@ export async function deliver(
       type,
     );
     for (const row of created)
-      if (!off.has(row.userId))
+      if (!off.has(row.userId) || fallback.has(row.id))
         await enqueueJob(tx, {
           type: EMAIL_JOB,
-          payload: { notificationId: row.id },
+          payload: { notificationId: row.id, force: fallback.has(row.id) },
           idempotencyKey: `${EMAIL_JOB}:${row.id}`,
         });
     return created.length;
@@ -378,7 +381,7 @@ export async function sendNotificationEmail(
   if (!row || row.notification.emailedAt || row.notification.archivedAt) return;
   if (row.status !== "active" || row.archivedAt) return;
   const off = await emailOff(db, [row.notification.userId], row.notification.type);
-  if (off.size) {
+  if (off.size && payloadOf(job).force !== true) {
     log("notification_email_skipped", { notificationId, reason: "turned_off" });
     return;
   }

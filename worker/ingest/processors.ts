@@ -1,6 +1,7 @@
 import { collectedLeadSchema, collectorRunSchema } from "../../shared/collector";
 import { collectorRuns } from "../db/schema";
 import { createLead } from "../records/leads";
+import { registerCollectorSite, scanCollectorHealth } from "../records/collector-health";
 import type { IngestProcessor } from "./receipts";
 import { thumbtackLead } from "./thumbtack";
 
@@ -47,6 +48,8 @@ export const ingestProcessors = new Map<string, IngestProcessor>([
           message: run.message,
         })
         .onConflictDoNothing();
+      await registerCollectorSite(db, run.site);
+      await scanCollectorHealth(db, new Date(run.finishedAt));
     },
   ],
 ]);

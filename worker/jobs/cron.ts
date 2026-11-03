@@ -9,6 +9,7 @@ import {
 import { registerInventoryPlanning } from "../records/allocations";
 import { registerRecipeCostChanges } from "../records/recipes";
 import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
+import { scanCollectorHealth } from "../records/collector-health";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
@@ -41,6 +42,7 @@ export async function runScheduledJobs(
     const now = options.now?.() ?? new Date();
     const tasksDue = await emitDueTaskEvents(db, now);
     const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
+    await scanCollectorHealth(db, now);
     return {
       tasksDue,
       tasksDueSoon,

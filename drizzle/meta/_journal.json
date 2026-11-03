@@ -246,6 +246,13 @@
       "when": 1793310647574,
       "tag": "0034_order_lists_email_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793745985928,
+      "tag": "0035_sms_collector_health",
+      "breakpoints": true
     }
   ]
 }
