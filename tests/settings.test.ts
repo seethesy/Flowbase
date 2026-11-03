@@ -44,8 +44,8 @@ it("fills defaults and bounds every business default", () => {
     rentalBufferDaysAfter: 1,
     ratioDefaults: [],
     paymentTerms: "",
-    urgentNotificationTypes: [],
-    monthlySmsCap: 0,
+    urgentNotificationTypes: ["staff_assigned", "collector_failure"],
+    monthlySmsCap: 1000,
     idleCutoffMinutes: 5,
     beoKeyFields: [],
   });
