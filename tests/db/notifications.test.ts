@@ -14,6 +14,7 @@ import type {
   NotificationInbox,
   NotificationPreference,
 } from "../../shared/notifications";
+import { notificationTypes } from "../../shared/notifications";
 import type { Task } from "../../shared/tasks";
 import { createJobRegistry } from "../../worker/jobs/cron";
 import { emitDomainEvent, runDueJobs, type JobRegistry } from "../../worker/jobs/queue";
@@ -451,7 +452,7 @@ describe("AC2: email preferences", () => {
       "GET",
       "/api/notifications/preferences",
     );
-    expect(preferences).toHaveLength(16);
+    expect(preferences).toHaveLength(notificationTypes.length);
     expect(preferences.every((p) => p.email)).toBe(true);
     expect(preferences.filter((p) => p.urgent).map((p) => p.type)).toEqual([
       "staff_assigned",
