@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eventStatusSchema } from "./core-records";
+import { shiftKindSchema } from "./event-staff";
 import { id, localDate } from "./schema-primitives";
 import { taskPrioritySchema, taskStatusSchema } from "./tasks";
 
@@ -37,6 +38,13 @@ export const calendarEventSchema = z.object({
   end: wallClock.nullable(),
   clientName: z.string(),
   venueName: z.string().nullable(),
+  // Overview mode (FLOW-64). None of these is in a restricted field group
+  // (shared/visibility.ts), so everyone who may open the event sees them.
+  guestCount: z.number().int().nullable(),
+  // Null when the event has no salesperson.
+  salespersonName: z.string().nullable(),
+  // People assigned to the event's staffing slots, each counted once.
+  staffCount: z.number().int(),
 });
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 
@@ -50,9 +58,55 @@ export const calendarTaskSchema = z.object({
 });
 export type CalendarTask = z.infer<typeof calendarTaskSchema>;
 
+// Calendar layers (FLOW-67): event-related schedules the page can show or hide.
+// The API always sends every layer, so toggling one needs no new request. Truck
+// assignments and expected order deliveries join when their modules exist.
+export const calendarLayers = ["production", "holds", "shifts"] as const;
+export const calendarLayerSchema = z.enum(calendarLayers);
+export type CalendarLayer = z.infer<typeof calendarLayerSchema>;
+export const calendarLayerLabels: Record<CalendarLayer, string> = {
+  production: "Production tasks",
+  holds: "Tentative holds",
+  shifts: "Staff shifts",
+};
+
+// The tentative rental holds of one event over one window of New York dates.
+export const calendarHoldSchema = z.object({
+  eventId: id,
+  eventTitle: z.string(),
+  // Inclusive New York dates.
+  start: localDate,
+  end: localDate,
+  // Distinct items held and their total quantity.
+  items: z.number().int(),
+  quantity: z.number(),
+});
+export type CalendarHold = z.infer<typeof calendarHoldSchema>;
+
+// A shift on an event's roster (FLOW-140), including setup days before it.
+export const calendarShiftSchema = z.object({
+  id,
+  eventId: id,
+  eventTitle: z.string(),
+  kind: shiftKindSchema,
+  start: wallClock,
+  end: wallClock,
+  slots: z.number().int(),
+  // Slots with someone assigned.
+  staffed: z.number().int(),
+});
+export type CalendarShift = z.infer<typeof calendarShiftSchema>;
+
 export const calendarSchema = z.object({
   events: z.array(calendarEventSchema),
   // Open tasks the viewer is assigned to, oversees or created, by due time.
   tasks: z.array(calendarTaskSchema),
+  layers: z.object({
+    // Open production tasks the viewer may see (FT+ all, others their own).
+    production: z.array(calendarTaskSchema),
+    // Tentative holds and shifts on the events the viewer may open.
+    holds: z.array(calendarHoldSchema),
+    shifts: z.array(calendarShiftSchema),
+  }),
 });
 export type Calendar = z.infer<typeof calendarSchema>;

@@ -27,6 +27,70 @@
 .calendar-panel .calendar-status-lost {
   opacity: 0.6;
 }
+/* Overview mode (FLOW-64): a compact block per event. */
+.calendar-panel .calendar-overview {
+  overflow: hidden;
+  padding: 1px 2px;
+  white-space: normal;
+}
+.calendar-panel .calendar-overview .fc-event-title {
+  font-weight: 600;
+}
+.calendar-panel .calendar-overview-details {
+  font-size: 11px;
+  line-height: 1.3;
+  opacity: 0.9;
+}
+.calendar-panel .fc-list-event .calendar-overview-details {
+  font-size: 12px;
+}
+/* Layers (FLOW-67). */
+.calendar-layers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.calendar-layers legend {
+  float: left;
+  margin-right: 4px;
+  font-weight: 600;
+}
+.calendar-layer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  cursor: pointer;
+}
+.calendar-panel .calendar-production {
+  background: #ede9fe;
+  border-color: #7c3aed;
+}
+.calendar-panel .calendar-hold {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  border-style: dashed;
+}
+.calendar-panel .calendar-shift {
+  background: #dcfce7;
+  border-color: #16a34a;
+}
+.calendar-panel .calendar-production .fc-event-title,
+.calendar-panel .calendar-production .fc-event-time {
+  color: #4c1d95;
+}
+.calendar-panel .calendar-hold .fc-event-title,
+.calendar-panel .calendar-hold .fc-event-time {
+  color: #0c4a6e;
+}
+.calendar-panel .calendar-shift .fc-event-title,
+.calendar-panel .calendar-shift .fc-event-time {
+  color: #14532d;
+}
 @media (max-width: 767px) {
   .calendar-panel {
     padding: 8px;
