@@ -10,7 +10,7 @@ const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL must point to the disposable CI Postgres service.");
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
-const clear = sql`truncate table collector_sites, collector_runs, notifications, jobs, users`;
+const clear = sql`truncate table collector_sites, collector_runs, sms_outbox, notifications, ingest_receipts, jobs, users cascade`;
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(clear);
