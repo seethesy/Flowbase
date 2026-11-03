@@ -566,6 +566,19 @@ describe("SMS stub routing", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ userId: people.casey, status: "recorded", provider: "stub" });
   });
+  it("records staff assignment SMS only when the assignment is for event day", async () => {
+    await db.insert(schema.settings).values({ key: "defaults",
+      value: { urgentNotificationTypes: ["staff_assigned"], monthlySmsCap: 10 } });
+    await db.update(schema.users).set({ smsConsentAt: new Date() })
+      .where(eq(schema.users.id, people.casey));
+    for (const [key, smsEligible] of [["future", false], ["event-day", true]] as const) {
+      const [job] = await db.insert(schema.jobs).values({ type: "event:event.staff_assigned",
+        payload: {}, idempotencyKey: `assignment-${key}` }).returning();
+      await deliver(db, job, "staff_assigned", [{ userId: people.casey,
+        title: key, body: "Shift", link: null, smsEligible }]);
+    }
+    expect(await db.select().from(schema.smsOutbox)).toHaveLength(1);
+  });
   it("forces email fallback at the cap and alerts Admin once", async () => {
     await db.insert(schema.settings).values({ key: "defaults",
       value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 1 } });

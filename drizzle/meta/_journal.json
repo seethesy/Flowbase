@@ -260,6 +260,13 @@
       "when": 1793747526325,
       "tag": "0036_free_tier_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793748399017,
+      "tag": "0037_event_day_notifications",
+      "breakpoints": true
     }
   ]
 }

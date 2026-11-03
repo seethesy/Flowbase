@@ -49,6 +49,7 @@ import {
 } from "../db/schema";
 import { ApiError, forbidden, notFound, requireVersion } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
+import { changedOnEventDay } from "../notifications/event-day";
 import { can, clientScope, eventScope } from "../policy";
 import type { productionLeadsInputSchema } from "../../shared/event-staff";
 import { setArchived } from "./archive";
@@ -472,14 +473,17 @@ export async function updateEvent(
       })
       .where(eq(events.id, id));
     if (resolved.areas) await replaceAreas(tx, id, resolved.areas);
+    const after = await eventSnapshot(tx, id);
     await writeAudit(tx, actor, {
       entityType: "event",
       entityId: id,
       action: "update",
       before,
-      after: await eventSnapshot(tx, id),
+      after,
     });
     await emitDomainEvent(tx, { name: "event.updated", entityId: id });
+    if (changedOnEventDay(current.startsAt, new Date(), before, after))
+      await emitDomainEvent(tx, { name: "event.day_of_changed", entityId: id });
     // A new date, venue buffer or guest count moves holds and per-guest needs.
     await syncEventHolds(tx, id);
     await requestEventRecompute(tx, id);
