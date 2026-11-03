@@ -253,6 +253,13 @@
       "when": 1793745985928,
       "tag": "0035_sms_collector_health",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793747526325,
+      "tag": "0036_free_tier_usage",
+      "breakpoints": true
     }
   ]
 }

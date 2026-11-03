@@ -126,6 +126,14 @@ export const ingestSources = new Map<string, IngestSource>([
       recordId: (_request, json) => stringField(json, "sourceRecordId"),
     },
   ],
+  [
+    "actions-usage",
+    {
+      authenticate: bearerToken((env) => env.INGEST_TOKEN_LEADS),
+      authenticateBeforeBody: true,
+      recordId: (_request, json) => stringField(json, "sourceRecordId"),
+    },
+  ],
   // Thumbtack lead webhooks (FLOW-108): one receipt per lead + event.
   [
     "thumbtack",

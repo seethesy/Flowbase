@@ -1359,6 +1359,19 @@ export const smsOutbox = pgTable(
   ],
 ).enableRLS();
 
+// Approximate free-tier use. Period is UTC day, UTC month, or "current" for
+// storage snapshots; each update is an atomic counter or replacement.
+export const usageCounters = pgTable(
+  "usage_counters",
+  {
+    ...baseColumns(),
+    metric: text("metric").notNull(),
+    period: text("period").notNull(),
+    value: numeric("value").notNull().default("0"),
+  },
+  (table) => [uniqueIndex("usage_counters_metric_period_idx").on(table.metric, table.period)],
+).enableRLS();
+
 // Approval requests (FLOW-44): one table for every module's approvals. The
 // subject type is the requesting module's own name, registered with the engine
 // in worker/records/approvals.ts, so it has no CHECK list here.

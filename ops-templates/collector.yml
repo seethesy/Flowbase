@@ -31,6 +31,29 @@ jobs:
           path: flowbase
           token: ${{ secrets.FLOWBASE_READ_TOKEN }}
           persist-credentials: false
+      - name: Report account-wide Actions minutes
+        env:
+          GITHUB_BILLING_TOKEN: ${{ secrets.GITHUB_BILLING_TOKEN }}
+          FLOWBASE_URL: ${{ secrets.FLOWBASE_URL }}
+          INGEST_TOKEN_LEADS: ${{ secrets.INGEST_TOKEN_LEADS }}
+        run: |
+          if [ -z "$GITHUB_BILLING_TOKEN" ]; then
+            echo "GITHUB_BILLING_TOKEN is not configured; skipping usage report."
+            exit 0
+          fi
+          year=$(date -u +%Y)
+          month=$(date -u +%-m)
+          period=$(date -u +%Y-%m)
+          report=$(curl -fsS -H "Authorization: Bearer $GITHUB_BILLING_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/users/${{ github.repository_owner }}/settings/billing/usage/summary?year=$year&month=$month")
+          minutes=$(jq -e '[.usageItems[] | select(.product == "Actions" and .unitType == "minutes") | .grossQuantity] | add // 0' <<< "$report")
+          jq -n --arg period "$period" --argjson minutes "$minutes" \
+            '{sourceRecordId: ($period + ":" + ($minutes | tostring)), period: $period, minutes: $minutes}' \
+            | curl -fsS -X POST -H "Authorization: Bearer $INGEST_TOKEN_LEADS" \
+              -H "Content-Type: application/json" --data-binary @- \
+              "$FLOWBASE_URL/api/ingest/actions-usage"
       - uses: actions/setup-node@v4
         with:
           # Node 24 runs the collector's TypeScript directly.

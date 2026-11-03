@@ -4,10 +4,21 @@ import { createLead } from "../records/leads";
 import { registerCollectorSite, scanCollectorHealth } from "../records/collector-health";
 import type { IngestProcessor } from "./receipts";
 import { thumbtackLead } from "./thumbtack";
+import { z } from "zod";
+import { recordGithubUsage } from "../records/usage";
 
 // Turns stored receipts into records, by ingest source (FLOW-28). A receipt that
 // doesn't parse fails its job, so it shows in the admin receipts list for replay.
 export const ingestProcessors = new Map<string, IngestProcessor>([
+  [
+    "actions-usage",
+    async (receipt, { db }) => {
+      const report = z.object({ sourceRecordId: z.string(),
+        period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+        minutes: z.number().finite().nonnegative() }).parse(JSON.parse(receipt.body));
+      await recordGithubUsage(db, report.period, report.minutes);
+    },
+  ],
   // Lead collector (FLOW-102): one lead per receipt, channel "collector".
   [
     "leads",

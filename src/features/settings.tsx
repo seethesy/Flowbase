@@ -53,7 +53,7 @@ export function SettingsPage() {
       )}
       {manage && (
         <>
-          <Section title="Operations"><Link to="/settings/collector">Collector health and SMS outbox</Link></Section>
+          <Section title="Operations"><Link to="/settings/collector">Collector health and SMS outbox</Link> ·{" "}<Link to="/settings/usage">Free-tier usage</Link></Section>
           <CompanySettings />
           <ListSettings />
           <DefaultSettings />
