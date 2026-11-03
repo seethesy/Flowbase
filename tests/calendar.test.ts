@@ -63,7 +63,9 @@ it("draws events by their New York wall-clock times and opens their pages", () =
       title: "Fall gala · Closed",
       start: "2026-09-17T17:00",
       end: "2026-09-17T22:00",
-      extendedProps: { path: "/events/e0000000-0000-4000-8000-000000000001" },
+      extendedProps: expect.objectContaining({
+        path: "/events/e0000000-0000-4000-8000-000000000001",
+      }),
     }),
     expect.objectContaining({
       title: "Task: Polish the chafing dishes",
