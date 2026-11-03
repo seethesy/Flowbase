@@ -27,5 +27,19 @@ export default createApp({
   withDb,
   checkDatabase,
   resolveActor,
+  // No Sentry here: print what a 500 threw so a failing CI run shows the cause.
+  captureError: (error, requestId) => {
+    const { code } = error as Error & { code?: unknown };
+    console.error(
+      JSON.stringify({
+        event: "e2e_unhandled_error",
+        requestId,
+        name: error.name,
+        message: error.message,
+        code,
+        cause: error.cause instanceof Error ? error.cause.message : undefined,
+      }),
+    );
+  },
   importModules: [rentalImporter],
 });
