@@ -120,6 +120,9 @@ export const barDetailsSchema = z.object({
   // Wine and liquor only (barSubcategories).
   subcategory: text(100).default(""),
   container: barContainerSchema.nullable().default(null),
+  // The item to reorder when its tier runs short (FLOW-170 A2). Left out, a save
+  // keeps the stored value.
+  housePick: z.boolean().optional(),
 });
 const isBarStock = (item: { kind: ItemKind; subtype: string | null }) =>
   item.kind === "consumable" && item.subtype === "bar";
@@ -369,7 +372,7 @@ export const itemSchema = z.object({
     .nullable(),
   service: serviceDetailsSchema.nullable(),
   // Bar stock only (consumable, subtype bar).
-  bar: barDetailsSchema.nullable(),
+  bar: barDetailsSchema.extend({ housePick: z.boolean().default(false) }).nullable(),
   // Per-section quantities; services never have stock.
   stock: z.array(stockLevelSchema),
   totalQuantity: z.number(),

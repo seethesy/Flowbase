@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  barPlanSchema,
   itemAllocationSchema,
   requirementSchema,
+  type BarPlanInput,
   type RequirementsInput,
 } from "../../shared/allocation";
 import {
@@ -42,6 +44,10 @@ export const planningApi = {
     request(requirementSchema.array(), at("events", eventId, "requirements")),
   setRequirements: (eventId: string, input: RequirementsInput) =>
     request(requirementSchema.array(), at("events", eventId, "requirements"), "PUT", input),
+  // Bar plan (FLOW-170): bar quantities by item and by tier.
+  barPlan: (eventId: string) => request(barPlanSchema, at("events", eventId, "bar-plan")),
+  setBarPlan: (eventId: string, input: BarPlanInput) =>
+    request(barPlanSchema, at("events", eventId, "bar-plan"), "PUT", input),
   allocations: (itemId: string) =>
     request(itemAllocationSchema.array(), at("inventory/items", itemId, "allocations")),
 };

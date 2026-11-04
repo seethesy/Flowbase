@@ -189,6 +189,8 @@ function ItemFormFields({
     subcategory: item?.bar?.subcategory ?? "",
     container: item?.bar?.container ?? "",
   }));
+  // The item reordered when its tier runs short (FLOW-170).
+  const [housePick, setHousePick] = useState(item?.bar?.housePick ?? false);
   // A new bar item is kept in Bar Storage unless the user picks another section.
   const [storageTouched, setStorageTouched] = useState(Boolean(item));
   // Allergens are set on dishes, not ingredients (FLOW-95); an item keeps any it
@@ -369,6 +371,7 @@ function ItemFormFields({
             ? fields.subcategory
             : "",
           container: (fields.container || null) as BarContainer | null,
+          housePick,
         },
       }),
     };
@@ -556,6 +559,17 @@ function ItemFormFields({
                     </option>
                   ))}
                 </select>
+              </FormField>
+              <FormField
+                label="House pick"
+                hint="Reordered when an event's tier runs short"
+              >
+                <input
+                  type="checkbox"
+                  aria-label="House pick for its tier"
+                  checked={housePick}
+                  onChange={(e) => setHousePick(e.target.checked)}
+                />
               </FormField>
             </>
           ) : (

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { requirementsInputSchema } from "../../shared/allocation";
+import { barPlanInputSchema, requirementsInputSchema } from "../../shared/allocation";
 import {
   conflictStateSchema,
   reservationInputSchema,
@@ -19,8 +19,10 @@ import {
   type RunWithDb,
 } from "../hono";
 import {
+  getBarPlan,
   itemAllocations,
   listRequirements,
+  setBarPlan,
   setManualRequirements,
 } from "../records/allocations";
 import {
@@ -140,6 +142,16 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
     const id = param(c, "id", "Event");
     const input = await parseBody(c, requirementsInputSchema);
     return c.json(await record(c, (db, actor) => setManualRequirements(db, actor, id, input)));
+  });
+  // Bar plan (FLOW-170): bar quantities by item and by tier.
+  routes.get("/events/:id/bar-plan", requirePermission("events.read"), async (c) => {
+    const id = param(c, "id", "Event");
+    return c.json(await record(c, (db, actor) => getBarPlan(db, actor, id)));
+  });
+  routes.put("/events/:id/bar-plan", requirePermission("events.write"), async (c) => {
+    const id = param(c, "id", "Event");
+    const input = await parseBody(c, barPlanInputSchema);
+    return c.json(await record(c, (db, actor) => setBarPlan(db, actor, id, input)));
   });
   routes.get(
     "/inventory/items/:id/allocations",

@@ -17,6 +17,7 @@ const bar = (
       brand: details.brand,
       subcategory: details.subcategory,
       container: "bottle",
+      housePick: false,
     },
     details: {
       purchaseUnit: "case",

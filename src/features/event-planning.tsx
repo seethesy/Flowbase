@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
-import { requirementBasisLabels, type Requirement } from "../../shared/allocation";
+import {
+  requirementBasisLabels,
+  type BarPlan,
+  type BarTierPlan,
+  type Requirement,
+} from "../../shared/allocation";
+import { barCategories, barSubcategories, barTierLabels, barTierSchema, type BarTier } from "../../shared/inventory";
 import {
   holdStatusLabels,
   resolutionMethodLabels,
@@ -19,7 +25,7 @@ import "./event-planning.css";
 
 // What the event needs from the warehouse and the pantry (FLOW-76/77/85): the
 // equipment it holds, the conflicts those holds are in, and the consumables it
-// requires with what is short and when to order.
+// requires with what is short and when to order, and its bar plan (FLOW-170).
 
 const number = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 4 });
 
@@ -70,17 +76,21 @@ function PlanningSections({
     () => allPages((cursor) => inventoryApi.list({}, cursor)),
     { reference: true },
   );
+  const bar = useResource(["event-bar-plan", event.id], () => planningApi.barPlan(event.id));
   const [error, setError] = useState("");
-  const failed = holds.error ?? conflicts.error ?? needs.error;
+  const failed = holds.error ?? conflicts.error ?? needs.error ?? bar.error;
   if (failed)
     return (
       <Section title="Equipment & stock">
         <LoadError message={failed} />
       </Section>
     );
-  if (!holds.data || !conflicts.data || !needs.data) return <LoadingSkeleton />;
+  if (!holds.data || !conflicts.data || !needs.data || !bar.data) return <LoadingSkeleton />;
   const rentals = (items.data ?? []).filter((item) => item.kind === "rental");
   const consumables = (items.data ?? []).filter((item) => item.kind === "consumable");
+  const barItems = consumables.filter((item) => item.subtype === "bar");
+  // Bar lines are shown and edited in the bar plan.
+  const otherNeeds = needs.data.filter((need) => need.source !== "bar");
   const reloadAll = () => {
     holds.reload();
     conflicts.reload();
@@ -139,7 +149,7 @@ function PlanningSections({
       </Section>
       <Section title="Consumable needs">
         <ul className="planning-list">
-          {needs.data.map((need) => (
+          {otherNeeds.map((need) => (
             <NeedRow
               key={`${need.itemId}:${need.source}`}
               need={need}
@@ -156,7 +166,7 @@ function PlanningSections({
               }
             />
           ))}
-          {!needs.data.length && <li className="muted">No consumables required yet.</li>}
+          {!otherNeeds.length && <li className="muted">No consumables required yet.</li>}
         </ul>
         {canEdit && (
           <AddLine
@@ -177,7 +187,215 @@ function PlanningSections({
           />
         )}
       </Section>
+      <BarPlanSection
+        plan={bar.data}
+        canEdit={canEdit}
+        barItems={barItems}
+        onSave={(input) =>
+          act(async () => {
+            bar.replace(await planningApi.setBarPlan(event.id, input));
+            needs.reload();
+          })
+        }
+      />
     </>
+  );
+}
+
+type BarPlanSave = Parameters<typeof planningApi.setBarPlan>[1];
+
+// Bar quantities the event needs (FLOW-170), by item or by tier ("rail vodka").
+// A tier draws on every active bar item of that category, tier and subcategory;
+// what it can't get is ordered as the tier's house pick.
+function BarPlanSection({
+  plan,
+  canEdit,
+  barItems,
+  onSave,
+}: {
+  plan: BarPlan;
+  canEdit: boolean;
+  barItems: { id: string; name: string }[];
+  onSave: (input: BarPlanSave) => void;
+}) {
+  const itemLines = plan.items.map(({ itemId, basis, quantity }) => ({ itemId, basis, quantity }));
+  const tierLines = plan.tiers.map(({ category, subcategory, tier, basis, quantity }) => ({
+    category,
+    subcategory,
+    tier,
+    basis,
+    quantity,
+  }));
+  return (
+    <Section title="Bar plan">
+      <ul className="planning-list">
+        {plan.items.map((need) => (
+          <NeedRow
+            key={need.itemId}
+            need={need}
+            canEdit={canEdit}
+            onRemove={() =>
+              onSave({ items: itemLines.filter((line) => line.itemId !== need.itemId), tiers: tierLines })
+            }
+          />
+        ))}
+        {plan.tiers.map((line) => (
+          <TierRow
+            key={line.id}
+            line={line}
+            canEdit={canEdit}
+            onRemove={() =>
+              onSave({ items: itemLines, tiers: tierLines.filter((_, index) => plan.tiers[index].id !== line.id) })
+            }
+          />
+        ))}
+        {!plan.items.length && !plan.tiers.length && <li className="muted">No bar planned yet.</li>}
+      </ul>
+      {canEdit && (
+        <>
+          <AddLine
+            label="Add bar item"
+            options={barItems}
+            allowPerGuest
+            onAdd={(itemId, quantity, basis) =>
+              onSave({
+                items: [
+                  ...itemLines.filter((line) => line.itemId !== itemId),
+                  { itemId, basis: basis ?? "fixed", quantity },
+                ],
+                tiers: tierLines,
+              })
+            }
+          />
+          <AddTierLine
+            onAdd={(tier) =>
+              onSave({
+                items: itemLines,
+                tiers: [
+                  ...tierLines.filter(
+                    (line) =>
+                      !(line.category === tier.category && line.subcategory === tier.subcategory && line.tier === tier.tier),
+                  ),
+                  tier,
+                ],
+              })
+            }
+          />
+        </>
+      )}
+    </Section>
+  );
+}
+
+const tierName = (line: Pick<BarTierPlan, "category" | "subcategory" | "tier">) =>
+  `${barTierLabels[line.tier]} ${line.subcategory || line.category}`.toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
+function TierRow({ line, canEdit, onRemove }: { line: BarTierPlan; canEdit: boolean; onRemove: () => void }) {
+  const name = tierName(line);
+  return (
+    <li className="planning-row">
+      <strong>{name}</strong>
+      <span className="muted">
+        {number(line.quantity)}
+        {line.basis === "per_guest" ? " per guest" : ""} → needs {number(line.required)} ·{" "}
+        {line.items.length ? `from ${line.items.join(", ")}` : "no matching bar items"}
+      </span>
+      {line.shortage !== null && line.shortage > 0 && (
+        <span className="planning-badge conflict">
+          Short {number(line.shortage)}
+          {line.reorderItemName ? ` · order ${line.reorderItemName}` : ""}
+          {line.orderBy ? ` by ${date(line.orderBy)}` : ""}
+        </span>
+      )}
+      {line.shortage === 0 && <span className="planning-badge ok">Covered</span>}
+      {line.shortage === null && <span className="muted">Allocated once the event is Closed</span>}
+      {canEdit && (
+        <Button variant="outline" aria-label={`Remove ${name}`} onClick={onRemove}>
+          <Trash2 size={14} />
+        </Button>
+      )}
+    </li>
+  );
+}
+
+function AddTierLine({
+  onAdd,
+}: {
+  onAdd: (line: { category: string; subcategory: string; tier: BarTier; basis: "fixed" | "per_guest"; quantity: number }) => void;
+}) {
+  const [category, setCategory] = useState("Liquor");
+  const [subcategory, setSubcategory] = useState("");
+  const [tier, setTier] = useState<BarTier>("rail");
+  const [quantity, setQuantity] = useState("1");
+  const [basis, setBasis] = useState<"fixed" | "per_guest">("fixed");
+  const subcategories = barSubcategories[category] ?? [];
+  return (
+    <form
+      className="planning-add"
+      aria-label="Add bar tier"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const amount = Number(quantity);
+        if (!(amount > 0)) return;
+        onAdd({ category, subcategory, tier, basis, quantity: amount });
+        setQuantity("1");
+      }}
+    >
+      <select aria-label="Tier" value={tier} onChange={(e) => setTier(barTierSchema.parse(e.target.value))}>
+        {barTierSchema.options.map((value) => (
+          <option key={value} value={value}>
+            {barTierLabels[value]}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Bar category"
+        value={category}
+        onChange={(e) => {
+          setCategory(e.target.value);
+          setSubcategory("");
+        }}
+      >
+        {barCategories.map((value) => (
+          <option key={value} value={value}>
+            {value}
+          </option>
+        ))}
+      </select>
+      {subcategories.length > 0 && (
+        <select aria-label="Subcategory" value={subcategory} onChange={(e) => setSubcategory(e.target.value)}>
+          <option value="">Any</option>
+          {subcategories.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      )}
+      <input
+        aria-label="Tier quantity"
+        type="number"
+        min={0}
+        step="any"
+        value={quantity}
+        onChange={(e) => setQuantity(e.target.value)}
+      />
+      <select
+        aria-label="Tier basis"
+        value={basis}
+        onChange={(e) => setBasis(e.target.value === "per_guest" ? "per_guest" : "fixed")}
+      >
+        {(["fixed", "per_guest"] as const).map((value) => (
+          <option key={value} value={value}>
+            {requirementBasisLabels[value]}
+          </option>
+        ))}
+      </select>
+      <Button type="submit" variant="outline">
+        <Plus size={14} />
+        Add bar tier
+      </Button>
+    </form>
   );
 }
 

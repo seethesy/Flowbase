@@ -29,7 +29,8 @@ import { notificationTypes } from "../../shared/notifications";
 import { vendorTypes } from "../../shared/vendors";
 import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
 import { requirementBases } from "../../shared/allocation";
-import type { OrderLine } from "../../shared/order-lists";
+import { orderListStatuses, vendorOrderStatuses, type OrderLine, type VendorOrderLine,
+  type VendorOrderReceipt } from "../../shared/order-lists";
 import type { JSONContent } from "@tiptap/core";
 import {
   conflictStates,
@@ -932,6 +933,8 @@ export const inventoryBarDetails = pgTable(
     // Wine and liquor only (barSubcategories in shared/inventory.ts).
     subcategory: text("subcategory").notNull().default(""),
     container: text("container", { enum: containers }),
+    // Reordered when its tier runs short (FLOW-170).
+    housePick: boolean("house_pick").notNull().default(false),
   },
   (table) => [oneOf("inventory_bar_details_container_check", table.container, containers)],
 ).enableRLS();
@@ -1443,14 +1446,45 @@ export const orderLists = pgTable(
     ...baseColumns(),
     fromDate: date("from_date", { mode: "string" }).notNull(),
     toDate: date("to_date", { mode: "string" }).notNull(),
-    status: text("status", { enum: ["draft", "submitted", "approved", "rejected"] })
+    status: text("status", { enum: orderListStatuses })
       .notNull().default("draft"),
     lines: jsonb("lines").$type<OrderLine[]>().notNull().default([]),
     approvalId: uuid("approval_id").references(() => approvalRequests.id),
   },
   (table) => [
     index("order_lists_status_idx").on(table.status, table.createdAt),
-    oneOf("order_lists_status_check", table.status, ["draft", "submitted", "approved", "rejected"] as const),
+    oneOf("order_lists_status_check", table.status, orderListStatuses),
+  ],
+).enableRLS();
+
+// One vendor's order from an approved order list (FLOW-87): placed by hand on the
+// vendor's portal, then recorded here so projected stock counts it from the
+// expected delivery date. Receiving (FLOW-88) adds to each line's received
+// quantity and appends the delivery to receipts. At most one order per vendor
+// that isn't cancelled.
+export const vendorOrders = pgTable(
+  "vendor_orders",
+  {
+    ...baseColumns(),
+    orderListId: uuid("order_list_id").notNull().references(() => orderLists.id),
+    vendorId: uuid("vendor_id").references(() => vendors.id),
+    // The list's vendor group; "Unassigned vendor" when the items had none.
+    vendorName: text("vendor_name").notNull(),
+    status: text("status", { enum: vendorOrderStatuses }).notNull().default("ordered"),
+    portalOrderNumber: text("portal_order_number").notNull(),
+    orderedOn: date("ordered_on", { mode: "string" }).notNull(),
+    expectedDelivery: date("expected_delivery", { mode: "string" }).notNull(),
+    totalCents: moneyCents("total_cents"),
+    notes: text("notes").notNull().default(""),
+    lines: jsonb("lines").$type<VendorOrderLine[]>().notNull().default([]),
+    receipts: jsonb("receipts").$type<VendorOrderReceipt[]>().notNull().default([]),
+  },
+  (table) => [
+    index("vendor_orders_list_idx").on(table.orderListId),
+    index("vendor_orders_open_idx").on(table.status),
+    uniqueIndex("vendor_orders_active_vendor_idx").on(table.orderListId, table.vendorName)
+      .where(sql`${table.status} <> 'cancelled'`),
+    oneOf("vendor_orders_status_check", table.status, vendorOrderStatuses),
   ],
 ).enableRLS();
 
@@ -1548,6 +1582,40 @@ export const eventRequirements = pgTable(
     index("event_requirements_item_idx").on(table.itemId),
     oneOf("event_requirements_basis_check", table.basis, requirementBases),
     check("event_requirements_quantity_check", sql`${table.quantity} >= 0`),
+  ],
+).enableRLS();
+
+// Bar quantities an event plans by tier ("12 bottles of rail vodka", FLOW-170),
+// with what the last recompute of the tier's pool decided. Bar quantities planned
+// by item are event_requirements with source "bar".
+const barTiers = ["rail", "mid", "high", "premium"] as const;
+export const eventBarTiers = pgTable(
+  "event_bar_tiers",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    category: text("category").notNull(),
+    // Empty: any subcategory of the category.
+    subcategory: text("subcategory").notNull().default(""),
+    tier: text("tier", { enum: barTiers }).notNull(),
+    basis: text("basis", { enum: requirementBases }).notNull().default("fixed"),
+    quantity: quantity("quantity").notNull(),
+    allocated: quantity("allocated"),
+    shortage: quantity("shortage"),
+    orderBy: date("order_by", { mode: "string" }),
+    reorderItemId: uuid("reorder_item_id").references(() => inventoryItems.id),
+    computedAt: timestamptz("computed_at"),
+  },
+  (table) => [
+    uniqueIndex("event_bar_tiers_line_idx")
+      .on(table.eventId, table.category, table.subcategory, table.tier)
+      .where(sql`${table.archivedAt} is null`),
+    index("event_bar_tiers_pool_idx").on(table.category, table.tier),
+    oneOf("event_bar_tiers_tier_check", table.tier, barTiers),
+    oneOf("event_bar_tiers_basis_check", table.basis, requirementBases),
+    check("event_bar_tiers_quantity_check", sql`${table.quantity} >= 0`),
   ],
 ).enableRLS();
 

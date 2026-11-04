@@ -245,6 +245,8 @@ export function InventoryDetail() {
                 <p>
                   {i.bar.container ? barContainerLabels[i.bar.container] : "—"}
                 </p>
+                <small>House pick for its tier</small>
+                <p>{i.bar.housePick ? "Yes" : "No"}</p>
               </>
             )}
             <small>{i.bar ? "Distributor" : "Preferred vendor"}</small>

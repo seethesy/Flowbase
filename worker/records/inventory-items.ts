@@ -116,6 +116,7 @@ export async function toItems(
           brand: inventoryBarDetails.brand,
           subcategory: inventoryBarDetails.subcategory,
           container: inventoryBarDetails.container,
+          housePick: inventoryBarDetails.housePick,
         },
       })
       .from(inventoryItems)
@@ -254,6 +255,7 @@ export async function toItems(
               brand: bar?.brand ?? "",
               subcategory: bar?.subcategory ?? "",
               container: (bar?.container as BarContainer | null) ?? null,
+              housePick: bar?.housePick ?? false,
             }
           : null,
       stock: levels,
@@ -620,6 +622,7 @@ async function saveDetails(
       brand: input.bar?.brand ?? "",
       subcategory: input.bar?.subcategory ?? "",
       container: input.bar?.container ?? null,
+      ...(input.bar?.housePick !== undefined && { housePick: input.bar.housePick }),
     };
     await tx
       .insert(inventoryBarDetails)
