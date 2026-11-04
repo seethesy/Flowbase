@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import { suggestOrderLines, type OrderCandidate, type OrderLine, type OrderList } from "../../shared/order-lists";
+import { isPlaced, suggestOrderLines, type OrderCandidate, type OrderLine, type OrderList,
+  type ReceiveInput, type RecordOrderInput, type VendorOrder } from "../../shared/order-lists";
 import type { Unit } from "../../shared/units";
 import type { Db, DbLike } from "../db/client";
 import { consumableAllocations, events, inventoryConsumableDetails, inventoryItems,
@@ -8,13 +9,15 @@ import { consumableAllocations, events, inventoryConsumableDetails, inventoryIte
 import { ApiError, forbidden, notFound } from "../hono";
 import { can } from "../policy";
 import { registerApprovalSubject, requestApproval } from "./approvals";
+import { cancelOrderList as cancelList, cancelVendorOrder, ordersByList, receiveVendorOrder,
+  recordVendorOrder } from "./vendor-orders";
 
 const requireEditor = (actor: Actor) => {
   if (!can(actor, "order_lists.write")) throw forbidden();
 };
-const toList = (row: typeof orderLists.$inferSelect): OrderList => ({
+const toList = (row: typeof orderLists.$inferSelect, orders: VendorOrder[] = []): OrderList => ({
   id: row.id, from: row.fromDate, to: row.toDate, status: row.status,
-  lines: row.lines, approvalId: row.approvalId,
+  lines: row.lines, approvalId: row.approvalId, orders,
   createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
 });
 
@@ -78,15 +81,17 @@ export async function createOrderList(db: Db, actor: Actor, from: string, to: st
 }
 export async function listOrderLists(db: DbLike, actor: Actor) {
   requireEditor(actor);
-  return (await db.select().from(orderLists).where(isNull(orderLists.archivedAt))
-    .orderBy(sql`${orderLists.createdAt} desc`).limit(100)).map(toList);
+  const rows = await db.select().from(orderLists).where(isNull(orderLists.archivedAt))
+    .orderBy(sql`${orderLists.createdAt} desc`).limit(100);
+  const orders = await ordersByList(db, actor, rows.map((row) => row.id));
+  return rows.map((row) => toList(row, orders.get(row.id)));
 }
 export async function getOrderList(db: DbLike, actor: Actor, id: string) {
   requireEditor(actor);
   const [row] = await db.select().from(orderLists)
     .where(and(eq(orderLists.id, id), isNull(orderLists.archivedAt)));
   if (!row) throw notFound("Order list");
-  return toList(row);
+  return toList(row, (await ordersByList(db, actor, [row.id])).get(row.id));
 }
 export async function updateOrderList(db: Db, actor: Actor, id: string, lines: OrderLine[]) {
   requireEditor(actor);
@@ -95,6 +100,8 @@ export async function updateOrderList(db: Db, actor: Actor, id: string, lines: O
       .where(and(eq(orderLists.id, id), isNull(orderLists.archivedAt))).for("update");
     if (!row) throw notFound("Order list");
     if (row.status === "submitted") throw new ApiError(409, "ORDER_LIST_SUBMITTED", "Wait for the approval decision before editing.");
+    if (isPlaced(row.status) && row.status !== "approved")
+      throw new ApiError(409, "ORDER_LIST_ORDERED", "Orders are recorded against this list, so its lines can't change.");
     const ids = [...new Set(lines.map((line) => line.itemId))];
     const valid = ids.length ? await tx.select({ id: inventoryItems.id }).from(inventoryItems)
       .where(and(inArray(inventoryItems.id, ids), eq(inventoryItems.kind, "consumable"))) : [];
@@ -112,6 +119,7 @@ export async function submitOrderList(db: Db, actor: Actor, id: string) {
       .where(and(eq(orderLists.id, id), isNull(orderLists.archivedAt))).for("update");
     if (!row) throw notFound("Order list");
     if (row.status === "submitted") throw new ApiError(409, "ORDER_LIST_SUBMITTED", "This list is already waiting for approval.");
+    if (isPlaced(row.status)) throw new ApiError(409, "ORDER_LIST_APPROVED", "This list is already approved.");
     if (!row.lines.length) throw new ApiError(400, "INVALID_REQUEST", "Add at least one line before submitting.");
     if (row.lines.some((line) => line.quantity <= 0))
       throw new ApiError(400, "INVALID_REQUEST", "Set a purchase quantity above zero for every line.");
@@ -120,5 +128,23 @@ export async function submitOrderList(db: Db, actor: Actor, id: string) {
     await tx.update(orderLists).set({ status: "submitted", approvalId,
       updatedBy: actor.userId, updatedAt: new Date() }).where(eq(orderLists.id, id));
   });
+  return getOrderList(db, actor, id);
+}
+
+// Ordering record (FLOW-87) and receiving (FLOW-88): worker/records/vendor-orders.ts.
+export async function recordOrder(db: Db, actor: Actor, id: string, input: RecordOrderInput) {
+  await db.transaction((tx) => recordVendorOrder(tx, actor, id, input));
+  return getOrderList(db, actor, id);
+}
+export async function receiveOrder(db: Db, actor: Actor, id: string, orderId: string, input: ReceiveInput) {
+  await db.transaction((tx) => receiveVendorOrder(tx, actor, id, orderId, input));
+  return getOrderList(db, actor, id);
+}
+export async function cancelOrder(db: Db, actor: Actor, id: string, orderId: string) {
+  await db.transaction((tx) => cancelVendorOrder(tx, actor, id, orderId));
+  return getOrderList(db, actor, id);
+}
+export async function cancelOrderList(db: Db, actor: Actor, id: string) {
+  await db.transaction((tx) => cancelList(tx, actor, id));
   return getOrderList(db, actor, id);
 }

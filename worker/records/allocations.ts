@@ -10,8 +10,10 @@ import {
   type Requirement,
   type RequirementsInput,
 } from "../../shared/allocation";
+import { outstanding } from "../../shared/order-lists";
 import { bookingOrder } from "../../shared/reservations";
 import { utcToBusinessTime } from "../../shared/time";
+import { convert, type Unit } from "../../shared/units";
 import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
@@ -22,6 +24,7 @@ import {
   inventoryItems,
   inventoryStock,
   jobs,
+  vendorOrders,
   vendors,
 } from "../db/schema";
 import { ApiError, notFound } from "../hono";
@@ -39,11 +42,48 @@ import { evaluateItem } from "./holds";
 
 export const RECOMPUTE_JOB = "allocation.recompute";
 
-// Orders on their way (FLOW-86/87). No order records exist yet, so none is counted;
-// the order module registers its source here when it lands (AC4's date rule is in
-// shared/allocation.ts).
+// Orders on their way (FLOW-87 AC2): what is still to arrive on each recorded
+// vendor order that isn't received or cancelled, converted from purchase units to
+// the item's stock unit and counted from the order's expected delivery date (AC4's
+// date rule is in shared/allocation.ts).
 export type OnOrderSource = (db: DbLike, itemId: string) => Promise<OnOrder[]>;
-let onOrderSource: OnOrderSource = async () => [];
+export const vendorOrdersOnOrder: OnOrderSource = async (db, itemId) => {
+  const [orders, [item]] = await Promise.all([
+    db
+      .select({ lines: vendorOrders.lines, expectedDelivery: vendorOrders.expectedDelivery })
+      .from(vendorOrders)
+      .where(
+        and(
+          inArray(vendorOrders.status, ["ordered", "partially_received"]),
+          isNull(vendorOrders.archivedAt),
+          sql`${vendorOrders.lines} @> ${JSON.stringify([{ itemId }])}::jsonb`,
+        ),
+      ),
+    db
+      .select({ unit: inventoryItems.unit, detail: inventoryConsumableDetails })
+      .from(inventoryItems)
+      .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
+      .where(eq(inventoryItems.id, itemId)),
+  ]);
+  if (!item) return [];
+  return orders.flatMap((order) =>
+    order.lines
+      .filter((line) => line.itemId === itemId && outstanding(line) > 0)
+      .flatMap((line) => {
+        const converted = convert(outstanding(line), line.purchaseUnit as Unit, item.unit as Unit, {
+          packCount: item.detail.packCount,
+          eachSize:
+            item.detail.eachSizeQuantity !== null && item.detail.eachSizeUnit
+              ? { quantity: item.detail.eachSizeQuantity, unit: item.detail.eachSizeUnit as Unit }
+              : null,
+        });
+        return converted.ok
+          ? [{ quantity: converted.value, expectedDelivery: order.expectedDelivery }]
+          : [];
+      }),
+  );
+};
+let onOrderSource: OnOrderSource = vendorOrdersOnOrder;
 export const registerOnOrderSource = (source: OnOrderSource) => {
   onOrderSource = source;
 };

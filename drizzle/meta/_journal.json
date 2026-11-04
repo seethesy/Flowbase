@@ -274,6 +274,13 @@
       "when": 1793751072933,
       "tag": "0038_sop_library",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793831526384,
+      "tag": "0039_ordering_receiving",
+      "breakpoints": true
     }
   ]
 }

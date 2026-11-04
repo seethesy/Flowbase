@@ -46,7 +46,10 @@ export type AuditEntity =
   // the consumables an event needs (FLOW-85).
   | "reservation"
   | "reservation_conflict"
-  | "event_requirements";
+  | "event_requirements"
+  // Vendor orders recorded from an approved order list and their deliveries
+  // (FLOW-87, FLOW-88).
+  | "vendor_order";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";
