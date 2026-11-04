@@ -32,7 +32,7 @@ const as = (who: keyof typeof people) => {
 const admin = as("admin");
 const lead = as("lead");
 const sectionName = "FLOW-88 walk-in";
-const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
+const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {

@@ -9,7 +9,7 @@ import {
   eventStatusChangeSchema,
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
-import { itemAllocationSchema, requirementSchema } from "../../shared/allocation";
+import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { eventRosterSchema } from "../../shared/event-staff";
 import {
   availabilitySchema,
@@ -155,6 +155,8 @@ export function responseSchema(
       return method === "GET" ? reservationSchema.array() : reservationSchema;
     if (action === "conflicts") return conflictSchema.array();
     if (action === "requirements") return requirementSchema.array();
+    // Bar plan (FLOW-170).
+    if (action === "bar-plan") return barPlanSchema;
     const schema =
       resource === "clients"
         ? clientSchema

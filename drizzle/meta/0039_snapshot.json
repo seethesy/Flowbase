@@ -1,5 +1,5 @@
 {
-  "id": "dd2d5554-1b40-49f3-abe9-f3c0e2f39b17",
+  "id": "c61a2bbf-b250-4b08-b7f2-dcb57d1d7b36",
   "prevId": "5c1e99ef-91ef-40c3-a45a-7abc4e60ccfb",
   "version": "7",
   "dialect": "postgresql",
@@ -1496,6 +1496,222 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.event_bar_tiers": {
+      "name": "event_bar_tiers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subcategory": {
+          "name": "subcategory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "tier": {
+          "name": "tier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis": {
+          "name": "basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'fixed'"
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allocated": {
+          "name": "allocated",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shortage": {
+          "name": "shortage",
+          "type": "numeric(14, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_by": {
+          "name": "order_by",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reorder_item_id": {
+          "name": "reorder_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "event_bar_tiers_line_idx": {
+          "name": "event_bar_tiers_line_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subcategory",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"event_bar_tiers\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_bar_tiers_pool_idx": {
+          "name": "event_bar_tiers_pool_idx",
+          "columns": [
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_bar_tiers_event_id_events_id_fk": {
+          "name": "event_bar_tiers_event_id_events_id_fk",
+          "tableFrom": "event_bar_tiers",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "event_bar_tiers_reorder_item_id_inventory_items_id_fk": {
+          "name": "event_bar_tiers_reorder_item_id_inventory_items_id_fk",
+          "tableFrom": "event_bar_tiers",
+          "tableTo": "inventory_items",
+          "columnsFrom": [
+            "reorder_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "event_bar_tiers_tier_check": {
+          "name": "event_bar_tiers_tier_check",
+          "value": "\"event_bar_tiers\".\"tier\" in ('rail', 'mid', 'high', 'premium')"
+        },
+        "event_bar_tiers_basis_check": {
+          "name": "event_bar_tiers_basis_check",
+          "value": "\"event_bar_tiers\".\"basis\" in ('fixed', 'per_guest')"
+        },
+        "event_bar_tiers_quantity_check": {
+          "name": "event_bar_tiers_quantity_check",
+          "value": "\"event_bar_tiers\".\"quantity\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.event_requirements": {
       "name": "event_requirements",
       "schema": "",
@@ -2797,6 +3013,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "house_pick": {
+          "name": "house_pick",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},

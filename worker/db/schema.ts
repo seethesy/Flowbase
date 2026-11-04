@@ -933,6 +933,8 @@ export const inventoryBarDetails = pgTable(
     // Wine and liquor only (barSubcategories in shared/inventory.ts).
     subcategory: text("subcategory").notNull().default(""),
     container: text("container", { enum: containers }),
+    // Reordered when its tier runs short (FLOW-170).
+    housePick: boolean("house_pick").notNull().default(false),
   },
   (table) => [oneOf("inventory_bar_details_container_check", table.container, containers)],
 ).enableRLS();
@@ -1580,6 +1582,40 @@ export const eventRequirements = pgTable(
     index("event_requirements_item_idx").on(table.itemId),
     oneOf("event_requirements_basis_check", table.basis, requirementBases),
     check("event_requirements_quantity_check", sql`${table.quantity} >= 0`),
+  ],
+).enableRLS();
+
+// Bar quantities an event plans by tier ("12 bottles of rail vodka", FLOW-170),
+// with what the last recompute of the tier's pool decided. Bar quantities planned
+// by item are event_requirements with source "bar".
+const barTiers = ["rail", "mid", "high", "premium"] as const;
+export const eventBarTiers = pgTable(
+  "event_bar_tiers",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    category: text("category").notNull(),
+    // Empty: any subcategory of the category.
+    subcategory: text("subcategory").notNull().default(""),
+    tier: text("tier", { enum: barTiers }).notNull(),
+    basis: text("basis", { enum: requirementBases }).notNull().default("fixed"),
+    quantity: quantity("quantity").notNull(),
+    allocated: quantity("allocated"),
+    shortage: quantity("shortage"),
+    orderBy: date("order_by", { mode: "string" }),
+    reorderItemId: uuid("reorder_item_id").references(() => inventoryItems.id),
+    computedAt: timestamptz("computed_at"),
+  },
+  (table) => [
+    uniqueIndex("event_bar_tiers_line_idx")
+      .on(table.eventId, table.category, table.subcategory, table.tier)
+      .where(sql`${table.archivedAt} is null`),
+    index("event_bar_tiers_pool_idx").on(table.category, table.tier),
+    oneOf("event_bar_tiers_tier_check", table.tier, barTiers),
+    oneOf("event_bar_tiers_basis_check", table.basis, requirementBases),
+    check("event_bar_tiers_quantity_check", sql`${table.quantity} >= 0`),
   ],
 ).enableRLS();
 
