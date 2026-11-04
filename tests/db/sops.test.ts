@@ -23,8 +23,8 @@ const users: { id: string; role: Role }[] = [
 const requestAs = (index: number, method: string, path: string, body?: unknown) =>
   createApp({ withDb, resolveActor: async () => ({ userId: users[index].id,
     role: users[index].role, employmentType: "full_time" as const }) })
-    .request(path, { method, ...(body && { body: JSON.stringify(body),
-      headers: { "Content-Type": "application/json" } }) }, { ASSETS: { fetch } });
+    .request(path, { method, ...(body !== undefined ? { body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" } } : {}) }, { ASSETS: { fetch } });
 const content = (text: string) => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
 const input = { title: "Load truck", category: "Production", content: content("Check the manifest") };
 
