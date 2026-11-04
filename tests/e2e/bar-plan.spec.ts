@@ -16,7 +16,10 @@ test("plans bar quantities on an event by item and by tier", async ({ page }) =>
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await seedInventory({ items: [vodka("Smirnoff", true), vodka("Svedka", false)] });
   await page.goto(`/#/events/${fallGala().id}`);
+  // The planning sections load when they scroll into view.
+  await page.getByRole("heading", { name: "Equipment & stock" }).scrollIntoViewIfNeeded();
   await expect(page.getByText("No bar planned yet.")).toBeVisible();
+  await page.getByRole("form", { name: "Add bar tier" }).scrollIntoViewIfNeeded();
 
   const tierForm = page.getByRole("form", { name: "Add bar tier" });
   await tierForm.getByLabel("Tier", { exact: true }).selectOption("rail");
