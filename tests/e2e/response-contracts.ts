@@ -42,6 +42,7 @@ import {
   activityRecordedSchema,
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
+import { sopSchema, sopSummarySchema } from "../../shared/sops";
 import { historyEntrySchema } from "../../shared/audit";
 import { clientRecipeSchema, recipeSchema, scaledRecipeSchema } from "../../shared/recipes";
 import {
@@ -207,6 +208,8 @@ export function responseSchema(
     }
     return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
   }
+  if (resource === "sops")
+    return !id && method === "GET" ? sopSummarySchema.array() : sopSchema;
   // Basic calendar (FLOW-63).
   if (resource === "calendar") return calendarSchema;
   // Approval requests (FLOW-44): every decision answers with the whole request.

@@ -44,6 +44,7 @@ import { roleLabel } from "../../services/users";
 const navigation = [
   { name: "Dashboard", to: "/", icon: LayoutDashboard },
   { name: "Tasks", to: "/tasks", icon: ListChecks },
+  { name: "SOPs", to: "/sops", icon: FileText },
   { name: "Leads", to: "/leads", icon: Inbox },
   { name: "Clients", to: "/clients", icon: Users },
   { name: "Proposals", to: "/proposals", icon: FileText },

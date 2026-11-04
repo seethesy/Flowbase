@@ -37,6 +37,7 @@ import { LoadError } from "../components/record-display";
 import { eventsApi } from "../services/core";
 import { staffApi } from "../services/staff";
 import { tasksApi } from "../services/tasks";
+import { sopsApi } from "../services/sops";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
 
@@ -162,6 +163,7 @@ export function NewTaskDrawer({
   const { actor, can } = usePermissions();
   const staff = useActiveStaff();
   const events = useUpcomingEvents();
+  const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const delegates = can("tasks.delegate");
   const [title, setTitle] = useState("");
   const [type, setType] = useState<TaskType>(delegates ? "delegated" : "general");
@@ -169,6 +171,7 @@ export function NewTaskDrawer({
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("17:00");
   const [event, setEvent] = useState(eventId ?? "");
+  const [sopId, setSopId] = useState("");
   const [assignees, setAssignees] = useState<string[]>([]);
   const [overseer, setOverseer] = useState("");
   const [error, setError] = useState("");
@@ -192,10 +195,12 @@ export function NewTaskDrawer({
           ? businessTimeToUtc(dueDate, dueTime || "17:00").toISOString()
           : null,
         eventId: event || null,
+        sopId: sopId || null,
         assigneeIds: assignees,
         overseerId: overseer || (others ? actor.userId : null),
       });
       setTitle("");
+      setSopId("");
       setAssignees([]);
       setOverseer("");
       onCreated();
@@ -246,6 +251,12 @@ export function NewTaskDrawer({
                 {taskPriorityLabels[option]}
               </option>
             ))}
+          </select>
+        </FormField>
+        <FormField label="SOP">
+          <select value={sopId} onChange={(e) => setSopId(e.target.value)}>
+            <option value="">No SOP</option>
+            {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
           </select>
         </FormField>
         <FormField label="Due date">

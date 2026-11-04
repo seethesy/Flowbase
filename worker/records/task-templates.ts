@@ -12,6 +12,7 @@ import { events, tasks, taskTemplateItems, taskTemplates } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
 import { createTask } from "./tasks";
+import { findSop } from "./sops";
 
 // Task templates (FLOW-62): reusable sets of tasks with due dates relative to an
 // event, used by production schedules (FLOW-138). Applying one creates a task per
@@ -45,6 +46,7 @@ async function toTemplates(db: DbLike, rows: TemplateRow[]): Promise<TaskTemplat
     id: row.id,
     name: row.name,
     sopUrl: row.sopUrl,
+    sopId: row.sopId,
     items: items
       .filter((item) => item.templateId === row.id)
       .map((item) => ({
@@ -91,6 +93,7 @@ async function snapshot(db: DbLike, id: string) {
   return {
     name: template.name,
     sopUrl: template.sopUrl,
+    sopId: template.sopId,
     items: template.items.map((item) => ({
       title: item.title,
       type: item.type,
@@ -163,11 +166,13 @@ export async function createTaskTemplate(
   input: TemplateInput,
 ) {
   await assertUniqueName(db, input.name);
+  if (input.sopId) await findSop(db, input.sopId);
   const [row] = await db
     .insert(taskTemplates)
     .values({
       name: input.name,
       sopUrl: input.sopUrl,
+      sopId: input.sopId,
       createdBy: actor.userId,
       updatedBy: actor.userId,
     })
@@ -191,10 +196,11 @@ export async function updateTaskTemplate(
 ) {
   await findTemplateRow(db, id, true);
   await assertUniqueName(db, input.name, id);
+  if (input.sopId) await findSop(db, input.sopId);
   const before = await snapshot(db, id);
   await db
     .update(taskTemplates)
-    .set({ name: input.name, sopUrl: input.sopUrl, updatedBy: actor.userId })
+    .set({ name: input.name, sopUrl: input.sopUrl, sopId: input.sopId, updatedBy: actor.userId })
     .where(eq(taskTemplates.id, id));
   await saveItems(db, actor, id, input.items);
   await writeAudit(db, actor, {
@@ -279,6 +285,7 @@ export async function applyTaskTemplate(
           clientId: null,
           inventoryItemId: null,
           beoId: null,
+          sopId: template.sopId,
           position: item.position,
           checklist: [],
         },

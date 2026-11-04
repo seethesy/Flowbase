@@ -19,6 +19,7 @@ import { findVisibleEvent } from "../records/events";
 import { findItem } from "../records/inventory";
 import { findRecipe } from "../records/recipes";
 import { findVisibleTask } from "../records/tasks";
+import { findSop } from "../records/sops";
 import { findVenue } from "../records/venues";
 import { fileStorage } from "./storage";
 
@@ -49,6 +50,7 @@ const parents: Record<
   },
   // Task attachments (FLOW-58): anyone who can see the task.
   task: { find: findVisibleTask, write: attachmentWriteActions.task },
+  sop: { find: (db, _actor, id) => findSop(db, id), write: attachmentWriteActions.sop },
 };
 
 async function requireParent(

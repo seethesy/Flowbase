@@ -77,6 +77,7 @@ export const taskInputSchema = z.object({
   clientId: id.nullable().default(null),
   inventoryItemId: id.nullable().default(null),
   beoId: id.nullable().default(null),
+  sopId: id.nullable().default(null),
   // The staff position expected to do it (FLOW-62 template default), e.g. "Server".
   position: text(100).nullable().default(null),
   checklist: z.array(checklistLabel).max(100).default([]),
@@ -98,6 +99,7 @@ export const taskUpdateSchema = z
     clientId: id.nullable(),
     inventoryItemId: id.nullable(),
     beoId: id.nullable(),
+    sopId: id.nullable(),
     position: text(100).nullable(),
   })
   .partial()
@@ -208,6 +210,7 @@ export const taskSummarySchema = z.object({
   clientId: id.nullable(),
   inventoryItemId: id.nullable(),
   beoId: id.nullable(),
+  sopId: id.nullable(),
   position: z.string().nullable(),
   // The template item it was created from (FLOW-62), if any.
   templateItemId: id.nullable(),
@@ -289,6 +292,7 @@ export type TaskTemplateItemInput = z.input<typeof taskTemplateItemInputSchema>;
 export const taskTemplateInputSchema = z.object({
   name: text(120).min(1, "Name the template."),
   sopUrl: httpUrl.nullable().default(null),
+  sopId: id.nullable().default(null),
   items: z
     .array(taskTemplateItemInputSchema)
     .min(1, "Add at least one task.")
@@ -308,6 +312,7 @@ export const taskTemplateSchema = z.object({
   id,
   name: z.string(),
   sopUrl: z.string().nullable(),
+  sopId: id.nullable(),
   items: z.array(taskTemplateItemSchema),
   createdAt: timestamp,
   updatedAt: timestamp,
