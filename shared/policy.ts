@@ -24,6 +24,7 @@ const common = [
   "tasks.write",
   // Their own notifications and email preferences (FLOW-43).
   "notifications.read",
+  "sops.read",
   // Approval requests (FLOW-44): anyone may have made one or be its approver;
   // the engine checks who may see, decide or withdraw each request.
   "approvals.read",
@@ -99,6 +100,7 @@ export const actions = [
     "inventory.consumables.count",
     "recipes.write",
     "attachments.write",
+    "sops.write",
   ] as const),
 ];
 export type Action = (typeof actions)[number];
@@ -126,6 +128,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
     ...grants(common, sales, inventory, [
       "recipes.write",
       "attachments.write",
+      "sops.write",
       "beos.approve",
       "events.production_leads",
       "rentals.apply_directly",
@@ -148,6 +151,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
     ...grants(common, inventory, kitchen, [
       "recipes.write",
       "attachments.write",
+      "sops.write",
       "tasks.delegate",
       "tasks.triage",
       "tasks.templates",
@@ -248,4 +252,5 @@ export const attachmentWriteActions = {
   inventory_item: "inventory.write",
   recipe: "recipes.write",
   task: "tasks.write",
+  sop: "sops.write",
 } as const satisfies Record<string, Action>;

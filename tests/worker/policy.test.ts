@@ -48,6 +48,7 @@ const expected: Record<Action, string> = {
   "settings.read": "1111111",
   "tasks.read": "1111111",
   "tasks.write": "1111111",
+  "sops.read": "1111111",
   "tasks.delegate": "111F1FF",
   "tasks.triage": "1110100",
   "tasks.templates": "1110100",
@@ -91,6 +92,7 @@ const expected: Record<Action, string> = {
   "inventory.ingredients.count": "1000110",
   "inventory.consumables.count": "111FFFF",
   "attachments.write": "1111100",
+  "sops.write": "1010100",
 };
 it("accounts for every protected action in the role matrix", () => {
   expect(Object.keys(expected).sort()).toEqual([...actions].sort());

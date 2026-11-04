@@ -99,7 +99,7 @@ const notificationsOf = (who: keyof typeof people) =>
 const titlesOf = async (who: keyof typeof people) =>
   (await notificationsOf(who)).map((n) => n.title).sort();
 
-const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, task_views, task_template_items, task_templates, task_comments, task_checklist_items, task_assignees, tasks, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table consumable_allocations, event_requirements, reservation_conflicts, reservations, task_views, task_template_items, task_templates, task_comments, task_checklist_items, task_assignees, tasks, sop_versions, sops, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_versions, proposal_stage_history, proposals, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -403,6 +403,21 @@ const balloonArch = {
 };
 
 describe("FLOW-62 task templates", () => {
+  it("carries a library SOP into tasks created from a template (FLOW-139)", async () => {
+    const sop = await manager.send<{ id: string }>("POST", "/api/sops", {
+      title: "Load vehicles", category: "Production", content: { type: "doc", content: [{ type: "paragraph" }] },
+    });
+    const template = await manager.send<TaskTemplate>("POST", "/api/tasks/templates", {
+      ...balloonArch, sopId: sop.id,
+    });
+    const wedding = await newEvent("Garden wedding", "2026-09-17", "18:00");
+    const applied = await manager.send<ApplyTemplateResult>("POST",
+      `/api/tasks/templates/${template.id}/apply`, { eventId: wedding.id }, 200);
+    expect(applied.created).toHaveLength(3);
+    expect(applied.created.every((task) => task.sopId === sop.id)).toBe(true);
+    const task = await manager.send<Task>("GET", `/api/tasks/${applied.created[0].id}`);
+    expect(task.sopId).toBe(sop.id);
+  });
   it("lets managers keep templates and everyone read them", async () => {
     expect((await casey.call("POST", "/api/tasks/templates", balloonArch)).status).toBe(403);
     const template = await manager.send<TaskTemplate>("POST", "/api/tasks/templates", balloonArch);

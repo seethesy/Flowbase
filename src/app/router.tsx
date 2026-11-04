@@ -122,6 +122,8 @@ const TaskList = lazy(() =>
 const TaskTemplates = lazy(() =>
   import("../features/task-templates").then((module) => ({ default: module.TaskTemplates })),
 );
+const SopLibrary = lazy(() => import("../features/sops").then((module) => ({ default: module.SopLibrary })));
+const SopDetail = lazy(() => import("../features/sops").then((module) => ({ default: module.SopDetail })));
 const VendorList = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorList })));
 const VendorDetail = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorDetail })));
 const UserManagement = lazy(() =>
@@ -235,6 +237,8 @@ export const getRouter = () =>
         { path: "/tasks/all", element: <TaskList /> },
         { path: "/tasks/templates", element: <TaskTemplates /> },
         { path: "/tasks/:id", element: <TaskDetail /> },
+        { path: "/sops", element: <SopLibrary /> },
+        { path: "/sops/:id", element: <SopDetail /> },
         { path: "/reports", element: <TimeReports /> },
         { path: "/imports", element: <ImportList /> },
         { path: "/imports/:module", element: <ImportPage /> },

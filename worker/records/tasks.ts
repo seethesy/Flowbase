@@ -50,6 +50,7 @@ import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared
 import { findVisibleClient } from "./clients";
 import { findVisibleEvent, visibleEvents } from "./events";
 import { findItem } from "./inventory-items";
+import { findSop } from "./sops";
 import { groupBy, indexBy, keyset, type Page, type PageRequest } from "./paging";
 
 // Task engine (FLOW-58). This is the service every module uses to create and
@@ -167,7 +168,7 @@ async function assertPeople(db: DbLike, ids: string[]) {
 async function assertLinks(
   db: DbLike,
   actor: Actor | null,
-  links: { eventId?: string | null; clientId?: string | null; inventoryItemId?: string | null },
+  links: { eventId?: string | null; clientId?: string | null; inventoryItemId?: string | null; sopId?: string | null },
 ) {
   if (links.eventId) {
     if (actor) await findVisibleEvent(db, actor, links.eventId);
@@ -190,6 +191,7 @@ async function assertLinks(
     }
   }
   if (links.inventoryItemId) await findItem(db, links.inventoryItemId);
+  if (links.sopId) await findSop(db, links.sopId);
 }
 
 // Only people who may delegate assign tasks to, or name as overseer, anyone but
@@ -241,6 +243,7 @@ async function taskSnapshot(db: DbLike, id: string) {
     clientId: row.clientId,
     inventoryItemId: row.inventoryItemId,
     beoId: row.beoId,
+    sopId: row.sopId,
     position: row.position,
     checklist: checklist.map((item) => ({
       label: item.label,
@@ -284,7 +287,7 @@ async function emitCompleted(db: DbLike, actor: Actor | null, taskId: string) {
 export async function createTask(
   db: DbLike,
   actor: Actor | null,
-  input: NewTask,
+  input: Omit<NewTask, "sopId"> & { sopId?: string | null },
   { templateItemId = null }: { templateItemId?: string | null } = {},
 ): Promise<string> {
   assertDelegation(actor, input.assigneeIds, input.overseerId);
@@ -309,6 +312,7 @@ export async function createTask(
       clientId: input.clientId,
       inventoryItemId: input.inventoryItemId,
       beoId: input.beoId,
+      sopId: input.sopId ?? null,
       position: input.position || null,
       templateItemId,
       ...completion(
@@ -364,6 +368,7 @@ const managedFields: (keyof TaskUpdate)[] = [
   "clientId",
   "inventoryItemId",
   "beoId",
+  "sopId",
   "position",
 ];
 
@@ -397,6 +402,7 @@ export async function updateTask(
       patch.inventoryItemId !== row.inventoryItemId
         ? patch.inventoryItemId
         : undefined,
+    sopId: patch.sopId !== row.sopId ? patch.sopId : undefined,
   });
   const by = actor?.userId ?? null;
   const now = new Date();
@@ -411,6 +417,7 @@ export async function updateTask(
     clientId: patch.clientId,
     inventoryItemId: patch.inventoryItemId,
     beoId: patch.beoId,
+    sopId: patch.sopId,
     position: patch.position === undefined ? undefined : patch.position || null,
   };
   await db
@@ -702,6 +709,7 @@ async function toSummaries(
       clientId: row.clientId,
       inventoryItemId: row.inventoryItemId,
       beoId: row.beoId,
+      sopId: row.sopId,
       position: row.position,
       templateItemId: row.templateItemId,
       checklistDone: tally?.done ?? 0,

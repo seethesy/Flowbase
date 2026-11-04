@@ -24,6 +24,7 @@ export const recordTypeSchema = z.enum([
   "recipe",
   // Task attachments (FLOW-58).
   "task",
+  "sop",
 ]);
 export type AttachmentRecordType = z.infer<typeof recordTypeSchema>;
 export const variantNameSchema = z.enum(["thumb", "display", "original"]);

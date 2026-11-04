@@ -176,6 +176,7 @@ strong {
   flex-direction: column;
   padding: 28px 16px 0;
   height: 100dvh;
+  overflow-y: auto;
 }
 .logo {
   display: flex;

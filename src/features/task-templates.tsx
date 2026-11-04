@@ -20,6 +20,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { tasksApi } from "../services/tasks";
+import { sopsApi } from "../services/sops";
 import { ListSelect } from "./list-fields";
 import "./tasks.css";
 
@@ -70,6 +71,8 @@ function TemplateEditor({
 }) {
   const [name, setName] = useState(template?.name ?? "");
   const [sopUrl, setSopUrl] = useState(template?.sopUrl ?? "");
+  const [sopId, setSopId] = useState(template?.sopId ?? "");
+  const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const [items, setItems] = useState<Draft[]>(
     template?.items.map(toDraft) ?? [blankItem()],
   );
@@ -84,6 +87,7 @@ function TemplateEditor({
     const input = {
       name,
       sopUrl: sopUrl.trim() || null,
+      sopId: sopId || null,
       items: items.map((item) => ({
         ...(item.id ? { id: item.id } : {}),
         title: item.title,
@@ -129,6 +133,12 @@ function TemplateEditor({
             value={sopUrl}
             onChange={(e) => setSopUrl(e.target.value)}
           />
+        </FormField>
+        <FormField label="Library SOP" hint="Opens directly from each task created by this template.">
+          <select value={sopId} onChange={(e) => setSopId(e.target.value)}>
+            <option value="">No library SOP</option>
+            {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
+          </select>
         </FormField>
         <ol className="template-items">
           {items.map((item, index) => (
@@ -280,6 +290,7 @@ export function TaskTemplates() {
                 </a>
               </p>
             )}
+            {template.sopId && <p><Link to={`/sops/${template.sopId}`}>Library SOP</Link></p>}
             <ul className="task-lines">
               {template.items.map((item) => (
                 <li key={item.id} className="task-line">

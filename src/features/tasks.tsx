@@ -14,6 +14,7 @@ import { Button, FormField, LoadingSkeleton, PageHeader, Section } from "../comp
 import { LoadError } from "../components/record-display";
 import { staffApi } from "../services/staff";
 import { tasksApi } from "../services/tasks";
+import { sopsApi } from "../services/sops";
 import { Attachments } from "./attachments";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
@@ -90,6 +91,7 @@ export function TaskDetail() {
   const navigate = useNavigate();
   const { actor } = usePermissions();
   const task = useResource(["tasks", id], () => tasksApi.get(id));
+  const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [item, setItem] = useState("");
@@ -202,6 +204,14 @@ export function TaskDetail() {
             )}
           </dl>
           {data.description && <p className="task-description">{data.description}</p>}
+          {data.sopId && <Button asChild variant="outline"><Link to={`/sops/${data.sopId}`}>Open SOP</Link></Button>}
+          {data.canManage && <FormField label="Linked SOP">
+            <select value={data.sopId ?? ""} disabled={busy} onChange={(e) =>
+              void act(() => tasksApi.update(id, { sopId: e.target.value || null }))}>
+              <option value="">No SOP</option>
+              {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
+            </select>
+          </FormField>}
           {data.canManage && (
             <Reassign
               key={data.updatedAt}

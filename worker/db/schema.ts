@@ -30,6 +30,7 @@ import { vendorTypes } from "../../shared/vendors";
 import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
 import { requirementBases } from "../../shared/allocation";
 import type { OrderLine } from "../../shared/order-lists";
+import type { JSONContent } from "@tiptap/core";
 import {
   conflictStates,
   holdStatuses,
@@ -1157,6 +1158,33 @@ export const activitySessions = pgTable(
 // completed_at say who marked it done and when. User, event, client and item ids
 // have no foreign keys, like created_by: the DB suite truncates those tables
 // without CASCADE, and the service checks the ids instead.
+// Versioned standard operating procedures (FLOW-139). Current content is on
+// the SOP; each saved version is immutable in sop_versions.
+export const sops = pgTable(
+  "sops",
+  {
+    ...baseColumns(),
+    title: text("title").notNull(),
+    category: text("category").notNull(),
+    content: jsonb("content").$type<JSONContent>().notNull(),
+    version: integer("version").notNull().default(1),
+  },
+  (table) => [index("sops_category_title_idx").on(table.category, table.title)],
+).enableRLS();
+
+export const sopVersions = pgTable(
+  "sop_versions",
+  {
+    ...baseColumns(),
+    sopId: uuid("sop_id").notNull().references(() => sops.id),
+    version: integer("version").notNull(),
+    title: text("title").notNull(),
+    category: text("category").notNull(),
+    content: jsonb("content").$type<JSONContent>().notNull(),
+  },
+  (table) => [uniqueIndex("sop_versions_sop_version_idx").on(table.sopId, table.version)],
+).enableRLS();
+
 export const tasks = pgTable(
   "tasks",
   {
@@ -1175,6 +1203,7 @@ export const tasks = pgTable(
     inventoryItemId: uuid("inventory_item_id"),
     // No BEO table yet; the id is stored as given.
     beoId: uuid("beo_id"),
+    sopId: uuid("sop_id").references(() => sops.id),
     completedAt: timestamptz("completed_at"),
     completedBy: uuid("completed_by"),
     // The staff position expected to do it (FLOW-62).
@@ -1266,6 +1295,7 @@ export const taskTemplates = pgTable(
     ...baseColumns(),
     name: text("name").notNull(),
     sopUrl: text("sop_url"),
+    sopId: uuid("sop_id").references(() => sops.id),
   },
   (table) => [
     uniqueIndex("task_templates_name_idx")
