@@ -14,8 +14,8 @@ import {
 } from "drizzle-orm";
 import type { z } from "zod";
 import type { Version } from "../../shared/schema-primitives";
-import { isFtPlus, type Actor } from "../../shared/access";
-import { canSeeField } from "../../shared/visibility";
+import type { Actor } from "../../shared/access";
+import { canSeePayments } from "../../shared/visibility";
 import {
   eventStatusDetailLabels,
   type EventStatus,
@@ -314,10 +314,9 @@ export async function getEventHub(
         (section !== "client" || client !== null) &&
         (section !== "proposal" || can(actor, "proposals.read")) &&
         (section !== "payments" ||
-          (isFtPlus(actor) &&
-            canSeeField(actor, "financials", {
-              assignedSalespersonId: event.assignedSalespersonId,
-            }))),
+          canSeePayments(actor, {
+            assignedSalespersonId: event.assignedSalespersonId,
+          })),
     ),
     canEdit: can(actor, "events.write"),
     canChangeStatus: mayOverrideStatus(actor, event),

@@ -1,7 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
-import { isFtPlus } from "../../shared/access";
 import {
   byDueDate,
   dueForReminder,
@@ -16,7 +15,7 @@ import {
 } from "../../shared/payments";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
-import { canSeeField } from "../../shared/visibility";
+import { canSeePayments } from "../../shared/visibility";
 import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
@@ -47,21 +46,9 @@ type PaymentInput = z.output<typeof paymentInputSchema>;
 
 const todayOf = (now: Date) => utcToBusinessTime(now).date;
 
-export function mayViewPayments(
-  actor: Actor,
-  event: { assignedSalespersonId: string | null },
-) {
-  return (
-    isFtPlus(actor) &&
-    canSeeField(actor, "financials", {
-      assignedSalespersonId: event.assignedSalespersonId,
-    })
-  );
-}
-
 async function visibleEventForPayments(db: DbLike, actor: Actor, eventId: string) {
   const event = await findVisibleEvent(db, actor, eventId);
-  if (!mayViewPayments(actor, event))
+  if (!canSeePayments(actor, { assignedSalespersonId: event.assignedSalespersonId }))
     throw forbidden();
   return event;
 }
