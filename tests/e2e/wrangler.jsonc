@@ -20,5 +20,9 @@
   "vars": {
     "SUPABASE_URL": "https://test.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "test-publishable-key",
+    "R2_ACCOUNT_ID": "test-account",
+    "R2_BUCKET": "flowbase-test-files",
+    "R2_ACCESS_KEY_ID": "test-access-key",
+    "R2_SECRET_ACCESS_KEY": "test-secret-key",
   },
 }

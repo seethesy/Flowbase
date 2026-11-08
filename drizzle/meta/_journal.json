@@ -281,6 +281,13 @@
       "when": 1793832538050,
       "tag": "0039_ordering_receiving_bar_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794129612796,
+      "tag": "0040_proposal_mapping",
+      "breakpoints": true
     }
   ]
 }

@@ -22,6 +22,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { proposalsApi, uploadProposalVersion } from "../services/proposals";
+import { ProposalReview } from "./proposal-review";
 import "./event-proposals.css";
 
 // The event's proposals (FLOW-122) on the event hub: each one's stage, salesperson
@@ -96,6 +97,9 @@ export function EventProposalsSection({
       ) : (
         <p className="muted">No proposals yet.</p>
       )}
+      {list.data.filter((proposal) => proposal.currentVersion).map((proposal) => (
+        <EventProposalPlan key={proposal.id} proposal={proposal} />
+      ))}
       {creating && (
         <ProposalForm
           heading="New proposal"
@@ -115,6 +119,7 @@ export function EventProposalsSection({
       {open && (
         <ProposalDrawer
           id={open}
+          guestCount={event.guestCount}
           canWrite={canWrite}
           onChanged={() => {
             list.reload();
@@ -125,6 +130,21 @@ export function EventProposalsSection({
       )}
     </Section>
   );
+}
+
+function EventProposalPlan({ proposal }: { proposal: Proposal }) {
+  const mapping = useResource(["proposal-mapping", proposal.id, proposal.currentVersion], () => proposalsApi.mapping(proposal.id));
+  if (!mapping.data) return null;
+  const plan = mapping.data;
+  return <section className="event-proposal-plan" aria-label={`${proposal.title} plan`}>
+    <h3>{proposal.title} plan</h3>
+    <div className="proposal-plan-grid">
+      <div><strong>Menu</strong><ul>{plan.lines.filter((line) => line.kind === "menu").map((line) => <li key={line.id}>{line.section && `${line.section}: `}{line.name}{line.quantity !== null && ` · ${line.quantity}`}{line.notes && ` · ${line.notes}`}</li>)}</ul></div>
+      <div><strong>Rentals, decor and services</strong><ul>{plan.lines.filter((line) => ["rental", "decor", "service"].includes(line.kind)).map((line) => <li key={line.id}>{line.name}{line.quantity !== null && ` · ${line.quantity}`}</li>)}</ul></div>
+      <div><strong>Staffing slots</strong><ul>{plan.staffing.map((line, index) => <li key={index}>{line.count} {line.position}</li>)}</ul></div>
+      <div><strong>Payment schedule</strong><ul>{plan.paymentSchedule.map((line, index) => <li key={index}>{line.value}</li>)}</ul></div>
+    </div>
+  </section>;
 }
 
 function ProposalRow({
@@ -221,11 +241,13 @@ function ProposalForm({
 
 function ProposalDrawer({
   id,
+  guestCount,
   canWrite,
   onChanged,
   onClose,
 }: {
   id: string;
+  guestCount: number | null;
   canWrite: boolean;
   onChanged: () => void;
   onClose: () => void;
@@ -271,6 +293,7 @@ function ProposalDrawer({
           const mayUpload = (
             uploadableProposalStages as readonly ProposalStage[]
           ).includes(p.stage);
+          const currentVersion = p.versions.find((version) => version.current);
           return (
             <div className="proposal-detail">
               {error && (
@@ -416,6 +439,15 @@ function ProposalDrawer({
                 </ul>
               ) : (
                 <p className="muted">No versions uploaded yet.</p>
+              )}
+              {currentVersion && (
+                <ProposalReview
+                  key={currentVersion.id}
+                  id={id}
+                  version={currentVersion}
+                  canWrite={canWrite && p.stage === "finalized"}
+                  guestCount={guestCount}
+                />
               )}
               <h3 className="spaced">Stage history</h3>
               <ul className="proposal-history" aria-label="Stage history">

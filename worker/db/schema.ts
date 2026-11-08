@@ -20,6 +20,7 @@ import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { recipeCategories } from "../../shared/recipes";
 import { proposalStages } from "../../shared/proposals";
+import type { ProposalMapping } from "../../shared/proposal-mapping";
 import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
@@ -378,10 +379,15 @@ export const eventStaffSlots = pgTable(
     department: text("department", { enum: departments }).notNull(),
     assigneeId: uuid("assignee_id").references(() => users.id),
     sortOrder: integer("sort_order").notNull().default(0),
+    proposalId: uuid("proposal_id").references(() => proposals.id),
+    proposalSlotKey: text("proposal_slot_key"),
   },
   (table) => [
     index("event_staff_slots_shift_idx").on(table.shiftId),
     index("event_staff_slots_assignee_idx").on(table.assigneeId),
+    uniqueIndex("event_staff_slots_proposal_key_idx")
+      .on(table.proposalId, table.proposalSlotKey)
+      .where(sql`${table.proposalSlotKey} is not null and ${table.archivedAt} is null`),
     oneOf("event_staff_slots_department_check", table.department, departments),
   ],
 ).enableRLS();
@@ -473,6 +479,18 @@ export const proposalVersions = pgTable(
       sql`${table.status} = 'pending' or (${table.number} is not null and ${table.completedAt} is not null)`,
     ),
   ],
+).enableRLS();
+
+// The confirmed mapping for a proposal's current Word version (FLOW-125).
+export const proposalMappings = pgTable(
+  "proposal_mappings",
+  {
+    ...baseColumns(),
+    proposalId: uuid("proposal_id").notNull().references(() => proposals.id),
+    versionId: uuid("version_id").notNull().references(() => proposalVersions.id),
+    data: jsonb("data").$type<ProposalMapping>().notNull(),
+  },
+  (table) => [uniqueIndex("proposal_mappings_proposal_idx").on(table.proposalId)],
 ).enableRLS();
 
 // Audit log (FLOW-41): one append-only row per create, update, archive or restore

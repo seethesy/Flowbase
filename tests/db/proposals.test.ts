@@ -88,7 +88,7 @@ const sam = signedInAs(people.sam, "salesperson");
 const sue = signedInAs(people.sue, "salesperson");
 const kit = signedInAs(people.kit, "kitchen_staff");
 
-const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`;
+const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, proposal_mappings, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -449,5 +449,30 @@ describe("proposal file upload and versions (FLOW-123)", () => {
       { docx: docx() },
     );
     expect(response.status).toBe(409);
+  });
+});
+
+describe("proposal review and mapping (FLOW-125)", () => {
+  it("blocks an unmatched rental by name, then saves staffing without duplicating or clearing assignments", async () => {
+    const event = await newEvent();
+    await db.update(schema.events).set({ endsAt: new Date("2026-11-15T03:00:00.000Z") }).where(eq(schema.events.id, event.id));
+    const proposal = await upload(await newProposal(event), { docx: docx() });
+    const versionId = proposal.versions[0].id;
+    const line = { id: "rental-1", kind: "rental", section: "", name: "Gold chairs", notes: "", quantity: 12, sourceBlockId: "block-2", catalogId: null, notTracked: false };
+    const mapping = { versionId, fields: {}, lines: [line], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
+    const path = `/api/proposals/${proposal.id}/mapping`;
+    const blocked = await sam.call("PUT", path, mapping);
+    expect(blocked.status).toBe(400);
+    expect(await blocked.text()).toContain("Gold chairs");
+    const ready = { ...mapping, lines: [{ ...line, notTracked: true }], staffing: [{ position: "Server", count: 1, sourceBlockId: "block-3" }], paymentSchedule: [{ value: "Deposit $500 due at signing", sourceBlockId: "block-4" }] };
+    expect((await sam.call("PUT", path, ready)).status).toBe(200);
+    const [slot] = await db.select().from(schema.eventStaffSlots);
+    await db.insert(schema.users).values({ id: people.kit, email: "kit-proposal@example.test", role: "kitchen_staff", employmentType: "full_time", mobile: "" }).onConflictDoNothing();
+    await db.update(schema.eventStaffSlots).set({ assigneeId: people.kit }).where(eq(schema.eventStaffSlots.id, slot.id));
+    expect((await sam.call("PUT", path, ready)).status).toBe(200);
+    const slots = await db.select().from(schema.eventStaffSlots);
+    expect(slots).toHaveLength(1);
+    expect(slots[0].assigneeId).toBe(people.kit);
+    expect(await sam.send("GET", path)).toMatchObject({ paymentSchedule: [{ value: "Deposit $500 due at signing" }] });
   });
 });
