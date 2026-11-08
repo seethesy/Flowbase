@@ -74,7 +74,7 @@ describe("recipe record (FLOW-93)", () => {
     expect(recipe({ yield: null }).yield).toBeNull();
   });
 
-  it("needs a name, a known category and a unit for each quantity", () => {
+  it("needs a name, a category and a unit for each quantity", () => {
     const cases: [Partial<RecipeInput>, string][] = [
       [{ name: " " }, "Name is required."],
       [{ yield: { servings: 0 } }, "Enter servings above zero."],
@@ -90,7 +90,7 @@ describe("recipe record (FLOW-93)", () => {
       expect(parsed.error?.issues[0]?.message).toBe(message);
     }
     expect(
-      recipeInputSchema.safeParse({ name: "Soup", category: "soups" }).success,
+      recipeInputSchema.safeParse(tuscanChicken(tuscanIds, { category: " " })).success,
     ).toBe(false);
   });
 });
