@@ -419,6 +419,7 @@ export function RecipeForm({
         </FormField>
         <FormField label="Category">
           <select
+            aria-label="Category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
