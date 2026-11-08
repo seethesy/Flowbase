@@ -1,0 +1,62 @@
+/* Event timeline (FLOW-126). Shared tokens and components stay in
+   src/styles/globals.css. */
+.timeline-day {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.timeline-day h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.timeline-day h3 small {
+  color: var(--muted);
+}
+.timeline-shift {
+  margin: 4px 0;
+  color: var(--muted);
+}
+.timeline-entries {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.timeline-entries > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.timeline-time {
+  min-width: 130px;
+  font-variant-numeric: tabular-nums;
+}
+.timeline-activity {
+  flex: 1;
+}
+.timeline-activity small {
+  display: block;
+  color: var(--muted);
+}
+.timeline-actions {
+  display: flex;
+  gap: 4px;
+}
+.timeline-suggestions {
+  margin-bottom: 12px;
+}
+.timeline-suggestions ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.timeline-suggestions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
