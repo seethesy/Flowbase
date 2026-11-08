@@ -11,15 +11,12 @@ import {
   sql,
 } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import type { Allergen } from "../../shared/inventory";
 import {
   lineCost,
   clientRecipe,
   recipeCost,
   scaleRecipe,
-  type DietaryTag,
   type Recipe,
-  type RecipeCategory,
   type RecipeIngredient,
   type RecipeInputParsed,
   type ScaledRecipe,
@@ -33,6 +30,7 @@ import type { Bindings } from "../bindings";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent, type JobRegistry } from "../jobs/queue";
 import { setArchived } from "./archive";
+import { assertListLabels } from "./settings";
 import { toItems } from "./inventory-items";
 import { syncChildren } from "./sync";
 
@@ -143,8 +141,8 @@ async function toRecipes(
         row.yieldServings === null
           ? null
           : { servings: row.yieldServings, portionSize: row.portionSize },
-      allergens: row.allergens as Allergen[],
-      dietaryTags: row.dietaryTags as DietaryTag[],
+      allergens: row.allergens,
+      dietaryTags: row.dietaryTags,
       cost: showCost ? recipeCost(costs, row.yieldServings) : null,
       costHidden: !showCost,
       duplicates: sameNames
@@ -165,10 +163,10 @@ async function toRecipes(
 
 export type RecipeFilter = {
   archived?: boolean;
-  category?: RecipeCategory;
+  category?: string;
   search?: string;
-  allergen?: Allergen;
-  dietaryTag?: DietaryTag;
+  allergen?: string;
+  dietaryTag?: string;
 };
 
 export async function listRecipes(
@@ -392,12 +390,26 @@ const recipeValues = (input: RecipeInputParsed, actor: Actor) => ({
   updatedBy: actor.userId,
 });
 
+// Category, allergens and dietary tags come from the settings lists (FLOW-218). A
+// dish may newly take only active values; ones it already has stay valid when
+// archived since.
+async function assertRecipeLists(
+  tx: DbLike,
+  input: RecipeInputParsed,
+  current?: { category: string; allergens: string[]; dietaryTags: string[] },
+) {
+  await assertListLabels(tx, "recipe_category", [input.category], current ? [current.category] : []);
+  await assertListLabels(tx, "allergen", input.allergens, current?.allergens);
+  await assertListLabels(tx, "dietary_tag", input.dietaryTags, current?.dietaryTags);
+}
+
 export async function createRecipe(
   db: Db,
   actor: Actor,
   input: RecipeInputParsed,
 ): Promise<Recipe> {
   const id = await db.transaction(async (tx) => {
+    await assertRecipeLists(tx, input);
     const [row] = await tx
       .insert(recipes)
       .values({ ...recipeValues(input, actor), createdBy: actor.userId })
@@ -422,8 +434,9 @@ export async function updateRecipe(
   id: string,
   input: RecipeInputParsed,
 ): Promise<Recipe> {
-  await findRecipe(db, id);
+  const current = await findRecipe(db, id);
   await db.transaction(async (tx) => {
+    await assertRecipeLists(tx, input, current);
     const before = await recipeSnapshot(tx, id);
     await tx
       .update(recipes)

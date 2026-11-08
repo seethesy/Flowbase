@@ -331,14 +331,14 @@ describe("recipes in global search (FLOW-217)", () => {
   ) => {
     const [row] = await db
       .insert(schema.recipes)
-      .values({ name, category: "mains", ...values })
+      .values({ name, category: "Mains", ...values })
       .returning();
     return row;
   };
 
   it("finds a recipe whose name has a typo and links to its page (AC1, AC2)", async () => {
     const recipe = await addRecipe("Tuscan Chicken");
-    await addRecipe("Lemon Tart", { category: "desserts" });
+    await addRecipe("Lemon Tart", { category: "Desserts" });
     const results = await staff.search("tuscan chiken");
     const found = results.filter((r) => r.type === "recipe");
     expect(found).toHaveLength(1);

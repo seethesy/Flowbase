@@ -52,6 +52,17 @@ export function useListLabels(list: ListKey | null): string[] {
   return list ? (settings.lists[list] ?? []).map((value) => value.label) : [];
 }
 
+// Shows a saved value the way a record displays it: its label, marked "(archived)"
+// once the value has been archived in Settings. An active value with the same label
+// wins, so re-adding an archived value clears the mark.
+export function useArchivedMarks(list: ListKey): (label: string) => string {
+  const settings = useBusinessSettings();
+  const values = settings.lists[list] ?? [];
+  const active = new Set(values.filter((value) => !value.archived).map((value) => value.label));
+  const archived = new Set(values.filter((value) => value.archived).map((value) => value.label));
+  return (label) => (archived.has(label) && !active.has(label) ? `${label} (archived)` : label);
+}
+
 // Several values from one list, as checkboxes (a staff member's positions).
 export function ListCheckboxes({
   list,

@@ -32,9 +32,9 @@ const admin: Actor = {
   role: "admin",
   employmentType: "full_time",
 };
-// recipe_category starts empty, so this file owns every value in it; seeded lists
-// are only read, which keeps the other DB test files independent of this one.
-const scratch = "recipe_category" as const;
+// dress_code starts empty, so this file owns every value in it; seeded lists are
+// only read, which keeps the other DB test files independent of this one.
+const scratch = "dress_code" as const;
 
 const cleanUp = async () => {
   await db.delete(schema.listValues).where(eq(schema.listValues.listKey, scratch));
@@ -148,8 +148,8 @@ it("saves the company profile and defaults and audits every change", async () =>
   await setListValueArchived(db, admin, value.id, true);
   const history = await settingsHistory(db);
   expect(history.map((entry) => [entry.subject, entry.action])).toEqual([
-    ["Recipe categories: Soups", "archive"],
-    ["Recipe categories: Soups", "create"],
+    ["Dress code presets: Soups", "archive"],
+    ["Dress code presets: Soups", "create"],
     ["Defaults", "create"],
     ["Company profile", "create"],
   ]);
