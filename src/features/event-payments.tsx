@@ -152,6 +152,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
       {data.schedule.length === 0 ? (
         <p className="muted">No scheduled payments.</p>
       ) : (
+        <div className="table-scroll">
         <table className="payments-table">
           <thead>
             <tr>
@@ -214,11 +215,13 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       <h3>Payments received</h3>
       {data.payments.length === 0 ? (
         <p className="muted">No payments recorded.</p>
       ) : (
+        <div className="table-scroll">
         <table className="payments-table">
           <thead>
             <tr>
@@ -255,6 +258,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {itemForm && (
         <ScheduleItemDrawer

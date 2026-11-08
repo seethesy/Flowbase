@@ -5,6 +5,22 @@ import { seedRecords } from "./database";
 // Event timeline and production schedule (FLOW-126): add entries on two days, see
 // them in order on the hub, then edit one, on the real Worker and database.
 
+// TEMPORARY: prints what the page showed when this test failed on CI.
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  const info = await page
+    .evaluate(() => ({
+      width: window.innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      dialogs: [...document.querySelectorAll("[role=dialog]")].map((d) =>
+        (d.textContent ?? "").slice(0, 400),
+      ),
+      text: document.body.innerText.slice(0, 2500),
+    }))
+    .catch((e: Error) => ({ error: e.message }));
+  console.log(`DIAG ${testInfo.project.name} ${testInfo.title} ${JSON.stringify(info)}`);
+});
+
 test("adds timeline entries on two days, shows them in order and edits one", async ({
   page,
 }) => {

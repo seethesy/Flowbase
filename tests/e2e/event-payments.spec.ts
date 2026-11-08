@@ -6,6 +6,22 @@ import { seedRecords } from "./database";
 // balance, record the deposit, and see the $3,500 balance. A card number in the
 // reference is refused.
 
+// TEMPORARY: prints what the page showed when this test failed on CI.
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return;
+  const info = await page
+    .evaluate(() => ({
+      width: window.innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      dialogs: [...document.querySelectorAll("[role=dialog]")].map((d) =>
+        (d.textContent ?? "").slice(0, 400),
+      ),
+      text: document.body.innerText.slice(0, 2500),
+    }))
+    .catch((e: Error) => ({ error: e.message }));
+  console.log(`DIAG ${testInfo.project.name} ${testInfo.title} ${JSON.stringify(info)}`);
+});
+
 test("records a payment against the schedule and refuses a card number", async ({
   page,
 }) => {
