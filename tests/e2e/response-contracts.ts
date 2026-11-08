@@ -21,6 +21,7 @@ import {
   proposalSchema,
   proposalUploadTicketSchema,
 } from "../../shared/proposals";
+import { proposalCatalogSchema, proposalMappingSchema } from "../../shared/proposal-mapping";
 import {
   itemSchema,
   sectionSchema,
@@ -171,6 +172,8 @@ export function responseSchema(
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
     if (!id && method === "GET") return proposalSchema.array();
+    if (action === "mapping") return proposalMappingSchema.nullable();
+    if (action === "catalog") return proposalCatalogSchema;
     if (action === "versions" && !path.split("/")[5])
       return proposalUploadTicketSchema;
     return proposalDetailSchema;

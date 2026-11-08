@@ -26,6 +26,10 @@ export const proposalMappingSchema = z.object({
   unextractedBlockIds: z.array(z.string()).default([]),
 });
 export type ProposalMapping = z.infer<typeof proposalMappingSchema>;
+export const proposalCatalogSchema = z.object({
+  recipes: z.array(z.object({ id, name: z.string() })),
+  items: z.array(z.object({ id, name: z.string(), kind: z.string(), subtype: z.string().nullable() })),
+});
 
 export function unmatchedLines(mapping: ProposalMapping): string[] {
   return mapping.lines.filter((line) =>
