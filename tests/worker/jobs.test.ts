@@ -24,6 +24,12 @@ it("registers one handler per job type", () => {
     "already registered",
   );
 });
+it("lists the registered job types", () => {
+  const registry = new JobRegistry()
+    .register("demo", vi.fn<JobHandler>())
+    .register("event:task.due", vi.fn<JobHandler>());
+  expect(registry.types()).toEqual(["demo", "event:task.due"]);
+});
 it("registers ingest processing in the Worker's registry", () => {
   expect(createJobRegistry().get(INGEST_JOB_TYPE)).toBeTypeOf("function");
 });

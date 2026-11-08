@@ -11,6 +11,8 @@ import { registerRecipeCostChanges } from "../records/recipes";
 import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
 import { scanCollectorHealth } from "../records/collector-health";
 import { refreshUsage } from "../records/usage";
+import { cleanupAttachments } from "../attachments/cleanup";
+import { cleanupJobs } from "./cleanup";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
@@ -26,7 +28,8 @@ export function createJobRegistry(options: NotificationOptions = {}) {
 }
 
 // The single Cron Trigger (wrangler.jsonc) announces tasks that came due
-// (FLOW-58) or will soon (FLOW-60), then runs one batch of due jobs.
+// (FLOW-58) or will soon (FLOW-60), runs one batch of due jobs, then prunes old
+// jobs, ingest bodies and abandoned or archived files.
 export async function runScheduledJobs(
   env: Bindings,
   registry: JobRegistry,
@@ -45,11 +48,24 @@ export async function runScheduledJobs(
     const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
     await scanCollectorHealth(db, now);
     await refreshUsage(db, now);
-    return {
-      tasksDue,
-      tasksDueSoon,
-      ...(await runDueJobs(db, registry, { ...options, env })),
-    };
+    const ran = await runDueJobs(db, registry, { ...options, env });
+    // Housekeeping runs after the batch so it never delays real work (FLOW-184,
+    // FLOW-188). A failure is logged and retried on the next run.
+    let cleaned = {};
+    try {
+      cleaned = {
+        ...(await cleanupJobs(db, now)),
+        ...(await cleanupAttachments(db, env, now)),
+      };
+    } catch (error) {
+      console.log(
+        JSON.stringify({
+          event: "cleanup_failed",
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+    return { tasksDue, tasksDueSoon, ...ran, ...cleaned };
   });
   console.log(JSON.stringify({ event: "jobs_run", ...summary }));
   return summary;
