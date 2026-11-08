@@ -4,9 +4,12 @@ import { strToU8, zipSync } from "fflate";
 import { parseProposalDocx } from "../src/features/proposal-docx";
 import { suggestCatalog, unmatchedLines, type ProposalMapping } from "../shared/proposal-mapping";
 
-const doc = (body: string) => new Blob([new Uint8Array(zipSync({
+const doc = (body: string) => {
+  const bytes = new Uint8Array(zipSync({
   "word/document.xml": strToU8(`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`),
-}))]);
+  }));
+  return { arrayBuffer: async () => bytes.buffer } as Blob;
+};
 
 describe("proposal review", () => {
   it("keeps paragraphs, headings and table rows in document order with source ids", async () => {
