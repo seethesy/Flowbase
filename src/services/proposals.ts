@@ -10,12 +10,16 @@ import {
   type ProposalUploadInput,
 } from "../../shared/proposals";
 import { at, query, request } from "./core";
+import { proposalCatalogSchema, proposalMappingSchema, type ProposalMapping } from "../../shared/proposal-mapping";
 
 // Proposals (FLOW-122) and their versions (FLOW-123).
 export const proposalsApi = {
   list: (eventId: string) =>
     request(proposalSchema.array(), `/api/proposals${query({ eventId })}`),
   get: (id: string) => request(proposalDetailSchema, at("proposals", id)),
+  mapping: (id: string) => request(proposalMappingSchema.nullable(), at("proposals", id, "mapping")),
+  catalog: (id: string) => request(proposalCatalogSchema, at("proposals", id, "catalog")),
+  saveMapping: (id: string, input: ProposalMapping) => request(proposalMappingSchema, at("proposals", id, "mapping"), "PUT", input),
   create: (input: ProposalCreateInput) =>
     request(proposalDetailSchema, "/api/proposals", "POST", input),
   update: (id: string, input: ProposalInput) =>

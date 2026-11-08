@@ -6,6 +6,7 @@ import {
   proposalUploadSchema,
 } from "../../shared/proposals";
 import { id as uuid } from "../../shared/schema-primitives";
+import { proposalMappingSchema } from "../../shared/proposal-mapping";
 import { requirePermission } from "../auth";
 import {
   ApiError,
@@ -25,6 +26,7 @@ import {
   startProposalUpload,
   updateProposal,
 } from "../records/proposals";
+import { getProposalCatalog, getProposalMapping, saveProposalMapping } from "../records/proposal-mapping";
 
 // /api/proposals (FLOW-122/123). Proposals on events the user can't open answer
 // 404. Versions are created by uploading and are never changed or deleted: there is
@@ -61,6 +63,17 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
     return c.json(
       await record(c, (db, actor) => getProposal(db, actor, env(c), id)),
     );
+  });
+  routes.get("/:id/mapping", requirePermission("proposals.read"), async (c) =>
+    c.json(await record(c, (db, actor) => getProposalMapping(db, actor, proposalId(c)))),
+  );
+  routes.get("/:id/catalog", requirePermission("proposals.read"), async (c) =>
+    c.json(await record(c, (db, actor) => getProposalCatalog(db, actor, proposalId(c)))),
+  );
+  routes.put("/:id/mapping", requirePermission("proposals.write"), async (c) => {
+    const id = proposalId(c);
+    const input = await parseBody(c, proposalMappingSchema);
+    return c.json(await record(c, (db, actor) => saveProposalMapping(db, actor, id, input)));
   });
   routes.put("/:id", requirePermission("proposals.write"), async (c) => {
     const id = proposalId(c);
