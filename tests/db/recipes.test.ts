@@ -444,7 +444,7 @@ describe("recipe lists from settings (FLOW-218)", () => {
       .returning({ id: schema.recipes.id, name: schema.recipes.name });
     const before = await getSettings(db);
     // The data steps of the migration; its constraint changes were applied by migrate().
-    const steps = readFileSync("drizzle/0030_recipe_settings_lists.sql", "utf8")
+    const steps = readFileSync("drizzle/0040_recipe_settings_lists.sql", "utf8")
       .split("--> statement-breakpoint")
       .map((step) => step.replace(/^(--.*\n)+/, "").trim())
       .filter((step) => /^(UPDATE|INSERT)/.test(step));

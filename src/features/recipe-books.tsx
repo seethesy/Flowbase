@@ -7,17 +7,19 @@ import { recipesApi } from "../services/core";
 import { PrintLayout } from "../components/print/PrintLayout";
 import { LoadError } from "../components/record-display";
 import { Button, FilterBar, LoadingSkeleton, PageHeader } from "../components/shared";
-import { useListLabels } from "./list-fields";
+import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./recipe-books.css";
 
 function ClientDish({ dish }: { dish: ClientRecipe }) {
+  const markAllergen = useArchivedMarks("allergen");
+  const markDietaryTag = useArchivedMarks("dietary_tag");
   return <article className="recipe-card">
     <h2>{dish.name}</h2>
     {dish.photo && <img src={dish.photo} alt={dish.name} />}
     <p>{dish.description}</p>
     <p><strong>Ingredients:</strong> {dish.ingredients.join(", ") || "—"}</p>
-    <p><strong>Allergens:</strong> {dish.allergens.join(", ") || "None listed"}</p>
-    <p><strong>Dietary tags:</strong> {dish.dietaryTags.join(", ") || "None listed"}</p>
+    <p><strong>Allergens:</strong> {dish.allergens.map(markAllergen).join(", ") || "None listed"}</p>
+    <p><strong>Dietary tags:</strong> {dish.dietaryTags.map(markDietaryTag).join(", ") || "None listed"}</p>
   </article>;
 }
 
@@ -26,6 +28,7 @@ export function ClientRecipeBook() {
   // The settings list, archived values included: a category archived since still
   // has dishes in it.
   const categories = [...new Set(useListLabels("recipe_category"))];
+  const markCategory = useArchivedMarks("recipe_category");
   const [selected, setSelected] = useState<string[]>([]);
   const resource = useResource(["recipes", "client", category], () => recipesApi.clientList({ category: category || undefined }));
   const dishes = resource.data ?? [];
@@ -40,7 +43,7 @@ export function ClientRecipeBook() {
     <FilterBar>
       <select aria-label="Category" value={category} onChange={(e) => { setCategory(e.target.value); setSelected([]); }}>
         <option value="">All categories</option>
-        {categories.map((value) => <option key={value} value={value}>{value}</option>)}
+        {categories.map((value) => <option key={value} value={value}>{markCategory(value)}</option>)}
       </select>
       <span className="result-count">{dishes.length} dishes</span>
     </FilterBar>
@@ -57,18 +60,21 @@ export function ClientRecipeBook() {
 export function ClientRecipePrint() {
   const [params] = useSearchParams();
   const category = params.get("category") || undefined;
+  const markCategory = useArchivedMarks("recipe_category");
   const ids = params.has("ids") ? new Set((params.get("ids") ?? "").split(",")) : null;
   const resource = useResource(["recipes", "client", category ?? ""], () => recipesApi.clientList({ category }));
   if (resource.error) return <LoadError message={resource.error} />;
   if (!resource.data) return <LoadingSkeleton />;
   const dishes = resource.data.filter((dish) => !ids || ids.has(dish.id));
-  return <PrintLayout title="Recipe book" subtitle={category}>
+  return <PrintLayout title="Recipe book" subtitle={category ? markCategory(category) : undefined}>
     {dishes.length ? dishes.map((dish) => <ClientDish key={dish.id} dish={dish} />) : <p>No dishes selected.</p>}
   </PrintLayout>;
 }
 
 export function KitchenRecipePrint() {
   const { id = "" } = useParams();
+  const markAllergen = useArchivedMarks("allergen");
+  const markDietaryTag = useArchivedMarks("dietary_tag");
   const resource = useResource(["recipes", id], () => recipesApi.get(id));
   if (resource.error) return <LoadError message={resource.error} />;
   if (!resource.data) return <LoadingSkeleton />;
@@ -82,7 +88,7 @@ export function KitchenRecipePrint() {
     <h2>Method</h2>
     <ol>{dish.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
     {dish.finishingNote && <p>Finish: {dish.finishingNote}</p>}
-    <p>Allergens: {dish.allergens.join(", ") || "None listed"}</p>
-    <p>Dietary tags: {dish.dietaryTags.join(", ") || "None listed"}</p>
+    <p>Allergens: {dish.allergens.map(markAllergen).join(", ") || "None listed"}</p>
+    <p>Dietary tags: {dish.dietaryTags.map(markDietaryTag).join(", ") || "None listed"}</p>
   </PrintLayout>;
 }

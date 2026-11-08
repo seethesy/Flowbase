@@ -168,3 +168,34 @@ test("an allergen and a category added in Settings are used on a recipe", async 
   await page.getByLabel("Category", { exact: true }).selectOption("Brunch");
   await expect(page.getByRole("button", { name: "Coconut Pancakes" })).toBeVisible();
 });
+
+test("an archived dietary tag stays marked on a recipe but leaves the new recipe picker", async ({ page }) => {
+  await page.goto("/#/settings");
+  await page.getByLabel(/^List/).selectOption({ label: "Dietary tags" });
+  await page.getByLabel("Add to Dietary tags").fill("Nut-free");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText("Nut-free added.", { exact: true })).toBeVisible();
+
+  await page.goto("/#/recipes");
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Nut-free Salad");
+  await dialog.getByRole("group", { name: "Dietary tags" }).getByLabel("Nut-free").check();
+  await dialog.getByRole("button", { name: "Save recipe" }).click();
+  await expect(dialog).toHaveCount(0);
+  const recipeUrl = page.url();
+
+  await page.goto("/#/settings");
+  await page.getByLabel(/^List/).selectOption({ label: "Dietary tags" });
+  await page.getByRole("list", { name: "Dietary tags" })
+    .getByRole("listitem").filter({ hasText: "Nut-free" })
+    .getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText("Nut-free archived.", { exact: true })).toBeVisible();
+
+  await page.goto(recipeUrl);
+  await expect(page.getByText("Nut-free (archived)", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "← Recipe book" }).click();
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("group", { name: "Dietary tags" })
+    .getByLabel("Nut-free", { exact: true })).toHaveCount(0);
+});
