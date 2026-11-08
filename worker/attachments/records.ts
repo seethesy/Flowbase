@@ -12,7 +12,7 @@ import {
 import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import { attachments, type AttachmentVariant } from "../db/schema";
-import { forbidden, notFound } from "../hono";
+import { ApiError, forbidden, notFound } from "../hono";
 import { can, attachmentWriteActions, type Action } from "../policy";
 import { findVisibleClient } from "../records/clients";
 import { findVisibleEvent } from "../records/events";
@@ -171,7 +171,7 @@ async function findAttachment(db: DbLike, actor: Actor, id: string, write: boole
     write,
   ).catch((error) => {
     // A record the actor can't see hides its files too.
-    throw error instanceof Error && error.message.includes("not found")
+    throw error instanceof ApiError && error.status === 404
       ? notFound("Attachment")
       : error;
   });

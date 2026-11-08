@@ -24,8 +24,10 @@ export type Bindings = {
   // both, notifications stay in the app and emails are skipped.
   EMAIL_API_KEY?: string;
   EMAIL_FROM?: string;
-  // Optional R2 binding to the same bucket, used only to confirm uploads arrived.
+  // Optional R2 binding to the same bucket: confirms uploads arrived and removes
+  // abandoned or long-archived files (FLOW-188).
   FILES?: {
     head: (key: string) => Promise<{ size: number } | null>;
+    delete: (keys: string | string[]) => Promise<void>;
   };
 };

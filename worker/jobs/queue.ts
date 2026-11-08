@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import type { Job } from "../../shared/api";
 import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
@@ -75,8 +75,9 @@ export function emitDomainEvent(db: DbLike, event: DomainEvent) {
 export type JobContext = { db: Db; env?: Bindings };
 export type JobHandler = (job: JobRow, context: JobContext) => Promise<void>;
 
-// Handlers register by job type. Events without a subscriber succeed as no-ops;
-// any other job type without a handler fails, so it shows up for an admin.
+// Handlers register by job type. Events without a subscriber succeed as no-ops
+// (completeUnsubscribedEvents does that before each batch is claimed); any other
+// job type without a handler fails, so it shows up for an admin.
 export class JobRegistry {
   private readonly handlers = new Map<string, JobHandler>();
   register(type: string, handler: JobHandler) {
@@ -88,6 +89,36 @@ export class JobRegistry {
   get(type: string) {
     return this.handlers.get(type);
   }
+  // Every registered job type, e.g. to tell which domain events have a subscriber.
+  types() {
+    return [...this.handlers.keys()];
+  }
+}
+
+// Domain events nobody subscribes to would only take batch slots: a 300-line stock
+// count queues 300 of them ahead of real work. Each cron run completes the due ones
+// in a single statement before claiming its batch (FLOW-184). Events that have a
+// handler (for example the notification subscribers) are left for the batch.
+export async function completeUnsubscribedEvents(
+  db: DbLike,
+  registry: JobRegistry,
+  now = new Date(),
+): Promise<number> {
+  const subscribed = registry.types().filter((type) => type.startsWith("event:"));
+  const completed = await db
+    .update(jobs)
+    .set({ status: "succeeded", lockedAt: null, lastError: null, completedAt: now })
+    .where(
+      and(
+        isNull(jobs.archivedAt),
+        eq(jobs.status, "pending"),
+        lte(jobs.runAt, now),
+        like(jobs.type, "event:%"),
+        subscribed.length ? notInArray(jobs.type, subscribed) : undefined,
+      ),
+    )
+    .returning({ id: jobs.id });
+  return completed.length;
 }
 
 // Marks up to batchSize due jobs as running and returns them. SKIP LOCKED keeps
@@ -131,6 +162,8 @@ export type RunOptions = {
   env?: Bindings;
 };
 export type RunSummary = {
+  // Subscriber-less domain events completed without taking a batch slot.
+  skipped: number;
   claimed: number;
   succeeded: number;
   retried: number;
@@ -144,12 +177,19 @@ export async function runDueJobs(
 ): Promise<RunSummary> {
   const now = options.now ?? (() => new Date());
   const maxAttempts = options.maxAttempts ?? JOB_MAX_ATTEMPTS;
+  const skipped = await completeUnsubscribedEvents(db, registry, now());
   const claimed = await claimDueJobs(
     db,
     options.batchSize ?? JOB_BATCH_SIZE,
     now(),
   );
-  const summary = { claimed: claimed.length, succeeded: 0, retried: 0, failed: 0 };
+  const summary = {
+    skipped,
+    claimed: claimed.length,
+    succeeded: 0,
+    retried: 0,
+    failed: 0,
+  };
   for (const job of claimed) {
     try {
       const handler = registry.get(job.type);

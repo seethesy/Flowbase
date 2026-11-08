@@ -13,12 +13,32 @@ const wrangler = JSON.parse(
 const steps = (script: string) => script.split("&&").map((step) => step.trim());
 
 describe("production deploy (FLOW-25)", () => {
-  it("builds, migrates, then deploys, stopping at the first failing step", () => {
+  it("builds, tests, migrates, deploys, then verifies, stopping at the first failing step", () => {
     expect(steps(scripts.deploy)).toEqual([
       "npm run build",
+      "npm test",
+      "npm run test:worker",
       "npm run deploy:migrate",
       "wrangler deploy --env production",
+      "npm run deploy:verify",
     ]);
+  });
+
+  it("runs both unit test suites before touching the database (FLOW-173)", () => {
+    const order = steps(scripts.deploy);
+    const migrate = order.indexOf("npm run deploy:migrate");
+    expect(order.indexOf("npm test")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("npm test")).toBeLessThan(migrate);
+    expect(order.indexOf("npm run test:worker")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("npm run test:worker")).toBeLessThan(migrate);
+  });
+
+  it("checks production health after the Worker is uploaded", () => {
+    expect(scripts["deploy:verify"]).toBe("node scripts/check-health.mjs");
+    const order = steps(scripts.deploy);
+    expect(order.indexOf("npm run deploy:verify")).toBe(
+      order.indexOf("wrangler deploy --env production") + 1,
+    );
   });
 
   it("refuses to migrate without an explicit DATABASE_URL", () => {
