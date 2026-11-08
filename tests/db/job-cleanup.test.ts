@@ -95,7 +95,9 @@ it("processes the ingest job even with 300 due events nobody subscribes to", asy
 
 it("still runs events that have a subscriber, and leaves future and non-event jobs alone", async () => {
   const handler = vi.fn<JobHandler>(async () => {});
-  const registry = new JobRegistry().register("event:task.due", handler);
+  const registry = new JobRegistry()
+    .register("event:task.due", handler)
+    .register("notification.email", async () => {});
   await addJob("subscribed", { type: "event:task.due" });
   await addJob("unsubscribed", { type: "event:task.created" });
   await addJob("future", { type: "event:task.created", runAt: new Date(NOW.getTime() + 60_000) });
@@ -112,7 +114,12 @@ it("still runs events that have a subscriber, and leaves future and non-event jo
     other: "pending",
   });
 
-  expect(await runDueJobs(db, registry, clock)).toMatchObject({ skipped: 0, claimed: 1 });
+  // The subscribed event and the non-event job are claimed; the future job waits.
+  expect(await runDueJobs(db, registry, clock)).toMatchObject({
+    skipped: 0,
+    claimed: 2,
+    succeeded: 2,
+  });
   expect(handler).toHaveBeenCalledTimes(1);
 });
 
