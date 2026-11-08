@@ -16,7 +16,7 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await browserDb(async (db) => {
     await db.update(s.events).set({ endsAt: new Date("2026-11-15T03:00:00.000Z") }).where(eq(s.events.id, fallGala().id));
-    await db.insert(s.recipes).values({ name: "Tuscan Chicken", category: "mains" });
+    await db.insert(s.recipes).values({ name: "Tuscan Chicken", category: "Mains" });
     await db.insert(s.proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", stage: "finalized" });
     await db.insert(s.proposalVersions).values({ id: versionId, proposalId, number: 1, status: "ready", docx: { key: `proposal/${proposalId}/${versionId}/proposal.docx`, fileName: "proposal.docx", contentType: DOCX_TYPE, size: word.length }, completedAt: new Date() });
     await db.update(s.proposals).set({ currentVersionId: versionId }).where(eq(s.proposals.id, proposalId));

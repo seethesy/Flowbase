@@ -39,7 +39,7 @@ test("global search finds a misspelled recipe and opens its page", async ({ page
   const [recipe] = await browserDb((db) =>
     db
       .insert(schema.recipes)
-      .values({ name: "Tuscan Chicken", category: "mains" })
+      .values({ name: "Tuscan Chicken", category: "Mains" })
       .returning({ id: schema.recipes.id }),
   );
   await page.goto("/#/");

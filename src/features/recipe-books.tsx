@@ -1,28 +1,34 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { allergenLabels } from "../../shared/inventory";
-import { dietaryTagLabels, recipeCategoryLabels, recipeCategorySchema, type ClientRecipe, type RecipeCategory } from "../../shared/recipes";
+import type { ClientRecipe } from "../../shared/recipes";
 import { unitLabel } from "../../shared/units";
 import { useResource } from "../app/useResource";
 import { recipesApi } from "../services/core";
 import { PrintLayout } from "../components/print/PrintLayout";
 import { LoadError } from "../components/record-display";
 import { Button, FilterBar, LoadingSkeleton, PageHeader } from "../components/shared";
+import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./recipe-books.css";
 
 function ClientDish({ dish }: { dish: ClientRecipe }) {
+  const markAllergen = useArchivedMarks("allergen");
+  const markDietaryTag = useArchivedMarks("dietary_tag");
   return <article className="recipe-card">
     <h2>{dish.name}</h2>
     {dish.photo && <img src={dish.photo} alt={dish.name} />}
     <p>{dish.description}</p>
     <p><strong>Ingredients:</strong> {dish.ingredients.join(", ") || "—"}</p>
-    <p><strong>Allergens:</strong> {dish.allergens.map((tag) => allergenLabels[tag]).join(", ") || "None listed"}</p>
-    <p><strong>Dietary tags:</strong> {dish.dietaryTags.map((tag) => dietaryTagLabels[tag]).join(", ") || "None listed"}</p>
+    <p><strong>Allergens:</strong> {dish.allergens.map(markAllergen).join(", ") || "None listed"}</p>
+    <p><strong>Dietary tags:</strong> {dish.dietaryTags.map(markDietaryTag).join(", ") || "None listed"}</p>
   </article>;
 }
 
 export function ClientRecipeBook() {
-  const [category, setCategory] = useState<RecipeCategory | "">("");
+  const [category, setCategory] = useState("");
+  // The settings list, archived values included: a category archived since still
+  // has dishes in it.
+  const categories = [...new Set(useListLabels("recipe_category"))];
+  const markCategory = useArchivedMarks("recipe_category");
   const [selected, setSelected] = useState<string[]>([]);
   const resource = useResource(["recipes", "client", category], () => recipesApi.clientList({ category: category || undefined }));
   const dishes = resource.data ?? [];
@@ -31,13 +37,13 @@ export function ClientRecipeBook() {
   return <>
     <Link to="/recipes" className="back-link">← Recipe book</Link>
     <PageHeader title="Client recipe book" subtitle="Choose dishes to show your client or save as a branded PDF.">
-      <Button asChild variant="outline"><Link to={`/print/recipes/client${category ? `?category=${category}` : ""}`}>Print {category ? "category" : "all dishes"}</Link></Button>
+      <Button asChild variant="outline"><Link to={`/print/recipes/client${category ? `?category=${encodeURIComponent(category)}` : ""}`}>Print {category ? "category" : "all dishes"}</Link></Button>
       {selected.length > 0 && <Button asChild><Link to={printSelection}>Print selected ({selected.length})</Link></Button>}
     </PageHeader>
     <FilterBar>
-      <select aria-label="Category" value={category} onChange={(e) => { setCategory(e.target.value as RecipeCategory | ""); setSelected([]); }}>
+      <select aria-label="Category" value={category} onChange={(e) => { setCategory(e.target.value); setSelected([]); }}>
         <option value="">All categories</option>
-        {recipeCategorySchema.options.map((value) => <option key={value} value={value}>{recipeCategoryLabels[value]}</option>)}
+        {categories.map((value) => <option key={value} value={value}>{markCategory(value)}</option>)}
       </select>
       <span className="result-count">{dishes.length} dishes</span>
     </FilterBar>
@@ -53,20 +59,22 @@ export function ClientRecipeBook() {
 
 export function ClientRecipePrint() {
   const [params] = useSearchParams();
-  const parsedCategory = recipeCategorySchema.safeParse(params.get("category"));
-  const category = parsedCategory.success ? parsedCategory.data : undefined;
+  const category = params.get("category") || undefined;
+  const markCategory = useArchivedMarks("recipe_category");
   const ids = params.has("ids") ? new Set((params.get("ids") ?? "").split(",")) : null;
   const resource = useResource(["recipes", "client", category ?? ""], () => recipesApi.clientList({ category }));
   if (resource.error) return <LoadError message={resource.error} />;
   if (!resource.data) return <LoadingSkeleton />;
   const dishes = resource.data.filter((dish) => !ids || ids.has(dish.id));
-  return <PrintLayout title="Recipe book" subtitle={category ? recipeCategoryLabels[category] : undefined}>
+  return <PrintLayout title="Recipe book" subtitle={category ? markCategory(category) : undefined}>
     {dishes.length ? dishes.map((dish) => <ClientDish key={dish.id} dish={dish} />) : <p>No dishes selected.</p>}
   </PrintLayout>;
 }
 
 export function KitchenRecipePrint() {
   const { id = "" } = useParams();
+  const markAllergen = useArchivedMarks("allergen");
+  const markDietaryTag = useArchivedMarks("dietary_tag");
   const resource = useResource(["recipes", id], () => recipesApi.get(id));
   if (resource.error) return <LoadError message={resource.error} />;
   if (!resource.data) return <LoadingSkeleton />;
@@ -80,7 +88,7 @@ export function KitchenRecipePrint() {
     <h2>Method</h2>
     <ol>{dish.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
     {dish.finishingNote && <p>Finish: {dish.finishingNote}</p>}
-    <p>Allergens: {dish.allergens.map((tag) => allergenLabels[tag]).join(", ") || "None listed"}</p>
-    <p>Dietary tags: {dish.dietaryTags.map((tag) => dietaryTagLabels[tag]).join(", ") || "None listed"}</p>
+    <p>Allergens: {dish.allergens.map(markAllergen).join(", ") || "None listed"}</p>
+    <p>Dietary tags: {dish.dietaryTags.map(markDietaryTag).join(", ") || "None listed"}</p>
   </PrintLayout>;
 }

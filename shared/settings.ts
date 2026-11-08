@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { id, text } from "./schema-primitives";
-import { ingredientCategories, ratioBasisSchema } from "./inventory";
+import { allergenLabels, ingredientCategories, ratioBasisSchema } from "./inventory";
 import { defaultLeadSources } from "./leads";
 import { historyEntrySchema } from "./audit";
+import { defaultDietaryTags, defaultRecipeCategories } from "./recipes";
 
 // Business settings and configurable lists (FLOW-45). Admin changes them on the
 // Settings screen without a deploy; every change is audited. Records keep the
@@ -17,6 +18,8 @@ export const listKeys = [
   "lead_source",
   "vehicle",
   "recipe_category",
+  "allergen",
+  "dietary_tag",
   "rental_category",
   "decor_category",
   "kitchen_equipment_category",
@@ -34,6 +37,8 @@ export const listLabels: Record<ListKey, string> = {
   lead_source: "Lead sources",
   vehicle: "Vehicles",
   recipe_category: "Recipe categories",
+  allergen: "Allergens",
+  dietary_tag: "Dietary tags",
   rental_category: "Rental categories",
   decor_category: "Decor categories",
   kitchen_equipment_category: "Kitchen equipment categories",
@@ -62,7 +67,9 @@ export const defaultListValues: Record<ListKey, readonly string[]> = {
   dress_code: [],
   lead_source: defaultLeadSources,
   vehicle: ["Truck 1", "Truck 2", "Truck 3"],
-  recipe_category: [],
+  recipe_category: defaultRecipeCategories,
+  allergen: Object.values(allergenLabels),
+  dietary_tag: defaultDietaryTags,
   rental_category: [],
   decor_category: [],
   kitchen_equipment_category: [],

@@ -1,5 +1,5 @@
 {
-  "id": "9d574247-aadb-4d70-bc2c-7a9f6055fde2",
+  "id": "f1bc53b6-2b93-43c8-b594-225adb231125",
   "prevId": "c61a2bbf-b250-4b08-b7f2-dcb57d1d7b36",
   "version": "7",
   "dialect": "postgresql",
@@ -2071,18 +2071,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "proposal_id": {
-          "name": "proposal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "proposal_slot_key": {
-          "name": "proposal_slot_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -2115,28 +2103,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "event_staff_slots_proposal_key_idx": {
-          "name": "event_staff_slots_proposal_key_idx",
-          "columns": [
-            {
-              "expression": "proposal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "proposal_slot_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"event_staff_slots\".\"proposal_slot_key\" is not null and \"event_staff_slots\".\"archived_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -2159,19 +2125,6 @@
           "tableTo": "users",
           "columnsFrom": [
             "assignee_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "event_staff_slots_proposal_id_proposals_id_fk": {
-          "name": "event_staff_slots_proposal_id_proposals_id_fk",
-          "tableFrom": "event_staff_slots",
-          "tableTo": "proposals",
-          "columnsFrom": [
-            "proposal_id"
           ],
           "columnsTo": [
             "id"
@@ -5013,7 +4966,7 @@
       "checkConstraints": {
         "list_values_list_key_check": {
           "name": "list_values_list_key_check",
-          "value": "\"list_values\".\"list_key\" in ('staff_position', 'event_type', 'service_type', 'food_service_style', 'dress_code', 'lead_source', 'vehicle', 'recipe_category', 'rental_category', 'decor_category', 'kitchen_equipment_category', 'ingredient_category', 'supply_category')"
+          "value": "\"list_values\".\"list_key\" in ('staff_position', 'event_type', 'service_type', 'food_service_style', 'dress_code', 'lead_source', 'vehicle', 'recipe_category', 'allergen', 'dietary_tag', 'rental_category', 'decor_category', 'kitchen_equipment_category', 'ingredient_category', 'supply_category')"
         }
       },
       "isRLSEnabled": true
@@ -5387,119 +5340,6 @@
           "value": "\"order_lists\".\"status\" in ('draft', 'submitted', 'approved', 'rejected', 'ordered', 'partially_received', 'received', 'cancelled')"
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.proposal_mappings": {
-      "name": "proposal_mappings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "proposal_id": {
-          "name": "proposal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version_id": {
-          "name": "version_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "data": {
-          "name": "data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "proposal_mappings_proposal_idx": {
-          "name": "proposal_mappings_proposal_idx",
-          "columns": [
-            {
-              "expression": "proposal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "proposal_mappings_proposal_id_proposals_id_fk": {
-          "name": "proposal_mappings_proposal_id_proposals_id_fk",
-          "tableFrom": "proposal_mappings",
-          "tableTo": "proposals",
-          "columnsFrom": [
-            "proposal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "proposal_mappings_version_id_proposal_versions_id_fk": {
-          "name": "proposal_mappings_version_id_proposal_versions_id_fk",
-          "tableFrom": "proposal_mappings",
-          "tableTo": "proposal_versions",
-          "columnsFrom": [
-            "version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.proposal_stage_history": {
@@ -6246,12 +6086,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "recipes_category_check": {
-          "name": "recipes_category_check",
-          "value": "\"recipes\".\"category\" in ('appetizers', 'mains', 'sides', 'desserts', 'drinks', 'additional_items')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.reservation_conflicts": {

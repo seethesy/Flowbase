@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
   businessDefaultsSchema,
@@ -110,12 +110,13 @@ it("picks the category list for each kind of inventory item", () => {
   expect(inventoryCategoryList({ kind: "service", subtype: null })).toBeNull();
 });
 
-it("keeps the built-in fallback valid and the seed migration in step with it", () => {
+it("keeps the built-in fallback valid and the seed migrations in step with it", () => {
   expect(businessSettingsSchema.parse(fallbackSettings)).toEqual(fallbackSettings);
-  const seed = readdirSync("drizzle").find((file) => file.endsWith("_seed_settings_lists.sql"))!;
-  const rows = [
-    ...readFileSync(`drizzle/${seed}`, "utf8").matchAll(/\('([a-z_]+)', '((?:[^']|'')*)', (\d+)\)/g),
-  ].map(([, key, label, order]) => [key, label.replaceAll("''", "'"), Number(order)]);
+  const rows = ["0021_seed_settings_lists.sql", "0040_recipe_settings_lists.sql"]
+    .flatMap((file) => [
+      ...readFileSync(`drizzle/${file}`, "utf8").matchAll(/\('([a-z_]+)', '((?:[^']|'')*)', (\d+)\)/g),
+    ].map(([, key, label, order]) => [key, label.replaceAll("''", "'"), Number(order)] as const))
+    .sort((a, b) => listKeys.findIndex((key) => key === a[0]) - listKeys.findIndex((key) => key === b[0]) || a[2] - b[2]);
   expect(rows).toEqual(
     listKeys.flatMap((key) => defaultListValues[key].map((label, index) => [key, label, index])),
   );

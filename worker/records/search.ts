@@ -22,7 +22,6 @@ import {
   venues,
 } from "../db/schema";
 import { can, clientScope, eventScope, leadScope } from "../policy";
-import { recipeCategoryLabels } from "../../shared/recipes";
 import { visibleClients } from "./clients";
 import { visibleEvents } from "./events";
 import { visibleLeads } from "./leads";
@@ -258,7 +257,7 @@ async function searchRecipes(db: DbLike, actor: Actor, q: Query) {
     .limit(PER_TYPE);
   return rows.map(({ category, ...row }) => ({
     ...row,
-    subtitle: recipeCategoryLabels[category],
+    subtitle: category,
   }));
 }
 

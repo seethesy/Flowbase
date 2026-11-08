@@ -285,8 +285,15 @@
     {
       "idx": 40,
       "version": "7",
-      "when": 1794129612796,
-      "tag": "0040_proposal_mapping",
+      "when": 1794180000000,
+      "tag": "0040_recipe_settings_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794180000001,
+      "tag": "0041_proposal_mapping",
       "breakpoints": true
     }
   ]
