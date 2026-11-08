@@ -71,27 +71,10 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
       title="Payments"
       action={
         data.canEdit && (
-          <>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setItemForm({
-                  kind: "deposit",
-                  label: "",
-                  amount: "",
-                  dueDate: "",
-                  source: null,
-                })
-              }
-            >
-              <Plus size={14} />
-              Add scheduled payment
-            </Button>
-            <Button onClick={() => setPayForm(true)}>
-              <Plus size={14} />
-              Record payment
-            </Button>
-          </>
+          <Button onClick={() => setPayForm(true)}>
+            <Plus size={14} />
+            Record payment
+          </Button>
         )
       }
     >
@@ -148,7 +131,26 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
           </ul>
         </div>
       )}
-      <h3>Schedule</h3>
+      <div className="payments-subhead">
+        <h3>Schedule</h3>
+        {data.canEdit && (
+          <Button
+            variant="outline"
+            onClick={() =>
+              setItemForm({
+                kind: "deposit",
+                label: "",
+                amount: "",
+                dueDate: "",
+                source: null,
+              })
+            }
+          >
+            <Plus size={14} />
+            Add scheduled payment
+          </Button>
+        )}
+      </div>
       {data.schedule.length === 0 ? (
         <p className="muted">No scheduled payments.</p>
       ) : (
