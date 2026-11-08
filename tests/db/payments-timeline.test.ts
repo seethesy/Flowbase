@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -72,12 +72,18 @@ const admin = signedInAs("admin");
 const sam = signedInAs("sam");
 const pat = signedInAs("pat");
 
-const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, vendors, ingest_receipts, jobs, users`;
+const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+// The vendors this suite adds. Other tables point at vendors, so they can't be
+// truncated here; the timeline entries that name them are gone after the truncate.
+const partnerNames = ["DJ Nova (FLOW-126)", "Food Co (FLOW-126)"];
+const dropPartners = () =>
+  db.delete(schema.vendors).where(inArray(schema.vendors.name, partnerNames));
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
 beforeEach(async () => {
   await db.execute(tables);
+  await dropPartners();
   await db.insert(schema.users).values(
     directory.map(([name, role, employmentType], i) => ({
       id: people[name],
@@ -92,6 +98,7 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await db.execute(tables);
+  await dropPartners();
   await client.end();
 });
 
@@ -148,7 +155,7 @@ describe("event timeline (FLOW-126)", () => {
     const event = await newEvent("Fall gala");
     const [dj] = await db
       .insert(schema.vendors)
-      .values({ name: "DJ Nova", type: "event_partner" })
+      .values({ name: "DJ Nova (FLOW-126)", type: "event_partner" })
       .returning();
     const saved = await sam.send<EventTimeline>(
       "POST",
@@ -158,11 +165,11 @@ describe("event timeline (FLOW-126)", () => {
       }),
     );
     const music = saved.days.flatMap((d) => d.entries).find((e) => e.activity === "Music");
-    expect(music?.who).toEqual({ type: "vendor", id: dj.id, name: "DJ Nova" });
+    expect(music?.who).toEqual({ type: "vendor", id: dj.id, name: "DJ Nova (FLOW-126)" });
     // Only event partners qualify: a food distributor is refused.
     const [food] = await db
       .insert(schema.vendors)
-      .values({ name: "Imperio", type: "food_distributor" })
+      .values({ name: "Food Co (FLOW-126)", type: "food_distributor" })
       .returning();
     const refused = await sam.call(
       "POST",

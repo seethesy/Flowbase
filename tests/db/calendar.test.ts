@@ -470,6 +470,7 @@ describe("event hub tasks and history (FLOW-166)", () => {
       "inventory",
       "tasks",
       "staff",
+      "timeline",
       "files",
       "history",
     ]);
