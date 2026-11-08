@@ -148,8 +148,8 @@ it("saves the company profile and defaults and audits every change", async () =>
   await setListValueArchived(db, admin, value.id, true);
   const history = await settingsHistory(db);
   expect(history.map((entry) => [entry.subject, entry.action])).toEqual([
-    ["Recipe categories: Soups", "archive"],
-    ["Recipe categories: Soups", "create"],
+    ["Dress code presets: Soups", "archive"],
+    ["Dress code presets: Soups", "create"],
     ["Defaults", "create"],
     ["Company profile", "create"],
   ]);
