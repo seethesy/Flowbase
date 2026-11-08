@@ -15,6 +15,7 @@ import {
 import type { z } from "zod";
 import type { Version } from "../../shared/schema-primitives";
 import type { Actor } from "../../shared/access";
+import { canSeePayments } from "../../shared/visibility";
 import {
   eventStatusDetailLabels,
   type EventStatus,
@@ -280,6 +281,10 @@ const builtSections: HubSection[] = [
   // the list itself keeps part-time staff to their own.
   "tasks",
   "staff",
+  // The event timeline and production schedule (FLOW-126).
+  "timeline",
+  // The payment schedule and log (FLOW-131), for FT+ users who may see financials.
+  "payments",
   "files",
   // The event's change history (FLOW-166, from FLOW-161's audit rows).
   "history",
@@ -307,7 +312,11 @@ export async function getEventHub(
     sections: builtSections.filter(
       (section) =>
         (section !== "client" || client !== null) &&
-        (section !== "proposal" || can(actor, "proposals.read")),
+        (section !== "proposal" || can(actor, "proposals.read")) &&
+        (section !== "payments" ||
+          canSeePayments(actor, {
+            assignedSalespersonId: event.assignedSalespersonId,
+          })),
     ),
     canEdit: can(actor, "events.write"),
     canChangeStatus: mayOverrideStatus(actor, event),

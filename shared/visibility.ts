@@ -57,6 +57,15 @@ export function canSeeField(
   return fieldRules[group](actor, context);
 }
 
+// An event's payment schedule and log (FLOW-131 AC3): full-time staff who may see
+// the event's financials. A part-time user, even the event's own salesperson,
+// never sees an amount.
+export const canSeePayments = (
+  actor: Actor,
+  context: ViewContext = {},
+): boolean =>
+  isFtPlus(actor) && canSeeField(actor, "financials", context);
+
 // These paths describe the existing API shapes. Nested values and historical
 // before/after snapshots pass through the very same projection.
 type Rule =

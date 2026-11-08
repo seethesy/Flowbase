@@ -16,6 +16,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../shared/core-records";
 import { departments, shiftKinds } from "../../shared/event-staff";
+import { timelineKinds, timelineWhoKinds } from "../../shared/event-timeline";
+import { paymentMethods, scheduleKinds } from "../../shared/payments";
 import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { proposalStages } from "../../shared/proposals";
@@ -490,6 +492,97 @@ export const proposalMappings = pgTable(
     data: jsonb("data").$type<ProposalMapping>().notNull(),
   },
   (table) => [uniqueIndex("proposal_mappings_proposal_idx").on(table.proposalId)],
+).enableRLS();
+
+// The event timeline and production schedule (FLOW-126): time ranges on any day the
+// event involves, each with an activity, who does it (a staff member, a role, or an
+// outside vendor) and where (an event area, by name). proposal_id and source_key
+// record the mapped proposal line an entry came from, so the line is suggested once.
+export const eventTimelineEntries = pgTable(
+  "event_timeline_entries",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    kind: text("kind", { enum: timelineKinds }).notNull(),
+    startsAt: timestamptz("starts_at").notNull(),
+    endsAt: timestamptz("ends_at").notNull(),
+    activity: text("activity").notNull(),
+    whoType: text("who_type", { enum: timelineWhoKinds }),
+    whoUserId: uuid("who_user_id").references(() => users.id),
+    whoRole: text("who_role"),
+    whoVendorId: uuid("who_vendor_id").references(() => vendors.id),
+    areaName: text("area_name").notNull().default(""),
+    proposalId: uuid("proposal_id").references(() => proposals.id),
+    sourceKey: text("source_key"),
+  },
+  (table) => [
+    index("event_timeline_entries_event_idx").on(table.eventId, table.startsAt),
+    uniqueIndex("event_timeline_entries_source_idx")
+      .on(table.proposalId, table.sourceKey)
+      .where(sql`${table.sourceKey} is not null and ${table.archivedAt} is null`),
+    oneOf("event_timeline_entries_kind_check", table.kind, timelineKinds),
+    oneOf("event_timeline_entries_who_type_check", table.whoType, timelineWhoKinds),
+    check("event_timeline_entries_ends_after_start", sql`${table.endsAt} > ${table.startsAt}`),
+    // Exactly the one column its who_type names is set.
+    check(
+      "event_timeline_entries_who_check",
+      sql`(${table.whoType} is null and ${table.whoUserId} is null and ${table.whoRole} is null and ${table.whoVendorId} is null)
+        or (${table.whoType} = 'staff' and ${table.whoUserId} is not null and ${table.whoRole} is null and ${table.whoVendorId} is null)
+        or (${table.whoType} = 'role' and ${table.whoRole} is not null and ${table.whoUserId} is null and ${table.whoVendorId} is null)
+        or (${table.whoType} = 'vendor' and ${table.whoVendorId} is not null and ${table.whoUserId} is null and ${table.whoRole} is null)`,
+    ),
+  ],
+).enableRLS();
+
+// The payment schedule (FLOW-131): what the client owes and when. due_date is a
+// New York calendar date. proposal_id and source_key work like the timeline's.
+export const paymentScheduleItems = pgTable(
+  "payment_schedule_items",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    kind: text("kind", { enum: scheduleKinds }).notNull(),
+    label: text("label").notNull().default(""),
+    amountCents: moneyCents("amount_cents").notNull(),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    proposalId: uuid("proposal_id").references(() => proposals.id),
+    sourceKey: text("source_key"),
+  },
+  (table) => [
+    index("payment_schedule_items_event_idx").on(table.eventId, table.dueDate),
+    uniqueIndex("payment_schedule_items_source_idx")
+      .on(table.proposalId, table.sourceKey)
+      .where(sql`${table.sourceKey} is not null and ${table.archivedAt} is null`),
+    oneOf("payment_schedule_items_kind_check", table.kind, scheduleKinds),
+    check("payment_schedule_items_amount_positive", sql`${table.amountCents} > 0`),
+  ],
+).enableRLS();
+
+// A payment received and recorded by hand (FLOW-131). created_by is who recorded it.
+// No card numbers: the reference is refused when it looks like one, and the table
+// has no column for card data.
+export const payments = pgTable(
+  "payments",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    method: text("method", { enum: paymentMethods }).notNull(),
+    amountCents: moneyCents("amount_cents").notNull(),
+    receivedOn: date("received_on", { mode: "string" }).notNull(),
+    reference: text("reference").notNull().default(""),
+    note: text("note").notNull().default(""),
+  },
+  (table) => [
+    index("payments_event_idx").on(table.eventId, table.receivedOn),
+    oneOf("payments_method_check", table.method, paymentMethods),
+    check("payments_amount_positive", sql`${table.amountCents} > 0`),
+  ],
 ).enableRLS();
 
 // Audit log (FLOW-41): one append-only row per create, update, archive or restore

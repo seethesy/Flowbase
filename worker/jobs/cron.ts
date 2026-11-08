@@ -9,6 +9,7 @@ import {
 import { registerInventoryPlanning } from "../records/allocations";
 import { registerRecipeCostChanges } from "../records/recipes";
 import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
+import { emitPaymentReminders } from "../records/payments";
 import { scanCollectorHealth } from "../records/collector-health";
 import { refreshUsage } from "../records/usage";
 import { cleanupAttachments } from "../attachments/cleanup";
@@ -46,6 +47,7 @@ export async function runScheduledJobs(
     const now = options.now?.() ?? new Date();
     const tasksDue = await emitDueTaskEvents(db, now);
     const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
+    const paymentReminders = await emitPaymentReminders(db, now);
     await scanCollectorHealth(db, now);
     await refreshUsage(db, now);
     const ran = await runDueJobs(db, registry, { ...options, env });
@@ -65,7 +67,7 @@ export async function runScheduledJobs(
         }),
       );
     }
-    return { tasksDue, tasksDueSoon, ...ran, ...cleaned };
+    return { tasksDue, tasksDueSoon, paymentReminders, ...ran, ...cleaned };
   });
   console.log(JSON.stringify({ event: "jobs_run", ...summary }));
   return summary;
