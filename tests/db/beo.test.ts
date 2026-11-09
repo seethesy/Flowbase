@@ -73,7 +73,7 @@ const casey = signedInAs("casey");
 const kit = signedInAs("kit");
 const nora = signedInAs("nora");
 
-const tables = sql`truncate table pull_list_lines, pull_lists, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table pull_list_lines, pull_lists, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
