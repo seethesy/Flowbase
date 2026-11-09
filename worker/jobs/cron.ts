@@ -7,6 +7,7 @@ import {
   type NotificationOptions,
 } from "../notifications/fanout";
 import { registerInventoryPlanning } from "../records/allocations";
+import { registerPlanning } from "../records/planning";
 import { registerRecipeCostChanges } from "../records/recipes";
 import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
 import { emitPaymentReminders } from "../records/payments";
@@ -24,6 +25,8 @@ export function createJobRegistry(options: NotificationOptions = {}) {
   registerRecipeCostChanges(registry);
   // Reservation conflicts and consumable allocations follow stock (FLOW-77, FLOW-85).
   registerInventoryPlanning(registry);
+  // Start planning: one job per step (FLOW-133).
+  registerPlanning(registry);
   // Notifications (FLOW-43): one subscriber per notification type, plus email.
   registerNotifications(registry, options);
   return registry;

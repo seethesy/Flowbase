@@ -56,7 +56,14 @@ export type AuditEntity =
   | "event_requirements"
   // Vendor orders recorded from an approved order list and their deliveries
   // (FLOW-87, FLOW-88).
-  | "vendor_order";
+  | "vendor_order"
+  // The pull list and its lines (FLOW-134), the kitchen menu and its lines
+  // (FLOW-137), and an event's planning run (FLOW-133).
+  | "pull_list"
+  | "pull_list_line"
+  | "kitchen_menu"
+  | "kitchen_menu_line"
+  | "event_planning";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

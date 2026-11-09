@@ -13,7 +13,11 @@ export const hubSectionSchema = z.enum([
   // see the event's financials.
   "payments",
   "beo",
+  // Start-planning progress and regenerate (FLOW-133).
+  "planning",
   "pull_list",
+  // The kitchen's view of the event (FLOW-137).
+  "kitchen_menu",
   // Equipment holds, conflicts and consumable needs (FLOW-76/77/85).
   "inventory",
   "tasks",
