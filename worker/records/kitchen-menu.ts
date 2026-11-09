@@ -240,7 +240,8 @@ export async function regenerateKitchenMenu(
 export async function getKitchenMenu(db: Db, actor: Actor, eventId: string): Promise<KitchenMenu> {
   const event = await findVisibleEvent(db, actor, eventId);
   const canEdit = mayEditKitchenMenu(actor);
-  const canAssign = actor.role === "kitchen_lead" || actor.role === "admin" || actor.role === "sales_manager" || canEdit;
+  // The Kitchen Lead and managers hand out prep tasks.
+  const canAssign = canEdit;
   const [menu] = await db.select().from(kitchenMenus).where(eq(kitchenMenus.eventId, eventId));
 
   const taskRows = await db

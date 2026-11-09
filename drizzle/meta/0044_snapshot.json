@@ -7752,8 +7752,8 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "pull_list_lines_group_check": {
-          "name": "pull_list_lines_group_check",
+        "pull_list_lines_line_group_check": {
+          "name": "pull_list_lines_line_group_check",
           "value": "\"pull_list_lines\".\"line_group\" in ('kitchen_equipment', 'decor', 'supplies')"
         },
         "pull_list_lines_status_check": {

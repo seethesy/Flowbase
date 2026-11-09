@@ -1876,7 +1876,7 @@ export const pullListLines = pgTable(
     uniqueIndex("pull_list_lines_source_idx")
       .on(table.pullListId, table.sourceKey)
       .where(sql`${table.sourceKey} is not null`),
-    oneOf("pull_list_lines_group_check", table.group, pullGroups),
+    oneOf("pull_list_lines_line_group_check", table.group, pullGroups),
     oneOf("pull_list_lines_status_check", table.status, pullStatuses),
     check(
       "pull_list_lines_quantity_check",

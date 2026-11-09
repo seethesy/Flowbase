@@ -81,7 +81,7 @@ CREATE TABLE "pull_list_lines" (
 	"edited" boolean DEFAULT false NOT NULL,
 	"status_by" uuid,
 	"status_at" timestamp with time zone,
-	CONSTRAINT "pull_list_lines_group_check" CHECK ("pull_list_lines"."line_group" in ('kitchen_equipment', 'decor', 'supplies')),
+	CONSTRAINT "pull_list_lines_line_group_check" CHECK ("pull_list_lines"."line_group" in ('kitchen_equipment', 'decor', 'supplies')),
 	CONSTRAINT "pull_list_lines_status_check" CHECK ("pull_list_lines"."status" in ('to_pull', 'pulled', 'loaded', 'returned')),
 	CONSTRAINT "pull_list_lines_quantity_check" CHECK ("pull_list_lines"."quantity" is null or "pull_list_lines"."quantity" >= 0)
 );
