@@ -77,10 +77,10 @@ export async function saveProposalMapping(db: Db, actor: Actor, proposalId: stri
     const [prior] = priorVersion.length
       ? await tx.select({ data: proposalVersionMappings.data }).from(proposalVersionMappings).where(eq(proposalVersionMappings.versionId, priorVersion[0].id))
       : [];
-    const previous = prior?.data ?? (row && row.versionId !== data.versionId ? row.data : null);
+    const previousMapping = prior?.data ?? (row && row.versionId !== data.versionId ? row.data : null);
     await tx.delete(proposalChangeLog).where(eq(proposalChangeLog.versionId, data.versionId));
-    if (previous) {
-      const changes = diffProposalMappings(previous, data);
+    if (previousMapping) {
+      const changes = diffProposalMappings(previousMapping, data);
       if (changes.length) await tx.insert(proposalChangeLog).values(changes.map((change) => ({
         proposalId, versionId: data.versionId, path: change.path,
         oldValue: change.oldValue, newValue: change.newValue, createdBy: actor.userId, updatedBy: actor.userId,
