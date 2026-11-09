@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -60,18 +60,33 @@ const sue = as(people.sue, "salesperson");
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
-beforeEach(async () => {
+// Catalog rows this file creates. They are removed by id, so seeded defaults (list
+// values, sections) that other test files rely on stay in place.
+const made = { items: [] as string[], recipes: [] as string[] };
+const clean = async () => {
   await db.execute(
-    sql`truncate table pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, tasks, task_assignees, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, events, client_contacts, clients, recipes, inventory_stock, inventory_rental_details, inventory_service_details, inventory_consumable_details, inventory_items, inventory_sections, jobs cascade`,
+    sql`truncate table pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
-});
+  await db.delete(schema.taskAssignees);
+  await db.delete(schema.tasks);
+  if (made.items.length) {
+    await db.delete(schema.inventoryRentalDetails).where(inArray(schema.inventoryRentalDetails.itemId, made.items));
+    await db.delete(schema.inventoryItems).where(inArray(schema.inventoryItems.id, made.items));
+  }
+  if (made.recipes.length) await db.delete(schema.recipes).where(inArray(schema.recipes.id, made.recipes));
+  made.items = [];
+  made.recipes = [];
+};
+beforeEach(clean);
 afterAll(async () => {
+  await clean();
   await client.end();
 });
 
 const rental = async (name: string, subtype: string, components: { itemId: string; quantity: number }[] = []) => {
   const [item] = await db.insert(schema.inventoryItems).values({ kind: "rental", subtype, name }).returning();
   await db.insert(schema.inventoryRentalDetails).values({ itemId: item.id, components });
+  made.items.push(item.id);
   return item;
 };
 
@@ -93,6 +108,7 @@ async function seed(status: "closed" | "negotiation" = "closed") {
   const kit = await rental("Cocktail set", "tableware", [{ itemId: glass.id, quantity: 3 }]);
   const vase = await rental("Vase", "decor");
   const [dish] = await db.insert(schema.recipes).values({ name: "Short rib", category: "Mains" }).returning();
+  made.recipes.push(dish.id);
   const [proposal] = await db
     .insert(schema.proposals)
     .values({ eventId: event.id, clientId: owner.id, title: "Holiday", stage: "signed" })
