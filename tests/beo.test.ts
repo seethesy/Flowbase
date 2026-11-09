@@ -133,13 +133,16 @@ describe("change tracking", () => {
 });
 
 describe("projectBeo (FLOW-148 AC3)", () => {
-  const cases: [Actor["role"], EmploymentType, boolean][] = roles.flatMap((role) =>
+  // Full-time staff, and Admin, Technical and the Sales Manager at any employment type.
+  const seesContacts = (role: Actor["role"], employmentType: EmploymentType) =>
+    employmentType === "full_time" || ["admin", "technical", "sales_manager"].includes(role);
+  const cases = roles.flatMap((role) =>
     (["full_time", "part_time"] as const).map(
-      (employmentType) => [role, employmentType, employmentType === "full_time"] as [Actor["role"], EmploymentType, boolean],
+      (employmentType) => [role, employmentType, seesContacts(role, employmentType)] as const,
     ),
   );
 
-  it.each(cases)("%s (%s): phones and emails only for full-time staff and up", (role, employmentType, sees) => {
+  it.each(cases)("%s (%s): phones and emails only for FT+ (%s)", (role, employmentType, sees) => {
     const view = projectBeo(actor(role, employmentType), content);
     const contacts = [
       view.event.pointOfContact!,
