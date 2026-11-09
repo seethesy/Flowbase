@@ -288,6 +288,8 @@ const builtSections: HubSection[] = [
   "planning",
   "pull_list",
   "kitchen_menu",
+  // The banquet event order (FLOW-143, 144, 148).
+  "beo",
   // The payment schedule and log (FLOW-131), for FT+ users who may see financials.
   "payments",
   "files",

@@ -111,6 +111,9 @@ export type NewApprovalRequest = {
   // The subject's page in the app, for the queue and the notifications.
   link?: string | null;
   proposedChange?: ProposedChange | null;
+  // False when the requester approves it themselves in the same breath (a BEO
+  // approved by the Sales Manager), so nobody is asked about a decided request.
+  notifyApprovers?: boolean;
 };
 
 // Creates a pending request inside the caller's transaction and tells the
@@ -168,6 +171,7 @@ export async function requestApproval(
     .select({ name: users.name })
     .from(users)
     .where(eq(users.id, actor.userId));
+  if (input.notifyApprovers !== false)
   await emitDomainEvent(tx, {
     name: "approval.requested",
     entityId: row.id,

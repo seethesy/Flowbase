@@ -1,4 +1,5 @@
 import { isFtPlus, type Actor, type Role } from "./access";
+import type { BeoContact, BeoContent } from "./beo";
 
 // ADR-07: the API and browser share this map. Database queries enforce row
 // ownership separately; an action never grants access to another owner's row.
@@ -269,3 +270,41 @@ export const attachmentWriteActions = {
   task: "tasks.write",
   sop: "sops.write",
 } as const satisfies Record<string, Action>;
+
+// The BEO as one reader may see it (FLOW-148). The single projection every BEO
+// surface uses: the calendar detail, print and offline copies must call this and
+// never re-derive what a role sees. Client and venue phones and emails are for
+// full-time staff and up; everyone else sees names and roles only. Nothing here
+// ever returns a price, cost or payment: the content has no such field, and the
+// projection rebuilds the content from named fields so a field added later is
+// hidden until someone adds it here on purpose.
+export function projectBeo(actor: Actor, content: BeoContent): BeoContent {
+  const seesContacts = isFtPlus(actor);
+  const contact = (c: BeoContact): BeoContact => ({
+    name: c.name,
+    role: c.role,
+    phone: seesContacts ? c.phone : "",
+    email: seesContacts ? c.email : "",
+  });
+  return {
+    header: { ...content.header },
+    event: {
+      title: content.event.title,
+      client: content.event.client,
+      pointOfContact: content.event.pointOfContact ? contact(content.event.pointOfContact) : null,
+      venue: content.event.venue,
+      address: content.event.address,
+      venueContacts: content.event.venueContacts.map(contact),
+      clientContacts: content.event.clientContacts.map(contact),
+      contactHidden: !seesContacts,
+    },
+    summary: { ...content.summary },
+    foodSetup: content.foodSetup,
+    staff: content.staff,
+    timeline: content.timeline,
+    equipment: content.equipment,
+    layout: { ...content.layout },
+    setupCleanup: { ...content.setupCleanup },
+    notes: { ...content.notes },
+  };
+}

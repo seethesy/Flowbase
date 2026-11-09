@@ -35,6 +35,8 @@ import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
 import { preparationRoutes } from "./routes/preparation";
+import { beoRoutes } from "./routes/beo";
+import { beoSync } from "./beo-sync";
 import { paymentRoutes } from "./routes/payments";
 import { planningRoutes } from "./routes/planning";
 import { notificationRoutes } from "./routes/notifications";
@@ -170,6 +172,8 @@ export function createApp(options: Options = {}) {
     }
     return requireActor(resolveActor)(c, next);
   });
+  // BEO change tracking (FLOW-144) runs after every write under /api/events/<id>.
+  app.use("/api/events/*", beoSync(options.withDb));
   app.route("/api/auth", authRoutes(options));
   app.route("/api/admin/users", userRoutes(options));
   app.get("/api/health", async (c) => {
@@ -271,6 +275,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/events", eventTimelineRoutes(options));
   app.route("/api/events", preparationRoutes(options));
+  app.route("/api/events", beoRoutes(options));
   app.route("/api/events", paymentRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/sops", sopRoutes(options));

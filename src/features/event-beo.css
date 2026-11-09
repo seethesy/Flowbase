@@ -1,0 +1,55 @@
+/* Banquet event order (FLOW-143/144/148). Shared tokens stay in src/styles/globals.css. */
+.beo-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.beo-section h3 {
+  margin: 0 0 4px;
+}
+.beo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.beo-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding: 2px 0;
+}
+.beo-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+.beo-facts dd {
+  margin: 0;
+}
+.beo-tbd,
+.beo-open {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.beo-open {
+  color: var(--destructive, #b42318);
+}
+.beo-changed {
+  margin: 0 0 4px;
+  padding: 2px 6px;
+  border-left: 3px solid #b54708;
+  background: rgb(181 71 8 / 8%);
+}
+.beo-log li[data-marked] {
+  border-left: 3px solid #b54708;
+  padding-left: 6px;
+}
+.beo-edit {
+  padding-top: 8px;
+}
+@media print {
+  .beo-edit,
+  .beo-log {
+    display: none;
+  }
+}

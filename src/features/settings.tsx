@@ -517,7 +517,7 @@ function DefaultSettings() {
               </label>
             ))}
           </fieldset>
-          <FormField label="BEO key fields" hint="One field per line. A change to one sends an approved BEO back for approval.">
+          <FormField label="BEO key fields" hint="One field key per line (date_time, location, guest_count, menu, dress_code, staff_roster, timeline, equipment). A change to one sends an approved BEO back for approval.">
             <textarea
               rows={3}
               value={draft.beoKeyFields}
