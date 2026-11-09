@@ -39,6 +39,11 @@ import { EventPlanningSection } from "./event-planning";
 import { EventPaymentsSection } from "./event-payments";
 import { EventStaffSection } from "./event-staff";
 import { EventTimelineSection } from "./event-timeline";
+import {
+  EventKitchenMenuSection,
+  EventPlanningProgressSection,
+  EventPullListSection,
+} from "./event-preparation";
 import { EventProposalsSection } from "./event-proposals";
 import { EventTasksSection } from "./task-lists";
 import { EventHistorySection } from "./event-activity";
@@ -777,6 +782,17 @@ export function EventDetail() {
       />
     ),
     timeline: () => <EventTimelineSection key={`timeline:${e.id}`} event={e} />,
+    planning: () => (
+      <EventPlanningProgressSection
+        key={`planning-progress:${e.id}`}
+        event={e}
+        onStarted={() => hub.reload()}
+      />
+    ),
+    pull_list: () => <EventPullListSection key={`pull-list:${e.id}`} event={e} />,
+    kitchen_menu: () => (
+      <EventKitchenMenuSection key={`kitchen-menu:${e.id}`} event={e} />
+    ),
     payments: () => <EventPaymentsSection key={`payments:${e.id}`} event={e} />,
     files: () => (
       <Attachments

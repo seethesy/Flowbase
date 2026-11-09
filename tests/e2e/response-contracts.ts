@@ -12,6 +12,9 @@ import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
+import { kitchenMenuSchema } from "../../shared/kitchen-menu";
+import { planningProgressSchema, regeneratePreviewSchema } from "../../shared/planning";
+import { pullListSchema } from "../../shared/pull-list";
 import { eventPaymentsSchema } from "../../shared/payments";
 import {
   availabilitySchema,
@@ -157,6 +160,15 @@ export function responseSchema(
     // Timeline (FLOW-126) and payments (FLOW-131): whole-page answers.
     if (action === "timeline") return eventTimelineSchema;
     if (action === "payments") return eventPaymentsSchema;
+    // Start planning, pull list and kitchen menu (FLOW-133/134/137). The path is
+    // /api/events/<id>/<action>/..., so the regenerate preview is told apart by its tail.
+    if (action === "planning") return planningProgressSchema;
+    if (action === "pull-list" || action === "kitchen-menu")
+      return path.endsWith("/regenerate/preview")
+        ? regeneratePreviewSchema
+        : action === "pull-list"
+          ? pullListSchema
+          : kitchenMenuSchema;
     // Holds, conflicts and consumable needs (FLOW-76/77/85).
     if (action === "reservations")
       return method === "GET" ? reservationSchema.array() : reservationSchema;
