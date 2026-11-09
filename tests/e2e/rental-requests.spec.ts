@@ -8,7 +8,7 @@ test("prints one vendor request with event, delivery and two rental lines", asyn
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   const [vendor] = await browserDb((db) => db.insert(s.vendors).values({ name: "Atlas Rentals", type: "rental_vendor" }).returning());
   const first = chairs();
-  const second = { ...chairs(), id: randomUUID(), name: "Coupe glass" };
+  const second = { ...chairs(), id: randomUUID(), code: "CH-002", name: "Coupe glass" };
   await seedInventory({ items: [first, second].map((item) => ({ ...item, stock: [], totalQuantity: 0,
     rental: { ...item.rental!, vendorId: vendor.id, vendorName: vendor.name } })) });
   await page.goto(`/#/events/${fallGala().id}`);
