@@ -21,7 +21,6 @@ import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { writeAudit, writeAuditMany } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
-  events,
   kitchenMenuLines,
   kitchenMenus,
   recipes,
@@ -190,7 +189,13 @@ export async function generateKitchenMenu(
       entityType: "kitchen_menu_line",
       entityId: row.id,
       action: "update",
-      before: { ...snapshot(row, line.before.name), ...set(line.before) },
+      before: {
+        recipe: line.before.name,
+        course: line.before.course,
+        plannedQuantity: line.before.plannedQuantity,
+        notes: line.before.notes,
+        removed: line.restore,
+      },
       after: snapshot(row, line.value.name),
     });
   }

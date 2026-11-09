@@ -67,7 +67,7 @@ describe("planRegeneration", () => {
 
 describe("describeRegeneration", () => {
   it("words each change and reports an unchanged plan as up to date", () => {
-    const label = (v: V) => "Item";
+    const label = () => "Item";
     const summary = (v: V) => `${v.qty ?? "TBD"}`;
     expect(describeRegeneration(planRegeneration([row("a", 1)], [gen("a", 1)], same, false), label, summary).upToDate).toBe(true);
     const preview = describeRegeneration(planRegeneration([row("a", 1)], [gen("a", null)], same, false), label, summary);
