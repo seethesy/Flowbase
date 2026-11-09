@@ -8,6 +8,7 @@ import {
   type PullStatus,
 } from "../../shared/pull-list";
 import { at, request } from "./core";
+import { rentalRequestSchema, type RentalRequestSettings } from "../../shared/rental-requests";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137). Every
 // change answers with the whole list or menu.
@@ -15,6 +16,10 @@ const pull = (eventId: string, rest = "") => at("events", eventId, `pull-list${r
 const kitchen = (eventId: string, rest = "") => at("events", eventId, `kitchen-menu${rest}`);
 
 export const preparationApi = {
+  rentalRequests: (eventId: string) =>
+    request(rentalRequestSchema.array(), at("events", eventId, "rental-requests")),
+  updateRentalRequest: (eventId: string, vendorId: string, input: Omit<RentalRequestSettings, "vendorId">) =>
+    request(rentalRequestSchema.array(), at("events", eventId, `rental-requests/${encodeURIComponent(vendorId)}`), "PUT", input),
   progress: (eventId: string) =>
     request(planningProgressSchema, at("events", eventId, "planning")),
   start: (eventId: string) =>

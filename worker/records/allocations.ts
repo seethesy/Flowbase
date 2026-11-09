@@ -545,9 +545,9 @@ export async function listRequirements(
 
 // Replaces the event's lines from one source as a set and asks for the affected
 // items to be recomputed. Other sources' lines are left alone.
-async function replaceRequirements(
+export async function replaceRequirements(
   tx: DbLike,
-  actor: Actor,
+  actor: Actor | null,
   eventId: string,
   source: string,
   lines: RequirementsInput["lines"],
@@ -573,12 +573,12 @@ async function replaceRequirements(
     if (!line)
       await tx
         .update(eventRequirements)
-        .set({ archivedAt: new Date(), updatedBy: actor.userId })
+        .set({ archivedAt: new Date(), updatedBy: actor?.userId ?? null })
         .where(eq(eventRequirements.id, row.id));
     else if (row.basis !== (line.basis ?? "fixed") || row.quantity !== line.quantity)
       await tx
         .update(eventRequirements)
-        .set({ basis: line.basis ?? "fixed", quantity: line.quantity, updatedBy: actor.userId })
+        .set({ basis: line.basis ?? "fixed", quantity: line.quantity, updatedBy: actor?.userId ?? null })
         .where(eq(eventRequirements.id, row.id));
   }
   const kept = new Set(existing.map((row) => row.itemId));
@@ -591,8 +591,8 @@ async function replaceRequirements(
         basis: line.basis ?? "fixed",
         quantity: line.quantity,
         source,
-        createdBy: actor.userId,
-        updatedBy: actor.userId,
+        createdBy: actor?.userId ?? null,
+        updatedBy: actor?.userId ?? null,
       })),
     );
   await writeAudit(tx, actor, {
@@ -750,6 +750,7 @@ export async function setBarPlan(db: Db, actor: Actor, eventId: string, input: B
       [...existing, ...tiers].map((line) => [`${line.category}|${line.tier}`, line]),
     );
     for (const { category, tier } of pools.values()) await requestBarRecompute(tx, category, tier);
+    await requestEventRecompute(tx, eventId);
   });
   return getBarPlan(db, actor, eventId);
 }

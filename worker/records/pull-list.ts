@@ -44,12 +44,29 @@ import {
 } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
+import { replaceRequirements, requestEventRecompute } from "./allocations";
 
 // The inventory pull list (FLOW-134). Generated from the event's mapped proposal
 // when planning starts, editable by hand, and rebuilt on request with a preview of
 // what would change (shared/planning.ts planRegeneration).
 
 type LineRow = typeof pullListLines.$inferSelect;
+
+async function syncSupplyRequirements(tx: DbLike, actor: Actor | null, eventId: string) {
+  const rows = await tx.select({ itemId: pullListLines.itemId, quantity: pullListLines.quantity })
+    .from(pullListLines)
+    .innerJoin(pullLists, eq(pullLists.id, pullListLines.pullListId))
+    .innerJoin(inventoryItems, eq(inventoryItems.id, pullListLines.itemId))
+    .where(and(eq(pullLists.eventId, eventId), eq(pullListLines.group, "supplies"),
+      eq(inventoryItems.subtype, "supply"), isNull(pullListLines.archivedAt)));
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    if (row.itemId === null || row.quantity === null) continue;
+    totals.set(row.itemId, Math.round(((totals.get(row.itemId) ?? 0) + row.quantity) * 10_000) / 10_000);
+  }
+  await replaceRequirements(tx, actor, eventId, "supply", [...totals].map(([itemId, quantity]) => ({ itemId, quantity, basis: "fixed" })));
+  await requestEventRecompute(tx, eventId);
+}
 
 // The proposal whose mapping feeds the event: the newest one that isn't lost and
 // whose mapping matches its current version. null when the event has none.
@@ -77,7 +94,8 @@ export async function eventProposalLines(
   return match ? match.data.lines : null;
 }
 
-type CatalogItem = RequirementItem & { kind: string; subtype: string | null };
+type CatalogItem = RequirementItem & { kind: string; subtype: string | null;
+  ratioQuantity: number | null; ratioBasis: string | null };
 
 // Loads the items a set of ids needs, following kit components and service
 // inclusions until nothing new turns up.
@@ -91,6 +109,8 @@ async function loadCatalog(db: DbLike, ids: string[]) {
         name: inventoryItems.name,
         kind: inventoryItems.kind,
         subtype: inventoryItems.subtype,
+        ratioQuantity: inventoryItems.ratioQuantity,
+        ratioBasis: inventoryItems.ratioBasis,
         active: inventoryItems.active,
         archivedAt: inventoryItems.archivedAt,
         includes: inventoryServiceDetails.includes,
@@ -107,6 +127,8 @@ async function loadCatalog(db: DbLike, ids: string[]) {
         name: row.name,
         kind: row.kind,
         subtype: row.subtype,
+        ratioQuantity: row.ratioQuantity,
+        ratioBasis: row.ratioBasis,
         active: row.active,
         archivedAt: row.archivedAt?.toISOString() ?? null,
         service: row.kind === "service" ? { includes: row.includes ?? [] } : null,
@@ -164,7 +186,11 @@ export async function generatedPullLines(
     }
     const item = catalog.get(line.catalogId);
     if (!item) continue;
-    if (line.quantity === null) {
+    const plannedQuantity = item.subtype === "supply" && item.ratioBasis === "per_guest" &&
+      item.ratioQuantity !== null
+      ? Math.round((line.quantity ?? 1) * item.ratioQuantity * guests * 10_000) / 10_000
+      : line.quantity;
+    if (plannedQuantity === null) {
       out.push({
         sourceKey: key,
         value: {
@@ -179,7 +205,7 @@ export async function generatedPullLines(
     }
     let needs: { itemId: string; quantity: number }[];
     try {
-      needs = itemRequirements(item.id, line.quantity, items, guests);
+      needs = itemRequirements(item.id, plannedQuantity, items, guests);
     } catch {
       // A retired item or a kit loop: keep the line as the proposal wrote it so
       // someone sorts it out by hand.
@@ -189,7 +215,7 @@ export async function generatedPullLines(
           group: pullGroupOf(item),
           itemId: item.id,
           name: item.name,
-          quantity: line.quantity,
+          quantity: plannedQuantity,
           ...base(line),
         },
       });
@@ -370,6 +396,7 @@ export async function generatePullList(
   }
   await writeAuditMany(tx, actor, audits);
   await tx.update(pullLists).set({ generatedAt: now, updatedBy: by }).where(eq(pullLists.id, list.id));
+  await syncSupplyRequirements(tx, actor, eventId);
   return {
     added: plan.add.length,
     changed: plan.update.length,
@@ -558,6 +585,7 @@ export async function addPullLine(
       before: null,
       after: snapshot(row),
     });
+    await syncSupplyRequirements(tx, actor, eventId);
   });
   return getPullList(db, actor, eventId);
 }
@@ -586,6 +614,7 @@ export async function updatePullLine(
       before: snapshot(before),
       after: snapshot(row),
     });
+    await syncSupplyRequirements(tx, actor, eventId);
   });
   return getPullList(db, actor, eventId);
 }
@@ -609,6 +638,7 @@ export async function removePullLine(db: Db, actor: Actor, eventId: string, line
       before: snapshot(before),
       after: snapshot(row),
     });
+    await syncSupplyRequirements(tx, actor, eventId);
   });
   return getPullList(db, actor, eventId);
 }

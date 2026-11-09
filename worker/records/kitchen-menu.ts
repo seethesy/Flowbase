@@ -18,11 +18,15 @@ import {
 } from "../../shared/kitchen-menu";
 import { mayEditKitchenMenu } from "../../shared/policy";
 import { businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
+import { convert, type Unit } from "../../shared/units";
 import { writeAudit, writeAuditMany } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   kitchenMenuLines,
   kitchenMenus,
+  events,
+  inventoryItems,
+  inventoryConsumableDetails,
   recipes,
   taskAssignees,
   tasks,
@@ -31,6 +35,8 @@ import {
 import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
 import { eventProposalLines } from "./pull-list";
+import { replaceRequirements, requestEventRecompute } from "./allocations";
+import { scaleRecipeFor } from "./recipes";
 
 // The kitchen menu (FLOW-137): the dishes for one event, generated from the mapped
 // proposal and planned by the Kitchen Lead. Prep is handed out as kitchen tasks
@@ -50,6 +56,8 @@ const toValue = (row: LineRow, name: string): KitchenLineValue => ({
 
 // One entry per menu line of the proposal that is matched to a dish.
 export async function generatedKitchenLines(db: DbLike, eventId: string) {
+  const [event] = await db.select({ guests: events.guestCount, servings: events.servingsCount })
+    .from(events).where(eq(events.id, eventId));
   const lines = ((await eventProposalLines(db, eventId)) ?? []).filter(
     (line) => line.kind === "menu" && line.catalogId && !line.notTracked,
   );
@@ -69,12 +77,51 @@ export async function generatedKitchenLines(db: DbLike, eventId: string) {
           recipeId: recipe.id,
           name: recipe.name,
           course: line.section.trim() || recipe.category,
-          plannedQuantity: line.quantity,
+          plannedQuantity: event?.servings ?? event?.guests ?? null,
           notes: line.notes,
         } satisfies KitchenLineValue,
       },
     ];
   });
+}
+
+// Menu requirements are a single source-scoped set. Scaling uses the recipe's
+// purchase units, exactly as the recipe scaling screen does. A dish without a
+// yield stays on the kitchen menu but contributes no inventory requirement.
+async function syncKitchenRequirements(tx: DbLike, actor: Actor | null, eventId: string) {
+  const rows = await tx.select({ recipeId: kitchenMenuLines.recipeId, quantity: kitchenMenuLines.plannedQuantity })
+    .from(kitchenMenuLines)
+    .innerJoin(kitchenMenus, eq(kitchenMenus.id, kitchenMenuLines.menuId))
+    .where(and(eq(kitchenMenus.eventId, eventId), isNull(kitchenMenuLines.archivedAt)));
+  const purchase = new Map<string, { quantity: number; unit: Unit }>();
+  for (const row of rows) {
+    if (row.quantity === null || row.quantity === 0) continue;
+    const scaled = await scaleRecipeFor(tx, row.recipeId, row.quantity);
+    if (!scaled.ok) continue;
+    for (const line of scaled.totals) {
+      const current = purchase.get(line.itemId);
+      purchase.set(line.itemId, { quantity: Math.round(((current?.quantity ?? 0) + line.quantity) * 10_000) / 10_000, unit: line.unit });
+    }
+  }
+  const details = purchase.size ? await tx.select({ id: inventoryItems.id, unit: inventoryItems.unit,
+    packCount: inventoryConsumableDetails.packCount,
+    eachSizeQuantity: inventoryConsumableDetails.eachSizeQuantity,
+    eachSizeUnit: inventoryConsumableDetails.eachSizeUnit,
+  }).from(inventoryItems)
+    .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
+    .where(inArray(inventoryItems.id, [...purchase.keys()])) : [];
+  const totals = new Map<string, number>();
+  for (const item of details) {
+    const need = purchase.get(item.id)!;
+    const converted = convert(need.quantity, need.unit, item.unit as Unit, {
+      packCount: item.packCount,
+      eachSize: item.eachSizeQuantity !== null && item.eachSizeUnit
+        ? { quantity: item.eachSizeQuantity, unit: item.eachSizeUnit as Unit } : null,
+    });
+    if (converted.ok) totals.set(item.id, Math.round(converted.value * 10_000) / 10_000);
+  }
+  await replaceRequirements(tx, actor, eventId, "menu", [...totals].map(([itemId, quantity]) => ({ itemId, quantity, basis: "fixed" })));
+  await requestEventRecompute(tx, eventId);
 }
 
 async function generatedRows(db: DbLike, menuId: string) {
@@ -215,6 +262,7 @@ export async function generateKitchenMenu(
   }
   await writeAuditMany(tx, actor, audits);
   await tx.update(kitchenMenus).set({ generatedAt: now, updatedBy: by }).where(eq(kitchenMenus.id, menu.id));
+  await syncKitchenRequirements(tx, actor, eventId);
   return {
     added: plan.add.length,
     changed: plan.update.length,
@@ -336,6 +384,8 @@ export async function addKitchenLine(db: Db, actor: Actor, eventId: string, inpu
   if (!mayEditKitchenMenu(actor)) throw forbidden();
   await findVisibleEvent(db, actor, eventId);
   await db.transaction(async (tx) => {
+    const [event] = await tx.select({ guests: events.guestCount, servings: events.servingsCount })
+      .from(events).where(eq(events.id, eventId));
     const [recipe] = await tx
       .select({ id: recipes.id, name: recipes.name, category: recipes.category })
       .from(recipes)
@@ -348,7 +398,9 @@ export async function addKitchenLine(db: Db, actor: Actor, eventId: string, inpu
         menuId: menu.id,
         recipeId: recipe.id,
         course: (input.course ?? "").trim() || recipe.category,
-        plannedQuantity: input.plannedQuantity ?? null,
+        plannedQuantity: input.plannedQuantity === undefined
+          ? (event?.servings ?? event?.guests ?? null)
+          : input.plannedQuantity,
         notes: input.notes ?? "",
         createdBy: actor.userId,
         updatedBy: actor.userId,
@@ -361,6 +413,7 @@ export async function addKitchenLine(db: Db, actor: Actor, eventId: string, inpu
       before: null,
       after: snapshot(row, recipe.name),
     });
+    await syncKitchenRequirements(tx, actor, eventId);
   });
   return getKitchenMenu(db, actor, eventId);
 }
@@ -388,6 +441,7 @@ export async function updateKitchenLine(
       before: snapshot(before, name),
       after: snapshot(row, name),
     });
+    await syncKitchenRequirements(tx, actor, eventId);
   });
   return getKitchenMenu(db, actor, eventId);
 }
@@ -409,6 +463,7 @@ export async function removeKitchenLine(db: Db, actor: Actor, eventId: string, l
       before: snapshot(before, name),
       after: snapshot(row, name),
     });
+    await syncKitchenRequirements(tx, actor, eventId);
   });
   return getKitchenMenu(db, actor, eventId);
 }

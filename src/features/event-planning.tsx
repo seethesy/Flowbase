@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Copy, Plus, Printer, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import {
   requirementBasisLabels,
@@ -20,6 +20,8 @@ import { LoadError } from "../components/record-display";
 import { Button, LoadingSkeleton, Section } from "../components/shared";
 import { allPages, inventoryApi } from "../services/core";
 import { planningApi } from "../services/planning";
+import { preparationApi } from "../services/preparation";
+import { rentalRequestStatuses, rentalRequestText, type RentalRequest } from "../../shared/rental-requests";
 import { date } from "./event-format";
 import "./event-planning.css";
 
@@ -77,16 +79,17 @@ function PlanningSections({
     { reference: true },
   );
   const bar = useResource(["event-bar-plan", event.id], () => planningApi.barPlan(event.id));
+  const rentals = useResource(["event-rental-requests", event.id], () => preparationApi.rentalRequests(event.id));
   const [error, setError] = useState("");
-  const failed = holds.error ?? conflicts.error ?? needs.error ?? bar.error;
+  const failed = holds.error ?? conflicts.error ?? needs.error ?? bar.error ?? rentals.error;
   if (failed)
     return (
       <Section title="Equipment & stock">
         <LoadError message={failed} />
       </Section>
     );
-  if (!holds.data || !conflicts.data || !needs.data || !bar.data) return <LoadingSkeleton />;
-  const rentals = (items.data ?? []).filter((item) => item.kind === "rental");
+  if (!holds.data || !conflicts.data || !needs.data || !bar.data || !rentals.data) return <LoadingSkeleton />;
+  const rentalItems = (items.data ?? []).filter((item) => item.kind === "rental");
   const consumables = (items.data ?? []).filter((item) => item.kind === "consumable");
   const barItems = consumables.filter((item) => item.subtype === "bar");
   // Bar lines are shown and edited in the bar plan.
@@ -94,6 +97,7 @@ function PlanningSections({
   const reloadAll = () => {
     holds.reload();
     conflicts.reload();
+    rentals.reload();
   };
   // Runs a change, then shows the fresh holds and conflicts.
   const act = async (run: () => Promise<unknown>) => {
@@ -119,7 +123,7 @@ function PlanningSections({
             key={conflict.id}
             conflict={conflict}
             canEdit={canEdit}
-            rentals={rentals}
+            rentals={rentalItems}
             onResolve={(input) =>
               act(() => planningApi.resolve(conflict.id, input))
             }
@@ -140,13 +144,20 @@ function PlanningSections({
         {canEdit && (
           <AddLine
             label="Hold equipment"
-            options={rentals}
+            options={rentalItems}
             onAdd={(itemId, quantity) =>
               act(() => planningApi.placeHold(event.id, { itemId, quantity }))
             }
           />
         )}
       </Section>
+      <RentalRequestsSection
+        requests={rentals.data}
+        canEdit={canEdit}
+        onSave={async (request, input) => {
+          rentals.replace(await preparationApi.updateRentalRequest(event.id, request.vendorId, input));
+        }}
+      />
       <Section title="Consumable needs">
         <ul className="planning-list">
           {otherNeeds.map((need) => (
@@ -199,6 +210,68 @@ function PlanningSections({
         }
       />
     </>
+  );
+}
+
+function RentalRequestsSection({ requests, canEdit, onSave }: {
+  requests: RentalRequest[];
+  canEdit: boolean;
+  onSave: (request: RentalRequest, input: { status: RentalRequest["status"];
+    method: RentalRequest["method"]; details: string }) => Promise<void>;
+}) {
+  const [error, setError] = useState("");
+  const [printing, setPrinting] = useState<string | null>(null);
+  useEffect(() => {
+    if (!printing) return;
+    document.body.classList.add("printing-rental-request");
+    const clear = () => { document.body.classList.remove("printing-rental-request"); setPrinting(null); };
+    window.addEventListener("afterprint", clear, { once: true });
+    const frame = requestAnimationFrame(() => window.print());
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("afterprint", clear); document.body.classList.remove("printing-rental-request"); };
+  }, [printing]);
+  const save = async (request: RentalRequest, patch: Partial<Pick<RentalRequest, "status" | "method" | "details">>) => {
+    setError("");
+    try {
+      await onSave(request, { status: patch.status ?? request.status,
+        method: patch.method ?? request.method, details: patch.details ?? request.details });
+    } catch (cause) { setError((cause as Error).message); }
+  };
+  return (
+    <Section title="Vendor rental requests">
+      {error && <p role="alert" className="error-message">{error}</p>}
+      {!requests.length && <p className="muted">No vendor rentals are held for this event.</p>}
+      {requests.map((request) => (
+        <article key={request.vendorId} className="rental-request-document" data-print={printing === request.vendorId}>
+          <h3>Rental request: {request.vendorName}</h3>
+          <p><strong>Event:</strong> {request.eventTitle} · {date(request.eventDate)}</p>
+          {canEdit ? (
+            <div className="rental-request-controls">
+              <label>Status <select aria-label={`${request.vendorName} request status`} value={request.status}
+                onChange={(event) => void save(request, { status: event.target.value as RentalRequest["status"] })}>
+                {rentalRequestStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select></label>
+              <label>Fulfillment <select aria-label={`${request.vendorName} fulfillment`} value={request.method}
+                onChange={(event) => void save(request, { method: event.target.value as RentalRequest["method"] })}>
+                <option value="delivery">Delivery</option><option value="pickup">Pickup</option>
+              </select></label>
+              <label>Delivery or pickup details <input aria-label={`${request.vendorName} delivery details`}
+                defaultValue={request.details} onBlur={(event) => {
+                  if (event.target.value !== request.details) void save(request, { details: event.target.value });
+                }} /></label>
+            </div>
+          ) : <p>{request.status} · {request.method}: {request.details || "Details to confirm"}</p>}
+          <p className="rental-request-print-details"><strong>{request.method === "delivery" ? "Delivery" : "Pickup"}:</strong> {request.details || "Details to confirm"}</p>
+          <table><thead><tr><th>Item</th><th>Quantity</th><th>Rental dates</th></tr></thead>
+            <tbody>{request.lines.map((line) => <tr key={line.itemId}><td>{line.name}</td><td>{number(line.quantity)}</td>
+              <td>{date(line.from)}–{date(line.through)}</td></tr>)}</tbody></table>
+          <div className="rental-request-actions">
+            <Button variant="outline" onClick={() => setPrinting(request.vendorId)}><Printer size={14} /> Print request</Button>
+            <Button variant="outline" onClick={() => void navigator.clipboard.writeText(rentalRequestText(request))}>
+              <Copy size={14} /> Copy text</Button>
+          </div>
+        </article>
+      ))}
+    </Section>
   );
 }
 
@@ -460,6 +533,7 @@ function NeedRow({
   return (
     <li className="planning-row">
       <strong>{need.itemName}</strong>
+      {need.source !== "manual" && <small className="muted">{need.source}</small>}
       <span className="muted">
         {number(need.quantity)} {need.unit}
         {need.basis === "per_guest" ? " per guest" : ""} → needs {number(need.required)} {need.unit}

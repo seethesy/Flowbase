@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
@@ -62,20 +62,25 @@ beforeAll(async () => {
 });
 // Catalog rows this file creates. They are removed by id, so seeded defaults (list
 // values, sections) that other test files rely on stay in place.
-const made = { items: [] as string[], recipes: [] as string[] };
+const made = { items: [] as string[], recipes: [] as string[], vendors: [] as string[] };
 const clean = async () => {
   await db.execute(
     sql`truncate table pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
   await db.delete(schema.taskAssignees);
   await db.delete(schema.tasks);
+  if (made.recipes.length) await db.delete(schema.recipeLines).where(inArray(schema.recipeLines.recipeId, made.recipes));
   if (made.items.length) {
     await db.delete(schema.inventoryRentalDetails).where(inArray(schema.inventoryRentalDetails.itemId, made.items));
+    await db.delete(schema.inventoryConsumableDetails).where(inArray(schema.inventoryConsumableDetails.itemId, made.items));
+    await db.delete(schema.inventoryServiceDetails).where(inArray(schema.inventoryServiceDetails.itemId, made.items));
     await db.delete(schema.inventoryItems).where(inArray(schema.inventoryItems.id, made.items));
   }
   if (made.recipes.length) await db.delete(schema.recipes).where(inArray(schema.recipes.id, made.recipes));
+  if (made.vendors.length) await db.delete(schema.vendors).where(inArray(schema.vendors.id, made.vendors));
   made.items = [];
   made.recipes = [];
+  made.vendors = [];
 };
 beforeEach(clean);
 afterAll(async () => {
@@ -182,7 +187,7 @@ describe("start planning (FLOW-133)", () => {
     expect(progress.steps.map((step) => [step.step, step.status])).toEqual([
       ["holds", "pending"],
       ["pull_list", "pending"],
-      ["requirements", "skipped"],
+      ["requirements", "pending"],
       ["production_tasks", "skipped"],
       ["kitchen_menu", "pending"],
       ["beo_draft", "skipped"],
@@ -191,7 +196,7 @@ describe("start planning (FLOW-133)", () => {
     const [row] = await db.select().from(schema.events).where(eq(schema.events.id, event.id));
     expect(row.status).toBe("preparation");
     const queued = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "planning.step"));
-    expect(queued).toHaveLength(3);
+    expect(queued).toHaveLength(4);
   });
 
   it("refuses a second start, an event that isn't Closed, and someone else's event", async () => {
@@ -222,7 +227,7 @@ describe("start planning (FLOW-133)", () => {
     const menu = await kitchen(event.id);
     expect(menu.courses).toHaveLength(1);
     expect(menu.courses[0]).toMatchObject({ course: "Mains" });
-    expect(menu.courses[0].lines[0]).toMatchObject({ name: "Short rib", plannedQuantity: 50 });
+    expect(menu.courses[0].lines[0]).toMatchObject({ name: "Short rib", plannedQuantity: 80 });
   });
 
   it("is safe to repeat: regenerating an unchanged proposal changes nothing", async () => {
@@ -327,6 +332,104 @@ describe("kitchen menu (FLOW-137)", () => {
     await admin.send("POST", `/api/events/${event.id}/kitchen-menu/regenerate`, {});
     expect((await kitchen(event.id)).courses[0].lines[0].plannedQuantity).toBe(60);
     await admin.send("POST", `/api/events/${event.id}/kitchen-menu/regenerate`, { discardEdits: true });
-    expect((await kitchen(event.id)).courses[0].lines[0].plannedQuantity).toBe(50);
+    expect((await kitchen(event.id)).courses[0].lines[0].plannedQuantity).toBe(80);
+  });
+});
+
+describe("event ingredient requirements (FLOW-135/225)", () => {
+  it("scales 120 servings to 12 chicken breasts and recomputes after an edit", async () => {
+    const { event, dish } = await seed();
+    await db.update(schema.events).set({ guestCount: 120 }).where(eq(schema.events.id, event.id));
+    await db.update(schema.recipes).set({ yieldServings: 10 }).where(eq(schema.recipes.id, dish.id));
+    const [chicken] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "ingredient", name: "Chicken breast", unit: "each" }).returning();
+    made.items.push(chicken.id);
+    await db.insert(schema.inventoryConsumableDetails).values({ itemId: chicken.id, purchaseUnit: "each" });
+    await db.insert(schema.recipeLines).values({ recipeId: dish.id, itemId: chicken.id, quantity: 1, unit: "each" });
+    await sam.send("POST", `/api/events/${event.id}/planning/start`);
+    await runJobs();
+    const line = (await kitchen(event.id)).courses[0].lines[0];
+    expect(line.plannedQuantity).toBe(120);
+    const menu = async () => db.select().from(schema.eventRequirements).where(and(eq(schema.eventRequirements.eventId, event.id), eq(schema.eventRequirements.source, "menu"), isNull(schema.eventRequirements.archivedAt)));
+    expect((await menu())[0].quantity).toBe(12);
+    await admin.send("PUT", `/api/events/${event.id}/requirements`, { lines: [{ itemId: chicken.id, quantity: 2 }] });
+    await admin.send("PATCH", `/api/events/${event.id}/kitchen-menu/lines/${line.id}`, { plannedQuantity: 60 });
+    expect((await menu())[0].quantity).toBe(6);
+    const manual = await db.select().from(schema.eventRequirements).where(and(eq(schema.eventRequirements.eventId, event.id), eq(schema.eventRequirements.source, "manual"), isNull(schema.eventRequirements.archivedAt)));
+    expect(manual[0].quantity).toBe(2);
+    await runJobs();
+    const [allocation] = await db.select().from(schema.consumableAllocations).where(and(eq(schema.consumableAllocations.eventId, event.id), eq(schema.consumableAllocations.itemId, chicken.id)));
+    expect(allocation.required).toBe(8);
+    expect(allocation.shortage).toBe(8);
+    await admin.send("PUT", `/api/events/${event.id}/requirements`, { lines: [] });
+    expect((await menu())[0].quantity).toBe(6);
+    const remainingManual = await db.select().from(schema.eventRequirements).where(and(
+      eq(schema.eventRequirements.eventId, event.id), eq(schema.eventRequirements.source, "manual"),
+      isNull(schema.eventRequirements.archivedAt),
+    ));
+    expect(remainingManual).toHaveLength(0);
+    await runJobs();
+    const [after] = await db.select().from(schema.consumableAllocations).where(and(eq(schema.consumableAllocations.eventId, event.id), eq(schema.consumableAllocations.itemId, chicken.id)));
+    expect(after.required).toBe(6);
+  });
+
+  it("flags a dish without a yield and leaves it out of requirements", async () => {
+    const { event } = await planned();
+    expect((await kitchen(event.id)).courses[0].lines[0].scalable).toBe(false);
+    const rows = await db.select().from(schema.eventRequirements).where(and(eq(schema.eventRequirements.eventId, event.id), eq(schema.eventRequirements.source, "menu")));
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("event supply requirements (FLOW-135/225)", () => {
+  it("turns a per-guest service include into 120 of each supply", async () => {
+    const { event, proposal, data } = await seed();
+    await db.update(schema.events).set({ guestCount: 120 }).where(eq(schema.events.id, event.id));
+    const [fork, spoon, service, napkin] = await db.insert(schema.inventoryItems).values([
+      { kind: "consumable", subtype: "supply", name: "Plastic fork" },
+      { kind: "consumable", subtype: "supply", name: "Plastic spoon" },
+      { kind: "service", name: "Full Plasticware Package" },
+      { kind: "consumable", subtype: "supply", name: "Napkin", ratioQuantity: 2, ratioBasis: "per_guest" },
+    ]).returning();
+    made.items.push(fork.id, spoon.id, service.id, napkin.id);
+    await db.insert(schema.inventoryConsumableDetails).values([
+      { itemId: fork.id, purchaseUnit: "each" }, { itemId: spoon.id, purchaseUnit: "each" },
+      { itemId: napkin.id, purchaseUnit: "each" },
+    ]);
+    await db.insert(schema.inventoryServiceDetails).values({ itemId: service.id,
+      includes: [{ itemId: fork.id, quantity: 1, basis: "per_guest" }, { itemId: spoon.id, quantity: 1, basis: "per_guest" }] });
+    await db.update(schema.proposalMappings).set({ data: { ...data, lines: [...data.lines, {
+      id: "L6", kind: "service", section: "Service", name: service.name, notes: "", quantity: 1,
+      sourceBlockId: null, catalogId: service.id, notTracked: false,
+    }, {
+      id: "L7", kind: "supply", section: "Supplies", name: napkin.name, notes: "", quantity: null,
+      sourceBlockId: null, catalogId: napkin.id, notTracked: false,
+    }] } }).where(eq(schema.proposalMappings.proposalId, proposal.id));
+    await sam.send("POST", `/api/events/${event.id}/planning/start`);
+    await runJobs();
+    const rows = await db.select().from(schema.eventRequirements).where(and(
+      eq(schema.eventRequirements.eventId, event.id), eq(schema.eventRequirements.source, "supply"),
+      isNull(schema.eventRequirements.archivedAt),
+    ));
+    expect(rows.map((row) => row.quantity).sort((a, b) => a - b)).toEqual([120, 120, 240]);
+  });
+});
+
+describe("vendor rental requests (FLOW-136)", () => {
+  it("groups vendor holds and stores status and delivery details without pricing", async () => {
+    const { event, chair, glass } = await seed();
+    const [vendor] = await db.insert(schema.vendors).values({ name: "Atlas Rentals", type: "rental_vendor" }).returning();
+    made.vendors.push(vendor.id);
+    await db.update(schema.inventoryRentalDetails).set({ vendorId: vendor.id })
+      .where(inArray(schema.inventoryRentalDetails.itemId, [chair.id, glass.id]));
+    await admin.send("POST", `/api/events/${event.id}/reservations`, { itemId: chair.id, quantity: 20 }, 201);
+    await admin.send("POST", `/api/events/${event.id}/reservations`, { itemId: glass.id, quantity: 40 }, 201);
+    const path = `/api/events/${event.id}/rental-requests`;
+    const initial = await admin.send<{ vendorId: string; lines: { name: string }[]; status: string }[]>("GET", path);
+    expect(initial).toHaveLength(1);
+    expect(initial[0].lines.map((line) => line.name).sort()).toEqual(["Coupe glass", "Gold chair"]);
+    const saved = await admin.send<{ status: string; details: string }[]>("PUT", `${path}/${vendor.id}`,
+      { status: "sent", method: "delivery", details: "Dock at 9 am" });
+    expect(saved[0]).toMatchObject({ status: "sent", details: "Dock at 9 am" });
+    expect(JSON.stringify(saved)).not.toMatch(/priceCents|vendorCostCents/);
   });
 });
