@@ -296,8 +296,11 @@ describe("kitchen menu (FLOW-137)", () => {
     expect(edited.courses[0].lines[0]).toMatchObject({ plannedQuantity: 60, edited: true });
     const timed = await admin.send<KitchenMenu>("PUT", `/api/events/${event.id}/kitchen-menu/times`, { leavesKitchenTime: "16:00" });
     expect(timed.leavesKitchenTime).toBe("16:00");
-    await admin.send("POST", "/api/tasks", { title: "Braise short rib", type: "kitchen", eventId: event.id, assigneeIds: [people.admin] }, 201).catch(() => undefined);
+    const [task] = await db.insert(schema.tasks).values({ title: "Braise short rib", type: "kitchen", eventId: event.id }).returning();
+    await db.insert(schema.taskAssignees).values({ taskId: task.id, userId: people.admin });
     const menu = await kitchen(event.id);
+    expect(menu.tasks).toHaveLength(1);
+    expect(menu.tasks[0]).toMatchObject({ title: "Braise short rib" });
     expect(menu.canAssign).toBe(true);
   });
 
