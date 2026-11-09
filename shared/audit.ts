@@ -22,6 +22,11 @@ export type AuditEntity =
   // The event's staff roster (FLOW-140).
   | "event_shift"
   | "event_staff_slot"
+  // The event timeline (FLOW-126), its payment schedule and the payments
+  // recorded against it (FLOW-131).
+  | "event_timeline_entry"
+  | "payment_schedule_item"
+  | "payment"
   | "user"
   | "setting"
   | "list_value"

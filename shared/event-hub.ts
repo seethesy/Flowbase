@@ -9,6 +9,9 @@ export const hubSectionSchema = z.enum([
   "client",
   "proposal",
   "booking",
+  // The payment schedule and payments received (FLOW-131), for FT+ users who may
+  // see the event's financials.
+  "payments",
   "beo",
   "pull_list",
   // Equipment holds, conflicts and consumable needs (FLOW-76/77/85).

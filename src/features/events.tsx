@@ -36,7 +36,9 @@ import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { date, time } from "./event-format";
 import { EventPlanningSection } from "./event-planning";
+import { EventPaymentsSection } from "./event-payments";
 import { EventStaffSection } from "./event-staff";
+import { EventTimelineSection } from "./event-timeline";
 import { EventProposalsSection } from "./event-proposals";
 import { EventTasksSection } from "./task-lists";
 import { EventHistorySection } from "./event-activity";
@@ -774,6 +776,8 @@ export function EventDetail() {
         onEventChanged={() => hub.reload()}
       />
     ),
+    timeline: () => <EventTimelineSection key={`timeline:${e.id}`} event={e} />,
+    payments: () => <EventPaymentsSection key={`payments:${e.id}`} event={e} />,
     files: () => (
       <Attachments
         key="files"

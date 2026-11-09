@@ -1,6 +1,6 @@
 {
-  "id": "56fee5dc-01d3-45da-a076-db36265b3f9f",
-  "prevId": "221c808e-2c50-45ab-84a9-7f802334db84",
+  "id": "bcb344eb-e44a-4f64-a3f9-dc3b47706fd0",
+  "prevId": "ca1b249e-2b49-47f3-ad01-9942d5eb6777",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2641,6 +2641,245 @@
       },
       "isRLSEnabled": true
     },
+    "public.event_timeline_entries": {
+      "name": "event_timeline_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "activity": {
+          "name": "activity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "who_type": {
+          "name": "who_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "who_user_id": {
+          "name": "who_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "who_role": {
+          "name": "who_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "who_vendor_id": {
+          "name": "who_vendor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area_name": {
+          "name": "area_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "proposal_id": {
+          "name": "proposal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "event_timeline_entries_event_idx": {
+          "name": "event_timeline_entries_event_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "event_timeline_entries_source_idx": {
+          "name": "event_timeline_entries_source_idx",
+          "columns": [
+            {
+              "expression": "proposal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"event_timeline_entries\".\"source_key\" is not null and \"event_timeline_entries\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_timeline_entries_event_id_events_id_fk": {
+          "name": "event_timeline_entries_event_id_events_id_fk",
+          "tableFrom": "event_timeline_entries",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "event_timeline_entries_who_user_id_users_id_fk": {
+          "name": "event_timeline_entries_who_user_id_users_id_fk",
+          "tableFrom": "event_timeline_entries",
+          "tableTo": "users",
+          "columnsFrom": [
+            "who_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "event_timeline_entries_who_vendor_id_vendors_id_fk": {
+          "name": "event_timeline_entries_who_vendor_id_vendors_id_fk",
+          "tableFrom": "event_timeline_entries",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "who_vendor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "event_timeline_entries_proposal_id_proposals_id_fk": {
+          "name": "event_timeline_entries_proposal_id_proposals_id_fk",
+          "tableFrom": "event_timeline_entries",
+          "tableTo": "proposals",
+          "columnsFrom": [
+            "proposal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "event_timeline_entries_kind_check": {
+          "name": "event_timeline_entries_kind_check",
+          "value": "\"event_timeline_entries\".\"kind\" in ('production', 'event')"
+        },
+        "event_timeline_entries_who_type_check": {
+          "name": "event_timeline_entries_who_type_check",
+          "value": "\"event_timeline_entries\".\"who_type\" in ('staff', 'role', 'vendor')"
+        },
+        "event_timeline_entries_ends_after_start": {
+          "name": "event_timeline_entries_ends_after_start",
+          "value": "\"event_timeline_entries\".\"ends_at\" > \"event_timeline_entries\".\"starts_at\""
+        },
+        "event_timeline_entries_who_check": {
+          "name": "event_timeline_entries_who_check",
+          "value": "(\"event_timeline_entries\".\"who_type\" is null and \"event_timeline_entries\".\"who_user_id\" is null and \"event_timeline_entries\".\"who_role\" is null and \"event_timeline_entries\".\"who_vendor_id\" is null)\n        or (\"event_timeline_entries\".\"who_type\" = 'staff' and \"event_timeline_entries\".\"who_user_id\" is not null and \"event_timeline_entries\".\"who_role\" is null and \"event_timeline_entries\".\"who_vendor_id\" is null)\n        or (\"event_timeline_entries\".\"who_type\" = 'role' and \"event_timeline_entries\".\"who_role\" is not null and \"event_timeline_entries\".\"who_user_id\" is null and \"event_timeline_entries\".\"who_vendor_id\" is null)\n        or (\"event_timeline_entries\".\"who_type\" = 'vendor' and \"event_timeline_entries\".\"who_vendor_id\" is not null and \"event_timeline_entries\".\"who_user_id\" is null and \"event_timeline_entries\".\"who_role\" is null)"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.events": {
       "name": "events",
       "schema": "",
@@ -2815,6 +3054,12 @@
         },
         "booked_at": {
           "name": "booked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "planning_stale_at": {
+          "name": "planning_stale_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -5712,6 +5957,316 @@
         "order_lists_status_check": {
           "name": "order_lists_status_check",
           "value": "\"order_lists\".\"status\" in ('draft', 'submitted', 'approved', 'rejected', 'ordered', 'partially_received', 'received', 'cancelled')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.payment_schedule_items": {
+      "name": "payment_schedule_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proposal_id": {
+          "name": "proposal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "payment_schedule_items_event_idx": {
+          "name": "payment_schedule_items_event_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "due_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "payment_schedule_items_source_idx": {
+          "name": "payment_schedule_items_source_idx",
+          "columns": [
+            {
+              "expression": "proposal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"payment_schedule_items\".\"source_key\" is not null and \"payment_schedule_items\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "payment_schedule_items_event_id_events_id_fk": {
+          "name": "payment_schedule_items_event_id_events_id_fk",
+          "tableFrom": "payment_schedule_items",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "payment_schedule_items_proposal_id_proposals_id_fk": {
+          "name": "payment_schedule_items_proposal_id_proposals_id_fk",
+          "tableFrom": "payment_schedule_items",
+          "tableTo": "proposals",
+          "columnsFrom": [
+            "proposal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "payment_schedule_items_kind_check": {
+          "name": "payment_schedule_items_kind_check",
+          "value": "\"payment_schedule_items\".\"kind\" in ('deposit', 'installment', 'balance')"
+        },
+        "payment_schedule_items_amount_positive": {
+          "name": "payment_schedule_items_amount_positive",
+          "value": "\"payment_schedule_items\".\"amount_cents\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.payments": {
+      "name": "payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_on": {
+          "name": "received_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "payments_event_idx": {
+          "name": "payments_event_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "payments_event_id_events_id_fk": {
+          "name": "payments_event_id_events_id_fk",
+          "tableFrom": "payments",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "payments_method_check": {
+          "name": "payments_method_check",
+          "value": "\"payments\".\"method\" in ('card', 'zelle', 'ach', 'wire', 'check', 'cash')"
+        },
+        "payments_amount_positive": {
+          "name": "payments_amount_positive",
+          "value": "\"payments\".\"amount_cents\" > 0"
         }
       },
       "isRLSEnabled": true

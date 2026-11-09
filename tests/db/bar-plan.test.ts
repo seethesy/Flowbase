@@ -27,7 +27,7 @@ const call = async (method: string, path: string, body?: unknown) => {
   return { status: response.status, body: await response.json() };
 };
 const sectionName = "FLOW-170 bar storage";
-const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
+const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {

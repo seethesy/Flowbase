@@ -11,6 +11,8 @@ import {
 import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { eventRosterSchema } from "../../shared/event-staff";
+import { eventTimelineSchema } from "../../shared/event-timeline";
+import { eventPaymentsSchema } from "../../shared/payments";
 import {
   availabilitySchema,
   conflictSchema,
@@ -152,6 +154,9 @@ export function responseSchema(
     if (action === "hub") return eventHubSchema;
     // Staff roster (FLOW-140): every roster call answers with the whole roster.
     if (["roster", "shifts", "slots"].includes(action)) return eventRosterSchema;
+    // Timeline (FLOW-126) and payments (FLOW-131): whole-page answers.
+    if (action === "timeline") return eventTimelineSchema;
+    if (action === "payments") return eventPaymentsSchema;
     // Holds, conflicts and consumable needs (FLOW-76/77/85).
     if (action === "reservations")
       return method === "GET" ? reservationSchema.array() : reservationSchema;

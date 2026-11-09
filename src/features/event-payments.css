@@ -1,0 +1,61 @@
+/* Event payments (FLOW-131/132). Shared tokens and components stay in
+   src/styles/globals.css. */
+.payments-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0 0 12px;
+}
+.payments-summary dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.payments-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.payments-overdue {
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 8px 0;
+  font-weight: 600;
+}
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+}
+.payments-table th,
+.payments-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.payments-table tr.overdue td {
+  font-weight: 600;
+}
+.payments-suggestions ul {
+  list-style: none;
+  margin: 6px 0 12px;
+  padding: 0;
+}
+.payments-suggestions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+.payments-subhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+.payments-subhead h3 {
+  margin: 0;
+}

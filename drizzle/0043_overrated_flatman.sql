@@ -6,6 +6,7 @@ CREATE TABLE "addendums" (
 	"updated_by" uuid,
 	"archived_at" timestamp with time zone,
 	"event_id" uuid NOT NULL,
+	"proposal_id" uuid NOT NULL,
 	"proposal_version_id" uuid NOT NULL,
 	"change_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"sent_at" timestamp with time zone NOT NULL,
@@ -63,9 +64,13 @@ CREATE TABLE "proposal_version_mappings" (
 ALTER TABLE "proposal_version_mappings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "notification_preferences" DROP CONSTRAINT "notification_preferences_type_check";--> statement-breakpoint
 ALTER TABLE "notifications" DROP CONSTRAINT "notifications_type_check";--> statement-breakpoint
+ALTER TABLE "events" ADD COLUMN "planning_stale_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "proposal_versions" ADD COLUMN "sent_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "proposal_versions" ADD COLUMN "sent_method" text;--> statement-breakpoint
 ALTER TABLE "proposals" ADD COLUMN "sent_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "proposals" ADD COLUMN "sent_method" text;--> statement-breakpoint
 ALTER TABLE "addendums" ADD CONSTRAINT "addendums_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "addendums" ADD CONSTRAINT "addendums_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "addendums" ADD CONSTRAINT "addendums_proposal_version_id_proposal_versions_id_fk" FOREIGN KEY ("proposal_version_id") REFERENCES "public"."proposal_versions"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contracts" ADD CONSTRAINT "contracts_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contracts" ADD CONSTRAINT "contracts_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
