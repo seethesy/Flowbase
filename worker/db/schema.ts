@@ -40,6 +40,8 @@ import {
   issueKinds,
   type ConflictResolution,
 } from "../../shared/reservations";
+import { planningStepStatuses, planningSteps } from "../../shared/planning";
+import { pullGroups, pullStatuses } from "../../shared/pull-list";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -1796,5 +1798,129 @@ export const consumableAllocations = pgTable(
       table.itemId,
     ),
     index("consumable_allocations_item_idx").on(table.itemId),
+  ],
+).enableRLS();
+
+// Start planning (FLOW-133). One row per event once planning has started, and one
+// row per step with where it stands. Each step runs as its own job (FLOW-27).
+export const eventPlanning = pgTable("event_planning", {
+  ...baseColumns(),
+  eventId: uuid("event_id")
+    .notNull()
+    .unique()
+    .references(() => events.id),
+  startedAt: timestamptz("started_at").notNull().defaultNow(),
+  startedBy: uuid("started_by"),
+}).enableRLS();
+
+export const eventPlanningSteps = pgTable(
+  "event_planning_steps",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    step: text("step", { enum: planningSteps }).notNull(),
+    status: text("status", { enum: planningStepStatuses })
+      .notNull()
+      .default("pending"),
+    detail: text("detail").notNull().default(""),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("event_planning_steps_event_step_idx").on(table.eventId, table.step),
+    oneOf("event_planning_steps_step_check", table.step, planningSteps),
+    oneOf("event_planning_steps_status_check", table.status, planningStepStatuses),
+  ],
+).enableRLS();
+
+// The pull list (FLOW-134): one per event, with a scheduled pull time and a puller.
+export const pullLists = pgTable("pull_lists", {
+  ...baseColumns(),
+  eventId: uuid("event_id")
+    .notNull()
+    .unique()
+    .references(() => events.id),
+  scheduledAt: timestamptz("scheduled_at"),
+  pullerId: uuid("puller_id").references(() => users.id),
+  generatedAt: timestamptz("generated_at"),
+}).enableRLS();
+
+// A line is a catalog item or, for something not in the catalog, a name. A null
+// quantity is TBD. source_key ties a generated line to the proposal line it came
+// from; hand-made lines have none. An archived row is a line someone removed: it
+// stays so regenerating doesn't bring it back (the audit log has who and when).
+export const pullListLines = pgTable(
+  "pull_list_lines",
+  {
+    ...baseColumns(),
+    pullListId: uuid("pull_list_id")
+      .notNull()
+      .references(() => pullLists.id),
+    group: text("line_group", { enum: pullGroups }).notNull(),
+    itemId: uuid("item_id").references(() => inventoryItems.id),
+    name: text("name").notNull().default(""),
+    sectionId: uuid("section_id").references(() => inventorySections.id),
+    quantity: quantity("quantity"),
+    notes: text("notes").notNull().default(""),
+    status: text("status", { enum: pullStatuses }).notNull().default("to_pull"),
+    setupDay: boolean("setup_day").notNull().default(false),
+    sourceKey: text("source_key"),
+    // Changed by hand since it was generated.
+    edited: boolean("edited").notNull().default(false),
+    statusBy: uuid("status_by"),
+    statusAt: timestamptz("status_at"),
+  },
+  (table) => [
+    index("pull_list_lines_list_idx").on(table.pullListId),
+    uniqueIndex("pull_list_lines_source_idx")
+      .on(table.pullListId, table.sourceKey)
+      .where(sql`${table.sourceKey} is not null`),
+    oneOf("pull_list_lines_line_group_check", table.group, pullGroups),
+    oneOf("pull_list_lines_status_check", table.status, pullStatuses),
+    check(
+      "pull_list_lines_quantity_check",
+      sql`${table.quantity} is null or ${table.quantity} >= 0`,
+    ),
+  ],
+).enableRLS();
+
+// The kitchen menu (FLOW-137): one per event, with the time food leaves the kitchen.
+export const kitchenMenus = pgTable("kitchen_menus", {
+  ...baseColumns(),
+  eventId: uuid("event_id")
+    .notNull()
+    .unique()
+    .references(() => events.id),
+  leavesKitchenAt: timestamptz("leaves_kitchen_at"),
+  generatedAt: timestamptz("generated_at"),
+}).enableRLS();
+
+export const kitchenMenuLines = pgTable(
+  "kitchen_menu_lines",
+  {
+    ...baseColumns(),
+    menuId: uuid("menu_id")
+      .notNull()
+      .references(() => kitchenMenus.id),
+    recipeId: uuid("recipe_id")
+      .notNull()
+      .references(() => recipes.id),
+    course: text("course").notNull(),
+    // null is TBD.
+    plannedQuantity: quantity("planned_quantity"),
+    notes: text("notes").notNull().default(""),
+    sourceKey: text("source_key"),
+    edited: boolean("edited").notNull().default(false),
+  },
+  (table) => [
+    index("kitchen_menu_lines_menu_idx").on(table.menuId),
+    uniqueIndex("kitchen_menu_lines_source_idx")
+      .on(table.menuId, table.sourceKey)
+      .where(sql`${table.sourceKey} is not null`),
+    check(
+      "kitchen_menu_lines_quantity_check",
+      sql`${table.plannedQuantity} is null or ${table.plannedQuantity} >= 0`,
+    ),
   ],
 ).enableRLS();

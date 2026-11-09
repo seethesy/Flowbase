@@ -34,6 +34,7 @@ import { settingsRoutes } from "./routes/settings";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
+import { preparationRoutes } from "./routes/preparation";
 import { paymentRoutes } from "./routes/payments";
 import { planningRoutes } from "./routes/planning";
 import { notificationRoutes } from "./routes/notifications";
@@ -269,6 +270,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/staff", staffRoutes(options));
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/events", eventTimelineRoutes(options));
+  app.route("/api/events", preparationRoutes(options));
   app.route("/api/events", paymentRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/sops", sopRoutes(options));

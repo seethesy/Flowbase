@@ -244,6 +244,21 @@ export const mayOverrideStatus = (
   can(actor, "events.status") &&
   (actor.role === "admin" || event.assignedSalespersonId === actor.userId);
 
+// "Start planning" (FLOW-133): Admin, the Sales Manager or the event's salesperson.
+export const mayStartPlanning = (
+  actor: Actor,
+  event: { assignedSalespersonId: string | null },
+) =>
+  can(actor, "events.write") &&
+  (actor.role === "admin" ||
+    actor.role === "sales_manager" ||
+    event.assignedSalespersonId === actor.userId);
+
+// The kitchen menu (FLOW-137): managers who edit events, and the Kitchen Lead, who
+// plans the quantities (Q-47).
+export const mayEditKitchenMenu = (actor: Actor) =>
+  can(actor, "events.write") || actor.role === "kitchen_lead";
+
 // Files inherit their parent resource's write permission in both the API and UI.
 export const attachmentWriteActions = {
   client: "clients.write",

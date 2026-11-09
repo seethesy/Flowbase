@@ -1,0 +1,84 @@
+/* Start planning, pull list and kitchen menu (FLOW-133/134/137). Shared tokens and
+   components stay in src/styles/globals.css. */
+.planning-steps {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.planning-steps > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.planning-steps > li > span:first-child {
+  flex: 1 1 220px;
+}
+.pull-lines,
+.kitchen-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pull-lines > li,
+.kitchen-lines > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pull-lines > li[data-status="pulled"],
+.pull-lines > li[data-status="loaded"],
+.pull-lines > li[data-status="returned"] {
+  color: var(--muted);
+}
+.pull-lines > li[data-tbd],
+.kitchen-lines > li[data-tbd] {
+  background: color-mix(in srgb, var(--warning, #f5a524) 12%, transparent);
+}
+.pull-name {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.pull-quantity {
+  width: 72px;
+  text-align: right;
+}
+.pull-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.regen-preview {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.regen-preview ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.warning-message {
+  color: var(--warning-text, #92400e);
+}
+/* Phones: stack the controls under the item so every control stays tappable. */
+@media (max-width: 640px) {
+  .pull-lines > li select,
+  .pull-lines > li input,
+  .pull-add > * {
+    min-height: 44px;
+  }
+  .pull-lines > li select,
+  .pull-add > select,
+  .pull-add > input {
+    flex: 1 1 100%;
+  }
+}

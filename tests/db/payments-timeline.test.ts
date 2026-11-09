@@ -72,7 +72,7 @@ const admin = signedInAs("admin");
 const sam = signedInAs("sam");
 const pat = signedInAs("pat");
 
-const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 // The vendors this suite adds. Other tables point at vendors, so they can't be
 // truncated here; the timeline entries that name them are gone after the truncate.
 const partnerNames = ["DJ Nova (FLOW-126)", "Food Co (FLOW-126)"];

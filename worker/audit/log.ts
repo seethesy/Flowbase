@@ -69,6 +69,37 @@ export async function writeAudit(
   });
 }
 
+// Many audit rows in one statement, for generated lists that change dozens of lines
+// at once (FLOW-133/134/137). Same rules as writeAudit: an update that changed
+// nothing writes no row.
+export async function writeAuditMany(
+  tx: DbLike,
+  actor: Actor | null,
+  entries: {
+    entityType: AuditEntity;
+    entityId: string;
+    action: AuditAction;
+    before: Snapshot | null;
+    after: Snapshot;
+  }[],
+) {
+  const rows = entries.flatMap((entry) => {
+    const changes = diffSnapshots(entry.before, entry.after);
+    if (entry.action === "update" && !Object.keys(changes).length) return [];
+    return [
+      {
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        action: entry.action,
+        changes,
+        createdBy: actor?.userId ?? null,
+        updatedBy: actor?.userId ?? null,
+      },
+    ];
+  });
+  if (rows.length) await tx.insert(auditLog).values(rows);
+}
+
 // Removes what the caller may not see from stored changes.
 export type RedactHistory = (changes: AuditChanges) => AuditChanges;
 

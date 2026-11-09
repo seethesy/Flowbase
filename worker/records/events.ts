@@ -284,6 +284,10 @@ const builtSections: HubSection[] = [
   "staff",
   // The event timeline and production schedule (FLOW-126).
   "timeline",
+  // Start planning, the pull list and the kitchen menu (FLOW-133/134/137).
+  "planning",
+  "pull_list",
+  "kitchen_menu",
   // The payment schedule and log (FLOW-131), for FT+ users who may see financials.
   "payments",
   "files",
