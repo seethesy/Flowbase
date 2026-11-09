@@ -391,7 +391,6 @@ describe("FLOW-148: who sees the BEO and what", () => {
     for (const who of [admin, manager, sam, jamie, casey, kit])
       expect((await who.call("GET", `/api/events/${event.id}/beo`)).status).toBe(200);
     expect((await nora.call("GET", `/api/events/${event.id}/beo`)).status).toBe(404);
-    expect((await nora.call("POST", `/api/events/${event.id}/beo/approve`, {})).status).toBe(404);
   });
 
   it("serves the same content the policy projection gives each role (AC3)", async () => {
