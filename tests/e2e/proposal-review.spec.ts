@@ -46,13 +46,14 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   await dialog.getByRole("button", { name: "Add payment schedule line" }).click();
   await dialog.getByLabel("Payment schedule 1").fill("Deposit $500 due at signing");
   await dialog.getByRole("button", { name: "Submit for approval" }).click();
-  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await expect(dialog.getByText("Current version approval: pending")).toBeVisible();
   await dialog.getByRole("button", { name: "Close dialog" }).click();
   await expect(page.getByRole("region", { name: "Gala proposal plan" })).toContainText("Tuscan Chicken");
   await expect(page.getByRole("region", { name: "Gala proposal plan" })).toContainText("2 Server");
   await expect(page.getByRole("region", { name: "Gala proposal plan" })).toContainText("Deposit $500 due at signing");
   await page.goto("/#/approvals");
   await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
   await page.goto(`/#/events/${fallGala().id}?proposal=${proposalId}`);
   const approved = page.getByRole("dialog", { name: "Gala proposal" });
   await expect(approved.getByText("Current version approval: approved")).toBeVisible();
