@@ -155,6 +155,7 @@ export const businessDefaultsSchema = z.object({
       "Each category can have one ratio default.",
     ),
   paymentTerms: text(2000).default(""),
+  addendumReminderDays: z.number().int().min(1).max(30).default(3),
   // Notification types (shared/notifications.ts keys, FLOW-43) sent by SMS as
   // well as in the app and by email.
   urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure"]),

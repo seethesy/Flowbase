@@ -63,11 +63,13 @@ export function manualProposalTargets(
 
 // Uploading a version finalizes the proposal (FLOW-123) from a manual stage, or
 // from Finalized or Approved (the new version needs approving again). A sent
-// proposal goes back to Revisions first; a signed or lost one takes no uploads.
+// proposal goes back to Revisions first. A signed contract can have an addendum
+// version; Lost takes no uploads.
 export const uploadableProposalStages = [
   ...manualProposalStages,
   "finalized",
   "approved",
+  "signed",
 ] as const satisfies readonly ProposalStage[];
 
 export const lostReasonRequired = "Enter why the proposal was lost.";
@@ -169,6 +171,8 @@ export const proposalVersionSchema = z.object({
   pdf: proposalFileSchema.nullable(),
   uploadedBy: z.object({ id, name: z.string() }).nullable(),
   uploadedAt: timestamp,
+  sentAt: timestamp.nullable(),
+  sentMethod: z.string().nullable(),
   current: z.boolean(),
 });
 export type ProposalVersion = z.infer<typeof proposalVersionSchema>;
@@ -206,6 +210,10 @@ export type Proposal = z.infer<typeof proposalSchema>;
 export const proposalDetailSchema = proposalSchema.extend({
   versions: z.array(proposalVersionSchema),
   history: z.array(proposalStageChangeEntrySchema),
+  approval: z.object({ id, status: z.enum(["pending", "approved", "rejected", "withdrawn"]), versionId: id }).nullable(),
+  sentAt: timestamp.nullable(),
+  sentMethod: z.string().nullable(),
+  changeLog: z.array(z.object({ id, versionId: id, path: z.string(), oldValue: z.unknown(), newValue: z.unknown(), actor: z.object({ id, name: z.string() }).nullable(), at: timestamp })),
   // Download links expire; the screen reloads after this.
   urlsExpireAt: timestamp.nullable(),
 });
@@ -223,3 +231,9 @@ export const proposalUploadTicketSchema = z.object({
   expiresAt: timestamp,
 });
 export type ProposalUploadTicket = z.infer<typeof proposalUploadTicketSchema>;
+
+export const proposalSentSchema = z.object({
+  sentAt: timestamp,
+  method: z.enum(["email", "google_docs", "other"]),
+});
+export type ProposalSentInput = z.input<typeof proposalSentSchema>;

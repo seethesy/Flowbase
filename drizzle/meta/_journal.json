@@ -295,6 +295,27 @@
       "when": 1794180000001,
       "tag": "0041_proposal_mapping",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794200381039,
+      "tag": "0042_old_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794200501843,
+      "tag": "0043_rapid_giant_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794200769496,
+      "tag": "0044_exotic_proteus",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@ const newLine = (guestCount: number | null): ProposalLine => ({
   quantity: guestCount, sourceBlockId: null, catalogId: null, notTracked: false,
 });
 
-export function ProposalReview({ id, version, canWrite, guestCount }: { id: string; version: ProposalVersion; canWrite: boolean; guestCount: number | null }) {
+export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted }: { id: string; version: ProposalVersion; canWrite: boolean; guestCount: number | null; onSubmitted?: () => void }) {
   const downloadUrl = useRef(version.docx.url);
   downloadUrl.current = version.docx.url;
   const [blocks, setBlocks] = useState<ProposalBlock[] | null>(null);
@@ -35,11 +35,11 @@ export function ProposalReview({ id, version, canWrite, guestCount }: { id: stri
         if (!response.ok) throw new Error("The proposal file could not be downloaded.");
         return response.blob();
       }).then(parseProposalDocx),
-      proposalsApi.mapping(id), proposalsApi.catalog(id),
-    ]).then(([parsed, saved, choices]) => {
+      proposalsApi.mapping(id), proposalsApi.previousMapping(id), proposalsApi.catalog(id),
+    ]).then(([parsed, saved, previous, choices]) => {
       if (!active) return;
       setBlocks(parsed);
-      setDraft(saved?.versionId === version.id ? saved : empty(version.id));
+      setDraft(saved?.versionId === version.id ? saved : previous ?? empty(version.id));
       setCatalog(choices);
     }).catch((cause) => { if (active) setError((cause as Error).message); });
     return () => { active = false; };
@@ -135,6 +135,8 @@ export function ProposalReview({ id, version, canWrite, guestCount }: { id: stri
           const saved = await proposalsApi.saveMapping(id, { ...draft, unextractedBlockIds: unextracted.map((block) => block.id) });
           setDraft(saved);
           queryClient.setQueryData(["proposal-mapping", id, version.number], saved);
+          await proposalsApi.submit(id);
+          onSubmitted?.();
         }
         catch (cause) { setError((cause as Error).message); }
         finally { setSaving(false); }

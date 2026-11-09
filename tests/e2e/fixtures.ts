@@ -34,6 +34,7 @@ export const fallGala = (): FlowEvent => ({
   internalNotes: "",
   status: "closed",
   bookedAt: "2026-10-22T09:00:00.000Z",
+  planningStaleAt: null,
   archivedAt: null,
   createdAt: "2026-10-22T09:00:00.000Z",
   updatedAt: "2026-10-22T09:00:00.000Z",

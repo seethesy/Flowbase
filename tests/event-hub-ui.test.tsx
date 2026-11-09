@@ -38,6 +38,7 @@ const event: FlowEvent = {
   internalNotes: "",
   status: "closed",
   bookedAt: now,
+  planningStaleAt: null,
   archivedAt: null,
   createdAt: now,
   updatedAt: now,

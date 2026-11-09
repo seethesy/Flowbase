@@ -374,6 +374,7 @@ type DefaultsDraft = Omit<
   | "rentalBufferDaysAfter"
   | "monthlySmsCap"
   | "idleCutoffMinutes"
+  | "addendumReminderDays"
   | "ratioDefaults"
 > & {
   beoKeyFields: string;
@@ -381,6 +382,7 @@ type DefaultsDraft = Omit<
   rentalBufferDaysAfter: string;
   monthlySmsCap: string;
   idleCutoffMinutes: string;
+  addendumReminderDays: string;
   ratioDefaults: { category: string; quantity: string; basis: string }[];
 };
 const lines = (value: string) =>
@@ -395,6 +397,7 @@ const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   rentalBufferDaysAfter: String(defaults.rentalBufferDaysAfter),
   monthlySmsCap: String(defaults.monthlySmsCap),
   idleCutoffMinutes: String(defaults.idleCutoffMinutes),
+  addendumReminderDays: String(defaults.addendumReminderDays),
   ratioDefaults: defaults.ratioDefaults.map((row) => ({
     category: row.category,
     quantity: String(row.quantity),
@@ -439,6 +442,7 @@ function DefaultSettings() {
       rentalBufferDaysAfter: numberOf(draft.rentalBufferDaysAfter),
       monthlySmsCap: numberOf(draft.monthlySmsCap),
       idleCutoffMinutes: numberOf(draft.idleCutoffMinutes),
+      addendumReminderDays: numberOf(draft.addendumReminderDays),
       ratioDefaults: draft.ratioDefaults.map((row) => ({
         ...row,
         quantity: numberOf(row.quantity),
@@ -476,6 +480,7 @@ function DefaultSettings() {
           {number("rentalBufferDaysAfter", "Rental buffer days after", "Days a rental is held after its event.")}
           {number("monthlySmsCap", "Monthly SMS cap", "Texts sent per calendar month; 0 sends none.")}
           {number("idleCutoffMinutes", "Time tracking idle cutoff (minutes)", "Time stops after this long without typing or clicking.", 1)}
+          {number("addendumReminderDays", "Addendum reminder days", "Remind the salesperson when an addendum remains unsigned.", 1)}
         </div>
         <FormField label="Default payment terms">
           <textarea

@@ -22,6 +22,7 @@ import {
   proposalUploadTicketSchema,
 } from "../../shared/proposals";
 import { proposalCatalogSchema, proposalMappingSchema } from "../../shared/proposal-mapping";
+import { addendumSchema, contractSchema, openAddendumSchema } from "../../shared/contracts";
 import {
   itemSchema,
   sectionSchema,
@@ -171,9 +172,17 @@ export function responseSchema(
   // Proposals (FLOW-122/123): the event's list, the upload ticket, and otherwise
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
+    if (id === "addendums" && action === "open") return openAddendumSchema.array();
+    if (id === "event") {
+      const tail = path.split("/");
+      if (tail.includes("contracts")) return contractSchema.array();
+      if (tail.includes("addendums")) return method === "GET" ? addendumSchema.array() : addendumSchema;
+    }
     if (!id && method === "GET") return proposalSchema.array();
     if (action === "mapping") return proposalMappingSchema.nullable();
+    if (action === "previous-mapping") return proposalMappingSchema.nullable();
     if (action === "catalog") return proposalCatalogSchema;
+    if (action === "contracts") return contractSchema;
     if (action === "versions" && !path.split("/")[5])
       return proposalUploadTicketSchema;
     return proposalDetailSchema;

@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "planning_stale_at" timestamp with time zone;

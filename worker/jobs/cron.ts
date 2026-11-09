@@ -13,6 +13,7 @@ import { scanCollectorHealth } from "../records/collector-health";
 import { refreshUsage } from "../records/usage";
 import { cleanupAttachments } from "../attachments/cleanup";
 import { cleanupJobs } from "./cleanup";
+import { emitAddendumReminders } from "../records/contracts";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
@@ -46,6 +47,7 @@ export async function runScheduledJobs(
     const now = options.now?.() ?? new Date();
     const tasksDue = await emitDueTaskEvents(db, now);
     const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
+    const addendumsDue = await emitAddendumReminders(db, now);
     await scanCollectorHealth(db, now);
     await refreshUsage(db, now);
     const ran = await runDueJobs(db, registry, { ...options, env });
@@ -65,7 +67,7 @@ export async function runScheduledJobs(
         }),
       );
     }
-    return { tasksDue, tasksDueSoon, ...ran, ...cleaned };
+    return { tasksDue, tasksDueSoon, addendumsDue, ...ran, ...cleaned };
   });
   console.log(JSON.stringify({ event: "jobs_run", ...summary }));
   return summary;

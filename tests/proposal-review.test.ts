@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import { parseProposalDocx } from "../src/features/proposal-docx";
-import { suggestCatalog, unmatchedLines, type ProposalMapping } from "../shared/proposal-mapping";
+import { diffProposalMappings, suggestCatalog, unmatchedLines, type ProposalMapping } from "../shared/proposal-mapping";
 
 const doc = (body: string) => {
   const bytes = new Uint8Array(zipSync({
@@ -40,5 +40,10 @@ describe("proposal review", () => {
       ],
     };
     expect(unmatchedLines(mapping)).toEqual(["Gold chairs"]);
+  });
+  it("records one guest-count change with both values", () => {
+    const previous: ProposalMapping = { versionId: "00000000-0000-4000-8000-000000000001", fields: { guestCount: { value: "100", sourceBlockId: "block-1" } }, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
+    const next: ProposalMapping = { ...previous, versionId: "00000000-0000-4000-8000-000000000002", fields: { guestCount: { value: "120", sourceBlockId: "block-2" } } };
+    expect(diffProposalMappings(previous, next)).toEqual([{ path: "fields.guestCount", oldValue: "100", newValue: "120" }]);
   });
 });

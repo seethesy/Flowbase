@@ -51,4 +51,17 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   await expect(page.getByRole("region", { name: "Gala proposal plan" })).toContainText("Tuscan Chicken");
   await expect(page.getByRole("region", { name: "Gala proposal plan" })).toContainText("2 Server");
   await expect(page.getByRole("region", { name: "Gala proposal plan" })).toContainText("Deposit $500 due at signing");
+  await page.goto("/#/approvals");
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await page.goto(`/#/events/${fallGala().id}?proposal=${proposalId}`);
+  const approved = page.getByRole("dialog", { name: "Gala proposal" });
+  await expect(approved.getByText("Current version approval: approved")).toBeVisible();
+  await approved.getByRole("button", { name: "Record as sent" }).click();
+  await expect(approved.getByRole("button", { name: "Record booking" })).toBeVisible();
+  await approved.getByLabel("Client signer").fill("Juniper Client");
+  await approved.getByLabel("Salesperson signer").fill("Test Admin");
+  await approved.getByLabel("Card on file").check();
+  await approved.getByLabel("Card last 4").fill("1234");
+  await approved.getByRole("button", { name: "Record booking" }).click();
+  await expect(approved.getByText("Signed", { exact: true }).first()).toBeVisible();
 });
