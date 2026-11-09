@@ -16,12 +16,27 @@ export function effectiveRatio(
   );
 }
 
+// What the expansion reads from an item. A full InventoryItem fits, and so does
+// a row loaded for just this purpose (event planning, FLOW-134).
+export type RequirementItem = {
+  id: string;
+  name: string;
+  active: boolean;
+  archivedAt?: string | null;
+  service?: {
+    includes: readonly { itemId: string; quantity: number; basis: string }[];
+  } | null;
+  rental?: {
+    components: readonly { itemId: string; quantity: number }[];
+  } | null;
+};
+
 // Pure catalog calculation. Event planning persists reservations and movements
 // separately; calculating requirements must never change stock.
 export function itemRequirements(
   itemId: string,
   quantity: number,
-  items: readonly InventoryItem[],
+  items: readonly RequirementItem[],
   guests: number,
 ) {
   if (
