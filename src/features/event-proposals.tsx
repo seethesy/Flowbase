@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { FileText, Plus, Upload } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import {
@@ -22,6 +22,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { proposalsApi, uploadProposalVersion } from "../services/proposals";
+import { uploadAttachment } from "../services/attachments";
 import { ProposalReview } from "./proposal-review";
 import "./event-proposals.css";
 
@@ -50,6 +51,8 @@ export function EventProposalsSection({
   const list = useResource(["event-proposals", event.id], () =>
     proposalsApi.list(event.id),
   );
+  const contracts = useResource(["event-contracts", event.id], () => proposalsApi.contracts(event.id));
+  const addendums = useResource(["event-addendums", event.id], () => proposalsApi.addendums(event.id));
   const { can } = usePermissions();
   const [creating, setCreating] = useState(false);
   const [params, setParams] = useSearchParams();
@@ -100,6 +103,8 @@ export function EventProposalsSection({
       {list.data.filter((proposal) => proposal.currentVersion).map((proposal) => (
         <EventProposalPlan key={proposal.id} proposal={proposal} />
       ))}
+      {contracts.data && contracts.data.length > 0 && <section><h3>Signed contracts</h3><ul>{contracts.data.map((contract) => <li key={contract.id}>{stamp(contract.signedAt)} · {contract.clientSigner} and {contract.salespersonSigner}</li>)}</ul></section>}
+      {addendums.data && addendums.data.length > 0 && <section aria-label="Addendums"><h3>Addendums</h3><ul>{addendums.data.map((addendum) => <li key={addendum.id}>{addendum.signedAt ? `Signed ${stamp(addendum.signedAt)}` : `Open · sent ${stamp(addendum.sentAt)}`} · <Link to={`?proposal=${addendum.proposalId}`}>Proposal version {addendum.proposalVersionId}</Link> · {addendum.changeIds.length} change log entries {can("addendums.record") && !addendum.signedAt && <SignAddendum eventId={event.id} addendumId={addendum.id} onSigned={() => addendums.reload()} />}</li>)}</ul></section>}
       {creating && (
         <ProposalForm
           heading="New proposal"
@@ -123,6 +128,8 @@ export function EventProposalsSection({
           canWrite={canWrite}
           onChanged={() => {
             list.reload();
+            contracts.reload();
+            addendums.reload();
             onEventChanged();
           }}
           onClose={() => setOpen(null)}
@@ -130,6 +137,16 @@ export function EventProposalsSection({
       )}
     </Section>
   );
+}
+
+function SignAddendum({ eventId, addendumId, onSigned }: { eventId: string; addendumId: string; onSigned: () => void }) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [error, setError] = useState("");
+  return <form onSubmit={async (event) => {
+    event.preventDefault();
+    try { setError(""); await proposalsApi.signAddendum(eventId, addendumId, new Date(`${date}T12:00:00Z`).toISOString()); onSigned(); }
+    catch (cause) { setError((cause as Error).message); }
+  }}><input aria-label="Addendum signed date" type="date" required value={date} onChange={(event) => setDate(event.target.value)} /><Button type="submit">Record signed</Button>{error && <p role="alert">{error}</p>}</form>;
 }
 
 function EventProposalPlan({ proposal }: { proposal: Proposal }) {
@@ -261,6 +278,18 @@ function ProposalDrawer({
   const [losing, setLosing] = useState(false);
   const [reason, setReason] = useState("");
   const [editing, setEditing] = useState(false);
+  const [sentAt, setSentAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [sentMethod, setSentMethod] = useState<"email" | "google_docs" | "other">("email");
+  const [contractDate, setContractDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [clientSigner, setClientSigner] = useState("");
+  const [salespersonSigner, setSalespersonSigner] = useState("");
+  const [cardOnFile, setCardOnFile] = useState(false);
+  const [cardLast4, setCardLast4] = useState("");
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [noFullCard, setNoFullCard] = useState(false);
+  const [addendumDate, setAddendumDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [addendumChanges, setAddendumChanges] = useState<string[]>([]);
+  const [newAddendum, setNewAddendum] = useState(false);
   const run = async (change: () => Promise<ProposalDetail>) => {
     setError("");
     setBusy(true);
@@ -320,6 +349,53 @@ function ProposalDrawer({
               {p.stage === "lost" && (
                 <p className="demo-callout">Lost: {p.lostReason}</p>
               )}
+              {p.approval && <p>Current version approval: {p.approval.status}</p>}
+              {p.sentAt && <p>Sent {stamp(p.sentAt)} by {p.sentMethod}</p>}
+              {p.changeLog.length > 0 && <section aria-label="Proposal change log"><h3>Change log</h3><ul>{p.changeLog.map((change) => <li key={change.id}>Version {p.versions.find((version) => version.id === change.versionId)?.number}: {change.path}: {JSON.stringify(change.oldValue)} → {JSON.stringify(change.newValue)} · {change.actor?.name || "Someone"} · {stamp(change.at)}</li>)}</ul></section>}
+              {canWrite && p.stage === "approved" && p.approval?.status === "approved" && (
+                <form onSubmit={(e) => { e.preventDefault(); void run(() => proposalsApi.recordSent(id, { sentAt: new Date(`${sentAt}T12:00:00`).toISOString(), method: sentMethod })); }}>
+                  <FormField label="Sent date"><input type="date" required value={sentAt} onChange={(e) => setSentAt(e.target.value)} /></FormField>
+                  <FormField label="Method"><select value={sentMethod} onChange={(e) => setSentMethod(e.target.value as typeof sentMethod)}><option value="email">Email</option><option value="google_docs">Google Docs</option><option value="other">Other</option></select></FormField>
+                  <Button type="submit" disabled={busy}>Record as sent</Button>
+                </form>
+              )}
+              {canWrite && p.stage === "sent" && <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (contractFile && !noFullCard) return setError("Confirm the PDF shows no full card number.");
+                if (cardLast4 && !/^\d{4}$/.test(cardLast4)) return setError("Enter exactly four digits.");
+                setError(""); setBusy(true);
+                try {
+                  const attachment = contractFile ? await uploadAttachment(contractFile, { recordType: "event", recordId: p.eventId, group: "contract" }) : null;
+                  await proposalsApi.recordContract(id, {
+                    signedAt: new Date(`${contractDate}T12:00:00Z`).toISOString(), clientSigner, salespersonSigner,
+                    cardOnFile, cardLast4: cardLast4 || null, attachmentId: attachment?.id ?? null,
+                    noFullCardNumberConfirmed: noFullCard,
+                  });
+                  detail.reload(); onChanged();
+                } catch (cause) { setError((cause as Error).message); }
+                finally { setBusy(false); }
+              }}><h3>Record signed contract</h3>
+                <FormField label="Client signed date"><input type="date" required value={contractDate} onChange={(e) => setContractDate(e.target.value)} /></FormField>
+                <FormField label="Client signer"><input required value={clientSigner} onChange={(e) => setClientSigner(e.target.value)} /></FormField>
+                <FormField label="Salesperson signer"><input required value={salespersonSigner} onChange={(e) => setSalespersonSigner(e.target.value)} /></FormField>
+                <label><input type="checkbox" checked={cardOnFile} onChange={(e) => { setCardOnFile(e.target.checked); if (!e.target.checked) setCardLast4(""); }} /> Card on file</label>
+                {cardOnFile && <FormField label="Card last 4"><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={cardLast4} onChange={(e) => setCardLast4(e.target.value)} /></FormField>}
+                <FormField label="Signed contract PDF (optional)"><input type="file" accept=".pdf,application/pdf" onChange={(e) => setContractFile(e.target.files?.[0] ?? null)} /></FormField>
+                {contractFile && <label><input type="checkbox" checked={noFullCard} onChange={(e) => setNoFullCard(e.target.checked)} /> I confirm the PDF shows no full card number</label>}
+                <Button type="submit" disabled={busy || Boolean(contractFile && !noFullCard)}>Record booking</Button>
+              </form>}
+              {canWrite && p.approval?.status === "approved" && (p.stage === "sent" || p.stage === "signed") && p.currentVersion && p.changeLog.some((change) => change.versionId === currentVersion?.id) && <section><h3>Addendum</h3>
+                <Button variant="outline" onClick={() => setNewAddendum(!newAddendum)}>Record addendum sent</Button>
+                {newAddendum && <form onSubmit={async (e) => {
+                  e.preventDefault(); setError(""); setBusy(true);
+                  try { await proposalsApi.recordAddendum(p.eventId, { proposalVersionId: currentVersion!.id, changeIds: addendumChanges, sentAt: new Date(`${addendumDate}T12:00:00Z`).toISOString() }); setNewAddendum(false); onChanged(); }
+                  catch (cause) { setError((cause as Error).message); }
+                  finally { setBusy(false); }
+                }}><FormField label="Sent date"><input type="date" required value={addendumDate} onChange={(e) => setAddendumDate(e.target.value)} /></FormField>
+                  {p.changeLog.filter((change) => change.versionId === currentVersion?.id).map((change) => <label key={change.id}><input type="checkbox" checked={addendumChanges.includes(change.id)} onChange={(e) => setAddendumChanges(e.target.checked ? [...addendumChanges, change.id] : addendumChanges.filter((id) => id !== change.id))} /> {change.path}: {JSON.stringify(change.oldValue)} → {JSON.stringify(change.newValue)}</label>)}
+                  <Button type="submit" disabled={busy || !addendumChanges.length}>Save addendum</Button>
+                </form>}
+              </section>}
               <small>Notes</small>
               <p>{p.notes || "—"}</p>
               {canWrite && (
@@ -434,6 +510,7 @@ function ProposalDrawer({
                         {version.uploadedBy?.name || "Someone"} ·{" "}
                         {stamp(version.uploadedAt)}
                       </small>
+                      {version.sentAt && <small>Sent {stamp(version.sentAt)} by {version.sentMethod}</small>}
                     </li>
                   ))}
                 </ul>
@@ -447,6 +524,7 @@ function ProposalDrawer({
                   version={currentVersion}
                   canWrite={canWrite && p.stage === "finalized"}
                   guestCount={guestCount}
+                  onSubmitted={() => { detail.reload(); onChanged(); }}
                 />
               )}
               <h3 className="spaced">Stage history</h3>

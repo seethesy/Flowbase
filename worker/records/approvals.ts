@@ -53,7 +53,7 @@ export type ApprovalSubject = {
   ) => Promise<void>;
   // Run in the deciding transaction, after the change is applied.
   onApproved?: (tx: DbLike, actor: Actor, request: ApprovalRow) => Promise<void>;
-  onRejected?: (tx: DbLike, actor: Actor, request: ApprovalRow) => Promise<void>;
+  onRejected?: (tx: DbLike, actor: Actor, request: ApprovalRow, comment: string) => Promise<void>;
   onWithdrawn?: (tx: DbLike, actor: Actor, request: ApprovalRow) => Promise<void>;
 };
 
@@ -291,7 +291,7 @@ export async function decideApproval(
     await subject.onApproved?.(tx, actor, row);
   } else {
     // AC2: rejecting writes nothing to the subject.
-    await subject.onRejected?.(tx, actor, row);
+    await subject.onRejected?.(tx, actor, row, comment);
   }
   const after = await close(
     tx,

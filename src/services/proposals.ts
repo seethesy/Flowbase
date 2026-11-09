@@ -8,9 +8,11 @@ import {
   type ProposalInput,
   type ProposalStageChangeInput,
   type ProposalUploadInput,
+  type ProposalSentInput,
 } from "../../shared/proposals";
 import { at, query, request } from "./core";
 import { proposalCatalogSchema, proposalMappingSchema, type ProposalMapping } from "../../shared/proposal-mapping";
+import { contractSchema, addendumSchema, openAddendumSchema, type RecordContractInput } from "../../shared/contracts";
 
 // Proposals (FLOW-122) and their versions (FLOW-123).
 export const proposalsApi = {
@@ -18,8 +20,19 @@ export const proposalsApi = {
     request(proposalSchema.array(), `/api/proposals${query({ eventId })}`),
   get: (id: string) => request(proposalDetailSchema, at("proposals", id)),
   mapping: (id: string) => request(proposalMappingSchema.nullable(), at("proposals", id, "mapping")),
+  previousMapping: (id: string) => request(proposalMappingSchema.nullable(), at("proposals", id, "previous-mapping")),
   catalog: (id: string) => request(proposalCatalogSchema, at("proposals", id, "catalog")),
   saveMapping: (id: string, input: ProposalMapping) => request(proposalMappingSchema, at("proposals", id, "mapping"), "PUT", input),
+  submit: (id: string) => request(proposalDetailSchema, at("proposals", id, "submit"), "POST", {}),
+  recordSent: (id: string, input: ProposalSentInput) => request(proposalDetailSchema, at("proposals", id, "sent"), "POST", input),
+  contracts: (eventId: string) => request(contractSchema.array(), `/api/proposals/event/${encodeURIComponent(eventId)}/contracts`),
+  recordContract: (id: string, input: RecordContractInput) => request(contractSchema, at("proposals", id, "contracts"), "POST", input),
+  addendums: (eventId: string) => request(addendumSchema.array(), `/api/proposals/event/${encodeURIComponent(eventId)}/addendums`),
+  openAddendums: () => request(openAddendumSchema.array(), "/api/proposals/addendums/open"),
+  recordAddendum: (eventId: string, input: { proposalVersionId: string; changeIds: string[]; sentAt: string }) =>
+    request(addendumSchema, `/api/proposals/event/${encodeURIComponent(eventId)}/addendums`, "POST", input),
+  signAddendum: (eventId: string, id: string, signedAt: string) =>
+    request(addendumSchema, `/api/proposals/event/${encodeURIComponent(eventId)}/addendums/${encodeURIComponent(id)}/sign`, "POST", { signedAt }),
   create: (input: ProposalCreateInput) =>
     request(proposalDetailSchema, "/api/proposals", "POST", input),
   update: (id: string, input: ProposalInput) =>

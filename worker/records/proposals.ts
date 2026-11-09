@@ -23,6 +23,10 @@ import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import {
   events,
+  approvalRequests,
+  proposalMappings,
+  proposalVersionMappings,
+  proposalChangeLog,
   proposals,
   proposalStageHistory,
   proposalVersions,
@@ -33,6 +37,8 @@ import { ApiError, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { eventScope } from "../policy";
 import { advanceEventStatus, findVisibleEvent } from "./events";
+import { registerApprovalSubject, requestApproval } from "./approvals";
+import { syncProposalRentalHolds } from "./reservations";
 import { indexBy } from "./paging";
 
 // Proposals (FLOW-122) and their versions (FLOW-123). A proposal belongs to one
@@ -152,7 +158,7 @@ export async function getProposal(
   now = new Date(),
 ): Promise<ProposalDetail> {
   const row = await findVisibleProposal(db, actor, id);
-  const [[proposal], versions, history] = await Promise.all([
+  const [[proposal], versions, history, approvals, changes] = await Promise.all([
     toProposals(db, [row]),
     db
       .select()
@@ -169,16 +175,28 @@ export async function getProposal(
       .from(proposalStageHistory)
       .where(eq(proposalStageHistory.proposalId, id))
       .orderBy(desc(proposalStageHistory.createdAt), desc(proposalStageHistory.id)),
+    db.select({ id: approvalRequests.id, status: approvalRequests.status, subjectId: approvalRequests.subjectId })
+      .from(approvalRequests).where(and(eq(approvalRequests.subjectType, "proposal_version"), eq(approvalRequests.subjectId, row.currentVersionId ?? "00000000-0000-0000-0000-000000000000")))
+      .orderBy(desc(approvalRequests.createdAt)).limit(1),
+    db.select().from(proposalChangeLog).where(eq(proposalChangeLog.proposalId, id))
+      .orderBy(desc(proposalChangeLog.createdAt), desc(proposalChangeLog.id)),
   ]);
   const names = await userNames(db, [
     ...versions.map((version) => version.createdBy),
     ...history.map((change) => change.createdBy),
+    ...changes.map((change) => change.createdBy),
   ]);
   const person = (userId: string | null) =>
     userId ? (names.get(userId) ?? { id: userId, name: "" }) : null;
   const storage = versions.length ? fileStorage(env) : undefined;
   return {
     ...proposal,
+    approval: approvals[0] ? { id: approvals[0].id, status: approvals[0].status, versionId: approvals[0].subjectId } : null,
+    sentAt: row.sentAt?.toISOString() ?? null,
+    sentMethod: row.sentMethod,
+    changeLog: changes.map((change) => ({ id: change.id, versionId: change.versionId,
+      path: change.path, oldValue: change.oldValue, newValue: change.newValue,
+      actor: person(change.createdBy), at: change.createdAt.toISOString() })),
     versions: storage
       ? await Promise.all(
           versions.map(
@@ -189,6 +207,8 @@ export async function getProposal(
               pdf: version.pdf ? await file(storage, version.pdf, now) : null,
               uploadedBy: person(version.createdBy),
               uploadedAt: version.completedAt!.toISOString(),
+              sentAt: version.sentAt?.toISOString() ?? null,
+              sentMethod: version.sentMethod,
               current: version.id === row.currentVersionId,
             }),
           ),
@@ -380,6 +400,12 @@ async function changeStage(
   });
 }
 
+export async function markProposalSigned(tx: DbLike, actor: Actor, id: string) {
+  const proposal = await lockProposal(tx, id);
+  if (proposal.stage !== "sent") throw new ApiError(409, "INVALID_TRANSITION", "The proposal must be sent before signing.");
+  await changeStage(tx, actor, proposal, { to: "signed", reason: "Contract signed", manual: false });
+}
+
 // A person moving a proposal (AC1): only between the manual stages, back to
 // Revisions, or to Lost with a reason. Losing the event's last open proposal also
 // moves the event to Lost (AC2); a signed proposal keeps the event too.
@@ -559,8 +585,13 @@ export async function completeProposalUpload(
     const before = await proposalSnapshot(tx, id);
     await tx
       .update(proposals)
-      .set({ currentVersionId: versionId, updatedBy: actor.userId })
+      .set({ currentVersionId: versionId, sentAt: null, sentMethod: null, updatedBy: actor.userId })
       .where(eq(proposals.id, id));
+    if (number > 1) {
+      const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, current.eventId));
+      if (["closed", "preparation", "finished"].includes(event.status))
+        await tx.update(events).set({ planningStaleAt: new Date(), updatedBy: actor.userId }).where(eq(events.id, current.eventId));
+    }
     await writeAudit(tx, actor, {
       entityType: "proposal",
       entityId: id,
@@ -580,6 +611,86 @@ export async function completeProposalUpload(
         { ...current, currentVersionId: versionId },
         { to: "finalized", reason: `Version ${number} uploaded`, manual: false },
       );
+  });
+  return getProposal(db, actor, env, id);
+}
+
+registerApprovalSubject("proposal_version", {
+  approverRole: "admin",
+  onApproved: async (tx, actor, request) => {
+    const [version] = await tx.select().from(proposalVersions).where(eq(proposalVersions.id, request.subjectId));
+    if (!version) throw notFound("Proposal version");
+    const proposal = await lockProposal(tx, version.proposalId);
+    if (proposal.currentVersionId !== version.id || proposal.stage !== "finalized")
+      throw new ApiError(409, "VERSION_CHANGED", "This proposal version is no longer awaiting approval.");
+    await changeStage(tx, actor, proposal, { to: "approved", reason: `Version ${version.number} approved`, manual: false });
+  },
+  onRejected: async (tx, actor, request, comment) => {
+    const [version] = await tx.select().from(proposalVersions).where(eq(proposalVersions.id, request.subjectId));
+    if (!version) throw notFound("Proposal version");
+    const proposal = await lockProposal(tx, version.proposalId);
+    if (proposal.currentVersionId !== version.id || proposal.stage !== "finalized")
+      throw new ApiError(409, "VERSION_CHANGED", "This proposal version is no longer awaiting approval.");
+    await changeStage(tx, actor, proposal, { to: "revisions", reason: `Version ${version.number} rejected`, manual: false });
+    if (proposal.assignedSalespersonId && proposal.assignedSalespersonId !== request.requesterId)
+      await emitDomainEvent(tx, { name: "approval.decided", entityId: request.id,
+        idempotencyKey: `proposal.rejected:${request.id}`, data: {
+          recipientIds: [proposal.assignedSalespersonId], title: `Proposal rejected: ${proposal.title}`,
+          body: comment, link: `/events/${proposal.eventId}?proposal=${proposal.id}`,
+        } });
+  },
+});
+
+export async function submitProposalForApproval(db: Db, actor: Actor, env: Partial<Bindings>, id: string) {
+  await findVisibleProposal(db, actor, id);
+  await db.transaction(async (tx) => {
+    const proposal = await lockProposal(tx, id);
+    if (proposal.stage !== "finalized" || !proposal.currentVersionId)
+      throw new ApiError(409, "INVALID_TRANSITION", "Upload and review the current version first.");
+    const [mapping] = await tx.select({ versionId: proposalMappings.versionId, data: proposalMappings.data })
+      .from(proposalMappings).where(eq(proposalMappings.proposalId, id));
+    if (mapping?.versionId !== proposal.currentVersionId)
+      throw new ApiError(409, "MAPPING_REQUIRED", "Review and save the current version's mapping first.");
+    const [pending] = await tx.select({ id: approvalRequests.id }).from(approvalRequests)
+      .where(and(eq(approvalRequests.subjectType, "proposal_version"), eq(approvalRequests.subjectId, proposal.currentVersionId), eq(approvalRequests.status, "pending")));
+    if (pending) throw new ApiError(409, "APPROVAL_PENDING", "This version already awaits approval.");
+    const [version] = await tx.select({ number: proposalVersions.number, docx: proposalVersions.docx })
+      .from(proposalVersions).where(eq(proposalVersions.id, proposal.currentVersionId));
+    await requestApproval(tx, actor, { subjectType: "proposal_version", subjectId: proposal.currentVersionId,
+      summary: `${proposal.title} · version ${version.number} · ${Object.entries(mapping.data.fields).map(([key, field]) => `${key}: ${field.value}`).join(", ")} · ${version.docx.fileName}`,
+      link: `/events/${proposal.eventId}?proposal=${id}` });
+  });
+  return getProposal(db, actor, env, id);
+}
+
+export async function recordProposalSent(db: Db, actor: Actor, env: Partial<Bindings>, id: string, input: { sentAt: string; method: string }) {
+  await findVisibleProposal(db, actor, id);
+  await db.transaction(async (tx) => {
+    const proposal = await lockProposal(tx, id);
+    if (proposal.stage !== "approved" || !proposal.currentVersionId)
+      throw new ApiError(409, "INVALID_TRANSITION", "The current version must be approved before it is recorded as sent.");
+    const [approved] = await tx.select({ id: approvalRequests.id }).from(approvalRequests)
+      .where(and(eq(approvalRequests.subjectType, "proposal_version"), eq(approvalRequests.subjectId, proposal.currentVersionId), eq(approvalRequests.status, "approved")));
+    if (!approved) throw new ApiError(409, "APPROVAL_REQUIRED", "The current version must be approved.");
+    const [mapping] = await tx.select({ data: proposalMappings.data, versionId: proposalMappings.versionId })
+      .from(proposalMappings).where(eq(proposalMappings.proposalId, id));
+    if (mapping?.versionId !== proposal.currentVersionId)
+      throw new ApiError(409, "MAPPING_REQUIRED", "Review the current version's mapping first.");
+    await tx.update(proposals).set({ sentAt: new Date(input.sentAt), sentMethod: input.method, updatedBy: actor.userId }).where(eq(proposals.id, id));
+    await tx.update(proposalVersions).set({ sentAt: new Date(input.sentAt), sentMethod: input.method }).where(eq(proposalVersions.id, proposal.currentVersionId));
+    await changeStage(tx, actor, proposal, { to: "sent", reason: `Sent by ${input.method}`, manual: false });
+    const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, proposal.eventId));
+    const chain = ["inquiry", "pitching", "proposal_creation", "initial_proposal_sent"] as const;
+    const from = chain.indexOf(event.status as typeof chain[number]);
+    if (from >= 0) for (let index = from + 1; index < chain.length; index++)
+      await advanceEventStatus(tx, proposal.eventId, chain[index], "Approved proposal sent");
+    const [version] = await tx.select({ number: proposalVersions.number }).from(proposalVersions).where(eq(proposalVersions.id, proposal.currentVersionId));
+    const [priorVersion] = version.number && version.number > 1
+      ? await tx.select({ id: proposalVersions.id }).from(proposalVersions)
+        .where(and(eq(proposalVersions.proposalId, id), eq(proposalVersions.number, version.number - 1))) : [];
+    const [priorMapping] = priorVersion ? await tx.select({ data: proposalVersionMappings.data })
+      .from(proposalVersionMappings).where(eq(proposalVersionMappings.versionId, priorVersion.id)) : [];
+    await syncProposalRentalHolds(tx, actor, proposal.eventId, mapping.data, priorMapping?.data ?? null);
   });
   return getProposal(db, actor, env, id);
 }

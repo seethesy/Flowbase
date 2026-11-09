@@ -38,6 +38,28 @@ export function unmatchedLines(mapping: ProposalMapping): string[] {
   ).map((line) => line.name);
 }
 
+export type ProposalChange = { path: string; oldValue: unknown; newValue: unknown };
+export function diffProposalMappings(previous: ProposalMapping, next: ProposalMapping): ProposalChange[] {
+  const changes: ProposalChange[] = [];
+  const compare = (path: string, oldValue: unknown, newValue: unknown) => {
+    if (JSON.stringify(oldValue ?? null) !== JSON.stringify(newValue ?? null))
+      changes.push({ path, oldValue: oldValue ?? null, newValue: newValue ?? null });
+  };
+  for (const key of new Set([...Object.keys(previous.fields), ...Object.keys(next.fields)]))
+    compare(`fields.${key}`, previous.fields[key]?.value, next.fields[key]?.value);
+  const oldLines = new Map(previous.lines.map((line) => [line.id, line]));
+  const newLines = new Map(next.lines.map((line) => [line.id, line]));
+  for (const id of new Set([...oldLines.keys(), ...newLines.keys()])) {
+    const old = oldLines.get(id), current = newLines.get(id);
+    for (const key of ["kind", "section", "name", "notes", "quantity", "catalogId", "notTracked"] as const)
+      compare(`lines.${id}.${key}`, old?.[key], current?.[key]);
+  }
+  for (const key of ["staffing", "timeline", "charges", "paymentSchedule"] as const)
+    compare(key, previous[key].map((item) => "value" in item ? item.value : `${item.position}: ${item.count}`),
+      next[key].map((item) => "value" in item ? item.value : `${item.position}: ${item.count}`));
+  return changes;
+}
+
 const normalize = (name: string) => name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
 export function suggestCatalog<T extends { id: string; name: string }>(name: string, catalog: T[]): T[] {
   const query = normalize(name);

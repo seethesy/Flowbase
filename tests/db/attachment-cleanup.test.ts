@@ -23,7 +23,7 @@ beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
 beforeEach(async () => {
-  await db.execute(sql`truncate table attachments`);
+  await db.execute(sql`truncate table contracts, attachments`);
 });
 afterAll(async () => {
   await client.end();

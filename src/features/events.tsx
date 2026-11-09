@@ -689,6 +689,7 @@ export function EventDetail() {
     ["Dress code", e.dressCode || "—"],
     ["Arrival at venue", e.arrivalTime ? time(e.arrivalTime) : "—"],
     ["Status", statusLabels[e.status]],
+    ...(e.planningStaleAt ? [["Planning outputs", `Needs refresh since ${new Date(e.planningStaleAt).toLocaleDateString()}`] as [string, string]] : []),
   ];
   const render: Partial<Record<HubSection, () => ReactNode>> = {
     details: () => (

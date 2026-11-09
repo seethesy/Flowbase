@@ -155,6 +155,7 @@ export const businessDefaultsSchema = z.object({
       "Each category can have one ratio default.",
     ),
   paymentTerms: text(2000).default(""),
+  addendumReminderDays: z.number().int().min(1).max(30).default(3),
   // Days before a payment's due date the assigned salesperson is reminded
   // (FLOW-132).
   paymentReminderDays: days.default(3),

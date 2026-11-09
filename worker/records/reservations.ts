@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
+import type { ProposalMapping } from "../../shared/proposal-mapping";
 import { eventStatusDetailLabels } from "../../shared/core-records";
 import {
   holdStatusForEvent,
@@ -236,6 +237,33 @@ async function upsertHold(
     change: existing ? "quantity" : "created",
   });
   return holdId;
+}
+
+// Apply the rental quantities from the approved, sent version in the same
+// transaction as the proposal and event stage changes.
+export async function syncProposalRentalHolds(tx: DbLike, actor: Actor, eventId: string, mapping: ProposalMapping, previous: ProposalMapping | null = null) {
+  const [event] = await tx.select().from(events).where(eq(events.id, eventId));
+  if (!event) throw notFound("Event");
+  const quantities = new Map<string, number>();
+  for (const line of mapping.lines) {
+    if (line.kind !== "rental" || !line.catalogId || line.notTracked || !line.quantity) continue;
+    quantities.set(line.catalogId, (quantities.get(line.catalogId) ?? 0) + line.quantity);
+  }
+  for (const [itemId, quantity] of [...quantities].sort(([a], [b]) => a.localeCompare(b))) {
+    await lockRentalItem(tx, itemId);
+    await upsertHold(tx, actor, event, itemId, quantity, "set");
+    await evaluateItem(tx, itemId);
+  }
+  const previousItems = new Set(previous?.lines.filter((line) => line.kind === "rental" && line.catalogId && !line.notTracked).map((line) => line.catalogId!) ?? []);
+  for (const itemId of previousItems) {
+    if (quantities.has(itemId)) continue;
+    const [existing] = await tx.select().from(reservations).where(and(eq(reservations.eventId, eventId), eq(reservations.itemId, itemId), isNull(reservations.archivedAt)));
+    if (!existing) continue;
+    await tx.update(reservations).set({ status: "released", archivedAt: new Date(), updatedBy: actor.userId }).where(eq(reservations.id, existing.id));
+    await writeAudit(tx, actor, { entityType: "reservation", entityId: existing.id, action: "archive", before: snapshot(existing), after: { ...snapshot(existing), status: "released", archived: true } });
+    await emitReservationChanged(tx, { reservationId: existing.id, eventId, itemId, change: "removed" });
+    await evaluateItem(tx, itemId);
+  }
 }
 
 async function lockHold(tx: DbLike, actor: Actor, holdId: string) {

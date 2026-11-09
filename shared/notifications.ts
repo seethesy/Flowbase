@@ -21,6 +21,7 @@ export const notificationTypes = [
   "inventory_conflict",
   "production_alert",
   "proposal_approved",
+  "addendum_reminder",
   "payment_due",
   "payment_overdue",
   "collector_failure",
@@ -104,6 +105,11 @@ export const notificationCatalog: Record<NotificationType, NotificationTypeInfo>
     label: "Proposal approved",
     description: "A proposal is approved.",
     event: "proposal.approved",
+  },
+  addendum_reminder: {
+    label: "Unsigned addendum",
+    description: "An addendum has not been signed by the reminder date.",
+    event: "addendum.reminder",
   },
   payment_due: {
     label: "Payment due",

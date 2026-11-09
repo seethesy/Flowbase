@@ -225,6 +225,7 @@ export const eventSchema = z.object({
   internalNotes: z.string(),
   status: eventStatusSchema,
   bookedAt: timestamp.nullable(),
+  planningStaleAt: timestamp.nullable(),
   archivedAt: timestamp.nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,

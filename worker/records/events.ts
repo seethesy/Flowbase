@@ -168,6 +168,7 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       internalNotes: row.internalNotes,
       status: row.status,
       bookedAt: row.bookedAt?.toISOString() ?? null,
+      planningStaleAt: row.planningStaleAt?.toISOString() ?? null,
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

@@ -322,6 +322,7 @@ export const events = pgTable(
     // When the client signed the event's first DocuSign contract (FLOW-4). Set only
     // by recording that contract, never by a status change.
     bookedAt: timestamptz("booked_at"),
+    planningStaleAt: timestamptz("planning_stale_at"),
   },
   (table) => [
     index("events_starts_at_idx").on(table.startsAt),
@@ -416,6 +417,8 @@ export const proposals = pgTable(
     currentVersionId: uuid("current_version_id").references(
       (): AnyPgColumn => proposalVersions.id,
     ),
+    sentAt: timestamptz("sent_at"),
+    sentMethod: text("sent_method"),
   },
   (table) => [
     index("proposals_event_idx").on(table.eventId),
@@ -471,6 +474,8 @@ export const proposalVersions = pgTable(
     docx: jsonb("docx").$type<ProposalFile>().notNull(),
     pdf: jsonb("pdf").$type<ProposalFile>(),
     completedAt: timestamptz("completed_at"),
+    sentAt: timestamptz("sent_at"),
+    sentMethod: text("sent_method"),
   },
   (table) => [
     uniqueIndex("proposal_versions_number_idx").on(table.proposalId, table.number),
@@ -494,6 +499,44 @@ export const proposalMappings = pgTable(
   (table) => [uniqueIndex("proposal_mappings_proposal_idx").on(table.proposalId)],
 ).enableRLS();
 
+export const proposalVersionMappings = pgTable("proposal_version_mappings", {
+  ...baseColumns(),
+  versionId: uuid("version_id").notNull().references(() => proposalVersions.id).unique(),
+  data: jsonb("data").$type<ProposalMapping>().notNull(),
+}).enableRLS();
+
+export const proposalChangeLog = pgTable("proposal_change_log", {
+  ...baseColumns(),
+  proposalId: uuid("proposal_id").notNull().references(() => proposals.id),
+  versionId: uuid("version_id").notNull().references(() => proposalVersions.id),
+  path: text("path").notNull(),
+  oldValue: jsonb("old_value"),
+  newValue: jsonb("new_value"),
+}, (table) => [index("proposal_change_log_proposal_idx").on(table.proposalId, table.createdAt)]).enableRLS();
+
+export const contracts = pgTable("contracts", {
+  ...baseColumns(),
+  eventId: uuid("event_id").notNull().references(() => events.id),
+  proposalId: uuid("proposal_id").notNull().references(() => proposals.id),
+  versionId: uuid("version_id").notNull().references(() => proposalVersions.id),
+  signedAt: timestamptz("signed_at").notNull(),
+  clientSigner: text("client_signer").notNull(),
+  salespersonSigner: text("salesperson_signer").notNull(),
+  cardOnFile: boolean("card_on_file").notNull().default(false),
+  cardLast4: text("card_last_4"),
+  attachmentId: uuid("attachment_id").references(() => attachments.id),
+}, (table) => [index("contracts_event_idx").on(table.eventId)]).enableRLS();
+
+export const addendums = pgTable("addendums", {
+  ...baseColumns(),
+  eventId: uuid("event_id").notNull().references(() => events.id),
+  proposalId: uuid("proposal_id").notNull().references(() => proposals.id),
+  proposalVersionId: uuid("proposal_version_id").notNull().references(() => proposalVersions.id),
+  changeIds: jsonb("change_ids").$type<string[]>().notNull().default([]),
+  sentAt: timestamptz("sent_at").notNull(),
+  signedAt: timestamptz("signed_at"),
+  reminderSentAt: timestamptz("reminder_sent_at"),
+}, (table) => [index("addendums_event_idx").on(table.eventId)]).enableRLS();
 // The event timeline and production schedule (FLOW-126): time ranges on any day the
 // event involves, each with an activity, who does it (a staff member, a role, or an
 // outside vendor) and where (an event area, by name). proposal_id and source_key

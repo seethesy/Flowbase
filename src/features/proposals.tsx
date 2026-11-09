@@ -1,5 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { useResource } from "../app/useResource";
+import { proposalsApi } from "../services/proposals";
 import {
   DndContext,
   useDraggable,
@@ -335,6 +337,7 @@ export function Proposals() {
           New Proposal
         </Button>
       </PageHeader>
+      <OpenAddendums />
       <div className="module-summary">
         <div>
           <strong>
@@ -462,4 +465,13 @@ export function Proposals() {
       )}
     </>
   );
+}
+
+function OpenAddendums() {
+  const pending = useResource(["open-addendums"], proposalsApi.openAddendums);
+  if (!pending.data?.length) return null;
+  return <section className="table-card" aria-label="Open addendums" style={{ padding: 16, marginBottom: 16 }}>
+    <h2>Open addendums</h2>
+    <ul>{pending.data.map((row) => <li key={row.id}><Link to={`/events/${row.eventId}?proposal=${row.proposalId}`}>{row.eventTitle} · sent {new Date(row.sentAt).toLocaleDateString()} · proposal version {row.proposalVersionId}</Link></li>)}</ul>
+  </section>;
 }

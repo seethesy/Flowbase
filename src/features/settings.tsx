@@ -374,6 +374,7 @@ type DefaultsDraft = Omit<
   | "rentalBufferDaysAfter"
   | "monthlySmsCap"
   | "idleCutoffMinutes"
+  | "addendumReminderDays"
   | "paymentReminderDays"
   | "ratioDefaults"
 > & {
@@ -382,6 +383,7 @@ type DefaultsDraft = Omit<
   rentalBufferDaysAfter: string;
   monthlySmsCap: string;
   idleCutoffMinutes: string;
+  addendumReminderDays: string;
   paymentReminderDays: string;
   ratioDefaults: { category: string; quantity: string; basis: string }[];
 };
@@ -397,6 +399,7 @@ const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   rentalBufferDaysAfter: String(defaults.rentalBufferDaysAfter),
   monthlySmsCap: String(defaults.monthlySmsCap),
   idleCutoffMinutes: String(defaults.idleCutoffMinutes),
+  addendumReminderDays: String(defaults.addendumReminderDays),
   paymentReminderDays: String(defaults.paymentReminderDays),
   ratioDefaults: defaults.ratioDefaults.map((row) => ({
     category: row.category,
@@ -442,6 +445,7 @@ function DefaultSettings() {
       rentalBufferDaysAfter: numberOf(draft.rentalBufferDaysAfter),
       monthlySmsCap: numberOf(draft.monthlySmsCap),
       idleCutoffMinutes: numberOf(draft.idleCutoffMinutes),
+      addendumReminderDays: numberOf(draft.addendumReminderDays),
       paymentReminderDays: numberOf(draft.paymentReminderDays),
       ratioDefaults: draft.ratioDefaults.map((row) => ({
         ...row,
@@ -480,6 +484,7 @@ function DefaultSettings() {
           {number("rentalBufferDaysAfter", "Rental buffer days after", "Days a rental is held after its event.")}
           {number("monthlySmsCap", "Monthly SMS cap", "Texts sent per calendar month; 0 sends none.")}
           {number("idleCutoffMinutes", "Time tracking idle cutoff (minutes)", "Time stops after this long without typing or clicking.", 1)}
+          {number("addendumReminderDays", "Addendum reminder days", "Remind the salesperson when an addendum remains unsigned.", 1)}
           {number("paymentReminderDays", "Payment reminder days", "Days before a payment is due that the assigned salesperson is reminded.")}
         </div>
         <FormField label="Default payment terms">

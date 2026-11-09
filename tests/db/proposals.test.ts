@@ -20,6 +20,7 @@ import {
   type ProposalDetail,
   type ProposalUploadTicket,
 } from "../../shared/proposals";
+import { emitAddendumReminders } from "../../worker/records/contracts";
 
 // Proposals through the real API and database: the record and its stages
 // (FLOW-122) and immutable file versions (FLOW-123).
@@ -88,7 +89,7 @@ const sam = signedInAs(people.sam, "salesperson");
 const sue = signedInAs(people.sue, "salesperson");
 const kit = signedInAs(people.kit, "kitchen_staff");
 
-const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, proposal_mappings, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`;
+const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, approval_requests, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, inventory_items cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -335,6 +336,85 @@ const upload = async (
     `/api/proposals/${proposal.id}/versions/${ticket.versionId}/complete`,
   );
 };
+
+describe("proposal approval, revision, booking and addendum (FLOW-127–130)", () => {
+  const mapping = (versionId: string, guestCount: string, rentalId: string) => ({
+    versionId, fields: { guestCount: { value: guestCount, sourceBlockId: null } },
+    lines: [{ id: "chairs", kind: "rental", section: "", name: "Chairs", notes: "", quantity: 20, sourceBlockId: null, catalogId: rentalId, notTracked: false }],
+    staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [],
+  });
+  const setMapping = async (proposalId: string, data: ReturnType<typeof mapping>) => {
+    const response = await sam.call("PUT", `/api/proposals/${proposalId}/mapping`, data);
+    expect(response.status, await response.clone().text()).toBe(200);
+  };
+  const submit = async (proposalId: string) => {
+    const response = await sam.call("POST", `/api/proposals/${proposalId}/submit`, {});
+    expect(response.status, await response.clone().text()).toBe(200);
+    return (await response.json()) as ProposalDetail;
+  };
+  const approve = async (id: string) => {
+    const response = await admin.call("POST", `/api/approvals/${id}/approve`, { comment: "Ready" });
+    expect(response.status, await response.clone().text()).toBe(200);
+  };
+  const sendProposal = async (id: string) => {
+    const response = await sam.call("POST", `/api/proposals/${id}/sent`, { sentAt: "2026-11-01T12:00:00.000Z", method: "email" });
+    expect(response.status, await response.clone().text()).toBe(200);
+  };
+
+  it("requires current approval, creates a hold, diffs a revision and preserves first booking order", async () => {
+    const event = await newEvent();
+    const proposal = await newProposal(event);
+    const [item] = await db.insert(schema.inventoryItems).values({ name: "Chairs", kind: "rental", category: "Furniture" }).returning();
+    const first = await upload(proposal, { docx: docx() });
+    await setMapping(proposal.id, mapping(first.versions[0].id, "100", item.id));
+    expect((await sam.call("POST", `/api/proposals/${proposal.id}/sent`, { sentAt: "2026-11-01T12:00:00.000Z", method: "email" })).status).toBe(409);
+    const submitted = await submit(proposal.id);
+    expect(submitted.approval?.status).toBe("pending");
+    await approve(submitted.approval!.id);
+    await sendProposal(proposal.id);
+    expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).status).toBe("initial_proposal_sent");
+    const [hold] = await db.select().from(schema.reservations);
+    expect(hold).toMatchObject({ eventId: event.id, itemId: item.id, quantity: 20, status: "tentative" });
+    const contract = { signedAt: "2026-11-02T12:00:00.000Z", clientSigner: "Client", salespersonSigner: "Sam", cardOnFile: true, cardLast4: "1234", attachmentId: null, noFullCardNumberConfirmed: false };
+    expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, { ...contract, cardLast4: "12345" })).status).toBe(400);
+    expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, contract)).status).toBe(201);
+    const booked = await sam.send<FlowEvent>("GET", `/api/events/${event.id}`);
+    expect(booked.status).toBe("closing");
+    expect(booked.bookedAt).toBe(contract.signedAt);
+    await admin.send("POST", `/api/events/${event.id}/status`, { status: "closed" }, 200);
+    const second = await upload(proposal, { docx: docx("Revised.docx") });
+    expect(second.stage).toBe("finalized");
+    expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).planningStaleAt).not.toBeNull();
+    await setMapping(proposal.id, mapping(second.versions[0].id, "120", item.id));
+    const revised = await sam.send<ProposalDetail>("GET", `/api/proposals/${proposal.id}`);
+    expect(revised.changeLog.filter((change) => change.path === "fields.guestCount")).toMatchObject([{ oldValue: 100, newValue: 120 }]);
+    await approve((await submit(proposal.id)).approval!.id);
+    await sendProposal(proposal.id);
+    expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, { ...contract, signedAt: "2026-11-05T12:00:00.000Z" })).status).toBe(201);
+    expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).bookedAt).toBe(contract.signedAt);
+    const changeId = revised.changeLog.find((change) => change.path === "fields.guestCount")!.id;
+    const addendumResponse = await sam.call("POST", `/api/proposals/event/${event.id}/addendums`, { proposalVersionId: second.versions[0].id, changeIds: [changeId], sentAt: "2026-11-01T12:00:00.000Z" });
+    expect(addendumResponse.status, await addendumResponse.clone().text()).toBe(201);
+    expect(await emitAddendumReminders(db, new Date("2026-11-05T12:00:00.000Z"))).toBe(1);
+    expect(await emitAddendumReminders(db, new Date("2026-11-06T12:00:00.000Z"))).toBe(0);
+    expect((await jobTypes()).filter((type) => type === "event:addendum.reminder")).toHaveLength(1);
+    const [confirmed] = await db.select().from(schema.reservations);
+    expect(confirmed.status).toBe("confirmed");
+  });
+
+  it("returns a rejected version to revisions and notifies its salesperson with the comment", async () => {
+    const event = await newEvent();
+    const proposal = await newProposal(event);
+    const first = await upload(proposal, { docx: docx() });
+    await setMapping(proposal.id, { ...mapping(first.versions[0].id, "100", "00000000-0000-4000-8000-000000000001"), lines: [] });
+    const submitted = await submit(proposal.id);
+    const rejected = await admin.call("POST", `/api/approvals/${submitted.approval!.id}/reject`, { comment: "Please revise the guest count" });
+    expect(rejected.status, await rejected.clone().text()).toBe(200);
+    expect((await sam.send<ProposalDetail>("GET", `/api/proposals/${proposal.id}`)).stage).toBe("revisions");
+    const jobs = await db.select({ type: schema.jobs.type, payload: schema.jobs.payload }).from(schema.jobs);
+    expect(jobs.some((job) => job.type === "event:approval.decided" && JSON.stringify(job.payload).includes("Please revise the guest count"))).toBe(true);
+  });
+});
 
 describe("proposal file upload and versions (FLOW-123)", () => {
   // AC1
