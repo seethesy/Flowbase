@@ -387,7 +387,7 @@ describe("proposal approval, revision, booking and addendum (FLOW-127–130)", (
     expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).planningStaleAt).not.toBeNull();
     await setMapping(proposal.id, mapping(second.versions[0].id, "120", item.id));
     const revised = await sam.send<ProposalDetail>("GET", `/api/proposals/${proposal.id}`);
-    expect(revised.changeLog.filter((change) => change.path === "fields.guestCount")).toMatchObject([{ oldValue: "100", newValue: "120" }]);
+    expect(revised.changeLog.filter((change) => change.path === "fields.guestCount")).toMatchObject([{ oldValue: 100, newValue: 120 }]);
     await approve((await submit(proposal.id)).approval!.id);
     await sendProposal(proposal.id);
     expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, { ...contract, signedAt: "2026-11-05T12:00:00.000Z" })).status).toBe(201);
