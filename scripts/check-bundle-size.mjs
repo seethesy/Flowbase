@@ -19,7 +19,13 @@ const anyImports = /(?:\.\/|assets\/)([\w.-]+\.js)/g;
 const closure = (starts, pattern) => {
   const seen = new Set(starts);
   const queue = [...starts];
-  while (queue.length) for (const next of refs(queue.pop(), pattern)) if (!seen.has(next)) seen.add(next), queue.push(next);
+  while (queue.length) {
+    for (const next of refs(queue.pop(), pattern)) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      queue.push(next);
+    }
+  }
   return seen;
 };
 const html = readFileSync("dist/index.html", "utf8");
