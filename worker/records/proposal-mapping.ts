@@ -8,6 +8,7 @@ import { eventShifts, eventStaffSlots, events, inventoryItems, proposalMappings,
 import { ApiError } from "../hono";
 import { findVisibleProposal } from "./proposals";
 import { assertListLabels } from "./settings";
+import { markPlanningStale } from "./planning-stale";
 
 export async function getProposalMapping(db: Db, actor: Actor, proposalId: string) {
   const proposal = await findVisibleProposal(db, actor, proposalId);
@@ -91,6 +92,8 @@ export async function saveProposalMapping(db: Db, actor: Actor, proposalId: stri
     else await tx.insert(proposalVersionMappings).values({ versionId: data.versionId, data, createdBy: actor.userId, updatedBy: actor.userId });
     if (row) await tx.update(proposalMappings).set({ versionId: data.versionId, data, updatedBy: actor.userId }).where(eq(proposalMappings.id, row.id));
     else await tx.insert(proposalMappings).values({ proposalId, versionId: data.versionId, data, createdBy: actor.userId, updatedBy: actor.userId });
+    if (row && JSON.stringify(row.data.lines) !== JSON.stringify(data.lines))
+      await markPlanningStale(tx, actor, current.eventId, "Proposal menu, rentals or services changed");
     await writeAudit(tx, actor, { entityType: "proposal", entityId: proposalId, action: "update", before: { mapping: row?.data ?? null }, after: { mapping: data } });
 
     const [event] = await tx.select().from(events).where(eq(events.id, current.eventId));

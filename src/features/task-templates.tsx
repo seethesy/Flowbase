@@ -20,6 +20,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { tasksApi } from "../services/tasks";
+import { allPages, inventoryApi } from "../services/core";
 import { sopsApi } from "../services/sops";
 import { ListSelect } from "./list-fields";
 import "./tasks.css";
@@ -72,6 +73,10 @@ function TemplateEditor({
   const [name, setName] = useState(template?.name ?? "");
   const [sopUrl, setSopUrl] = useState(template?.sopUrl ?? "");
   const [sopId, setSopId] = useState(template?.sopId ?? "");
+  const [matchCatalogId, setMatchCatalogId] = useState(template?.matchCatalogId ?? "");
+  const [matchLineKind, setMatchLineKind] = useState(template?.matchLineKind ?? "");
+  const [matchEventType, setMatchEventType] = useState(template?.matchEventType ?? "");
+  const services = useResource(["inventory", "service-options"], () => allPages((cursor) => inventoryApi.list({ kind: "service" }, cursor)), { reference: true });
   const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const [items, setItems] = useState<Draft[]>(
     template?.items.map(toDraft) ?? [blankItem()],
@@ -88,6 +93,9 @@ function TemplateEditor({
       name,
       sopUrl: sopUrl.trim() || null,
       sopId: sopId || null,
+      matchCatalogId: matchCatalogId || null,
+      matchLineKind: (matchLineKind || null) as TaskTemplate["matchLineKind"],
+      matchEventType: matchEventType.trim() || null,
       items: items.map((item) => ({
         ...(item.id ? { id: item.id } : {}),
         title: item.title,
@@ -139,6 +147,21 @@ function TemplateEditor({
             <option value="">No library SOP</option>
             {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
           </select>
+        </FormField>
+        <FormField label="Service offering" hint="Automatically apply when a mapped proposal contains this offering.">
+          <select value={matchCatalogId} onChange={(e) => setMatchCatalogId(e.target.value)}>
+            <option value="">Any offering</option>
+            {(services.data ?? []).map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Proposal line type" hint="Automatically apply when a mapped proposal contains this line type.">
+          <select value={matchLineKind} onChange={(e) => setMatchLineKind(e.target.value)}>
+            <option value="">Any type</option>
+            {["menu", "rental", "decor", "service", "supply"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Event type" hint="Automatically apply to events of this type. Leave all three matches blank for a manual template.">
+          <input maxLength={100} value={matchEventType} onChange={(e) => setMatchEventType(e.target.value)} />
         </FormField>
         <ol className="template-items">
           {items.map((item, index) => (
@@ -291,6 +314,11 @@ export function TaskTemplates() {
               </p>
             )}
             {template.sopId && <p><Link to={`/sops/${template.sopId}`}>Library SOP</Link></p>}
+            {(template.matchCatalogId || template.matchLineKind || template.matchEventType) && <p className="muted">Automatic match: {[
+              template.matchCatalogId && "service offering",
+              template.matchLineKind && `${template.matchLineKind} line`,
+              template.matchEventType && `${template.matchEventType} event`,
+            ].filter(Boolean).join(" · ")}</p>}
             <ul className="task-lines">
               {template.items.map((item) => (
                 <li key={item.id} className="task-line">

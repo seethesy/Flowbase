@@ -45,6 +45,7 @@ import {
 import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
 import { replaceRequirements, requestEventRecompute } from "./allocations";
+import { clearPlanningStale } from "./planning-stale";
 
 // The inventory pull list (FLOW-134). Generated from the event's mapped proposal
 // when planning starts, editable by hand, and rebuilt on request with a preview of
@@ -413,7 +414,10 @@ export async function regeneratePullList(
 ) {
   if (!can(actor, "events.write")) throw new ApiError(403, "FORBIDDEN", "You don't have access to this.");
   await findVisibleEvent(db, actor, eventId);
-  await db.transaction((tx) => generatePullList(tx, actor, eventId, discardEdits));
+  await db.transaction(async (tx) => {
+    await generatePullList(tx, actor, eventId, discardEdits);
+    await clearPlanningStale(tx, eventId, "pull_list");
+  });
   return getPullList(db, actor, eventId);
 }
 
@@ -467,6 +471,7 @@ export async function getPullList(db: Db, actor: Actor, eventId: string): Promis
     const shortfall = line.itemId ? (short.get(line.itemId) ?? 0) : 0;
     return {
       id: line.id,
+      truckId: line.truckId,
       group: line.group,
       itemId: line.itemId,
       name: line.name,

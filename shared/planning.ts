@@ -65,8 +65,14 @@ export const planningProgressSchema = z.object({
   canStart: z.boolean(),
   // The viewer may regenerate the pull list and the kitchen menu.
   canRegenerate: z.boolean(),
+  staleOutputs: z.array(z.object({
+    kind: z.enum(["pull_list", "requirements", "order_list", "kitchen_menu", "beo", "truck_log"]),
+    cause: z.string(), staleAt: timestamp,
+  })),
 });
 export type PlanningProgress = z.infer<typeof planningProgressSchema>;
+export const refreshableOutputSchema = z.enum(["requirements", "order_list", "beo", "truck_log"]);
+export const refreshOutputInputSchema = z.object({ expectedStaleAt: timestamp });
 
 // --- Regeneration (FLOW-133 AC3) ------------------------------------------------
 // A generated list (pull list, kitchen menu) is rebuilt from the mapped proposal.

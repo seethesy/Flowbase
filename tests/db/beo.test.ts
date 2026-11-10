@@ -73,7 +73,7 @@ const casey = signedInAs("casey");
 const kit = signedInAs("kit");
 const nora = signedInAs("nora");
 
-const tables = sql`truncate table pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
+const tables = sql`truncate table pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -209,11 +209,11 @@ describe("FLOW-143: generating the BEO", () => {
     ]);
     expect(beo.content.event).toMatchObject({ title: "Fall gala", client: "Juniper & Co.", venue: "The Atrium" });
     expect(beo.content.summary).toMatchObject({ guestCount: 80, dressCode: "Black tie" });
-    // AC3: one server slot is still open, and the dish has no quantity yet.
+    // AC3: one server slot is still open; the dish defaults to the guest count.
     expect(beo.content.staff.openSlots).toBe(1);
     expect(beo.content.staff.shifts[0].slots.filter((slot) => slot.open)).toHaveLength(1);
-    expect(beo.content.foodSetup.courses[0].lines[0]).toMatchObject({ name: "Short rib", quantity: null, tbd: true });
-    expect(beo.content.foodSetup.tbdCount).toBe(1);
+    expect(beo.content.foodSetup.courses[0].lines[0]).toMatchObject({ name: "Short rib", quantity: 80, tbd: false });
+    expect(beo.content.foodSetup.tbdCount).toBe(0);
   });
 
   it("answers the same BEO when generated twice, and only for people who may edit the event", async () => {

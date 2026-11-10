@@ -3,16 +3,18 @@ import type { z } from "zod";
 import type { Actor } from "../../shared/access";
 import {
   templateDueAt,
+  matchesProductionTemplate,
   type TaskTemplate,
   type taskTemplateInputSchema,
 } from "../../shared/tasks";
 import { writeAudit } from "../audit/log";
 import type { DbLike } from "../db/client";
-import { events, tasks, taskTemplateItems, taskTemplates } from "../db/schema";
+import { events, inventoryItems, tasks, taskTemplateItems, taskTemplates } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
 import { createTask } from "./tasks";
 import { findSop } from "./sops";
+import { eventProposalLines } from "./pull-list";
 
 // Task templates (FLOW-62): reusable sets of tasks with due dates relative to an
 // event, used by production schedules (FLOW-138). Applying one creates a task per
@@ -47,6 +49,9 @@ async function toTemplates(db: DbLike, rows: TemplateRow[]): Promise<TaskTemplat
     name: row.name,
     sopUrl: row.sopUrl,
     sopId: row.sopId,
+    matchCatalogId: row.matchCatalogId,
+    matchLineKind: row.matchLineKind as TaskTemplate["matchLineKind"],
+    matchEventType: row.matchEventType,
     items: items
       .filter((item) => item.templateId === row.id)
       .map((item) => ({
@@ -94,6 +99,9 @@ async function snapshot(db: DbLike, id: string) {
     name: template.name,
     sopUrl: template.sopUrl,
     sopId: template.sopId,
+    matchCatalogId: template.matchCatalogId,
+    matchLineKind: template.matchLineKind,
+    matchEventType: template.matchEventType,
     items: template.items.map((item) => ({
       title: item.title,
       type: item.type,
@@ -167,12 +175,16 @@ export async function createTaskTemplate(
 ) {
   await assertUniqueName(db, input.name);
   if (input.sopId) await findSop(db, input.sopId);
+  await validateMatch(db, input);
   const [row] = await db
     .insert(taskTemplates)
     .values({
       name: input.name,
       sopUrl: input.sopUrl,
       sopId: input.sopId,
+      matchCatalogId: input.matchCatalogId,
+      matchLineKind: input.matchLineKind,
+      matchEventType: input.matchEventType,
       createdBy: actor.userId,
       updatedBy: actor.userId,
     })
@@ -197,10 +209,11 @@ export async function updateTaskTemplate(
   await findTemplateRow(db, id, true);
   await assertUniqueName(db, input.name, id);
   if (input.sopId) await findSop(db, input.sopId);
+  await validateMatch(db, input);
   const before = await snapshot(db, id);
   await db
     .update(taskTemplates)
-    .set({ name: input.name, sopUrl: input.sopUrl, sopId: input.sopId, updatedBy: actor.userId })
+    .set({ name: input.name, sopUrl: input.sopUrl, sopId: input.sopId, matchCatalogId: input.matchCatalogId, matchLineKind: input.matchLineKind, matchEventType: input.matchEventType, updatedBy: actor.userId })
     .where(eq(taskTemplates.id, id));
   await saveItems(db, actor, id, input.items);
   await writeAudit(db, actor, {
@@ -210,6 +223,27 @@ export async function updateTaskTemplate(
     before,
     after: await snapshot(db, id),
   });
+}
+
+async function validateMatch(db: DbLike, input: TemplateInput) {
+  if (!input.matchCatalogId) return;
+  const [item] = await db.select({ id: inventoryItems.id, kind: inventoryItems.kind })
+    .from(inventoryItems).where(and(eq(inventoryItems.id, input.matchCatalogId), isNull(inventoryItems.archivedAt)));
+  if (!item || item.kind !== "service")
+    throw new ApiError(400, "INVALID_MATCH", "Choose an active service offering.");
+}
+
+export async function applyMatchingProductionTemplates(db: DbLike, eventId: string) {
+  const [event] = await db.select({ eventType: events.eventType }).from(events).where(eq(events.id, eventId));
+  if (!event) throw notFound("Event");
+  const lines = await eventProposalLines(db, eventId) ?? [];
+  const templates = await db.select().from(taskTemplates).where(isNull(taskTemplates.archivedAt));
+  let created = 0;
+  for (const template of templates) {
+    if (!matchesProductionTemplate(template, event.eventType, lines)) continue;
+    created += (await applyTaskTemplate(db, null, template.id, eventId)).createdIds.length;
+  }
+  return created;
 }
 
 export async function archiveTaskTemplate(db: DbLike, actor: Actor, id: string) {

@@ -473,6 +473,7 @@ describe("event hub tasks and history (FLOW-166)", () => {
       "timeline",
       "planning",
       "pull_list",
+      "trucks",
       "kitchen_menu",
       "beo",
       "files",

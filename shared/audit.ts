@@ -63,7 +63,9 @@ export type AuditEntity =
   | "pull_list_line"
   | "kitchen_menu"
   | "kitchen_menu_line"
-  | "event_planning";
+  | "event_planning"
+  | "truck"
+  | "truck_assignment";
 export type HistoryEntry = {
   id: string;
   action: "create" | "update" | "archive" | "restore";

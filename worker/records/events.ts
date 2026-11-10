@@ -37,6 +37,7 @@ import {
 } from "../../shared/time";
 import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
+import { markPlanningStale } from "./planning-stale";
 import {
   clientContacts,
   clients,
@@ -287,6 +288,7 @@ const builtSections: HubSection[] = [
   // Start planning, the pull list and the kitchen menu (FLOW-133/134/137).
   "planning",
   "pull_list",
+  "trucks",
   "kitchen_menu",
   // The banquet event order (FLOW-143, 144, 148).
   "beo",
@@ -498,6 +500,15 @@ export async function updateEvent(
       after,
     });
     await emitDomainEvent(tx, { name: "event.updated", entityId: id });
+    const causes = [
+      current.guestCount !== input.guestCount && "Guest count changed",
+      current.servingsCount !== input.servingsCount && "Servings count changed",
+      current.venueId !== input.venueId && "Venue changed",
+      current.startsAt.getTime() !== new Date(eventValues(input, actor).startsAt).getTime() && "Event date or time changed",
+      current.eventType !== input.eventType && "Event type changed",
+      current.serviceType !== input.serviceType && "Service type changed",
+    ].filter((value): value is string => Boolean(value));
+    if (causes.length) await markPlanningStale(tx, actor, id, causes.join(", "));
     if (changedOnEventDay(current.startsAt, new Date(), before, after))
       await emitDomainEvent(tx, { name: "event.day_of_changed", entityId: id });
     // A new date, venue buffer or guest count moves holds and per-guest needs.
