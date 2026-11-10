@@ -476,6 +476,7 @@ describe("event hub tasks and history (FLOW-166)", () => {
       "trucks",
       "kitchen_menu",
       "day_of",
+      "closeout",
       "beo",
       "files",
       "history",

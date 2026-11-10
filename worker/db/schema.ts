@@ -2000,6 +2000,46 @@ export const pullListLines = pgTable(
   ],
 ).enableRLS();
 
+// Post-event closeout (FLOW-157): one per event, with what came back of each pull
+// line. The stock movements it created link to the event.
+export const eventCloseouts = pgTable("event_closeouts", {
+  ...baseColumns(),
+  eventId: uuid("event_id")
+    .notNull()
+    .unique()
+    .references(() => events.id),
+  notes: text("notes").notNull().default(""),
+  // Sub-rented items returned to their vendors, with the final notes for each.
+  subRentals: jsonb("sub_rentals")
+    .$type<{ vendorId: string; notes: string }[]>()
+    .notNull()
+    .default([]),
+}).enableRLS();
+
+export const closeoutLines = pgTable(
+  "closeout_lines",
+  {
+    ...baseColumns(),
+    closeoutId: uuid("closeout_id")
+      .notNull()
+      .references(() => eventCloseouts.id),
+    pullLineId: uuid("pull_line_id")
+      .notNull()
+      .references(() => pullListLines.id),
+    itemId: uuid("item_id").references(() => inventoryItems.id),
+    name: text("name").notNull().default(""),
+    pulled: quantity("pulled").notNull().default(0),
+    returned: quantity("returned").notNull().default(0),
+    damaged: quantity("damaged").notNull().default(0),
+    missing: quantity("missing").notNull().default(0),
+    used: quantity("used").notNull().default(0),
+    leftover: quantity("leftover").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("closeout_lines_closeout_line_idx").on(table.closeoutId, table.pullLineId),
+  ],
+).enableRLS();
+
 // The kitchen menu (FLOW-137): one per event, with the time food leaves the kitchen.
 export const kitchenMenus = pgTable("kitchen_menus", {
   ...baseColumns(),

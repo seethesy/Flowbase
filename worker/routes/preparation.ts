@@ -10,6 +10,7 @@ import {
 import { id as uuid } from "../../shared/schema-primitives";
 import { rentalRequestUpdateSchema } from "../../shared/rental-requests";
 import { truckAssignmentInputSchema, truckInputSchema, truckLineInputSchema, truckStatusSchema } from "../../shared/trucks";
+import { closeoutInputSchema } from "../../shared/closeout";
 import { requirePermission } from "../auth";
 import { notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
 import {
@@ -21,6 +22,7 @@ import {
   setLeavesKitchen,
   updateKitchenLine,
 } from "../records/kitchen-menu";
+import { closeOutEvent, getCloseout } from "../records/closeout";
 import { getPlanningProgress, startPlanning } from "../records/planning";
 import { previewPlanningRefresh, regeneratePlanningOutput } from "../records/planning-refresh";
 import { listRentalRequests, updateRentalRequest } from "../records/rental-requests";
@@ -48,6 +50,16 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
   };
   const read = requirePermission("events.read");
 
+  // Post-event closeout and returns (FLOW-157).
+  routes.get("/:id/closeout", read, async (c) => {
+    const id = param(c, "id", "Event");
+    return c.json(await record(c, (db, actor) => getCloseout(db, actor, id)));
+  });
+  routes.post("/:id/closeout", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const input = await parseBody(c, closeoutInputSchema);
+    return c.json(await record(c, (db, actor) => closeOutEvent(db, actor, id, input)), 201);
+  });
   routes.get("/:id/trucks", read, async (c) => {
     const id = param(c, "id", "Event");
     return c.json(await record(c, (db, actor) => getTruckLog(db, actor, id)));

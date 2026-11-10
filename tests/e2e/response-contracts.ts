@@ -11,6 +11,7 @@ import {
 import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { beoSceneSchema, beoViewSchema } from "../../shared/beo";
+import { closeoutSchema } from "../../shared/closeout";
 import { dayOfBoardSchema, dayOfLogSchema, dayOfUpdateSchema } from "../../shared/day-of";
 import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
@@ -169,6 +170,7 @@ export function responseSchema(
     // /api/events/<id>/<action>/..., so the regenerate preview is told apart by its tail.
     if (action === "planning") return path.includes("/planning/outputs/") ? regeneratePreviewSchema : planningProgressSchema;
     if (action === "trucks") return truckLogSchema;
+    if (action === "closeout") return closeoutSchema;
     if (action === "pull-list" || action === "kitchen-menu")
       return path.endsWith("/regenerate/preview")
         ? regeneratePreviewSchema

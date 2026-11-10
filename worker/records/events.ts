@@ -292,6 +292,8 @@ const builtSections: HubSection[] = [
   "kitchen_menu",
   // The day-of update log (FLOW-156).
   "day_of",
+  // Post-event closeout and returns (FLOW-157).
+  "closeout",
   // The banquet event order (FLOW-143, 144, 148).
   "beo",
   // The payment schedule and log (FLOW-131), for FT+ users who may see financials.

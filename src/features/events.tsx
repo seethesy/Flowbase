@@ -38,6 +38,7 @@ import { date, time } from "./event-format";
 import { EventPlanningSection } from "./event-planning";
 import { EventTruckSection } from "./event-trucks";
 import { EventDayOfSection } from "./day-of";
+import { EventCloseoutSection } from "./event-closeout";
 import { EventBeoSection } from "./event-beo";
 import { EventPaymentsSection } from "./event-payments";
 import { EventStaffSection } from "./event-staff";
@@ -795,6 +796,7 @@ export function EventDetail() {
     pull_list: () => <EventPullListSection key={`pull-list:${e.id}`} event={e} />,
     trucks: () => <EventTruckSection key={`trucks:${e.id}`} event={e} />,
     day_of: () => <EventDayOfSection key={`day-of:${e.id}`} event={e} />,
+    closeout: () => <EventCloseoutSection key={`closeout:${e.id}`} event={e} />,
     kitchen_menu: () => (
       <EventKitchenMenuSection key={`kitchen-menu:${e.id}`} event={e} />
     ),
