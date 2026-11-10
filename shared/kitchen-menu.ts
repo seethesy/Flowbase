@@ -12,7 +12,7 @@ export const kitchenLineInputSchema = z.object({
   // Course, e.g. Mains. Defaults to the dish's recipe category.
   course: text(100).default(""),
   // null is TBD.
-  plannedQuantity: z.number().finite().min(0).max(1_000_000).nullable().default(null),
+  plannedQuantity: z.number().finite().min(0).max(1_000_000).nullable().optional(),
   notes: text(1000).default(""),
 });
 export type KitchenLineInput = z.input<typeof kitchenLineInputSchema>;

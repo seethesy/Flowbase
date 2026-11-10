@@ -42,6 +42,7 @@ import {
 } from "../../shared/reservations";
 import { planningStepStatuses, planningSteps } from "../../shared/planning";
 import { pullGroups, pullStatuses } from "../../shared/pull-list";
+import type { RentalRequestSettings } from "../../shared/rental-requests";
 import { beoStatuses } from "../../shared/beo";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
@@ -326,6 +327,7 @@ export const events = pgTable(
     // by recording that contract, never by a status change.
     bookedAt: timestamptz("booked_at"),
     planningStaleAt: timestamptz("planning_stale_at"),
+    rentalRequests: jsonb("rental_requests").$type<RentalRequestSettings[]>().notNull().default([]),
   },
   (table) => [
     index("events_starts_at_idx").on(table.startsAt),

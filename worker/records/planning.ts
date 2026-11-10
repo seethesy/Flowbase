@@ -16,6 +16,7 @@ import { advanceEventStatus, findVisibleEvent, lockVisibleEvent } from "./events
 import { syncEventHolds } from "./holds";
 import { generateKitchenMenu } from "./kitchen-menu";
 import { generatePullList } from "./pull-list";
+import { requestEventRecompute } from "./allocations";
 
 // "Start planning" (FLOW-133). One confirmation moves a Closed event to Preparation
 // and queues one small job per step, so each stays inside the cron's CPU budget.
@@ -37,6 +38,10 @@ const runners: Partial<
   kitchen_menu: async (tx, eventId) => {
     const done = await generateKitchenMenu(tx, null, eventId);
     return `${done.added} dishes added.`;
+  },
+  requirements: async (tx, eventId) => {
+    await requestEventRecompute(tx, eventId);
+    return "Ingredient, bar and supply allocation queued.";
   },
 };
 

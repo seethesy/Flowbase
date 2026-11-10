@@ -8,6 +8,7 @@ import {
   pullScheduleInputSchema,
 } from "../../shared/pull-list";
 import { id as uuid } from "../../shared/schema-primitives";
+import { rentalRequestUpdateSchema } from "../../shared/rental-requests";
 import { requirePermission } from "../auth";
 import { notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
 import {
@@ -20,6 +21,7 @@ import {
   updateKitchenLine,
 } from "../records/kitchen-menu";
 import { getPlanningProgress, startPlanning } from "../records/planning";
+import { listRentalRequests, updateRentalRequest } from "../records/rental-requests";
 import {
   addPullLine,
   getPullList,
@@ -42,6 +44,17 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
     return parsed.data;
   };
   const read = requirePermission("events.read");
+
+  routes.get("/:id/rental-requests", read, async (c) => {
+    const id = param(c, "id", "Event");
+    return c.json(await record(c, (db, actor) => listRentalRequests(db, actor, id)));
+  });
+  routes.put("/:id/rental-requests/:vendorId", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const vendorId = param(c, "vendorId", "Vendor");
+    const input = await parseBody(c, rentalRequestUpdateSchema);
+    return c.json(await record(c, (db, actor) => updateRentalRequest(db, actor, id, vendorId, input)));
+  });
 
   routes.get("/:id/planning", read, async (c) => {
     const id = param(c, "id", "Event");

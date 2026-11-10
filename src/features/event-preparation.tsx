@@ -523,6 +523,13 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
         data.leavesKitchenTime && <p>Food leaves the kitchen at {time(data.leavesKitchenTime)}.</p>
       )}
       {!data.exists && <p className="muted">No kitchen menu yet. Start planning or add a dish.</p>}
+      {data.courses.flatMap((course) => course.lines).some((line) => !line.scalable) && (
+        <div role="status" className="planning-conflict warning">
+          <strong>Dishes without a yield — excluded from ingredient requirements:</strong>{" "}
+          {data.courses.flatMap((course) => course.lines).filter((line) => !line.scalable)
+            .map((line) => line.name).join(", ")}
+        </div>
+      )}
       {data.courses.map((course) => (
         <div key={course.course} className="kitchen-course">
           <h3>{course.course}</h3>
@@ -586,7 +593,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
               const next = await preparationApi.addKitchenLine(event.id, {
                 recipeId: draft.recipeId,
                 course: draft.course,
-                plannedQuantity: quantity !== null && Number.isFinite(quantity) ? quantity : null,
+                plannedQuantity: quantity !== null && Number.isFinite(quantity) ? quantity : data.servings,
               });
               setDraft({ recipeId: "", course: draft.course, quantity: "" });
               return next;

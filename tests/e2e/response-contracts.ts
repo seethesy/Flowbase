@@ -16,6 +16,7 @@ import { eventTimelineSchema } from "../../shared/event-timeline";
 import { kitchenMenuSchema } from "../../shared/kitchen-menu";
 import { planningProgressSchema, regeneratePreviewSchema } from "../../shared/planning";
 import { pullListSchema } from "../../shared/pull-list";
+import { rentalRequestSchema } from "../../shared/rental-requests";
 import { eventPaymentsSchema } from "../../shared/payments";
 import {
   availabilitySchema,
@@ -161,6 +162,7 @@ export function responseSchema(
     // Timeline (FLOW-126) and payments (FLOW-131): whole-page answers.
     if (action === "timeline") return eventTimelineSchema;
     if (action === "payments") return eventPaymentsSchema;
+    if (action === "rental-requests") return rentalRequestSchema.array();
     // Start planning, pull list and kitchen menu (FLOW-133/134/137). The path is
     // /api/events/<id>/<action>/..., so the regenerate preview is told apart by its tail.
     if (action === "planning") return planningProgressSchema;
