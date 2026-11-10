@@ -376,6 +376,8 @@ type DefaultsDraft = Omit<
   | "idleCutoffMinutes"
   | "addendumReminderDays"
   | "paymentReminderDays"
+  | "runOfShowGuestThreshold"
+  | "cleanupTemplate"
   | "ratioDefaults"
 > & {
   beoKeyFields: string;
