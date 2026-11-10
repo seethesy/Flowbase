@@ -189,7 +189,7 @@ describe("FLOW-143: generating the BEO", () => {
   it("starts as working on, with the ten sections' data and open or TBD items marked (AC1, AC3)", async () => {
     const event = await seed();
     const [dish] = await db.insert(schema.recipes).values({ name: "Short rib", category: "Mains" }).returning();
-    await sam.send("POST", `/api/events/${event.id}/kitchen-menu/lines`, { recipeId: dish.id, course: "Mains", plannedQuantity: null });
+    await sam.send("POST", `/api/events/${event.id}/kitchen-menu/lines`, { recipeId: dish.id, course: "Mains" });
     const preview = await getBeo(sam, event);
     expect(preview).toMatchObject({ exists: false, status: null });
     const beo = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
