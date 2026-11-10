@@ -13,3 +13,8 @@ playwright-report/
 # Lead collector (FLOW-102) state and failure artifacts, for local runs
 .collector-state/
 collector-artifacts/
+
+# Real business data lives in the private data repo seethesy/Flowbase-Data,
+# never in this public repo (ADR-27).
+docs/source-data/
+Flowbase-Data/
