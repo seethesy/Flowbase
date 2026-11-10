@@ -454,7 +454,7 @@ describe("FLOW-146: setup areas and the cleanup checklist", () => {
       date: later,
       startTime: "12:00",
       endTime: "15:00",
-      clientId: event.clientId,
+      clientId: event.client.id,
       guestCount: 40,
       assignedSalespersonId: people.sam,
     });
