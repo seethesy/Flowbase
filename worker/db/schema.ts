@@ -22,6 +22,7 @@ import { roles, employmentTypes } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { proposalStages } from "../../shared/proposals";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
+import { proposalLineKinds } from "../../shared/proposal-mapping";
 import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
@@ -44,6 +45,7 @@ import { planningStepStatuses, planningSteps } from "../../shared/planning";
 import { pullGroups, pullStatuses } from "../../shared/pull-list";
 import type { RentalRequestSettings } from "../../shared/rental-requests";
 import { beoStatuses } from "../../shared/beo";
+import { truckStatuses } from "../../shared/trucks";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -1456,11 +1458,15 @@ export const taskTemplates = pgTable(
     name: text("name").notNull(),
     sopUrl: text("sop_url"),
     sopId: uuid("sop_id").references(() => sops.id),
+    matchCatalogId: uuid("match_catalog_id"),
+    matchLineKind: text("match_line_kind", { enum: proposalLineKinds }),
+    matchEventType: text("match_event_type"),
   },
   (table) => [
     uniqueIndex("task_templates_name_idx")
       .on(sql`lower(${table.name})`)
       .where(sql`${table.archivedAt} is null`),
+    oneOf("task_templates_match_line_kind_check", table.matchLineKind, proposalLineKinds),
   ],
 ).enableRLS();
 
@@ -1837,6 +1843,42 @@ export const eventPlanningSteps = pgTable(
   ],
 ).enableRLS();
 
+export const planningOutputKinds = ["pull_list", "requirements", "order_list", "kitchen_menu", "beo", "truck_log"] as const;
+export const eventPlanningOutputs = pgTable("event_planning_outputs", {
+  ...baseColumns(),
+  eventId: uuid("event_id").notNull().references(() => events.id),
+  kind: text("kind", { enum: planningOutputKinds }).notNull(),
+  cause: text("cause").notNull(),
+  before: jsonb("before").$type<Record<string, string>>().notNull().default({}),
+  staleAt: timestamptz("stale_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("event_planning_outputs_event_kind_idx").on(table.eventId, table.kind),
+  oneOf("event_planning_outputs_kind_check", table.kind, planningOutputKinds),
+]).enableRLS();
+
+export const trucks = pgTable("trucks", {
+  ...baseColumns(),
+  name: text("name").notNull().unique(),
+  status: text("status", { enum: truckStatuses }).notNull().default("available"),
+}, (table) => [oneOf("trucks_status_check", table.status, truckStatuses)]).enableRLS();
+
+export const truckAssignments = pgTable("truck_assignments", {
+  ...baseColumns(),
+  truckId: uuid("truck_id").notNull().references(() => trucks.id),
+  eventId: uuid("event_id").notNull().references(() => events.id),
+  departsAt: timestamptz("departs_at").notNull(),
+  returnsAt: timestamptz("returns_at").notNull(),
+  driverId: uuid("driver_id").references(() => users.id),
+  loaderIds: jsonb("loader_ids").$type<string[]>().notNull().default([]),
+  loadTaskId: uuid("load_task_id").references(() => tasks.id),
+  conflictAcknowledgedAt: timestamptz("conflict_acknowledged_at"),
+  conflictMessage: text("conflict_message"),
+}, (table) => [
+  index("truck_assignments_truck_window_idx").on(table.truckId, table.departsAt, table.returnsAt),
+  index("truck_assignments_event_idx").on(table.eventId),
+  check("truck_assignments_window_check", sql`${table.returnsAt} > ${table.departsAt}`),
+]).enableRLS();
+
 // The pull list (FLOW-134): one per event, with a scheduled pull time and a puller.
 export const pullLists = pgTable("pull_lists", {
   ...baseColumns(),
@@ -1860,6 +1902,7 @@ export const pullListLines = pgTable(
     pullListId: uuid("pull_list_id")
       .notNull()
       .references(() => pullLists.id),
+    truckId: uuid("truck_id").references(() => trucks.id),
     group: text("line_group", { enum: pullGroups }).notNull(),
     itemId: uuid("item_id").references(() => inventoryItems.id),
     name: text("name").notNull().default(""),

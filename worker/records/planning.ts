@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import {
   planningStepLabels,
@@ -9,7 +9,7 @@ import {
 import { mayEditKitchenMenu, mayStartPlanning, can } from "../../shared/policy";
 import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { eventPlanning, eventPlanningSteps } from "../db/schema";
+import { eventPlanning, eventPlanningOutputs, eventPlanningSteps } from "../db/schema";
 import { ApiError } from "../hono";
 import { enqueueJob, type JobRegistry } from "../jobs/queue";
 import { advanceEventStatus, findVisibleEvent, lockVisibleEvent } from "./events";
@@ -17,6 +17,7 @@ import { syncEventHolds } from "./holds";
 import { generateKitchenMenu } from "./kitchen-menu";
 import { generatePullList } from "./pull-list";
 import { requestEventRecompute } from "./allocations";
+import { applyMatchingProductionTemplates } from "./task-templates";
 
 // "Start planning" (FLOW-133). One confirmation moves a Closed event to Preparation
 // and queues one small job per step, so each stays inside the cron's CPU budget.
@@ -43,6 +44,10 @@ const runners: Partial<
     await requestEventRecompute(tx, eventId);
     return "Ingredient, bar and supply allocation queued.";
   },
+  production_tasks: async (tx, eventId) => {
+    const created = await applyMatchingProductionTemplates(tx, eventId);
+    return `${created} production tasks created.`;
+  },
 };
 
 export const startsAsSkipped = (step: PlanningStep) => !runners[step];
@@ -59,6 +64,7 @@ export async function getPlanningProgress(
     .from(eventPlanningSteps)
     .where(eq(eventPlanningSteps.eventId, eventId))
     .orderBy(asc(eventPlanningSteps.createdAt));
+  const stale = await db.select().from(eventPlanningOutputs).where(and(eq(eventPlanningOutputs.eventId, eventId), isNull(eventPlanningOutputs.archivedAt)));
   const steps = planningSteps.flatMap((step) => {
     const row = rows.find((candidate) => candidate.step === step);
     if (!row) return [];
@@ -81,6 +87,7 @@ export async function getPlanningProgress(
     complete: steps.length > 0 && steps.every((s) => s.status === "done" || s.status === "skipped"),
     canStart: !run && event.status === "closed" && mayStartPlanning(actor, event),
     canRegenerate: can(actor, "events.write") || mayEditKitchenMenu(actor),
+    staleOutputs: stale.map((row) => ({ kind: row.kind, cause: row.cause, staleAt: row.staleAt.toISOString() })),
   };
 }
 

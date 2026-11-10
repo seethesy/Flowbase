@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { kitchenLineInputSchema, kitchenLineUpdateSchema, kitchenTimesInputSchema } from "../../shared/kitchen-menu";
-import { regenerateInputSchema } from "../../shared/planning";
+import { regenerateInputSchema, refreshableOutputSchema, refreshOutputInputSchema } from "../../shared/planning";
 import {
   pullLineInputSchema,
   pullLineStatusInputSchema,
@@ -9,6 +9,7 @@ import {
 } from "../../shared/pull-list";
 import { id as uuid } from "../../shared/schema-primitives";
 import { rentalRequestUpdateSchema } from "../../shared/rental-requests";
+import { truckAssignmentInputSchema, truckInputSchema, truckLineInputSchema, truckStatusSchema } from "../../shared/trucks";
 import { requirePermission } from "../auth";
 import { notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
 import {
@@ -21,7 +22,9 @@ import {
   updateKitchenLine,
 } from "../records/kitchen-menu";
 import { getPlanningProgress, startPlanning } from "../records/planning";
+import { previewPlanningRefresh, regeneratePlanningOutput } from "../records/planning-refresh";
 import { listRentalRequests, updateRentalRequest } from "../records/rental-requests";
+import { assignTruck, createTruck, getTruckLog, movePullLineToTruck, removeTruckAssignment, setTruckStatus } from "../records/trucks";
 import {
   addPullLine,
   getPullList,
@@ -45,6 +48,41 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
   };
   const read = requirePermission("events.read");
 
+  routes.get("/:id/trucks", read, async (c) => {
+    const id = param(c, "id", "Event");
+    return c.json(await record(c, (db, actor) => getTruckLog(db, actor, id)));
+  });
+  routes.post("/:id/trucks", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const input = await parseBody(c, truckInputSchema);
+    return c.json(await record(c, async (db, actor) => {
+      await createTruck(db, actor, id, input.name);
+      return getTruckLog(db, actor, id);
+    }), 201);
+  });
+  routes.patch("/:id/trucks/:truckId/status", read, async (c) => {
+    const id = param(c, "id", "Event"), truckId = param(c, "truckId", "Truck");
+    const input = await parseBody(c, truckStatusSchema);
+    return c.json(await record(c, async (db, actor) => {
+      await setTruckStatus(db, actor, id, truckId, input);
+      return getTruckLog(db, actor, id);
+    }));
+  });
+  routes.post("/:id/trucks/assignments", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const input = await parseBody(c, truckAssignmentInputSchema);
+    return c.json(await record(c, (db, actor) => assignTruck(db, actor, id, input)), 201);
+  });
+  routes.post("/:id/trucks/assignments/:assignmentId/archive", read, async (c) => {
+    const id = param(c, "id", "Event"), assignmentId = param(c, "assignmentId", "Truck assignment");
+    return c.json(await record(c, (db, actor) => removeTruckAssignment(db, actor, id, assignmentId)));
+  });
+  routes.put("/:id/trucks/lines/:lineId", read, async (c) => {
+    const id = param(c, "id", "Event"), lineId = param(c, "lineId", "Pull-list line");
+    const input = await parseBody(c, truckLineInputSchema);
+    return c.json(await record(c, (db, actor) => movePullLineToTruck(db, actor, id, lineId, input.truckId)));
+  });
+
   routes.get("/:id/rental-requests", read, async (c) => {
     const id = param(c, "id", "Event");
     return c.json(await record(c, (db, actor) => listRentalRequests(db, actor, id)));
@@ -63,6 +101,17 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
   routes.post("/:id/planning/start", read, async (c) => {
     const id = param(c, "id", "Event");
     return c.json(await record(c, (db, actor) => startPlanning(db, actor, id)));
+  });
+  routes.post("/:id/planning/outputs/:kind/preview", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const kind = refreshableOutputSchema.parse(c.req.param("kind"));
+    return c.json(await record(c, (db, actor) => previewPlanningRefresh(db, actor, id, kind)));
+  });
+  routes.post("/:id/planning/outputs/:kind/regenerate", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const kind = refreshableOutputSchema.parse(c.req.param("kind"));
+    const input = await parseBody(c, refreshOutputInputSchema);
+    return c.json(await record(c, (db, actor) => regeneratePlanningOutput(db, actor, id, kind, input.expectedStaleAt)));
   });
 
   // Pull list

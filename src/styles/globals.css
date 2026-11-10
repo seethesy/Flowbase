@@ -1195,7 +1195,8 @@ tbody tr:last-child td {
 }
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): long option text or a datetime input must not widen the page on phones. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
 }
 .form-actions {

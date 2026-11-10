@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Plus, Printer, RefreshCw, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import type { RegeneratePreview } from "../../shared/planning";
+import type { PlanningProgress } from "../../shared/planning";
 import {
   planningStepStatusLabels,
-  type PlanningProgress,
 } from "../../shared/planning";
 import {
   pullGroups,
@@ -48,6 +48,43 @@ const ErrorLine = ({ message }: { message: string }) =>
       {message}
     </p>
   ) : null;
+
+function RefreshPlanningOutput({ eventId, output, onChanged }: {
+  eventId: string;
+  output: PlanningProgress["staleOutputs"][number];
+  onChanged: () => void;
+}) {
+  const [preview, setPreview] = useState<RegeneratePreview | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (output.kind === "pull_list" || output.kind === "kitchen_menu") return null;
+  const kind = output.kind;
+  return <div className="regen-preview">
+    <Button variant="outline" disabled={busy} onClick={async () => {
+      setError(""); setBusy(true);
+      try { setPreview(await preparationApi.previewPlanningOutput(eventId, kind)); }
+      catch (cause) { setError((cause as Error).message); }
+      finally { setBusy(false); }
+    }}>Preview {kind.replaceAll("_", " ")} regeneration</Button>
+    <ErrorLine message={error} />
+    {preview && <div role="region" aria-label={`${kind} regeneration preview`}>
+      {preview.upToDate ? <p>No derived values changed. Manual entries will be kept.</p> : <ul>
+        {preview.changes.map((change, index) => <li key={`${change.label}:${index}`}>
+          {change.label}: {change.current ?? "—"} → {change.generated ?? "—"}
+        </li>)}
+      </ul>}
+      <Button disabled={busy} onClick={async () => {
+        setError(""); setBusy(true);
+        try {
+          await preparationApi.regeneratePlanningOutput(eventId, kind, output.staleAt);
+          setPreview(null); onChanged();
+        } catch (cause) { setError((cause as Error).message); }
+        finally { setBusy(false); }
+      }}>Regenerate</Button>
+      <Button variant="outline" onClick={() => setPreview(null)}>Cancel</Button>
+    </div>}
+  </div>;
+}
 
 // The regenerate flow (FLOW-133 AC3): preview what would change, optionally discard
 // manual edits, then confirm.
@@ -193,6 +230,15 @@ export function EventPlanningProgressSection({
               </li>
             ))}
           </ul>
+          {data.staleOutputs.length > 0 && <div role="status" className="warning-message">
+            <strong>Planning outputs need review</strong>
+            <ul>{data.staleOutputs.map((output) => <li key={output.kind}>
+              {output.kind.replaceAll("_", " ")}: {output.cause}.
+              {(output.kind === "pull_list" || output.kind === "kitchen_menu") && " Use the Regenerate button in that section to preview the diff and keep manual edits."}
+            </li>)}</ul>
+            {data.canRegenerate && data.staleOutputs.map((output) => <RefreshPlanningOutput
+              key={output.kind} eventId={event.id} output={output} onChanged={progress.reload} />)}
+          </div>}
           {data.complete ? (
             <p>Planning is complete.</p>
           ) : (

@@ -840,6 +840,12 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
           {error}
         </p>
       )}
+      {list.data?.filter((task) => task.type === "production" && task.status !== "done" && !task.assignees.length)
+        .map((task) => <p key={task.id} role="alert" className="warning-message">
+          {task.title.toLowerCase().includes("balloon arch")
+            ? "Who is building the balloon arch?"
+            : `Who is assigned to ${task.title}?`}
+        </p>)}
       {list.error ? (
         <LoadError message={list.error} />
       ) : !list.data ? (

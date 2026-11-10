@@ -20,6 +20,7 @@ export const notificationTypes = [
   "approval_decided",
   "inventory_conflict",
   "production_alert",
+  "planning_stale",
   "proposal_approved",
   "addendum_reminder",
   "payment_due",
@@ -101,6 +102,11 @@ export const notificationCatalog: Record<NotificationType, NotificationTypeInfo>
     label: "Production alert",
     description: "An event's production needs attention.",
     event: "production.alert_raised",
+  },
+  planning_stale: {
+    label: "Planning needs regeneration",
+    description: "Event details changed after planning started.",
+    event: "event.details_changed",
   },
   proposal_approved: {
     label: "Proposal approved",

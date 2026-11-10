@@ -37,6 +37,7 @@ import { findVisibleEvent } from "./events";
 import { eventProposalLines } from "./pull-list";
 import { replaceRequirements, requestEventRecompute } from "./allocations";
 import { scaleRecipeFor } from "./recipes";
+import { clearPlanningStale } from "./planning-stale";
 
 // The kitchen menu (FLOW-137): the dishes for one event, generated from the mapped
 // proposal and planned by the Kitchen Lead. Prep is handed out as kitchen tasks
@@ -279,7 +280,10 @@ export async function regenerateKitchenMenu(
 ) {
   if (!mayEditKitchenMenu(actor)) throw forbidden();
   await findVisibleEvent(db, actor, eventId);
-  await db.transaction((tx) => generateKitchenMenu(tx, actor, eventId, discardEdits));
+  await db.transaction(async (tx) => {
+    await generateKitchenMenu(tx, actor, eventId, discardEdits);
+    await clearPlanningStale(tx, eventId, "kitchen_menu");
+  });
   return getKitchenMenu(db, actor, eventId);
 }
 

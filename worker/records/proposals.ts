@@ -40,6 +40,7 @@ import { advanceEventStatus, findVisibleEvent } from "./events";
 import { registerApprovalSubject, requestApproval } from "./approvals";
 import { syncProposalRentalHolds } from "./reservations";
 import { indexBy } from "./paging";
+import { markPlanningStale } from "./planning-stale";
 
 // Proposals (FLOW-122) and their versions (FLOW-123). A proposal belongs to one
 // event and is visible to whoever can open that event and read proposals.
@@ -590,7 +591,8 @@ export async function completeProposalUpload(
     if (number > 1) {
       const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, current.eventId));
       if (["closed", "preparation", "finished"].includes(event.status))
-        await tx.update(events).set({ planningStaleAt: new Date(), updatedBy: actor.userId }).where(eq(events.id, current.eventId));
+        if (!(await markPlanningStale(tx, actor, current.eventId, `Proposal version ${number} uploaded`)))
+          await tx.update(events).set({ planningStaleAt: new Date(), updatedBy: actor.userId }).where(eq(events.id, current.eventId));
     }
     await writeAudit(tx, actor, {
       entityType: "proposal",

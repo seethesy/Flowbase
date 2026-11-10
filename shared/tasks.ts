@@ -293,6 +293,9 @@ export const taskTemplateInputSchema = z.object({
   name: text(120).min(1, "Name the template."),
   sopUrl: httpUrl.nullable().default(null),
   sopId: id.nullable().default(null),
+  matchCatalogId: id.nullable().default(null),
+  matchLineKind: z.enum(["menu", "rental", "decor", "service", "supply"]).nullable().default(null),
+  matchEventType: text(100).nullable().default(null),
   items: z
     .array(taskTemplateItemInputSchema)
     .min(1, "Add at least one task.")
@@ -313,11 +316,24 @@ export const taskTemplateSchema = z.object({
   name: z.string(),
   sopUrl: z.string().nullable(),
   sopId: id.nullable(),
+  matchCatalogId: id.nullable(),
+  matchLineKind: z.enum(["menu", "rental", "decor", "service", "supply"]).nullable(),
+  matchEventType: z.string().nullable(),
   items: z.array(taskTemplateItemSchema),
   createdAt: timestamp,
   updatedAt: timestamp,
 });
 export type TaskTemplate = z.infer<typeof taskTemplateSchema>;
+export function matchesProductionTemplate(
+  template: Pick<TaskTemplate, "matchCatalogId" | "matchLineKind" | "matchEventType">,
+  eventType: string,
+  lines: readonly { catalogId: string | null; kind: string }[],
+) {
+  if (!template.matchCatalogId && !template.matchLineKind && !template.matchEventType) return false;
+  return (!template.matchEventType || template.matchEventType.toLowerCase() === eventType.toLowerCase()) &&
+    (!template.matchCatalogId || lines.some((line) => line.catalogId === template.matchCatalogId)) &&
+    (!template.matchLineKind || lines.some((line) => line.kind === template.matchLineKind));
+}
 export const applyTemplateInputSchema = z.object({ eventId: id });
 export const applyTemplateResultSchema = z.object({
   created: z.array(taskSummarySchema),
