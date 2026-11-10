@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
   businessDefaultsSchema,
+  defaultCleanupTemplate,
   businessSettingsSchema,
   companyProfileSchema,
   defaultListValues,
@@ -53,6 +54,8 @@ it("fills defaults and bounds every business default", () => {
       githubMinutes: 2_000 },
     idleCutoffMinutes: 5,
     beoKeyFields: ["date_time", "location", "guest_count", "menu"],
+    runOfShowGuestThreshold: 150,
+    cleanupTemplate: defaultCleanupTemplate,
   });
   for (const input of [
     { rentalBufferDaysBefore: 31 },
@@ -62,6 +65,7 @@ it("fills defaults and bounds every business default", () => {
     { addendumReminderDays: 0 },
     { paymentReminderDays: 31 },
     { paymentReminderDays: -1 },
+    { runOfShowGuestThreshold: 0 },
     { ratioDefaults: [{ category: "Linen", quantity: 0, basis: "per_guest" }] },
     { ratioDefaults: [{ category: "Linen", quantity: 1, basis: "per_hour" }] },
     { urgentNotificationTypes: [""] },
