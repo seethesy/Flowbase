@@ -344,6 +344,20 @@
       "when": 1794284540226,
       "tag": "0048_beo_schedule_layouts",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794295561089,
+      "tag": "0049_day_of_board",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794295571852,
+      "tag": "0050_day_of_updates_append_only",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import {
 import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { beoSceneSchema, beoViewSchema } from "../../shared/beo";
+import { dayOfBoardSchema, dayOfLogSchema, dayOfUpdateSchema } from "../../shared/day-of";
 import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
 import { kitchenMenuSchema } from "../../shared/kitchen-menu";
@@ -190,6 +191,12 @@ export function responseSchema(
           ? venueSchema
           : eventSchema;
     return !id && method === "GET" ? schema.array() : schema;
+  }
+  // Day-of board and log (FLOW-155/156): the board, an event's log, otherwise the
+  // log entry an update wrote.
+  if (resource === "day-of") {
+    if (!id) return dayOfBoardSchema;
+    return method === "GET" ? dayOfLogSchema : dayOfUpdateSchema;
   }
   if (resource === "reservations") return reservationSchema;
   if (resource === "reservation-conflicts") return conflictSchema;
