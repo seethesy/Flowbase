@@ -43,6 +43,9 @@ import { routeSms } from "./sms";
 
 export const EMAIL_JOB = "notification.email";
 
+// Types that go by SMS only to the recipients the subscriber marks eligible.
+const smsGated = new Set<NotificationType>(["staff_assigned", "beo_changed"]);
+
 export type Recipient = {
   userId: string;
   title: string;
@@ -120,7 +123,7 @@ export async function deliver(
       .returning({ id: notifications.id, userId: notifications.userId,
         title: notifications.title, body: notifications.body });
     const fallback = await routeSms(tx, type, created.filter((row) =>
-      type !== "staff_assigned" || byUser.get(row.userId)?.smsEligible === true));
+      !smsGated.has(type) || byUser.get(row.userId)?.smsEligible === true));
     // AC2: in-app always; email only where the person hasn't turned it off.
     const off = await emailOff(
       tx,
@@ -346,6 +349,35 @@ const eventDayChange: Subscriber = async (job, db) => {
       body: "Event details changed today. Review the current plan.", link: `/events/${eventId}` }));
 };
 
+// beo.changed_after_approval (FLOW-144): the people assigned to the event's roster,
+// except whoever made the change. In-app and email always; SMS too when the event
+// is within 48 hours (AC3), through the urgent-types and consent rules of routeSms.
+const beoChanged: Subscriber = async (job, db) => {
+  const payload = payloadOf(job);
+  const eventId = payload.entityId;
+  if (typeof eventId !== "string") return [];
+  const [event] = await db.select({ title: events.title, startsAt: events.startsAt }).from(events)
+    .where(eq(events.id, eventId));
+  if (!event) return [];
+  const slots = await db.select({ userId: eventStaffSlots.assigneeId })
+    .from(eventStaffSlots).innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
+    .where(and(eq(eventShifts.eventId, eventId), isNull(eventStaffSlots.archivedAt),
+      isNull(eventShifts.archivedAt)));
+  const untilEvent = event.startsAt.getTime() - job.createdAt.getTime();
+  const changed = Array.isArray(payload.fields)
+    ? payload.fields.filter((f): f is string => typeof f === "string").slice(0, 6) : [];
+  const body = [
+    changed.length ? `Changed: ${changed.join(", ")}.` : "",
+    payload.returnedToWorkingOn === true ? "The BEO is back for approval." : "",
+    "Review the BEO.",
+  ].filter(Boolean).join(" ");
+  return [...new Set(slots.map((slot) => slot.userId)
+    .filter((id): id is string => !!id && id !== payload.actorId))]
+    .map((userId) => ({ userId, title: `BEO changed: ${event.title}`, body,
+      link: `/events/${eventId}`,
+      smsEligible: untilEvent >= 0 && untilEvent <= 48 * 3_600_000 }));
+};
+
 // Every other type: the producing module names the recipients and the message
 // (notifyPayloadSchema). A malformed payload fails the job so it shows up for an
 // admin instead of being dropped.
@@ -369,6 +401,7 @@ const subscribers: Partial<Record<NotificationType, Subscriber>> = {
   staff_assigned: staffAssigned,
   staff_unassigned: staffUnassigned,
   event_day_change: eventDayChange,
+  beo_changed: beoChanged,
 };
 
 export type NotificationOptions = {

@@ -320,8 +320,15 @@
     {
       "idx": 45,
       "version": "7",
-      "when": 1794245693111,
-      "tag": "0045_rental_requests",
+      "when": 1794245373892,
+      "tag": "0045_beo_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794270595154,
+      "tag": "0046_rental_requests",
       "breakpoints": true
     }
   ]

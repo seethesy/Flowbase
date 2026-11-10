@@ -43,6 +43,7 @@ import {
 import { planningStepStatuses, planningSteps } from "../../shared/planning";
 import { pullGroups, pullStatuses } from "../../shared/pull-list";
 import type { RentalRequestSettings } from "../../shared/rental-requests";
+import { beoStatuses } from "../../shared/beo";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -1924,5 +1925,56 @@ export const kitchenMenuLines = pgTable(
       "kitchen_menu_lines_quantity_check",
       sql`${table.plannedQuantity} is null or ${table.plannedQuantity} >= 0`,
     ),
+  ],
+).enableRLS();
+
+// The banquet event order (FLOW-143/144): one per event. Its content is assembled
+// live from the event's records; the row keeps the approval state, the free-text
+// parts nothing else owns yet, and the field values as of the last check
+// (`snapshot`), which change tracking compares against.
+export const beos = pgTable(
+  "beos",
+  {
+    ...baseColumns(),
+    eventId: uuid("event_id")
+      .notNull()
+      .unique()
+      .references(() => events.id),
+    status: text("status", { enum: beoStatuses }).notNull().default("working_on"),
+    approvalId: uuid("approval_id"),
+    approvedAt: timestamptz("approved_at"),
+    approvedBy: uuid("approved_by"),
+    setupDetails: text("setup_details").notNull().default(""),
+    cleanupChecklist: jsonb("cleanup_checklist").$type<string[]>().notNull().default([]),
+    additionalNotes: text("additional_notes").notNull().default(""),
+    snapshot: jsonb("snapshot").$type<Record<string, string>>().notNull().default({}),
+  },
+  (table) => [oneOf("beos_status_check", table.status, beoStatuses)],
+).enableRLS();
+
+// Every edit made once a BEO has been approved: field, old value, new value, who
+// and when (FLOW-144). `marked` is true until the next approval, which is how a
+// field shows "changed since approval".
+export const beoChanges = pgTable(
+  "beo_changes",
+  {
+    ...baseColumns(),
+    beoId: uuid("beo_id")
+      .notNull()
+      .references(() => beos.id),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id),
+    fieldKey: text("field_key").notNull(),
+    fieldLabel: text("field_label").notNull(),
+    section: text("section").notNull(),
+    oldValue: text("old_value").notNull().default(""),
+    newValue: text("new_value").notNull().default(""),
+    changedBy: uuid("changed_by"),
+    marked: boolean("marked").notNull().default(true),
+  },
+  (table) => [
+    index("beo_changes_beo_idx").on(table.beoId, table.createdAt),
+    index("beo_changes_event_idx").on(table.eventId),
   ],
 ).enableRLS();

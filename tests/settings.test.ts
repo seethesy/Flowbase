@@ -46,13 +46,13 @@ it("fills defaults and bounds every business default", () => {
     paymentTerms: "",
     addendumReminderDays: 3,
     paymentReminderDays: 3,
-    urgentNotificationTypes: ["staff_assigned", "event_day_change", "collector_failure"],
+    urgentNotificationTypes: ["staff_assigned", "event_day_change", "collector_failure", "beo_changed"],
     monthlySmsCap: 1000,
     freeTierLimits: { workerRequests: 100_000, dbQueries: 100_000,
       r2Bytes: 10 * 1024 ** 3, supabaseBytes: 500 * 1024 ** 2,
       githubMinutes: 2_000 },
     idleCutoffMinutes: 5,
-    beoKeyFields: [],
+    beoKeyFields: ["date_time", "location", "guest_count", "menu"],
   });
   for (const input of [
     { rentalBufferDaysBefore: 31 },
