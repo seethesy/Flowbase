@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { localTime } from "./core-records";
 import { id, text, timestamp } from "./schema-primitives";
+import { cleanupSectionSchema } from "./settings";
 
 // The Banquet Event Order (FLOW-143/144/148, F-15): the one document the whole
 // team works from on an event. It is assembled live from the event's own records
@@ -47,17 +49,109 @@ export const beoSectionLabels: Record<BeoSection, string> = {
   notes: "Additional notes",
 };
 
-// PATCH /api/events/<id>/beo: the parts of a BEO that no other record owns yet
-// (the schedule, setup and layout tickets fill these in more fully).
+// PATCH /api/events/<id>/beo: the free text of a BEO that no other record owns.
+// The cleanup checklist, setup areas, layouts and run of show have their own
+// routes below (FLOW-145, 146, 147).
 export const beoNotesInputSchema = z
   .object({
     setupDetails: text(5000),
-    cleanupChecklist: z.array(text(300).min(1)).max(50),
     additionalNotes: text(5000),
   })
   .partial()
   .strict();
 export type BeoNotesInput = z.input<typeof beoNotesInputSchema>;
+
+// --- Run of show (FLOW-145) -----------------------------------------------------
+
+// auto: on once the guest count reaches the settings threshold; on/off: by hand.
+export const runOfShowModes = ["auto", "on", "off"] as const;
+export const runOfShowModeSchema = z.enum(runOfShowModes);
+export type RunOfShowMode = z.infer<typeof runOfShowModeSchema>;
+export const runOfShowModeLabels: Record<RunOfShowMode, string> = {
+  auto: "Automatic (by guest count)",
+  on: "Always on",
+  off: "Always off",
+};
+
+// A minute-by-minute line: when, what happens, who owns it, and notes.
+export const runOfShowRowInputSchema = z.object({
+  time: localTime,
+  cue: text(300).min(1, "Describe the cue."),
+  owner: text(200).default(""),
+  notes: text(1000).default(""),
+});
+// PUT /api/events/<id>/beo/run-of-show replaces the mode and every row.
+export const runOfShowInputSchema = z
+  .object({ mode: runOfShowModeSchema, rows: z.array(runOfShowRowInputSchema).max(200) })
+  .strict();
+export type RunOfShowInput = z.input<typeof runOfShowInputSchema>;
+
+// --- Setup and layout areas (FLOW-146, 147) -------------------------------------
+
+// A setup area holds notes and reference/actual photos; a layout area holds notes,
+// images and an optional annotation. Photos are attachments on the area
+// (record type beo_area) in these groups.
+export const beoAreaKinds = ["setup", "layout"] as const;
+export const beoAreaKindSchema = z.enum(beoAreaKinds);
+export type BeoAreaKind = z.infer<typeof beoAreaKindSchema>;
+export const areaPhotoGroups = {
+  setup: [
+    { group: "reference", label: "Reference photos (how it should look)" },
+    { group: "actual", label: "Actual photos (taken on the day)" },
+  ],
+  layout: [{ group: "image", label: "Floor plan, aerial photo or sketch" }],
+} as const;
+// The PNG an annotation renders (FLOW-147); it is what the BEO and print show.
+export const ANNOTATED_GROUP = "annotated";
+
+export const beoAreaInputSchema = z
+  .object({
+    kind: beoAreaKindSchema,
+    name: text(100).min(1, "Name the area."),
+    notes: text(2000).default(""),
+  })
+  .strict();
+export type BeoAreaInput = z.input<typeof beoAreaInputSchema>;
+export const beoAreaUpdateSchema = z
+  .object({ name: text(100).min(1, "Name the area."), notes: text(2000) })
+  .partial()
+  .strict();
+export type BeoAreaUpdate = z.input<typeof beoAreaUpdateSchema>;
+
+// The Excalidraw scene of an annotated layout image, or null to clear it. The
+// browser sends the rendered PNG as an attachment separately.
+export const MAX_SCENE_BYTES = 400_000;
+export const beoSceneInputSchema = z
+  .object({
+    scene: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .refine((scene) => !scene || JSON.stringify(scene).length <= MAX_SCENE_BYTES, "This annotation is too large."),
+  })
+  .strict();
+export type BeoSceneInput = z.input<typeof beoSceneInputSchema>;
+// GET /api/events/<id>/beo/areas/<areaId>/scene answers the same shape.
+export const beoSceneSchema = beoSceneInputSchema;
+
+// POST /api/events/<id>/beo/layout/copy: add the layout areas of the venue (its
+// named areas) or of a past event at the same venue.
+export const layoutCopyInputSchema = z
+  .object({ from: z.enum(["venue", "event"]), eventId: id.optional() })
+  .strict()
+  .refine((value) => value.from === "venue" || value.eventId, "Choose the event to copy from.");
+export type LayoutCopyInput = z.input<typeof layoutCopyInputSchema>;
+
+const areaSchema = z.object({ id, name: z.string(), notes: z.string(), hasScene: z.boolean() });
+export type BeoArea = z.infer<typeof areaSchema>;
+
+// --- Cleanup checklist (FLOW-146) -----------------------------------------------
+
+// PUT /api/events/<id>/beo/cleanup replaces the sections and items. Items that
+// keep their section and label keep their check-off.
+export const cleanupInputSchema = z.object({ sections: z.array(cleanupSectionSchema).max(20) }).strict();
+export type CleanupInput = z.input<typeof cleanupInputSchema>;
+// PATCH /api/events/<id>/beo/cleanup/<itemId>: check an item off or undo it.
+export const checkItemInputSchema = z.object({ checked: z.boolean() }).strict();
 
 // A contact on the BEO. The phone and email are filled for full-time staff and
 // up and left empty for everyone else (FLOW-148); `contactHidden` says so, so the
@@ -148,6 +242,16 @@ export const beoContentSchema = z.object({
     z.object({
       date: z.string(),
       isEventDay: z.boolean(),
+      // The staff shifts of that day (the day-before setup team, hours and activities).
+      shifts: z.array(
+        z.object({
+          kindLabel: z.string(),
+          startTime: z.string(),
+          endTime: z.string(),
+          activities: z.string(),
+          team: z.array(z.string()),
+        }),
+      ),
       entries: z.array(
         z.object({
           startTime: z.string(),
@@ -165,15 +269,35 @@ export const beoContentSchema = z.object({
     ),
     tbdCount: z.number().int(),
   }),
+  runOfShow: z.object({
+    mode: runOfShowModeSchema,
+    // Shown on the BEO: turned on by hand, or automatic and over the threshold.
+    enabled: z.boolean(),
+    threshold: z.number().int(),
+    rows: z.array(z.object({ time: z.string(), cue: z.string(), owner: z.string(), notes: z.string() })),
+  }),
   layout: z.object({
-    areas: z.array(z.string()),
+    areas: z.array(areaSchema),
     loadInNotes: z.string(),
     parkingNotes: z.string(),
   }),
   setupCleanup: z.object({
     transportationNotes: z.string(),
     setupDetails: z.string(),
-    cleanupChecklist: z.array(z.string()),
+    areas: z.array(areaSchema),
+    cleanup: z.array(
+      z.object({
+        section: z.string(),
+        items: z.array(
+          z.object({
+            id,
+            label: z.string(),
+            checkedAt: timestamp.nullable(),
+            checkedBy: z.string().nullable(),
+          }),
+        ),
+      }),
+    ),
   }),
   notes: z.object({ additionalNotes: z.string() }),
 });
@@ -194,7 +318,7 @@ const qty = (quantity: number | null) => (quantity === null ? "TBD" : String(qua
 const list = (values: string[]) => values.join("; ");
 
 export function beoFields(content: BeoContent): BeoField[] {
-  const { event, summary, foodSetup, staff, equipment, layout, setupCleanup, notes } = content;
+  const { event, summary, foodSetup, staff, equipment, layout, setupCleanup, notes, runOfShow } = content;
   const field = (key: string, label: string, section: BeoSection, value: string): BeoField => ({
     key,
     label,
@@ -260,12 +384,31 @@ export function beoFields(content: BeoContent): BeoField[] {
       "equipment",
       list(equipment.groups.flatMap((g) => g.lines.map((l) => `${g.label}: ${l.name} × ${qty(l.quantity)}`))),
     ),
-    field("areas", "Layout areas", "layout", list(layout.areas)),
+    field(
+      "run_of_show",
+      "Run of show",
+      "timeline",
+      runOfShow.enabled ? list(runOfShow.rows.map((r) => `${r.time} ${r.cue}${r.owner ? ` (${r.owner})` : ""}${r.notes ? ` – ${r.notes}` : ""}`)) : "",
+    ),
+    field("areas", "Layout areas", "layout", list(layout.areas.map((a) => (a.notes ? `${a.name}: ${a.notes}` : a.name)))),
     field("load_in_notes", "Load-in notes", "layout", layout.loadInNotes),
     field("parking_notes", "Parking notes", "layout", layout.parkingNotes),
     field("transportation_notes", "Transportation notes", "setup_cleanup", setupCleanup.transportationNotes),
     field("setup_details", "Setup details", "setup_cleanup", setupCleanup.setupDetails),
-    field("cleanup_checklist", "Cleanup checklist", "setup_cleanup", list(setupCleanup.cleanupChecklist)),
+    field(
+      "setup_areas",
+      "Setup areas",
+      "setup_cleanup",
+      list(setupCleanup.areas.map((a) => (a.notes ? `${a.name}: ${a.notes}` : a.name))),
+    ),
+    // Checking an item off during breakdown is not a change to the BEO, so only
+    // the sections and labels are compared.
+    field(
+      "cleanup_checklist",
+      "Cleanup checklist",
+      "setup_cleanup",
+      list(setupCleanup.cleanup.map((s) => `${s.section}: ${s.items.map((i) => i.label).join(", ")}`)),
+    ),
     field("additional_notes", "Additional notes", "notes", notes.additionalNotes),
   ];
 }
@@ -327,5 +470,7 @@ export const beoViewSchema = z.object({
   canEdit: z.boolean(),
   canApprove: z.boolean(),
   canRequestApproval: z.boolean(),
+  // Anyone who can open the event checks cleanup items off during breakdown.
+  canCheckOff: z.boolean(),
 });
 export type BeoView = z.infer<typeof beoViewSchema>;

@@ -73,7 +73,7 @@ const casey = signedInAs("casey");
 const kit = signedInAs("kit");
 const nora = signedInAs("nora");
 
-const tables = sql`truncate table pull_list_lines, pull_lists, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
+const tables = sql`truncate table pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -202,6 +202,7 @@ describe("FLOW-143: generating the BEO", () => {
       "staff",
       "timeline",
       "equipment",
+      "runOfShow",
       "layout",
       "setupCleanup",
       "notes",
@@ -315,10 +316,13 @@ describe("FLOW-144: approval and changes after approval", () => {
   it("logs edits to the BEO's own notes and tells staff", async () => {
     const event = await seed();
     await approved(event);
+    await sam.send("PUT", `/api/events/${event.id}/beo/cleanup`, {
+      sections: [{ section: "Load-out", items: ["Strip linens", "Sweep floor"] }],
+    });
     const beo = await sam.send<BeoView>(
       "PATCH",
       `/api/events/${event.id}/beo`,
-      { cleanupChecklist: ["Strip linens", "Sweep floor"], additionalNotes: "Loading dock closes at 5." },
+      { additionalNotes: "Loading dock closes at 5." },
       200,
     );
     expect(beo.status).toBe("approved");
@@ -405,5 +409,102 @@ describe("FLOW-148: who sees the BEO and what", () => {
       venueContacts: [],
     });
     expect(limited.content.summary).toEqual(full.content.summary);
+  });
+});
+
+describe("FLOW-145: the run of show", () => {
+  const base = `/beo/run-of-show`;
+  it("follows the guest threshold when automatic and the manual setting otherwise (AC1)", async () => {
+    const event = await seed();
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    // 80 guests against the default threshold of 150.
+    expect((await getBeo(sam, event)).content.runOfShow).toMatchObject({ mode: "auto", enabled: false, threshold: 150 });
+    await edit(event, { guestCount: 200 });
+    expect((await getBeo(sam, event)).content.runOfShow.enabled).toBe(true);
+    const off = await sam.send<BeoView>("PUT", `/api/events/${event.id}${base}`, { mode: "off", rows: [] });
+    expect(off.content.runOfShow).toMatchObject({ mode: "off", enabled: false });
+    const on = await sam.send<BeoView>("PUT", `/api/events/${event.id}${base}`, {
+      mode: "on",
+      rows: [
+        { time: "18:00", cue: "Doors open", owner: "Casey" },
+        { time: "18:30", cue: "Salad out" },
+      ],
+    });
+    expect(on.content.runOfShow.enabled).toBe(true);
+    expect(on.content.runOfShow.rows.map((row) => row.cue)).toEqual(["Doors open", "Salad out"]);
+  });
+
+  it("is read only for part-time staff", async () => {
+    const event = await seed();
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    expect((await jamie.call("PUT", `/api/events/${event.id}${base}`, { mode: "on", rows: [] })).status).toBeGreaterThanOrEqual(403);
+  });
+});
+
+describe("FLOW-146: setup areas and the cleanup checklist", () => {
+  it("starts a BEO with the settings template and never changes the template (AC2)", async () => {
+    const event = await seed();
+    const beo = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    expect(beo.content.setupCleanup.cleanup.map((section) => section.section)).toContain("Kitchen");
+    await sam.send("PUT", `/api/events/${event.id}/beo/cleanup`, {
+      sections: [{ section: "Kitchen", items: ["Only this"] }],
+    });
+    const other = await seed();
+    const second = await sam.send<BeoView>("POST", `/api/events/${other.id}/beo`, {});
+    expect(second.content.setupCleanup.cleanup.find((section) => section.section === "Kitchen")!.items.length).toBeGreaterThan(1);
+  });
+
+  it("records who checked an item and when, for anyone who can open the event (AC3)", async () => {
+    const event = await seed();
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    const set = await sam.send<BeoView>("PUT", `/api/events/${event.id}/beo/cleanup`, {
+      sections: [{ section: "Load-out", items: ["Strip linens"] }],
+    });
+    const item = set.content.setupCleanup.cleanup[0].items[0];
+    const checked = await jamie.send<BeoView>("PATCH", `/api/events/${event.id}/beo/cleanup/${item.id}`, { checked: true });
+    const done = checked.content.setupCleanup.cleanup[0].items[0];
+    expect(done.checkedAt).not.toBeNull();
+    expect(done.checkedBy).toBeTruthy();
+    // Replacing the list keeps the check-off of an unchanged item.
+    const again = await sam.send<BeoView>("PUT", `/api/events/${event.id}/beo/cleanup`, {
+      sections: [{ section: "Load-out", items: ["Strip linens", "Sweep floor"] }],
+    });
+    expect(again.content.setupCleanup.cleanup[0].items[0].checkedAt).not.toBeNull();
+    expect(again.content.setupCleanup.cleanup[0].items[1].checkedAt).toBeNull();
+  });
+
+  it("adds, renames and removes setup areas", async () => {
+    const event = await seed();
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    const added = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/areas`, { kind: "setup", name: "Cocktail hour" });
+    const area = added.content.setupCleanup.areas.find((a) => a.name === "Cocktail hour")!;
+    const renamed = await sam.send<BeoView>("PATCH", `/api/events/${event.id}/beo/areas/${area.id}`, { notes: "Bar left" });
+    expect(renamed.content.setupCleanup.areas.find((a) => a.id === area.id)!.notes).toBe("Bar left");
+    const removed = await sam.send<BeoView>("DELETE", `/api/events/${event.id}/beo/areas/${area.id}`);
+    expect(removed.content.setupCleanup.areas.find((a) => a.id === area.id)).toBeUndefined();
+  });
+});
+
+describe("FLOW-147: layouts and annotations", () => {
+  it("stores and returns an annotation scene for a layout area (AC1)", async () => {
+    const event = await seed();
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    const added = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/areas`, { kind: "layout", name: "Ballroom" });
+    const area = added.content.layout.areas.find((a) => a.name === "Ballroom")!;
+    expect(area.hasScene).toBe(false);
+    const saved = await sam.send<BeoView>("PUT", `/api/events/${event.id}/beo/areas/${area.id}/scene`, {
+      scene: { elements: [{ id: "a", type: "rectangle" }] },
+    });
+    expect(saved.content.layout.areas.find((a) => a.id === area.id)!.hasScene).toBe(true);
+    const scene = await sam.send<{ scene: { elements: unknown[] } }>("GET", `/api/events/${event.id}/beo/areas/${area.id}/scene`);
+    expect(scene.scene.elements).toHaveLength(1);
+  });
+
+  it("copies the venue's areas as layout areas without duplicating names (AC2)", async () => {
+    const event = await seed();
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    const first = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/layout/copy`, { from: "venue" }, 200);
+    const second = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/layout/copy`, { from: "venue" }, 200);
+    expect(second.content.layout.areas.map((a) => a.name).sort()).toEqual(first.content.layout.areas.map((a) => a.name).sort());
   });
 });

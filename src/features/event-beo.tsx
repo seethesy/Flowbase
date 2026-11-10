@@ -13,6 +13,8 @@ import { useResource } from "../app/useResource";
 import { Button, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { beoApi } from "../services/beo";
+import { BeoAreaList, BeoCleanup } from "./beo-areas";
+import { BeoSchedule } from "./beo-schedule";
 import "./event-beo.css";
 
 // The banquet event order (FLOW-143, 144, 148): the ten sections in order, what is
@@ -37,7 +39,7 @@ function Contact({ contact, hidden }: { contact: BeoContact; hidden: boolean }) 
 export function EventBeoSection({ event }: { event: FlowEvent }) {
   const beo = useResource(["event-beo", event.id], () => beoApi.get(event.id));
   const [error, setError] = useState("");
-  const [notes, setNotes] = useState<{ setup: string; cleanup: string; extra: string } | null>(null);
+  const [notes, setNotes] = useState<{ setup: string; extra: string } | null>(null);
   if (beo.error)
     return (
       <Section title="Banquet event order">
@@ -190,30 +192,7 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
         {content.staff.openSlots > 0 && <p className="beo-open">{content.staff.openSlots} open</p>}
       </>
     ),
-    timeline: (
-      <>
-        {content.timeline.map((day) => (
-          <div key={day.date}>
-            <h4>
-              {day.date}
-              {day.isEventDay && " · Event day"}
-            </h4>
-            {day.entries.length === 0 ? (
-              <p className="muted">Nothing scheduled.</p>
-            ) : (
-              <ul className="beo-list">
-                {day.entries.map((entry, i) => (
-                  <li key={i}>
-                    {entry.startTime}–{entry.endTime} {entry.activity}
-                    <small>{[entry.who, entry.where].filter(Boolean).join(" · ")}</small>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </>
-    ),
+    timeline: <BeoSchedule eventId={event.id} data={data} onChange={beo.replace} />,
     equipment: (
       <>
         {content.equipment.groups.length === 0 && <p className="muted">No equipment on the pull list yet.</p>}
@@ -234,7 +213,7 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
     ),
     layout: (
       <>
-        <p>Areas: {content.layout.areas.join(", ") || "None named"}</p>
+        <BeoAreaList kind="layout" event={event} data={data} areas={content.layout.areas} onChange={beo.replace} />
         {content.layout.loadInNotes && <p>Load-in: {content.layout.loadInNotes}</p>}
         {content.layout.parkingNotes && <p>Parking: {content.layout.parkingNotes}</p>}
       </>
@@ -243,13 +222,8 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
       <>
         {content.setupCleanup.transportationNotes && <p>Transportation: {content.setupCleanup.transportationNotes}</p>}
         <p>{content.setupCleanup.setupDetails || <span className="muted">No setup details yet.</span>}</p>
-        {content.setupCleanup.cleanupChecklist.length > 0 && (
-          <ul className="beo-list" aria-label="Cleanup checklist">
-            {content.setupCleanup.cleanupChecklist.map((item, i) => (
-              <li key={i}>☐ {item}</li>
-            ))}
-          </ul>
-        )}
+        <BeoAreaList kind="setup" event={event} data={data} areas={content.setupCleanup.areas} onChange={beo.replace} />
+        <BeoCleanup eventId={event.id} data={data} onChange={beo.replace} />
       </>
     ),
     notes: <p>{content.notes.additionalNotes || <span className="muted">None.</span>}</p>,
@@ -305,10 +279,6 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
                 void run(() =>
                   beoApi.saveNotes(event.id, {
                     setupDetails: notes.setup,
-                    cleanupChecklist: notes.cleanup
-                      .split("\n")
-                      .map((line) => line.trim())
-                      .filter(Boolean),
                     additionalNotes: notes.extra,
                   }),
                 );
@@ -317,10 +287,6 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
               <label className="form-field">
                 <span>Setup details</span>
                 <textarea value={notes.setup} onChange={(e) => setNotes({ ...notes, setup: e.target.value })} />
-              </label>
-              <label className="form-field">
-                <span>Cleanup checklist (one item per line)</span>
-                <textarea value={notes.cleanup} onChange={(e) => setNotes({ ...notes, cleanup: e.target.value })} />
               </label>
               <label className="form-field">
                 <span>Additional notes</span>
@@ -337,12 +303,11 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
               onClick={() =>
                 setNotes({
                   setup: content.setupCleanup.setupDetails,
-                  cleanup: content.setupCleanup.cleanupChecklist.join("\n"),
                   extra: content.notes.additionalNotes,
                 })
               }
             >
-              Edit setup, cleanup and notes
+              Edit setup details and notes
             </Button>
           )}
         </div>

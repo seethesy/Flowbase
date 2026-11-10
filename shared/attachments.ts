@@ -25,6 +25,8 @@ export const recordTypeSchema = z.enum([
   // Task attachments (FLOW-58).
   "task",
   "sop",
+  // A setup or layout area of a BEO (FLOW-146, 147): its photos and plans.
+  "beo_area",
 ]);
 export type AttachmentRecordType = z.infer<typeof recordTypeSchema>;
 export const variantNameSchema = z.enum(["thumb", "display", "original"]);

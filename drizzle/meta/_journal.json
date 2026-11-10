@@ -330,6 +330,13 @@
       "when": 1794270595154,
       "tag": "0046_rental_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794281103670,
+      "tag": "0047_beo_schedule_layouts",
+      "breakpoints": true
     }
   ]
 }

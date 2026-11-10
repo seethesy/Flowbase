@@ -47,9 +47,88 @@
 .beo-edit {
   padding-top: 8px;
 }
+.beo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.beo-table th,
+.beo-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border, #e4e7ec);
+  text-align: left;
+  vertical-align: top;
+}
+.beo-setup-block {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-left: 3px solid #175cd3;
+  background: rgb(23 92 211 / 6%);
+}
+.beo-areas {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0;
+}
+.beo-area {
+  padding: 8px;
+  border: 1px solid var(--border, #e4e7ec);
+  border-radius: 8px;
+}
+.beo-area-actions,
+.beo-area-add,
+.beo-copy,
+.beo-photo-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.beo-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.beo-photos img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 6px;
+}
+.beo-photo-add input {
+  display: none;
+}
+.beo-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+}
+.beo-check input {
+  width: 22px;
+  height: 22px;
+}
+.beo-layout-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: #fff;
+}
+.beo-excalidraw {
+  flex: 1;
+  min-height: 0;
+}
 @media print {
   .beo-edit,
-  .beo-log {
+  .beo-log,
+  .beo-area-actions,
+  .beo-area-add,
+  .beo-copy,
+  .beo-run-form,
+  .beo-cleanup-edit,
+  .beo-photo-add {
     display: none;
   }
 }

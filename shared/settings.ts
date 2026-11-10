@@ -128,6 +128,20 @@ export const companyProfileSchema = z.object({
 export type CompanyProfile = z.infer<typeof companyProfileSchema>;
 
 const keyList = z.array(text(100).min(1)).max(100);
+
+// A section of the BEO's cleanup/breakdown checklist (FLOW-146): a heading and its
+// items. The settings template is copied to each new BEO.
+export const cleanupSectionSchema = z.object({
+  section: text(100).min(1, "Name the section."),
+  items: z.array(text(300).min(1, "Describe the item.")).max(50),
+});
+export type CleanupSection = z.infer<typeof cleanupSectionSchema>;
+export const defaultCleanupTemplate: CleanupSection[] = [
+  { section: "Kitchen", items: ["Wipe down stations and equipment", "Pack leftover food and label it", "Take out the trash"] },
+  { section: "Service area", items: ["Strip linens", "Clear and sweep the floor", "Return chafers and serving pieces"] },
+  { section: "Decor", items: ["Take down and pack decor", "Collect candles, signs and florals"] },
+  { section: "Load-out", items: ["Count and load rentals", "Walk the space for left-behind items", "Lock up and hand back the venue"] },
+];
 const days = z.number().int().min(0).max(30);
 export const businessDefaultsSchema = z.object({
   // Days a rental stays reserved before and after its event.
@@ -178,6 +192,11 @@ export const businessDefaultsSchema = z.object({
   idleCutoffMinutes: z.number().int().min(1).max(60).default(5),
   // BEO fields whose change sends an approved BEO back for approval.
   beoKeyFields: keyList.default(["date_time", "location", "guest_count", "menu"]),
+  // Events with at least this many guests get a run-of-show section on their BEO
+  // unless it is turned on or off by hand (FLOW-145).
+  runOfShowGuestThreshold: z.number().int().min(1).max(10_000).default(150),
+  // The cleanup checklist every new BEO starts from (FLOW-146).
+  cleanupTemplate: z.array(cleanupSectionSchema).max(20).default(defaultCleanupTemplate),
 });
 export type BusinessDefaults = z.infer<typeof businessDefaultsSchema>;
 

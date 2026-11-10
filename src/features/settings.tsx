@@ -385,6 +385,8 @@ type DefaultsDraft = Omit<
   idleCutoffMinutes: string;
   addendumReminderDays: string;
   paymentReminderDays: string;
+  runOfShowGuestThreshold: string;
+  cleanupTemplate: string;
   ratioDefaults: { category: string; quantity: string; basis: string }[];
 };
 const lines = (value: string) =>
@@ -392,6 +394,22 @@ const lines = (value: string) =>
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+// One section per line: "Kitchen: wipe counters; empty fridge".
+const templateText = (template: BusinessDefaults["cleanupTemplate"]) =>
+  template.map((section) => `${section.section}: ${section.items.join("; ")}`).join("\n");
+const templateOf = (value: string) =>
+  lines(value).map((line) => {
+    const at = line.indexOf(":");
+    const name = at < 0 ? line : line.slice(0, at);
+    const items = at < 0 ? "" : line.slice(at + 1);
+    return {
+      section: name.trim(),
+      items: items
+        .split(";")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    };
+  });
 const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   ...defaults,
   beoKeyFields: defaults.beoKeyFields.join("\n"),
@@ -401,6 +419,8 @@ const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   idleCutoffMinutes: String(defaults.idleCutoffMinutes),
   addendumReminderDays: String(defaults.addendumReminderDays),
   paymentReminderDays: String(defaults.paymentReminderDays),
+  runOfShowGuestThreshold: String(defaults.runOfShowGuestThreshold),
+  cleanupTemplate: templateText(defaults.cleanupTemplate),
   ratioDefaults: defaults.ratioDefaults.map((row) => ({
     category: row.category,
     quantity: String(row.quantity),
@@ -447,6 +467,8 @@ function DefaultSettings() {
       idleCutoffMinutes: numberOf(draft.idleCutoffMinutes),
       addendumReminderDays: numberOf(draft.addendumReminderDays),
       paymentReminderDays: numberOf(draft.paymentReminderDays),
+      runOfShowGuestThreshold: numberOf(draft.runOfShowGuestThreshold),
+      cleanupTemplate: templateOf(draft.cleanupTemplate),
       ratioDefaults: draft.ratioDefaults.map((row) => ({
         ...row,
         quantity: numberOf(row.quantity),
@@ -486,6 +508,7 @@ function DefaultSettings() {
           {number("idleCutoffMinutes", "Time tracking idle cutoff (minutes)", "Time stops after this long without typing or clicking.", 1)}
           {number("addendumReminderDays", "Addendum reminder days", "Remind the salesperson when an addendum remains unsigned.", 1)}
           {number("paymentReminderDays", "Payment reminder days", "Days before a payment is due that the assigned salesperson is reminded.")}
+          {number("runOfShowGuestThreshold", "Run of show guest threshold", "Events at or above this guest count get a run of show on the BEO.", 1)}
         </div>
         <FormField label="Default payment terms">
           <textarea
@@ -525,6 +548,13 @@ function DefaultSettings() {
             />
           </FormField>
         </div>
+        <FormField label="BEO cleanup checklist template" hint="One section per line, items separated by semicolons (Kitchen: wipe counters; empty fridge). Copied into each new BEO.">
+          <textarea
+            rows={5}
+            value={draft.cleanupTemplate}
+            onChange={(e) => set("cleanupTemplate", e.target.value)}
+          />
+        </FormField>
         <fieldset className="settings-ratios">
           <legend>Per-guest ratio defaults by category</legend>
           <p className="settings-hint">A new inventory item in the category starts with this ratio.</p>

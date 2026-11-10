@@ -20,6 +20,7 @@ import { findItem } from "../records/inventory";
 import { findRecipe } from "../records/recipes";
 import { findVisibleTask } from "../records/tasks";
 import { findSop } from "../records/sops";
+import { findBeoArea } from "../records/beo-edit";
 import { findVenue } from "../records/venues";
 import { fileStorage } from "./storage";
 
@@ -51,6 +52,8 @@ const parents: Record<
   // Task attachments (FLOW-58): anyone who can see the task.
   task: { find: findVisibleTask, write: attachmentWriteActions.task },
   sop: { find: (db, _actor, id) => findSop(db, id), write: attachmentWriteActions.sop },
+  // Setup and layout area photos (FLOW-146, 147): anyone who can open the event.
+  beo_area: { find: findBeoArea, write: attachmentWriteActions.beo_area },
 };
 
 async function requireParent(

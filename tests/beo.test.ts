@@ -66,10 +66,11 @@ const content: BeoContent = {
     ],
     openSlots: 1,
   },
-  timeline: [{ date: "2026-11-14", isEventDay: true, entries: [] }],
+  timeline: [{ date: "2026-11-14", isEventDay: true, shifts: [], entries: [] }],
   equipment: { groups: [], tbdCount: 0 },
+  runOfShow: { mode: "auto", enabled: false, threshold: 150, rows: [] },
   layout: { areas: [], loadInNotes: "", parkingNotes: "" },
-  setupCleanup: { transportationNotes: "", setupDetails: "", cleanupChecklist: [] },
+  setupCleanup: { transportationNotes: "", setupDetails: "", areas: [], cleanup: [] },
   notes: { additionalNotes: "" },
 };
 const actor = (role: Actor["role"], employmentType: EmploymentType): Actor => ({

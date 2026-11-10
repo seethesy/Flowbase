@@ -269,6 +269,7 @@ export const attachmentWriteActions = {
   recipe: "recipes.write",
   task: "tasks.write",
   sop: "sops.write",
+  beo_area: "events.write",
 } as const satisfies Record<string, Action>;
 
 // The BEO as one reader may see it (FLOW-148). The single projection every BEO
@@ -302,6 +303,7 @@ export function projectBeo(actor: Actor, content: BeoContent): BeoContent {
     foodSetup: content.foodSetup,
     staff: content.staff,
     timeline: content.timeline,
+    runOfShow: content.runOfShow,
     equipment: content.equipment,
     layout: { ...content.layout },
     setupCleanup: { ...content.setupCleanup },
