@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { restoreDefaultSections } from "./reference-data";
 import * as schema from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
@@ -80,7 +81,9 @@ beforeEach(async () => {
   );
 });
 afterAll(async () => {
+  // The tests clear inventory_sections; give later files the seeded defaults back.
   await db.execute(tables);
+  await restoreDefaultSections(client);
   await client.end();
 });
 

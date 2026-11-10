@@ -164,13 +164,13 @@ describe("day-of board (FLOW-155)", () => {
   it("shows another open board a truck status update (AC1)", async () => {
     const { assignmentId } = await setup();
     await manager.send<DayOfUpdate>("PATCH", `/api/day-of/trucks/${assignmentId}`, {
-      status: "on_the_road",
+      status: "en_route",
       location: "I-95 north",
     });
     // Jamie is the driver, so the event is on their board too.
     const seen = await board(jamie);
     expect(seen.canUpdate).toBe(false);
-    expect(seen.events[0].trucks[0]).toMatchObject({ status: "on_the_road", location: "I-95 north" });
+    expect(seen.events[0].trucks[0]).toMatchObject({ status: "en_route", location: "I-95 north" });
   });
 
   it("records the time food left the kitchen against the timeline (AC2)", async () => {
