@@ -5,7 +5,6 @@ import {
   type Closeout,
   type CloseoutInput,
 } from "../../shared/closeout";
-import { pullGroupOf } from "../../shared/pull-list";
 import { sectionKindFor } from "../../shared/inventory";
 import { can } from "../../shared/policy";
 import { writeAudit } from "../audit/log";
@@ -21,7 +20,6 @@ import {
   pullListLines,
   pullLists,
   users,
-  vendors,
 } from "../db/schema";
 import { ApiError, forbidden } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
