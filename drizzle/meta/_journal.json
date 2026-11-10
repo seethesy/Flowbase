@@ -330,6 +330,13 @@
       "when": 1794270595154,
       "tag": "0046_rental_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794271793269,
+      "tag": "0047_production_trucks_propagation",
+      "breakpoints": true
     }
   ]
 }

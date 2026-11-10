@@ -13,6 +13,8 @@ import type { KitchenMenu } from "../../shared/kitchen-menu";
 import type { PlanningProgress, RegeneratePreview } from "../../shared/planning";
 import type { PullList } from "../../shared/pull-list";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
+import type { FlowEvent } from "../../shared/core-records";
+import type { TruckLog } from "../../shared/trucks";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137) against the
 // real database.
@@ -65,10 +67,12 @@ beforeAll(async () => {
 const made = { items: [] as string[], recipes: [] as string[], vendors: [] as string[] };
 const clean = async () => {
   await db.execute(
-    sql`truncate table pull_list_lines, pull_lists, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table truck_assignments, event_planning_outputs, notifications, pull_list_lines, pull_lists, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
   await db.delete(schema.taskAssignees);
   await db.delete(schema.tasks);
+  await db.delete(schema.taskTemplateItems);
+  await db.delete(schema.taskTemplates);
   if (made.recipes.length) await db.delete(schema.recipeLines).where(inArray(schema.recipeLines.recipeId, made.recipes));
   if (made.items.length) {
     await db.delete(schema.inventoryRentalDetails).where(inArray(schema.inventoryRentalDetails.itemId, made.items));
@@ -177,6 +181,85 @@ const pullList = (eventId: string) => admin.send<PullList>("GET", `/api/events/$
 const kitchen = (eventId: string) => admin.send<KitchenMenu>("GET", `/api/events/${eventId}/kitchen-menu`);
 const names = (list: PullList) => list.groups.flatMap((group) => group.lines.map((line) => `${group.group}:${line.name}:${line.quantity}`)).sort();
 
+describe("FLOW-142 truck scheduling", () => {
+  it("warns, records an acknowledged conflict, and audits pull-list moves", async () => {
+    const first = await planned();
+    const second = await seed();
+    const [truck] = await db.select().from(schema.trucks).where(eq(schema.trucks.name, "Truck A"));
+    const assignment = (departsAt: string, returnsAt: string, acknowledgeConflict = false) => ({
+      truckId: truck.id, departsAt, returnsAt, driverId: null, loaderIds: [], acknowledgeConflict,
+    });
+    const firstLog = await admin.send<TruckLog>("POST", `/api/events/${first.event.id}/trucks/assignments`,
+      assignment("2026-12-12T18:00:00.000Z", "2026-12-12T22:00:00.000Z"), 201);
+    expect(firstLog.missingDriverWarning).toBe("Who is loading the truck going to the event?");
+    const response = await admin.call("POST", `/api/events/${second.event.id}/trucks/assignments`,
+      assignment("2026-12-12T20:00:00.000Z", "2026-12-13T00:00:00.000Z"));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.message).toContain("Possible conflict: Truck A is already assigned to Juniper holiday party");
+    const acknowledged = await admin.send<TruckLog>("POST", `/api/events/${second.event.id}/trucks/assignments`,
+      assignment("2026-12-12T20:00:00.000Z", "2026-12-13T00:00:00.000Z", true), 201);
+    expect(acknowledged.assignments[0].conflictAcknowledgedAt).not.toBeNull();
+    const line = (await pullList(first.event.id)).groups.flatMap((group) => group.lines)[0];
+    await admin.send("PUT", `/api/events/${first.event.id}/trucks/lines/${line.id}`, { truckId: truck.id });
+    expect((await pullList(first.event.id)).groups.flatMap((group) => group.lines).find((row) => row.id === line.id)?.truckId).toBe(truck.id);
+    const audit = await db.select().from(schema.auditLog).where(and(eq(schema.auditLog.entityType, "pull_list_line"), eq(schema.auditLog.entityId, line.id)));
+    expect(audit.some((row) => JSON.stringify(row.after).includes(truck.id))).toBe(true);
+  });
+});
+
+describe("FLOW-141 change propagation", () => {
+  it("marks changed planning outputs stale and clears a regenerated pull list idempotently", async () => {
+    const { event } = await planned();
+    const current = await admin.send<FlowEvent>("GET", `/api/events/${event.id}`);
+    await admin.send("PUT", `/api/events/${event.id}`, {
+      title: current.title, date: current.date, startTime: current.startTime,
+      endTime: current.endTime, clientId: current.client.id, pocContactId: current.pocContactId,
+      venueId: current.venue?.id ?? null, address: current.address, guestCount: 120,
+      servingsCount: current.servingsCount, eventType: current.eventType, serviceType: current.serviceType,
+      foodServiceStyle: current.foodServiceStyle, dressCode: current.dressCode,
+      updatedAt: current.updatedAt,
+    });
+    const progress = await admin.send<PlanningProgress>("GET", `/api/events/${event.id}/planning`);
+    expect(progress.staleOutputs.map((output) => output.kind)).toEqual(expect.arrayContaining(["pull_list", "requirements", "beo"]));
+    expect(progress.staleOutputs.every((output) => output.cause.includes("Guest count changed"))).toBe(true);
+    expect(await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:event.details_changed"))).toHaveLength(1);
+    await admin.send("POST", `/api/events/${event.id}/pull-list/regenerate`, {});
+    await admin.send("POST", `/api/events/${event.id}/pull-list/regenerate`, {});
+    const after = await admin.send<PlanningProgress>("GET", `/api/events/${event.id}/planning`);
+    expect(after.staleOutputs.some((output) => output.kind === "pull_list")).toBe(false);
+    expect((await admin.send<RegeneratePreview>("POST", `/api/events/${event.id}/pull-list/regenerate/preview`, {})).upToDate).toBe(true);
+    const requirements = progress.staleOutputs.find((output) => output.kind === "requirements")!;
+    const preview = await admin.send<RegeneratePreview>("POST", `/api/events/${event.id}/planning/outputs/requirements/preview`, {});
+    expect(Array.isArray(preview.changes)).toBe(true);
+    await admin.send("POST", `/api/events/${event.id}/planning/outputs/requirements/regenerate`, { expectedStaleAt: requirements.staleAt });
+    expect((await admin.send<RegeneratePreview>("POST", `/api/events/${event.id}/planning/outputs/requirements/preview`, {})).upToDate).toBe(true);
+  });
+});
+
+describe("FLOW-138 production schedules", () => {
+  it("applies service-offering tasks on planning start with event-relative dates", async () => {
+    const { event, proposal, data } = await seed();
+    const [offering] = await db.insert(schema.inventoryItems).values({ kind: "service", name: "Large Balloon Arch" }).returning();
+    made.items.push(offering.id);
+    await db.insert(schema.inventoryServiceDetails).values({ itemId: offering.id, includes: [] });
+    await db.update(schema.proposalMappings).set({ data: { ...data, lines: [...data.lines, {
+      id: "L6", kind: "service", section: "", name: "Large Balloon Arch", notes: "", quantity: 1,
+      sourceBlockId: null, catalogId: offering.id, notTracked: false,
+    }] } }).where(eq(schema.proposalMappings.proposalId, proposal.id));
+    await admin.send("POST", "/api/tasks/templates", {
+      name: "Large Balloon Arch build", matchCatalogId: offering.id,
+      items: [{ title: "Build balloon arch", type: "production", offsetDays: -2, time: "09:00" }],
+    }, 201);
+    await sam.send("POST", `/api/events/${event.id}/planning/start`);
+    await runJobs();
+    const [task] = await db.select().from(schema.tasks).where(and(eq(schema.tasks.eventId, event.id), eq(schema.tasks.type, "production")));
+    expect(task.title).toBe("Build balloon arch");
+    expect(task.dueAt?.toISOString()).toBe("2026-12-10T14:00:00.000Z");
+    const progress = await admin.send<PlanningProgress>("GET", `/api/events/${event.id}/planning`);
+    expect(progress.steps.find((step) => step.step === "production_tasks")?.status).toBe("done");
+  });
+});
+
 describe("start planning (FLOW-133)", () => {
   it("moves a Closed event to Preparation and queues one job per runnable step", async () => {
     const { event } = await seed();
@@ -188,7 +271,7 @@ describe("start planning (FLOW-133)", () => {
       ["holds", "pending"],
       ["pull_list", "pending"],
       ["requirements", "pending"],
-      ["production_tasks", "skipped"],
+      ["production_tasks", "pending"],
       ["kitchen_menu", "pending"],
       ["beo_draft", "skipped"],
       ["calendar", "skipped"],
@@ -196,7 +279,7 @@ describe("start planning (FLOW-133)", () => {
     const [row] = await db.select().from(schema.events).where(eq(schema.events.id, event.id));
     expect(row.status).toBe("preparation");
     const queued = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "planning.step"));
-    expect(queued).toHaveLength(4);
+    expect(queued).toHaveLength(5);
   });
 
   it("refuses a second start, an event that isn't Closed, and someone else's event", async () => {

@@ -88,6 +88,7 @@ export const pullSuggestionLabels: Record<(typeof pullSuggestions)[number], stri
 
 export const pullLineSchema = z.object({
   id,
+  truckId: id.nullable(),
   group: pullGroupSchema,
   itemId: id.nullable(),
   name: z.string(),

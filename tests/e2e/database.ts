@@ -42,6 +42,7 @@ export async function resetBrowserDatabase(sections: Section[]) {
           name: i === 0 ? "Test Admin" : u.name,
         })),
       );
+    await db.insert(s.trucks).values(["Truck A", "Truck B", "Truck C"].map((name) => ({ name })));
     // The truncate also clears the lists migration 0021 seeds (FLOW-45).
     await db.insert(s.listValues).values(
       listKeys.flatMap((listKey) =>
