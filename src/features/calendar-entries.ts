@@ -35,7 +35,7 @@ export function toCalendarEntries(
       // A block in the month view too, so the overview line fits under the title.
       display: "block",
       classNames: ["calendar-event", `calendar-status-${event.status}`],
-      extendedProps: { path: `/events/${event.id}`, overview: overviewLine(event) },
+      extendedProps: { path: `/events/${event.id}`, eventId: event.id, overview: overviewLine(event) },
     })),
     ...calendar.tasks.map((task) => ({
       id: `task:${task.id}`,
