@@ -14,8 +14,6 @@ export default defineConfig({
           if (id.includes("recharts") || /node_modules\/d3-|node_modules\/(victory-vendor|internmap|decimal.js-light|react-smooth)\//.test(id)) return "charts";
           if (id.includes("@sentry")) return "observability";
           if (id.includes("@supabase")) return "auth";
-          // Lazy: only the layout annotation screen imports it (FLOW-147).
-          if (id.includes("@excalidraw")) return "excalidraw";
         },
       },
     },

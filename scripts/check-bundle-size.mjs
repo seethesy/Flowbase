@@ -3,9 +3,9 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 //
 // The one exception is the layout annotation editor (FLOW-147): Excalidraw is
 // large, loads only when someone opens that screen, and splits into several
-// chunks. A chunk is exempt only if it is the `excalidraw` chunk or something the
-// excalidraw chunk pulls in, and it is NOT part of the first load (the entry
-// script and everything it imports statically).
+// chunks. A chunk is exempt only if the editor's chunk (the one holding the
+// "layout-plan" marker in src/features/beo-layout-editor.tsx) pulls it in and it
+// is NOT part of the first load (the entry script and what it imports statically).
 const dir = "dist/assets";
 const files = readdirSync(dir).filter((name) => name.endsWith(".js"));
 const text = (name) => readFileSync(`${dir}/${name}`, "utf8");
@@ -32,7 +32,7 @@ const html = readFileSync("dist/index.html", "utf8");
 const first = [...html.matchAll(/assets\/([\w.-]+\.js)/g)].map((m) => m[1]).filter((name) => files.includes(name));
 const eager = closure(first, staticImports);
 const lazyExcalidraw = new Set(
-  [...closure(files.filter((name) => name.startsWith("excalidraw")), anyImports)].filter((name) => !eager.has(name)),
+  [...closure(files.filter((name) => text(name).includes("layout-plan")), anyImports)].filter((name) => !eager.has(name)),
 );
 const oversized = files.filter((name) => statSync(`${dir}/${name}`).size > 500_000 && !lazyExcalidraw.has(name));
 if (oversized.length) {
