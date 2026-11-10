@@ -24,6 +24,10 @@ export const hubSectionSchema = z.enum([
   "timeline",
   "staff",
   "trucks",
+  // The day-of update log (FLOW-156), from the board's updates (FLOW-155).
+  "day_of",
+  // Post-event closeout and returns (FLOW-157).
+  "closeout",
   "files",
   "history",
 ]);

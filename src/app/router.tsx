@@ -110,6 +110,9 @@ const NotificationSettings = lazy(() =>
 const CalendarPage = lazy(() =>
   import("../features/calendar").then((module) => ({ default: module.CalendarPage })),
 );
+const DayOfPage = lazy(() =>
+  import("../features/day-of").then((module) => ({ default: module.DayOfPage })),
+);
 const TaskDetail = lazy(() =>
   import("../features/tasks").then((module) => ({ default: module.TaskDetail })),
 );
@@ -226,6 +229,7 @@ export const getRouter = () =>
         { path: "/events", element: <EventList /> },
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/calendar", element: <CalendarPage /> },
+        { path: "/day-of", element: <DayOfPage /> },
         { path: "/venues", element: <VenueList /> },
         { path: "/venues/:id", element: <VenueDetail /> },
         { path: "/vendors", element: <VendorList /> },

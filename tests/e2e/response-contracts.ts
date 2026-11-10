@@ -11,6 +11,8 @@ import {
 import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { beoSceneSchema, beoViewSchema } from "../../shared/beo";
+import { closeoutSchema } from "../../shared/closeout";
+import { dayOfBoardSchema, dayOfLogSchema, dayOfUpdateSchema } from "../../shared/day-of";
 import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
 import { kitchenMenuSchema } from "../../shared/kitchen-menu";
@@ -168,6 +170,7 @@ export function responseSchema(
     // /api/events/<id>/<action>/..., so the regenerate preview is told apart by its tail.
     if (action === "planning") return path.includes("/planning/outputs/") ? regeneratePreviewSchema : planningProgressSchema;
     if (action === "trucks") return truckLogSchema;
+    if (action === "closeout") return closeoutSchema;
     if (action === "pull-list" || action === "kitchen-menu")
       return path.endsWith("/regenerate/preview")
         ? regeneratePreviewSchema
@@ -190,6 +193,12 @@ export function responseSchema(
           ? venueSchema
           : eventSchema;
     return !id && method === "GET" ? schema.array() : schema;
+  }
+  // Day-of board and log (FLOW-155/156): the board, an event's log, otherwise the
+  // log entry an update wrote.
+  if (resource === "day-of") {
+    if (!id) return dayOfBoardSchema;
+    return method === "GET" ? dayOfLogSchema : dayOfUpdateSchema;
   }
   if (resource === "reservations") return reservationSchema;
   if (resource === "reservation-conflicts") return conflictSchema;

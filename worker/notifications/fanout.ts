@@ -335,6 +335,9 @@ const staffUnassigned: Subscriber = async (job, db) => {
 };
 
 const eventDayChange: Subscriber = async (job, db) => {
+  // A manager's urgent board update (FLOW-155) names its recipients and message;
+  // an edit to the event itself (event.day_of_changed from the events record) doesn't.
+  if (Array.isArray(payloadOf(job).recipientIds)) return fromPayload(job, db);
   const eventId = payloadOf(job).entityId;
   if (typeof eventId !== "string") return [];
   const [event] = await db.select({ title: events.title }).from(events)
