@@ -25,6 +25,7 @@ export const notificationTypes = [
   "payment_due",
   "payment_overdue",
   "collector_failure",
+  "beo_changed",
 ] as const;
 export const notificationTypeSchema = z.enum(notificationTypes);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
@@ -125,6 +126,11 @@ export const notificationCatalog: Record<NotificationType, NotificationTypeInfo>
     label: "Lead collector failure",
     description: "The lead collector stopped collecting from a site.",
     event: "collector.failed",
+  },
+  beo_changed: {
+    label: "BEO changed after approval",
+    description: "An event you're staffing changes on its approved banquet event order.",
+    event: "beo.changed_after_approval",
   },
 };
 

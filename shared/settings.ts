@@ -161,7 +161,7 @@ export const businessDefaultsSchema = z.object({
   paymentReminderDays: days.default(3),
   // Notification types (shared/notifications.ts keys, FLOW-43) sent by SMS as
   // well as in the app and by email.
-  urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure"]),
+  urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure", "beo_changed"]),
   // SMS messages the app may send in a calendar month; 0 sends none.
   monthlySmsCap: z.number().int().min(0).max(100_000).default(1000),
   freeTierLimits: z.object({
@@ -177,7 +177,7 @@ export const businessDefaultsSchema = z.object({
   // answer: 5).
   idleCutoffMinutes: z.number().int().min(1).max(60).default(5),
   // BEO fields whose change sends an approved BEO back for approval.
-  beoKeyFields: keyList.default([]),
+  beoKeyFields: keyList.default(["date_time", "location", "guest_count", "menu"]),
 });
 export type BusinessDefaults = z.infer<typeof businessDefaultsSchema>;
 
