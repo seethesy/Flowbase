@@ -7,9 +7,9 @@ import { planningOutputSnapshot } from "./planning-output-snapshot";
 
 export async function markPlanningStale(tx: DbLike, actor: Actor, eventId: string, cause: string) {
   const [planning] = await tx.select({ id: eventPlanning.id }).from(eventPlanning).where(eq(eventPlanning.eventId, eventId));
-  if (!planning) return;
+  if (!planning) return false;
   const [event] = await tx.select().from(events).where(eq(events.id, eventId));
-  if (!event) return;
+  if (!event) return false;
   const now = new Date();
   for (const kind of ["pull_list", "requirements", "order_list", "kitchen_menu", "beo", "truck_log"] as const)
     await tx.insert(eventPlanningOutputs).values({ eventId, kind, cause, staleAt: now,
@@ -27,6 +27,7 @@ export async function markPlanningStale(tx: DbLike, actor: Actor, eventId: strin
   await emitDomainEvent(tx, { name: "event.details_changed", entityId: eventId,
     data: { recipientIds, title: `Planning needs regeneration: ${event.title}`,
       body: `${cause}. Review the changes and regenerate the planning outputs.`, link: `/events/${eventId}` } });
+  return true;
 }
 
 export async function clearPlanningStale(tx: DbLike, eventId: string, kind: typeof eventPlanningOutputs.$inferSelect.kind) {

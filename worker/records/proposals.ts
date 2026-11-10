@@ -591,7 +591,8 @@ export async function completeProposalUpload(
     if (number > 1) {
       const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, current.eventId));
       if (["closed", "preparation", "finished"].includes(event.status))
-        await markPlanningStale(tx, actor, current.eventId, `Proposal version ${number} uploaded`);
+        if (!(await markPlanningStale(tx, actor, current.eventId, `Proposal version ${number} uploaded`)))
+          await tx.update(events).set({ planningStaleAt: new Date(), updatedBy: actor.userId }).where(eq(events.id, current.eventId));
     }
     await writeAudit(tx, actor, {
       entityType: "proposal",
