@@ -29,7 +29,9 @@ jobs:
           repository: seethesy/Flowbase
           ref: ops-v1
           path: flowbase
-          token: ${{ secrets.FLOWBASE_READ_TOKEN }}
+          # Flowbase is public (ADR-27), so the ops repo's own token can read it;
+          # FLOWBASE_READ_TOKEN is optional and used when set.
+          token: ${{ secrets.FLOWBASE_READ_TOKEN || github.token }}
           persist-credentials: false
       - name: Report account-wide Actions minutes
         env:

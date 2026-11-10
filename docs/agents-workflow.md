@@ -12,13 +12,15 @@ Single source of truth for Claude Code and Codex when implementing Jira tickets 
 | Developer's Jira accountId | `712020:7101d867-639d-4ae5-a53d-d1e08e4bd946` |
 | Statuses | To Do, In Progress, Done |
 | Issue types | Epic, Story, Task, Bug (never Subtask) |
+| Repo visibility | **Public** (ADR-27). Everything you commit or write in a PR is public. |
+| Real business data | Private data repo `seethesy/Flowbase-Data`, cloned at `C:\Coding-Projects\Flowbase-Repo\Flowbase-Data`. Read-only for agents (ADR-27). |
 
 | Agent | Worktree | Base branch | Ticket branch prefix |
 |---|---|---|---|
 | Claude Code | `Flowbase-Claude` | `Flowbase-Claude` | `claude/` |
 | Codex | `Flowbase-Codex` | `Flowbase-Codex` | `codex/` |
 
-Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. Claude and Codex may run at the same time. Work only in your own worktree and branches. Never touch the other agent's worktree or branches, or the main checkout (`Flowbase`).
+Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. Claude and Codex may run at the same time. Work only in your own worktree and branches. Never touch the other agent's worktree or branches, or the main checkout (`Flowbase`). You may read `Flowbase-Data` when a ticket needs a real source file; never write to it.
 
 ## 2. Definitions
 
@@ -37,7 +39,8 @@ Never:
 - run `git reset --hard`, `git clean`, `git stash`, `git checkout -- <path>`, `git rebase`, or `git push --force*` (only exception: §5.3);
 - discard, overwrite, or commit changes you did not make;
 - invent product decisions, file paths, APIs, or issue keys;
-- explore the repo beyond what the current task needs.
+- explore the repo beyond what the current task needs;
+- commit, or paste into a PR, branch name or commit message, any secret, real business data or client or contact details, including files or rows from `Flowbase-Data`. Tests use synthetic fixtures with invented values that reproduce the real file's layout and quirks (ADR-27).
 
 When blocked, stop and tell the developer the exact obstacle and what you need. Do not guess.
 
@@ -163,6 +166,7 @@ Allowed. Before opening the PR:
 - Search for duplicates and overlap (`project = FLOW AND text ~ "<keyword>"`). Update an existing ticket instead of creating a near-duplicate.
 - Read the relevant code, tests, and docs. Verify every file, component, and API you cite exists.
 - Turn unverified assumptions into Qs or label them as assumptions.
+- Refer to real source files by their path in `Flowbase-Data`, never as files in the Flowbase repo, and never quote client or contact details from them (ADR-27).
 
 ### 7.2 Scope and fields
 - One ticket = one coherent, independently verifiable deliverable that fits one PR. Split only when parts differ in dependencies, outcome, or verification.

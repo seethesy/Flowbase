@@ -10,8 +10,8 @@ import {
 } from "../shared/inventory";
 
 // FLOW-69 AC3: one row of each shape in the source spreadsheets, as items. The
-// rows follow the shapes the ticket names; swap in the exact CSV rows once
-// docs/source-data/ lands (FLOW-32).
+// rows follow the shapes the ticket names; FLOW-165 checks them against the real
+// sheets in the private data repo (ADR-27) and keeps these values synthetic.
 const rows: Record<string, ItemInput> = {
   "grouped linen tier": {
     kind: "rental",

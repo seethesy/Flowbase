@@ -16,7 +16,7 @@ Source: [FLOW-30](https://sybertechlabs.atlassian.net/browse/FLOW-30). Supabase 
 
    | Secret | Value |
    | --- | --- |
-   | `FLOWBASE_READ_TOKEN` | Fine-grained PAT with read-only access to `seethesy/Flowbase` contents. The collector uses the same secret (`collector/README.md`). |
+   | `FLOWBASE_READ_TOKEN` | Optional while Flowbase is public (ADR-27): fine-grained PAT with read-only access to `seethesy/Flowbase` contents. Without it the checkout uses the ops repo's own token. The collector uses the same secret (`collector/README.md`). |
    | `FLOWBASE_PROD_DATABASE_URL` | `flowbase-prod` connection string. GitHub runners have no IPv6, so use the session pooler string. |
    | `R2_ACCOUNT_ID` | Cloudflare account ID |
    | `R2_BACKUP_ACCESS_KEY_ID` | R2 token access key ID |
