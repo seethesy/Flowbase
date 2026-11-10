@@ -112,7 +112,7 @@ export async function removeTruckAssignment(db: Db, actor: Actor, eventId: strin
       .where(and(eq(pullListLines.truckId, assignment.truckId), eq(pullListLines.pullListId, pull.id)));
     if (assignment.loadTaskId) await archiveTask(tx, null, assignment.loadTaskId);
     await writeAudit(tx, actor, { entityType: "truck_assignment", entityId: assignment.id, action: "archive",
-      before: { truckId: assignment.truckId, eventId }, after: null });
+      before: { truckId: assignment.truckId, eventId }, after: { archivedAt: new Date().toISOString() } });
   });
   return getTruckLog(db, actor, eventId);
 }

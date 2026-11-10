@@ -203,7 +203,7 @@ describe("FLOW-142 truck scheduling", () => {
     await admin.send("PUT", `/api/events/${first.event.id}/trucks/lines/${line.id}`, { truckId: truck.id });
     expect((await pullList(first.event.id)).groups.flatMap((group) => group.lines).find((row) => row.id === line.id)?.truckId).toBe(truck.id);
     const audit = await db.select().from(schema.auditLog).where(and(eq(schema.auditLog.entityType, "pull_list_line"), eq(schema.auditLog.entityId, line.id)));
-    expect(audit.some((row) => JSON.stringify(row.after).includes(truck.id))).toBe(true);
+    expect(audit.some((row) => row.changes.truckId?.after === truck.id)).toBe(true);
   });
 });
 
