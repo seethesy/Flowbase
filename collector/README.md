@@ -48,7 +48,7 @@ repo and add these Actions secrets (names only here; values never enter Flowbase
 
 | Secret | What it is |
 | --- | --- |
-| `FLOWBASE_READ_TOKEN` | Optional while Flowbase is public (ADR-27): fine-grained PAT with read-only access to `seethesy/Flowbase` contents. Without it the checkout uses the ops repo's own token |
+| `FLOWBASE_READ_TOKEN` | Fine-grained PAT with read-only access to `seethesy/Flowbase` contents |
 | `FLOWBASE_URL` | The production Worker URL, e.g. `https://flowbase.<account>.workers.dev` |
 | `INGEST_TOKEN_LEADS` | Same value as the Worker secret `INGEST_TOKEN_LEADS` |
 | `COLLECTOR_STATE_KEY` | A long random string that encrypts saved sessions |
