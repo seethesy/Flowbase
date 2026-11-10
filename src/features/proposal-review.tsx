@@ -5,16 +5,13 @@ import { Button, FormField, LoadingSkeleton } from "../components/shared";
 import { queryClient } from "../app/queryClient";
 import { proposalsApi } from "../services/proposals";
 import { parseProposalDocx, type ProposalBlock } from "./proposal-docx";
+import { carryPreviousProposalReview, extractProposalTemplate } from "./proposal-template-rules";
 
 const fieldLabels: Record<string, string> = {
   eventDate: "Event date", startTime: "Start time", endTime: "End time",
   venue: "Venue", address: "Address", guestCount: "Guest count",
   eventType: "Event type", serviceType: "Service type", foodServiceStyle: "Food service style",
 };
-const empty = (versionId: string): ProposalMapping => ({
-  versionId, fields: {}, lines: [], staffing: [], timeline: [], charges: [],
-  paymentSchedule: [], unextractedBlockIds: [],
-});
 const newLine = (guestCount: number | null): ProposalLine => ({
   id: crypto.randomUUID(), kind: "menu", section: "", name: "", notes: "",
   quantity: guestCount, sourceBlockId: null, catalogId: null, notTracked: false,
@@ -39,7 +36,7 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
     ]).then(([parsed, saved, previous, choices]) => {
       if (!active) return;
       setBlocks(parsed);
-      setDraft(saved?.versionId === version.id ? saved : previous ?? empty(version.id));
+      setDraft(saved?.versionId === version.id ? saved : carryPreviousProposalReview(extractProposalTemplate(parsed, version.id), previous));
       setCatalog(choices);
     }).catch((cause) => { if (active) setError((cause as Error).message); });
     return () => { active = false; };

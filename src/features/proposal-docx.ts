@@ -37,7 +37,10 @@ export async function parseProposalDocx(file: Blob): Promise<ProposalBlock[]> {
       const rows = children(node, "tr").map((row) =>
         children(row, "tc").map((cell) => children(cell, "p").map(paragraphText).filter(Boolean).join("\n")),
       );
-      blocks.push({ id: `block-${blocks.length}`, kind: "table", rows, text: rows.map((row) => row.join(" | ")).join("\n") });
+      for (const row of rows) {
+        if (row.every((cell) => !cell.trim())) continue;
+        blocks.push({ id: `block-${blocks.length}`, kind: "table", rows: [row], text: row.join(" | ") });
+      }
     }
   }
   return blocks;
