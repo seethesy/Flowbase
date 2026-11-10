@@ -35,4 +35,9 @@ const lazyExcalidraw = new Set(
   [...closure(files.filter((name) => name.startsWith("excalidraw")), anyImports)].filter((name) => !eager.has(name)),
 );
 const oversized = files.filter((name) => statSync(`${dir}/${name}`).size > 500_000 && !lazyExcalidraw.has(name));
-if (oversized.length) throw new Error(`SPA chunks exceed 500 kB: ${oversized.join(", ")}`);
+if (oversized.length) {
+  const detail = oversized.map((name) => `${name} ${statSync(`${dir}/${name}`).size} ${eager.has(name) ? "eager" : "lazy"}`);
+  // A workflow annotation, so the offending chunks show on the check run.
+  console.log(`::error file=scripts/check-bundle-size.mjs::${detail.join("; ")} | first: ${first.join(", ")}`);
+  throw new Error(`SPA chunks exceed 500 kB: ${oversized.join(", ")}`);
+}
