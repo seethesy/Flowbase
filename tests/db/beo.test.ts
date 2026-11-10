@@ -189,7 +189,7 @@ describe("FLOW-143: generating the BEO", () => {
   it("starts as working on, with the ten sections' data and open or TBD items marked (AC1, AC3)", async () => {
     const event = await seed();
     const [dish] = await db.insert(schema.recipes).values({ name: "Short rib", category: "Mains" }).returning();
-    await sam.send("POST", `/api/events/${event.id}/kitchen-menu/lines`, { recipeId: dish.id, course: "Mains" });
+    await sam.send("POST", `/api/events/${event.id}/kitchen-menu/lines`, { recipeId: dish.id, course: "Mains", plannedQuantity: null });
     const preview = await getBeo(sam, event);
     expect(preview).toMatchObject({ exists: false, status: null });
     const beo = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
@@ -449,7 +449,15 @@ describe("FLOW-146: setup areas and the cleanup checklist", () => {
     await sam.send("PUT", `/api/events/${event.id}/beo/cleanup`, {
       sections: [{ section: "Kitchen", items: ["Only this"] }],
     });
-    const other = await seed();
+    const other = await sam.send<FlowEvent>("POST", "/api/events", {
+      title: "Spring lunch",
+      date: later,
+      startTime: "12:00",
+      endTime: "15:00",
+      clientId: event.clientId,
+      guestCount: 40,
+      assignedSalespersonId: people.sam,
+    });
     const second = await sam.send<BeoView>("POST", `/api/events/${other.id}/beo`, {});
     expect(second.content.setupCleanup.cleanup.find((section) => section.section === "Kitchen")!.items.length).toBeGreaterThan(1);
   });
