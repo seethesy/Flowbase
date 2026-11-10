@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseProposalDocx } from "../src/features/proposal-docx";
 import { carryPreviousProposalReview, extractProposalTemplate } from "../src/features/proposal-template-rules";
 
 const versionId = "00000000-0000-4000-8000-000000000001";
 async function sample(name: string) {
-  const bytes = readFileSync(new URL(`../docs/source-data/${name}`, import.meta.url));
+  const bytes = readFileSync(resolve("docs", "source-data", name));
   const blocks = await parseProposalDocx({ arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) } as Blob);
   return { blocks, mapping: extractProposalTemplate(blocks, versionId) };
 }
