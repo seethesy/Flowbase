@@ -60,7 +60,7 @@ export function extractProposalTemplate(blocks: ProposalBlock[], versionId: stri
       if (/birthday/i.test(text) && !mapping.fields.eventType) field("eventType", "Birthday", block);
       if (/wedding/i.test(text) && /prepared for|^wedding/i.test(text)) field("eventType", "Wedding", block);
       if (/^Event Duration:/i.test(text)) {
-        const range = text.match(timeRange) ?? text.match(/\b(\d{1,2}(?::\d{2})?)\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
+        const range = text.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
         if (range) { field("startTime", /am|pm/i.test(range[1]) ? range[1] : `${range[1]}${range[2].match(/am|pm/i)?.[0]}`, block); field("endTime", range[2], block); }
       }
       if (/^\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*[-–]\s*\d{1,2}/i.test(text) && /\bEvent\b/i.test(text)) {
