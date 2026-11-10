@@ -20,6 +20,7 @@ import { isLocalDate } from "../../shared/schema-primitives";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { calendarApi } from "../services/core";
 import { LoadError } from "../components/record-display";
+import { CalendarDetail } from "./calendar-detail";
 import { toCalendarEntries } from "./calendar-entries";
 import "./calendar.css";
 
@@ -154,10 +155,18 @@ export function CalendarPage() {
       { replace: true },
     );
   }, []);
+  // Detail mode: clicking an event shows its BEO details beside the calendar
+  // instead of leaving the page.
+  const [detail, setDetail] = useState(false);
+  const detailRef = useRef(detail);
+  detailRef.current = detail;
+  const [selected, setSelected] = useState<string | null>(null);
   const open = useCallback(
     (click: EventClickArg) => {
       click.jsEvent.preventDefault();
-      navigate(String(click.event.extendedProps.path));
+      const eventId = click.event.extendedProps.eventId as string | undefined;
+      if (detailRef.current && eventId) setSelected(eventId);
+      else navigate(String(click.event.extendedProps.path));
     },
     [navigate],
   );
@@ -183,6 +192,18 @@ export function CalendarPage() {
           </label>
         ))}
       </fieldset>
+      <label className="calendar-layer-toggle">
+        <input
+          type="checkbox"
+          checked={detail}
+          onChange={(e) => {
+            setDetail(e.target.checked);
+            if (!e.target.checked) setSelected(null);
+          }}
+        />
+        Detail mode
+      </label>
+      {detail && selected && <CalendarDetail eventId={selected} onClose={() => setSelected(null)} />}
       <div className="calendar-panel">
         <FullCalendar
           ref={calendarRef}

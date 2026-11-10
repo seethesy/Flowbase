@@ -40,6 +40,10 @@ databaseTest("submits three edited cells as one request, then Admin approves", a
   await page.reload();
   await expect(page.getByRole("heading", { name: "Approvals" })).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).first().click();
+  await expect.poll(() => browserDb(async (db) => {
+    const rows = await db.select({ status: approvalRequests.status }).from(approvalRequests);
+    return rows.filter((row) => row.status === "approved").length;
+  })).toBe(1);
   await page.goto(`/#/inventory/${chairs().id}`);
   await expect(page.getByRole("heading", { name: "Gold Chiavari Chair" })).toBeVisible();
   await browserDb(async (db) => {
@@ -49,6 +53,7 @@ databaseTest("submits three edited cells as one request, then Admin approves", a
   await page.reload();
   await page.getByLabel("priceCents for Gold Chiavari Chair").fill("10");
   await page.getByRole("button", { name: "Submit batch for approval" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "One approval request" })).toBeVisible();
   await browserDb(async (db) => {
     await db.update(users).set({ role: "admin" }).where(eq(users.id, salesperson.id));
   });

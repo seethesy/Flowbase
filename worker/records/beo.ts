@@ -15,13 +15,13 @@ import {
 import { shiftKindLabels, slotLabel } from "../../shared/event-staff";
 import { timelineWhoLabel } from "../../shared/event-timeline";
 import { pullGroupLabels } from "../../shared/pull-list";
-import { businessDefaultsSchema, defaultBusinessDefaults } from "../../shared/settings";
 import type { Db, DbLike } from "../db/client";
-import { beoChanges, beos, clientContacts, settings, users, venueContacts, venues } from "../db/schema";
+import { beoChanges, beos, clientContacts, users, venueContacts, venues } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, projectBeo } from "../policy";
 import { decideApproval, registerApprovalSubject, requestApproval } from "./approvals";
+import { businessDefaults, loadParts, partsContent, seedParts } from "./beo-parts";
 import { getRoster } from "./event-staff";
 import { getTimeline } from "./event-timeline";
 import { findVisibleEvent, getEvent, lockVisibleEvent } from "./events";
@@ -47,7 +47,7 @@ const toContact = (row: { name: string; role: string; email: string; phone: stri
   email: row.email,
 });
 
-async function findBeo(tx: DbLike, eventId: string, lock = false) {
+export async function findBeo(tx: DbLike, eventId: string, lock = false) {
   const query = tx
     .select()
     .from(beos)
@@ -62,17 +62,16 @@ export async function assembleBeo(
   tx: DbLike,
   actor: Actor,
   eventId: string,
-  stored?: Pick<BeoRow, "setupDetails" | "cleanupChecklist" | "additionalNotes"> | null,
+  stored?: Pick<BeoRow, "id" | "setupDetails" | "additionalNotes" | "runOfShowMode"> | null,
 ): Promise<BeoContent> {
   const all = reader(actor);
   const db = asDb(tx);
   const event = await getEvent(db, all, eventId);
-  const [roster, timeline, menu, pull, notes] = await Promise.all([
+  const [roster, timeline, menu, pull] = await Promise.all([
     getRoster(db, all, eventId),
     getTimeline(db, all, eventId),
     getKitchenMenu(db, all, eventId),
     getPullList(db, all, eventId),
-    stored === undefined ? findBeo(tx, eventId) : Promise.resolve(stored),
   ]);
   const [clientRows, venueRows, venue, salesperson] = await Promise.all([
     tx
@@ -98,6 +97,14 @@ export async function assembleBeo(
           .then((rows) => rows[0]?.name ?? null)
       : Promise.resolve(null),
   ]);
+  const found = stored === undefined ? await findBeo(tx, eventId) : stored;
+  const [parts, defaults] = await Promise.all([loadParts(tx, found?.id ?? null), businessDefaults(tx)]);
+  const extra = partsContent(
+    parts,
+    found?.runOfShowMode ?? "auto",
+    event.guestCount,
+    defaults.runOfShowGuestThreshold,
+  );
   const poc = clientRows.find((row) => row.id === event.pocContactId);
   const lines = menu.courses.flatMap((course) => course.lines);
   const unique = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b));
@@ -177,6 +184,16 @@ export async function assembleBeo(
     timeline: timeline.days.map((day) => ({
       date: day.date,
       isEventDay: day.isEventDay,
+      // The day-before setup block: team, working hours and activities (FLOW-145).
+      shifts: roster.shifts
+        .filter((shift) => shift.date === day.date && shift.kind !== "event_day")
+        .map((shift) => ({
+          kindLabel: shiftKindLabels[shift.kind],
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          activities: shift.activities,
+          team: shift.slots.map((slot) => slot.assignee?.name ?? `${slotLabel(slot)} (open)`),
+        })),
       entries: day.entries.map((entry) => ({
         startTime: entry.startTime,
         endTime: entry.endTime,
@@ -185,29 +202,29 @@ export async function assembleBeo(
         where: entry.where,
       })),
     })),
+    runOfShow: extra.runOfShow,
     equipment: {
       groups: equipmentGroups,
       tbdCount: equipmentGroups.flatMap((group) => group.lines).filter((line) => line.tbd).length,
     },
     layout: {
-      areas: event.areas.map((area) => area.name),
+      areas: extra.layoutAreas,
       loadInNotes: venue?.loadInNotes ?? "",
       parkingNotes: venue?.parkingNotes ?? "",
     },
     setupCleanup: {
       transportationNotes: event.transportationNotes,
-      setupDetails: notes?.setupDetails ?? "",
-      cleanupChecklist: notes?.cleanupChecklist ?? [],
+      setupDetails: found?.setupDetails ?? "",
+      areas: extra.setupAreas,
+      cleanup: extra.cleanup,
     },
-    notes: { additionalNotes: notes?.additionalNotes ?? "" },
+    notes: { additionalNotes: found?.additionalNotes ?? "" },
   };
 }
 
 // The key fields from business settings (FLOW-144 AC2).
 async function keyFieldSetting(tx: DbLike) {
-  const [row] = await tx.select({ value: settings.value }).from(settings).where(eq(settings.key, "defaults"));
-  const parsed = businessDefaultsSchema.safeParse(row?.value ?? {});
-  return (parsed.success ? parsed.data : defaultBusinessDefaults).beoKeyFields;
+  return (await businessDefaults(tx)).beoKeyFields;
 }
 
 // Compares the BEO's fields with the snapshot from the last check and records what
@@ -317,6 +334,7 @@ export async function getBeo(db: DbLike, actor: Actor, eventId: string): Promise
     canEdit,
     canApprove: can(actor, "beos.approve"),
     canRequestApproval: canEdit && beo?.status === "working_on",
+    canCheckOff: Boolean(beo),
   };
 }
 
@@ -327,14 +345,14 @@ export async function createBeo(db: Db, actor: Actor, eventId: string): Promise<
   await db.transaction(async (tx) => {
     await lockVisibleEvent(tx, actor, eventId);
     if (await findBeo(tx, eventId, true)) return;
-    const fields = beoFields(await assembleBeo(tx, actor, eventId, null));
-    await tx.insert(beos).values({
-      eventId,
-      status: "working_on",
-      snapshot: snapshotOfFields(fields),
-      createdBy: actor.userId,
-      updatedBy: actor.userId,
-    });
+    const [row] = await tx
+      .insert(beos)
+      .values({ eventId, status: "working_on", snapshot: {}, createdBy: actor.userId, updatedBy: actor.userId })
+      .returning();
+    const event = await getEvent(asDb(tx), reader(actor), eventId);
+    await seedParts(tx, actor, row, event.areas.map((area) => area.name));
+    const fields = beoFields(await assembleBeo(tx, actor, eventId, row));
+    await tx.update(beos).set({ snapshot: snapshotOfFields(fields) }).where(eq(beos.id, row.id));
   });
   return getBeo(db, actor, eventId);
 }
@@ -355,7 +373,6 @@ export async function updateBeoNotes(
       .update(beos)
       .set({
         ...(input.setupDetails !== undefined && { setupDetails: input.setupDetails }),
-        ...(input.cleanupChecklist !== undefined && { cleanupChecklist: input.cleanupChecklist }),
         ...(input.additionalNotes !== undefined && { additionalNotes: input.additionalNotes }),
         updatedBy: actor.userId,
       })

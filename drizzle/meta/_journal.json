@@ -337,6 +337,13 @@
       "when": 1794271793269,
       "tag": "0047_production_trucks_propagation",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794284540226,
+      "tag": "0048_beo_schedule_layouts",
+      "breakpoints": true
     }
   ]
 }

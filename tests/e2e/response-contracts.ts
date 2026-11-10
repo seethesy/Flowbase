@@ -10,7 +10,7 @@ import {
 } from "../../shared/core-records";
 import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
-import { beoViewSchema } from "../../shared/beo";
+import { beoSceneSchema, beoViewSchema } from "../../shared/beo";
 import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
 import { kitchenMenuSchema } from "../../shared/kitchen-menu";
@@ -175,7 +175,7 @@ export function responseSchema(
           ? pullListSchema
           : kitchenMenuSchema;
     // Banquet event order (FLOW-143/144/148): every call answers with the whole BEO.
-    if (action === "beo") return beoViewSchema;
+    if (action === "beo") return path.endsWith("/scene") && method === "GET" ? beoSceneSchema : beoViewSchema;
     // Holds, conflicts and consumable needs (FLOW-76/77/85).
     if (action === "reservations")
       return method === "GET" ? reservationSchema.array() : reservationSchema;
