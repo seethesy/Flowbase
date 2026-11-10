@@ -90,7 +90,7 @@ afterAll(async () => {
 });
 
 const DATE = "2026-11-14";
-// A gala with Jamie on the event-day shift and Truck 1 assigned, Jamie driving.
+// A gala with Jamie on the event-day shift and a truck assigned, Jamie driving.
 async function setup() {
   const { id: clientId } = await sam.send<Client>(
     "POST",
@@ -118,12 +118,12 @@ async function setup() {
   );
   const slotId = roster.shifts[0].slots[0].id;
   await sam.send("PATCH", `/api/events/${gala.id}/slots/${slotId}`, { assigneeId: people.jamie });
-  const trucks = await sam.send<{ trucks: { id: string }[] }>(
-    "POST",
+  // The seeded trucks persist between tests; assign the first.
+  const trucks = await sam.send<{ trucks: { id: string; name: string }[] }>(
+    "GET",
     `/api/events/${gala.id}/trucks`,
-    { name: "Truck 1" },
-    201,
   );
+  const truckName = trucks.trucks[0].name;
   const assigned = await sam.send<{ assignments: { id: string }[] }>(
     "POST",
     `/api/events/${gala.id}/trucks/assignments`,
@@ -137,7 +137,7 @@ async function setup() {
     },
     201,
   );
-  return { gala, slotId, assignmentId: assigned.assignments[0].id };
+  return { gala, slotId, truckName, assignmentId: assigned.assignments[0].id };
 }
 const board = (who: ReturnType<typeof signedInAs>) =>
   who.send<DayOfBoard>("GET", `/api/day-of?date=${DATE}`);
@@ -146,12 +146,12 @@ const logOf = (who: ReturnType<typeof signedInAs>, eventId: string) =>
 
 describe("day-of board (FLOW-155)", () => {
   it("lists the day's events with their staff, trucks and checkpoints", async () => {
-    const { gala } = await setup();
+    const { gala, truckName } = await setup();
     const { events, canUpdate } = await board(manager);
     expect(canUpdate).toBe(true);
     expect(events.map((event) => event.title)).toEqual(["Fall gala"]);
     expect(events[0].staff).toMatchObject([{ name: "Jamie", status: "scheduled", location: "" }]);
-    expect(events[0].trucks).toMatchObject([{ name: "Truck 1", driverName: "Jamie" }]);
+    expect(events[0].trucks).toMatchObject([{ name: truckName, driverName: "Jamie" }]);
     expect(events[0].checkpoints.map((checkpoint) => checkpoint.key)).toEqual([
       "food_left_kitchen",
       "arrived_at_venue",
@@ -221,7 +221,7 @@ describe("day-of board (FLOW-155)", () => {
 
 describe("day-of update log (FLOW-156)", () => {
   it("writes exactly one entry per board update (AC1)", async () => {
-    const { gala, slotId, assignmentId } = await setup();
+    const { gala, slotId, assignmentId, truckName } = await setup();
     await manager.send("PATCH", `/api/day-of/staff/${slotId}`, { status: "on_site", location: "Dock B" });
     await manager.send("PATCH", `/api/day-of/trucks/${assignmentId}`, { status: "loading" });
     await manager.send("PUT", `/api/day-of/events/${gala.id}/checkpoints/food_left_kitchen`, { reached: true });
@@ -235,7 +235,7 @@ describe("day-of update log (FLOW-156)", () => {
       actorName: "Manager",
       summary: 'Jamie (Server): status: Scheduled → On site; location: none → "Dock B"',
     });
-    expect(entries[1]).toMatchObject({ truckName: "Truck 1", subjectName: "Truck 1" });
+    expect(entries[1]).toMatchObject({ truckName, subjectName: truckName });
   });
 
   it("is visible to the event's staff and no one else, and can't be edited (AC2)", async () => {
