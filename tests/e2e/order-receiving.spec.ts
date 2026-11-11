@@ -29,6 +29,8 @@ databaseTest("records a portal order, then receives part of it on a phone", asyn
   await page.getByRole("button", { name: "Mark as ordered" }).click();
   await expect(page.getByRole("alert")).toContainText("portal order number and expected delivery date");
   await page.getByLabel("Portal order number for Wine vendor").fill("WV-4471");
+  // Pin the order date so the fixed delivery date never falls before it.
+  await page.getByLabel("Order date for Wine vendor").fill("2026-11-08");
   await page.getByLabel("Expected delivery for Wine vendor").fill("2026-11-10");
   await page.getByLabel("Order total for Wine vendor").fill("360");
   await page.getByRole("button", { name: "Mark as ordered" }).click();

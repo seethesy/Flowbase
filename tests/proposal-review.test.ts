@@ -16,12 +16,13 @@ describe("proposal review", () => {
     const blocks = await parseProposalDocx(doc(`
       <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Menu</w:t></w:r></w:p>
       <w:p><w:r><w:t>Tuscan </w:t></w:r><w:r><w:t>Chicken</w:t></w:r></w:p>
-      <w:tbl><w:tr><w:tc><w:p><w:r><w:t>Rental</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>12 chairs</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+      <w:tbl><w:tr><w:tc><w:p><w:r><w:t>Rental</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>12 chairs</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>Unrecognized</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Keep visible</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
     `));
     expect(blocks).toEqual([
       { id: "block-0", kind: "heading", text: "Menu" },
       { id: "block-1", kind: "paragraph", text: "Tuscan Chicken" },
       { id: "block-2", kind: "table", text: "Rental | 12 chairs", rows: [["Rental", "12 chairs"]] },
+      { id: "block-3", kind: "table", text: "Unrecognized | Keep visible", rows: [["Unrecognized", "Keep visible"]] },
     ]);
   });
 
