@@ -60,7 +60,7 @@ it("changes the availability when the date range changes (AC1) and links each ho
   expect(within(holds).getByRole("link", { name: "Fall gala" })).toHaveAttribute("href", `/events/${galaId}`);
   expect(within(holds).getByText(/Conflict: 40 short/)).toBeInTheDocument();
   // The open conflict links to its event.
-  expect(await screen.findByRole("link", { name: /Booked later/ })).toHaveAttribute("href", `/events/${laterId}`);
+  expect(await screen.findByRole("link", { name: /Booked later\s+·/ })).toHaveAttribute("href", `/events/${laterId}`);
 });
 
 it("asks for a range that ends on or after it starts, without requesting it", async () => {
