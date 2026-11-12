@@ -32,7 +32,7 @@ export async function salesDataset(db: DbLike, actor: Actor) {
   ]);
   const eventIds = eventRows.map((row) => row.id);
   const [proposalRows, scheduleRows, paymentRows] = await Promise.all([
-    eventIds.length ? db.select().from(proposals).where(and(inArray(proposals.eventId, eventIds), isNull(proposals.archivedAt), actor.role === "salesperson" ? eq(proposals.assignedSalespersonId, actor.userId) : undefined)) : [],
+    eventIds.length ? db.select().from(proposals).where(and(inArray(proposals.eventId, eventIds), isNull(proposals.archivedAt), clientScope(actor) === "own" ? eq(proposals.assignedSalespersonId, actor.userId) : undefined)) : [],
     eventIds.length ? db.select().from(paymentScheduleItems).where(and(inArray(paymentScheduleItems.eventId, eventIds), isNull(paymentScheduleItems.archivedAt))) : [],
     eventIds.length ? db.select().from(payments).where(and(inArray(payments.eventId, eventIds), isNull(payments.archivedAt))) : [],
   ]);
