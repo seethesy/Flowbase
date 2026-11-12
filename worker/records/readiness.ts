@@ -1,5 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
+import { mayRespondToReadiness, mayViewAllProduction } from "../../shared/policy";
 import type { ReadinessCheck } from "../../shared/readiness";
 import type { z } from "zod";
 import type { readinessResponseSchema } from "../../shared/readiness";
@@ -21,9 +22,9 @@ export async function getReadiness(db: DbLike, actor: Actor, eventId: string, no
   const [isLead] = await db.select({ id: events.id }).from(events)
     .where(and(eq(events.productionLeadId, actor.userId), isNull(events.archivedAt))).limit(1);
   const [event] = await db.select().from(events).where(and(eq(events.id, eventId), isNull(events.archivedAt),
-    isLead || ["admin", "sales_manager", "technical"].includes(actor.role) ? undefined : visibleEvents(actor)));
+    isLead || mayViewAllProduction(actor) ? undefined : visibleEvents(actor)));
   if (!event) throw notFound("Event");
-  if (!isLead && !["admin", "sales_manager", "technical"].includes(actor.role)) return [];
+  if (!isLead && !mayViewAllProduction(actor)) return [];
   const [taskRows, pullRows, truckRows, slotRows, dishRows, proposalLines, responseRows, settingRows] = await Promise.all([
     db.select({ id: tasks.id, title: tasks.title, assigneeId: taskAssignees.userId }).from(tasks)
       .leftJoin(taskAssignees, and(eq(taskAssignees.taskId, tasks.id), isNull(taskAssignees.archivedAt)))
@@ -77,7 +78,7 @@ export async function respondToReadiness(db: Db, actor: Actor, eventId: string, 
   const [event] = await db.select({ productionLeadId: events.productionLeadId }).from(events)
     .where(and(eq(events.id, eventId), isNull(events.archivedAt)));
   if (!event) throw notFound("Event");
-  if (!["admin", "sales_manager", "technical"].includes(actor.role) && event.productionLeadId !== actor.userId) throw forbidden();
+  if (!mayRespondToReadiness(actor, event.productionLeadId)) throw forbidden();
   const checks = await getReadiness(db, actor, eventId, now);
   const check = checks.find((row) => row.key === key);
   if (!check) throw notFound("Readiness check");

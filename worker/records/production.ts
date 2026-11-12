@@ -1,5 +1,6 @@
 import { and, eq, gte, inArray, isNull, lt, lte } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
+import { mayViewAllProduction } from "../../shared/policy";
 import { completion, type ProductionItem, type ProductionList, type ProductionOverview } from "../../shared/production";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
@@ -8,7 +9,6 @@ import { forbidden, notFound } from "../hono";
 import { visibleEvents } from "./events";
 import { getReadiness } from "./readiness";
 
-const manager = (actor: Actor) => actor.role === "admin" || actor.role === "sales_manager" || actor.role === "technical";
 async function primaryLead(db: DbLike, actor: Actor) {
   const [row] = await db.select({ id: events.id }).from(events)
     .where(and(eq(events.productionLeadId, actor.userId), isNull(events.archivedAt))).limit(1);
@@ -16,7 +16,7 @@ async function primaryLead(db: DbLike, actor: Actor) {
 }
 
 export async function getProductionList(db: DbLike, actor: Actor, eventId: string, now = new Date()): Promise<ProductionList> {
-  const all = manager(actor) || await primaryLead(db, actor);
+  const all = mayViewAllProduction(actor) || await primaryLead(db, actor);
   const [event] = await db.select().from(events).where(and(eq(events.id, eventId), isNull(events.archivedAt),
     all ? undefined : visibleEvents(actor)));
   if (!event) throw notFound("Event");
@@ -109,7 +109,7 @@ export async function getProductionList(db: DbLike, actor: Actor, eventId: strin
 }
 
 export async function getProductionOverview(db: DbLike, actor: Actor, days: 7 | 14, now = new Date()): Promise<ProductionOverview> {
-  if (!manager(actor) && !await primaryLead(db, actor)) throw forbidden();
+  if (!mayViewAllProduction(actor) && !await primaryLead(db, actor)) throw forbidden();
   const first = utcToBusinessTime(now).date;
   const end = addLocalDays(first, days);
   const startAt = businessTimeToUtc(first, "00:00");
