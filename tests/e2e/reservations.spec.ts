@@ -40,6 +40,11 @@ test("holding more chairs than are free shows a conflict, and lowering the hold 
   await conflict.getByLabel("Note").fill("Rent the rest");
   await conflict.getByRole("button", { name: "Resolve" }).click();
   await expect(conflict).toHaveCount(0);
+  await expect.poll(() => browserDb(async (db) => {
+    const [row] = await db.select().from(s.reservations);
+    return row?.quantity;
+  })).toBe(10);
+  await page.reload();
   await expect(page.getByLabel("Quantity of Chiavari Chair")).toHaveValue("10");
   await expect.poll(() => browserDb(async (db) => {
     const [row] = await db.select().from(s.reservationConflicts);
