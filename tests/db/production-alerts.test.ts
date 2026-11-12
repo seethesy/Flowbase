@@ -100,7 +100,7 @@ it("lets a primary lead and Sales Manager see every event list while staff see a
   expect((await getProductionList(db, managerActor, otherId, now)).items.some((item) => item.title === "Set tables")).toBe(true);
   const staffId = "c1530000-0000-4000-8000-000000000004";
   await db.insert(s.users).values({ id: staffId, email: "staff@example.test", name: "Staff", role: "staff",
-    employmentType: "part_time", status: "active" });
+    employmentType: "part_time", status: "active", mobile: "2025550103" });
   await expect(getProductionList(db, { userId: staffId, role: "staff", employmentType: "part_time" }, otherId, now)).rejects.toMatchObject({ status: 404 });
   const [shift] = await db.insert(s.eventShifts).values({ eventId: otherId, kind: "event_day",
     startsAt: businessTimeToUtc("2026-11-15", "12:00"), endsAt: businessTimeToUtc("2026-11-15", "22:00") }).returning();

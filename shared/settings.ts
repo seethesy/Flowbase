@@ -176,7 +176,7 @@ export const businessDefaultsSchema = z.object({
   readinessStartDays: z.object({
     responsibility: days.default(14), schedule: days.default(14), resource: days.default(14),
     quantity: days.default(14), data_gap: days.default(14),
-  }).default({}),
+  }).default({ responsibility: 14, schedule: 14, resource: 14, quantity: 14, data_gap: 14 }),
   productionEscalationHours: z.number().int().min(1).max(720).default(24),
   beoApprovalDays: days.default(3),
   balanceWarningDays: days.default(3),
