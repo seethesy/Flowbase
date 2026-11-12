@@ -57,7 +57,7 @@ test("kitchen dishes open their method and scaled ingredients and prep can be as
   await page.getByRole("textbox", { name: "Kitchen task title" }).fill("Prep chicken");
   await page.getByRole("combobox", { name: "Kitchen task assignee" }).selectOption({ label: "Test Admin" });
   await page.getByRole("button", { name: "Assign prep" }).click();
-  await expect(page.getByText("Prep chicken").locator("..")).toContainText("Test Admin");
+  await expect(page.locator(".kitchen-tasks li").filter({ hasText: "Prep chicken" })).toContainText("Test Admin");
   await page.emulateMedia({ media: "print" });
   await page.evaluate(() => document.body.classList.add("printing-kitchen-sheet"));
   await expect(page.getByRole("article", { name: "Kitchen sheet" })).toHaveCSS("display", "block");
