@@ -29,6 +29,7 @@ import { LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { CostHistory, MovementHistory } from "./inventory-histories";
 import { ItemForm } from "./inventory-item-form";
+import { ItemPlanning } from "./inventory-planning";
 import {
   centsLabel,
   kindLabels,
@@ -343,6 +344,7 @@ export function InventoryDetail() {
           </table>
         </Section>
       )}
+      <ItemPlanning item={i} />
       {i.kind !== "service" && (
         <MovementHistory
           item={i}
