@@ -79,7 +79,9 @@ describe("sales dataset (FLOW-117/118/121)", () => {
   it("stores saved views per user", async () => {
     const response = await call(salespeople[0].id, "salesperson", "/api/sales/views", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Mine", filter: { kind: "proposal" } }) });
     expect(response.status).toBe(201);
-    expect((await (await call(salespeople[0].id, "salesperson", "/api/sales/views")).json() as unknown[]).toHaveLength(1);
-    expect((await (await call(salespeople[1].id, "salesperson", "/api/sales/views")).json() as unknown[]).toHaveLength(0);
+    const mine = await (await call(salespeople[0].id, "salesperson", "/api/sales/views")).json();
+    const theirs = await (await call(salespeople[1].id, "salesperson", "/api/sales/views")).json();
+    expect(mine).toHaveLength(1);
+    expect(theirs).toHaveLength(0);
   });
 });
