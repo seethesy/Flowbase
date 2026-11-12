@@ -22,12 +22,12 @@ const mount = (kind: "rental" | "consumable") =>
   );
 
 const hold = (over: Record<string, unknown>) => ({
-  id: "a2240000-0000-4000-8000-0000000000h1", eventId: galaId, eventTitle: "Fall gala", eventDate: "2026-11-14",
+  id: "a2240000-0000-4000-8000-0000000000b1", eventId: galaId, eventTitle: "Fall gala", eventDate: "2026-11-14",
   itemId, itemName: "Dinner plates", quantity: 80, status: "confirmed", windowStart: "2026-11-13",
   windowEnd: "2026-11-15", bookedAt: "2026-10-01T12:00:00.000Z", allocated: 80, shortfall: 0, issue: null, ...over,
 });
 const conflict = (over: Record<string, unknown>) => ({
-  id: "a2240000-0000-4000-8000-0000000000c1", reservationId: "a2240000-0000-4000-8000-0000000000h2", itemId,
+  id: "a2240000-0000-4000-8000-0000000000c1", reservationId: "a2240000-0000-4000-8000-0000000000b2", itemId,
   itemName: "Dinner plates", eventId: laterId, eventTitle: "Booked later", eventDate: "2026-11-14", kind: "conflict",
   state: "open", quantity: 60, allocated: 20, shortfall: 40, openedAt: "2026-10-05T12:00:00.000Z",
   resolution: null, resolvedBy: null, resolvedAt: null, ...over,
@@ -42,7 +42,7 @@ it("changes the availability when the date range changes (AC1) and links each ho
       return Response.json({
         itemId, from: url.searchParams.get("from"), to: url.searchParams.get("to"), onRequest: false, owned: 100,
         available: busy ? 20 : 100, availableWithTentative: busy ? 0 : 100,
-        holds: busy ? [hold({}), hold({ id: "a2240000-0000-4000-8000-0000000000h2", eventId: laterId,
+        holds: busy ? [hold({}), hold({ id: "a2240000-0000-4000-8000-0000000000b2", eventId: laterId,
           eventTitle: "Booked later", quantity: 60, allocated: 20, shortfall: 40, issue: "conflict", status: "tentative" })] : [],
       });
     }
