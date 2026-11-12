@@ -69,6 +69,25 @@
 .warning-message {
   color: var(--warning-text, #92400e);
 }
+.kitchen-print-sheet { display: none; }
+@media print {
+  body.printing-kitchen-sheet .kitchen-print-sheet {
+    display: block;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0;
+    color: #000;
+    background: #fff;
+    font: 11pt/1.35 Arial, sans-serif;
+  }
+  body.printing-kitchen-sheet * { visibility: hidden !important; }
+  body.printing-kitchen-sheet .kitchen-print-sheet,
+  body.printing-kitchen-sheet .kitchen-print-sheet * { visibility: visible !important; }
+  body.printing-kitchen-sheet .kitchen-print-sheet h2 { margin: 0 0 8px; }
+  body.printing-kitchen-sheet .kitchen-print-sheet section { break-inside: avoid; }
+  body.printing-kitchen-sheet .kitchen-print-sheet li { padding: 3px 0; }
+}
 /* Phones: stack the controls under the item so every control stays tappable. */
 @media (max-width: 640px) {
   .pull-lines > li select,

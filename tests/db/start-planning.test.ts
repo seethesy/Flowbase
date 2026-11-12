@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -15,6 +16,7 @@ import type { PullList } from "../../shared/pull-list";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
 import type { FlowEvent } from "../../shared/core-records";
 import type { TruckLog } from "../../shared/trucks";
+import type { BeoView } from "../../shared/beo";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137) against the
 // real database.
@@ -274,13 +276,13 @@ describe("start planning (FLOW-133)", () => {
       ["requirements", "pending"],
       ["production_tasks", "pending"],
       ["kitchen_menu", "pending"],
-      ["beo_draft", "skipped"],
-      ["calendar", "skipped"],
+      ["beo_draft", "pending"],
+      ["calendar", "pending"],
     ]);
     const [row] = await db.select().from(schema.events).where(eq(schema.events.id, event.id));
     expect(row.status).toBe("preparation");
     const queued = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "planning.step"));
-    expect(queued).toHaveLength(5);
+    expect(queued).toHaveLength(7);
   });
 
   it("refuses a second start, an event that isn't Closed, and someone else's event", async () => {
@@ -289,6 +291,9 @@ describe("start planning (FLOW-133)", () => {
     await sam.send("POST", `/api/events/${event.id}/planning/start`);
     const again = await sam.call("POST", `/api/events/${event.id}/planning/start`);
     expect(again.status).toBe(409);
+    await runJobs();
+    expect((await db.select().from(schema.beos).where(eq(schema.beos.eventId, event.id)))).toHaveLength(1);
+    expect((await db.select().from(schema.eventPlanningSteps).where(eq(schema.eventPlanningSteps.eventId, event.id)))).toHaveLength(7);
     const other = await seed("negotiation");
     const early = await admin.call("POST", `/api/events/${other.event.id}/planning/start`);
     expect(early.status).toBe(409);
@@ -312,6 +317,13 @@ describe("start planning (FLOW-133)", () => {
     expect(menu.courses).toHaveLength(1);
     expect(menu.courses[0]).toMatchObject({ course: "Mains" });
     expect(menu.courses[0].lines[0]).toMatchObject({ name: "Short rib", plannedQuantity: 80 });
+    expect((await db.select().from(schema.beos).where(eq(schema.beos.eventId, event.id)))).toHaveLength(1);
+    expect(progress.steps.every((step) => step.status === "done")).toBe(true);
+    await admin.send("POST", `/api/events/${event.id}/beo`, {}, 201);
+    expect((await db.select().from(schema.beos).where(eq(schema.beos.eventId, event.id)))).toHaveLength(1);
+    await admin.send("PUT", `/api/events/${event.id}/kitchen-menu/times`, { leavesKitchenTime: "14:30" });
+    const beo = await admin.send<BeoView>("GET", `/api/events/${event.id}/beo`);
+    expect(beo.content.foodSetup.leavesKitchenTime).toBe("14:30");
   });
 
   it("is safe to repeat: regenerating an unchanged proposal changes nothing", async () => {
@@ -380,6 +392,11 @@ describe("pull list (FLOW-134)", () => {
     const set = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`, { date: "2026-12-10", time: "09:30", pullerId: null });
     expect(set).toMatchObject({ scheduledDate: "2026-12-10", scheduledTime: "09:30", missingSchedule: true });
     expect(set.scheduledAt).toBe("2026-12-10T14:30:00.000Z");
+    const [puller] = await db.insert(schema.users).values({ id: randomUUID(), email: `${randomUUID()}@example.test`,
+      name: "Puller", role: "staff", employmentType: "full_time", mobile: "", status: "active" }).returning();
+    const ready = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`,
+      { date: "2026-12-10", time: "09:30", pullerId: puller.id });
+    expect(ready.missingSchedule).toBe(false);
     const cleared = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`, { date: null, time: null, pullerId: null });
     expect(cleared.scheduledAt).toBeNull();
     expect((await admin.call("PUT", `/api/events/${event.id}/pull-list/schedule`, { date: "2026-12-10", time: null, pullerId: null })).status).toBe(400);
@@ -495,6 +512,9 @@ describe("event supply requirements (FLOW-135/225)", () => {
       isNull(schema.eventRequirements.archivedAt),
     ));
     expect(rows.map((row) => row.quantity).sort((a, b) => a - b)).toEqual([120, 120, 240]);
+    const pull = await pullList(event.id);
+    expect(pull.groups.flatMap((group) => group.lines).find((line) => line.name === "Napkin"))
+      .toMatchObject({ quantity: 240, group: "supplies" });
   });
 });
 

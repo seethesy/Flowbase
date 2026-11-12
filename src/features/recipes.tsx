@@ -1,6 +1,6 @@
 import { Allowed, usePermissions } from "../app/permissions";
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Archive, Pencil, Plus, RotateCcw } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { InventoryItem } from "../../shared/inventory";
@@ -710,9 +710,9 @@ function IngredientsSection({ recipe }: { recipe: Recipe }) {
   );
 }
 
-function ScaleSection({ recipe }: { recipe: Recipe }) {
+function ScaleSection({ recipe, requestedServings }: { recipe: Recipe; requestedServings: number | null }) {
   const [servings, setServings] = useState(
-    recipe.yield ? String(recipe.yield.servings) : "",
+    requestedServings !== null ? String(requestedServings) : recipe.yield ? String(recipe.yield.servings) : "",
   );
   const [result, setResult] = useState<ScaledRecipe | null>(null);
   const [error, setError] = useState("");
@@ -724,8 +724,12 @@ function ScaleSection({ recipe }: { recipe: Recipe }) {
       setError((e as Error).message);
     }
   };
+  useEffect(() => {
+    if (requestedServings === null) return;
+    void recipesApi.scale(recipe.id, requestedServings).then(setResult, (cause: Error) => setError(cause.message));
+  }, [recipe.id, requestedServings]);
   return (
-    <Section title="Scale">
+    <section id="scale"><Section title="Scale">
       <form
         className="inline-row"
         noValidate
@@ -783,12 +787,15 @@ function ScaleSection({ recipe }: { recipe: Recipe }) {
           </tbody>
         </table>
       )}
-    </Section>
+    </Section></section>
   );
 }
 
 export function RecipeDetail() {
   const { id = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const requested = Number(searchParams.get("servings"));
+  const requestedServings = Number.isFinite(requested) && requested > 0 && searchParams.has("servings") ? requested : null;
   const navigate = useNavigate();
   const recipe = useResource(["recipes", id], () => recipesApi.get(id));
   // Dialogs belong to the recipe they were opened on (FLOW-197).
@@ -887,7 +894,7 @@ export function RecipeDetail() {
           </p>
         )}
       </Section>
-      <ScaleSection key={r.updatedAt} recipe={r} />
+      <ScaleSection key={`${r.updatedAt}:${requestedServings ?? ""}`} recipe={r} requestedServings={requestedServings} />
       <Attachments recordType="recipe" recordId={r.id} title="Photos" />
       {edit && (
         <RecipeForm

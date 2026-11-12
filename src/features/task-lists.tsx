@@ -37,6 +37,7 @@ import { LoadError } from "../components/record-display";
 import { eventsApi } from "../services/core";
 import { staffApi } from "../services/staff";
 import { tasksApi } from "../services/tasks";
+import { preparationApi } from "../services/preparation";
 import { sopsApi } from "../services/sops";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
@@ -784,6 +785,8 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
   const list = usePagedList(["tasks", "event", event.id, communal], (cursor) =>
     tasksApi.list(filter, cursor),
   );
+  const pull = useResource(["event-pull-list", event.id], () => preparationApi.pullList(event.id));
+  const tbdPullLines = pull.data?.groups.flatMap((group) => group.lines).filter((line) => line.tbd) ?? [];
   const delegates = can("tasks.delegate");
   const templates = useResource(["tasks", "templates"], () => tasksApi.templates(), {
     enabled: delegates,
@@ -840,6 +843,9 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
           {error}
         </p>
       )}
+      {tbdPullLines.length > 0 && <p role="alert" className="warning-message">
+        Production list: pull quantity TBD for {tbdPullLines.map((line) => line.name).join(", ")}.
+      </p>}
       {list.data?.filter((task) => task.type === "production" && task.status !== "done" && !task.assignees.length)
         .map((task) => <p key={task.id} role="alert" className="warning-message">
           {task.title.toLowerCase().includes("balloon arch")

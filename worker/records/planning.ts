@@ -18,10 +18,12 @@ import { generateKitchenMenu } from "./kitchen-menu";
 import { generatePullList } from "./pull-list";
 import { requestEventRecompute } from "./allocations";
 import { applyMatchingProductionTemplates } from "./task-templates";
+import { ensureBeoDraft } from "./beo";
+import { events } from "../db/schema";
 
 // "Start planning" (FLOW-133). One confirmation moves a Closed event to Preparation
 // and queues one small job per step, so each stays inside the cron's CPU budget.
-// Steps for modules that aren't built yet are recorded as skipped.
+// Each step has its own retryable, idempotent job.
 
 export const PLANNING_STEP_JOB = "planning.step";
 
@@ -47,6 +49,20 @@ const runners: Partial<
   production_tasks: async (tx, eventId) => {
     const created = await applyMatchingProductionTemplates(tx, eventId);
     return `${created} production tasks created.`;
+  },
+  beo_draft: async (tx, eventId) => {
+    const [planning] = await tx.select({ startedBy: eventPlanning.startedBy })
+      .from(eventPlanning).where(eq(eventPlanning.eventId, eventId));
+    if (!planning?.startedBy) throw new Error("Planning starter is missing.");
+    const created = await ensureBeoDraft(tx, planning.startedBy, eventId);
+    return created ? "BEO draft created." : "BEO draft already exists.";
+  },
+  calendar: async (tx, eventId) => {
+    // The calendar is a live view of events, tasks, holds and shifts. Reading the
+    // event confirms the source is present; there is no cached row to refresh.
+    const [event] = await tx.select({ id: events.id }).from(events).where(eq(events.id, eventId));
+    if (!event) throw new Error("Event is missing.");
+    return "Calendar is current.";
   },
 };
 
