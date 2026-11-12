@@ -154,6 +154,7 @@ async function seed(status: "closed" | "negotiation" = "closed") {
   ];
   const data: ProposalMapping = {
     versionId: version.id,
+    totalCents: null,
     fields: {},
     lines,
     staffing: [],

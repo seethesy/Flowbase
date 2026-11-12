@@ -1449,6 +1449,14 @@ export const taskViews = pgTable(
   ],
 ).enableRLS();
 
+// Saved sales tracker filters belong to the person who created them.
+export const salesViews = pgTable("sales_views", {
+  ...baseColumns(),
+  userId: uuid("user_id").notNull(),
+  name: text("name").notNull(),
+  filter: jsonb("filter").$type<import("../../shared/sales").SalesFilter>().notNull(),
+}, (table) => [index("sales_views_user_idx").on(table.userId, table.createdAt)]).enableRLS();
+
 // Task templates (FLOW-62): reusable sets of tasks with due dates relative to an
 // event (shared/tasks.ts templateDueAt). Removing an item archives it, so tasks
 // already made from it stay matched to it.

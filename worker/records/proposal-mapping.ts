@@ -49,6 +49,8 @@ export async function saveProposalMapping(db: Db, actor: Actor, proposalId: stri
     throw new ApiError(409, "INVALID_TRANSITION", "Only a finalized proposal can be reviewed for approval.");
   if (current.currentVersionId !== data.versionId)
     throw new ApiError(409, "VERSION_CHANGED", "Review the current proposal version before saving.");
+  if (data.totalCents === null)
+    throw new ApiError(400, "TOTAL_REQUIRED", "Confirm the total from this proposal version before submitting it.");
   const [pending] = await db.select({ id: approvalRequests.id }).from(approvalRequests)
     .where(and(eq(approvalRequests.subjectType, "proposal_version"), eq(approvalRequests.subjectId, data.versionId), eq(approvalRequests.status, "pending")));
   if (pending) throw new ApiError(409, "APPROVAL_PENDING", "Withdraw or reject the pending request before changing its mapping.");

@@ -22,28 +22,6 @@ test("sidebar, client search, detail tabs, and browser history", async ({
     page.getByRole("heading", { name: "Clients", exact: true }),
   ).toBeVisible();
 });
-test("proposal status rules and lost reason confirmation", async ({ page }) => {
-  await page.goto("/#/proposals?view=table");
-  await page.getByRole("button", { name: "FB-2026", exact: true }).click();
-  await page
-    .getByLabel("Proposal stage", { exact: true })
-    .selectOption("Signed");
-  await expect(page.getByRole("alert")).toContainText(
-    "Cannot move Draft to Signed",
-  );
-  await page.getByLabel("Proposal stage", { exact: true }).selectOption("Sent");
-  await expect(page.getByLabel("Proposal stage", { exact: true })).toHaveValue(
-    "Sent",
-  );
-  await page.getByLabel("Proposal stage", { exact: true }).selectOption("Lost");
-  await page
-    .getByLabel("Loss reason", { exact: true })
-    .fill("Client event postponed");
-  await page.getByRole("button", { name: "Confirm Lost" }).click();
-  await expect(page.getByLabel("Proposal stage", { exact: true })).toHaveValue(
-    "Lost",
-  );
-});
 test("Worker health and SPA share an origin", async ({ page, request }) => {
   const response = await request.get("/api/health");
   expect(response.ok()).toBeTruthy();

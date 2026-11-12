@@ -1,0 +1,7 @@
+.sales-actions,.sales-filters{display:flex;flex-wrap:wrap;align-items:end;gap:.75rem;margin:1rem 0}
+.sales-actions label,.sales-filters label{display:flex;flex-direction:column;gap:.25rem}
+.sales-actions input,.sales-actions select,.sales-filters input,.sales-filters select{padding:.5rem;border:1px solid var(--border,#ccc);border-radius:.35rem;background:var(--surface,#fff);color:inherit}
+.sales-table-wrap{overflow-x:auto}
+.sales-table{width:100%;border-collapse:collapse;text-align:left}
+.sales-table th,.sales-table td{padding:.6rem;border-bottom:1px solid var(--border,#ddd);white-space:nowrap}
+.sales-client-event{padding:.75rem 0;border-top:1px solid var(--border,#ddd)}

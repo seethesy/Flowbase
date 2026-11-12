@@ -365,6 +365,13 @@
       "when": 1794295961061,
       "tag": "0051_closeout_returns",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794452733412,
+      "tag": "0052_sales_views",
+      "breakpoints": true
     }
   ]
 }

@@ -42,8 +42,9 @@ const PrintSample = lazy(() =>
   import("../features/print-sample").then((module) => ({ default: module.PrintSample })),
 );
 const Proposals = lazy(() =>
-  import("../features/proposals").then((module) => ({ default: module.Proposals })),
+  import("../features/sales").then((module) => ({ default: module.SalesTracker })),
 );
+const SalesReports = lazy(() => import("../features/sales").then((module) => ({ default: module.SalesReports })));
 const TimeReports = lazy(() =>
   import("../features/time-tracking").then((module) => ({ default: module.TimeReports })),
 );
@@ -209,7 +210,8 @@ export const getRouter = () =>
         { path: "/customers", element: <LegacyRoute to="/clients" /> },
         { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
         { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
-        { path: "/proposals", element: <DemoScreen><Proposals /></DemoScreen> },
+        { path: "/proposals", element: <Proposals /> },
+        { path: "/sales/reports", element: <SalesReports /> },
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/master", element: <MasterInventory /> },
         { path: "/inventory/orders", element: <OrderLists /> },
