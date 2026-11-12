@@ -171,7 +171,7 @@ describe("inventory item model", () => {
   });
 
   it("leaves the new fields out when a save doesn't send them, to keep the stored values", () => {
-    const item = itemInputSchema.parse(rows["service row"]);
+    const item = itemInputSchema.parse({ kind: "service", subtype: "decor", name: "Sample Service" });
     expect(item.subcategory).toBeUndefined();
     expect(item.pullOwner).toBeUndefined();
     expect(item.flags).toBeUndefined();
