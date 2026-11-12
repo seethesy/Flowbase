@@ -25,7 +25,7 @@ async function seedOverbookableChairs() {
 test("holding more chairs than are free shows a conflict, and lowering the hold resolves it", async ({ page }) => {
   await seedOverbookableChairs();
   await page.goto(`/#/events/${wedding().id}`);
-  await page.getByRole("heading", { name: "Equipment holds" }).scrollIntoViewIfNeeded();
+  await page.getByRole("heading", { name: "Equipment & stock" }).scrollIntoViewIfNeeded();
   const form = page.getByRole("form", { name: "Hold equipment" });
   await form.getByLabel("Item").selectOption({ label: "Chiavari Chair" });
   await form.getByLabel("Quantity").fill("30");
