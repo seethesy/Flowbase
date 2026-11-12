@@ -29,6 +29,34 @@ export const subtypesByKind = {
   service: [],
 } as const satisfies Record<ItemKind, readonly string[]>;
 
+// Who pulls an item for an event by default (FLOW-78 Q5); pull lists (F-14-02) use
+// it. Imported sheets carry it per item.
+export const pullOwners = ["pull_lead", "production_lead", "sales_manager"] as const;
+export const pullOwnerSchema = z.enum(pullOwners);
+export type PullOwner = z.infer<typeof pullOwnerSchema>;
+export const pullOwnerLabels: Record<PullOwner, string> = {
+  pull_lead: "Pull Lead",
+  production_lead: "Production Lead",
+  sales_manager: "Sales Manager",
+};
+
+// Follow-ups an import leaves on an item (FLOW-78, FLOW-91): data the source row
+// lacked. Staff clear a flag by fixing the item.
+export const itemFlags = [
+  "needs_category",
+  "needs_count",
+  "needs_cost",
+  "confirm_location",
+] as const;
+export const itemFlagSchema = z.enum(itemFlags);
+export type ItemFlag = z.infer<typeof itemFlagSchema>;
+export const itemFlagLabels: Record<ItemFlag, string> = {
+  needs_category: "Needs category",
+  needs_count: "Needs count",
+  needs_cost: "Needs cost",
+  confirm_location: "Confirm location",
+};
+
 export const ratioBasisSchema = z.enum(["per_guest", "per_table", "per_event"]);
 export type RatioBasis = z.infer<typeof ratioBasisSchema>;
 export const ratioBasisLabels: Record<RatioBasis, string> = {
@@ -154,6 +182,9 @@ export const rentalDetailsSchema = z.object({
   // Sub-rental (FLOW-75): the vendor (FLOW-84) the item is rented from. A rental
   // with a vendor is available on request, never owned stock.
   vendorId: id.nullable().default(null),
+  // Where an owned item is bought from (FLOW-165), e.g. a store or distributor. Not
+  // a sub-rental: the item stays owned stock. Omitted keeps the stored value.
+  supplierId: id.nullable().optional(),
   // What the vendor charges for one. Hidden like the other rental costs; omitted
   // keeps the stored value.
   vendorCostCents: cents.nullable().optional(),
@@ -235,6 +266,12 @@ export const itemInputSchema = z
     unit: unitSchema.default("each"),
     // Display grouping, e.g. "Table Linens" over Standard, Premium and Platinum.
     group: text(100).default(""),
+    // Second level under the category in the source sheets (FLOW-165), e.g.
+    // Category "On-site Kitchen", Subcategory "Heating". Omitted keeps the stored
+    // value, like the three below.
+    subcategory: text(100).optional(),
+    pullOwner: pullOwnerSchema.nullable().optional(),
+    flags: z.array(itemFlagSchema).max(itemFlags.length).optional(),
     color: text(60).default(""),
     tier: text(60).default(""),
     ratio: ratioSchema.nullable().default(null),
@@ -355,12 +392,18 @@ export const itemSchema = z.object({
   description: z.string(),
   unit: unitSchema,
   group: z.string(),
+  subcategory: z.string(),
+  pullOwner: pullOwnerSchema.nullable(),
+  flags: z.array(itemFlagSchema),
   color: z.string(),
   tier: z.string(),
   ratio: ratioSchema.nullable(),
   active: z.boolean(),
   rental: rentalDetailsSchema
-    .extend({ vendorName: z.string().nullable().default(null) })
+    .extend({
+      vendorName: z.string().nullable().default(null),
+      supplierName: z.string().nullable().default(null),
+    })
     .nullable(),
   consumable: consumableDetailsInputSchema
     .extend({

@@ -15,11 +15,13 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { Actor } from "../../shared/access";
 import type {
   Allergen,
   BarContainer,
   InventoryItem,
+  ItemFlag,
   ItemInputParsed,
 } from "../../shared/inventory";
 import { units, type Unit } from "../../shared/units";
@@ -55,6 +57,8 @@ import {
 
 // ---- Items ----
 
+const suppliers = alias(vendors, "suppliers");
+
 export async function toItems(
   db: DbLike,
   actor: Actor,
@@ -82,11 +86,13 @@ export async function toItems(
           bufferDaysBefore: inventoryRentalDetails.bufferDaysBefore,
           bufferDaysAfter: inventoryRentalDetails.bufferDaysAfter,
           vendorId: inventoryRentalDetails.vendorId,
+          supplierId: inventoryRentalDetails.supplierId,
           vendorCostCents: inventoryRentalDetails.vendorCostCents,
           leadTimeDays: inventoryRentalDetails.leadTimeDays,
           components: inventoryRentalDetails.components,
         },
         rentalVendorName: vendors.name,
+        rentalSupplierName: suppliers.name,
         service: {
           itemId: inventoryServiceDetails.itemId,
           priceCents: inventoryServiceDetails.priceCents,
@@ -125,6 +131,7 @@ export async function toItems(
         eq(inventoryRentalDetails.itemId, inventoryItems.id),
       )
       .leftJoin(vendors, eq(vendors.id, inventoryRentalDetails.vendorId))
+      .leftJoin(suppliers, eq(suppliers.id, inventoryRentalDetails.supplierId))
       .leftJoin(
         inventoryServiceDetails,
         eq(inventoryServiceDetails.itemId, inventoryItems.id),
@@ -193,6 +200,9 @@ export async function toItems(
       description: row.description,
       unit: row.unit as Unit,
       group: row.group,
+      subcategory: row.subcategory,
+      pullOwner: row.pullOwner,
+      flags: row.flags as ItemFlag[],
       color: row.color,
       tier: row.tier,
       ratio:
@@ -213,9 +223,11 @@ export async function toItems(
               bufferDaysBefore: rental?.bufferDaysBefore ?? 1,
               bufferDaysAfter: rental?.bufferDaysAfter ?? 1,
               vendorId: rental?.vendorId ?? null,
+              supplierId: rental?.supplierId ?? null,
               vendorCostCents: rental?.vendorCostCents ?? null,
               leadTimeDays: rental?.leadTimeDays ?? null,
               vendorName: detail?.rentalVendorName ?? null,
+              supplierName: detail?.rentalSupplierName ?? null,
               components: rental?.components ?? [],
             }
           : null,
@@ -421,6 +433,10 @@ const itemValues = (input: ItemInputParsed, actor: Actor) => ({
   description: input.description,
   unit: input.unit,
   group: input.group,
+  // Left out, a save keeps the stored value (FLOW-165).
+  ...(input.subcategory !== undefined && { subcategory: input.subcategory }),
+  ...(input.pullOwner !== undefined && { pullOwner: input.pullOwner }),
+  ...(input.flags !== undefined && { flags: input.flags }),
   color: input.color,
   tier: input.tier,
   ratioQuantity: input.ratio?.quantity ?? null,
@@ -495,10 +511,16 @@ async function saveDetails(
     )
       throw forbidden();
     const [stored] = await tx
-      .select({ vendorId: inventoryRentalDetails.vendorId })
+      .select({
+        vendorId: inventoryRentalDetails.vendorId,
+        supplierId: inventoryRentalDetails.supplierId,
+      })
       .from(inventoryRentalDetails)
       .where(eq(inventoryRentalDetails.itemId, itemId));
     const vendorId = r?.vendorId ?? null;
+    // Like the vendor link, a new supplier must be live; an existing one may stay.
+    if (r?.supplierId && r.supplierId !== (stored?.supplierId ?? null))
+      await requireLiveVendor(tx, r.supplierId);
     // Linking to a vendor needs a live one; an existing link may stay after the
     // vendor is archived.
     if (vendorId && vendorId !== (stored?.vendorId ?? null))
@@ -513,6 +535,7 @@ async function saveDetails(
       bufferDaysAfter: r?.bufferDaysAfter ?? 1,
       components: r?.components ?? [],
       vendorId,
+      ...(r?.supplierId !== undefined && { supplierId: r.supplierId }),
       leadTimeDays: vendorId ? (r?.leadTimeDays ?? null) : null,
       // A rental that's no longer sub-rented has no vendor cost.
       ...(!vendorId
