@@ -34,7 +34,7 @@ beforeEach(async () => {
     await db.insert(s.proposals).values({ id: ids.proposals[i], eventId: ids.events[i], clientId: ids.client,
       title: `Proposal ${i + 1}`, stage: i === 0 ? "signed" : i === 1 ? "lost" : "finalized", assignedSalespersonId: owner });
     await db.insert(s.proposalVersions).values({ id: ids.versions[i], proposalId: ids.proposals[i], number: 1,
-      status: "ready", docx: { key: `test-${i}`, fileName: `test-${i}.docx`, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
+      status: "ready", completedAt: new Date(), docx: { key: `test-${i}`, fileName: `test-${i}.docx`, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
     await db.update(s.proposals).set({ currentVersionId: ids.versions[i] }).where(eq(s.proposals.id, ids.proposals[i]));
     const totalCents = (i + 1) * 100_000;
     const data = { versionId: ids.versions[i], totalCents, fields: {}, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };

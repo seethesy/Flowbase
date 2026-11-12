@@ -43,7 +43,7 @@ test("client tracker includes finished and preparation events with balances", as
       const versionId = `a0000000-0000-4000-8000-00000000000${index + 1}`;
       const totalCents = (index + 1) * 100_000;
       await db.insert(proposals).values({ id: proposalId, eventId: event.id, clientId: juniper().id, title: `${event.title} proposal`, stage: "signed" });
-      await db.insert(proposalVersions).values({ id: versionId, proposalId, number: 1, status: "ready", docx: { key: `test-${index}`, fileName: "test.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
+      await db.insert(proposalVersions).values({ id: versionId, proposalId, number: 1, status: "ready", completedAt: new Date(), docx: { key: `test-${index}`, fileName: "test.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
       await db.update(proposals).set({ currentVersionId: versionId }).where(eq(proposals.id, proposalId));
       const data = { versionId, totalCents, fields: {}, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
       await db.insert(proposalMappings).values({ proposalId, versionId, data });
