@@ -45,6 +45,9 @@ export type ImportModule<Row = unknown> = {
     row: Row,
     recordId: string | null,
   ) => Promise<string[]>;
+  // What the dry run shows for a valid row: a one-line summary and anything to
+  // review (FLOW-78, FLOW-91).
+  describe?: (row: Row) => { summary: string; notes: string[] };
   // Records a new row may duplicate without sharing its key (e.g. same name).
   findDuplicates?: (
     db: DbLike,
@@ -78,10 +81,6 @@ export type ImportModule<Row = unknown> = {
 // Keeps each module's row type while the registry holds them side by side.
 export const defineImportModule = <Row>(module: ImportModule<Row>) =>
   module as unknown as ImportModule;
-
-// Module importers register here as their tickets land (FLOW-78, FLOW-89,
-// FLOW-91, FLOW-99, FLOW-101).
-export const importModules: ImportModule[] = [];
 
 const describe = (module: ImportModule): ImportModuleInfo => ({
   key: module.key,
@@ -149,10 +148,17 @@ export async function planImportRows(
       plans.push({ ...base, action: "error", externalKey, errors });
       continue;
     }
+    const described = module.describe?.(parsed.row);
     if (link) {
       const changes =
         (await module.wouldChange?.(db, actor, link.recordId, parsed.row)) ?? true;
-      plans.push({ ...base, action: changes ? "update" : "skip", externalKey, errors });
+      plans.push({
+        ...base,
+        action: changes ? "update" : "skip",
+        externalKey,
+        errors,
+        ...described,
+      });
       continue;
     }
     plans.push({
@@ -161,6 +167,7 @@ export async function planImportRows(
       externalKey,
       errors,
       duplicates: (await module.findDuplicates?.(db, actor, parsed.row)) ?? [],
+      ...described,
     });
   }
   return plans;

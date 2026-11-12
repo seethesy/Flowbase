@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  applyTransforms,
+  applyTransformsWithNotes,
   autoMap,
   batches,
   headingIndex,
@@ -106,13 +106,14 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
     const index = headingIndex(file.sheet);
     return index === -1 ? [] : file.sheet[index].map((cell) => cell.trim());
   }, [file]);
-  const rows = useMemo(
+  const transformed = useMemo(
     () =>
       file
-        ? applyTransforms(mapRows(file.sheet, mapping), module.transforms)
-        : [],
+        ? applyTransformsWithNotes(mapRows(file.sheet, mapping), module.transforms)
+        : { rows: [], notes: [] },
     [file, mapping, module.transforms],
   );
+  const rows = transformed.rows;
   const missing = module.fields.filter(
     (field) => field.required && (mapping[field.key] ?? null) === null,
   );
@@ -269,6 +270,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
       {plans && (
         <DryRunReport
           plans={plans}
+          dropped={transformed.notes}
           busy={Boolean(busy)}
           onImport={() => void commit()}
         />
@@ -283,10 +285,13 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
 function DryRunReport({
   plans,
+  dropped,
   busy,
   onImport,
 }: {
   plans: ImportRowPlan[];
+  // Rows the importer's row rules skipped, merged or renamed before the check.
+  dropped: { rowNumber: number; text: string }[];
   busy: boolean;
   onImport: () => void;
 }) {
@@ -304,6 +309,8 @@ function DryRunReport({
     else repeated.push({ rowNumber: plan.rowNumber, firstRow: first });
   }
   const importable = plans.length - errors.length;
+  const described = plans.filter((plan) => plan.summary && plan.action !== "error");
+  const reviewed = plans.filter((plan) => plan.notes?.length);
   return (
     <Section title="Dry run">
       <ul className="import-summary" aria-label="Dry run summary">
@@ -319,6 +326,43 @@ function DryRunReport({
           <RowTable
             label="Rows with errors"
             rows={errors.map((plan) => [plan.rowNumber, plan.errors.join(" ")])}
+          />
+        </>
+      )}
+      {dropped.length > 0 && (
+        <>
+          <h3>Skipped, merged or renamed rows</h3>
+          <p className="muted">
+            {plural(dropped.length, "row")} the importer's row rules left out or
+            renamed; every other row of the file is checked below.
+          </p>
+          <RowTable
+            label="Skipped, merged or renamed rows"
+            column="Note"
+            rows={dropped.map((note) => [note.rowNumber, note.text])}
+          />
+        </>
+      )}
+      {reviewed.length > 0 && (
+        <>
+          <h3>To review</h3>
+          <RowTable
+            label="To review"
+            column="Note"
+            rows={reviewed.map((plan) => [plan.rowNumber, (plan.notes ?? []).join(" ")])}
+          />
+        </>
+      )}
+      {described.length > 0 && (
+        <>
+          <h3>Items</h3>
+          <RowTable
+            label="Items"
+            column="What the importer will do"
+            rows={described.map((plan) => [
+              plan.rowNumber,
+              `${plan.action === "skip" ? "Unchanged" : plan.action === "update" ? "Updates" : "Creates"}: ${plan.summary}`,
+            ])}
           />
         </>
       )}
@@ -380,9 +424,11 @@ function CommitSummary({ committed }: { committed: Committed }) {
 function RowTable({
   label,
   rows,
+  column = "Problem",
 }: {
   label: string;
   rows: [number, string][];
+  column?: string;
 }) {
   return (
     <div className="table-scroll">
@@ -390,7 +436,7 @@ function RowTable({
         <thead>
           <tr>
             <th>Row</th>
-            <th>Problem</th>
+            <th>{column}</th>
           </tr>
         </thead>
         <tbody>
