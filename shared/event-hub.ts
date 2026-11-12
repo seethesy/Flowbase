@@ -21,6 +21,7 @@ export const hubSectionSchema = z.enum([
   // Equipment holds, conflicts and consumable needs (FLOW-76/77/85).
   "inventory",
   "tasks",
+  "production",
   "timeline",
   "staff",
   "trucks",

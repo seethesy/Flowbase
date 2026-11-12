@@ -376,6 +376,9 @@ type DefaultsDraft = Omit<
   | "idleCutoffMinutes"
   | "addendumReminderDays"
   | "paymentReminderDays"
+  | "productionEscalationHours"
+  | "beoApprovalDays"
+  | "balanceWarningDays"
   | "runOfShowGuestThreshold"
   | "cleanupTemplate"
   | "ratioDefaults"
@@ -387,6 +390,9 @@ type DefaultsDraft = Omit<
   idleCutoffMinutes: string;
   addendumReminderDays: string;
   paymentReminderDays: string;
+  productionEscalationHours: string;
+  beoApprovalDays: string;
+  balanceWarningDays: string;
   runOfShowGuestThreshold: string;
   cleanupTemplate: string;
   ratioDefaults: { category: string; quantity: string; basis: string }[];
@@ -421,6 +427,9 @@ const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   idleCutoffMinutes: String(defaults.idleCutoffMinutes),
   addendumReminderDays: String(defaults.addendumReminderDays),
   paymentReminderDays: String(defaults.paymentReminderDays),
+  productionEscalationHours: String(defaults.productionEscalationHours),
+  beoApprovalDays: String(defaults.beoApprovalDays),
+  balanceWarningDays: String(defaults.balanceWarningDays),
   runOfShowGuestThreshold: String(defaults.runOfShowGuestThreshold),
   cleanupTemplate: templateText(defaults.cleanupTemplate),
   ratioDefaults: defaults.ratioDefaults.map((row) => ({
@@ -469,6 +478,9 @@ function DefaultSettings() {
       idleCutoffMinutes: numberOf(draft.idleCutoffMinutes),
       addendumReminderDays: numberOf(draft.addendumReminderDays),
       paymentReminderDays: numberOf(draft.paymentReminderDays),
+      productionEscalationHours: numberOf(draft.productionEscalationHours),
+      beoApprovalDays: numberOf(draft.beoApprovalDays),
+      balanceWarningDays: numberOf(draft.balanceWarningDays),
       runOfShowGuestThreshold: numberOf(draft.runOfShowGuestThreshold),
       cleanupTemplate: templateOf(draft.cleanupTemplate),
       ratioDefaults: draft.ratioDefaults.map((row) => ({
@@ -510,8 +522,16 @@ function DefaultSettings() {
           {number("idleCutoffMinutes", "Time tracking idle cutoff (minutes)", "Time stops after this long without typing or clicking.", 1)}
           {number("addendumReminderDays", "Addendum reminder days", "Remind the salesperson when an addendum remains unsigned.", 1)}
           {number("paymentReminderDays", "Payment reminder days", "Days before a payment is due that the assigned salesperson is reminded.")}
+          {number("productionEscalationHours", "Production escalation hours", "Hours before an unaddressed production alert reaches the Sales Manager.", 1)}
+          {number("beoApprovalDays", "BEO approval warning days")}
+          {number("balanceWarningDays", "Balance warning days")}
           {number("runOfShowGuestThreshold", "Run of show guest threshold", "Events at or above this guest count get a run of show on the BEO.", 1)}
         </div>
+        <fieldset className="settings-urgent"><legend>Readiness checks start (days before event)</legend>
+          {(Object.keys(draft.readinessStartDays) as (keyof BusinessDefaults["readinessStartDays"])[]).map((kind) =>
+            <FormField key={kind} label={kind.replace("_", " ")}><input type="number" min="0" max="30" value={draft.readinessStartDays[kind]}
+              onChange={(event) => set("readinessStartDays", { ...draft.readinessStartDays, [kind]: Number(event.target.value) })} /></FormField>)}
+        </fieldset>
         <FormField label="Default payment terms">
           <textarea
             rows={3}

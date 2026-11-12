@@ -20,6 +20,8 @@ export const notificationTypes = [
   "approval_decided",
   "inventory_conflict",
   "production_alert",
+  "production_urgent",
+  "offline_reminder",
   "planning_stale",
   "proposal_approved",
   "addendum_reminder",
@@ -102,6 +104,16 @@ export const notificationCatalog: Record<NotificationType, NotificationTypeInfo>
     label: "Production alert",
     description: "An event's production needs attention.",
     event: "production.alert_raised",
+  },
+  production_urgent: {
+    label: "Urgent production alert",
+    description: "An urgent production issue needs attention.",
+    event: "production.urgent_raised",
+  },
+  offline_reminder: {
+    label: "Open BEO offline",
+    description: "Open Flowbase before your event to keep its BEO available offline.",
+    event: "event.offline_reminder",
   },
   planning_stale: {
     label: "Planning needs regeneration",

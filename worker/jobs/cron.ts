@@ -16,6 +16,7 @@ import { refreshUsage } from "../records/usage";
 import { cleanupAttachments } from "../attachments/cleanup";
 import { cleanupJobs } from "./cleanup";
 import { emitAddendumReminders } from "../records/contracts";
+import { scanProductionAlerts } from "../records/production-alerts";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
@@ -29,6 +30,10 @@ export function createJobRegistry(options: NotificationOptions = {}) {
   registerPlanning(registry);
   // Notifications (FLOW-43): one subscriber per notification type, plus email.
   registerNotifications(registry, options);
+  registry.register("production.scan", async (job, { db }) => {
+    const payload = job.payload as { eventId?: string } | null;
+    await scanProductionAlerts(db, new Date(), payload?.eventId);
+  });
   return registry;
 }
 
@@ -53,6 +58,7 @@ export async function runScheduledJobs(
     const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
     const addendumsDue = await emitAddendumReminders(db, now);
     const paymentReminders = await emitPaymentReminders(db, now);
+    const productionAlerts = await scanProductionAlerts(db, now);
     await scanCollectorHealth(db, now);
     await refreshUsage(db, now);
     const ran = await runDueJobs(db, registry, { ...options, env });
@@ -72,7 +78,7 @@ export async function runScheduledJobs(
         }),
       );
     }
-    return { tasksDue, tasksDueSoon, addendumsDue, paymentReminders, ...ran, ...cleaned };
+    return { tasksDue, tasksDueSoon, addendumsDue, paymentReminders, productionAlerts, ...ran, ...cleaned };
   });
   console.log(JSON.stringify({ event: "jobs_run", ...summary }));
   return summary;

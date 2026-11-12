@@ -56,6 +56,7 @@ const navigation = [
   { name: "Events", to: "/events", icon: CalendarDays },
   { name: "Calendar", to: "/calendar", icon: Calendar },
   { name: "Day-of", to: "/day-of", icon: ClipboardCheck },
+  { name: "Production", to: "/production", icon: ListChecks },
   { name: "Venues", to: "/venues", icon: MapPin },
   { name: "Staff", to: "/staff", icon: Contact },
   { name: "Reports", to: "/reports", icon: ChartNoAxesCombined },

@@ -38,6 +38,7 @@ import { date, time } from "./event-format";
 import { EventPlanningSection } from "./event-planning";
 import { EventTruckSection } from "./event-trucks";
 import { EventDayOfSection } from "./day-of";
+import { EventProductionSection } from "./production";
 import { EventCloseoutSection } from "./event-closeout";
 import { EventBeoSection } from "./event-beo";
 import { EventPaymentsSection } from "./event-payments";
@@ -778,6 +779,7 @@ export function EventDetail() {
       <EventPlanningSection key={`planning:${e.id}`} event={e} canEdit={canEdit} />
     ),
     tasks: () => <EventTasksSection key={`tasks:${e.id}`} event={e} />,
+    production: () => <EventProductionSection key={`production:${e.id}`} eventId={e.id} />,
     staff: () => (
       <EventStaffSection
         key={`staff:${e.id}`}

@@ -12,6 +12,7 @@ import {
   taskViewInputSchema,
 } from "../../shared/tasks";
 import { requirePermission } from "../auth";
+import { enqueueJob } from "../jobs/queue";
 import {
   ApiError,
   notFound,
@@ -155,6 +156,9 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
     return c.json(
       await record(c, async (db, actor) => {
         const id = await db.transaction((tx) => createTask(tx, actor, input));
+        if (c.env?.HYPERDRIVE && input.eventId && ["production", "kitchen", "truck_load"].includes(input.type))
+          await enqueueJob(db, { type: "production.scan", payload: { eventId: input.eventId },
+            idempotencyKey: `production.scan:${input.eventId}:${crypto.randomUUID()}` });
         return getTask(db, actor, id);
       }),
       201,

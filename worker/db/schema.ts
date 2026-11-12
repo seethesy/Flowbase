@@ -1898,6 +1898,22 @@ export const truckAssignments = pgTable("truck_assignments", {
   check("truck_assignments_window_check", sql`${table.returnsAt} > ${table.departsAt}`),
 ]).enableRLS();
 
+// Readiness answers and dismissals remain attached to an event until the source
+// situation changes. A changed signature reopens the question.
+export const readinessResponses = pgTable("readiness_responses", {
+  ...baseColumns(),
+  eventId: uuid("event_id").notNull(),
+  checkKey: text("check_key").notNull(),
+  signature: text("signature").notNull(),
+  state: text("state", { enum: ["answered", "dismissed"] }).notNull(),
+  response: text("response").notNull().default(""),
+  respondedBy: uuid("responded_by").notNull(),
+  respondedAt: timestamptz("responded_at").notNull(),
+}, (table) => [
+  uniqueIndex("readiness_responses_event_key_idx").on(table.eventId, table.checkKey),
+  oneOf("readiness_responses_state_check", table.state, ["answered", "dismissed"]),
+]).enableRLS();
+
 // Day-of board (FLOW-155): where a staff member is and how their day is going, set
 // by hand. One row per staffing slot, created by the first update; a slot with no
 // row reads as scheduled with no location.
