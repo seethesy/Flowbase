@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Plus, Printer, RefreshCw, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import type { RegeneratePreview } from "../../shared/planning";
@@ -21,7 +22,7 @@ import { useResource } from "../app/useResource";
 import { Button, ConfirmationDialog, FormField, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { preparationApi } from "../services/preparation";
-import { recipesApi } from "../services/core";
+import { recipesApi, sectionsApi } from "../services/core";
 import { staffApi } from "../services/staff";
 import { tasksApi } from "../services/tasks";
 import { utcToBusinessTime } from "../../shared/time";
@@ -269,6 +270,7 @@ export function EventPlanningProgressSection({
 
 export function EventPullListSection({ event }: { event: FlowEvent }) {
   const list = useResource(["event-pull-list", event.id], () => preparationApi.pullList(event.id));
+  const sections = useResource(["inventory-sections"], () => sectionsApi.list());
   const staff = useResource(["staff"], () => staffApi.list());
   const { error, run } = useAction();
   const [draft, setDraft] = useState({ group: "kitchen_equipment" as PullGroup, name: "", quantity: "" });
@@ -305,7 +307,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
       {!data.exists && <p className="muted">No pull list yet. Start planning or add a line.</p>}
       {data.missingSchedule && (
         <p role="status" className="warning-message">
-          Set when pulling starts and who pulls.
+          Readiness check: Missing schedule — set the pull date, time and puller.
         </p>
       )}
       {data.tbdCount > 0 && (
@@ -425,6 +427,19 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                   ) : (
                     <span className="pull-quantity">{line.quantity ?? "TBD"}</span>
                   )}
+                  {data.canEdit && (
+                    <select
+                      aria-label={`Section of ${line.name}`}
+                      value={line.sectionId ?? ""}
+                      onChange={(e) => void change(() => preparationApi.updatePullLine(
+                        event.id, line.id, { sectionId: e.target.value || null },
+                      ))}
+                    >
+                      <option value="">No section</option>
+                      {(sections.data ?? []).filter((section) => !section.archivedAt || section.id === line.sectionId)
+                        .map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+                    </select>
+                  )}
                   <select
                     aria-label={`Status of ${line.name}`}
                     value={line.status}
@@ -522,6 +537,15 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
   const { error, run } = useAction();
   const [draft, setDraft] = useState({ recipeId: "", course: "", quantity: "" });
   const [task, setTask] = useState({ title: "", assigneeId: "" });
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    if (!printing) return;
+    document.body.classList.add("printing-kitchen-sheet");
+    const clear = () => { document.body.classList.remove("printing-kitchen-sheet"); setPrinting(false); };
+    window.addEventListener("afterprint", clear, { once: true });
+    const frame = requestAnimationFrame(() => window.print());
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("afterprint", clear); document.body.classList.remove("printing-kitchen-sheet"); };
+  }, [printing]);
   if (menu.error)
     return (
       <Section title="Kitchen menu">
@@ -536,7 +560,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
       title="Kitchen menu"
       action={
         <span className="page-actions">
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button variant="outline" onClick={() => setPrinting(true)}>
             <Printer size={14} />
             Print
           </Button>
@@ -551,6 +575,22 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
       }
     >
       <ErrorLine message={error} />
+      <article className="kitchen-print-sheet" aria-label="Kitchen sheet">
+        <h2>{event.title} — kitchen sheet</h2>
+        <p>{date(event.date)} · {data.servings === null ? "Servings TBD" : `${data.servings} servings`}</p>
+        <p>Food leaves kitchen: {data.leavesKitchenTime ? time(data.leavesKitchenTime) : "TBD"}</p>
+        <p>Venue arrival: {data.venueArrivalAt ? time(utcToBusinessTime(new Date(data.venueArrivalAt)).time) : "TBD"}</p>
+        {data.courses.map((course) => <section key={course.course}>
+          <h3>{course.course}</h3>
+          <ul>{course.lines.map((line) => <li key={line.id}>
+            <strong>{line.name}</strong> — {line.plannedQuantity ?? "TBD"}
+            {line.notes && ` · ${line.notes}`}
+            {line.allergens.length > 0 && ` · Allergens: ${line.allergens.join(", ")}`}
+          </li>)}</ul>
+        </section>)}
+        <h3>Prep assignments</h3>
+        <ul>{data.tasks.map((task) => <li key={task.id}>{task.title} — {task.assignees.map((person) => person.name).join(", ") || "Unassigned"}</li>)}</ul>
+      </article>
       <p>
         {data.servings !== null ? `${data.servings} servings` : "Servings not set"}
         {data.venueArrivalAt && ` · Crew arrives ${time(utcToBusinessTime(new Date(data.venueArrivalAt)).time)}`}
@@ -583,7 +623,10 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
             {course.lines.map((line) => (
               <li key={line.id} data-tbd={line.tbd || undefined}>
                 <span className="pull-name">
-                  <strong>{line.name}</strong>
+                  <strong><Link to={`/recipes/${line.recipeId}`}>{line.name}</Link></strong>
+                  {line.plannedQuantity !== null && line.scalable && (
+                    <small><Link to={`/recipes/${line.recipeId}?servings=${line.plannedQuantity}#scale`}>Method and ingredients for {line.plannedQuantity} servings</Link></small>
+                  )}
                   <small>
                     {[
                       line.dietaryTags.join(", "),

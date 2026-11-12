@@ -344,17 +344,24 @@ export async function createBeo(db: Db, actor: Actor, eventId: string): Promise<
   if (!can(actor, "events.write")) throw forbidden();
   await db.transaction(async (tx) => {
     await lockVisibleEvent(tx, actor, eventId);
-    if (await findBeo(tx, eventId, true)) return;
-    const [row] = await tx
-      .insert(beos)
-      .values({ eventId, status: "working_on", snapshot: {}, createdBy: actor.userId, updatedBy: actor.userId })
-      .returning();
-    const event = await getEvent(asDb(tx), reader(actor), eventId);
-    await seedParts(tx, actor, row, event.areas.map((area) => area.name));
-    const fields = beoFields(await assembleBeo(tx, actor, eventId, row));
-    await tx.update(beos).set({ snapshot: snapshotOfFields(fields) }).where(eq(beos.id, row.id));
+    await ensureBeoDraft(tx, actor.userId, eventId);
   });
   return getBeo(db, actor, eventId);
+}
+
+// Used by the planning job and the explicit BEO action. A retry preserves the
+// existing draft, its edits and approval history.
+export async function ensureBeoDraft(tx: DbLike, userId: string, eventId: string) {
+  if (await findBeo(tx, eventId, true)) return false;
+  const actor: Actor = { userId, role: "admin", employmentType: "full_time" };
+  const [row] = await tx.insert(beos)
+    .values({ eventId, status: "working_on", snapshot: {}, createdBy: userId, updatedBy: userId })
+    .returning();
+  const event = await getEvent(asDb(tx), actor, eventId);
+  await seedParts(tx, actor, row, event.areas.map((area) => area.name));
+  const fields = beoFields(await assembleBeo(tx, actor, eventId, row));
+  await tx.update(beos).set({ snapshot: snapshotOfFields(fields) }).where(eq(beos.id, row.id));
+  return true;
 }
 
 // The parts of the BEO that no other record owns yet.
