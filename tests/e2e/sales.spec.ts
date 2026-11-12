@@ -12,7 +12,7 @@ test("sales tracker filters, saved views, export and live proposal stages", asyn
   await expect(page.getByRole("heading", { name: "Sales tracker" })).toBeVisible();
   await page.getByLabel("Type").selectOption("proposal");
   await expect(page.getByRole("table").getByText("Gala proposal")).toBeVisible();
-  await page.getByLabel("Search").fill("Gala");
+  await page.getByRole("textbox", { name: "Search", exact: true }).fill("Gala");
   await page.getByLabel("New view name").fill("Gala proposals");
   await page.getByRole("button", { name: "Save view" }).click();
   await expect(page.getByLabel("Saved views").locator("option", { hasText: "Gala proposals" })).toHaveCount(1);

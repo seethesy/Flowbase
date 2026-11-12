@@ -44,7 +44,7 @@ test("legacy routes redirect and retain proposal filters", async ({ page }) => {
   await page.goto("/#/contracts?view=table&stage=Sent");
   await expect(page).toHaveURL(/#\/proposals\?view=table&stage=Sent$/);
   await expect(
-    page.getByRole("heading", { name: "Proposals", exact: true }),
+    page.getByRole("heading", { name: "Sales tracker", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Contracts", exact: true }),
