@@ -84,6 +84,7 @@ const rental = (
       rental: {},
     }).rental!,
     vendorName: null,
+    supplierName: null,
     ...overrides,
   },
   stock,

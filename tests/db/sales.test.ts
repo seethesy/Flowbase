@@ -32,7 +32,7 @@ beforeEach(async () => {
       startsAt: new Date(`2026-${i === 2 ? "12" : "11"}-${String(12 + i).padStart(2, "0")}T23:00:00Z`),
       status: i === 2 ? "preparation" : "finished", assignedSalespersonId: owner });
     await db.insert(s.proposals).values({ id: ids.proposals[i], eventId: ids.events[i], clientId: ids.client,
-      title: `Proposal ${i + 1}`, stage: i === 0 ? "signed" : i === 1 ? "lost" : "finalized", assignedSalespersonId: owner });
+      title: `Proposal ${i + 1}`, stage: i === 2 ? "finalized" : "signed", assignedSalespersonId: owner });
     await db.insert(s.proposalVersions).values({ id: ids.versions[i], proposalId: ids.proposals[i], number: 1,
       status: "ready", completedAt: new Date(), docx: { key: `test-${i}`, fileName: `test-${i}.docx`, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
     await db.update(s.proposals).set({ currentVersionId: ids.versions[i] }).where(eq(s.proposals.id, ids.proposals[i]));
@@ -63,7 +63,7 @@ describe("sales dataset (FLOW-117/118/121)", () => {
   it("shows all statuses, balances and the booked lifetime total for a client", async () => {
     const result = salesClientSchema.parse(await (await call(admin.id, "admin", `/api/sales/clients/${ids.client}`)).json());
     expect(result.events.map((event) => event.status).sort()).toEqual(["finished", "finished", "preparation"]);
-    expect(result.events.map((event) => event.balanceCents).sort()).toEqual([80_000, 180_000, 280_000]);
+    expect(result.events.map((event) => event.balanceCents).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([80_000, 180_000, 280_000]);
     expect(result.lifetimeBookedCents).toBe(600_000);
     expect(result.events.every((event) => event.proposals[0].versions[0].number === 1)).toBe(true);
   });
@@ -75,6 +75,10 @@ describe("sales dataset (FLOW-117/118/121)", () => {
     const own = salesReportSchema.parse(await (await call(salespeople[0].id, "salesperson", "/api/sales/reports")).json());
     expect(own.pipeline.reduce((sum, row) => sum + row.count, 0)).toBe(2);
     expect(own.bookedByMonth).toEqual([{ month: "2026-11", count: 2, totalCents: 300_000 }]);
+    await db.update(s.proposals).set({ stage: "lost" }).where(eq(s.proposals.id, ids.proposals[1]));
+    const decided = salesReportSchema.parse(await (await call(admin.id, "admin", "/api/sales/reports?from=2026-11-01&to=2026-12-31")).json());
+    expect(decided.winBySource.find((row) => row.source === "Referral")?.rate).toBe(1);
+    expect(decided.winBySource.find((row) => row.source === "Bark")?.rate).toBe(0);
   });
   it("stores saved views per user", async () => {
     const response = await call(salespeople[0].id, "salesperson", "/api/sales/views", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Mine", filter: { kind: "proposal" } }) });

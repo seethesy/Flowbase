@@ -1,5 +1,5 @@
 {
-  "id": "b9fae6ba-47fa-4d59-b1e7-5a860c3381e3",
+  "id": "18efb04d-a4ec-4fd8-ad11-16abdb0fd534",
   "prevId": "129e6a94-2f43-423e-9b4b-ca57d51c24b2",
   "version": "7",
   "dialect": "postgresql",
@@ -5866,6 +5866,26 @@
           "notNull": true,
           "default": "''"
         },
+        "subcategory": {
+          "name": "subcategory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "pull_owner": {
+          "name": "pull_owner",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "flags": {
+          "name": "flags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "color": {
           "name": "color",
           "type": "text",
@@ -5967,6 +5987,10 @@
         "inventory_items_ratio_basis_check": {
           "name": "inventory_items_ratio_basis_check",
           "value": "\"inventory_items\".\"ratio_basis\" in ('per_guest', 'per_table', 'per_event')"
+        },
+        "inventory_items_pull_owner_check": {
+          "name": "inventory_items_pull_owner_check",
+          "value": "\"inventory_items\".\"pull_owner\" in ('pull_lead', 'production_lead', 'sales_manager')"
         }
       },
       "isRLSEnabled": true
@@ -6098,6 +6122,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "components": {
           "name": "components",
           "type": "jsonb",
@@ -6127,6 +6157,19 @@
           "tableTo": "vendors",
           "columnsFrom": [
             "vendor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "inventory_rental_details_supplier_id_vendors_id_fk": {
+          "name": "inventory_rental_details_supplier_id_vendors_id_fk",
+          "tableFrom": "inventory_rental_details",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "supplier_id"
           ],
           "columnsTo": [
             "id"
@@ -10205,98 +10248,6 @@
           "value": "\"reservations\".\"window_end\" >= \"reservations\".\"window_start\""
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.sales_views": {
-      "name": "sales_views",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filter": {
-          "name": "filter",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "sales_views_user_idx": {
-          "name": "sales_views_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.settings": {
