@@ -146,14 +146,17 @@ export async function vendorItems(
       code: inventoryItems.code,
       kind: inventoryItems.kind,
       subtype: inventoryItems.subtype,
-      subRental: sql<boolean>`${inventoryRentalDetails.vendorId} is not null`,
+      subRental: sql<boolean>`coalesce(${inventoryRentalDetails.vendorId} = ${vendorId}, false)`,
     })
     .from(inventoryItems)
     .leftJoin(
       inventoryRentalDetails,
       and(
         eq(inventoryRentalDetails.itemId, inventoryItems.id),
-        eq(inventoryRentalDetails.vendorId, vendorId),
+        or(
+          eq(inventoryRentalDetails.vendorId, vendorId),
+          eq(inventoryRentalDetails.supplierId, vendorId),
+        ),
       ),
     )
     .leftJoin(

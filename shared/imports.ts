@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  barInventoryRows,
+  masterInventoryRows,
+  type ImportNote,
+} from "./import-inventory";
 import { id, text } from "./schema-primitives";
 
 // Data import framework (FLOW-47, ADR-09). The browser parses the CSV or XLSX file,
@@ -19,6 +24,10 @@ export const importTransformSchema = z.discriminatedUnion("type", [
   // Grouped rows leave a field blank under the first row of the group; a blank
   // `field` takes the value of the row above.
   z.object({ type: z.literal("fill_down"), field: z.string() }),
+  // Whole-sheet row rules of the inventory importers (shared/import-inventory.ts):
+  // skipped, merged and renamed rows (master) or category rows (bar). Dropped and
+  // renamed rows come back as notes for the dry-run report.
+  z.object({ type: z.literal("inventory_rows"), layout: z.enum(["master", "bar"]) }),
 ]);
 export type ImportTransform = z.infer<typeof importTransformSchema>;
 
@@ -68,6 +77,10 @@ export const importRowPlanSchema = z.object({
   errors: z.array(z.string()),
   // Existing records this new row may duplicate (same name, not the same key).
   duplicates: z.array(z.object({ id, label: z.string() })),
+  // What the importer will make of the row, and anything to review (FLOW-78,
+  // FLOW-91); only importers that describe their rows set them.
+  summary: z.string().optional(),
+  notes: z.array(z.string()).optional(),
 });
 export type ImportRowPlan = z.infer<typeof importRowPlanSchema>;
 
@@ -115,9 +128,25 @@ export function applyTransforms(
   rows: (ImportRow & { cells: string[] })[],
   transforms: ImportTransform[],
 ): ImportRow[] {
+  return applyTransformsWithNotes(rows, transforms).rows;
+}
+
+// Like applyTransforms, plus a note for each row an inventory transform dropped
+// or renamed, so the dry run accounts for every row of the file.
+export function applyTransformsWithNotes(
+  rows: (ImportRow & { cells: string[] })[],
+  transforms: ImportTransform[],
+): { rows: ImportRow[]; notes: ImportNote[] } {
   let current = rows;
+  const notes: ImportNote[] = [];
   for (const transform of transforms) {
-    if (transform.type === "category_headers") {
+    if (transform.type === "inventory_rows") {
+      const result = (
+        transform.layout === "master" ? masterInventoryRows : barInventoryRows
+      )(current);
+      current = result.rows;
+      notes.push(...result.notes);
+    } else if (transform.type === "category_headers") {
       let heading = "";
       current = current.flatMap((row) => {
         const filled = row.cells.filter((cell) => !blank(cell));
@@ -142,7 +171,10 @@ export function applyTransforms(
       });
     }
   }
-  return current.map(({ rowNumber, values }) => ({ rowNumber, values }));
+  return {
+    rows: current.map(({ rowNumber, values }) => ({ rowNumber, values })),
+    notes,
+  };
 }
 
 // The heading row: the sheet's first row with anything in it.

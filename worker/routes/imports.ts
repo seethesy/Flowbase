@@ -19,13 +19,13 @@ import {
   getImport,
   getImportModule,
   importBatch,
-  importModules,
   listImportModules,
   listImports,
   planImportRows,
   startImport,
   type ImportModule,
 } from "../records/imports";
+import { registeredImportModules } from "../records/import-inventory";
 
 // Data imports (FLOW-47), mounted at /api/imports. Every route needs a signed-in
 // user; each importer then requires its own permission (an inventory importer
@@ -39,7 +39,7 @@ export function importRoutes(options: {
 }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const modules = options.modules ?? importModules;
+  const modules = options.modules ?? registeredImportModules;
   routes.use("*", requireActor(options.resolveActor));
   const param = (c: AppContext) => {
     const parsed = uuid.safeParse(c.req.param("id"));

@@ -25,7 +25,7 @@ import type { ProposalMapping } from "../../shared/proposal-mapping";
 import { proposalLineKinds } from "../../shared/proposal-mapping";
 import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
-import type { includedItemSchema } from "../../shared/inventory";
+import { pullOwners, type includedItemSchema } from "../../shared/inventory";
 import { importStatuses } from "../../shared/imports";
 import { taskPriorities, taskStatuses, taskTypes, type TaskFilter } from "../../shared/tasks";
 import { notificationTypes } from "../../shared/notifications";
@@ -981,6 +981,11 @@ export const inventoryItems = pgTable(
     description: text("description").notNull().default(""),
     unit: text("unit").notNull().default("each"),
     group: text("group").notNull().default(""),
+    // Source-sheet second level, who pulls it by default, and the follow-ups an
+    // import left on it (FLOW-165).
+    subcategory: text("subcategory").notNull().default(""),
+    pullOwner: text("pull_owner", { enum: pullOwners }),
+    flags: jsonb("flags").$type<string[]>().notNull().default([]),
     color: text("color").notNull().default(""),
     tier: text("tier").notNull().default(""),
     ratioQuantity: quantity("ratio_quantity"),
@@ -995,6 +1000,7 @@ export const inventoryItems = pgTable(
     trigram("inventory_items_name_trgm_idx", table.name),
     oneOf("inventory_items_kind_check", table.kind, itemKinds),
     oneOf("inventory_items_ratio_basis_check", table.ratioBasis, priceBases),
+    oneOf("inventory_items_pull_owner_check", table.pullOwner, pullOwners),
   ],
 ).enableRLS();
 
@@ -1021,6 +1027,8 @@ export const inventoryRentalDetails = pgTable("inventory_rental_details", {
   vendorId: uuid("vendor_id").references(() => vendors.id),
   vendorCostCents: moneyCents("vendor_cost_cents"),
   leadTimeDays: integer("lead_time_days"),
+  // Where an owned item is bought from (FLOW-165); not a sub-rental.
+  supplierId: uuid("supplier_id").references(() => vendors.id),
   components: jsonb("components")
     .$type<{ itemId: string; quantity: number }[]>()
     .notNull()

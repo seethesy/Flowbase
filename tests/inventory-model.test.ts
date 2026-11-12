@@ -9,102 +9,142 @@ import {
   type ItemInput,
 } from "../shared/inventory";
 
-// FLOW-69 AC3: one row of each shape in the source spreadsheets, as items. The
-// rows follow the shapes the ticket names; FLOW-165 checks them against the real
-// sheets in the private data repo (ADR-27) and keeps these values synthetic.
+// FLOW-69 AC3 and FLOW-165 AC1: one row of each shape in the current source files
+// (Master Inventory "Main", Bar "Master Sheet", Kitchen "Sheet1" in the private
+// data repo, ADR-27), as items. The structure matches the real rows (fields
+// present, empty and formatted as in the files); every value is invented.
+const vendorId = "b0000000-0000-4000-8000-000000000001";
 const rows: Record<string, ItemInput> = {
-  "grouped linen tier": {
+  // Category, Subcategory, Item, Qty, Description, Location, Pull Owner, Cost,
+  // Distributor all filled.
+  "rental with category, subcategory, location, pull owner and cost": {
     kind: "rental",
-    subtype: "linen",
-    name: 'Premium 120" Round Tablecloth',
-    category: "Linens",
-    group: "Table Linens",
-    tier: "Premium",
-    color: "Ivory",
-    ratio: { quantity: 1, basis: "per_table" },
-    rental: { priceCents: 2500 },
+    subtype: "equipment",
+    name: "Sample Chafing Dish",
+    category: "Sample Kitchen",
+    subcategory: "Sample Heating",
+    description: "wire",
+    pullOwner: "pull_lead",
+    rental: { internalCostCents: 4000, supplierId: vendorId },
   },
-  "gold/silver cutlery": {
+  // Same Item in several rows, told apart by Description: "<Item> – <Description>".
+  "same-name item split by description": {
+    kind: "rental",
+    subtype: "equipment",
+    name: "Sample Microphone – wireless",
+    category: "Sample AV",
+    subcategory: "Sample Sound",
+    description: "wireless",
+    pullOwner: "production_lead",
+  },
+  // Glassware and tableware rows with a sales-owned pull.
+  "rental pulled by the sales manager": {
     kind: "rental",
     subtype: "tableware",
-    name: "Dinner Fork",
-    category: "Flatware",
-    group: "Cutlery",
-    color: "Gold",
-    ratio: { quantity: 1, basis: "per_guest" },
-    rental: { priceCents: 75 },
+    name: "Sample Menu Easel",
+    category: "Sample Decor",
+    subcategory: "Sample Signage",
+    pullOwner: "sales_manager",
+    rental: {},
   },
-  "per-person glassware": {
-    kind: "rental",
-    subtype: "glassware",
-    name: "Red Wine Glass",
-    category: "Glassware",
-    ratio: { quantity: 2, basis: "per_guest" },
-    rental: { priceCents: 85 },
+  // Guest Disposables and Packing: used up, with a pack size in Description.
+  "guest disposable": {
+    kind: "consumable",
+    subtype: "supply",
+    name: "Sample Plastic Fork",
+    category: "Sample Disposables",
+    subcategory: "Sample Cutlery",
+    description: "72 pk\nLocation: Warehouse",
+    pullOwner: "pull_lead",
+    consumable: { purchaseUnit: "each", preferredVendorId: vendorId },
   },
-  "Full Plasticware Package": {
+  // A priced offering with no stock.
+  "service row": {
     kind: "service",
-    name: "Full Plasticware Package",
-    category: "Disposables",
-    description: "Plates, cutlery, cups and napkins for each guest.",
-    service: { priceCents: 350, priceBasis: "per_guest" },
+    name: "Sample Menu Card Design",
+    category: "Sample Decor",
+    subcategory: "Sample Signage",
+    service: {},
   },
-  "bar liquor": {
+  // The Storage Box rows at the end: no Category, blank Qty, Cost and Location.
+  "uncategorized row left with every flag": {
+    kind: "rental",
+    subtype: "equipment",
+    name: "Sample Loose Item",
+    category: "Uncategorized",
+    flags: ["needs_category", "needs_count", "needs_cost", "confirm_location"],
+    rental: {},
+  },
+  // Bar: Item, Qty, Unit "24pk", Details, Distributor; the category row above
+  // gives Category.
+  "bar beer in a pack": {
     kind: "consumable",
     subtype: "bar",
-    name: "Vodka",
-    category: "Liquor",
-    unit: "each",
+    name: "Sample Lager",
+    category: "Beer",
+    unit: "case",
     consumable: {
       purchaseUnit: "case",
-      packCount: 12,
-      eachSize: { quantity: 750, unit: "ml" },
-      recipeUnit: "fl_oz",
-      unitCostCents: 21000,
-      preferredVendor: "Republic National",
+      packCount: 24,
+      preferredVendor: "Sample Beer Distributor",
+      preferredVendorId: vendorId,
     },
+    bar: { brand: "Sample Lager" },
   },
-  // FLOW-90: brand or varietal, tier, container and size, pack size, distributor.
-  "bar wine": {
+  // "WINE (White)": category Wine, subcategory White; Unit "12pk".
+  "bar wine with a type": {
     kind: "consumable",
     subtype: "bar",
-    name: "House Pinot Grigio",
+    name: "Sample Pinot Grigio",
     category: "Wine",
-    tier: "mid",
-    consumable: {
-      purchaseUnit: "case",
-      packCount: 12,
-      eachSize: { quantity: 750, unit: "ml" },
-      unitCostCents: 9600,
-      preferredVendor: "Imperio",
-      parLevel: 24,
-    },
-    bar: { brand: "Pinot Grigio", subcategory: "White", container: "bottle" },
+    unit: "case",
+    consumable: { purchaseUnit: "case", packCount: 12, preferredVendorId: vendorId },
+    bar: { brand: "Sample Pinot Grigio", subcategory: "White" },
   },
-  "rail vodka": {
+  // Liquor: Unit blank (counted in bottles), Details a tier, "rail/mid" keeps
+  // the first tier.
+  "bar liquor with a tier": {
     kind: "consumable",
     subtype: "bar",
-    name: "Rail Vodka",
+    name: "Sample Vodka",
     category: "Liquor",
     tier: "rail",
-    consumable: { purchaseUnit: "case", packCount: 12 },
-    bar: { brand: "", subcategory: "Vodka", container: "bottle" },
+    description: "Tier: rail/mid",
+    consumable: { purchaseUnit: "each", preferredVendorId: vendorId },
+    bar: { brand: "Sample Vodka", subcategory: "Vodka" },
   },
-  "kitchen ingredient": {
+  // Unit "(64 floz)": a container size, not a pack.
+  "bar mixer in a container": {
+    kind: "consumable",
+    subtype: "bar",
+    name: "Sample Cranberry Juice",
+    category: "Mixers & Juices",
+    consumable: { purchaseUnit: "each", eachSize: { quantity: 64, unit: "fl_oz" } },
+    bar: { brand: "Sample Cranberry Juice" },
+  },
+  // Bar rows whose Qty is text ("2 case") still import, flagged for a count.
+  "bar item with an unreadable count": {
+    kind: "consumable",
+    subtype: "bar",
+    name: "Sample Cola",
+    category: "Soft Beverages",
+    description: "Sheet quantity: 2 case",
+    flags: ["needs_count"],
+    consumable: { purchaseUnit: "each" },
+    bar: { brand: "Sample Cola" },
+  },
+  // Kitchen: Category, Subcategory, Item, Quantity, Cost/Unit, Distributor.
+  "kitchen ingredient with category and subcategory": {
     kind: "consumable",
     subtype: "ingredient",
-    name: "Heavy Cream",
-    category: "Dairy",
-    unit: "qt",
+    name: "Sample Beef Chuck",
+    category: "Sample Protein",
+    subcategory: "Sample Beef & Lamb",
+    unit: "lb",
     consumable: {
-      purchaseUnit: "case",
-      packCount: 6,
-      eachSize: { quantity: 1, unit: "qt" },
-      recipeUnit: "cup",
-      unitCostCents: 2400,
-      preferredVendor: "Sysco",
-      parLevel: 6,
-      allergens: ["milk"],
+      purchaseUnit: "lb",
+      unitCostCents: 899,
+      preferredVendor: "Sample Food Distributor",
     },
   },
 };
@@ -116,8 +156,40 @@ describe("inventory item model", () => {
     expect(parsed.data).toMatchObject(row);
   });
 
+  it("represents every column the current files add", () => {
+    const item = itemInputSchema.parse(
+      rows["rental with category, subcategory, location, pull owner and cost"],
+    );
+    expect(item).toMatchObject({
+      subcategory: "Sample Heating",
+      pullOwner: "pull_lead",
+      rental: { supplierId: vendorId, internalCostCents: 4000 },
+    });
+    expect(
+      itemInputSchema.parse(rows["uncategorized row left with every flag"]).flags,
+    ).toEqual(["needs_category", "needs_count", "needs_cost", "confirm_location"]);
+  });
+
+  it("leaves the new fields out when a save doesn't send them, to keep the stored values", () => {
+    const item = itemInputSchema.parse({ kind: "service", name: "Sample Service", service: {} });
+    expect(item.subcategory).toBeUndefined();
+    expect(item.pullOwner).toBeUndefined();
+    expect(item.flags).toBeUndefined();
+  });
+
+  it.each([
+    ["a pull owner that isn't a role", { pullOwner: "intern" }],
+    ["a flag that doesn't exist", { flags: ["needs_coffee"] }],
+    ["a subcategory over 100 characters", { subcategory: "x".repeat(101) }],
+  ])("rejects %s", (_name, extra) => {
+    expect(
+      itemInputSchema.safeParse({ kind: "rental", subtype: "equipment", name: "Chair", ...extra })
+        .success,
+    ).toBe(false);
+  });
+
   it("defaults the optional fields", () => {
-    const item = itemInputSchema.parse(rows["per-person glassware"]);
+    const item = itemInputSchema.parse(rows["service row"]);
     expect(item).toMatchObject({
       code: "",
       unit: "each",

@@ -17,6 +17,9 @@ const ids = Array.from(
 );
 const item = (id: string, input: unknown): InventoryItem =>
   itemSchema.parse({
+    subcategory: "",
+    pullOwner: null,
+    flags: [],
     ...itemInputSchema.parse(input),
     id,
     rental: null,
