@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -391,8 +392,10 @@ describe("pull list (FLOW-134)", () => {
     const set = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`, { date: "2026-12-10", time: "09:30", pullerId: null });
     expect(set).toMatchObject({ scheduledDate: "2026-12-10", scheduledTime: "09:30", missingSchedule: true });
     expect(set.scheduledAt).toBe("2026-12-10T14:30:00.000Z");
+    const [puller] = await db.insert(schema.users).values({ id: randomUUID(), email: `${randomUUID()}@example.test`,
+      name: "Puller", role: "staff", employmentType: "full_time", mobile: "", status: "active" }).returning();
     const ready = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`,
-      { date: "2026-12-10", time: "09:30", pullerId: people.admin });
+      { date: "2026-12-10", time: "09:30", pullerId: puller.id });
     expect(ready.missingSchedule).toBe(false);
     const cleared = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`, { date: null, time: null, pullerId: null });
     expect(cleared.scheduledAt).toBeNull();
