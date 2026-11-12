@@ -37,6 +37,7 @@ import {
 import { EventForm, EventTable } from "./events";
 import { Attachments } from "./attachments";
 import { StaleReload, isStale } from "../components/stale-reload";
+import { ClientSalesTracker } from "./sales";
 import "./clients.css";
 
 import { initials, hidden, LoadError } from "../components/record-display";
@@ -564,7 +565,7 @@ export function ClientDetail() {
         </p>
       )}
       <Tabs
-        tabs={["Overview", "Contacts", "Events", "Files"]}
+        tabs={["Overview", "Contacts", "Events", "Proposal tracker", "Files"]}
         value={tab}
         onChange={setTab}
       />
@@ -616,6 +617,7 @@ export function ClientDetail() {
         {tab === "Events" && (
           <EventTable events={events.data ?? []} error={events.error} />
         )}
+        {tab === "Proposal tracker" && <ClientSalesTracker clientId={c.id} />}
         {tab === "Files" && (
           <Attachments recordType="client" recordId={c.id} title="Client files" />
         )}

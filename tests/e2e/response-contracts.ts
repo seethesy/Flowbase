@@ -82,6 +82,7 @@ import { approvalRequestSchema } from "../../shared/approvals";
 import { calendarSchema } from "../../shared/calendar";
 import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
 import { orderListSchema } from "../../shared/order-lists";
+import { salesClientSchema, salesDataSchema, salesReportSchema, salesViewSchema } from "../../shared/sales";
 import {
   importBatchResultSchema,
   importLogSchema,
@@ -106,6 +107,12 @@ export function responseSchema(
   if (resource === "admin" && id === "users")
     return method === "GET" ? userSchema.array() : userSchema;
   if (resource === "search") return searchResultSchema.array();
+  if (resource === "sales") {
+    if (id === "reports") return salesReportSchema;
+    if (id === "views") return action || method === "POST" ? salesViewSchema : salesViewSchema.array();
+    if (id === "clients") return salesClientSchema;
+    return salesDataSchema;
+  }
   if (resource === "time")
     return id === "report" ? timeReportSchema : activityRecordedSchema;
   if (resource === "attachments")

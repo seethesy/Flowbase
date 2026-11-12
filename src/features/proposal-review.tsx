@@ -82,6 +82,7 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
       <h3>Review and map</h3>
       <p className="muted">Confirm each value against the document. Add lines that were not extracted.</p>
       {error && <p role="alert" className="error-message">{error}</p>}
+      <FormField label="Proposal total (USD) *"><input aria-label="Proposal total (USD) *" type="number" min="0" step="0.01" value={draft.totalCents === null ? "" : (draft.totalCents / 100).toFixed(2)} disabled={!canWrite} onChange={(e) => setDraft({ ...draft, totalCents: e.target.value === "" ? null : Math.round(Number(e.target.value) * 100) })} /></FormField>
       <section><h4>Event details</h4>
         {Object.entries(fieldLabels).map(([key, label]) => <div className="proposal-review-entry" key={key}>
           <FormField label={label}><input value={draft.fields[key]?.value ?? ""} disabled={!canWrite} onChange={(e) => setDraft({ ...draft, fields: { ...draft.fields, [key]: { value: e.target.value, sourceBlockId: draft.fields[key]?.sourceBlockId ?? null } } })} /></FormField>

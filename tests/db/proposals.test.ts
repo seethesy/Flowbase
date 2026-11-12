@@ -339,7 +339,7 @@ const upload = async (
 
 describe("proposal approval, revision, booking and addendum (FLOW-127–130)", () => {
   const mapping = (versionId: string, guestCount: string, rentalId: string) => ({
-    versionId, fields: { guestCount: { value: guestCount, sourceBlockId: null } },
+    versionId, totalCents: 100_000, fields: { guestCount: { value: guestCount, sourceBlockId: null } },
     lines: [{ id: "chairs", kind: "rental", section: "", name: "Chairs", notes: "", quantity: 20, sourceBlockId: null, catalogId: rentalId, notTracked: false }],
     staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [],
   });
@@ -539,12 +539,15 @@ describe("proposal review and mapping (FLOW-125)", () => {
     const proposal = await upload(await newProposal(event), { docx: docx() });
     const versionId = proposal.versions[0].id;
     const line = { id: "rental-1", kind: "rental", section: "", name: "Gold chairs", notes: "", quantity: 12, sourceBlockId: "block-2", catalogId: null, notTracked: false };
-    const mapping = { versionId, fields: {}, lines: [line], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
+    const mapping = { versionId, totalCents: 100_000, fields: {}, lines: [line], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
     const path = `/api/proposals/${proposal.id}/mapping`;
     const blocked = await sam.call("PUT", path, mapping);
     expect(blocked.status).toBe(400);
     expect(await blocked.text()).toContain("Gold chairs");
     const ready = { ...mapping, lines: [{ ...line, notTracked: true }], staffing: [{ position: "Server", count: 1, sourceBlockId: "block-3" }], paymentSchedule: [{ value: "Deposit $500 due at signing", sourceBlockId: "block-4" }] };
+    const missingTotal = await sam.call("PUT", path, { ...ready, totalCents: null });
+    expect(missingTotal.status).toBe(400);
+    expect(await missingTotal.text()).toContain("Confirm the total");
     expect((await sam.call("PUT", path, ready)).status).toBe(200);
     const [slot] = await db.select().from(schema.eventStaffSlots);
     await db.insert(schema.users).values({ id: people.kit, email: "kit-proposal@example.test", role: "kitchen_staff", employmentType: "full_time", mobile: "" }).onConflictDoNothing();

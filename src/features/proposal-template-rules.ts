@@ -9,7 +9,7 @@ const isHeading = (text: string) => /^STAFFINGUniform/i.test(text) || /^(?:COCKT
 
 /** Rules for the two finalized proposal layouts. Unknown blocks stay available for review. */
 export function extractProposalTemplate(blocks: ProposalBlock[], versionId: string): ProposalMapping {
-  const mapping: ProposalMapping = { versionId, fields: {}, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
+  const mapping: ProposalMapping = { versionId, totalCents: null, fields: {}, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
   const seen = new Set<string>();
   let section = "";
   let menuSection = "";

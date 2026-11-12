@@ -34,7 +34,7 @@ describe("proposal review", () => {
 
   it("names unmatched rentals and accepts not tracked lines", () => {
     const mapping: ProposalMapping = {
-      versionId: "00000000-0000-4000-8000-000000000001", fields: {}, staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [],
+      versionId: "00000000-0000-4000-8000-000000000001", totalCents: null, fields: {}, staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [],
       lines: [
         { id: "1", kind: "rental", section: "", name: "Gold chairs", notes: "", quantity: 12, sourceBlockId: "block-2", catalogId: null, notTracked: false },
         { id: "2", kind: "menu", section: "Mains", name: "Tuscan Chicken", notes: "", quantity: 50, sourceBlockId: "block-1", catalogId: null, notTracked: true },
@@ -43,7 +43,7 @@ describe("proposal review", () => {
     expect(unmatchedLines(mapping)).toEqual(["Gold chairs"]);
   });
   it("records one guest-count change with both values", () => {
-    const previous: ProposalMapping = { versionId: "00000000-0000-4000-8000-000000000001", fields: { guestCount: { value: "100", sourceBlockId: "block-1" } }, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
+    const previous: ProposalMapping = { versionId: "00000000-0000-4000-8000-000000000001", totalCents: null, fields: { guestCount: { value: "100", sourceBlockId: "block-1" } }, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
     const next: ProposalMapping = { ...previous, versionId: "00000000-0000-4000-8000-000000000002", fields: { guestCount: { value: "120", sourceBlockId: "block-2" } } };
     expect(diffProposalMappings(previous, next)).toEqual([{ path: "fields.guestCount", oldValue: "100", newValue: "120" }]);
   });

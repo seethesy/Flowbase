@@ -26,6 +26,7 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   await page.getByRole("listitem", { name: "Gala proposal" }).getByRole("button", { name: "Open" }).click();
   const dialog = page.getByRole("dialog", { name: "Gala proposal" });
   await expect(dialog.getByRole("heading", { name: "Review and map" })).toBeVisible();
+  await dialog.getByLabel("Proposal total (USD) *").fill("1250.00");
   await expect(dialog.getByText("Not extracted").first()).toBeVisible();
   await dialog.getByRole("button", { name: "Add line", exact: true }).click();
   const menu = dialog.locator(".proposal-mapping-line").first();

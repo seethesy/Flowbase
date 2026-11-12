@@ -17,6 +17,8 @@ export type ProposalLine = z.infer<typeof proposalLineSchema>;
 const sourced = z.object({ value: z.string().max(2000), sourceBlockId: z.string().nullable() });
 export const proposalMappingSchema = z.object({
   versionId: id,
+  // Reviewed against this version of the document; null until confirmed.
+  totalCents: z.number().int().nonnegative().nullable().default(null),
   fields: z.record(z.string(), sourced).default({}),
   lines: z.array(proposalLineSchema).max(500).default([]),
   staffing: z.array(z.object({ position: z.string().min(1).max(100), count: z.number().int().min(1).max(30), sourceBlockId: z.string().nullable() })).max(100).default([]),
@@ -45,6 +47,7 @@ export function diffProposalMappings(previous: ProposalMapping, next: ProposalMa
     if (JSON.stringify(oldValue ?? null) !== JSON.stringify(newValue ?? null))
       changes.push({ path, oldValue: oldValue ?? null, newValue: newValue ?? null });
   };
+  compare("totalCents", previous.totalCents, next.totalCents);
   for (const key of new Set([...Object.keys(previous.fields), ...Object.keys(next.fields)]))
     compare(`fields.${key}`, previous.fields[key]?.value, next.fields[key]?.value);
   const oldLines = new Map(previous.lines.map((line) => [line.id, line]));

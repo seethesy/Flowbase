@@ -74,6 +74,7 @@ describe("finalized proposal template rules", () => {
     const previous = {
       ...mapping,
       versionId: "00000000-0000-4000-8000-000000000002",
+      totalCents: 324010,
       lines: [{ ...recipe, catalogId: "00000000-0000-4000-8000-000000000003", sourceBlockId: "obsolete" }],
     };
     const next = carryPreviousProposalReview(mapping, previous);
@@ -81,5 +82,6 @@ describe("finalized proposal template rules", () => {
       catalogId: previous.lines[0].catalogId, sourceBlockId: recipe.sourceBlockId,
     });
     expect(next.versionId).toBe(versionId);
+    expect(next.totalCents).toBeNull();
   });
 });

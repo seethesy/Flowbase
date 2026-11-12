@@ -303,7 +303,7 @@ export function AppShell() {
           <span>
             <span className="footer-dot" /> Flowbase workspace.
           </span>
-          <span>Dashboard and proposals contain sample data</span>
+          <span>Dashboard contains sample data</span>
         </footer>
       </div>
       {mobile && (

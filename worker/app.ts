@@ -46,6 +46,7 @@ import { approvalRoutes } from "./routes/approvals";
 import { calendarRoutes } from "./routes/calendar";
 import { dayOfRoutes } from "./routes/day-of";
 import { proposalRoutes } from "./routes/proposals";
+import { salesRoutes } from "./routes/sales";
 import { vendorRoutes } from "./routes/vendors";
 import { orderListRoutes } from "./routes/order-lists";
 import { announceChanges } from "./realtime";
@@ -286,6 +287,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/day-of", dayOfRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
+  app.route("/api/sales", salesRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));
   app.route("/api", planningRoutes(options));
   app.route("/api", recordRoutes(options));
