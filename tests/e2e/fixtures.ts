@@ -105,6 +105,7 @@ export const chairs = (): InventoryItem => ({
   rental: {
     ...rentalDetailsSchema.parse({ priceCents: 800 }),
     vendorName: null,
+    supplierName: null,
   },
   service: null,
   consumable: null,

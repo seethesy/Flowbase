@@ -35,7 +35,7 @@ const item: InventoryItem = {
   tier: "",
   ratio: null,
   active: true,
-  rental: { priceCents: null, dimensions: "", colors: [], notes: "", assemblyNotes: "", bufferDaysBefore: 1, bufferDaysAfter: 1, vendorId: null, leadTimeDays: null, vendorName: null, components: [] },
+  rental: { priceCents: null, dimensions: "", colors: [], notes: "", assemblyNotes: "", bufferDaysBefore: 1, bufferDaysAfter: 1, vendorId: null, leadTimeDays: null, vendorName: null, supplierName: null, components: [] },
   consumable: null,
   service: null,
   bar: null,
