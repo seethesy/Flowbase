@@ -12,7 +12,6 @@ export type Bindings = {
   // Ingestion secrets (Worker secrets, FLOW-28). Comma-separate several to rotate.
   INGEST_TOKEN_LEADS?: string;
   INGEST_TOKEN_THUMBTACK?: string;
-  SHOPIFY_WEBHOOK_SECRET?: string;
   // File storage (FLOW-42). Account id and bucket are vars in wrangler.jsonc; the
   // R2 API token's key pair are Worker secrets used to sign upload/download URLs.
   R2_ACCOUNT_ID?: string;

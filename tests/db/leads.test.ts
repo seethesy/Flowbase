@@ -722,3 +722,55 @@ describe("conversion (FLOW-112)", () => {
     expect(row).toMatchObject({ status: "qualified", convertedEventId: null });
   });
 });
+
+describe("manual entry (FLOW-101)", () => {
+  const phoneCall = {
+    source: "Phone",
+    name: "Priya Shah",
+    phone: "(202) 555-0177",
+    eventDate: "2026-12-12",
+    guestCount: 40,
+    message: "Called about a rehearsal dinner.",
+  };
+
+  it("shows a lead entered by phone in the inbox with source Phone (AC1)", async () => {
+    const created = await admin.post<Lead>("/api/leads", phoneCall, 201);
+    expect(created).toMatchObject({
+      channel: "manual",
+      source: "Phone",
+      status: "new",
+      name: "Priya Shah",
+      assignedSalespersonId: null,
+    });
+    const inbox = await admin.get<Lead[]>("/api/leads?source=Phone");
+    expect(inbox.map((lead) => lead.id)).toEqual([created.id]);
+    expect(await jobTypes()).toContain("event:lead.received");
+  });
+
+  it("assigns a salesperson's lead to them, so only they and managers see it", async () => {
+    const created = await sam.post<Lead>("/api/leads", phoneCall, 201);
+    expect(created.assignedSalespersonId).toBe(people.sam);
+    expect(names(await sam.get<Lead[]>("/api/leads"))).toEqual(["Priya Shah"]);
+    expect(await sue.get<Lead[]>("/api/leads")).toEqual([]);
+  });
+
+  it("audits the creation and flags a duplicate on save (FLOW-110)", async () => {
+    await seed({ name: "Priya Shah", email: "", phone: "(202) 555-0177" });
+    const created = await admin.post<Lead>("/api/leads", phoneCall, 201);
+    const history = await admin.get<{ action: string }[]>(
+      `/api/leads/${created.id}/history`,
+    );
+    expect(history.map((entry) => entry.action)).toEqual(["create"]);
+    const duplicates = await admin.get<{ lead: { id: string } }[]>(
+      "/api/leads/duplicates",
+    );
+    expect(duplicates.map((pair) => pair.lead.id)).toContain(created.id);
+  });
+
+  it("requires a name and a source, and refuses roles that don't sell", async () => {
+    expect((await admin.call("POST", "/api/leads", { ...phoneCall, name: " " })).status).toBe(400);
+    expect((await admin.call("POST", "/api/leads", { ...phoneCall, source: "" })).status).toBe(400);
+    expect((await kitchen.call("POST", "/api/leads", phoneCall)).status).toBe(403);
+    expect(await db.select().from(leads)).toHaveLength(0);
+  });
+});
