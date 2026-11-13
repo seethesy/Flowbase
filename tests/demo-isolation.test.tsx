@@ -34,12 +34,11 @@ it("does not request item details for inventory subpages", () => {
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("labels every fixture dashboard widget as sample data", async () => {
-  render(<TestAuth><DemoProvider><MemoryRouter><DemoScreen><Dashboard /></DemoScreen></MemoryRouter></DemoProvider></TestAuth>);
-  await screen.findByText("Active Clients (sample data)");
-  for (const label of ["Open Proposals", "Proposals Won This Month", "Inventory Alerts", "Recent activity", "Recent proposals", "Proposals by status", "Stock needs attention", "Coming up"]) {
-    expect(screen.getByText(`${label} (sample data)`)).toBeInTheDocument();
-  }
+it("loads the role home without requesting demo data", async () => {
+  render(<TestAuth><MemoryRouter><Dashboard /></MemoryRouter></TestAuth>);
+  expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
+  await screen.findByRole("alert");
+  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/api/demo/"))).toBe(false);
 });
 
 function SampleProposal() {
