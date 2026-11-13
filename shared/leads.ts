@@ -23,7 +23,6 @@ export const defaultLeadSources = [
   "Eventective",
   "Thumbtack",
   "Shopify",
-  "Website",
   "Referral",
   "Phone",
   "Walk-in",
