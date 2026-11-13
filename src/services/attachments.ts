@@ -7,14 +7,24 @@ import {
   type AttachmentRecordType,
   type UploadRequest,
 } from "../../shared/attachments";
+import { attachmentsKey, imageKey, isNetworkError, offlineDb, safely } from "../offline/db";
 import { request } from "./core";
 
 export const attachmentsApi = {
-  list: (recordType: AttachmentRecordType, recordId: string) =>
-    request(
-      attachmentSchema.array(),
-      `/api/attachments?recordType=${recordType}&recordId=${encodeURIComponent(recordId)}`,
-    ),
+  // With no signal, the list kept for offline use, its photos served from the
+  // copies saved on this device (FLOW-150).
+  list: async (recordType: AttachmentRecordType, recordId: string) => {
+    try {
+      return await request(
+        attachmentSchema.array(),
+        `/api/attachments?recordType=${recordType}&recordId=${encodeURIComponent(recordId)}`,
+      );
+    } catch (error) {
+      const cached = isNetworkError(error) ? await offlineAttachments(recordType, recordId) : undefined;
+      if (!cached) throw error;
+      return cached;
+    }
+  },
   start: (input: UploadRequest) =>
     request(uploadTicketSchema, "/api/attachments", "POST", input),
   complete: (id: string) =>
@@ -24,6 +34,24 @@ export const attachmentsApi = {
   archive: (id: string) =>
     request(attachmentSchema, `/api/attachments/${id}/archive`, "POST", {}),
 };
+
+async function offlineAttachments(recordType: string, recordId: string) {
+  return safely(async () => {
+    const db = offlineDb();
+    const cached = await db.attachmentLists.get(attachmentsKey(recordType, recordId));
+    if (!cached) return undefined;
+    return Promise.all(
+      cached.items.map(async (file) => {
+        const urls: typeof file.urls = {};
+        for (const variant of Object.keys(file.urls) as (keyof typeof file.urls)[]) {
+          const stored = await db.images.get(imageKey(file.id, variant));
+          if (stored) urls[variant] = URL.createObjectURL(stored.blob);
+        }
+        return { ...file, urls, urlsExpireAt: null };
+      }),
+    );
+  }, undefined);
+}
 
 // Draws the photo at a smaller size and encodes it as JPEG, in the browser
 // (ADR-09): only these resized copies are uploaded, never the original.

@@ -12,6 +12,8 @@ import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
 import { onDataChanged, useLiveUpdates } from "./liveUpdates";
+import { cachedProfile, clearOfflineData, isNetworkError, rememberProfile } from "../offline/db";
+import { syncOfflineBeos } from "../offline/sync";
 
 export const AuthContext = createContext<{
   user: User;
@@ -77,6 +79,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 ? "Your account isn't invited or is inactive. Contact your Admin."
                 : "Your session expired. Sign in to continue.",
             );
+            void clearOfflineData();
             void auth.auth.signOut({ scope: "local" });
           },
         );
@@ -104,6 +107,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
             setLoading(false);
             setError("");
             restoreRoute();
+            // Save this person's upcoming BEOs for reading offline (FLOW-150),
+            // each time Flowbase opens online. A failed sync leaves the last copy.
+            void rememberProfile(profile);
+            void syncOfflineBeos(profile.id).catch(() => undefined);
           }
         };
         const url = new URL(window.location.href);
@@ -148,6 +155,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         }
         const subscription = auth.auth.onAuthStateChange((event) => {
           if (event === "SIGNED_OUT" && active) {
+            void clearOfflineData();
             revision++;
             saveRoute();
             setUser(null);
@@ -191,9 +199,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
         };
         await loadUser();
       })
-      .catch((err: unknown) =>
-        fail(err instanceof Error ? err.message : "Unable to sign in."),
-      );
+      .catch(async (err: unknown) => {
+        // No signal (FLOW-150): the person who signed in on this device reads
+        // their saved BEOs, read-only, without contacting the server.
+        if (isNetworkError(err)) {
+          const saved = await cachedProfile();
+          if (saved && active) {
+            revision++;
+            setUser(saved);
+            setLoading(false);
+            setError("");
+            if (!window.location.hash.startsWith("#/offline"))
+              window.location.hash = "#/offline";
+            return;
+          }
+        }
+        fail(err instanceof Error ? err.message : "Unable to sign in.");
+      });
     return () => {
       active = false;
       dispose();
@@ -205,9 +227,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setLoading(true);
     setUser(null);
     setError("");
-    const { error: signOutError } = await client!.auth.signOut({
+    // Signing out removes every BEO saved for offline use (FLOW-150 AC3).
+    await clearOfflineData();
+    const { error: signOutError } = (await client?.auth.signOut({
       scope: "local",
-    });
+    })) ?? { error: null };
     setLoading(false);
     if (signOutError)
       setError("Sign-out could not be completed. Please retry.");

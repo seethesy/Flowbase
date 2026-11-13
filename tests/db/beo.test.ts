@@ -8,7 +8,7 @@ import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
 import type { EmploymentType, Role } from "../../shared/access";
 import type { ApprovalRequest } from "../../shared/approvals";
-import type { BeoView } from "../../shared/beo";
+import type { BeoView, OfflineBeos } from "../../shared/beo";
 import type { Client, FlowEvent } from "../../shared/core-records";
 import type { EventRoster } from "../../shared/event-staff";
 import { createJobRegistry } from "../../worker/jobs/cron";
@@ -20,7 +20,28 @@ if (!url) throw new Error("DATABASE_URL must point to the disposable CI Postgres
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
 const withDb: RunWithDb = (_env, run) => run(db);
-const env = { ASSETS: { fetch } };
+// Stands in for the R2 binding: the objects in the bucket.
+const bucket = new Map<string, { body: ArrayBuffer; contentType: string }>();
+const env = {
+  ASSETS: { fetch },
+  R2_ACCOUNT_ID: "acct",
+  R2_BUCKET: "flowbase-files",
+  R2_ACCESS_KEY_ID: "key",
+  R2_SECRET_ACCESS_KEY: "secret",
+  FILES: {
+    head: async (key: string) => (bucket.has(key) ? { size: bucket.get(key)!.body.byteLength } : null),
+    delete: async (keys: string | string[]) => {
+      for (const key of [keys].flat()) bucket.delete(key);
+    },
+    get: async (key: string) => {
+      const object = bucket.get(key);
+      return object ? { arrayBuffer: async () => object.body, httpMetadata: { contentType: object.contentType } } : null;
+    },
+    put: async (key: string, body: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }) => {
+      bucket.set(key, { body, contentType: options?.httpMetadata?.contentType ?? "" });
+    },
+  },
+};
 
 const people = {
   admin: "c1500000-0000-4000-8000-000000000001",
@@ -340,6 +361,42 @@ describe("FLOW-144: approval and changes after approval", () => {
     expect(texts[0].body).toContain("BEO changed");
   });
 
+  it("FLOW-227: texts each opted-in recipient once, Admins included, and never twice for one change (AC1)", async () => {
+    await db.update(schema.users).set({ smsConsentAt: new Date() }).where(eq(schema.users.id, people.admin));
+    const event = await seed(soon);
+    await approved(event);
+    await edit(event, { dressCode: "Cocktail" });
+    await drain();
+    await drain();
+    const texts = await db.select().from(schema.smsOutbox);
+    expect(texts.map((text) => text.userId).sort()).toEqual([people.admin, people.jamie].sort());
+    expect(await notificationsOf("admin")).toHaveLength(1);
+  });
+
+  it("FLOW-227: a person without consent gets no SMS row, only the in-app notice (AC3)", async () => {
+    await db.update(schema.users).set({ smsConsentAt: null }).where(eq(schema.users.id, people.jamie));
+    const event = await seed(soon);
+    await approved(event);
+    await edit(event, { dressCode: "Cocktail" });
+    await drain();
+    expect(await db.select().from(schema.smsOutbox)).toHaveLength(0);
+    expect(await notificationsOf("jamie")).toHaveLength(1);
+  });
+
+  it("FLOW-227: the monthly cap falls back to email instead of a second SMS (AC3)", async () => {
+    await db.insert(schema.settings).values({ key: "defaults", value: { monthlySmsCap: 1 } });
+    await db.update(schema.users).set({ smsConsentAt: new Date() }).where(eq(schema.users.id, people.admin));
+    const event = await seed(soon);
+    await approved(event);
+    await edit(event, { dressCode: "Cocktail" });
+    await drain();
+    expect(await db.select().from(schema.smsOutbox)).toHaveLength(1);
+    const alerts = (await db.select().from(schema.notifications)).filter(
+      (row) => row.title === "Monthly SMS cap reached",
+    );
+    expect(alerts).toHaveLength(1);
+  });
+
   it("sends no SMS when the event is further away", async () => {
     const event = await seed(later);
     await approved(event);
@@ -514,5 +571,117 @@ describe("FLOW-147: layouts and annotations", () => {
     const first = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/layout/copy`, { from: "venue" }, 200);
     const second = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/layout/copy`, { from: "venue" }, 200);
     expect(second.content.layout.areas.map((a) => a.name).sort()).toEqual(first.content.layout.areas.map((a) => a.name).sort());
+  });
+
+  it("FLOW-237: copies a past event's layout image to new R2 keys, so archiving the source can't remove it", async () => {
+    const past = await seed();
+    const [{ venueId }] = await db.select({ venueId: schema.events.venueId }).from(schema.events).where(eq(schema.events.id, past.id));
+    await sam.send("POST", `/api/events/${past.id}/beo`, {});
+    const pastView = await sam.send<BeoView>("POST", `/api/events/${past.id}/beo/areas`, { kind: "layout", name: "Ballroom" });
+    const source = pastView.content.layout.areas.find((a) => a.name === "Ballroom")!;
+    const keys = { image: `beo_area/${source.id}/img/original.png`, annotated: `beo_area/${source.id}/ann/display.png` };
+    bucket.set(keys.image, { body: new Uint8Array([1, 2, 3]).buffer, contentType: "image/png" });
+    bucket.set(keys.annotated, { body: new Uint8Array([4, 5]).buffer, contentType: "image/png" });
+    await db.insert(schema.attachments).values([
+      { recordType: "beo_area", recordId: source.id, group: "image", fileName: "plan.png", status: "ready",
+        variants: [{ name: "original", key: keys.image, contentType: "image/png", size: 3 }] },
+      { recordType: "beo_area", recordId: source.id, group: "annotated", fileName: "plan-annotated.png", status: "ready",
+        variants: [{ name: "display", key: keys.annotated, contentType: "image/png", size: 2 }] },
+      // Not copied: a setup photo and an archived image.
+      { recordType: "beo_area", recordId: source.id, group: "reference", fileName: "other.png", status: "ready",
+        variants: [{ name: "original", key: "beo_area/other.png", contentType: "image/png", size: 1 }] },
+      { recordType: "beo_area", recordId: source.id, group: "image", fileName: "old.png", status: "ready", archivedAt: new Date(),
+        variants: [{ name: "original", key: "beo_area/old.png", contentType: "image/png", size: 1 }] },
+    ]);
+    const next = await sam.send<FlowEvent>("POST", "/api/events", {
+      title: "Winter gala",
+      date: later,
+      startTime: "18:00",
+      endTime: "23:00",
+      clientId: past.client.id,
+      pocContactId: past.pocContactId,
+      guestCount: 40,
+      assignedSalespersonId: people.sam,
+    });
+    await db.update(schema.events).set({ venueId }).where(eq(schema.events.id, next.id));
+    await sam.send("POST", `/api/events/${next.id}/beo`, {});
+    const copied = await sam.send<BeoView>(
+      "POST",
+      `/api/events/${next.id}/beo/layout/copy`,
+      { from: "event", eventId: past.id },
+      200,
+    );
+    const target = copied.content.layout.areas.find((a) => a.name === "Ballroom")!;
+    expect(target.id).not.toBe(source.id);
+    const rows = await db.select().from(schema.attachments).where(eq(schema.attachments.recordId, target.id));
+    expect(rows.map((row) => row.group).sort()).toEqual(["annotated", "image"]);
+    const newKeys = rows.flatMap((row) => row.variants.map((variant) => variant.key));
+    expect(newKeys.every((key) => key.startsWith(`beo_area/${target.id}/`))).toBe(true);
+    expect(newKeys).not.toContain(keys.image);
+    expect(rows.every((row) => row.status === "ready")).toBe(true);
+    const image = rows.find((row) => row.group === "image")!;
+    expect(new Uint8Array(bucket.get(image.variants[0].key)!.body)).toEqual(new Uint8Array([1, 2, 3]));
+    // Removing the source's objects (as archiving does) leaves the copy intact.
+    bucket.delete(keys.image);
+    expect(bucket.has(image.variants[0].key)).toBe(true);
+  });
+});
+
+describe("FLOW-150: BEOs for offline use", () => {
+  it("returns the approved BEOs of the person's upcoming assigned events, projected for their role", async () => {
+    const event = await seed(soon);
+    await approved(event);
+    const mine = await jamie.send<OfflineBeos>("GET", "/api/offline-beos");
+    expect(mine.days).toBe(7);
+    expect(mine.beos).toHaveLength(1);
+    expect(mine.beos[0].event.id).toBe(event.id);
+    expect(mine.beos[0].beo.status).toBe("approved");
+    // A part-time person's copy carries no contact details (FLOW-148).
+    expect(mine.beos[0].beo.content.event.contactHidden).toBe(true);
+    expect(JSON.stringify(mine)).not.toContain("pat@juniper.example");
+    expect(JSON.stringify(mine)).not.toContain("2025550100");
+  });
+
+  it("leaves out events the person isn't assigned to, events beyond the window and BEOs not approved", async () => {
+    const event = await seed(soon);
+    await approved(event);
+    // Nora is not on the roster; Admin sees every event but isn't assigned to it.
+    expect((await nora.send<OfflineBeos>("GET", "/api/offline-beos")).beos).toHaveLength(0);
+    expect((await admin.send<OfflineBeos>("GET", "/api/offline-beos")).beos).toHaveLength(0);
+    // Beyond the next 7 days.
+    await db
+      .update(schema.events)
+      .set({ startsAt: new Date(Date.now() + 30 * 86_400_000) })
+      .where(eq(schema.events.id, event.id));
+    expect((await jamie.send<OfflineBeos>("GET", "/api/offline-beos")).beos).toHaveLength(0);
+  });
+
+  it("does not return a BEO that is still being worked on", async () => {
+    const event = await seed(soon);
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    expect((await jamie.send<OfflineBeos>("GET", "/api/offline-beos")).beos).toHaveLength(0);
+  });
+});
+
+describe("FLOW-237: setup photos on the day", () => {
+  const photo = (recordId: string, group: string) => ({
+    recordType: "beo_area",
+    recordId,
+    group,
+    fileName: "setup.jpg",
+    variants: [
+      { name: "thumb", contentType: "image/jpeg", size: 10_000 },
+      { name: "display", contentType: "image/jpeg", size: 100_000 },
+    ],
+  });
+  it("lets part-time staff on the event add actual photos but not reference photos", async () => {
+    const event = await seed(soon);
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    const view = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/areas`, { kind: "setup", name: "Bar" });
+    const area = view.content.setupCleanup.areas.find((a) => a.name === "Bar")!;
+    await jamie.send("POST", "/api/attachments", photo(area.id, "actual"), 201);
+    await jamie.send("POST", "/api/attachments", photo(area.id, "reference"), 403);
+    // Someone who can't open the event gets nothing.
+    await nora.send("POST", "/api/attachments", photo(area.id, "actual"), 404);
   });
 });

@@ -2123,6 +2123,16 @@ tbody tr:last-child td {
 .print-page > thead {
   display: table-header-group;
 }
+.print-page > tfoot {
+  display: table-footer-group;
+}
+.print-footer {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid #c9d1cc;
+  font-size: 10px;
+  color: #4b5a52;
+}
 .print-header {
   display: flex;
   justify-content: space-between;

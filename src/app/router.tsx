@@ -37,6 +37,15 @@ const EventDetail = lazy(() =>
 const EventBeoPage = lazy(() =>
   import("../features/event-beo").then((module) => ({ default: module.EventBeoPage })),
 );
+const OfflineBeoList = lazy(() =>
+  import("../features/offline-beos").then((module) => ({ default: module.OfflineBeoList })),
+);
+const OfflineBeoPage = lazy(() =>
+  import("../features/offline-beos").then((module) => ({ default: module.OfflineBeoPage })),
+);
+const BeoPrint = lazy(() =>
+  import("../features/beo-print").then((module) => ({ default: module.BeoPrint })),
+);
 const VenueList = lazy(() =>
   import("../features/venues").then((module) => ({ default: module.VenueList })),
 );
@@ -203,6 +212,10 @@ export const getRouter = () =>
     // Printable documents render without the app shell.
     { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense> },
     { path: "/print/recipes/client", element: <Suspense fallback={<p role="status">Loading document…</p>}><ClientRecipePrint /></Suspense> },
+    // Saved BEOs, read with no signal (FLOW-150): outside the app shell too.
+    { path: "/offline", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoList /></Suspense> },
+    { path: "/offline/events/:id", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoPage /></Suspense> },
+    { path: "/print/events/:id/beo", element: <Suspense fallback={<p role="status">Loading document…</p>}><BeoPrint /></Suspense> },
     { path: "/print/recipes/:id", element: <Suspense fallback={<p role="status">Loading document…</p>}><KitchenRecipePrint /></Suspense> },
     {
       element: <AppShell />,

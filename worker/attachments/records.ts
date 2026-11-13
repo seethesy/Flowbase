@@ -56,16 +56,25 @@ const parents: Record<
   beo_area: { find: findBeoArea, write: attachmentWriteActions.beo_area },
 };
 
+// Anyone who can open the event adds the "actual" photos of a setup area on the
+// day, part-time staff included (FLOW-237, developer's answer); every other file
+// needs the record's own write permission.
+const isActualSetupPhoto = (recordType: string, group: string) =>
+  recordType === "beo_area" && group === "actual";
+
 async function requireParent(
   db: DbLike,
   actor: Actor,
   recordType: AttachmentRecordType,
   recordId: string,
   write: boolean,
+  group = "",
 ) {
   const parent = parents[recordType];
   await parent.find(db, actor, recordId);
-  if (write && !can(actor, parent.write)) throw forbidden();
+  if (write && !isActualSetupPhoto(recordType, group)) {
+    if (!can(actor, "attachments.write") || !can(actor, parent.write)) throw forbidden();
+  }
 }
 
 async function toAttachment(
@@ -119,7 +128,7 @@ export async function startUpload(
   now = new Date(),
 ): Promise<UploadTicket> {
   const storage = fileStorage(env);
-  await requireParent(db, actor, input.recordType, input.recordId, true);
+  await requireParent(db, actor, input.recordType, input.recordId, true, input.group);
   const id = crypto.randomUUID();
   const variants: AttachmentVariant[] = input.variants.map((variant) => ({
     name: variant.name,
@@ -172,6 +181,7 @@ async function findAttachment(db: DbLike, actor: Actor, id: string, write: boole
     row.recordType as AttachmentRecordType,
     row.recordId,
     write,
+    row.group,
   ).catch((error) => {
     // A record the actor can't see hides its files too.
     throw error instanceof ApiError && error.status === 404

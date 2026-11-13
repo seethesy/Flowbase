@@ -1,0 +1,47 @@
+/* Printable BEO (FLOW-149). The shared print layout lives in src/styles/globals.css. */
+.beo-print-section h2 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  border-bottom: 1px solid #c9d1cc;
+}
+.beo-print-section h3 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+}
+.beo-print-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.beo-print-section .print-table th {
+  text-align: left;
+  padding-right: 12px;
+}
+.beo-print-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 6px 0;
+  break-inside: avoid;
+}
+.beo-print-area {
+  break-inside: avoid-page;
+}
+.beo-print-checklist {
+  list-style: none;
+  padding-left: 0 !important;
+}
+.print-document {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.print-header {
+  flex-wrap: wrap;
+}
+.beo-print-section .print-table {
+  width: 100%;
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+}
+.beo-print-section img {
+  max-width: 100%;
+}

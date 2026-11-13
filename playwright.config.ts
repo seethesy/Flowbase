@@ -11,7 +11,12 @@ export default defineConfig({
   // Stop repeated systemic failures early instead of exhausting the CI budget.
   maxFailures: process.env.CI ? 3 : undefined,
   reporter: process.env.CI ? "github" : "list",
-  use: { baseURL: "http://127.0.0.1:4173", trace: "retain-on-failure" },
+  use: {
+    baseURL: "http://127.0.0.1:4173",
+    trace: "retain-on-failure",
+    // The service worker (FLOW-150) is exercised only by offline.spec.ts.
+    serviceWorkers: "block",
+  },
   webServer: {
     command:
       "npm run dev:worker -- --config tests/e2e/wrangler.jsonc --local --port 4173",
@@ -23,10 +28,21 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "desktop",
+      testIgnore: /offline\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
     {
       name: "mobile",
+      testIgnore: /offline\.spec\.ts/,
       use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" },
+    },
+    // Safari is the target for offline BEOs (ADR-18, FLOW-150).
+    {
+      name: "webkit-offline",
+      testMatch: /offline\.spec\.ts/,
+      use: { ...devices["Desktop Safari"], serviceWorkers: "allow" },
     },
   ],
 });

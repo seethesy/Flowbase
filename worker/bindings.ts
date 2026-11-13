@@ -28,5 +28,16 @@ export type Bindings = {
   FILES?: {
     head: (key: string) => Promise<{ size: number } | null>;
     delete: (keys: string | string[]) => Promise<void>;
+    // Used to copy a layout's images to new keys (FLOW-237). Absent in tests that
+    // don't exercise copying; without them images are not copied.
+    get?: (key: string) => Promise<{
+      arrayBuffer: () => Promise<ArrayBuffer>;
+      httpMetadata?: { contentType?: string };
+    } | null>;
+    put?: (
+      key: string,
+      value: ArrayBuffer,
+      options?: { httpMetadata?: { contentType?: string } },
+    ) => Promise<unknown>;
   };
 };

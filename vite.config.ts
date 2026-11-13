@@ -1,8 +1,35 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Offline BEO access (FLOW-150, ADR-18): the service worker keeps the app
+    // itself available with no signal; the BEO data is saved in IndexedDB by
+    // src/offline. API calls are never cached or answered by the worker.
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: "script",
+      manifest: false,
+      workbox: {
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
+        globPatterns: ["**/*.{js,css,html,woff,woff2,svg,png,ico}"],
+        // The layout annotation editor (Excalidraw) and its diagram, locale and font
+        // chunks are online-only (annotating needs the network), so they are not
+        // precached; everything else the app needs is.
+        globIgnores: [
+          "**/*Diagram-*.js",
+          "**/[a-z][a-z]-[A-Z][A-Z]-*.js",
+          "**/{cytoscape,cose-bilkent,katex,cynefin,percentages,subset-shared,swimlanes,image-blob-reduce,pica,timeline-definition,mermaid}*.js",
+        ],
+        maximumFileSizeToCacheInBytes: 3_000_000,
+        cleanupOutdatedCaches: true,
+      },
+    }),
+  ],
   build: {
     rollupOptions: {
       output: {

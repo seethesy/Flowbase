@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type {
   BeoAreaInput,
@@ -10,8 +10,20 @@ import type {
   LayoutCopyInput,
   RunOfShowInput,
 } from "../../shared/beo";
+import { ANNOTATED_GROUP, areaPhotoGroups } from "../../shared/beo";
 import type { Db, DbLike } from "../db/client";
-import { beoAreas, beoChecklistItems, beoRunOfShow, beos, eventAreas, events, venueAreas } from "../db/schema";
+import type { Bindings } from "../bindings";
+import {
+  type AttachmentVariant,
+  attachments,
+  beoAreas,
+  beoChecklistItems,
+  beoRunOfShow,
+  beos,
+  eventAreas,
+  events,
+  venueAreas,
+} from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { can } from "../policy";
 import { findBeo, getBeo, syncBeo } from "./beo";
@@ -163,12 +175,33 @@ export async function getAreaScene(db: Db, actor: Actor, eventId: string, areaId
 
 // Adds the layout areas of the venue, or of a past event at the same venue, that
 // this BEO doesn't have yet (FLOW-147). Names, notes and annotations come across;
-// uploaded images stay with the area they were added to.
-export const copyLayout = (db: Db, actor: Actor, eventId: string, input: LayoutCopyInput) =>
+// the images (and the annotated PNG) of a past event's layout are copied to new
+// R2 keys, so the copy never shares objects with the area it came from, whose keys
+// are deleted when it is archived (FLOW-237). Without the R2 binding with get/put
+// (every environment but production) no images are copied.
+export async function copyLayout(db: Db, actor: Actor, env: Partial<Bindings>, eventId: string, input: LayoutCopyInput) {
+  const copiedKeys: string[] = [];
+  try {
+    return await copyLayoutIn(db, actor, env, eventId, input, copiedKeys);
+  } catch (error) {
+    // R2 isn't transactional: remove objects copied before the failure.
+    if (copiedKeys.length) await env.FILES?.delete(copiedKeys).catch(() => undefined);
+    throw error;
+  }
+}
+
+const copyLayoutIn = (
+  db: Db,
+  actor: Actor,
+  env: Partial<Bindings>,
+  eventId: string,
+  input: LayoutCopyInput,
+  copiedKeys: string[],
+) =>
   edit(db, actor, eventId, async (tx, beo) => {
     const [event] = await tx.select({ venueId: events.venueId }).from(events).where(eq(events.id, eventId));
     if (!event?.venueId) throw new ApiError(400, "INVALID_REQUEST", "This event has no venue to copy from.");
-    let source: { name: string; notes: string; scene: Record<string, unknown> | null }[];
+    let source: { id?: string; name: string; notes: string; scene: Record<string, unknown> | null }[];
     if (input.from === "venue") {
       const rows = await tx
         .select({ name: venueAreas.name })
@@ -192,7 +225,7 @@ export const copyLayout = (db: Db, actor: Actor, eventId: string, input: LayoutC
             .orderBy(asc(beoAreas.sortOrder), asc(beoAreas.createdAt))
         : [];
       source = layout.length
-        ? layout.map((row) => ({ name: row.name, notes: row.notes, scene: row.scene }))
+        ? layout.map((row) => ({ id: row.id, name: row.name, notes: row.notes, scene: row.scene }))
         : (
             await tx
               .select({ name: eventAreas.name })
@@ -211,8 +244,10 @@ export const copyLayout = (db: Db, actor: Actor, eventId: string, input: LayoutC
     );
     const added = source.filter((row) => !have.has(row.name.toLowerCase()));
     const start = await nextOrder(tx, beo.id, "layout");
-    if (added.length)
-      await tx.insert(beoAreas).values(
+    if (!added.length) return;
+    const created = await tx
+      .insert(beoAreas)
+      .values(
         added.map((row, index) => ({
           beoId: beo.id,
           eventId,
@@ -224,7 +259,56 @@ export const copyLayout = (db: Db, actor: Actor, eventId: string, input: LayoutC
           createdBy: actor.userId,
           updatedBy: actor.userId,
         })),
-      );
+      )
+      .returning({ id: beoAreas.id, sortOrder: beoAreas.sortOrder });
+    const files = env.FILES;
+    if (!files?.get || !files.put) return;
+    const get = files.get.bind(files);
+    const put = files.put.bind(files);
+    for (const [index, row] of added.entries()) {
+      if (!row.id) continue;
+      const target = created.find((area) => area.sortOrder === start + index)!;
+      const images = await tx
+        .select()
+        .from(attachments)
+        .where(
+          and(
+            eq(attachments.recordType, "beo_area"),
+            eq(attachments.recordId, row.id),
+            eq(attachments.status, "ready"),
+            isNull(attachments.archivedAt),
+            inArray(attachments.group, [areaPhotoGroups.layout[0].group, ANNOTATED_GROUP]),
+          ),
+        )
+        .orderBy(asc(attachments.sortOrder), asc(attachments.createdAt));
+      for (const image of images) {
+        const id = crypto.randomUUID();
+        const variants: AttachmentVariant[] = [];
+        for (const variant of image.variants) {
+          const object = await get(variant.key);
+          if (!object) throw notFound(`Layout image ${image.fileName}`);
+          const key = `beo_area/${target.id}/${id}/${variant.name}.${variant.key.split(".").pop() ?? "bin"}`;
+          await put(key, await object.arrayBuffer(), {
+            httpMetadata: { contentType: variant.contentType },
+          });
+          copiedKeys.push(key);
+          variants.push({ ...variant, key });
+        }
+        await tx.insert(attachments).values({
+          id,
+          recordType: "beo_area",
+          recordId: target.id,
+          group: image.group,
+          fileName: image.fileName,
+          caption: image.caption,
+          sortOrder: image.sortOrder,
+          status: "ready",
+          variants,
+          createdBy: actor.userId,
+          updatedBy: actor.userId,
+        });
+      }
+    }
   });
 
 // --- Cleanup checklist (FLOW-146) -----------------------------------------------
