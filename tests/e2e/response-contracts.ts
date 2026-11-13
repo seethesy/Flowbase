@@ -17,7 +17,9 @@ import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
 import { kitchenMenuSchema } from "../../shared/kitchen-menu";
 import { planningProgressSchema, regeneratePreviewSchema } from "../../shared/planning";
+import { productionListSchema, productionOverviewSchema } from "../../shared/production";
 import { pullListSchema } from "../../shared/pull-list";
+import { readinessCheckSchema } from "../../shared/readiness";
 import { rentalRequestSchema } from "../../shared/rental-requests";
 import { truckLogSchema } from "../../shared/trucks";
 import { eventPaymentsSchema } from "../../shared/payments";
@@ -107,6 +109,14 @@ export function responseSchema(
   if (resource === "admin" && id === "users")
     return method === "GET" ? userSchema.array() : userSchema;
   if (resource === "search") return searchResultSchema.array();
+  if (resource === "production") {
+    if (id === "overview") return productionOverviewSchema;
+    if (id === "events" && action) {
+      return path.split("/")[5] === "readiness"
+        ? readinessCheckSchema.array()
+        : productionListSchema;
+    }
+  }
   if (resource === "sales") {
     if (id === "reports") return salesReportSchema;
     if (id === "views") return action || method === "POST" ? salesViewSchema : salesViewSchema.array();
