@@ -13,6 +13,7 @@ import {
 import { useResource } from "../app/useResource";
 import { Button, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { cachedBeo, isNetworkError } from "../offline/db";
 import { beoApi } from "../services/beo";
 import { eventsApi } from "../services/core";
 import { BeoAreaList, BeoCleanup } from "./beo-areas";
@@ -26,6 +27,18 @@ import "./event-beo.css";
 const Tbd = () => <span className="beo-tbd">TBD</span>;
 const Open = () => <span className="beo-open">OPEN</span>;
 const when = (iso: string) => new Date(iso).toLocaleString();
+
+// Says the BEO is saved on this device for reading offline, and when it was last
+// saved (FLOW-150).
+function OfflineStatus({ eventId }: { eventId: string }) {
+  const saved = useResource(["offline-copy", eventId], () => cachedBeo(eventId));
+  if (!saved.data) return null;
+  return (
+    <p className="muted" data-testid="offline-status">
+      Available offline · last synced {when(saved.data.syncedAt)}
+    </p>
+  );
+}
 
 function Contact({ contact, hidden }: { contact: BeoContact; hidden: boolean }) {
   return (
@@ -250,9 +263,11 @@ export function EventBeoSection({
               <Link to={`/events/${event.id}/beo/${data.id}`}>Open BEO page</Link>
             </Button>
           )}
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer size={14} />
-            Print
+          <Button variant="outline" asChild>
+            <Link to={`/print/events/${event.id}/beo`}>
+              <Printer size={14} />
+              Print
+            </Link>
           </Button>
           {!data.exists && data.canEdit && (
             <Button onClick={() => void run(() => beoApi.generate(event.id))}>Generate BEO</Button>
@@ -277,6 +292,7 @@ export function EventBeoSection({
           {error}
         </p>
       )}
+      <OfflineStatus eventId={event.id} />
       {!data.exists && <p className="muted">This is a preview. Generate the BEO to start working on it.</p>}
       {data.approvedAt && (
         <p className="muted">
@@ -351,7 +367,16 @@ export function EventBeoSection({
 // editing activity. The beo id in the address must belong to the event.
 export function EventBeoPage() {
   const { id = "", beoId = "" } = useParams();
-  const event = useResource(["beo-page-event", id], () => eventsApi.get(id));
+  const event = useResource(["beo-page-event", id], async () => {
+    try {
+      return await eventsApi.get(id);
+    } catch (error) {
+      // With no signal, the event saved with the offline BEO (FLOW-150).
+      const saved = isNetworkError(error) ? await cachedBeo(id) : undefined;
+      if (!saved) throw error;
+      return saved.event;
+    }
+  });
   const beo = useResource(["event-beo", id], () => beoApi.get(id));
   const back = (
     <Link to={`/events/${id}`} className="back-link">

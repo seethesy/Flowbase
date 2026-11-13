@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import {
   beoFields,
@@ -11,12 +11,25 @@ import {
   type BeoContent,
   type BeoNotesInput,
   type BeoView,
+  type OfflineBeos,
+  OFFLINE_BEO_DAYS,
 } from "../../shared/beo";
+import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { shiftKindLabels, slotLabel } from "../../shared/event-staff";
 import { timelineWhoLabel } from "../../shared/event-timeline";
 import { pullGroupLabels } from "../../shared/pull-list";
 import type { Db, DbLike } from "../db/client";
-import { beoChanges, beos, clientContacts, users, venueContacts, venues } from "../db/schema";
+import {
+  beoChanges,
+  beos,
+  clientContacts,
+  eventShifts,
+  events,
+  eventStaffSlots,
+  users,
+  venueContacts,
+  venues,
+} from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, projectBeo } from "../policy";
@@ -486,4 +499,38 @@ export async function approveBeo(db: Db, actor: Actor, eventId: string): Promise
     await decideApproval(tx, actor, approvalId, "approve", "");
   });
   return getBeo(db, actor, eventId);
+}
+
+// The approved BEOs of the events the actor is assigned to (production or assistant
+// lead, or a staff slot) that start today or in the next `days` days, New York time
+// (FLOW-150). Each BEO is projected for the actor's role, like getBeo.
+export async function offlineBeos(
+  db: Db,
+  actor: Actor,
+  days = OFFLINE_BEO_DAYS,
+  now = new Date(),
+): Promise<OfflineBeos> {
+  const today = utcToBusinessTime(now).date;
+  const rows = await db
+    .select({ id: events.id })
+    .from(events)
+    .innerJoin(beos, and(eq(beos.eventId, events.id), isNull(beos.archivedAt), eq(beos.status, "approved")))
+    .where(
+      and(
+        isNull(events.archivedAt),
+        gte(events.startsAt, businessTimeToUtc(today, "00:00")),
+        lt(events.startsAt, businessTimeToUtc(addLocalDays(today, days + 1), "00:00")),
+        or(
+          eq(events.productionLeadId, actor.userId),
+          sql`${events.assistantLeadIds} @> ${JSON.stringify([actor.userId])}::jsonb`,
+          sql`exists (select 1 from ${eventStaffSlots} join ${eventShifts} on ${eventShifts.id} = ${eventStaffSlots.shiftId} where ${eventShifts.eventId} = ${events.id} and ${eventStaffSlots.assigneeId} = ${actor.userId} and ${eventStaffSlots.archivedAt} is null and ${eventShifts.archivedAt} is null)`,
+        ),
+      ),
+    )
+    .orderBy(asc(events.startsAt));
+  const result: OfflineBeos["beos"] = [];
+  for (const { id } of rows) {
+    result.push({ event: await getEvent(db, actor, id), beo: await getBeo(db, actor, id) });
+  }
+  return { days, syncedAt: now.toISOString(), beos: result };
 }

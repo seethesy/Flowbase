@@ -12,7 +12,7 @@ import {
 import { id as uuid } from "../../shared/schema-primitives";
 import { requirePermission } from "../auth";
 import { notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
-import { approveBeo, createBeo, getBeo, requestBeoApproval, updateBeoNotes } from "../records/beo";
+import { approveBeo, createBeo, getBeo, offlineBeos, requestBeoApproval, updateBeoNotes } from "../records/beo";
 import {
   archiveArea,
   checkCleanupItem,
@@ -101,7 +101,7 @@ export function beoRoutes(options: { withDb?: RunWithDb }) {
   routes.post("/:id/beo/layout/copy", read, async (c) => {
     const id = eventId(c);
     const input = await parseBody(c, layoutCopyInputSchema);
-    return c.json(await record(c, (db, actor) => copyLayout(db, actor, id, input)));
+    return c.json(await record(c, (db, actor) => copyLayout(db, actor, c.env, id, input)));
   });
 
   // Cleanup checklist (FLOW-146).
@@ -116,5 +116,16 @@ export function beoRoutes(options: { withDb?: RunWithDb }) {
     const input = await parseBody(c, checkItemInputSchema);
     return c.json(await record(c, (db, actor) => checkCleanupItem(db, actor, id, itemId, input.checked)));
   });
+  return routes;
+}
+
+// The approved BEOs of the signed-in person's upcoming events, for offline use
+// (FLOW-150), mounted at /api/offline-beos.
+export function offlineBeoRoutes(options: { withDb?: RunWithDb }) {
+  const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
+  routes.get("/", requirePermission("events.read"), async (c) =>
+    c.json(await record(c, (db, actor) => offlineBeos(db, actor))),
+  );
   return routes;
 }

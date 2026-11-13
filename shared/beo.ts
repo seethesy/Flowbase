@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { localTime } from "./core-records";
+import { eventSchema, localTime } from "./core-records";
 import { id, text, timestamp } from "./schema-primitives";
 import { cleanupSectionSchema } from "./settings";
 
@@ -474,3 +474,19 @@ export const beoViewSchema = z.object({
   canCheckOff: z.boolean(),
 });
 export type BeoView = z.infer<typeof beoViewSchema>;
+
+// --- Offline access (FLOW-150, ADR-18) ---------------------------------------------
+
+// How many days ahead the approved BEOs of a person's assigned events are kept for
+// offline reading (Q-30: default 7).
+export const OFFLINE_BEO_DAYS = 7;
+
+// GET /api/events/offline-beos: the approved BEOs, as this role may see them, of
+// the events the signed-in person is assigned to that start today or within the
+// next `days` days, each with its event. Read each time Flowbase opens online.
+export const offlineBeosSchema = z.object({
+  days: z.number().int(),
+  syncedAt: timestamp,
+  beos: z.array(z.object({ event: eventSchema, beo: beoViewSchema })),
+});
+export type OfflineBeos = z.infer<typeof offlineBeosSchema>;

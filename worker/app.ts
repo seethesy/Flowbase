@@ -36,7 +36,7 @@ import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
 import { preparationRoutes } from "./routes/preparation";
-import { beoRoutes } from "./routes/beo";
+import { beoRoutes, offlineBeoRoutes } from "./routes/beo";
 import { beoSync } from "./beo-sync";
 import { paymentRoutes } from "./routes/payments";
 import { planningRoutes } from "./routes/planning";
@@ -302,6 +302,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/events", eventTimelineRoutes(options));
   app.route("/api/events", preparationRoutes(options));
   app.route("/api/events", beoRoutes(options));
+  app.route("/api/offline-beos", offlineBeoRoutes(options));
   app.route("/api/events", paymentRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/sops", sopRoutes(options));

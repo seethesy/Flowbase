@@ -6,10 +6,12 @@ import { QueryClient } from "@tanstack/react-query";
 //
 // The defaults keep how screens behaved before the cache: data is refetched
 // whenever a screen opens it (stale at once), failures show at once (no
-// retries), and switching back to the browser tab doesn't refetch.
+// retries), and switching back to the browser tab doesn't refetch. Queries run
+// with no signal too, so a screen shows the saved offline copy or an error
+// instead of waiting for the network to return (FLOW-150).
 export const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 0, retry: false, refetchOnWindowFocus: false },
+    queries: { staleTime: 0, retry: false, refetchOnWindowFocus: false, networkMode: "always" },
   },
 });
 

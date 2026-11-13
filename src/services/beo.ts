@@ -8,6 +8,7 @@ import {
   type LayoutCopyInput,
   type RunOfShowInput,
 } from "../../shared/beo";
+import { cachedBeo, isNetworkError } from "../offline/db";
 import { at, request } from "./core";
 
 // The banquet event order (FLOW-143, 144, 148). Every call answers with the whole
@@ -17,7 +18,17 @@ const view = (path: string, method: "POST" | "PUT" | "PATCH" | "DELETE", body?: 
   request(beoViewSchema, path, method, body ?? {});
 
 export const beoApi = {
-  get: (eventId: string) => request(beoViewSchema, beo(eventId)),
+  // With no signal, the copy kept for offline use (FLOW-150): read-only, whatever
+  // the person could do online.
+  get: async (eventId: string) => {
+    try {
+      return await request(beoViewSchema, beo(eventId));
+    } catch (error) {
+      const cached = isNetworkError(error) ? await cachedBeo(eventId) : undefined;
+      if (!cached) throw error;
+      return { ...cached.beo, canEdit: false, canApprove: false, canRequestApproval: false, canCheckOff: false };
+    }
+  },
   generate: (eventId: string) => view(beo(eventId), "POST"),
   saveNotes: (eventId: string, input: BeoNotesInput) => view(beo(eventId), "PATCH", input),
   requestApproval: (eventId: string) => view(beo(eventId, "/request-approval"), "POST"),
