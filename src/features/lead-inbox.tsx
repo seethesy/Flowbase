@@ -31,6 +31,7 @@ import { LoadError } from "../components/record-display";
 import { useListLabels } from "./list-fields";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
+import { NewLeadForm } from "./lead-entry";
 import {
   AssignForm,
   businessDate,
@@ -179,6 +180,7 @@ export function LeadInbox() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [converting, setConverting] = useState<Lead | null>(null);
+  const [entering, setEntering] = useState(false);
   // The API searches name, email and phone across every lead (FLOW-179).
   const term = useDebounced(search.trim());
   const leads = usePagedList(
@@ -304,6 +306,9 @@ export function LeadInbox() {
         subtitle="Every inquiry from every source, in one place."
         eyebrow="Leads"
       >
+        <Allowed action="leads.create">
+          <Button onClick={() => setEntering(true)}>New lead</Button>
+        </Allowed>
         <Button variant="outline" asChild>
           <Link to="/leads/dashboard">Lead dashboard</Link>
         </Button>
@@ -388,6 +393,12 @@ export function LeadInbox() {
           </>
         )}
       </div>
+      {entering && (
+        <NewLeadForm
+          onClose={() => setEntering(false)}
+          onCreated={() => leads.reload()}
+        />
+      )}
       {converting && (
         <ConvertLeadForm
           lead={converting}

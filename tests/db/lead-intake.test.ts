@@ -33,6 +33,8 @@ const post = (path: string, body: unknown, headers: Record<string, string> = {})
   app.request(path, { method: "POST", body: JSON.stringify(body), headers }, env);
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(`tests/fixtures/thumbtack/${name}.json`, "utf8"));
+const fixtureFile = (name: string): unknown =>
+  JSON.parse(readFileSync(`tests/fixtures/website/${name}.json`, "utf8"));
 const thumbtack = (body: unknown) =>
   post("/api/ingest/thumbtack/thumbtack-token-0123456789", body);
 const collector = (path: string, body: unknown) =>
@@ -146,5 +148,78 @@ describe("lead collector intake (FLOW-102)", () => {
     const [receipt] = await db.select().from(ingestReceipts);
     expect(receipt.processedAt).toBeNull();
     expect(await db.select().from(leads)).toEqual([]);
+  });
+});
+
+describe("website inquiry intake (FLOW-109)", () => {
+  const inquiry = (overrides: Record<string, unknown> = {}) => ({
+    ...(fixtureFile("inquiry") as object),
+    ...overrides,
+  });
+  const submit = (body: unknown, ip = "203.0.113.7") =>
+    post("/api/ingest/website", body, { "CF-Connecting-IP": ip });
+
+  it("creates a Website lead from a valid submission (AC1)", async () => {
+    expect((await submit(inquiry())).status).toBe(202);
+    await runDueJobs(db, registry);
+    const [lead] = await db.select().from(leads);
+    expect(lead).toMatchObject({
+      channel: "webhook",
+      source: "Website",
+      name: "Jordan Example",
+      email: "jordan.example@example.test",
+      eventDate: "2027-06-12",
+      guestCount: 85,
+      eventType: "Wedding",
+      status: "new",
+    });
+  });
+
+  it("stores nothing for a filled honeypot (AC1)", async () => {
+    expect((await submit(fixtureFile("spam"))).status).toBe(202);
+    await runDueJobs(db, registry);
+    expect(await db.select().from(ingestReceipts)).toHaveLength(0);
+    expect(await db.select().from(leads)).toHaveLength(0);
+  });
+
+  it("stores nothing over the per-client rate limit; other clients are unaffected (AC1)", async () => {
+    for (let n = 0; n < 5; n += 1)
+      expect((await submit(inquiry({ submissionId: `submission-${n}-abcdef` }))).status).toBe(202);
+    const limited = await submit(inquiry({ submissionId: "submission-6-abcdef" }));
+    expect(limited.status).toBe(429);
+    expect(await db.select().from(ingestReceipts)).toHaveLength(5);
+    expect(
+      (await submit(inquiry({ submissionId: "other-client-abcdef" }), "198.51.100.9")).status,
+    ).toBe(202);
+  });
+
+  it("stops accepting once the total limit is reached, even from new clients", async () => {
+    for (let n = 0; n < 100; n += 1)
+      await db.insert(ingestReceipts).values({
+        source: "website",
+        sourceRecordId: `seeded-${n}`,
+        body: JSON.stringify({ clientKey: `key-${n}` }),
+      });
+    expect((await submit(inquiry({ submissionId: "one-too-many-abc" }))).status).toBe(429);
+  });
+
+  it("creates nothing new when the same submission is delivered again (AC2)", async () => {
+    expect((await submit(inquiry())).status).toBe(202);
+    await runDueJobs(db, registry);
+    expect((await submit(inquiry())).status).toBe(200);
+    await runDueJobs(db, registry);
+    expect(await db.select().from(ingestReceipts)).toHaveLength(1);
+    expect(await db.select().from(leads)).toHaveLength(1);
+  });
+
+  it("does not count submissions older than the window", async () => {
+    for (let n = 0; n < 5; n += 1)
+      await db.insert(ingestReceipts).values({
+        source: "website",
+        sourceRecordId: `old-${n}`,
+        body: JSON.stringify({ clientKey: "x" }),
+        createdAt: new Date(Date.now() - 3_600_000),
+      });
+    expect((await submit(inquiry())).status).toBe(202);
   });
 });

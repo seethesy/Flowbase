@@ -18,6 +18,7 @@ import {
   isOpenLeadStatus,
   leadChannelSchema,
   leadIntakeSchema,
+  leadManualSchema,
   leadNeedsReview,
   leadStatusLabels,
   leadStatusSchema,
@@ -26,6 +27,7 @@ import {
   type Lead,
   type LeadConversion,
   type LeadIntake,
+  type LeadManualInput,
   type leadConvertSchema,
   type leadStatusChangeSchema,
 } from "../../shared/leads";
@@ -215,6 +217,37 @@ export async function createLead(
     await recordLeadDuplicates(tx, row);
     return { id: row.id, created: true };
   });
+}
+
+// Manual entry (FLOW-101): channel manual, in the inbox at once. A salesperson's
+// lead is assigned to them (they could not see it otherwise); Admin and the Sales
+// Manager's land unassigned for triage. createLead records the possible duplicates.
+export async function createManualLead(
+  db: Db,
+  actor: Actor,
+  input: LeadManualInput,
+): Promise<Lead> {
+  const scope = requireLeadAccess(actor);
+  const lead = leadManualSchema.parse(input);
+  const id = await db.transaction(async (tx) => {
+    const created = await createLead(
+      tx,
+      { ...lead, channel: "manual" },
+      {
+        createdBy: actor.userId,
+        assignedSalespersonId: scope === "own" ? actor.userId : undefined,
+      },
+    );
+    await writeAudit(tx, actor, {
+      entityType: "lead",
+      entityId: created.id,
+      action: "create",
+      before: null,
+      after: await leadSnapshot(tx, created.id),
+    });
+    return created.id;
+  });
+  return getLead(db, actor, id);
 }
 
 export type LeadFilter = {

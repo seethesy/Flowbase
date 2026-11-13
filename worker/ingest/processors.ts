@@ -4,6 +4,7 @@ import { createLead } from "../records/leads";
 import { registerCollectorSite, scanCollectorHealth } from "../records/collector-health";
 import type { IngestProcessor } from "./receipts";
 import { thumbtackLead } from "./thumbtack";
+import { websiteInquirySchema } from "../../shared/website-inquiry";
 import { z } from "zod";
 import { recordGithubUsage } from "../records/usage";
 
@@ -41,6 +42,24 @@ export const ingestProcessors = new Map<string, IngestProcessor>([
       const lead = thumbtackLead(JSON.parse(receipt.body));
       if (!lead) throw new Error("The Thumbtack payload has no negotiationID.");
       await createLead(db, lead);
+    },
+  ],
+  // Website inquiry form (FLOW-109), channel "webhook", source Website. The same
+  // submission id again updates the same lead (createLead, by source lead id).
+  [
+    "website",
+    async (receipt, { db }) => {
+      const inquiry = websiteInquirySchema.parse(JSON.parse(receipt.body));
+      const { submissionId, eventDate, ...details } = inquiry;
+      await createLead(db, {
+        ...details,
+        channel: "webhook",
+        source: "Website",
+        sourceLeadId: submissionId,
+        eventDate: eventDate || null,
+        receivedAt: receipt.createdAt.toISOString(),
+        rawPayload: inquiry,
+      });
     },
   ],
   [

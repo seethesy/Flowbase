@@ -33,6 +33,7 @@ const post = (body: unknown) => ({
 
 it.each([
   ["GET", "/api/leads"],
+  ["POST", "/api/leads"],
   ["GET", `/api/leads/${id}`],
   ["POST", "/api/leads/assign"],
   ["POST", `/api/leads/${id}/assign`],
@@ -239,5 +240,17 @@ it("lets only roles that sell resolve duplicates, before touching the database",
   expect(
     (await admin.request(`/api/leads/duplicates/${id}/merge`, post({}), env)).status,
   ).toBe(400);
+  expect(mock).not.toHaveBeenCalled();
+});
+
+it("lets only roles that sell enter leads by hand, before touching the database (FLOW-101)", async () => {
+  expect(
+    roleSchema.options.filter((role) => can(actor(role), "leads.create")),
+  ).toEqual(["admin", "technical", "sales_manager", "salesperson"]);
+  const { mock, withDb } = mockDb();
+  const staff = createApp({ withDb, resolveActor: async () => actor("staff") });
+  expect(
+    (await staff.request("/api/leads", post({ source: "Phone", name: "A" }), env)).status,
+  ).toBe(403);
   expect(mock).not.toHaveBeenCalled();
 });

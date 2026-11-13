@@ -23,6 +23,7 @@ export const defaultLeadSources = [
   "Eventective",
   "Thumbtack",
   "Shopify",
+  "Website",
   "Referral",
   "Phone",
   "Walk-in",
@@ -208,6 +209,24 @@ export const leadStatusChangeSchema = z
     }
   });
 export type LeadStatusChange = z.input<typeof leadStatusChangeSchema>;
+
+// Manual entry (FLOW-101): a phone call, referral or walk-in typed in by a user.
+// The channel is always manual; a salesperson's lead is assigned to them.
+export const leadManualSchema = leadIntakeSchema
+  .pick({
+    source: true,
+    name: true,
+    email: true,
+    phone: true,
+    eventDate: true,
+    guestCount: true,
+    location: true,
+    eventType: true,
+    budgetCents: true,
+    message: true,
+  })
+  .extend({ name: text(200).min(1, "Name is required.") });
+export type LeadManualInput = z.input<typeof leadManualSchema>;
 
 export const leadAssignSchema = z.object({ assignedSalespersonId: id });
 export const leadBulkAssignSchema = z.object({

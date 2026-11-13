@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
 import { beforeEach, expect, it, vi } from "vitest";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
@@ -10,7 +11,6 @@ const env = {
   ASSETS: { fetch },
   // Two accepted values: a token mid-rotation.
   INGEST_TOKEN_LEADS: "old-lead-token, new-lead-token",
-  SHOPIFY_WEBHOOK_SECRET: "old-shop-secret,new-shop-secret",
 };
 const lead = JSON.stringify({ sourceRecordId: "bark-123", name: "Jo" });
 const postLead = (body: string, headers: Record<string, string> = {}) =>
@@ -19,21 +19,15 @@ const postLead = (body: string, headers: Record<string, string> = {}) =>
     { method: "POST", body, headers },
     env,
   );
-const sign = async (secret: string, body: string) => {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
+const inquiry = JSON.parse(
+  readFileSync("tests/fixtures/website/inquiry.json", "utf8"),
+);
+const postWebsite = (body: unknown, headers: Record<string, string> = {}) =>
+  app.request(
+    "/api/ingest/website",
+    { method: "POST", body: JSON.stringify(body), headers },
+    env,
   );
-  const signature = new Uint8Array(
-    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
-  );
-  return btoa(String.fromCharCode(...signature));
-};
-const postShopify = (body: string, headers: Record<string, string>) =>
-  app.request("/api/ingest/shopify", { method: "POST", body, headers }, env);
 
 beforeEach(() => {
   withDb.mockReset().mockResolvedValue({ receiptId: "r-1", duplicate: false });
@@ -154,47 +148,40 @@ it("answers 404 for an unknown source", async () => {
   );
   expect(response.status).toBe(404);
 });
-it("accepts a Shopify webhook signed with either rotated secret", async () => {
-  const body = JSON.stringify({ id: 1 });
-  for (const secret of ["old-shop-secret", "new-shop-secret"]) {
-    const response = await postShopify(body, {
-      "X-Shopify-Hmac-Sha256": await sign(secret, body),
-      "X-Shopify-Webhook-Id": "wh-1",
-    });
-    expect(response.status).toBe(202);
-  }
+it("no longer accepts Shopify webhooks (FLOW-109 A1)", async () => {
+  const response = await app.request(
+    "/api/ingest/shopify",
+    { method: "POST", body: "{}" },
+    env,
+  );
+  expect(response.status).toBe(404);
 });
-it("verifies Shopify against the original bytes, including invalid UTF-8", async () => {
-  const bytes = new Uint8Array([123, 34, 120, 34, 58, 34, 255, 34, 125]);
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode("new-shop-secret"),
-    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, bytes));
-  const response = await app.request("/api/ingest/shopify", {
-    method: "POST", body: bytes,
-    headers: { "X-Shopify-Hmac-Sha256": btoa(String.fromCharCode(...signature)),
-      "X-Shopify-Webhook-Id": "raw-bytes" },
-  }, env);
+it("stores a website inquiry without credentials (FLOW-109)", async () => {
+  const response = await postWebsite(inquiry);
   expect(response.status).toBe(202);
+  expect(withDb).toHaveBeenCalledTimes(1);
 });
-const badSignatures: [string, (body: string) => Promise<string>][] = [
-  ["a wrong secret", (body) => sign("wrong", body)],
-  ["a signature of another body", () => sign("new-shop-secret", "{}")],
-  ["a non-base64 signature", async () => "%%%"],
-  ["no signature", async () => ""],
-];
-it.each(badSignatures)("refuses a Shopify webhook with %s", async (_label, signature) => {
-  const body = JSON.stringify({ id: 1 });
-  const response = await postShopify(body, {
-    "X-Shopify-Hmac-Sha256": await signature(body),
-    "X-Shopify-Webhook-Id": "wh-1",
-  });
-  expect(response.status).toBe(401);
+it("drops a submission that fills the honeypot without storing it", async () => {
+  const spam = JSON.parse(readFileSync("tests/fixtures/website/spam.json", "utf8"));
+  const response = await postWebsite(spam);
+  expect(response.status).toBe(202);
   expect(withDb).not.toHaveBeenCalled();
 });
-it("rejects a signed Shopify webhook without a webhook id", async () => {
-  const body = JSON.stringify({ id: 1 });
-  const response = await postShopify(body, {
-    "X-Shopify-Hmac-Sha256": await sign("new-shop-secret", body),
-  });
+it.each([
+  ["no name", { ...inquiry, name: "" }],
+  ["no way to reach them", { ...inquiry, email: "", phone: "" }],
+  ["a bad email", { ...inquiry, email: "not-an-email" }],
+  ["an impossible date", { ...inquiry, eventDate: "2027-02-31" }],
+  ["a negative guest count", { ...inquiry, guestCount: -1 }],
+  ["no submission id", { ...inquiry, submissionId: undefined }],
+])("refuses a website inquiry with %s and stores nothing", async (_label, body) => {
+  const response = await postWebsite(body);
   expect(response.status).toBe(400);
+  expect(withDb).not.toHaveBeenCalled();
+});
+it("answers 429 and stores nothing when the rate limit is reached", async () => {
+  withDb.mockReset().mockResolvedValue(undefined);
+  const response = await postWebsite(inquiry);
+  expect(response.status).toBe(429);
+  expect((await response.json()).error.code).toBe("RATE_LIMITED");
 });

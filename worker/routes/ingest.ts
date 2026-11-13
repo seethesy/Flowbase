@@ -6,12 +6,22 @@ import {
   type AppEnv,
   type RunWithDb,
 } from "../hono";
-import { storeReceipt } from "../ingest/receipts";
+import { recentReceiptCounts, storeReceipt } from "../ingest/receipts";
 import {
   INGEST_MAX_BYTES,
   ingestSources,
   type IngestSource,
 } from "../ingest/sources";
+
+// A short hash of the sender's IP: enough to count one client's submissions
+// without keeping the address.
+async function clientKeyOf(headers: Headers) {
+  const ip = headers.get("CF-Connecting-IP") ?? "unknown";
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`flowbase:${ip}`)),
+  );
+  return Array.from(digest.slice(0, 8), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 // POST /api/ingest/<source> (FLOW-28). Nothing is stored unless the sender
 // authenticates, the payload fits the size limit, and it names its record.
@@ -79,9 +89,41 @@ export function ingestRoutes(options: {
     const sourceRecordId = source.recordId(request, json);
     if (!sourceRecordId || sourceRecordId.length > 200)
       return fail(c, 400, "INVALID_REQUEST", "The record id is missing.");
-    const stored = await runDb(options.withDb, c.env, (db) =>
-      storeReceipt(db, { source: name, sourceRecordId, body: request.body }),
-    );
+    let body = request.body;
+    const limit = source.rateLimit;
+    const checked = source.schema?.safeParse(json);
+    if (checked && !checked.success)
+      return fail(
+        c,
+        400,
+        "INVALID_REQUEST",
+        checked.error.issues[0]?.message ?? "Invalid request.",
+      );
+    // A bot that fills the hidden field gets the normal answer and nothing is stored.
+    const honeypot = source.honeypot
+      ? (json as Record<string, unknown>)[source.honeypot]
+      : undefined;
+    if (typeof honeypot === "string" && honeypot.trim() !== "")
+      return c.json({ receiptId: null, duplicate: false }, 202);
+    let clientKey = "";
+    if (limit) {
+      clientKey = await clientKeyOf(c.req.raw.headers);
+      body = JSON.stringify({ ...(json as object), clientKey });
+    }
+    const stored = await runDb(options.withDb, c.env, async (db) => {
+      if (limit) {
+        const counts = await recentReceiptCounts(db, {
+          source: name,
+          clientKey,
+          windowSeconds: limit.windowSeconds,
+        });
+        if (counts.client >= limit.perClient || counts.total >= limit.total)
+          return undefined;
+      }
+      return storeReceipt(db, { source: name, sourceRecordId, body });
+    });
+    if (!stored)
+      return fail(c, 429, "RATE_LIMITED", "Too many submissions. Try again later.");
     return c.json(stored, stored.duplicate ? 200 : 202);
   };
   ingest.post("/:source", handle);
