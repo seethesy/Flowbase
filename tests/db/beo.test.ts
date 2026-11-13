@@ -589,7 +589,16 @@ describe("FLOW-147: layouts and annotations", () => {
       { recordType: "beo_area", recordId: source.id, group: "image", fileName: "old.png", status: "ready", archivedAt: new Date(),
         variants: [{ name: "original", key: "beo_area/old.png", contentType: "image/png", size: 1 }] },
     ]);
-    const next = await seed();
+    const next = await sam.send<FlowEvent>("POST", "/api/events", {
+      title: "Winter gala",
+      date: later,
+      startTime: "18:00",
+      endTime: "23:00",
+      clientId: past.client.id,
+      pocContactId: past.pocContactId,
+      guestCount: 40,
+      assignedSalespersonId: people.sam,
+    });
     await db.update(schema.events).set({ venueId }).where(eq(schema.events.id, next.id));
     await sam.send("POST", `/api/events/${next.id}/beo`, {});
     const copied = await sam.send<BeoView>(
