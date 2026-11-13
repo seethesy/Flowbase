@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Link, useParams } from "react-router-dom";
 import { Check, Printer, Send } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
 import {
@@ -13,6 +14,7 @@ import { useResource } from "../app/useResource";
 import { Button, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { beoApi } from "../services/beo";
+import { eventsApi } from "../services/core";
 import { BeoAreaList, BeoCleanup } from "./beo-areas";
 import { BeoSchedule } from "./beo-schedule";
 import "./event-beo.css";
@@ -36,7 +38,15 @@ function Contact({ contact, hidden }: { contact: BeoContact; hidden: boolean }) 
   );
 }
 
-export function EventBeoSection({ event }: { event: FlowEvent }) {
+// standalone: shown on the BEO's own page (/events/<id>/beo/<beo id>, FLOW-221),
+// where time is credited to the BEO; the hub's copy links to that page.
+export function EventBeoSection({
+  event,
+  standalone = false,
+}: {
+  event: FlowEvent;
+  standalone?: boolean;
+}) {
   const beo = useResource(["event-beo", event.id], () => beoApi.get(event.id));
   const [error, setError] = useState("");
   const [notes, setNotes] = useState<{ setup: string; extra: string } | null>(null);
@@ -235,6 +245,11 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
       action={
         <span className="page-actions">
           {data.status && <span className={`badge ${data.status === "approved" ? "success" : "neutral"}`}>{beoStatusLabels[data.status]}</span>}
+          {!standalone && data.id && (
+            <Button variant="outline" asChild>
+              <Link to={`/events/${event.id}/beo/${data.id}`}>Open BEO page</Link>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => window.print()}>
             <Printer size={14} />
             Print
@@ -328,5 +343,43 @@ export function EventBeoSection({ event }: { event: FlowEvent }) {
         </div>
       )}
     </Section>
+  );
+}
+
+// The BEO's own page, /events/<event id>/beo/<beo id> (FLOW-221): the same order as
+// the event hub shows, on a screen where time is credited to the BEO with the BEO
+// editing activity. The beo id in the address must belong to the event.
+export function EventBeoPage() {
+  const { id = "", beoId = "" } = useParams();
+  const event = useResource(["beo-page-event", id], () => eventsApi.get(id));
+  const beo = useResource(["event-beo", id], () => beoApi.get(id));
+  const back = (
+    <Link to={`/events/${id}`} className="back-link">
+      ← Back to event
+    </Link>
+  );
+  if (event.error || beo.error)
+    return (
+      <>
+        {back}
+        <LoadError message={(event.error ?? beo.error)!} />
+      </>
+    );
+  if (!event.data || !beo.data) return <LoadingSkeleton />;
+  if (beo.data.id !== beoId.toLowerCase())
+    return (
+      <>
+        {back}
+        <LoadError message="BEO not found." />
+      </>
+    );
+  return (
+    <>
+      {back}
+      <div className="record-heading">
+        <h1>{event.data.title}</h1>
+      </div>
+      <EventBeoSection event={event.data} standalone />
+    </>
   );
 }

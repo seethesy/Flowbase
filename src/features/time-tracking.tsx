@@ -46,6 +46,12 @@ export function TimeTrackingSettings() {
   );
 }
 
+// The booking's booked total (FLOW-221); a dash when none is recorded or the viewer
+// may not see it.
+const bookedTotal = (cents: number | null) =>
+  cents === null
+    ? "—"
+    : (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 const duration = (seconds: number) => {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min`;
@@ -75,6 +81,12 @@ export function TimeReports() {
     },
     { accessorKey: "date", header: "Date" },
     { accessorKey: "clientName", header: "Client" },
+    {
+      accessorKey: "bookedTotalCents",
+      header: "Booked total",
+      cell: (c) => bookedTotal(c.row.original.bookedTotalCents),
+      meta: { csv: (row) => bookedTotal(row.bookedTotalCents) },
+    },
     { accessorKey: "people", header: "People" },
     {
       accessorKey: "seconds",

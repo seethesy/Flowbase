@@ -32,6 +32,9 @@ const EventList = lazy(() =>
 const EventDetail = lazy(() =>
   import("../features/events").then((module) => ({ default: module.EventDetail })),
 );
+const EventBeoPage = lazy(() =>
+  import("../features/event-beo").then((module) => ({ default: module.EventBeoPage })),
+);
 const VenueList = lazy(() =>
   import("../features/venues").then((module) => ({ default: module.VenueList })),
 );
@@ -233,6 +236,7 @@ export const getRouter = () =>
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
         { path: "/events/:id", element: <EventDetail /> },
+        { path: "/events/:id/beo/:beoId", element: <EventBeoPage /> },
         { path: "/calendar", element: <CalendarPage /> },
         { path: "/day-of", element: <DayOfPage /> },
         { path: "/production", element: <ProductionOverviewPage /> },

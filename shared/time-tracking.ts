@@ -41,8 +41,8 @@ export const activityLabels: Record<ActivityType, string> = {
   general: "General",
 };
 
-// Records time can be credited to. BEOs are listed for when that module stores
-// records (FLOW-143); until then nothing credits a BEO.
+// Records time can be credited to. A BEO is credited while its own page is open
+// (/events/<id>/beo/<beo id>, FLOW-221).
 export const trackedRecordTypeSchema = z.enum([
   "lead",
   "client",
@@ -92,6 +92,9 @@ export const effortRowSchema = z.object({
   title: z.string(),
   date: z.string(),
   clientName: z.string(),
+  // The booking's booked total: its payment schedule's total (FLOW-131). Null when
+  // no schedule is recorded, or when the viewer may not see the event's money.
+  bookedTotalCents: z.number().int().nullable(),
   seconds: z.number().int(),
   people: z.number().int(),
 });

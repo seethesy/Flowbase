@@ -31,7 +31,9 @@ export function contextForPath(
   search = "",
   role: Role | null = null,
 ): TrackingContext {
-  const [section = "", id = ""] = pathname.split("/").filter(Boolean);
+  const [section = "", id = "", page = "", pageId = ""] = pathname
+    .split("/")
+    .filter(Boolean);
   const record = (recordType: TrackedRecordType, recordId = id) =>
     uuidPattern.test(recordId)
       ? { recordType, recordId: recordId.toLowerCase() }
@@ -47,6 +49,10 @@ export function contextForPath(
     case "proposals":
       return { activity: "proposal_work", recordType: null, recordId: null };
     case "events":
+      // The BEO's own page, /events/<id>/beo/<beo id> (FLOW-221), is credited to
+      // the BEO.
+      if (page === "beo" && uuidPattern.test(id))
+        return { activity: "beo_editing", ...record("beo", pageId) };
       // A proposal open on the event hub is credited to the proposal.
       return uuidPattern.test(proposalId) && uuidPattern.test(id)
         ? { activity: "proposal_work", ...record("proposal", proposalId) }

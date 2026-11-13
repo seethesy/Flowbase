@@ -512,3 +512,100 @@ describe("time tracking", () => {
     }
   });
 });
+
+describe("BEO time and booked totals (FLOW-221)", () => {
+  const beoSession = (beoId: string, from: number, to: number) => ({
+    id: sessionId(),
+    startedAt: ago(from),
+    endedAt: ago(to),
+    recordType: "beo",
+    recordId: beoId,
+    activity: "beo_editing",
+  });
+  const schedule = (eventId: string, amountCents: number, archived = false) =>
+    db.insert(schema.paymentScheduleItems).values({
+      eventId,
+      kind: "balance",
+      amountCents,
+      dueDate: "2026-12-20",
+      ...(archived && { archivedAt: new Date() }),
+    });
+
+  it("credits a BEO's time to that BEO's event (AC1)", async () => {
+    const { gala } = await seed();
+    const [beo] = await db.insert(schema.beos).values({ eventId: gala.id }).returning();
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          { ...onEvent(gala.id, 30, 20), activity: "event_planning" },
+          beoSession(beo.id, 20, 8),
+        ],
+      },
+      200,
+    );
+    const stored = await db.select().from(activitySessions);
+    expect(
+      stored
+        .map((row) => [row.recordType, row.activity])
+        .sort(),
+    ).toEqual([
+      ["beo", "beo_editing"],
+      ["event", "event_planning"],
+    ]);
+    const report = await sam.get<TimeReport>(`/api/time/report${range}`);
+    expect(report.effort).toHaveLength(1);
+    // 10 minutes on the event plus 12 on its BEO.
+    expect(report.effort[0]).toMatchObject({ eventId: gala.id, seconds: 22 * 60, people: 1 });
+    expect(report.workload.map((row) => [row.activity, row.seconds]).sort()).toEqual([
+      ["beo_editing", 12 * 60],
+      ["event_planning", 10 * 60],
+    ]);
+  });
+
+  it("refuses time on a BEO that doesn't exist or belongs to an event the user can't open", async () => {
+    const { brunch } = await seed();
+    const [others] = await db.insert(schema.beos).values({ eventId: brunch.id }).returning();
+    await sam.post("/api/time/sessions", { sessions: [beoSession(others.id, 10, 5)] }, 400);
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [beoSession("b0000000-0000-4000-8000-0000000000ff", 10, 5)] },
+      400,
+    );
+    expect(await db.select().from(activitySessions)).toHaveLength(0);
+    await sue.post("/api/time/sessions", { sessions: [beoSession(others.id, 10, 5)] }, 200);
+  });
+
+  it("shows each booking's booked total next to its time, from its payment schedule (AC2)", async () => {
+    const { gala, brunch } = await seed();
+    await schedule(gala.id, 100_000);
+    await schedule(gala.id, 50_000);
+    // An archived item doesn't count.
+    await schedule(gala.id, 99_999, true);
+    await sam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 30, 20)] }, 200);
+    await sue.post("/api/time/sessions", { sessions: [onEvent(brunch.id, 30, 25)] }, 200);
+    const all = await manager.get<TimeReport>(`/api/time/report${range}`);
+    expect(
+      Object.fromEntries(all.effort.map((row) => [row.title, row.bookedTotalCents])),
+    ).toEqual({ "Fall gala": 150_000, "Board brunch": null });
+    const own = await sam.get<TimeReport>(`/api/time/report${range}`);
+    expect(own.effort.map((row) => [row.title, row.bookedTotalCents])).toEqual([
+      ["Fall gala", 150_000],
+    ]);
+  });
+
+  it("hides the booked total from users who may not see the event's money", async () => {
+    const { gala } = await seed();
+    await schedule(gala.id, 100_000);
+    await partTimeSam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 30, 20)] }, 200);
+    await helper.post("/api/time/sessions", { sessions: [onEvent(gala.id, 20, 15)] }, 200);
+    for (const viewer of [partTimeSam, helper]) {
+      const report = await viewer.get<TimeReport>(`/api/time/report${range}`);
+      expect(report.effort).toHaveLength(1);
+      expect(report.effort[0].bookedTotalCents).toBeNull();
+    }
+    // The same event, seen by someone who may see its money.
+    const report = await admin.get<TimeReport>(`/api/time/report${range}`);
+    expect(report.effort[0]).toMatchObject({ bookedTotalCents: 100_000, people: 2 });
+  });
+});
