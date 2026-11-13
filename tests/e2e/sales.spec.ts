@@ -26,6 +26,7 @@ test("sales tracker filters, saved views, export and live proposal stages", asyn
   const drawer = page.getByRole("dialog", { name: "Gala proposal" });
   await expect(drawer).toBeVisible();
   await drawer.getByLabel("Move to stage").selectOption({ label: "Menu curation" });
+  await expect(drawer.getByRole("list", { name: "Stage history" })).toContainText("Client communication → Menu curation");
   await page.goto("/#/proposals");
   await expect(page.getByRole("table").getByText("Menu curation")).toBeVisible();
 });

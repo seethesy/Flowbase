@@ -37,5 +37,5 @@ test("shows unassigned production work on the event hub", async ({ page }) => {
   await page.goto(`/#/events/${fallGala().id}`);
   await expect(page.getByRole("heading", { name: "Tasks" })).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Who is building the balloon arch?");
-  await expect(page.getByText("Build balloon arch")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Build balloon arch" })).toBeVisible();
 });

@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import postgres from "postgres";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
-import { recomputeItem } from "../../worker/records/allocations";
+import { createJobRegistry } from "../../worker/jobs/cron";
+import { runDueJobs } from "../../worker/jobs/queue";
+import { recomputeItem, requestRecompute } from "../../worker/records/allocations";
 import type { RunWithDb } from "../../worker/hono";
 
 // Ordering record (FLOW-87) and receiving (FLOW-88).
@@ -180,4 +182,61 @@ it("cancels an order nothing has arrived for, and the list when every vendor's o
   const cancelled = await admin("POST", `/api/order-lists/${listId}/orders/${orderId}/cancel`);
   expect(cancelled.body.orders[0].status).toBe("cancelled");
   expect(cancelled.body.status).toBe("cancelled");
+});
+
+// Orders on the way in projected stock (FLOW-222). Order changes queue the recompute
+// in their own transaction (worker/records/vendor-orders.ts); these run the queued
+// jobs the way the cron does and read what the allocation says.
+const drain = async () => {
+  const registry = createJobRegistry({ emailProvider: () => undefined });
+  for (let i = 0; i < 20; i += 1)
+    if (!(await runDueJobs(db, registry, { maxAttempts: 1 })).claimed) return;
+};
+async function needing(itemId: string, quantity: number, startsAt: string) {
+  const [clientRow] = await db.insert(schema.clients).values({ name: "Delivery client", kind: "organization" }).returning();
+  const [event] = await db.insert(schema.events).values({ clientId: clientRow.id, title: "Needs the wine", startsAt: new Date(startsAt),
+    status: "closed", bookedAt: new Date("2026-10-02T12:00:00.000Z") }).returning();
+  await db.insert(schema.eventRequirements).values({ eventId: event.id, itemId, quantity });
+  await db.transaction((tx) => requestRecompute(tx, itemId));
+  return event.id;
+}
+const shortageOf = async (eventId: string, itemId: string) => {
+  await drain();
+  const [row] = await db.select().from(schema.consumableAllocations).where(and(
+    eq(schema.consumableAllocations.eventId, eventId), eq(schema.consumableAllocations.itemId, itemId),
+    isNull(schema.consumableAllocations.archivedAt)));
+  return row?.shortage;
+};
+
+it("counts an order due by the event date, and stops counting it when it is cancelled (FLOW-222 AC1, AC2)", async () => {
+  const { listId, itemId } = await approvedList();
+  // 3 cases = 36 bottles due Nov 10; the event is on Nov 14 and needs all 36.
+  const eventId = await needing(itemId, 36, "2026-11-14T23:00:00.000Z");
+  expect(await shortageOf(eventId, itemId)).toBe(36);
+  const orderId = (await admin("POST", `/api/order-lists/${listId}/orders`, order)).body.orders[0].id;
+  expect(await shortageOf(eventId, itemId)).toBe(0);
+  expect((await admin("POST", `/api/order-lists/${listId}/orders/${orderId}/cancel`)).status).toBe(200);
+  expect(await shortageOf(eventId, itemId)).toBe(36);
+});
+
+it("does not count an order due after the event, and counts the stock once it is received (FLOW-222 AC1, AC2)", async () => {
+  const { listId, itemId } = await approvedList();
+  const eventId = await needing(itemId, 24, "2026-11-08T23:00:00.000Z");
+  const orderId = (await admin("POST", `/api/order-lists/${listId}/orders`, order)).body.orders[0].id;
+  // Due Nov 10, after the Nov 8 event.
+  expect(await shortageOf(eventId, itemId)).toBe(24);
+  const received = await lead("POST", `/api/order-lists/${listId}/orders/${orderId}/receive`, { lines: [{ itemId, quantity: 3 }] });
+  expect(received.status).toBe(200);
+  expect(await shortageOf(eventId, itemId)).toBe(0);
+});
+
+it("recomputes when an order is closed short, since what never arrived is no longer on order (FLOW-222 AC2)", async () => {
+  const { listId, itemId } = await approvedList();
+  const eventId = await needing(itemId, 36, "2026-11-14T23:00:00.000Z");
+  const orderId = (await admin("POST", `/api/order-lists/${listId}/orders`, order)).body.orders[0].id;
+  expect(await shortageOf(eventId, itemId)).toBe(0);
+  await lead("POST", `/api/order-lists/${listId}/orders/${orderId}/receive`, {
+    lines: [{ itemId, quantity: 2, note: "Last case back-ordered" }], complete: true });
+  // 24 bottles arrived and nothing more is coming.
+  expect(await shortageOf(eventId, itemId)).toBe(12);
 });
