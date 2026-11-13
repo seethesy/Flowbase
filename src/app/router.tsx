@@ -1,5 +1,4 @@
 import { lazy, Suspense } from "react";
-import { DemoScreen } from "./store";
 import {
   createHashRouter,
   Link,
@@ -11,6 +10,9 @@ import { AppShell } from "../components/layout/AppShell";
 const Dashboard = lazy(() =>
   import("../features/dashboard").then((module) => ({ default: module.Dashboard })),
 );
+const OperationalReports = lazy(() => import("../features/operational-reports").then((module) => ({ default: module.OperationalReports })));
+const OperationsPage = lazy(() => import("../features/operations").then((module) => ({ default: module.OperationsPage })));
+const KitchenOrderStatus = lazy(() => import("../features/kitchen-orders").then((module) => ({ default: module.KitchenOrderStatus })));
 const ClientList = lazy(() =>
   import("../features/clients").then((module) => ({ default: module.ClientList })),
 );
@@ -205,7 +207,7 @@ export const getRouter = () =>
     {
       element: <AppShell />,
       children: [
-        { path: "/", element: <DemoScreen><Dashboard /></DemoScreen> },
+        { path: "/", element: <Dashboard /> },
         { path: "/leads", element: <LeadInbox /> },
         { path: "/leads/dashboard", element: <LeadDashboardPage /> },
         { path: "/leads/:id", element: <LeadDetail /> },
@@ -221,6 +223,7 @@ export const getRouter = () =>
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/master", element: <MasterInventory /> },
         { path: "/inventory/orders", element: <OrderLists /> },
+        { path: "/kitchen/orders", element: <KitchenOrderStatus /> },
         { path: "/inventory/orders/:id", element: <OrderListDetail /> },
         { path: "/approvals", element: <ApprovalQueue /> },
         { path: "/inventory/ingredients", element: <IngredientList /> },
@@ -254,11 +257,13 @@ export const getRouter = () =>
         { path: "/sops", element: <SopLibrary /> },
         { path: "/sops/:id", element: <SopDetail /> },
         { path: "/reports", element: <TimeReports /> },
+        { path: "/reports/operations", element: <OperationalReports /> },
         { path: "/imports", element: <ImportList /> },
         { path: "/imports/:module", element: <ImportPage /> },
         { path: "/settings", element: <SettingsPage /> },
         { path: "/settings/collector", element: <CollectorHealthPage /> },
         { path: "/settings/usage", element: <UsagePage /> },
+        { path: "/settings/operations", element: <OperationsPage /> },
         { path: "/settings/users", element: <UserManagement /> },
         ...["purchasing", "help", "*"].map((path) => ({
           path,

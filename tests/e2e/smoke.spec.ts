@@ -8,7 +8,7 @@ test("sidebar, client search, detail tabs, and browser history", async ({
   await seedRecords({ clients: [juniper()] });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Overview", exact: true }),
+    page.getByRole("heading", { name: "Home", exact: true }),
   ).toBeVisible();
   if (isMobile)
     await page.getByRole("button", { name: "Open navigation" }).click();
@@ -32,7 +32,7 @@ test("Worker health and SPA share an origin", async ({ page, request }) => {
   });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Overview", exact: true }),
+    page.getByRole("heading", { name: "Home", exact: true }),
   ).toBeVisible();
 });
 

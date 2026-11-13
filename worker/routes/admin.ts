@@ -19,7 +19,7 @@ export function adminRoutes(options: {
   const admin = new Hono<AppEnv>();
   admin.use("*", requireActor(options.resolveActor));
 
-  admin.get("/usage", requirePermission("settings.manage"), async (c) =>
+  admin.get("/usage", requirePermission("operations.read"), async (c) =>
     c.json(await runDb(options.withDb, c.env, (db) => refreshUsage(db))),
   );
 
@@ -27,7 +27,7 @@ export function adminRoutes(options: {
     c.json(await runDb(options.withDb, c.env, (db) => db.select().from(smsOutbox)
       .orderBy(desc(smsOutbox.createdAt)).limit(100))),
   );
-  admin.get("/collector-health", requirePermission("settings.manage"), async (c) =>
+  admin.get("/collector-health", requirePermission("operations.read"), async (c) =>
     c.json(await runDb(options.withDb, c.env, listCollectorHealth)),
   );
   admin.put("/collector-health/:site", requirePermission("settings.manage"), async (c) => {
@@ -43,7 +43,7 @@ export function adminRoutes(options: {
     return c.json({ saved: true });
   });
 
-  admin.get("/jobs", requirePermission("jobs.manage"), async (c) => {
+  admin.get("/jobs", requirePermission("operations.read"), async (c) => {
     const status = jobStatusSchema.safeParse(c.req.query("status") ?? "failed");
     if (!status.success)
       return fail(c, 400, "INVALID_REQUEST", "Invalid request.");
@@ -62,7 +62,7 @@ export function adminRoutes(options: {
 
   admin.get(
     "/ingest-receipts",
-    requirePermission("ingest.manage"),
+    requirePermission("operations.read"),
     async (c) => {
       const status = c.req.query("status") ?? "all";
       if (status !== "all" && status !== "failed" && status !== "unprocessed")
