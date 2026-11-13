@@ -17,8 +17,15 @@ export default defineConfig({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
         globPatterns: ["**/*.{js,css,html,woff,woff2,svg,png,ico}"],
-        // The layout annotation editor's large chunks are online-only.
-        maximumFileSizeToCacheInBytes: 1_500_000,
+        // The layout annotation editor (Excalidraw) and its diagram, locale and font
+        // chunks are online-only (annotating needs the network), so they are not
+        // precached; everything else the app needs is.
+        globIgnores: [
+          "**/*Diagram-*.js",
+          "**/[a-z][a-z]-[A-Z][A-Z]-*.js",
+          "**/{cytoscape,cose-bilkent,katex,cynefin,percentages,subset-shared,swimlanes,image-blob-reduce,pica,timeline-definition,mermaid}*.js",
+        ],
+        maximumFileSizeToCacheInBytes: 3_000_000,
         cleanupOutdatedCaches: true,
       },
     }),
