@@ -153,6 +153,11 @@ function Sidebar({
               )}
             </NavLink>
           ))}
+          {(auth?.user.role === "admin" || auth?.user.role === "sales_manager") && (
+            <NavLink to="/reports/operations" title="Operational reports" onClick={() => setMobile(false)}>
+              <ChartNoAxesCombined size={19} /><span className="sidebar-text">Operational reports</span>
+            </NavLink>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="demo-sidebar-note sidebar-text">

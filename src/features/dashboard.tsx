@@ -1,331 +1,108 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  Users,
-  FileText,
-  CheckCheck,
-  Package,
-  Plus,
-  ArrowUpRight,
-  ArrowRight,
-  CalendarDays,
-  Clock,
-  Leaf,
-  Check,
-  MessageSquare,
-  Truck,
-  UserPlus,
-  Send,
-} from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { useDemo } from "../app/store";
-import { activities, events, stages } from "../data/mock/fixtures";
-import { money, stockStatus, date } from "../services/records";
-import {
-  PageHeader,
-  Button,
-  KpiCard,
-  Section,
-  StatusBadge,
-} from "../components/shared";
-import { RecordForm } from "./forms";
-import { ProposalDrawer } from "./proposals";
+import { Link } from "react-router-dom";
+import { z } from "zod";
+import type { Role } from "../../shared/access";
+import { addLocalDays, utcToBusinessTime } from "../../shared/time";
+import { useAuth } from "../app/auth";
+import { useResource } from "../app/useResource";
+import { LoadingSkeleton, PageHeader } from "../components/shared";
+import { LoadError } from "../components/record-display";
+import { roleLabel } from "../services/users";
+import { request, calendarApi, inventoryApi } from "../services/core";
+import { approvalsApi } from "../services/approvals";
+import { leadsApi } from "../services/leads";
+import { productionApi } from "../services/production";
+import { salesApi } from "../services/sales";
+import { tasksApi } from "../services/tasks";
 import "./dashboard.css";
-function ActivityFeed() {
-  const icons = [Check, MessageSquare, Truck, UserPlus, Send];
-  return (
-    <div className="activity-feed">
-      {activities.map((a, i) => {
-        const Icon = icons[i];
-        return (
-          <Link to={a.path} key={a.text} className="activity-row">
-            <span className={`activity-icon activity-${i}`}>
-              <Icon size={16} />
-            </span>
-            <div>
-              <strong>{a.text}</strong>
-              <p>{a.detail}</p>
-              <small>{a.time}</small>
-            </div>
-            <ArrowUpRight size={15} className="activity-arrow" />
-          </Link>
-        );
-      })}
-    </div>
-  );
+
+type Widget = { label: string; value: number | string; to: string };
+const widget = (label: string, value: number | string, to: string): Widget => ({ label, value, to });
+const countSchema = z.object({ count: z.number().int() });
+const healthSchema = z.array(z.object({ status: z.string() }));
+const usageSchema = z.array(z.object({ percent: z.number().nullable() }));
+const rowsSchema = z.array(z.unknown());
+
+// Each source enforces its own role and record scope in the Worker. Only the
+// sources for this role are requested, including financial and admin data.
+export async function homeWidgets(role: Role): Promise<Widget[]> {
+  const today = utcToBusinessTime(new Date()).date;
+  const tasks = await tasksApi.dashboard();
+  const myTasks = widget("My tasks", tasks.overdue.count + tasks.today.count + tasks.upcoming.count, "/tasks");
+  if (role === "salesperson") {
+    const [leads, sales] = await Promise.all([leadsApi.dashboard(), salesApi.list()]);
+    const rows = sales.rows;
+    return [
+      widget("New leads", leads.byStatus.find((r) => r.status === "new")?.leads ?? 0, "/leads?status=new"),
+      widget("Follow-ups due", rows.filter((r) => r.nextFollowUp && r.nextFollowUp.slice(0, 10) <= today).length, "/proposals"),
+      widget("Proposals awaiting approval", rows.filter((r) => r.kind === "proposal" && r.proposalStage === "finalized").length, "/proposals?stage=finalized"),
+      widget("Awaiting client response", rows.filter((r) => r.kind === "proposal" && r.proposalStage === "sent").length, "/proposals?stage=sent"),
+      widget("Unpaid balances", rows.filter((r) => r.kind === "event" && (r.balanceCents ?? 0) > 0).length, "/proposals"),
+    ];
+  }
+  if (role === "sales_manager") {
+    const [approvals, production, leads, calendar] = await Promise.all([
+      approvalsApi.list(), productionApi.overview(14), leadsApi.dashboard(), calendarApi.get(today, addLocalDays(today, 13)),
+    ]);
+    const items = production.days.flatMap((day) => day.items);
+    return [
+      widget("BEO approvals", approvals.rows.filter((r) => r.subjectType === "beo").length, "/approvals"),
+      widget("Inventory conflicts", items.filter((r) => r.type === "shortage" && !r.complete).length, "/production"),
+      widget("Production alerts", items.filter((r) => (r.type === "readiness" || r.type === "shortage") && !r.complete).length, "/production"),
+      widget("Upcoming events", calendar.events.length, "/calendar"),
+      widget("Leads in triage", leads.totals.awaitingAction, "/leads?triage=true"),
+    ];
+  }
+  if (role === "admin") {
+    const [approvals, health, usage, leads] = await Promise.all([
+      approvalsApi.list(), request(healthSchema, "/api/admin/collector-health"),
+      request(usageSchema, "/api/admin/usage"), leadsApi.list({ triage: true }),
+    ]);
+    return [
+      widget("Pending approvals", approvals.rows.length, "/approvals"),
+      widget("Collector health", health.filter((r) => r.status !== "ok").length, "/settings/collector"),
+      widget("Free-tier usage", usage.filter((r) => (r.percent ?? 0) >= 80).length, "/settings/usage"),
+      widget("Leads awaiting assignment", leads.rows.filter((r) => !r.assignedSalespersonId).length, "/leads?triage=true"),
+    ];
+  }
+  if (role === "technical") {
+    const [health, usage, jobs, receipts] = await Promise.all([
+      request(healthSchema, "/api/admin/collector-health"), request(usageSchema, "/api/admin/usage"),
+      request(rowsSchema, "/api/admin/jobs?status=failed"), request(rowsSchema, "/api/admin/ingest-receipts?status=failed"),
+    ]);
+    return [
+      widget("Free-tier usage", usage.filter((r) => (r.percent ?? 0) >= 80).length, "/settings/usage"),
+      widget("Collector health", health.filter((r) => r.status !== "ok").length, "/settings/collector"),
+      widget("Failed jobs", jobs.length, "/settings/operations#jobs"),
+      widget("Failed ingest receipts", receipts.length, "/settings/operations#receipts"),
+    ];
+  }
+  if (role === "kitchen_lead" || role === "kitchen_staff") {
+    const [kitchenState, lowStock] = await Promise.all([
+      request(z.object({ menus: z.number().int(), openOrderLists: z.number().int() }), "/api/home/kitchen"),
+      inventoryApi.list({ kind: "consumable", subtype: "ingredient", belowPar: true }),
+    ]);
+    const kitchen = tasks.overdue.tasks.concat(tasks.today.tasks, tasks.upcoming.tasks).filter((r) => r.type === "kitchen");
+    const base = [
+      widget("Kitchen tasks", kitchen.length, "/tasks"),
+      widget("Upcoming menus", kitchenState.menus, "/calendar"),
+      widget("Low stock", lowStock.rows.length, "/inventory/low-stock"),
+      widget("Order list status", kitchenState.openOrderLists, "/kitchen/orders"),
+    ];
+    return base;
+  }
+  const shifts = await request(countSchema, "/api/home/my-shifts");
+  return [myTasks, widget("My shifts", shifts.count, "/calendar")];
 }
+
 export function Dashboard() {
-  const store = useDemo();
-  const navigate = useNavigate();
-  const [range, setRange] = useState("This month");
-  const [create, setCreate] = useState(false);
-  const [proposal, setProposal] = useState<string | null>(null);
-  const all = store.proposals.records;
-  const ranged =
-    range === "This week"
-      ? all.filter((_, i) => i % 3 === 0)
-      : range === "Last month"
-        ? all.filter((_, i) => i % 2 === 0)
-        : all;
-  const active = store.clients.records.filter((c) => c.status === "Active");
-  const open = ranged.filter((c) => !["Signed", "Lost"].includes(c.stage));
-  const signed = ranged.filter((c) => c.stage === "Signed");
-  const alerts = store.inventory.records.filter(
-    (i) => stockStatus(i) !== "In Stock",
-  );
-  const chart = stages.map((name) => ({
-    name,
-    value: ranged.filter((c) => c.stage === name).length,
-  }));
-  const colors = ["#B6C4BA", "#89A9C6", "#D7AC65", "#327459", "#CBA5A1"];
-  return (
-    <>
-      <PageHeader
-        title="Overview"
-        subtitle="Business at a glance. A little clarity for your busy day."
-        eyebrow="THURSDAY, OCTOBER 15, 2026"
-      >
-        <label className="range-select">
-          <CalendarDays size={15} />
-          <select
-            aria-label="Dashboard date range"
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-          >
-            {["This month", "This week", "Last month"].map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-        </label>
-        <Button onClick={() => setCreate(true)}>
-          <Plus size={16} />
-          New Proposal
-        </Button>
-      </PageHeader>
-      <div className="welcome-strip">
-        <div className="welcome-icon">
-          <Leaf size={22} />
-        </div>
-        <div>
-          <strong>A good day to keep things flowing.</strong>
-          <p>
-            Sample data: {open.length} open proposals and {alerts.length} inventory
-            items that need a little attention.
-          </p>
-        </div>
-        <span className="live-pill">
-          <span />
-          Sample data
-        </span>
-      </div>
-      <div className="kpi-grid">
-        <KpiCard
-          label="Active Clients (sample data)"
-          value={active.length}
-          icon={<Users size={19} />}
-          comparison="Client relationships"
-          onClick={() => navigate("/clients?status=Active")}
-        />
-        <KpiCard
-          label="Open Proposals (sample data)"
-          value={open.length}
-          icon={<FileText size={19} />}
-          comparison={`${money(open.reduce((a, c) => a + c.value, 0))} in pipeline`}
-          onClick={() => navigate("/proposals?open=1")}
-        />
-        <KpiCard
-          label="Proposals Won This Month (sample data)"
-          value={signed.length}
-          icon={<CheckCheck size={19} />}
-          comparison={`${money(signed.reduce((a, c) => a + c.value, 0))} in signed value`}
-          onClick={() => navigate("/proposals?stage=Signed")}
-        />
-        <KpiCard
-          label="Inventory Alerts (sample data)"
-          value={alerts.length}
-          icon={<Package size={19} />}
-          comparison={`${alerts.filter((i) => stockStatus(i) === "Out of Stock").length} out of stock · needs review`}
-          onClick={() => navigate("/inventory?status=Alerts")}
-        />
-      </div>
-      <div className="dashboard-grid">
-        <div className="dashboard-main">
-          <Section
-            title="Recent activity (sample data)"
-            action={
-              <span className="subtle-tag">
-                <Clock size={12} /> Today
-              </span>
-            }
-          >
-            <ActivityFeed />
-          </Section>
-          <Section
-            title="Recent proposals (sample data)"
-            action={
-              <Link className="text-link" to="/proposals?view=table">
-                View all <ArrowUpRight size={14} />
-              </Link>
-            }
-          >
-            <div className="table-scroll">
-              <table className="compact-table">
-                <thead>
-                  <tr>
-                    <th>Proposal / Client</th>
-                    <th>Value</th>
-                    <th>Status</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {ranged.slice(0, 5).map((c) => (
-                    <tr key={c.id}>
-                      <td>
-                        <button
-                          className="table-link proposal-name"
-                          onClick={() => setProposal(c.id)}
-                        >
-                          {c.name}
-                          <small>{store.clients.find(c.clientId)?.name}</small>
-                        </button>
-                      </td>
-                      <td>{money(c.value)}</td>
-                      <td>
-                        <StatusBadge status={c.stage} />
-                      </td>
-                      <td>
-                        <button
-                          aria-label={`Open ${c.id}`}
-                          onClick={() => setProposal(c.id)}
-                        >
-                          <ArrowUpRight size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Section>
-          <div className="workspace-note">
-            <span className="brand-mark small-mark">f</span>
-            <span>Less admin. More room for what matters.</span>
-            <span>Flowbase v0.1</span>
-          </div>
-        </div>
-        <div className="dashboard-aside">
-          <Section
-            title="Proposals by status (sample data)"
-            action={
-              <Link to="/proposals" aria-label="View proposal pipeline">
-                <ArrowUpRight size={17} />
-              </Link>
-            }
-          >
-            <div className="chart-layout">
-              <div className="donut">
-                <ResponsiveContainer width="100%" height={174}>
-                  <PieChart>
-                    <Pie
-                      data={chart}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={55}
-                      outerRadius={73}
-                      paddingAngle={4}
-                      stroke="none"
-                    >
-                      {chart.map((c, i) => (
-                        <Cell key={c.name} fill={colors[i]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="donut-label">
-                  <strong>{ranged.length}</strong>
-                  <small>proposals</small>
-                </div>
-              </div>
-              <div className="chart-legend">
-                {chart.map((c, i) => (
-                  <button
-                    key={c.name}
-                    onClick={() => navigate(`/proposals?stage=${c.name}`)}
-                  >
-                    <span style={{ background: colors[i] }} />
-                    <span>{c.name}</span>
-                    <b>{c.value}</b>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <p className="chart-caption">
-              {range} · {money(ranged.reduce((a, c) => a + c.value, 0))} total
-              value
-            </p>
-          </Section>
-          <Section
-            title="Stock needs attention (sample data)"
-            action={<span className="alert-count">{alerts.length}</span>}
-          >
-            <div className="low-stock-list">
-              {alerts.slice(0, 3).map((i) => (
-                <Link to={`/inventory/${i.id}`} key={i.id}>
-                  <span className="stock-item-icon">
-                    <Package size={17} />
-                  </span>
-                  <div>
-                    <strong>{i.name}</strong>
-                    <small>
-                      {i.onHand - i.reserved} {i.unit} available · reorder at{" "}
-                      {i.reorder} {i.unit}
-                    </small>
-                  </div>
-                  <StatusBadge status={stockStatus(i)} />
-                </Link>
-              ))}
-            </div>
-            <Link className="panel-bottom-link" to="/inventory?status=Alerts">
-              Review inventory <ArrowRight size={14} />
-            </Link>
-          </Section>
-          <Section
-            title="Coming up (sample data)"
-            action={
-              <Link to="/events" aria-label="View events">
-                <ArrowUpRight size={17} />
-              </Link>
-            }
-          >
-            {events.slice(0, 2).map((e) => (
-              <Link
-                className="event-row"
-                key={e.id}
-                to={`/clients/${e.clientId}`}
-              >
-                <div className="event-date">
-                  <b>{e.date.slice(-2)}</b>
-                  <span>OCT</span>
-                </div>
-                <div>
-                  <strong>{e.name}</strong>
-                  <small>
-                    {date(e.date)} · {e.guests} guests
-                  </small>
-                </div>
-              </Link>
-            ))}
-          </Section>
-        </div>
-      </div>
-      {create && (
-        <RecordForm kind="proposal" onClose={() => setCreate(false)} />
-      )}{" "}
-      {proposal && (
-        <ProposalDrawer id={proposal} onClose={() => setProposal(null)} />
-      )}
-    </>
-  );
+  const role = useAuth()?.user.role;
+  const dashboard = useResource(["home", role], () => role ? homeWidgets(role) : Promise.resolve([]));
+  return <>
+    <PageHeader title="Home" subtitle={role ? `${roleLabel(role)} · what needs your attention` : "What needs your attention"} />
+    {dashboard.error ? <LoadError message={dashboard.error} /> : !dashboard.data ? <LoadingSkeleton /> :
+      <div className="home-widget-grid">{dashboard.data.map((item) =>
+        <Link className="home-widget" key={item.label} to={item.to}>
+          <span>{item.label}</span><strong>{item.value}</strong><small>View list →</small>
+        </Link>)}</div>}
+  </>;
 }

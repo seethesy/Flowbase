@@ -4,7 +4,7 @@ import { z } from "zod";
 import { jobStatusSchema } from "../../shared/api";
 import { id as idSchema } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
-import { fail, runDb, type AppEnv, type RunWithDb } from "../hono";
+import { fail, forbidden, runDb, type AppEnv, type RunWithDb } from "../hono";
 import { listReceipts, replayReceipt } from "../ingest/receipts";
 import { listJobs, retryFailedJob } from "../jobs/queue";
 import { collectorSites, smsOutbox } from "../db/schema";
@@ -19,7 +19,11 @@ export function adminRoutes(options: {
   const admin = new Hono<AppEnv>();
   admin.use("*", requireActor(options.resolveActor));
 
-  admin.get("/usage", requirePermission("settings.manage"), async (c) =>
+  const operationsReader = async (c: import("../hono").AppContext, next: () => Promise<void>) => {
+    if (!(["admin", "technical"] as string[]).includes(c.get("actor").role)) throw forbidden();
+    await next();
+  };
+  admin.get("/usage", operationsReader, async (c) =>
     c.json(await runDb(options.withDb, c.env, (db) => refreshUsage(db))),
   );
 
@@ -27,7 +31,7 @@ export function adminRoutes(options: {
     c.json(await runDb(options.withDb, c.env, (db) => db.select().from(smsOutbox)
       .orderBy(desc(smsOutbox.createdAt)).limit(100))),
   );
-  admin.get("/collector-health", requirePermission("settings.manage"), async (c) =>
+  admin.get("/collector-health", operationsReader, async (c) =>
     c.json(await runDb(options.withDb, c.env, listCollectorHealth)),
   );
   admin.put("/collector-health/:site", requirePermission("settings.manage"), async (c) => {
@@ -43,7 +47,7 @@ export function adminRoutes(options: {
     return c.json({ saved: true });
   });
 
-  admin.get("/jobs", requirePermission("jobs.manage"), async (c) => {
+  admin.get("/jobs", operationsReader, async (c) => {
     const status = jobStatusSchema.safeParse(c.req.query("status") ?? "failed");
     if (!status.success)
       return fail(c, 400, "INVALID_REQUEST", "Invalid request.");
@@ -62,7 +66,7 @@ export function adminRoutes(options: {
 
   admin.get(
     "/ingest-receipts",
-    requirePermission("ingest.manage"),
+    operationsReader,
     async (c) => {
       const status = c.req.query("status") ?? "all";
       if (status !== "all" && status !== "failed" && status !== "unprocessed")

@@ -1,6 +1,6 @@
 # Flowbase v0.1
 
-Flowbase is a catering operations workspace for a team of 15–20 employees. Clients, venues, events, leads, inventory, search, time tracking, attachments, jobs and ingestion use real Worker APIs and Postgres (with R2 for file content). Google-only, invite-only sign-in protects the workspace. Dashboard figures still use sample data. Real proposals live on each event's hub and in the sales tracker (see Proposals below).
+Flowbase is a catering operations workspace for a team of 15–20 employees. Clients, venues, events, leads, inventory, search, time tracking, attachments, jobs and ingestion use real Worker APIs and Postgres (with R2 for file content). Google-only, invite-only sign-in protects the workspace. Role home dashboards use permitted live records. Real proposals live on each event's hub and in the sales tracker (see Proposals below).
 
 ## Setup
 
@@ -18,15 +18,15 @@ Google sign-in is required to enter the workspace. Follow [Sign-in setup](docs/s
 
 ## Explore
 
-- **Dashboard:** date-range sample datasets, KPI navigation, activity links, proposal status chart, stock alerts, and upcoming events.
+- **Dashboard:** role-specific home widgets link to the real task, lead, sales, production, kitchen and operations lists.
 - **Clients, Venues, Events:** real records from the API (see [Core records](#core-records)), with search, show-archived filters, create/edit forms, archive/restore and detail pages. They require an invited Google account.
 - **Proposals:** pipeline/table toggle, shared filters, numeric sorting, date filtering, pagination, drag-and-drop cards, and detail/edit drawers. The status selector is the keyboard-accessible alternative to dragging. Lost requires confirmation and a reason. Signed is final; Draft cannot jump straight to Signed. Lost may reopen as Draft.
-- **Inventory:** real items from the API (see [Inventory](#inventory)): rentals, decor, ingredients, bar stock, supplies and services, with per-section stock, the stock ledger (movement history, transfers, counts, receipts, adjustments and corrections) on the item page, the kitchen ingredient catalog, the bar screen, count mode, the low-stock list, cost history, and Admin-managed sections. The Dashboard stock alerts still use the demo item fixtures.
+- **Inventory:** real items from the API (see [Inventory](#inventory)): rentals, decor, ingredients, bar stock, supplies and services, with per-section stock, the stock ledger (movement history, transfers, counts, receipts, adjustments and corrections) on the item page, the kitchen ingredient catalog, the bar screen, count mode, the low-stock list, cost history, and Admin-managed sections.
 - **Vendors:** the vendor and distributor directory (see [Vendors](#vendors)): distributors, rental vendors and event partners, how to order from each, and the items they supply.
 - **Recipes:** the recipe book (see [Recipe book](#recipe-book)): dishes with ingredient lines, method, yield, cost, allergens and dietary tags, and a scaling tool.
-- Global search (header, see [Global search](#global-search)) finds real clients, leads, events, venues, inventory items and vendors; demo proposals are no longer in it. The header bell shows the signed-in person's real notifications (see [Notifications](#notifications)). Purchasing and Help are labeled placeholders; Reports holds the time-tracking reports and Settings the time-tracking notice (see [Time tracking](#time-tracking)). Proposals and the Dashboard still use the demo client fixtures. The employee profile and header show the signed-in staff member. Admin manages invitations and access in Settings → Manage users.
+- Global search (header, see [Global search](#global-search)) finds real clients, leads, events, venues, inventory items and vendors; demo proposals are no longer in it. The header bell shows the signed-in person's real notifications (see [Notifications](#notifications)). Purchasing and Help are labeled placeholders; Reports holds the time-tracking reports, and Admin and Sales Managers can open operational reports. Proposals still use demo client fixtures. The employee profile and header show the signed-in staff member. Admin manages invitations and access in Settings → Manage users.
 
-Demo fixtures: 35 clients, 40 proposals, 50 items, 15 vendors, 10 events, 8 employee profiles, activity and attachment metadata. The separate development database seed is described below. Dashboard date ranges intentionally select different mock subsets rather than querying a backend.
+Demo fixtures: 35 clients, 40 proposals, 50 items, 15 vendors, 10 events, 8 employee profiles, activity and attachment metadata. The separate development database seed is described below.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ Manual workflow verification: push two commits to a PR while the first run is ac
 
 ## Demo limitations
 
-Dashboard figures, activity, stock alerts and upcoming events are labeled sample data. The Proposals navigation opens the real sales tracker; proposal creation and stage changes remain on the event hub. Only the Dashboard requests demo data. The header has no demo quick-create control; real modules provide their own create forms. Purchasing and Help remain placeholders. Clients, venues, events, leads, inventory, global search, time tracking, attachments, jobs and ingestion use real APIs; records persist in Postgres and attachment content uses R2. Google-only, invite-only authentication is configured per environment (see [Sign-in setup](docs/sign-in-setup.md)); R2 file storage is configured only in production. The deployable unit is the Worker and its static SPA assets. No secrets or real client data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
+The Proposals navigation opens the real sales tracker; proposal creation and stage changes remain on the event hub. The header has no demo quick-create control; real modules provide their own create forms. Purchasing and Help remain placeholders. Clients, venues, events, leads, inventory, global search, time tracking, attachments, jobs and ingestion use real APIs; records persist in Postgres and attachment content uses R2. Google-only, invite-only authentication is configured per environment (see [Sign-in setup](docs/sign-in-setup.md)); R2 file storage is configured only in production. The deployable unit is the Worker and its static SPA assets. No secrets or real client data are stored in the repository. This prototype targets WCAG 2.2 AA, but does not claim an independent accessibility audit.
 
 ## Database
 

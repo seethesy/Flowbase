@@ -1,4 +1,5 @@
-import type { z } from "zod";
+import { z } from "zod";
+import { operationalReportSchema } from "../../shared/operational-reports";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 import { authConfigSchema, userSchema } from "../../shared/users";
 import { recordSchemas } from "../../shared/records";
@@ -100,6 +101,13 @@ export function responseSchema(
   if (status >= 400) return apiErrorSchema;
   const [, , resource, id, action] = path.split("/");
   if (resource === "health") return healthSchema;
+  if (resource === "home" && id === "my-shifts") return z.object({ count: z.number().int() });
+  if (resource === "home" && id === "kitchen") return z.object({ menus: z.number().int(), openOrderLists: z.number().int() });
+  if (resource === "home" && id === "kitchen-orders") return z.array(z.object({ id: z.string(), fromDate: z.string(), toDate: z.string(), status: z.string() }));
+  if (resource === "operational-reports") return operationalReportSchema;
+  if (resource === "admin" && id === "usage") return z.array(z.object({ percent: z.number().nullable() }));
+  if (resource === "admin" && id === "collector-health") return z.array(z.object({ status: z.string() }));
+  if (resource === "admin" && ["jobs", "ingest-receipts"].includes(id ?? "")) return z.array(z.unknown());
   if (resource === "auth")
     return id === "config" ? authConfigSchema : userSchema;
   if (resource === "demo") {

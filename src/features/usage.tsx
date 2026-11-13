@@ -4,6 +4,7 @@ import { useResource } from "../app/useResource";
 import { PageHeader, Section } from "../components/shared";
 import { request } from "../services/core";
 import { settingsApi, useBusinessSettings } from "../services/settings";
+import { usePermissions } from "../app/permissions";
 
 const rowSchema = z.object({ metric: z.string(), label: z.string(), value: z.number(),
   limit: z.number(), period: z.string(), percent: z.number().nullable() });
@@ -16,6 +17,7 @@ const format = (metric: string, value: number) =>
   metric.endsWith("bytes") ? `${(value / 1024 ** 2).toFixed(1)} MB` : value.toLocaleString();
 
 export function UsagePage() {
+  const manage = usePermissions().can("settings.manage");
   const settings = useBusinessSettings();
   const [revision, setRevision] = useState(0);
   const [draft, setDraft] = useState(settings.defaults.freeTierLimits);
@@ -40,7 +42,7 @@ export function UsagePage() {
       </li>)}</ul>
       <p>Worker and query counts are approximate. R2 counts completed Flowbase attachments; GitHub minutes are reported by the ops workflow.</p>
     </Section>
-    <Section title="Free-tier limits">
+    {manage && <Section title="Free-tier limits">
       <form onSubmit={(event) => void save(event)}>
         {Object.entries(labels).map(([key, label]) => <p key={key}><label>{label}{" "}
           <input type="number" min="1" step="1" value={draft[key as keyof typeof draft]}
@@ -51,6 +53,6 @@ export function UsagePage() {
       </form>
       {message && <p role="status">{message}</p>}
       <p>SMS uses the monthly cap in Settings → Defaults.</p>
-    </Section>
+    </Section>}
   </>;
 }
