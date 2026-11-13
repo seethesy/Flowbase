@@ -9,10 +9,13 @@ import { browserDb, seedRecords } from "./database";
 // webkit-offline project) and goes offline mid-test, so the shared "every API
 // response matches its contract" check is replaced by plain assertions.
 const test = signedIn.extend({
-  contracts: async ({ page }, use) => {
-    void page;
-    await use();
-  },
+  contracts: [
+    async ({ page }, use) => {
+      void page;
+      await use();
+    },
+    { scope: "test" },
+  ],
 });
 
 const savedBeoCount = (page: import("@playwright/test").Page) =>
