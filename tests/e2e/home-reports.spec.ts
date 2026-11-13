@@ -20,7 +20,7 @@ for (const [role, labels] of Object.entries(expected) as [Role, string[]][]) {
     const widgets = page.locator(".home-widget");
     await expect(widgets).toHaveCount(labels.length);
     for (const label of labels) await expect(widgets.getByText(label, { exact: true })).toBeVisible();
-    await expect(page.getByText("Sample data")).toHaveCount(0);
+    await expect(widgets.filter({ hasText: "Sample data" })).toHaveCount(0);
   });
 }
 

@@ -118,7 +118,7 @@ Jira: [FLOW-123](https://sybertechlabs.atlassian.net/browse/FLOW-123)
 
 ### 4.6 CI and hand-off
 1. `gh pr checks <pr> --watch`
-2. On failure: `gh run view <run-id> --log-failed`, fix, commit, push once. After 3 failed fix attempts, stop and report.
+2. On failure: `gh run view <run-id> --log-failed`, fix, commit, push once. After 5 failed fix attempts, stop and report.
 3. Report to the developer: PR link, CI result, follow-up tickets, manual checks. Then stop.
 
 ### 4.7 After hand-off
