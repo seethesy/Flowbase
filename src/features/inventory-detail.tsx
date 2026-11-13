@@ -17,6 +17,7 @@ import {
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
 import { allPages, inventoryApi, inventoryChangesApi } from "../services/core";
+import { tasksApi } from "../services/tasks";
 import { useResource } from "../app/useResource";
 import { useOpenFor, useStateFor } from "../app/useOpenFor";
 import {
@@ -271,6 +272,7 @@ export function InventoryDetail() {
       {i.rental?.components.length || i.service?.includes.length ? (
         <IncludedItems item={i} />
       ) : null}
+      {i.kind === "service" && can("tasks.read") && <ServiceTaskTemplates itemId={i.id} />}
       {i.kind === "service" ? (
         <Section title="Stock">
           <p className="muted">Services aren't stocked.</p>
@@ -392,6 +394,35 @@ export function InventoryDetail() {
         {i.name} will be hidden from inventory lists.
       </ConfirmationDialog>
     </>
+  );
+}
+
+// The task templates that match this service (FLOW-138): each is applied once
+// when an event with the service starts planning (FLOW-213 AC2). The link is set
+// on the template.
+function ServiceTaskTemplates({ itemId }: { itemId: string }) {
+  const templates = useResource(["tasks", "templates"], () => tasksApi.templates());
+  const linked = templates.data?.filter((template) => template.matchCatalogId === itemId) ?? [];
+  return (
+    <Section title="Task templates">
+      {templates.error ? (
+        <LoadError message={templates.error} />
+      ) : !templates.data ? (
+        <LoadingSkeleton />
+      ) : linked.length ? (
+        <ul>
+          {linked.map((template) => (
+            <li key={template.id}>
+              <Link to="/tasks/templates">{template.name}</Link>: applied when planning starts
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">
+          No task template is linked. Link one from <Link to="/tasks/templates">Task templates</Link>.
+        </p>
+      )}
+    </Section>
   );
 }
 
