@@ -56,9 +56,14 @@ test("a phone-sized print view does not overflow and the hub links to it", async
   await page.getByRole("link", { name: "Print" }).first().click();
   await expect(page).toHaveURL(new RegExp(`/print/events/${fallGala().id}/beo$`));
   await expect(page.getByTestId("beo-print-footer")).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(
-    false,
-  );
+  const wide = await page.evaluate(() => {
+    const limit = document.documentElement.clientWidth;
+    return [...document.querySelectorAll("body *")]
+      .filter((el) => el.getBoundingClientRect().right > limit + 1)
+      .slice(0, 5)
+      .map((el) => `${el.tagName}.${el.className}:${Math.round(el.getBoundingClientRect().right)}>${limit}`);
+  });
+  expect(wide).toEqual([]);
 });
 
 databaseTest("a part-time user's printout has no client or venue contact details", async ({ page }) => {

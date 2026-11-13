@@ -28,10 +28,13 @@ export function AreaPhotos({
   areaId,
   groups,
   canEdit,
+  canAddActual = false,
 }: {
   areaId: string;
   groups: Group[];
   canEdit: boolean;
+  // Whoever can open the event adds "actual" setup photos on the day (FLOW-237).
+  canAddActual?: boolean;
 }) {
   const files = useResource(["attachments", "beo_area", areaId], () => attachmentsApi.list("beo_area", areaId), {
     expiresAt: expiryOf,
@@ -68,8 +71,9 @@ export function AreaPhotos({
       )}
       {groups.map(({ group, label, camera, readOnly }) => {
         const shown = (files.data ?? []).filter((file) => file.group === group && file.kind === "photo");
+        const editable = (canEdit && !readOnly) || (group === "actual" && canAddActual);
         // A group with nothing in it and nobody to add to it takes no room.
-        if (!shown.length && (!canEdit || readOnly)) return null;
+        if (!shown.length && !editable) return null;
         return (
           <div key={group} className="beo-photo-group" data-group={group}>
             <h5>{label}</h5>
@@ -79,7 +83,7 @@ export function AreaPhotos({
                   <a href={file.urls.display} target="_blank" rel="noreferrer">
                     <img src={file.urls.display ?? file.urls.thumb} alt={file.caption || `${label}: ${file.fileName}`} />
                   </a>
-                  {canEdit && !readOnly && (
+                  {editable && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -92,7 +96,7 @@ export function AreaPhotos({
                 </li>
               ))}
             </ul>
-            {canEdit && !readOnly && (
+            {editable && (
               <Button asChild variant="outline">
                 <label className="beo-photo-add">
                   {camera ? <Camera size={14} /> : <Upload size={14} />}
@@ -241,7 +245,7 @@ export function BeoAreaList({
               {area.notes ? <p>{area.notes}</p> : <p className="muted">No notes.</p>}
             </>
           )}
-          <AreaPhotos areaId={area.id} groups={photoGroups(kind)} canEdit={canEdit} />
+          <AreaPhotos areaId={area.id} groups={photoGroups(kind)} canEdit={canEdit} canAddActual={data.canCheckOff && kind === "setup"} />
           {canEdit && editing?.id !== area.id && (
             <div className="beo-area-actions">
               <Button variant="outline" onClick={() => setEditing({ id: area.id, name: area.name, notes: area.notes })}>

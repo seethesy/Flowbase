@@ -24,6 +24,10 @@ const withDb: RunWithDb = (_env, run) => run(db);
 const bucket = new Map<string, { body: ArrayBuffer; contentType: string }>();
 const env = {
   ASSETS: { fetch },
+  R2_ACCOUNT_ID: "acct",
+  R2_BUCKET: "flowbase-files",
+  R2_ACCESS_KEY_ID: "key",
+  R2_SECRET_ACCESS_KEY: "secret",
   FILES: {
     head: async (key: string) => (bucket.has(key) ? { size: bucket.get(key)!.body.byteLength } : null),
     delete: async (keys: string | string[]) => {
@@ -656,5 +660,28 @@ describe("FLOW-150: BEOs for offline use", () => {
     const event = await seed(soon);
     await sam.send("POST", `/api/events/${event.id}/beo`, {});
     expect((await jamie.send<OfflineBeos>("GET", "/api/offline-beos")).beos).toHaveLength(0);
+  });
+});
+
+describe("FLOW-237: setup photos on the day", () => {
+  const photo = (recordId: string, group: string) => ({
+    recordType: "beo_area",
+    recordId,
+    group,
+    fileName: "setup.jpg",
+    variants: [
+      { name: "thumb", contentType: "image/jpeg", size: 10_000 },
+      { name: "display", contentType: "image/jpeg", size: 100_000 },
+    ],
+  });
+  it("lets part-time staff on the event add actual photos but not reference photos", async () => {
+    const event = await seed(soon);
+    await sam.send("POST", `/api/events/${event.id}/beo`, {});
+    const view = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/areas`, { kind: "setup", name: "Bar" });
+    const area = view.content.setupCleanup.areas.find((a) => a.name === "Bar")!;
+    await jamie.send("POST", "/api/attachments", photo(area.id, "actual"), 201);
+    await jamie.send("POST", "/api/attachments", photo(area.id, "reference"), 403);
+    // Someone who can't open the event gets nothing.
+    await nora.send("POST", "/api/attachments", photo(area.id, "actual"), 404);
   });
 });

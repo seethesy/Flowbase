@@ -53,7 +53,7 @@ export function attachmentRoutes(options: {
       ),
     );
   });
-  routes.post("/", requirePermission("attachments.write"), async (c) => {
+  routes.post("/", requirePermission("attachments.read"), async (c) => {
     const input = await parseBody(c, uploadRequestSchema);
     return c.json(
       await record(c, (db, actor) =>
@@ -64,7 +64,7 @@ export function attachmentRoutes(options: {
   });
   routes.post(
     "/:id/complete",
-    requirePermission("attachments.write"),
+    requirePermission("attachments.read"),
     async (c) => {
       const attachmentId = id(c);
       return c.json(
@@ -74,7 +74,7 @@ export function attachmentRoutes(options: {
       );
     },
   );
-  routes.patch("/:id", requirePermission("attachments.write"), async (c) => {
+  routes.patch("/:id", requirePermission("attachments.read"), async (c) => {
     const attachmentId = id(c);
     const change = await parseBody(c, changeSchema);
     return c.json(
@@ -85,7 +85,7 @@ export function attachmentRoutes(options: {
   });
   routes.post(
     "/:id/archive",
-    requirePermission("attachments.write"),
+    requirePermission("attachments.read"),
     async (c) => {
       const attachmentId = id(c);
       return c.json(
