@@ -10,15 +10,18 @@ import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared
 import type { Db } from "../db/client";
 import {
   activitySessions,
+  beos,
   clients,
   events,
   leads,
+  paymentScheduleItems,
   proposals,
   tasks,
   users,
 } from "../db/schema";
 import { ApiError } from "../hono";
 import { can, timeReportScope } from "../policy";
+import { canSeePayments } from "../../shared/visibility";
 import { visibleEvents } from "./events";
 import { visibleClients } from "./clients";
 import { visibleLeads } from "./leads";
@@ -57,7 +60,9 @@ export async function recordSessions(
   const found = await Promise.all(types.map(async (type) => {
     const ids = recordIds(type);
     if (!ids.length) return [] as string[];
-    if (type === "beo") return [] as string[];
+    if (type === "beo") return (await db.select({ id: beos.id }).from(beos)
+      .innerJoin(events, eq(beos.eventId, events.id))
+      .where(and(inArray(beos.id, ids), isNull(beos.archivedAt), isNull(events.archivedAt), visibleEvents(actor)))).map((r) => r.id);
     if (type === "lead") return (await db.select({ id: leads.id }).from(leads)
       .where(and(inArray(leads.id, ids), isNull(leads.archivedAt), visibleLeads(actor)))).map((r) => r.id);
     if (type === "client") return (await db.select({ id: clients.id }).from(clients)
@@ -101,10 +106,10 @@ export async function recordSessions(
 const seconds = sql<number>`coalesce(sum(extract(epoch from (${activitySessions.endedAt} - ${activitySessions.startedAt}))), 0)::int`;
 
 // The record a session was credited to, when it's that kind of record.
-const onRecord = (type: "proposal" | "task", id: AnyPgColumn) =>
+const onRecord = (type: "proposal" | "task" | "beo", id: AnyPgColumn) =>
   and(eq(activitySessions.recordType, type), eq(activitySessions.recordId, id));
 
-// Effort per booking (time per event, counting its proposals and tasks), time per
+// Effort per booking (time per event, counting its proposals, tasks and BEO), time per
 // proposal (FLOW-167) and workload (time per user and activity type) for sessions
 // that started between two New York dates, inclusive.
 export async function timeReport(
@@ -128,23 +133,26 @@ export async function timeReport(
         title: events.title,
         startsAt: events.startsAt,
         clientName: clients.name,
+        assignedSalespersonId: events.assignedSalespersonId,
         seconds,
         people,
       })
       .from(activitySessions)
       .leftJoin(proposals, onRecord("proposal", proposals.id))
       .leftJoin(tasks, onRecord("task", tasks.id))
+      .leftJoin(beos, onRecord("beo", beos.id))
       .innerJoin(
         events,
         sql`${events.id} = case ${activitySessions.recordType}
           when 'event' then ${activitySessions.recordId}
           when 'proposal' then ${proposals.eventId}
-          when 'task' then ${tasks.eventId} end`,
+          when 'task' then ${tasks.eventId}
+          when 'beo' then ${beos.eventId} end`,
       )
       .innerJoin(clients, eq(clients.id, events.clientId))
       // An event the viewer can no longer see drops out of their report.
       .where(and(where, visibleEvents(actor)))
-      .groupBy(events.id, events.title, events.startsAt, clients.name)
+      .groupBy(events.id, events.title, events.startsAt, clients.name, events.assignedSalespersonId)
       .orderBy(desc(seconds), events.title)
       .limit(500),
     // Proposals stay hidden from roles that can't read them (FLOW-122).
@@ -184,10 +192,34 @@ export async function timeReport(
       )
       .orderBy(activitySessions.userId, desc(seconds)),
   ]);
+  // The booked total is the event's payment schedule total (FLOW-131), shown only
+  // where the viewer may see the event's money (the payments visibility rule).
+  const shown = effort.filter((row) =>
+    canSeePayments(actor, { assignedSalespersonId: row.assignedSalespersonId }),
+  );
+  const booked = shown.length
+    ? await db
+        .select({
+          eventId: paymentScheduleItems.eventId,
+          total: sql<number>`coalesce(sum(${paymentScheduleItems.amountCents}), 0)::int`,
+        })
+        .from(paymentScheduleItems)
+        .where(
+          and(
+            inArray(paymentScheduleItems.eventId, shown.map((row) => row.eventId)),
+            isNull(paymentScheduleItems.archivedAt),
+          ),
+        )
+        .groupBy(paymentScheduleItems.eventId)
+    : [];
+  const bookedBy = new Map(booked.map((row) => [row.eventId, row.total]));
   return {
     scope,
-    effort: effort.map(({ startsAt, ...row }) => ({
+    effort: effort.map(({ startsAt, assignedSalespersonId, ...row }) => ({
       ...row,
+      bookedTotalCents: canSeePayments(actor, { assignedSalespersonId })
+        ? (bookedBy.get(row.eventId) ?? null)
+        : null,
       date: utcToBusinessTime(startsAt).date,
     })),
     proposals: proposalEffort,

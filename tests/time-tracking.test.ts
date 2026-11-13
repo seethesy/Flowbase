@@ -430,4 +430,31 @@ describe("contextForPath", () => {
       { activity: "event_planning", recordId: eventId, minutes: 1 },
     ]);
   });
+
+  // FLOW-221: the BEO's own page credits the BEO.
+  const beoId = "b0000000-0000-4000-8000-000000000001";
+  it.each([
+    [`/events/${eventId}/beo/${beoId}`, "beo_editing", "beo", beoId],
+    [`/events/${eventId}/beo/${beoId.toUpperCase()}`, "beo_editing", "beo", beoId],
+    [`/events/${eventId}/beo/draft`, "beo_editing", null, null],
+    ["/events/not-an-id/beo/" + beoId, "event_planning", null, null],
+  ])("%s", (path, activity, recordType, recordId) => {
+    expect(contextForPath(path)).toEqual({ activity, recordType, recordId });
+  });
+
+  // AC1: switching from a proposal to its BEO is two sessions, one each.
+  it("splits time between a proposal and its BEO", async () => {
+    const t = setup();
+    t.tracker.input();
+    t.tracker.setContext(contextForPath(`/events/${eventId}`, `?proposal=${proposalId}`));
+    t.advance(2 * MIN);
+    t.tracker.input();
+    t.tracker.setContext(contextForPath(`/events/${eventId}/beo/${beoId}`));
+    t.advance(3 * MIN);
+    await t.tracker.flush();
+    expect(t.sessions()).toEqual([
+      { activity: "proposal_work", recordId: proposalId, minutes: 2 },
+      { activity: "beo_editing", recordId: beoId, minutes: 3 },
+    ]);
+  });
 });
