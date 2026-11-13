@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import { itemRequirements, type RequirementItem } from "../../shared/inventory-requirements";
+import { kitRequirements } from "../../shared/inventory-requirements";
 import { can } from "../../shared/policy";
 import {
   describeRegeneration,
@@ -32,9 +32,7 @@ import type { Db, DbLike } from "../db/client";
 import {
   events,
   inventoryItems,
-  inventoryRentalDetails,
   inventorySections,
-  inventoryServiceDetails,
   proposalMappings,
   proposals,
   pullListLines,
@@ -46,6 +44,7 @@ import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
 import { replaceRequirements, requestEventRecompute } from "./allocations";
 import { clearPlanningStale } from "./planning-stale";
+import { loadCatalog } from "./catalog";
 
 // The inventory pull list (FLOW-134). Generated from the event's mapped proposal
 // when planning starts, editable by hand, and rebuilt on request with a preview of
@@ -93,54 +92,6 @@ export async function eventProposalLines(
     .orderBy(sql`${proposals.createdAt} desc`);
   const match = rows.find((row) => row.mappedVersionId === row.currentVersionId);
   return match ? match.data.lines : null;
-}
-
-type CatalogItem = RequirementItem & { kind: string; subtype: string | null;
-  ratioQuantity: number | null; ratioBasis: string | null };
-
-// Loads the items a set of ids needs, following kit components and service
-// inclusions until nothing new turns up.
-async function loadCatalog(db: DbLike, ids: string[]) {
-  const catalog = new Map<string, CatalogItem>();
-  let pending = [...new Set(ids)];
-  while (pending.length) {
-    const rows = await db
-      .select({
-        id: inventoryItems.id,
-        name: inventoryItems.name,
-        kind: inventoryItems.kind,
-        subtype: inventoryItems.subtype,
-        ratioQuantity: inventoryItems.ratioQuantity,
-        ratioBasis: inventoryItems.ratioBasis,
-        active: inventoryItems.active,
-        archivedAt: inventoryItems.archivedAt,
-        includes: inventoryServiceDetails.includes,
-        components: inventoryRentalDetails.components,
-      })
-      .from(inventoryItems)
-      .leftJoin(inventoryServiceDetails, eq(inventoryServiceDetails.itemId, inventoryItems.id))
-      .leftJoin(inventoryRentalDetails, eq(inventoryRentalDetails.itemId, inventoryItems.id))
-      .where(inArray(inventoryItems.id, pending));
-    const next = new Set<string>();
-    for (const row of rows) {
-      catalog.set(row.id, {
-        id: row.id,
-        name: row.name,
-        kind: row.kind,
-        subtype: row.subtype,
-        ratioQuantity: row.ratioQuantity,
-        ratioBasis: row.ratioBasis,
-        active: row.active,
-        archivedAt: row.archivedAt?.toISOString() ?? null,
-        service: row.kind === "service" ? { includes: row.includes ?? [] } : null,
-        rental: row.kind === "rental" ? { components: row.components ?? [] } : null,
-      });
-      for (const line of row.includes ?? []) next.add(line.itemId);
-      for (const line of row.components ?? []) next.add(line.itemId);
-    }
-    pending = [...next].filter((id) => !catalog.has(id));
-  }
-  return catalog;
 }
 
 const untrackedGroup = (kind: ProposalLine["kind"]): PullGroup =>
@@ -204,9 +155,9 @@ export async function generatedPullLines(
       });
       continue;
     }
-    let needs: { itemId: string; quantity: number }[];
+    let needs: { itemId: string; quantity: number; kitId: string | null }[];
     try {
-      needs = itemRequirements(item.id, plannedQuantity, items, guests);
+      needs = kitRequirements(item.id, plannedQuantity, items, guests);
     } catch {
       // A retired item or a kit loop: keep the line as the proposal wrote it so
       // someone sorts it out by hand.
@@ -226,10 +177,14 @@ export async function generatedPullLines(
       const needed = catalog.get(need.itemId);
       if (!needed) continue;
       const direct = need.itemId === item.id;
+      // A kit's parts are pulled with the kit, so they list in its group (Decor
+      // for a decor kit) on the pull list and the BEO (FLOW-212).
+      const kit = need.kitId ? catalog.get(need.kitId) : undefined;
+      const nested = need.kitId !== null && need.kitId !== item.id;
       out.push({
-        sourceKey: direct ? key : `${key}:${need.itemId}`,
+        sourceKey: direct ? key : nested ? `${key}:${need.kitId}:${need.itemId}` : `${key}:${need.itemId}`,
         value: {
-          group: pullGroupOf(needed),
+          group: pullGroupOf(kit ?? needed),
           itemId: needed.id,
           name: needed.name,
           quantity: need.quantity,

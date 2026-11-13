@@ -254,6 +254,22 @@ export const availabilitySchema = z.object({
   available: z.number().nullable(),
   availableWithTentative: z.number().nullable(),
   holds: z.array(reservationSchema),
+  // A kit's rental parts (FLOW-212): what one kit takes of each and what is free of
+  // it over the span. The kit's own figures are the scarcest part's, in kits.
+  // Empty for an item that isn't a kit.
+  parts: z
+    .array(
+      z.object({
+        itemId: id,
+        itemName: z.string(),
+        perKit: z.number(),
+        onRequest: z.boolean(),
+        owned: z.number(),
+        available: z.number().nullable(),
+        availableWithTentative: z.number().nullable(),
+      }),
+    )
+    .default([]),
 });
 export type ItemAvailability = z.infer<typeof availabilitySchema>;
 
@@ -302,6 +318,9 @@ export const conflictSchema = z.object({
   reservationId: id,
   itemId: id,
   itemName: z.string(),
+  // The kit the item is held for, when it is a kit's part (FLOW-212); the
+  // conflict is resolved by changing the kit's hold or accepting the risk.
+  kitName: z.string().nullable().default(null),
   eventId: id,
   eventTitle: z.string().nullable(),
   eventDate: localDate.nullable(),

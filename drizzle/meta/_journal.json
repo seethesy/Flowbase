@@ -386,6 +386,13 @@
       "when": 1794504753103,
       "tag": "0054_production_readiness",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794552780464,
+      "tag": "0055_kit_part_holds",
+      "breakpoints": true
     }
   ]
 }

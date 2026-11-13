@@ -630,7 +630,12 @@ function ConflictCard({
   rentals: { id: string; name: string }[];
   onResolve: (input: ResolveInput) => void;
 }) {
-  const [method, setMethod] = useState<ResolveInput["method"]>("substitute");
+  // A kit's part follows the kit's hold: the risk can be accepted here, and the
+  // quantity is changed on the kit (FLOW-212).
+  const methods: readonly ResolveInput["method"][] = conflict.kitName
+    ? ["accept_risk"]
+    : ["substitute", "sub_rent", "adjust", "accept_risk"];
+  const [method, setMethod] = useState<ResolveInput["method"]>(methods[0]);
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
@@ -643,7 +648,8 @@ function ConflictCard({
   return (
     <div className={`planning-conflict ${conflict.kind}`} role="group" aria-label={`${conflict.itemName} conflict`}>
       <p>
-        <strong>{conflict.kind === "conflict" ? "Conflict" : "Warning"}:</strong> {conflict.itemName} is{" "}
+        <strong>{conflict.kind === "conflict" ? "Conflict" : "Warning"}:</strong> {conflict.itemName}
+        {conflict.kitName ? ` (in ${conflict.kitName})` : ""} is{" "}
         {number(conflict.shortfall)} short ({number(conflict.allocated)} of {number(conflict.quantity)}
         {conflict.state === "accepted" ? ", risk accepted" : ""}).
       </p>
@@ -660,7 +666,7 @@ function ConflictCard({
             value={method}
             onChange={(e) => setMethod(e.target.value as ResolveInput["method"])}
           >
-            {(["substitute", "sub_rent", "adjust", "accept_risk"] as const).map((value) => (
+            {methods.map((value) => (
               <option key={value} value={value}>
                 {resolutionMethodLabels[value]}
               </option>
