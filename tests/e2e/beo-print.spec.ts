@@ -46,7 +46,7 @@ test("the printed BEO has every section in order and a status and print-time foo
   // AC3: status and print time.
   await expect(page.getByTestId("beo-print-footer")).toHaveText(/BEO status: Approved · Printed at .+/);
   // Full-time Admin sees contact details.
-  await expect(page.getByText("olivia@juniper.example")).toBeVisible();
+  await expect(page.getByText("olivia@juniper.example").first()).toBeVisible();
 });
 
 test("a phone-sized print view does not overflow and the hub links to it", async ({ page }) => {

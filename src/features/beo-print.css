@@ -30,3 +30,18 @@
   list-style: none;
   padding-left: 0 !important;
 }
+.print-document {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.print-header {
+  flex-wrap: wrap;
+}
+.beo-print-section .print-table {
+  width: 100%;
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+}
+.beo-print-section img {
+  max-width: 100%;
+}

@@ -77,7 +77,7 @@ test("on a phone, setup photos can be added and the cleanup checklist checked of
   expect(r2.starts()).toBe(1);
 
   const item = page.getByRole("checkbox", { name: "Strip linens" });
-  await item.check();
+  await item.click();
   await expect(item).toBeChecked();
   await page.reload();
   await expect(page.getByRole("checkbox", { name: "Strip linens" })).toBeChecked();
