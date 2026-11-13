@@ -45,6 +45,7 @@ test("holding more chairs than are free shows a conflict, and lowering the hold 
     return rows.find((row) => row.eventId === wedding().id)?.quantity;
   })).toBe(10);
   await page.reload();
+  await page.getByRole("heading", { name: "Equipment & stock" }).scrollIntoViewIfNeeded();
   await expect(page.getByLabel("Quantity of Chiavari Chair")).toHaveValue("10");
   await expect.poll(() => browserDb(async (db) => {
     const [row] = await db.select().from(s.reservationConflicts);
