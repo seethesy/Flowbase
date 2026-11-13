@@ -153,7 +153,7 @@ async function getLayers(
     .orderBy(asc(tasks.dueAt), asc(tasks.id))
     .limit(MAX_ROWS);
   // One entry per event and window: an event's items share a window unless their
-  // buffer days differ.
+  // buffer days differ. A kit counts once; its parts' holds stand behind it.
   const holdRows = await db
     .select({
       eventId: reservations.eventId,
@@ -168,6 +168,7 @@ async function getLayers(
     .where(
       and(
         isNull(reservations.archivedAt),
+        isNull(reservations.kitReservationId),
         eq(reservations.status, "tentative"),
         isNull(events.archivedAt),
         visibleEvents(actor),

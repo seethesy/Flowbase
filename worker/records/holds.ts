@@ -223,7 +223,14 @@ export async function evaluateItem(tx: DbLike, itemId: string): Promise<void> {
     .for("update");
   if (!item || item.kind !== "rental") return;
 
-  const allocations = [...(await computeAllocations(tx, [itemId])).values()];
+  // A kit has no stock of its own: its parts' holds carry its conflicts (FLOW-212),
+  // so the kit's own holds are never short and any old conflict on them clears.
+  const [rental] = await tx
+    .select({ components: inventoryRentalDetails.components })
+    .from(inventoryRentalDetails)
+    .where(eq(inventoryRentalDetails.itemId, itemId));
+  const isKit = (rental?.components.length ?? 0) > 0;
+  const allocations = isKit ? [] : [...(await computeAllocations(tx, [itemId])).values()];
   const short = new Map(allocations.filter((a) => a.kind).map((a) => [a.holdId, a]));
   const existing = await tx
     .select()

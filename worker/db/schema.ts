@@ -1684,12 +1684,21 @@ export const reservations = pgTable(
     status: text("status", { enum: holdStatuses }).notNull().default("tentative"),
     windowStart: date("window_start", { mode: "string" }).notNull(),
     windowEnd: date("window_end", { mode: "string" }).notNull(),
+    // A kit's hold holds each of its rental parts in a hold of its own that points
+    // back to it (FLOW-212); the parts follow the kit's hold and aren't edited.
+    kitReservationId: uuid("kit_reservation_id").references(
+      (): AnyPgColumn => reservations.id,
+    ),
   },
   (table) => [
     // One live hold per event and item; releasing keeps the row for its history.
     uniqueIndex("reservations_event_item_idx")
       .on(table.eventId, table.itemId)
-      .where(sql`${table.archivedAt} is null`),
+      .where(sql`${table.archivedAt} is null and ${table.kitReservationId} is null`),
+    // One live part hold per kit hold and part.
+    uniqueIndex("reservations_kit_item_idx")
+      .on(table.kitReservationId, table.itemId)
+      .where(sql`${table.archivedAt} is null and ${table.kitReservationId} is not null`),
     index("reservations_item_window_idx").on(
       table.itemId,
       table.windowStart,

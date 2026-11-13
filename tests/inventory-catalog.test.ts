@@ -6,7 +6,9 @@ import {
 } from "../shared/inventory";
 import {
   effectiveRatio,
+  heldRentals,
   itemRequirements,
+  kitRequirements,
 } from "../shared/inventory-requirements";
 import { serializeFields } from "../shared/visibility";
 import type { Actor } from "../shared/access";
@@ -225,6 +227,41 @@ describe("kits, services and supply requirements (FLOW-79/80/92)", () => {
     expect(() => itemRequirements(kit.id, -1, [kit], 120)).toThrow(
       "valid quantity",
     );
+  });
+  it("keeps a kit's parts with the outermost kit and holds a service's rentals as themselves (FLOW-212/213)", () => {
+    const chair = item(ids[3], { kind: "rental", subtype: "furniture", name: "Chair" });
+    const lounge = item(ids[4], {
+      kind: "service",
+      name: "Lounge Package",
+      service: {
+        priceCents: null,
+        priceBasis: "per_event",
+        includes: [
+          { itemId: kit.id, quantity: 2, basis: "per_event" },
+          { itemId: candle.id, quantity: 1, basis: "per_guest" },
+          { itemId: chair.id, quantity: 1, basis: "per_guest" },
+        ],
+      },
+    });
+    const items = [glass, candle, kit, chair, lounge];
+    expect(kitRequirements(lounge.id, 1, items, 50)).toEqual([
+      { itemId: glass.id, kitId: kit.id, quantity: 2 },
+      { itemId: candle.id, kitId: kit.id, quantity: 2 },
+      { itemId: candle.id, kitId: null, quantity: 50 },
+      { itemId: chair.id, kitId: null, quantity: 50 },
+    ]);
+    // The same totals by item as before.
+    expect(itemRequirements(lounge.id, 1, items, 50)).toEqual([
+      { itemId: glass.id, quantity: 2 },
+      { itemId: candle.id, quantity: 52 },
+      { itemId: chair.id, quantity: 50 },
+    ]);
+    // The kit is held as a kit (its hold holds the parts); consumables aren't held.
+    expect(heldRentals(lounge.id, 1, items, 50)).toEqual([
+      { itemId: kit.id, quantity: 2 },
+      { itemId: chair.id, quantity: 50 },
+    ]);
+    expect(heldRentals(kit.id, 3, items, 50)).toEqual([{ itemId: kit.id, quantity: 3 }]);
   });
   it.each([
     { priceCents: 10000, priceBasis: "per_event" },
