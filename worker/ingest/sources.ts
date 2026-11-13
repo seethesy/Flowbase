@@ -1,4 +1,6 @@
 import type { Bindings } from "../bindings";
+import type { ZodType } from "zod";
+import { websiteHoneypotField, websiteInquirySchema } from "../../shared/website-inquiry";
 import { thumbtackRecordId } from "./thumbtack";
 
 // Machine ingestion (FLOW-28): how each outside system proves who it is and names
@@ -23,6 +25,14 @@ export type IngestSource = {
   authenticateBeforeBody?: boolean;
   // The sender's own id for the record; undefined when it is missing.
   recordId: (request: IngestRequest, json: unknown) => string | undefined;
+  // Public form sources (FLOW-109) have no credentials, so they screen what they
+  // accept instead: a payload that fails the schema is refused (400), one that
+  // fills the honeypot field is dropped without being stored, and a client that
+  // submits too often in the window is refused (429). The limit counts stored
+  // receipts, per client (a hash of the sender's IP) and across all clients.
+  schema?: ZodType;
+  honeypot?: string;
+  rateLimit?: { windowSeconds: number; perClient: number; total: number };
 };
 
 const encode = (value: string) => new TextEncoder().encode(value);
@@ -72,35 +82,6 @@ export const tokenAnywhere =
       secret(env),
     );
 
-const fromBase64 = (value: string) => {
-  try {
-    return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
-  } catch {
-    return undefined;
-  }
-};
-
-// Shopify signs the raw body: base64(HMAC-SHA256(secret, body)).
-export const shopifyHmac =
-  (secret: (env: Partial<Bindings>) => string | undefined) =>
-  async ({ headers, rawBody, pathToken }: IngestRequest, env: Partial<Bindings>) => {
-    if (pathToken) return false;
-    const signature = fromBase64(headers.get("X-Shopify-Hmac-Sha256") ?? "");
-    if (!signature?.length) return false;
-    for (const expected of secretsOf(secret(env))) {
-      const key = await crypto.subtle.importKey(
-        "raw",
-        encode(expected),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["verify"],
-      );
-      if (await crypto.subtle.verify("HMAC", key, signature, Uint8Array.from(rawBody)))
-        return true;
-    }
-    return false;
-  };
-
 const stringField = (json: unknown, field: string) => {
   if (typeof json !== "object" || json === null) return undefined;
   const value = (json as Record<string, unknown>)[field];
@@ -143,13 +124,16 @@ export const ingestSources = new Map<string, IngestSource>([
       recordId: (_request, json) => thumbtackRecordId(json),
     },
   ],
-  // Shopify webhooks (FLOW-109): redeliveries repeat the webhook id.
+  // Website inquiry form (FLOW-109): public; each submission names itself.
   [
-    "shopify",
+    "website",
     {
-      authenticate: shopifyHmac((env) => env.SHOPIFY_WEBHOOK_SECRET),
-      recordId: ({ headers }) =>
-        headers.get("X-Shopify-Webhook-Id") ?? undefined,
+      authenticate: async () => true,
+      authenticateBeforeBody: true,
+      recordId: (_request, json) => stringField(json, "submissionId"),
+      schema: websiteInquirySchema,
+      honeypot: websiteHoneypotField,
+      rateLimit: { windowSeconds: 600, perClient: 5, total: 100 },
     },
   ],
 ]);

@@ -1,0 +1,12 @@
+{
+  "submissionId": "3f6c1c5e-1d7a-4c35-9a52-5f0b7d2e8a11",
+  "name": "Jordan Example",
+  "email": "jordan.example@example.test",
+  "phone": "(555) 010-0199",
+  "eventDate": "2027-06-12",
+  "guestCount": 85,
+  "location": "Exampleville, NY",
+  "eventType": "Wedding",
+  "message": "Looking for plated dinner service for about 85 guests.",
+  "company": ""
+}

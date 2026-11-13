@@ -3,6 +3,7 @@ import {
   leadAssignSchema,
   leadBulkAssignSchema,
   leadConvertSchema,
+  leadManualSchema,
   leadMergeSchema,
   leadStatusChangeSchema,
 } from "../../shared/leads";
@@ -23,6 +24,7 @@ import {
   bulkAssignLeads,
   changeLeadStatus,
   convertLead,
+  createManualLead,
   getLead,
   leadHistory,
   listLeads,
@@ -35,8 +37,8 @@ import {
 } from "../records/lead-duplicates";
 
 // Leads API (FLOW-100/111/112), mounted at /api/leads. Every route needs a signed-in
-// user; leads the user can't see answer 404. There is no create route here: leads
-// arrive through createLead (collector, webhook, manual entry, import).
+// user; leads the user can't see answer 404. POST / is manual entry (FLOW-101); every
+// other source (collector, webhook, import) goes through createLead directly.
 export function leadRoutes(options: {
   withDb?: RunWithDb;
   resolveActor?: ResolveActor;
@@ -68,6 +70,13 @@ export function leadRoutes(options: {
       ),
     ),
   );
+  routes.post("/", requirePermission("leads.create"), async (c) => {
+    const input = await parseBody(c, leadManualSchema);
+    return c.json(
+      await record(c, (db, actor) => createManualLead(db, actor, input)),
+      201,
+    );
+  });
   // Bulk assign from the triage queue. Admin only.
   routes.post("/assign", requirePermission("leads.assign"), async (c) => {
     const input = await parseBody(c, leadBulkAssignSchema);

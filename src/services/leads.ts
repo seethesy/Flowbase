@@ -5,6 +5,7 @@ import {
   leadDuplicateSchema,
   leadSchema,
   type LeadConvertInput,
+  type LeadManualInput,
   type LeadStatusChange,
 } from "../../shared/leads";
 import { at, query, request, requestPage } from "./core";
@@ -22,6 +23,8 @@ type LeadFilter = {
 export const leadsApi = {
   list: (filter: LeadFilter = {}, cursor?: string) =>
     requestPage(leadSchema, `/api/leads${query({ ...filter, cursor })}`),
+  create: (input: LeadManualInput) =>
+    request(leadSchema, "/api/leads", "POST", input),
   get: (id: string) => request(leadSchema, at("leads", id)),
   assign: (id: string, assignedSalespersonId: string) =>
     request(leadSchema, at("leads", id, "assign"), "POST", {
