@@ -173,9 +173,16 @@ export const businessDefaultsSchema = z.object({
   // Days before a payment's due date the assigned salesperson is reminded
   // (FLOW-132).
   paymentReminderDays: days.default(3),
+  readinessStartDays: z.object({
+    responsibility: days.default(14), schedule: days.default(14), resource: days.default(14),
+    quantity: days.default(14), data_gap: days.default(14),
+  }).default({ responsibility: 14, schedule: 14, resource: 14, quantity: 14, data_gap: 14 }),
+  productionEscalationHours: z.number().int().min(1).max(720).default(24),
+  beoApprovalDays: days.default(3),
+  balanceWarningDays: days.default(3),
   // Notification types (shared/notifications.ts keys, FLOW-43) sent by SMS as
   // well as in the app and by email.
-  urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure", "beo_changed"]),
+  urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure", "beo_changed", "production_urgent"]),
   // SMS messages the app may send in a calendar month; 0 sends none.
   monthlySmsCap: z.number().int().min(0).max(100_000).default(1000),
   freeTierLimits: z.object({

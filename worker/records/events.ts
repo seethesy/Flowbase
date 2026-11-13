@@ -282,6 +282,7 @@ const builtSections: HubSection[] = [
   // The event's tasks and its task templates (FLOW-59/62). Everyone reads tasks;
   // the list itself keeps part-time staff to their own.
   "tasks",
+  "production",
   "staff",
   // The event timeline and production schedule (FLOW-126).
   "timeline",

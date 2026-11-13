@@ -114,6 +114,9 @@ const CalendarPage = lazy(() =>
 const DayOfPage = lazy(() =>
   import("../features/day-of").then((module) => ({ default: module.DayOfPage })),
 );
+const ProductionOverviewPage = lazy(() =>
+  import("../features/production").then((module) => ({ default: module.ProductionOverviewPage })),
+);
 const TaskDetail = lazy(() =>
   import("../features/tasks").then((module) => ({ default: module.TaskDetail })),
 );
@@ -232,6 +235,7 @@ export const getRouter = () =>
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/calendar", element: <CalendarPage /> },
         { path: "/day-of", element: <DayOfPage /> },
+        { path: "/production", element: <ProductionOverviewPage /> },
         { path: "/venues", element: <VenueList /> },
         { path: "/venues/:id", element: <VenueDetail /> },
         { path: "/vendors", element: <VendorList /> },

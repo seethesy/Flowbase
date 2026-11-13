@@ -45,6 +45,11 @@ import { sopRoutes } from "./routes/sops";
 import { approvalRoutes } from "./routes/approvals";
 import { calendarRoutes } from "./routes/calendar";
 import { dayOfRoutes } from "./routes/day-of";
+import { productionRoutes } from "./routes/production";
+import { enqueueJob } from "./jobs/queue";
+import { tasks } from "./db/schema";
+import { eq } from "drizzle-orm";
+import { id as uuid } from "../shared/schema-primitives";
 import { proposalRoutes } from "./routes/proposals";
 import { salesRoutes } from "./routes/sales";
 import { vendorRoutes } from "./routes/vendors";
@@ -176,6 +181,23 @@ export function createApp(options: Options = {}) {
   });
   // BEO change tracking (FLOW-144) runs after every write under /api/events/<id>.
   app.use("/api/events/*", beoSync(options.withDb));
+  app.use("/api/events/*", async (c, next) => {
+    await next();
+    const eventId = c.req.path.split("/")[3];
+    if (c.req.method !== "GET" && c.res.status < 400 && c.env?.HYPERDRIVE && uuid.safeParse(eventId).success && options.withDb)
+      await options.withDb(c.env, (db) => enqueueJob(db, { type: "production.scan", payload: { eventId },
+        idempotencyKey: `production.scan:${eventId}:${crypto.randomUUID()}` }).then(() => undefined));
+  });
+  app.use("/api/tasks/*", async (c, next) => {
+    await next();
+    const taskId = c.req.path.split("/")[3];
+    if (c.req.method === "GET" || c.res.status >= 400 || !c.env?.HYPERDRIVE || !uuid.safeParse(taskId).success || !options.withDb) return;
+    await options.withDb(c.env, async (db) => {
+      const [task] = await db.select({ eventId: tasks.eventId }).from(tasks).where(eq(tasks.id, taskId));
+      if (task?.eventId) await enqueueJob(db, { type: "production.scan", payload: { eventId: task.eventId },
+        idempotencyKey: `production.scan:${task.eventId}:${crypto.randomUUID()}` });
+    });
+  });
   app.route("/api/auth", authRoutes(options));
   app.route("/api/admin/users", userRoutes(options));
   app.get("/api/health", async (c) => {
@@ -285,6 +307,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/order-lists", orderListRoutes(options));
   app.route("/api/calendar", calendarRoutes(options));
   app.route("/api/day-of", dayOfRoutes(options));
+  app.route("/api/production", productionRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
   app.route("/api/sales", salesRoutes(options));

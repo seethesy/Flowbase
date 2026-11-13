@@ -260,6 +260,13 @@ export const mayStartPlanning = (
 export const mayEditKitchenMenu = (actor: Actor) =>
   can(actor, "events.write") || actor.role === "kitchen_lead";
 
+// Production leads can see their event's full list; operational managers can
+// see all lists and respond to readiness checks.
+export const mayViewAllProduction = (actor: Actor) =>
+  actor.role === "admin" || actor.role === "sales_manager" || actor.role === "technical";
+export const mayRespondToReadiness = (actor: Actor, productionLeadId: string | null) =>
+  mayViewAllProduction(actor) || productionLeadId === actor.userId;
+
 // Files inherit their parent resource's write permission in both the API and UI.
 export const attachmentWriteActions = {
   client: "clients.write",

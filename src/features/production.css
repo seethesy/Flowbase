@@ -1,0 +1,10 @@
+.production-filters { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+.production-filters label { display: grid; gap: .3rem; }
+.production-items { list-style: none; padding: 0; margin: 0; }
+.production-item { display: flex; gap: .75rem; align-items: baseline; padding: .65rem 0; border-bottom: 1px solid var(--border); }
+.production-item span:nth-child(2) { flex: 1; }
+.production-item small { white-space: nowrap; }
+.production-capacity { color: var(--danger, #b42318); font-weight: 600; }
+.production-question { border-top: 1px solid var(--border); padding: .5rem 0; }
+.production-question input { margin-right: .5rem; }
+.production-question button { margin-right: .5rem; }
