@@ -16,7 +16,7 @@ beforeEach(async () => { await db.execute(clear); });
 afterAll(async () => { await db.execute(clear); await client.end(); });
 
 it("counts active rental holds including zero-use items and sums vendor spend by month", async () => {
-  const [clientRow] = await db.insert(schema.clients).values({ name: "Example organization" }).returning();
+  const [clientRow] = await db.insert(schema.clients).values({ name: "Example organization", kind: "organization" }).returning();
   const [event] = await db.insert(schema.events).values({ title: "Example event", clientId: clientRow.id, startsAt: new Date("2026-11-14T20:00:00Z") }).returning();
   const [used, unused] = await db.insert(schema.inventoryItems).values([
     { kind: "rental", name: "Blue chair" }, { kind: "rental", name: "White table" },
