@@ -61,17 +61,17 @@ const sam = as(people.sam, "salesperson");
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
+// The stock ledger is append-only, so its rows go with the truncate.
 const made = { items: [] as string[] };
 const clean = async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, notifications, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, notifications, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, stock_count_lines, stock_counts, stock_movements, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
   await db.delete(schema.taskAssignees);
   await db.delete(schema.tasks);
   await db.delete(schema.taskTemplateItems);
   await db.delete(schema.taskTemplates);
   if (made.items.length) {
-    await db.delete(schema.stockMovements).where(inArray(schema.stockMovements.itemId, made.items));
     await db.delete(schema.inventoryStock).where(inArray(schema.inventoryStock.itemId, made.items));
     await db.delete(schema.inventoryRentalDetails).where(inArray(schema.inventoryRentalDetails.itemId, made.items));
     await db.delete(schema.inventoryConsumableDetails).where(inArray(schema.inventoryConsumableDetails.itemId, made.items));
