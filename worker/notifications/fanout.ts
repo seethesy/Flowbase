@@ -352,8 +352,8 @@ const eventDayChange: Subscriber = async (job, db) => {
       body: "Event details changed today. Review the current plan.", link: `/events/${eventId}` }));
 };
 
-// beo.changed_after_approval (FLOW-144): the people assigned to the event's roster,
-// except whoever made the change. In-app and email always; SMS too when the event
+// beo.changed_after_approval (FLOW-144, 227): the people assigned to the event's
+// roster and the active Admins, except whoever made the change. In-app and email always; SMS too when the event
 // is within 48 hours (AC3), through the urgent-types and consent rules of routeSms.
 const beoChanged: Subscriber = async (job, db) => {
   const payload = payloadOf(job);
@@ -374,7 +374,9 @@ const beoChanged: Subscriber = async (job, db) => {
     payload.returnedToWorkingOn === true ? "The BEO is back for approval." : "",
     "Review the BEO.",
   ].filter(Boolean).join(" ");
-  return [...new Set(slots.map((slot) => slot.userId)
+  const admins = await db.select({ id: users.id }).from(users)
+    .where(and(eq(users.role, "admin"), eq(users.status, "active"), isNull(users.archivedAt)));
+  return [...new Set([...slots.map((slot) => slot.userId), ...admins.map((admin) => admin.id)]
     .filter((id): id is string => !!id && id !== payload.actorId))]
     .map((userId) => ({ userId, title: `BEO changed: ${event.title}`, body,
       link: `/events/${eventId}`,
