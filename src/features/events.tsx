@@ -34,6 +34,7 @@ import {
 } from "../components/shared";
 import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
+import { CommunicationLog } from "./communications";
 import { date, time } from "./event-format";
 import { EventPlanningSection } from "./event-planning";
 import { EventTruckSection } from "./event-trucks";
@@ -732,6 +733,9 @@ export function EventDetail() {
           canChange={canChangeStatus}
           onChanged={setEvent}
         />
+        <Allowed action="clients.read">
+          <CommunicationLog target={{ eventId: e.id }} />
+        </Allowed>
       </Fragment>
     ),
     client: () =>

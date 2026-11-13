@@ -99,6 +99,7 @@ function mountHub(hub: EventHub) {
     if (path === `/api/events/${eventId}/hub`) return Response.json(hub);
     if (path === `/api/events/${eventId}/history`) return Response.json(history);
     if (path.startsWith("/api/attachments?")) return Response.json([]);
+    if (path.startsWith("/api/communications?")) return Response.json([]);
     if (path === `/api/events/${eventId}/status-history`) return Response.json([]);
     throw new Error(`Unexpected request ${path}`);
   });

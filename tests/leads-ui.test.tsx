@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { ConvertLeadForm, LeadInbox } from "../src/features/leads";
+import { CommunicationLog } from "../src/features/communications";
 import { NewLeadForm } from "../src/features/lead-entry";
 import type { Client } from "../shared/core-records";
 import type { Lead } from "../shared/leads";
@@ -215,6 +216,55 @@ it("warns about a matching client on convert and offers to link instead", async 
     {
       client: { mode: "link", clientId: juniper.id },
       event: { title: "", date: "2026-12-05", startTime: "18:00" },
+    },
+  ]);
+});
+
+it("logs a conversation with a follow-up date on a lead (FLOW-120)", async () => {
+  const posts: unknown[] = [];
+  const entry = {
+    id: "e0000000-0000-4000-8000-000000000001",
+    leadId: "d0000000-0000-4000-8000-000000000001",
+    clientId: null,
+    eventId: null,
+    kind: "call",
+    occurredAt: now,
+    summary: "Wants a tasting.",
+    loggedById: null,
+    loggedByName: "Admin",
+    followUpDate: "2030-06-14",
+    followUpTaskId: "e0000000-0000-4000-8000-000000000002",
+    followUpOpen: true,
+    createdAt: now,
+  };
+  let logged = false;
+  mockApi({
+    "GET /api/communications": () => Response.json(logged ? [entry] : []),
+    "POST /api/communications": (init) => {
+      posts.push(JSON.parse(String(init?.body)));
+      logged = true;
+      return Response.json(entry, { status: 201 });
+    },
+  });
+  const user = userEvent.setup();
+  mount(<CommunicationLog target={{ leadId: entry.leadId }} />);
+  expect(await screen.findByText("Nothing logged yet.")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Log conversation" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Enter a summary.");
+  await user.type(screen.getByLabelText("Summary *"), "Wants a tasting.");
+  fireEvent.change(screen.getByLabelText("Next follow-up"), {
+    target: { value: "2030-06-14" },
+  });
+  await user.click(screen.getByRole("button", { name: "Log conversation" }));
+  expect(await screen.findByText("Wants a tasting.")).toBeInTheDocument();
+  expect(screen.getByText(/Follow-up Jun 14, 2030/)).toBeInTheDocument();
+  expect(screen.getByText(/Admin/)).toBeInTheDocument();
+  expect(posts).toEqual([
+    {
+      leadId: entry.leadId,
+      kind: "call",
+      summary: "Wants a tasting.",
+      followUpDate: "2030-06-14",
     },
   ]);
 });

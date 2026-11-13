@@ -36,6 +36,7 @@ import {
 } from "../components/shared";
 import { EventForm, EventTable } from "./events";
 import { Attachments } from "./attachments";
+import { CommunicationLog } from "./communications";
 import { StaleReload, isStale } from "../components/stale-reload";
 import { ClientSalesTracker } from "./sales";
 import "./clients.css";
@@ -565,7 +566,7 @@ export function ClientDetail() {
         </p>
       )}
       <Tabs
-        tabs={["Overview", "Contacts", "Events", "Proposal tracker", "Files"]}
+        tabs={["Overview", "Contacts", "Events", "Proposal tracker", "Communications", "Files"]}
         value={tab}
         onChange={setTab}
       />
@@ -618,6 +619,7 @@ export function ClientDetail() {
           <EventTable events={events.data ?? []} error={events.error} />
         )}
         {tab === "Proposal tracker" && <ClientSalesTracker clientId={c.id} />}
+        {tab === "Communications" && <CommunicationLog target={{ clientId: c.id }} />}
         {tab === "Files" && (
           <Attachments recordType="client" recordId={c.id} title="Client files" />
         )}

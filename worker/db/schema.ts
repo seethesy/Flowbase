@@ -29,6 +29,7 @@ import { pullOwners, type includedItemSchema } from "../../shared/inventory";
 import { importStatuses } from "../../shared/imports";
 import { taskPriorities, taskStatuses, taskTypes, type TaskFilter } from "../../shared/tasks";
 import { notificationTypes } from "../../shared/notifications";
+import { communicationKinds } from "../../shared/communications";
 import { vendorTypes } from "../../shared/vendors";
 import { approvalStatuses, type ProposedChange } from "../../shared/approvals";
 import { requirementBases } from "../../shared/allocation";
@@ -1394,6 +1395,35 @@ export const tasks = pgTable(
     oneOf("tasks_type_check", table.type, taskTypes),
     oneOf("tasks_status_check", table.status, taskStatuses),
     oneOf("tasks_priority_check", table.priority, taskPriorities),
+  ],
+).enableRLS();
+
+// Client communication log (FLOW-120): one row per call, email, text, meeting or
+// note, against exactly one lead, client or event. created_by is who logged it.
+// A follow-up date makes a task (follow_up_task_id) in the task engine.
+export const communications = pgTable(
+  "communications",
+  {
+    ...baseColumns(),
+    // Plain ids, like a task's links: no foreign keys, so records stay clearable.
+    leadId: uuid("lead_id"),
+    clientId: uuid("client_id"),
+    eventId: uuid("event_id"),
+    kind: text("kind", { enum: communicationKinds }).notNull(),
+    occurredAt: timestamptz("occurred_at").notNull(),
+    summary: text("summary").notNull(),
+    followUpDate: date("follow_up_date", { mode: "string" }),
+    followUpTaskId: uuid("follow_up_task_id"),
+  },
+  (table) => [
+    index("communications_lead_idx").on(table.leadId, table.occurredAt),
+    index("communications_client_idx").on(table.clientId, table.occurredAt),
+    index("communications_event_idx").on(table.eventId, table.occurredAt),
+    oneOf("communications_kind_check", table.kind, communicationKinds),
+    check(
+      "communications_one_record_check",
+      sql`num_nonnulls(${table.leadId}, ${table.clientId}, ${table.eventId}) = 1`,
+    ),
   ],
 ).enableRLS();
 
