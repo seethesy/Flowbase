@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { ConvertLeadForm, LeadInbox } from "../src/features/leads";
 import { CommunicationLog } from "../src/features/communications";
+import { NewLeadForm } from "../src/features/lead-entry";
 import type { Client } from "../shared/core-records";
 import type { Lead } from "../shared/leads";
 
@@ -265,5 +266,41 @@ it("logs a conversation with a follow-up date on a lead (FLOW-120)", async () =>
       summary: "Wants a tasting.",
       followUpDate: "2030-06-14",
     },
+  ]);
+});
+
+it("saves a manual lead from the quick-entry form (FLOW-101)", async () => {
+  const posts: unknown[] = [];
+  const created = lead({ name: "Priya Shah", source: "Phone", channel: "manual" });
+  mockApi({
+    "GET /api/settings": () => Response.json({}),
+    "POST /api/leads": (init) => {
+      posts.push(JSON.parse(String(init?.body)));
+      return Response.json(created, { status: 201 });
+    },
+  });
+  const onCreated = vi.fn();
+  const onClose = vi.fn();
+  const user = userEvent.setup();
+  mount(<NewLeadForm onClose={onClose} onCreated={onCreated} />);
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Save lead" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("Enter the lead's name.");
+  await user.type(within(dialog).getByLabelText("Name *"), "Priya Shah");
+  await user.type(within(dialog).getByLabelText("Phone"), "202-555-0177");
+  await user.type(within(dialog).getByLabelText("Guests"), "40");
+  await user.type(within(dialog).getByLabelText("Budget ($)"), "$1500.50");
+  await user.click(within(dialog).getByRole("button", { name: "Save lead" }));
+  await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith(created));
+  expect(onClose).toHaveBeenCalled();
+  expect(posts).toEqual([
+    expect.objectContaining({
+      source: "Phone",
+      name: "Priya Shah",
+      phone: "202-555-0177",
+      guestCount: 40,
+      budgetCents: 150050,
+      eventDate: null,
+    }),
   ]);
 });

@@ -33,6 +33,7 @@ const post = (body: unknown) => ({
 
 it.each([
   ["GET", "/api/leads"],
+  ["POST", "/api/leads"],
   ["GET", `/api/leads/${id}`],
   ["POST", "/api/leads/assign"],
   ["POST", `/api/leads/${id}/assign`],
@@ -253,5 +254,17 @@ it("answers 401 on the communication log without a signed-in user, and 400 witho
   for (const query of ["", `?leadId=${id}&clientId=${id}`, "?leadId=nope"])
     expect((await admin.request("/api/communications" + query, {}, env)).status).toBe(400);
   expect((await admin.request("/api/communications", post({ kind: "call", summary: "x" }), env)).status).toBe(400);
+  expect(mock).not.toHaveBeenCalled();
+});
+
+it("lets only roles that sell enter leads by hand, before touching the database (FLOW-101)", async () => {
+  expect(
+    roleSchema.options.filter((role) => can(actor(role), "leads.create")),
+  ).toEqual(["admin", "technical", "sales_manager", "salesperson"]);
+  const { mock, withDb } = mockDb();
+  const staff = createApp({ withDb, resolveActor: async () => actor("staff") });
+  expect(
+    (await staff.request("/api/leads", post({ source: "Phone", name: "A" }), env)).status,
+  ).toBe(403);
   expect(mock).not.toHaveBeenCalled();
 });

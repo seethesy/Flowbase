@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, like, sql } from "drizzle-orm";
 import type { IngestReceipt } from "../../shared/api";
 import type { Db, DbLike } from "../db/client";
 import { ingestReceipts, jobs } from "../db/schema";
@@ -45,6 +45,32 @@ export function storeReceipt(
       .where(eq(ingestReceipts.id, created.id));
     return { receiptId: created.id, duplicate: false };
   });
+}
+
+// How many receipts a public source stored in the window: all, and those from one
+// client (its hashed key sits in the stored body as "clientKey"). The rate limit
+// of a public form (FLOW-109) reads this before storing the next submission.
+export async function recentReceiptCounts(
+  db: Db,
+  input: { source: string; clientKey: string; windowSeconds: number },
+): Promise<{ total: number; client: number }> {
+  const since = new Date(Date.now() - input.windowSeconds * 1000);
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      client: sql<number>`count(*) filter (where ${like(
+        ingestReceipts.body,
+        `%"clientKey":"${input.clientKey}"%`,
+      )})::int`,
+    })
+    .from(ingestReceipts)
+    .where(
+      and(
+        eq(ingestReceipts.source, input.source),
+        gte(ingestReceipts.createdAt, since),
+      ),
+    );
+  return row;
 }
 
 // Turns a stored receipt into Flowbase records. Each source's ticket adds its own

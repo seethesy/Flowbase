@@ -63,6 +63,7 @@ const expected: Record<Action, string> = {
   "events.status": "1001000",
   "events.production_leads": "1010000",
   "leads.read": "1111000",
+  "leads.create": "1111000",
   "leads.update": "1111000",
   "leads.convert": "1111000",
   "leads.merge": "1111000",

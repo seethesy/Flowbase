@@ -37,6 +37,7 @@ const sales = [
   "venues.write",
   "events.write",
   "leads.read",
+  "leads.create",
   "leads.update",
   "leads.convert",
   "leads.merge",
