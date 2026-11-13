@@ -90,6 +90,10 @@ export const actions = [
     // (FLOW-62): Admin, Technical, Sales Manager and Kitchen Lead.
     "tasks.triage",
     "tasks.templates",
+    // Role home and read-only operational summaries (FLOW-158/159).
+    "home.kitchen",
+    "operations.read",
+    "reports.operations.read",
     "beos.approve",
     "rentals.apply_directly",
     // Master inventory changes (FLOW-73/74): FT+ staff submit rental and service
@@ -123,6 +127,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "tasks.delegate",
       "tasks.triage",
       "tasks.templates",
+      "operations.read",
     ]),
   },
   sales_manager: {
@@ -138,6 +143,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "tasks.delegate",
       "tasks.triage",
       "tasks.templates",
+      "reports.operations.read",
     ]),
   },
   salesperson: {
@@ -157,12 +163,13 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "tasks.triage",
       "tasks.templates",
       "order_lists.write",
+      "home.kitchen",
     ]),
     "inventory.consumables.count": isFtPlus,
     "inventory.changes.request": isFtPlus,
   },
   kitchen_staff: {
-    ...grants(common, kitchen, ["recipes.write"]),
+    ...grants(common, kitchen, ["recipes.write", "home.kitchen"]),
     "inventory.consumables.count": isFtPlus,
     "inventory.changes.request": isFtPlus,
     "tasks.delegate": isFtPlus,

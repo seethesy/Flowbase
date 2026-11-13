@@ -32,15 +32,15 @@ it.each(paths)("%s %s answers 401 without a signed-in user", async (method, path
   expect(withDb).not.toHaveBeenCalled();
 });
 it.each(roleSchema.options.filter((role) => role !== "admin"))(
-  "refuses the %s role on every admin route",
+  "limits the %s role on admin routes",
   async (role) => {
-    const withDb = vi.fn<RunWithDb>();
+    const withDb = vi.fn<RunWithDb>().mockResolvedValue([]);
     const app = createApp({ withDb: asDb(withDb), resolveActor: async () => actor(role) });
     for (const [method, path] of paths) {
       const response = await app.request(path, { method }, env);
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(role === "technical" && method === "GET" ? 200 : 403);
     }
-    expect(withDb).not.toHaveBeenCalled();
+    if (role !== "technical") expect(withDb).not.toHaveBeenCalled();
     expect(can(actor(role), "jobs.manage")).toBe(false);
     expect(can(actor(role), "ingest.manage")).toBe(false);
   },
