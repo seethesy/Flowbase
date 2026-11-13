@@ -11,10 +11,14 @@ import { Button } from "../ui/button";
 export function PrintLayout({
   title,
   subtitle,
+  footer,
   children,
 }: {
   title: string;
   subtitle?: string;
+  // Repeated at the bottom of every printed page (a table footer group), e.g. the
+  // BEO's status and print time.
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   // The company profile from business settings (FLOW-45).
@@ -57,6 +61,15 @@ export function PrintLayout({
             <td className="print-body">{children}</td>
           </tr>
         </tbody>
+        {footer && (
+          <tfoot>
+            <tr>
+              <td>
+                <footer className="print-footer">{footer}</footer>
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );
