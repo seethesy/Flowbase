@@ -17,7 +17,7 @@ test("the hub links to the BEO page, which refuses another BEO's id", async ({
   await expect(
     page.getByRole("heading", { name: "Fall gala", level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText("Banquet event order")).toBeVisible();
+  await expect(page.getByText("Banquet event order").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Open BEO page" })).toHaveCount(0);
 
   await page.goto(
