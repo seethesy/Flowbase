@@ -56,6 +56,7 @@ import {
   activityRecordedSchema,
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
+import { communicationSchema } from "../../shared/communications";
 import { sopSchema, sopSummarySchema } from "../../shared/sops";
 import { historyEntrySchema } from "../../shared/audit";
 import { clientRecipeSchema, recipeSchema, scaledRecipeSchema } from "../../shared/recipes";
@@ -131,6 +132,8 @@ export function responseSchema(
       : !id && method === "POST"
         ? uploadTicketSchema
         : attachmentSchema;
+  if (resource === "communications")
+    return method === "GET" ? communicationSchema.array() : communicationSchema;
   if (resource === "leads") {
     if (id === "dashboard") return leadDashboardSchema;
     if (id === "duplicates")
