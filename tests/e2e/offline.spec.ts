@@ -1,20 +1,22 @@
-import { test as signedIn, expect, signedInUser } from "./auth-fixture";
+import { test as base, expect } from "@playwright/test";
+import { mockBrowserAuth, signedInUser } from "./auth-fixture";
 import * as s from "../../worker/db/schema";
-import { fallGala, juniper } from "./fixtures";
-import { browserDb, seedRecords } from "./database";
+import { defaultSections, fallGala, juniper } from "./fixtures";
+import { browserDb, resetBrowserDatabase, seedRecords } from "./database";
 
 // Offline BEO access (FLOW-150, ADR-18), in WebKit: Safari is the browser the crew
 // uses. The service worker keeps the app available, and the BEO is read from the
 // copy saved in IndexedDB. This spec turns the service worker on (see the
 // webkit-offline project) and goes offline mid-test, so the shared "every API
 // response matches its contract" check is replaced by plain assertions.
-const test = signedIn.extend({
-  contracts: [
+const test = base.extend<{ workspace: void }>({
+  workspace: [
     async ({ page }, use) => {
-      void page;
+      await resetBrowserDatabase(defaultSections);
+      await mockBrowserAuth(page);
       await use();
     },
-    { scope: "test" },
+    { auto: true },
   ],
 });
 
