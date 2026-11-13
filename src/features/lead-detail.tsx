@@ -22,6 +22,7 @@ import {
 import { LoadError } from "../components/record-display";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
+import { CommunicationLog } from "./communications";
 import { summaryLine } from "./lead-inbox";
 import {
   AssignForm,
@@ -394,6 +395,7 @@ export function LeadDetail() {
           </Allowed>
         </Section>
       </div>
+      <CommunicationLog target={{ leadId: l.id }} />
       {l.rawPayload !== null && l.rawPayload !== undefined && (
         <Section title="Raw payload">
           <pre className="muted">{JSON.stringify(l.rawPayload, null, 2)}</pre>

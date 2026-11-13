@@ -1,8 +1,8 @@
-import { and, asc, eq, inArray, isNull, max } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, max, or, type SQL } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { SalesRow } from "../../shared/sales";
 import type { DbLike } from "../db/client";
-import { auditLog, clients, events, leads, payments, paymentScheduleItems, proposalMappings, proposals, proposalVersionMappings, proposalVersions, users, salesViews } from "../db/schema";
+import { auditLog, clients, communications, events, leads, payments, tasks, paymentScheduleItems, proposalMappings, proposals, proposalVersionMappings, proposalVersions, users, salesViews } from "../db/schema";
 import { forbidden, notFound, ApiError } from "../hono";
 import { visibleClients } from "./clients";
 import { visibleLeads } from "./leads";
@@ -45,10 +45,34 @@ export async function salesDataset(db: DbLike, actor: Actor) {
   const activities = visibleIds.length ? await db.select({ entityType: auditLog.entityType, entityId: auditLog.entityId, at: max(auditLog.createdAt) })
     .from(auditLog).where(inArray(auditLog.entityId, visibleIds)).groupBy(auditLog.entityType, auditLog.entityId) : [];
   const lastActivities = new Map(activities.map((row) => [`${row.entityType}:${row.entityId}`, row.at]));
+  // Logged conversations (FLOW-120): the latest one counts as activity, and the
+  // earliest open follow-up task is the next follow-up.
+  const logged = new Map<string, { at: Date; followUp: Date | null }>();
+  const loggedFor = [
+    leadRows.length ? inArray(communications.leadId, leadRows.map((row) => row.id)) : undefined,
+    clientRows.length ? inArray(communications.clientId, clientRows.map((row) => row.id)) : undefined,
+    eventRows.length ? inArray(communications.eventId, eventIds) : undefined,
+  ].filter((condition): condition is SQL => condition !== undefined);
+  const communicationRows = loggedFor.length ? await db
+    .select({ leadId: communications.leadId, clientId: communications.clientId, eventId: communications.eventId,
+      at: communications.occurredAt, dueAt: tasks.dueAt, status: tasks.status, taskArchivedAt: tasks.archivedAt })
+    .from(communications).leftJoin(tasks, eq(tasks.id, communications.followUpTaskId))
+    .where(and(isNull(communications.archivedAt), or(...loggedFor))) : [];
+  for (const row of communicationRows) {
+    const key = row.leadId ? `lead:${row.leadId}` : row.clientId ? `client:${row.clientId}` : `event:${row.eventId}`;
+    const open = row.dueAt && row.status !== "done" && !row.taskArchivedAt ? row.dueAt : null;
+    const current = logged.get(key);
+    logged.set(key, {
+      at: current && current.at > row.at ? current.at : row.at,
+      followUp: open && (!current?.followUp || open < current.followUp) ? open : current?.followUp ?? null,
+    });
+  }
   const last = (kind: string, id: string, updated: Date) => {
     const audit = lastActivities.get(`${kind}:${id}`);
-    return new Date(Math.max(updated.getTime(), audit?.getTime() ?? 0)).toISOString();
+    const conversation = logged.get(`${kind}:${id}`);
+    return new Date(Math.max(updated.getTime(), audit?.getTime() ?? 0, conversation?.at.getTime() ?? 0)).toISOString();
   };
+  const nextFollowUp = (kind: string, id: string) => logged.get(`${kind}:${id}`)?.followUp?.toISOString() ?? null;
   const clientNames = new Map(clientRows.map((row) => [row.id, row.name]));
   const owners = new Map(people.map((row) => [row.id, row.name]));
   const sources = new Map(leadRows.filter((row) => row.convertedEventId).map((row) => [row.convertedEventId!, row.source]));
@@ -79,7 +103,7 @@ export async function salesDataset(db: DbLike, actor: Actor) {
     eventType: lead.eventType, stage: lead.status, ownerId: lead.assignedSalespersonId,
     owner: owners.get(lead.assignedSalespersonId ?? "") ?? null, source: lead.source,
     totalCents: null, receivedCents: null, balanceCents: null,
-    lastActivity: last("lead", lead.id, lead.updatedAt), nextFollowUp: null, bookedAt: null,
+    lastActivity: last("lead", lead.id, lead.updatedAt), nextFollowUp: nextFollowUp("lead", lead.id), bookedAt: null,
     eventStatus: null, leadStatus: lead.status, proposalStage: null, versionNumber: null,
   });
   for (const client of clientRows) rows.push({
@@ -87,7 +111,7 @@ export async function salesDataset(db: DbLike, actor: Actor) {
     eventId: null, title: client.name, eventDate: null, eventType: "", stage: "Client",
     ownerId: client.assignedSalespersonId, owner: owners.get(client.assignedSalespersonId ?? "") ?? null,
     source: null, totalCents: null, receivedCents: null, balanceCents: null,
-    lastActivity: last("client", client.id, client.updatedAt), nextFollowUp: null, bookedAt: null,
+    lastActivity: last("client", client.id, client.updatedAt), nextFollowUp: nextFollowUp("client", client.id), bookedAt: null,
     eventStatus: null, leadStatus: null, proposalStage: null, versionNumber: null,
   });
   for (const event of eventRows) {
@@ -97,13 +121,13 @@ export async function salesDataset(db: DbLike, actor: Actor) {
       eventId: event.id, eventDate: utcToBusinessTime(event.startsAt).date,
       eventType: event.eventType, source: sources.get(event.id) ?? null,
       bookedAt: event.bookedAt?.toISOString() ?? null, eventStatus: event.status,
-      leadStatus: null, nextFollowUp: null,
+      leadStatus: null,
     };
     rows.push({ ...common, id: event.id, kind: "event", title: event.title, stage: event.status,
       ownerId: event.assignedSalespersonId, owner: owners.get(event.assignedSalespersonId ?? "") ?? null,
-      ...money(event.id, total), lastActivity: last("event", event.id, event.updatedAt), proposalStage: null, versionNumber: null });
+      ...money(event.id, total), lastActivity: last("event", event.id, event.updatedAt), nextFollowUp: nextFollowUp("event", event.id), proposalStage: null, versionNumber: null });
     for (const proposal of proposalsByEvent.get(event.id) ?? []) rows.push({
-      ...common, id: proposal.id, kind: "proposal", title: proposal.title,
+      ...common, nextFollowUp: null, id: proposal.id, kind: "proposal", title: proposal.title,
       stage: proposal.stage, ownerId: proposal.assignedSalespersonId,
       owner: owners.get(proposal.assignedSalespersonId ?? "") ?? null,
       ...money(event.id, proposalTotal(proposal)), lastActivity: last("proposal", proposal.id, proposal.updatedAt),

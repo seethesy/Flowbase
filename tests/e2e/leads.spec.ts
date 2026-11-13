@@ -167,3 +167,31 @@ test("possible duplicates are merged into one lead that keeps both source links"
   await expect(row(page, "Maya Ortiz")).toBeVisible();
   await expect(row(page, "Maya O.")).toHaveCount(0);
 });
+
+test("logging a call with a follow-up shows it in the lead's log and creates a task (FLOW-120)", async ({
+  page,
+}) => {
+  await seedLeads([maya()]);
+  await page.goto("/#/leads");
+  await row(page, "Maya Ortiz").click();
+  await expect(
+    page.getByRole("heading", { name: "Maya Ortiz", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText("Nothing logged yet.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Log conversation" }).click();
+  await expect(page.getByRole("alert")).toContainText("Enter a summary.");
+  await page.getByLabel("Summary *").fill("Wants a tasting before booking.");
+  await page.getByLabel("Next follow-up").fill("2030-06-14");
+  await page.getByRole("button", { name: "Log conversation" }).click();
+
+  const entry = page.locator(".communication-log li");
+  await expect(entry).toHaveCount(1);
+  await expect(entry).toContainText("Call");
+  await expect(entry).toContainText("Wants a tasting before booking.");
+  await expect(entry).toContainText("Follow-up Jun 14, 2030 · open");
+  await entry.getByRole("link", { name: "View task" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Follow up: Maya Ortiz", level: 1 }),
+  ).toBeVisible();
+});

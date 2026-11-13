@@ -241,3 +241,17 @@ it("lets only roles that sell resolve duplicates, before touching the database",
   ).toBe(400);
   expect(mock).not.toHaveBeenCalled();
 });
+
+it("answers 401 on the communication log without a signed-in user, and 400 without exactly one record (FLOW-120)", async () => {
+  const { mock, withDb } = mockDb();
+  const app = createApp({ withDb });
+  expect((await app.request("/api/communications?leadId=" + id, {}, env)).status).toBe(401);
+  expect((await app.request("/api/communications", post({}), env)).status).toBe(401);
+  const staff = createApp({ withDb, resolveActor: async () => actor("staff") });
+  expect((await staff.request("/api/communications?leadId=" + id, {}, env)).status).toBe(403);
+  const admin = createApp({ withDb, resolveActor: async () => actor("admin") });
+  for (const query of ["", `?leadId=${id}&clientId=${id}`, "?leadId=nope"])
+    expect((await admin.request("/api/communications" + query, {}, env)).status).toBe(400);
+  expect((await admin.request("/api/communications", post({ kind: "call", summary: "x" }), env)).status).toBe(400);
+  expect(mock).not.toHaveBeenCalled();
+});
