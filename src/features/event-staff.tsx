@@ -32,6 +32,7 @@ import { LoadError } from "../components/record-display";
 import { date, time } from "./event-format";
 import { ListSelect } from "./list-fields";
 import "./event-staff.css";
+import { T } from "../app/live-copy";
 
 // The event's staff roster and Production Leads (FLOW-140), shown on the event hub
 // like the BEO's Staff Roster section: one block per shift with its slots, open
@@ -62,7 +63,7 @@ export function EventStaffSection({
   const [leadsForm, setLeadsForm] = useState(false);
   if (roster.error)
     return (
-      <Section title="Staff">
+      <Section title={<T id="event-staff.event-staff-section.staff">Staff</T>}>
         <LoadError message={roster.error} />
       </Section>
     );
@@ -106,12 +107,12 @@ export function EventStaffSection({
     );
   return (
     <Section
-      title="Staff"
+      title={<T id="event-staff.event-staff-section.staff">Staff</T>}
       action={
         data.canEdit && (
           <Button variant="outline" onClick={() => setShiftForm("new")}>
             <Plus size={14} />
-            Add shift
+            <T id="event-staff.event-staff-section.add-shift">Add shift</T>
           </Button>
         )
       }
@@ -128,11 +129,11 @@ export function EventStaffSection({
       )}
       <div className="staff-leads">
         <div>
-          <small>Production Lead</small>
-          <strong>{data.productionLead?.name ?? "Not named"}</strong>
+          <small><T id="event-staff.event-staff-section.production-lead">Production Lead</T></small>
+          <strong>{data.productionLead?.name ?? <T id="event-staff.event-staff-section.not-named">Not named</T>}</strong>
         </div>
         <div>
-          <small>Assistants</small>
+          <small><T id="event-staff.event-staff-section.assistants">Assistants</T></small>
           <strong>
             {data.assistantLeads.map((lead) => lead.name).join(", ") || "—"}
           </strong>
@@ -140,7 +141,7 @@ export function EventStaffSection({
         {data.canNameLeads && (
           <Button variant="outline" onClick={() => setLeadsForm(true)}>
             <Pencil size={14} />
-            Production Leads
+            <T id="event-staff.event-staff-section.production-leads">Production Leads</T>
           </Button>
         )}
       </div>
@@ -152,7 +153,7 @@ export function EventStaffSection({
                   `${departmentLabels[row.department]}: ${row.total} (${row.filled} filled)`,
               )
               .join(" · ") + ` · ${data.openSlots} open`
-          : "No staffing slots yet."}
+          : <T id="event-staff.event-staff-section.no-staffing-slots-yet">No staffing slots yet.</T>}
       </p>
       {data.shifts.map((shift) => (
         <ShiftBlock
@@ -249,10 +250,10 @@ function ShiftBlock({
         {canEdit && (
           <div className="staff-shift-actions">
             <Button variant="ghost" onClick={onEdit}>
-              Edit shift
+              <T id="event-staff.shift-block.edit-shift">Edit shift</T>
             </Button>
             <Button variant="ghost" onClick={onRemove}>
-              Remove shift
+              <T id="event-staff.shift-block.remove-shift">Remove shift</T>
             </Button>
           </div>
         )}
@@ -273,7 +274,7 @@ function ShiftBlock({
           return (
             <li key={slot.id} className={slot.assignee ? "" : "open"}>
               <span className="staff-slot-label">
-                <strong>{label}</strong> – {slot.assignee?.name ?? "open"}
+                <strong>{label}</strong> – {slot.assignee?.name ?? <T id="event-staff.shift-block.open">open</T>}
               </span>
               <span className="badge neutral">
                 {departmentLabels[slot.department]}
@@ -335,14 +336,13 @@ function ShiftBlock({
               )}
               {slot.conflicts.length > 0 && (
                 <p className="staff-conflict warning">
-                  Double-booked: also working{" "}
-                  {slot.conflicts.map(conflictText).join("; ")}
+                  <T id="event-staff.shift-block.double-booked-also-working" values={{ join: slot.conflicts.map(conflictText).join("; ") }}>{"Double-booked: also working {join}"}</T>
                 </p>
               )}
             </li>
           );
         })}
-        {!shift.slots.length && <li className="muted">No slots yet.</li>}
+        {!shift.slots.length && <li className="muted"><T id="event-staff.shift-block.no-slots-yet">No slots yet.</T></li>}
       </ul>
       {canEdit && <AddSlots shiftTitle={title} onAdd={onAddSlots} />}
     </section>
@@ -401,7 +401,7 @@ function AddSlots({
       />
       <Button type="submit" variant="outline" disabled={!position}>
         <Plus size={14} />
-        Add slots
+        <T id="event-staff.add-slots.add-slots">Add slots</T>
       </Button>
     </form>
   );
@@ -446,8 +446,8 @@ function ShiftForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title={shift ? "Edit shift" : "Add shift"}
-      description="Times are New York time. An end time before the start runs past midnight."
+      title={shift ? <T id="event-staff.shift-form.edit-shift">Edit shift</T> : <T id="event-staff.shift-form.add-shift">Add shift</T>}
+      description={<T id="event-staff.shift-form.times-are-new-york-time-an">Times are New York time. An end time before the start runs past midnight.</T>}
     >
       <form
         noValidate
@@ -469,7 +469,7 @@ function ShiftForm({
           </p>
         )}
         <div className="form-grid">
-          <FormField label="Day">
+          <FormField label={<T id="event-staff.shift-form.day">Day</T>}>
             <select
               value={draft.kind}
               onChange={(e) => {
@@ -485,21 +485,21 @@ function ShiftForm({
               ))}
             </select>
           </FormField>
-          <FormField label="Date">
+          <FormField label={<T id="event-staff.shift-form.date">Date</T>}>
             <input
               type="date"
               value={draft.date}
               onChange={(e) => set("date", e.target.value)}
             />
           </FormField>
-          <FormField label="Start time">
+          <FormField label={<T id="event-staff.shift-form.start-time">Start time</T>}>
             <input
               type="time"
               value={draft.startTime}
               onChange={(e) => set("startTime", e.target.value)}
             />
           </FormField>
-          <FormField label="End time">
+          <FormField label={<T id="event-staff.shift-form.end-time">End time</T>}>
             <input
               type="time"
               value={draft.endTime}
@@ -507,7 +507,7 @@ function ShiftForm({
             />
           </FormField>
         </div>
-        <FormField label="Activities">
+        <FormField label={<T id="event-staff.shift-form.activities">Activities</T>}>
           <textarea
             rows={3}
             value={draft.activities ?? ""}
@@ -516,9 +516,9 @@ function ShiftForm({
         </FormField>
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="event-staff.shift-form.cancel">Cancel</T>
           </Button>
-          <Button type="submit">Save shift</Button>
+          <Button type="submit"><T id="event-staff.shift-form.save-shift">Save shift</T></Button>
         </div>
       </form>
     </DetailDrawer>
@@ -552,8 +552,8 @@ function LeadsForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title="Production Leads"
-      description="The primary receives the event's production alerts; assistants are copied."
+      title={<T id="event-staff.leads-form.production-leads">Production Leads</T>}
+      description={<T id="event-staff.leads-form.the-primary-receives-the-event-s">{"The primary receives the event's production alerts; assistants are copied."}</T>}
     >
       <form
         noValidate
@@ -581,8 +581,8 @@ function LeadsForm({
           </p>
         )}
         <FormField
-          label="Primary Production Lead"
-          hint="Full-time staff only."
+          label={<T id="event-staff.leads-form.primary-production-lead">Primary Production Lead</T>}
+          hint={<T id="event-staff.leads-form.full-time-staff-only">Full-time staff only.</T>}
         >
           <select value={primary} onChange={(e) => setPrimary(e.target.value)}>
             <option value="">None</option>
@@ -594,7 +594,7 @@ function LeadsForm({
           </select>
         </FormField>
         <fieldset className="list-checkboxes">
-          <legend>Assistant Production Leads</legend>
+          <legend><T id="event-staff.leads-form.assistant-production-leads">Assistant Production Leads</T></legend>
           {staff
             .filter((member) => member.id !== primary)
             .map((member) => (
@@ -616,9 +616,9 @@ function LeadsForm({
         </fieldset>
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="event-staff.leads-form.cancel">Cancel</T>
           </Button>
-          <Button type="submit">Save leads</Button>
+          <Button type="submit"><T id="event-staff.leads-form.save-leads">Save leads</T></Button>
         </div>
       </form>
     </DetailDrawer>

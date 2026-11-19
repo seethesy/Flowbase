@@ -19,6 +19,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import "./inventory.css";
+import { T } from "../app/live-copy";
 
 // Sections (FLOW-70): Admin adds, renames and archives them.
 export function SectionList() {
@@ -45,12 +46,12 @@ export function SectionList() {
   return (
     <>
       <Link to="/inventory" className="back-link">
-        ← All inventory
+        <T id="inventory-sections.section-list.all-inventory">← All inventory</T>
       </Link>
       <PageHeader
-        title="Sections"
-        subtitle="Where stock lives. Vendor holds sub-rented items."
-        eyebrow="STOCK & SUPPLIES"
+        title={<T id="inventory-sections.section-list.sections">Sections</T>}
+        subtitle={<T id="inventory-sections.section-list.where-stock-lives-vendor-holds-sub">Where stock lives. Vendor holds sub-rented items.</T>}
+        eyebrow={<T id="inventory-sections.section-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
       />
       {error && (
         <p role="alert" className="error-message">
@@ -71,10 +72,10 @@ export function SectionList() {
               });
             }}
           >
-            <FormField label="New section name">
+            <FormField label={<T id="inventory-sections.section-list.new-section-name">New section name</T>}>
               <input value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
-            <FormField label="Holds">
+            <FormField label={<T id="inventory-sections.section-list.holds">Holds</T>}>
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value as SectionKind)}
@@ -87,7 +88,7 @@ export function SectionList() {
               </select>
             </FormField>
             <Button type="submit">
-              <Plus size={14} /> Add section
+              <Plus size={14} /> <T id="inventory-sections.section-list.add-section">{" Add section"}</T>
             </Button>
           </form>
         </Allowed>
@@ -99,7 +100,7 @@ export function SectionList() {
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="inventory-sections.section-list.show-archived">Show archived</T>
         </label>
       </FilterBar>
       {sections.error ? (
@@ -130,7 +131,7 @@ export function SectionList() {
                               });
                             }}
                           >
-                            <FormField label={`Rename ${section.name}`}>
+                            <FormField label={<T id="inventory-sections.section-list.rename" values={{ name: section.name }}>{"Rename {name}"}</T>}>
                               <input
                                 autoFocus
                                 value={renaming.name}
@@ -142,14 +143,14 @@ export function SectionList() {
                                 }
                               />
                             </FormField>
-                            <Button type="submit">Save name</Button>
+                            <Button type="submit"><T id="inventory-sections.section-list.save-name">Save name</T></Button>
                           </form>
                         ) : (
                           section.name
                         )}
                       </td>
                       <td>
-                        {Number(section.totalQuantity.toFixed(4))} in stock
+                        <T id="inventory-sections.section-list.in-stock" values={{ Number: Number(section.totalQuantity.toFixed(4)) }}>{"{Number} in stock"}</T>
                       </td>
                       <td>
                         {archived ? (
@@ -162,7 +163,7 @@ export function SectionList() {
                                 )
                               }
                             >
-                              Restore {section.name}
+                              <T id="inventory-sections.section-list.restore" values={{ name: section.name }}>{"Restore {name}"}</T>
                             </Button>
                           </Allowed>
                         ) : (
@@ -177,7 +178,7 @@ export function SectionList() {
                                   })
                                 }
                               >
-                                Rename {section.name}
+                                <T id="inventory-sections.section-list.rename" values={{ name: section.name }}>{"Rename {name}"}</T>
                               </Button>
                             </Allowed>
                             <Allowed action="inventory.sections">
@@ -189,7 +190,7 @@ export function SectionList() {
                                   )
                                 }
                               >
-                                Archive {section.name}
+                                <T id="inventory-sections.section-list.archive" values={{ name: section.name }}>{"Archive {name}"}</T>
                               </Button>
                             </Allowed>
                           </>

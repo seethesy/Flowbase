@@ -40,6 +40,7 @@ import {
   leadTitle,
   valueOf,
 } from "./lead-shared";
+import { T, useCopy } from "../app/live-copy";
 
 const views = ["All leads", "Triage", "Needs review", "Duplicates"];
 
@@ -76,7 +77,7 @@ function DuplicateQueue() {
   if (duplicates.error) return <LoadError message={duplicates.error} />;
   if (!duplicates.data) return <LoadingSkeleton />;
   if (!duplicates.data.length)
-    return <p className="muted">No possible duplicates to resolve.</p>;
+    return <p className="muted"><T id="lead-inbox.duplicate-queue.no-possible-duplicates-to-resolve">No possible duplicates to resolve.</T></p>;
   const pair = (duplicate: LeadDuplicate) => {
     const other = duplicate.matchedLead;
     return (
@@ -84,12 +85,12 @@ function DuplicateQueue() {
         <p>
           <strong>{leadDuplicateReasonLabels[duplicate.reason]}</strong>
           {duplicate.crossOwner && (
-            <span className="badge warning">Different salespeople</span>
+            <span className="badge warning"><T id="lead-inbox.duplicate-queue.different-salespeople">Different salespeople</T></span>
           )}
         </p>
         <p>
           <Link to={`/leads/${duplicate.lead.id}`}>
-            {duplicate.lead.name || "Unnamed lead"}
+            {duplicate.lead.name || <T id="lead-inbox.duplicate-queue.unnamed-lead">Unnamed lead</T>}
           </Link>{" "}
           <small>{summaryLine(duplicate.lead)}</small>
         </p>
@@ -97,14 +98,14 @@ function DuplicateQueue() {
           {other ? (
             <>
               <Link to={`/leads/${other.id}`}>
-                {other.name || "Unnamed lead"}
+                {other.name || <T id="lead-inbox.duplicate-queue.unnamed-lead">Unnamed lead</T>}
               </Link>{" "}
               <small>{summaryLine(other)}</small>
             </>
           ) : (
             duplicate.matchedClient && (
               <>
-                Client{" "}
+                <T id="lead-inbox.duplicate-queue.client">{"Client "}</T>
                 <Link to={`/clients/${duplicate.matchedClient.id}`}>
                   {duplicate.matchedClient.name}
                 </Link>
@@ -125,7 +126,7 @@ function DuplicateQueue() {
                     )
                   }
                 >
-                  Keep {duplicate.lead.name || "first"}
+                  <T id="lead-inbox.duplicate-queue.keep" values={{ name: duplicate.lead.name || <T id="lead-inbox.duplicate-queue.first">first</T> }}>{"Keep {name}"}</T>
                 </Button>
               </Allowed>
               <Allowed action="leads.merge">
@@ -136,7 +137,7 @@ function DuplicateQueue() {
                     void act(() => leadsApi.merge(duplicate.id, other.id))
                   }
                 >
-                  Keep {other.name || "second"}
+                  <T id="lead-inbox.duplicate-queue.keep" values={{ name: other.name || <T id="lead-inbox.duplicate-queue.second">second</T> }}>{"Keep {name}"}</T>
                 </Button>
               </Allowed>
             </>
@@ -147,7 +148,7 @@ function DuplicateQueue() {
               disabled={busy}
               onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
             >
-              Not a duplicate
+              <T id="lead-inbox.duplicate-queue.not-a-duplicate">Not a duplicate</T>
             </Button>
           </Allowed>
         </div>
@@ -172,6 +173,7 @@ function DuplicateQueue() {
 // The unified inbox (FLOW-100) with the triage queue (FLOW-111): every source in one
 // list, filters, a "needs review" view, and bulk assignment.
 export function LeadInbox() {
+  const copyPlaceholder = useCopy("lead-inbox.lead-inbox.placeholder-search-name-email-or-phone", "Search name, email or phone…");
   const navigate = useNavigate();
   const [view, setView] = useState(views[0]);
   const [status, setStatus] = useState("");
@@ -248,7 +250,7 @@ export function LeadInbox() {
             <strong>{leadTitle(c.row.original)}</strong>
           </Link>
           {c.row.original.needsReview && (
-            <span className="badge warning">Needs review</span>
+            <span className="badge warning"><T id="lead-inbox.lead-inbox.needs-review">Needs review</T></span>
           )}
         </span>
       ),
@@ -293,7 +295,7 @@ export function LeadInbox() {
               onClick={() => setConverting(c.row.original)}
             >
               <ArrowRightLeft size={14} />
-              Convert
+              <T id="lead-inbox.lead-inbox.convert">Convert</T>
             </Button>
           </Allowed>
         ) : null,
@@ -302,15 +304,15 @@ export function LeadInbox() {
   return (
     <>
       <PageHeader
-        title="Leads"
-        subtitle="Every inquiry from every source, in one place."
-        eyebrow="Leads"
+        title={<T id="lead-inbox.lead-inbox.leads">Leads</T>}
+        subtitle={<T id="lead-inbox.lead-inbox.every-inquiry-from-every-source-in">Every inquiry from every source, in one place.</T>}
+        eyebrow={<T id="lead-inbox.lead-inbox.leads">Leads</T>}
       >
         <Allowed action="leads.create">
-          <Button onClick={() => setEntering(true)}>New lead</Button>
+          <Button onClick={() => setEntering(true)}><T id="lead-inbox.lead-inbox.new-lead">New lead</T></Button>
         </Allowed>
         <Button variant="outline" asChild>
-          <Link to="/leads/dashboard">Lead dashboard</Link>
+          <Link to="/leads/dashboard"><T id="lead-inbox.lead-inbox.lead-dashboard">Lead dashboard</T></Link>
         </Button>
       </PageHeader>
       <Tabs
@@ -330,7 +332,7 @@ export function LeadInbox() {
               <SearchInput
                 value={search}
                 onChange={setSearch}
-                placeholder="Search name, email or phone…"
+                placeholder={copyPlaceholder}
               />
               <Select
                 label="Statuses"
@@ -355,12 +357,11 @@ export function LeadInbox() {
                 )}
               />
               <span className="result-count">
-                {data.length}
-                {leads.hasMore ? "+" : ""} leads
+                <T id="lead-inbox.lead-inbox.leads-2" values={{ count: data.length, value: leads.hasMore ? "+" : "" }}>{"{count}{value} leads"}</T>
               </span>
             </FilterBar>
             {selected.length > 0 && (
-              <Section title={`${selected.length} selected`}>
+              <Section title={<T id="lead-inbox.lead-inbox.selected" values={{ count: selected.length }}>{"{count} selected"}</T>}>
                 <Allowed action="leads.assign">
                   <AssignForm
                     label="Assign selected to (user ID)"

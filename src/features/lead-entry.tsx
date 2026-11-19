@@ -3,6 +3,7 @@ import { defaultLeadSources, type Lead } from "../../shared/leads";
 import { leadsApi } from "../services/leads";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { useListLabels } from "./list-fields";
+import { T } from "../app/live-copy";
 
 const wholeNumber = /^\d+$/;
 const dollars = /^\d+(\.\d{1,2})?$/;
@@ -70,8 +71,8 @@ export function NewLeadForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title="New lead"
-      description="Log a lead that didn't arrive on its own: a referral, phone call or walk-in."
+      title={<T id="lead-entry.new-lead-form.new-lead">New lead</T>}
+      description={<T id="lead-entry.new-lead-form.log-a-lead-that-didn-t">{"Log a lead that didn't arrive on its own: a referral, phone call or walk-in."}</T>}
     >
       <form
         noValidate
@@ -86,57 +87,57 @@ export function NewLeadForm({
           </p>
         )}
         <div className="form-grid">
-          <FormField label="Source *">
+          <FormField label={<T id="lead-entry.new-lead-form.source">Source *</T>}>
             <select value={source} onChange={(e) => setSource(e.target.value)}>
               {sources.map((value) => (
                 <option key={value}>{value}</option>
               ))}
             </select>
           </FormField>
-          <FormField label="Name *">
+          <FormField label={<T id="lead-entry.new-lead-form.name">Name *</T>}>
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </FormField>
-          <FormField label="Phone">
+          <FormField label={<T id="lead-entry.new-lead-form.phone">Phone</T>}>
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
           </FormField>
-          <FormField label="Email">
+          <FormField label={<T id="lead-entry.new-lead-form.email">Email</T>}>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </FormField>
-          <FormField label="Event date">
+          <FormField label={<T id="lead-entry.new-lead-form.event-date">Event date</T>}>
             <input
               type="date"
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
             />
           </FormField>
-          <FormField label="Guests">
+          <FormField label={<T id="lead-entry.new-lead-form.guests">Guests</T>}>
             <input
               inputMode="numeric"
               value={guests}
               onChange={(e) => setGuests(e.target.value)}
             />
           </FormField>
-          <FormField label="Event type">
+          <FormField label={<T id="lead-entry.new-lead-form.event-type">Event type</T>}>
             <input
               value={eventType}
               onChange={(e) => setEventType(e.target.value)}
             />
           </FormField>
-          <FormField label="Location">
+          <FormField label={<T id="lead-entry.new-lead-form.location">Location</T>}>
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
           </FormField>
-          <FormField label="Budget ($)">
+          <FormField label={<T id="lead-entry.new-lead-form.budget">Budget ($)</T>}>
             <input
               inputMode="decimal"
               value={budget}
@@ -144,7 +145,7 @@ export function NewLeadForm({
             />
           </FormField>
         </div>
-        <FormField label="Notes">
+        <FormField label={<T id="lead-entry.new-lead-form.notes">Notes</T>}>
           <textarea
             rows={4}
             value={message}
@@ -153,10 +154,10 @@ export function NewLeadForm({
         </FormField>
         <div className="page-actions">
           <Button type="submit" disabled={saving}>
-            Save lead
+            <T id="lead-entry.new-lead-form.save-lead">Save lead</T>
           </Button>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="lead-entry.new-lead-form.cancel">Cancel</T>
           </Button>
         </div>
       </form>

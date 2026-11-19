@@ -27,20 +27,18 @@ import "./time-tracking.css";
 // Settings entry and the reports.
 
 import { trackingNoticeText } from "../components/TrackingNotice";
+import { T } from "../app/live-copy";
 
 // The time tracking section of the Settings screen.
 export function TimeTrackingSettings() {
   const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
   return (
-    <Section title="Time tracking">
+    <Section title={<T id="time-tracking.time-tracking-settings.time-tracking">Time tracking</T>}>
       <p>
-        <strong>Time tracking is on.</strong> {trackingNoticeText(idleMinutes)}
+        <strong><T id="time-tracking.time-tracking-settings.time-tracking-is-on">Time tracking is on.</T></strong> {trackingNoticeText(idleMinutes)}
       </p>
       <p>
-        Time is credited to the lead, client, event, proposal or task on screen
-        and to the kind of work the screen is for. Admin and Sales Managers see everyone's time
-        in <Link to="/reports">Reports</Link>; everyone else sees only their
-        own.
+        <T id="time-tracking.time-tracking-settings.time-is-credited-to-the-lead">{"Time is credited to the lead, client, event, proposal or task on screen and to the kind of work the screen is for. Admin and Sales Managers see everyone's time in "}</T><Link to="/reports"><T id="time-tracking.time-tracking-settings.reports">Reports</T></Link><T id="time-tracking.time-tracking-settings.everyone-else-sees-only-their-own">; everyone else sees only their own.</T>
       </p>
     </Section>
   );
@@ -139,16 +137,16 @@ export function TimeReports() {
   return (
     <>
       <PageHeader
-        title="Time tracking"
+        title={<T id="time-tracking.time-reports.time-tracking">Time tracking</T>}
         subtitle={
           data?.scope === "own"
-            ? "Your own active time in Flowbase."
-            : "Active time in Flowbase per booking and per person."
+            ? <T id="time-tracking.time-reports.your-own-active-time-in-flowbase">Your own active time in Flowbase.</T>
+            : <T id="time-tracking.time-reports.active-time-in-flowbase-per-booking">Active time in Flowbase per booking and per person.</T>
         }
-        eyebrow="Reports"
+        eyebrow={<T id="time-tracking.time-reports.reports">Reports</T>}
       />
       <FilterBar>
-        <FormField label="From">
+        <FormField label={<T id="time-tracking.time-reports.from">From</T>}>
           <input
             type="date"
             value={from}
@@ -156,7 +154,7 @@ export function TimeReports() {
             onChange={(e) => e.target.value && setFrom(e.target.value)}
           />
         </FormField>
-        <FormField label="To">
+        <FormField label={<T id="time-tracking.time-reports.to">To</T>}>
           <input
             type="date"
             value={to}
@@ -171,7 +169,7 @@ export function TimeReports() {
         <LoadingSkeleton />
       ) : (
         <>
-          <Section title="Effort per booking">
+          <Section title={<T id="time-tracking.time-reports.effort-per-booking">Effort per booking</T>}>
             {data.effort.length ? (
               <DataTable
                 data={data.effort}
@@ -181,13 +179,13 @@ export function TimeReports() {
               />
             ) : (
               <EmptyState
-                title="No event time yet"
-                description="Time spent on an event, its proposals and its tasks in this range shows here."
+                title={<T id="time-tracking.time-reports.no-event-time-yet">No event time yet</T>}
+                description={<T id="time-tracking.time-reports.time-spent-on-an-event-its">Time spent on an event, its proposals and its tasks in this range shows here.</T>}
               />
             )}
           </Section>
           {data.proposals.length > 0 && (
-            <Section title="Effort per proposal">
+            <Section title={<T id="time-tracking.time-reports.effort-per-proposal">Effort per proposal</T>}>
               <DataTable
                 data={data.proposals}
                 columns={proposalColumns}
@@ -196,7 +194,7 @@ export function TimeReports() {
               />
             </Section>
           )}
-          <Section title="Workload">
+          <Section title={<T id="time-tracking.time-reports.workload">Workload</T>}>
             {data.workload.length ? (
               <DataTable
                 data={data.workload}
@@ -206,8 +204,8 @@ export function TimeReports() {
               />
             ) : (
               <EmptyState
-                title="No time recorded"
-                description="Active time in this range shows here."
+                title={<T id="time-tracking.time-reports.no-time-recorded">No time recorded</T>}
+                description={<T id="time-tracking.time-reports.active-time-in-this-range-shows">Active time in this range shows here.</T>}
               />
             )}
           </Section>

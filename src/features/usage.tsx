@@ -5,6 +5,7 @@ import { PageHeader, Section } from "../components/shared";
 import { request } from "../services/core";
 import { settingsApi, useBusinessSettings } from "../services/settings";
 import { usePermissions } from "../app/permissions";
+import { T } from "../app/live-copy";
 
 const rowSchema = z.object({ metric: z.string(), label: z.string(), value: z.number(),
   limit: z.number(), period: z.string(), percent: z.number().nullable() });
@@ -33,26 +34,26 @@ export function UsagePage() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to save limits."); }
   };
   return <>
-    <PageHeader title="Free-tier usage" subtitle="Approximate current usage and configurable warning levels." />
-    <Section title="Current usage">
-      {usage.error && <p role="alert">Unable to load usage.</p>}
+    <PageHeader title={<T id="usage.usage-page.free-tier-usage">Free-tier usage</T>} subtitle={<T id="usage.usage-page.approximate-current-usage-and-configurable-warning">Approximate current usage and configurable warning levels.</T>} />
+    <Section title={<T id="usage.usage-page.current-usage">Current usage</T>}>
+      {usage.error && <p role="alert"><T id="usage.usage-page.unable-to-load-usage">Unable to load usage.</T></p>}
       <ul>{usage.data?.map((row) => <li key={row.metric}>
         <strong>{row.label}</strong>: {format(row.metric, row.value)} / {format(row.metric, row.limit)}
         {row.percent !== null && ` (${row.percent}%)`} · {row.period}
       </li>)}</ul>
-      <p>Worker and query counts are approximate. R2 counts completed Flowbase attachments; GitHub minutes are reported by the ops workflow.</p>
+      <p><T id="usage.usage-page.worker-and-query-counts-are-approximate">Worker and query counts are approximate. R2 counts completed Flowbase attachments; GitHub minutes are reported by the ops workflow.</T></p>
     </Section>
-    {manage && <Section title="Free-tier limits">
+    {manage && <Section title={<T id="usage.usage-page.free-tier-limits">Free-tier limits</T>}>
       <form onSubmit={(event) => void save(event)}>
         {Object.entries(labels).map(([key, label]) => <p key={key}><label>{label}{" "}
           <input type="number" min="1" step="1" value={draft[key as keyof typeof draft]}
             onChange={(event) => setDraft((current) => ({ ...current,
               [key]: Number(event.target.value) }))} />
         </label></p>)}
-        <button type="submit">Save limits</button>
+        <button type="submit"><T id="usage.usage-page.save-limits">Save limits</T></button>
       </form>
       {message && <p role="status">{message}</p>}
-      <p>SMS uses the monthly cap in Settings → Defaults.</p>
+      <p><T id="usage.usage-page.sms-uses-the-monthly-cap-in">SMS uses the monthly cap in Settings → Defaults.</T></p>
     </Section>}
   </>;
 }

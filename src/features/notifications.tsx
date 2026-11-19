@@ -14,6 +14,7 @@ import { LoadError } from "../components/record-display";
 import { notificationsApi } from "../services/notifications";
 import { dateTimeLabel } from "./inventory-labels";
 import "./notifications.css";
+import { T } from "../app/live-copy";
 
 // Notification center and email preferences (FLOW-43). The bell shows the unread
 // count; opening a notification marks it read and goes to its record.
@@ -85,9 +86,9 @@ export function NotificationBell() {
       <DetailDrawer
         open={open}
         onClose={() => setOpen(false)}
-        title="Notifications"
+        title={<T id="notifications.notification-bell.notifications">Notifications</T>}
         description={
-          unread ? `${unread} unread` : "Things that need your attention."
+          unread ? <T id="notifications.notification-bell.unread" values={{ unread }}>{"{unread} unread"}</T> : <T id="notifications.notification-bell.things-that-need-your-attention">Things that need your attention.</T>
         }
       >
         {error && (
@@ -97,7 +98,7 @@ export function NotificationBell() {
         )}
         {inbox.error && !inbox.data ? (
           <p role="alert" className="error-message">
-            Notifications couldn't load. {inbox.error.message}
+            <T id="notifications.notification-bell.notifications-couldn-t-load" values={{ message: inbox.error.message }}>{"Notifications couldn't load. {message}"}</T>
           </p>
         ) : !inbox.data ? (
           <LoadingSkeleton />
@@ -106,7 +107,7 @@ export function NotificationBell() {
             <div className="notification-actions">
               {unread > 0 && (
                 <Button variant="outline" onClick={() => void readAll()}>
-                  Mark all as read
+                  <T id="notifications.notification-bell.mark-all-as-read">Mark all as read</T>
                 </Button>
               )}
               <Button
@@ -116,7 +117,7 @@ export function NotificationBell() {
                   navigate("/profile");
                 }}
               >
-                Email settings
+                <T id="notifications.notification-bell.email-settings">Email settings</T>
               </Button>
             </div>
             {inbox.data.notifications.length ? (
@@ -130,7 +131,7 @@ export function NotificationBell() {
                     >
                       {!notification.readAt && (
                         <span className="notification-unread-dot">
-                          <span className="sr-only">Unread: </span>
+                          <span className="sr-only"><T id="notifications.notification-bell.unread-2">{"Unread: "}</T></span>
                         </span>
                       )}
                       <span>
@@ -143,7 +144,7 @@ export function NotificationBell() {
                 ))}
               </ul>
             ) : (
-              <p className="notification-empty">You're all caught up.</p>
+              <p className="notification-empty"><T id="notifications.notification-bell.you-re-all-caught-up">{"You're all caught up."}</T></p>
             )}
           </>
         )}
@@ -184,7 +185,7 @@ export function NotificationSettings() {
     }
   };
   return (
-    <Section title="Email notifications">
+    <Section title={<T id="notifications.notification-settings.email-notifications">Email notifications</T>}>
         <form
           className="notification-settings"
           noValidate
@@ -194,8 +195,7 @@ export function NotificationSettings() {
           }}
         >
           <p className="notification-hint">
-            Notifications always appear in the app. Choose which ones are also
-            emailed to you.
+            <T id="notifications.notification-settings.notifications-always-appear-in-the-app">Notifications always appear in the app. Choose which ones are also emailed to you.</T>
           </p>
           {error && (
             <p role="alert" className="error-message">
@@ -221,7 +221,7 @@ export function NotificationSettings() {
                     <strong>
                       {preference.label}
                       {preference.urgent && (
-                        <span className="notification-urgent">Urgent</span>
+                        <span className="notification-urgent"><T id="notifications.notification-settings.urgent">Urgent</T></span>
                       )}
                     </strong>
                     <small>{preference.description}</small>
@@ -232,7 +232,7 @@ export function NotificationSettings() {
           </ul>
           <div className="form-actions">
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save email settings"}
+              {saving ? <T id="notifications.notification-settings.saving">Saving…</T> : <T id="notifications.notification-settings.save-email-settings">Save email settings</T>}
             </Button>
           </div>
         </form>

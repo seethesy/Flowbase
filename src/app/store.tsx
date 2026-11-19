@@ -8,6 +8,7 @@ import {
 } from "react";
 import { recordSchemas } from "../../shared/records";
 import { createRecordService, type RecordService } from "../services/records";
+import { T } from "./live-copy";
 
 function useCollection<T extends { id: string }>(service: RecordService<T>) {
   const [records, setRecords] = useState<T[]>([]);
@@ -72,7 +73,7 @@ export function DemoScreen({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, [clients, proposals, inventory]);
   if (error) return <p role="alert">{error}</p>;
-  if (loading) return <p role="status">Loading sample data…</p>;
+  if (loading) return <p role="status"><T id="app.store.demo-screen.loading-sample-data">Loading sample data…</T></p>;
   return children;
 }
 export function useDemo() {

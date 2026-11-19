@@ -24,6 +24,7 @@ import { LoadError } from "../components/record-display";
 import { dateTimeLabel } from "./inventory-labels";
 import "./inventory.css";
 import "./imports.css";
+import { T } from "../app/live-copy";
 
 // Data import (FLOW-47): choose a CSV or XLSX file, map its columns, check the
 // rows (dry run), then import them in batches of 100. The browser parses the file
@@ -35,16 +36,16 @@ export function ImportList() {
   return (
     <>
       <PageHeader
-        title="Imports"
-        subtitle="Bring records in from a spreadsheet. Re-running a file updates what it imported before."
+        title={<T id="imports.import-list.imports">Imports</T>}
+        subtitle={<T id="imports.import-list.bring-records-in-from-a-spreadsheet">Bring records in from a spreadsheet. Re-running a file updates what it imported before.</T>}
       />
-      <Section title="Importers">
+      <Section title={<T id="imports.import-list.importers">Importers</T>}>
         {modules.error ? (
           <LoadError message={modules.error} />
         ) : !modules.data ? (
           <LoadingSkeleton />
         ) : !modules.data.length ? (
-          <p className="muted">No importers are available to you yet.</p>
+          <p className="muted"><T id="imports.import-list.no-importers-are-available-to-you">No importers are available to you yet.</T></p>
         ) : (
           <ul className="import-modules">
             {modules.data.map((module) => (
@@ -68,12 +69,12 @@ export function ImportPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Imports"
-        title={module.data ? `Import ${module.data.label}` : "Import"}
-        subtitle="Choose a CSV or Excel (.xlsx) file. Nothing is saved until you import."
+        eyebrow={<T id="imports.import-page.imports">Imports</T>}
+        title={module.data ? <T id="imports.import-page.import" values={{ label: module.data.label }}>{"Import {label}"}</T> : <T id="imports.import-page.import-2">Import</T>}
+        subtitle={<T id="imports.import-page.choose-a-csv-or-excel-xlsx">Choose a CSV or Excel (.xlsx) file. Nothing is saved until you import.</T>}
       >
         <Button asChild variant="outline">
-          <Link to="/imports">All imports</Link>
+          <Link to="/imports"><T id="imports.import-page.all-imports">All imports</T></Link>
         </Button>
       </PageHeader>
       {module.error ? (
@@ -195,9 +196,9 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
   return (
     <>
-      <Section title="File">
+      <Section title={<T id="imports.import-flow.file">File</T>}>
         <label className="form-field">
-          <span>File</span>
+          <span><T id="imports.import-flow.file">File</T></span>
           <input
             type="file"
             accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -210,7 +211,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
         </label>
         {file && (
           <p className="muted">
-            {file.name}: {plural(rows.length, "row")} to import.
+            <T id="imports.import-flow.to-import" values={{ name: file.name, count: plural(rows.length, "row") }}>{"{name}: {count} to import."}</T>
           </p>
         )}
         {error && (
@@ -221,13 +222,13 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
       </Section>
 
       {file && (
-        <Section title="Columns">
+        <Section title={<T id="imports.import-flow.columns">Columns</T>}>
           <div className="import-mapping">
             {module.fields.map((field) => (
               <label className="form-field" key={field.key}>
                 <span>
                   {field.label}
-                  {field.required && " (required)"}
+                  {field.required && <T id="imports.import-flow.required">{" (required)"}</T>}
                 </span>
                 <select
                   aria-label={field.label}
@@ -246,7 +247,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
           </div>
           {missing.length > 0 && (
             <p className="error-message">
-              Choose a column for {missing.map((field) => field.label).join(", ")}.
+              <T id="imports.import-flow.choose-a-column-for">{"Choose a column for "}</T>{missing.map((field) => field.label).join(", ")}.
             </p>
           )}
           <div className="import-actions">
@@ -255,7 +256,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
               disabled={!rows.length || missing.length > 0 || Boolean(busy)}
               onClick={() => void check()}
             >
-              Check rows
+              <T id="imports.import-flow.check-rows">Check rows</T>
             </Button>
           </div>
         </Section>
@@ -312,17 +313,17 @@ function DryRunReport({
   const described = plans.filter((plan) => plan.summary && plan.action !== "error");
   const reviewed = plans.filter((plan) => plan.notes?.length);
   return (
-    <Section title="Dry run">
+    <Section title={<T id="imports.dry-run-report.dry-run">Dry run</T>}>
       <ul className="import-summary" aria-label="Dry run summary">
-        <li>{count("create")} to create</li>
-        <li>{count("update")} to update</li>
-        <li>{count("skip")} unchanged</li>
-        <li>{plural(errors.length, "row")} with errors</li>
+        <li><T id="imports.dry-run-report.to-create" values={{ count: count("create") }}>{"{count} to create"}</T></li>
+        <li><T id="imports.dry-run-report.to-update" values={{ count: count("update") }}>{"{count} to update"}</T></li>
+        <li><T id="imports.dry-run-report.unchanged" values={{ count: count("skip") }}>{"{count} unchanged"}</T></li>
+        <li><T id="imports.dry-run-report.with-errors" values={{ count: plural(errors.length, "row") }}>{"{count} with errors"}</T></li>
       </ul>
       {errors.length > 0 && (
         <>
-          <h3>Rows with errors</h3>
-          <p className="muted">These rows are skipped; the others still import.</p>
+          <h3><T id="imports.dry-run-report.rows-with-errors">Rows with errors</T></h3>
+          <p className="muted"><T id="imports.dry-run-report.these-rows-are-skipped-the-others">These rows are skipped; the others still import.</T></p>
           <RowTable
             label="Rows with errors"
             rows={errors.map((plan) => [plan.rowNumber, plan.errors.join(" ")])}
@@ -331,10 +332,9 @@ function DryRunReport({
       )}
       {dropped.length > 0 && (
         <>
-          <h3>Skipped, merged or renamed rows</h3>
+          <h3><T id="imports.dry-run-report.skipped-merged-or-renamed-rows">Skipped, merged or renamed rows</T></h3>
           <p className="muted">
-            {plural(dropped.length, "row")} the importer's row rules left out or
-            renamed; every other row of the file is checked below.
+            <T id="imports.dry-run-report.the-importer-s-row-rules-left" values={{ count: plural(dropped.length, "row") }}>{"{count} the importer's row rules left out or renamed; every other row of the file is checked below."}</T>
           </p>
           <RowTable
             label="Skipped, merged or renamed rows"
@@ -345,7 +345,7 @@ function DryRunReport({
       )}
       {reviewed.length > 0 && (
         <>
-          <h3>To review</h3>
+          <h3><T id="imports.dry-run-report.to-review">To review</T></h3>
           <RowTable
             label="To review"
             column="Note"
@@ -355,7 +355,7 @@ function DryRunReport({
       )}
       {described.length > 0 && (
         <>
-          <h3>Items</h3>
+          <h3><T id="imports.dry-run-report.items">Items</T></h3>
           <RowTable
             label="Items"
             column="What the importer will do"
@@ -368,7 +368,7 @@ function DryRunReport({
       )}
       {duplicates.length > 0 && (
         <>
-          <h3>Possible duplicates</h3>
+          <h3><T id="imports.dry-run-report.possible-duplicates">Possible duplicates</T></h3>
           <RowTable
             label="Possible duplicates"
             rows={duplicates.map((plan) => [
@@ -380,7 +380,7 @@ function DryRunReport({
       )}
       {repeated.length > 0 && (
         <>
-          <h3>Repeated in this file</h3>
+          <h3><T id="imports.dry-run-report.repeated-in-this-file">Repeated in this file</T></h3>
           <RowTable
             label="Repeated in this file"
             rows={repeated.map((row) => [
@@ -396,7 +396,7 @@ function DryRunReport({
           disabled={!importable || busy}
           onClick={onImport}
         >
-          Import {plural(importable, "row")}
+          <T id="imports.dry-run-report.import" values={{ importable: plural(importable, "row") }}>{"Import {importable}"}</T>
         </Button>
       </div>
     </Section>
@@ -406,10 +406,9 @@ function DryRunReport({
 function CommitSummary({ committed }: { committed: Committed }) {
   const { log, failures } = committed;
   return (
-    <Section title="Imported">
+    <Section title={<T id="imports.commit-summary.imported">Imported</T>}>
       <p role="status">
-        Imported {log.fileName}: {log.created} created, {log.updated} updated,{" "}
-        {log.skipped} unchanged, {log.failed} failed.
+        <T id="imports.commit-summary.imported-created-updated-unchanged-failed" values={{ fileName: log.fileName, created: log.created, updated: log.updated, skipped: log.skipped, failed: log.failed }}>{"Imported {fileName}: {created} created, {updated} updated, {skipped} unchanged, {failed} failed."}</T>
       </p>
       {failures.length > 0 && (
         <RowTable
@@ -435,7 +434,7 @@ function RowTable({
       <table className="stock-table" aria-label={label}>
         <thead>
           <tr>
-            <th>Row</th>
+            <th><T id="imports.row-table.row">Row</T></th>
             <th>{column}</th>
           </tr>
         </thead>
@@ -467,26 +466,26 @@ function ImportLogTable({
     { keepPrevious: true },
   );
   return (
-    <Section title="Recent imports">
+    <Section title={<T id="imports.import-log-table.recent-imports">Recent imports</T>}>
       {logs.error ? (
         <LoadError message={logs.error} />
       ) : !logs.data ? (
         <LoadingSkeleton />
       ) : !logs.data.length ? (
-        <p className="muted">No imports yet.</p>
+        <p className="muted"><T id="imports.import-log-table.no-imports-yet">No imports yet.</T></p>
       ) : (
         <div className="table-scroll">
           <table className="stock-table" aria-label="Recent imports">
             <thead>
               <tr>
-                <th>When</th>
-                <th>File</th>
-                <th>By</th>
-                <th>Created</th>
-                <th>Updated</th>
-                <th>Unchanged</th>
-                <th>Failed</th>
-                <th>Status</th>
+                <th><T id="imports.import-log-table.when">When</T></th>
+                <th><T id="imports.import-log-table.file">File</T></th>
+                <th><T id="imports.import-log-table.by">By</T></th>
+                <th><T id="imports.import-log-table.created">Created</T></th>
+                <th><T id="imports.import-log-table.updated">Updated</T></th>
+                <th><T id="imports.import-log-table.unchanged">Unchanged</T></th>
+                <th><T id="imports.import-log-table.failed">Failed</T></th>
+                <th><T id="imports.import-log-table.status">Status</T></th>
               </tr>
             </thead>
             <tbody>
@@ -499,7 +498,7 @@ function ImportLogTable({
                   <td>{log.updated}</td>
                   <td>{log.skipped}</td>
                   <td>{log.failed}</td>
-                  <td>{log.status === "completed" ? "Done" : "Not finished"}</td>
+                  <td>{log.status === "completed" ? <T id="imports.import-log-table.done">Done</T> : <T id="imports.import-log-table.not-finished">Not finished</T>}</td>
                 </tr>
               ))}
             </tbody>

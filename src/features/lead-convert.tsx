@@ -8,6 +8,7 @@ import { useDebounced } from "../app/paging";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { leadTitle } from "./lead-shared";
+import { T, useCopy } from "../app/live-copy";
 
 function ClientPicker({
   value,
@@ -16,6 +17,7 @@ function ClientPicker({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const copyPlaceholder = useCopy("lead-convert.client-picker.placeholder-type-a-client-or-contact-name", "Type a client or contact name");
   // Searches every client as you type (FLOW-179); the chosen client stays listed.
   const [search, setSearch] = useState("");
   const term = useDebounced(search.trim());
@@ -34,15 +36,15 @@ function ClientPicker({
   if (clients.error) return <LoadError message={clients.error} />;
   return (
     <>
-      <FormField label="Find client">
+      <FormField label={<T id="lead-convert.client-picker.find-client">Find client</T>}>
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Type a client or contact name"
+          placeholder={copyPlaceholder}
         />
       </FormField>
-      <FormField label="Existing client">
+      <FormField label={<T id="lead-convert.client-picker.existing-client">Existing client</T>}>
         <select value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">Choose a client…</option>
           {[...(chosen ? [chosen] : []), ...(clients.data ?? [])].map(
@@ -113,8 +115,8 @@ export function ConvertLeadForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title="Convert lead"
-      description={`Creates a client, contact and inquiry event from ${leadTitle(lead)}.`}
+      title={<T id="lead-convert.convert-lead-form.convert-lead">Convert lead</T>}
+      description={<T id="lead-convert.convert-lead-form.creates-a-client-contact-and-inquiry" values={{ lead: leadTitle(lead) }}>{"Creates a client, contact and inquiry event from {lead}."}</T>}
     >
       <form
         noValidate
@@ -131,8 +133,7 @@ export function ConvertLeadForm({
         {duplicates.length > 0 && (
           <div role="alert" className="error-message">
             <p>
-              <TriangleAlert size={14} /> A client with this email or phone
-              already exists:
+              <TriangleAlert size={14} /> <T id="lead-convert.convert-lead-form.a-client-with-this-email-or">{" A client with this email or phone already exists:"}</T>
             </p>
             <ul>
               {duplicates.map((duplicate) => (
@@ -147,7 +148,7 @@ export function ConvertLeadForm({
                       setDuplicates([]);
                     }}
                   >
-                    Link to {duplicate.name}
+                    <T id="lead-convert.convert-lead-form.link-to" values={{ name: duplicate.name }}>{"Link to {name}"}</T>
                   </Button>
                 </li>
               ))}
@@ -158,11 +159,11 @@ export function ConvertLeadForm({
               disabled={saving}
               onClick={() => void submit(true)}
             >
-              Create anyway
+              <T id="lead-convert.convert-lead-form.create-anyway">Create anyway</T>
             </Button>
           </div>
         )}
-        <h3 className="form-subheading">Client</h3>
+        <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.client">Client</T></h3>
         <div className="form-group">
           <label>
             <input
@@ -170,8 +171,7 @@ export function ConvertLeadForm({
               name="client-mode"
               checked={mode === "create"}
               onChange={() => setMode("create")}
-            />{" "}
-            Create a new client
+            /><T id="lead-convert.convert-lead-form.create-a-new-client">{" Create a new client"}</T>
           </label>
           <label>
             <input
@@ -179,16 +179,15 @@ export function ConvertLeadForm({
               name="client-mode"
               checked={mode === "link"}
               onChange={() => setMode("link")}
-            />{" "}
-            Link to an existing client
+            /><T id="lead-convert.convert-lead-form.link-to-an-existing-client">{" Link to an existing client"}</T>
           </label>
         </div>
         {mode === "create" ? (
           <div className="form-grid">
-            <FormField label="Client name *">
+            <FormField label={<T id="lead-convert.convert-lead-form.client-name">Client name *</T>}>
               <input value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
-            <FormField label="Client type">
+            <FormField label={<T id="lead-convert.convert-lead-form.client-type">Client type</T>}>
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value as typeof kind)}
@@ -201,22 +200,22 @@ export function ConvertLeadForm({
         ) : (
           <ClientPicker value={clientId} onChange={setClientId} />
         )}
-        <h3 className="form-subheading">Event</h3>
+        <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.event">Event</T></h3>
         <FormField
-          label="Event title"
-          hint={`Blank uses "client — ${lead.eventType || "Event"}".`}
+          label={<T id="lead-convert.convert-lead-form.event-title">Event title</T>}
+          hint={<T id="lead-convert.convert-lead-form.blank-uses-client" values={{ eventType: lead.eventType || "Event" }}>{"Blank uses \"client — {eventType}\"."}</T>}
         >
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
         </FormField>
         <div className="form-grid">
-          <FormField label="Event date *">
+          <FormField label={<T id="lead-convert.convert-lead-form.event-date">Event date *</T>}>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
           </FormField>
-          <FormField label="Start time *">
+          <FormField label={<T id="lead-convert.convert-lead-form.start-time">Start time *</T>}>
             <input
               type="time"
               value={startTime}
@@ -226,10 +225,10 @@ export function ConvertLeadForm({
         </div>
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="lead-convert.convert-lead-form.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            Convert lead
+            <T id="lead-convert.convert-lead-form.convert-lead">Convert lead</T>
           </Button>
         </div>
       </form>

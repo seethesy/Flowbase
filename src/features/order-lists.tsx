@@ -9,6 +9,7 @@ import { isPlaced, outstanding, type OrderLine, type OrderList, type VendorOrder
 import { canSeeField } from "../../shared/visibility";
 import { utcToBusinessTime, addLocalDays } from "../../shared/time";
 import "./order-lists.css";
+import { T, useCopy } from "../app/live-copy";
 
 export function OrderLists() {
   const navigate = useNavigate();
@@ -23,16 +24,16 @@ export function OrderLists() {
     catch (cause) { setError((cause as Error).message); }
   };
   return <>
-    <PageHeader title="Order lists" subtitle="Build a shopping list from event shortages and low stock." eyebrow="STOCK & SUPPLIES" />
+    <PageHeader title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from-event">Build a shopping list from event shortages and low stock.</T>} eyebrow={<T id="order-lists.order-lists.stock-supplies">{"STOCK & SUPPLIES"}</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
     <div className="order-list-builder">
-      <label>From <input aria-label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
-      <label>To <input aria-label="To" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
-      <Button onClick={() => void create()}>Build list</Button>
+      <label><T id="order-lists.order-lists.from">{"From "}</T><input aria-label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+      <label><T id="order-lists.order-lists.to">{"To "}</T><input aria-label="To" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
+      <Button onClick={() => void create()}><T id="order-lists.order-lists.build-list">Build list</T></Button>
     </div>
     {lists.error ? <LoadError message={lists.error} /> : lists.loading && !lists.data ? <LoadingSkeleton /> :
       <ul>{lists.data?.map((list) => <li key={list.id}><Link to={`/inventory/orders/${list.id}`}>
-        {list.from} – {list.to} · {statusLabel(list.status)} · {list.lines.length} lines
+        <T id="order-lists.order-lists.lines" values={{ from: list.from, to: list.to, status: statusLabel(list.status), count: list.lines.length }}>{"{from} – {to} · {status} · {count} lines"}</T>
       </Link></li>)}</ul>}
   </>;
 }
@@ -77,28 +78,28 @@ export function OrderListDetail() {
     } catch (cause) { setError((cause as Error).message); }
   };
   return <div className="order-list-page">
-    <Link to="/inventory/orders" className="back-link">← Order lists</Link>
-    <PageHeader title={`Order list ${data.from} – ${data.to}`} subtitle={`${statusLabel(data.status)} · ${lines.length} lines`} eyebrow="STOCK & SUPPLIES">
-      <Button variant="outline" onClick={() => window.print()}>Print list</Button>
-      {editing && <Button variant="outline" onClick={() => void save()}>Save edits</Button>}
-      {editing && data.status !== "approved" && <Button onClick={() => void submit()}>Submit for approval</Button>}
-      {cancellable && <Button variant="outline" onClick={() => void cancelList()}>Cancel list</Button>}
+    <Link to="/inventory/orders" className="back-link"><T id="order-lists.order-list-detail.order-lists">← Order lists</T></Link>
+    <PageHeader title={<T id="order-lists.order-list-detail.order-list" values={{ from: data.from, to: data.to }}>{"Order list {from} – {to}"}</T>} subtitle={<T id="order-lists.order-list-detail.lines" values={{ status: statusLabel(data.status), count: lines.length }}>{"{status} · {count} lines"}</T>} eyebrow={<T id="order-lists.order-list-detail.stock-supplies">{"STOCK & SUPPLIES"}</T>}>
+      <Button variant="outline" onClick={() => window.print()}><T id="order-lists.order-list-detail.print-list">Print list</T></Button>
+      {editing && <Button variant="outline" onClick={() => void save()}><T id="order-lists.order-list-detail.save-edits">Save edits</T></Button>}
+      {editing && data.status !== "approved" && <Button onClick={() => void submit()}><T id="order-lists.order-list-detail.submit-for-approval">Submit for approval</T></Button>}
+      {cancellable && <Button variant="outline" onClick={() => void cancelList()}><T id="order-lists.order-list-detail.cancel-list">Cancel list</T></Button>}
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}
     {message && <p role="status">{message}</p>}
-    {data.status === "submitted" && <p role="status">Edits are locked until Admin approves or rejects this list.</p>}
-    {data.status === "approved" && !data.orders.length && <p role="status">Approved. Place each vendor's order on its portal, then record it below.</p>}
+    {data.status === "submitted" && <p role="status"><T id="order-lists.order-list-detail.edits-are-locked-until-admin-approves">Edits are locked until Admin approves or rejects this list.</T></p>}
+    {data.status === "approved" && !data.orders.length && <p role="status"><T id="order-lists.order-list-detail.approved-place-each-vendor-s-order">{"Approved. Place each vendor's order on its portal, then record it below."}</T></p>}
     {groups.map((vendor) => <section key={vendor} className="order-vendor">
       <h2>{vendor}</h2>
-      <p>{lines.find((line) => line.vendorName === vendor)?.orderingInstructions || "No ordering instructions provided."}</p>
-      <div className="table-scroll"><table><thead><tr><th>Item</th><th>Purchase qty</th><th>Order by</th><th>Events</th><th>Note</th><th className="order-screen-only"> </th></tr></thead>
+      <p>{lines.find((line) => line.vendorName === vendor)?.orderingInstructions || <T id="order-lists.order-list-detail.no-ordering-instructions-provided">No ordering instructions provided.</T>}</p>
+      <div className="table-scroll"><table><thead><tr><th><T id="order-lists.order-list-detail.item">Item</T></th><th><T id="order-lists.order-list-detail.purchase-qty">Purchase qty</T></th><th><T id="order-lists.order-list-detail.order-by">Order by</T></th><th><T id="order-lists.order-list-detail.events">Events</T></th><th><T id="order-lists.order-list-detail.note">Note</T></th><th className="order-screen-only"> </th></tr></thead>
         <tbody>{lines.map((line, index) => line.vendorName !== vendor ? null : <tr key={line.itemId}>
           <td>{line.itemName}</td><td>{editing ? <input aria-label={`Quantity for ${line.itemName}`} type="number" min="0" step="1" value={line.quantity}
             onChange={(event) => update(index, { quantity: Number(event.target.value) })} /> : line.quantity} {line.purchaseUnit}</td>
-          <td>{line.orderBy ?? "—"}</td><td>{line.eventTitles.join(", ") || "Par level"}</td>
+          <td>{line.orderBy ?? "—"}</td><td>{line.eventTitles.join(", ") || <T id="order-lists.order-list-detail.par-level">Par level</T>}</td>
           <td>{editing ? <input aria-label={`Note for ${line.itemName}`} value={line.note}
             onChange={(event) => update(index, { note: event.target.value })} /> : line.note}</td>
-          <td className="order-screen-only">{editing && <Button variant="outline" onClick={() => setDraft(lines.filter((_, at) => at !== index))}>Remove</Button>}</td>
+          <td className="order-screen-only">{editing && <Button variant="outline" onClick={() => setDraft(lines.filter((_, at) => at !== index))}><T id="order-lists.order-list-detail.remove">Remove</T></Button>}</td>
         </tr>)}</tbody></table></div>
       {placed && !draft && <VendorOrderPanel list={data} vendor={vendor} showCosts={showCosts}
         canRecord={can("order_lists.approve")} canReceive={can("order_lists.write")}
@@ -122,19 +123,19 @@ function VendorOrderPanel({ list, vendor, showCosts, canRecord, canReceive, onCh
   };
   return <div className="vendor-order order-screen-only">
     {cancelled.map((order) => <p key={order.id} className="vendor-order-cancelled">
-      Order {order.portalOrderNumber} was cancelled.</p>)}
+      <T id="order-lists.vendor-order-panel.order-was-cancelled" values={{ portalOrderNumber: order.portalOrderNumber }}>{"Order {portalOrderNumber} was cancelled."}</T></p>)}
     {active ? <>
-      <h3>Order {active.portalOrderNumber} · {statusLabel(active.status)}</h3>
-      <p>Ordered {active.orderedOn} · expected {active.expectedDelivery}{showCosts && ` · total ${dollars(active.totalCents)}`}</p>
+      <h3><T id="order-lists.vendor-order-panel.order" values={{ portalOrderNumber: active.portalOrderNumber, status: statusLabel(active.status) }}>{"Order {portalOrderNumber} · {status}"}</T></h3>
+      <p><T id="order-lists.vendor-order-panel.ordered-expected" values={{ orderedOn: active.orderedOn, expectedDelivery: active.expectedDelivery, value: showCosts && <T id="order-lists.vendor-order-panel.total" values={{ totalCents: dollars(active.totalCents) }}>{" · total {totalCents}"}</T> }}>{"Ordered {orderedOn} · expected {expectedDelivery}{value}"}</T></p>
       {active.notes && <p>{active.notes}</p>}
-      <div className="table-scroll"><table><thead><tr><th>Item</th><th>Ordered</th><th>Received</th><th>Note</th></tr></thead>
+      <div className="table-scroll"><table><thead><tr><th><T id="order-lists.vendor-order-panel.item">Item</T></th><th><T id="order-lists.vendor-order-panel.ordered">Ordered</T></th><th><T id="order-lists.vendor-order-panel.received">Received</T></th><th><T id="order-lists.vendor-order-panel.note">Note</T></th></tr></thead>
         <tbody>{active.lines.map((line) => <tr key={line.itemId}>
           <td>{line.itemName}</td>
-          <td>{line.ordered} {line.purchaseUnit}{line.ordered !== line.approvedQuantity && ` (approved ${line.approvedQuantity})`}</td>
+          <td>{line.ordered} {line.purchaseUnit}{line.ordered !== line.approvedQuantity && <T id="order-lists.vendor-order-panel.approved" values={{ approvedQuantity: line.approvedQuantity }}>{" (approved {approvedQuantity})"}</T>}</td>
           <td>{line.received} {line.purchaseUnit}</td><td className="vendor-order-note">{line.note || "—"}</td>
         </tr>)}</tbody></table></div>
       {canRecord && active.status === "ordered" && <Button variant="outline"
-        onClick={() => void run(() => orderListsApi.cancelOrder(list.id, active.id), "Order cancelled.")}>Cancel order</Button>}
+        onClick={() => void run(() => orderListsApi.cancelOrder(list.id, active.id), "Order cancelled.")}><T id="order-lists.vendor-order-panel.cancel-order">Cancel order</T></Button>}
       {canReceive && (active.status === "ordered" || active.status === "partially_received") &&
         <ReceiveForm key={`${active.id}-${active.receipts.length}`} order={active} showCosts={showCosts}
           onSubmit={(input) => run(() => orderListsApi.receive(list.id, active.id, input), "Delivery recorded.")} />}
@@ -166,22 +167,22 @@ function RecordOrderForm({ vendor, lines, showCosts, onSubmit }: {
   };
   return <form className="vendor-order-form" aria-label={`Record ${vendor} order`}
     onSubmit={(event) => { event.preventDefault(); void save(); }}>
-    <h3>Record the portal order</h3>
+    <h3><T id="order-lists.record-order-form.record-the-portal-order">Record the portal order</T></h3>
     {problem && <p role="alert" className="error-message">{problem}</p>}
-    <label>Portal order number <input aria-label={`Portal order number for ${vendor}`} value={portal}
+    <label><T id="order-lists.record-order-form.portal-order-number">{"Portal order number "}</T><input aria-label={`Portal order number for ${vendor}`} value={portal}
       onChange={(event) => setPortal(event.target.value)} /></label>
-    <label>Order date <input type="date" aria-label={`Order date for ${vendor}`} value={orderedOn}
+    <label><T id="order-lists.record-order-form.order-date">{"Order date "}</T><input type="date" aria-label={`Order date for ${vendor}`} value={orderedOn}
       onChange={(event) => setOrderedOn(event.target.value)} /></label>
-    <label>Expected delivery <input type="date" aria-label={`Expected delivery for ${vendor}`} value={expected}
+    <label><T id="order-lists.record-order-form.expected-delivery">{"Expected delivery "}</T><input type="date" aria-label={`Expected delivery for ${vendor}`} value={expected}
       onChange={(event) => setExpected(event.target.value)} /></label>
-    {showCosts && <label>Order total ($) <input type="number" min="0" step="0.01" inputMode="decimal"
+    {showCosts && <label><T id="order-lists.record-order-form.order-total">{"Order total ($) "}</T><input type="number" min="0" step="0.01" inputMode="decimal"
       aria-label={`Order total for ${vendor}`} value={total} onChange={(event) => setTotal(event.target.value)} /></label>}
     {lines.map((line) => <label key={line.itemId}>{line.itemName} ({line.purchaseUnit})
       <input type="number" min="0" step="1" inputMode="decimal" aria-label={`Ordered quantity for ${line.itemName}`}
         value={quantities[line.itemId]} onChange={(event) => setQuantities({ ...quantities, [line.itemId]: event.target.value })} /></label>)}
-    <label>Changes or notes <input aria-label={`Order notes for ${vendor}`} value={notes}
+    <label><T id="order-lists.record-order-form.changes-or-notes">{"Changes or notes "}</T><input aria-label={`Order notes for ${vendor}`} value={notes}
       onChange={(event) => setNotes(event.target.value)} /></label>
-    <Button type="submit">Mark as ordered</Button>
+    <Button type="submit"><T id="order-lists.record-order-form.mark-as-ordered">Mark as ordered</T></Button>
   </form>;
 }
 
@@ -189,6 +190,7 @@ function ReceiveForm({ order, showCosts, onSubmit }: {
   order: VendorOrder; showCosts: boolean;
   onSubmit: (input: Parameters<typeof orderListsApi.receive>[2]) => Promise<void>;
 }) {
+  const copyPlaceholder = useCopy("order-lists.receive-form.placeholder-e-g-1-case-short-2", "e.g. 1 case short, 2 bottles broken");
   const open = order.lines.filter((line) => outstanding(line) > 0);
   const [received, setReceived] = useState<Record<string, string>>(
     Object.fromEntries(open.map((line) => [line.itemId, String(outstanding(line))])));
@@ -204,21 +206,21 @@ function ReceiveForm({ order, showCosts, onSubmit }: {
   };
   return <form className="vendor-order-form" aria-label={`Receive order ${order.portalOrderNumber}`}
     onSubmit={(event) => { event.preventDefault(); void save(); }}>
-    <h3>Receive a delivery</h3>
+    <h3><T id="order-lists.receive-form.receive-a-delivery">Receive a delivery</T></h3>
     {open.map((line) => <fieldset key={line.itemId}>
-      <legend>{line.itemName} · {outstanding(line)} {line.purchaseUnit} to come</legend>
-      <label>Received ({line.purchaseUnit}) <input type="number" min="0" step="any" inputMode="decimal"
+      <legend><T id="order-lists.receive-form.to-come" values={{ itemName: line.itemName, line: outstanding(line), purchaseUnit: line.purchaseUnit }}>{"{itemName} · {line} {purchaseUnit} to come"}</T></legend>
+      <label><T id="order-lists.receive-form.received" values={{ purchaseUnit: line.purchaseUnit }}>{"Received ({purchaseUnit}) "}</T><input type="number" min="0" step="any" inputMode="decimal"
         aria-label={`Received quantity for ${line.itemName}`} value={received[line.itemId] ?? ""}
         onChange={(event) => setReceived({ ...received, [line.itemId]: event.target.value })} /></label>
-      {showCosts && <label>Actual cost per {line.purchaseUnit} ($) <input type="number" min="0" step="0.01" inputMode="decimal"
+      {showCosts && <label><T id="order-lists.receive-form.actual-cost-per" values={{ purchaseUnit: line.purchaseUnit }}>{"Actual cost per {purchaseUnit} ($) "}</T><input type="number" min="0" step="0.01" inputMode="decimal"
         aria-label={`Actual unit cost for ${line.itemName}`} value={costs[line.itemId] ?? ""}
         onChange={(event) => setCosts({ ...costs, [line.itemId]: event.target.value })} /></label>}
-      <label>Short or damaged <input aria-label={`Delivery note for ${line.itemName}`} value={notes[line.itemId] ?? ""}
-        placeholder="e.g. 1 case short, 2 bottles broken"
+      <label><T id="order-lists.receive-form.short-or-damaged">{"Short or damaged "}</T><input aria-label={`Delivery note for ${line.itemName}`} value={notes[line.itemId] ?? ""}
+        placeholder={copyPlaceholder}
         onChange={(event) => setNotes({ ...notes, [line.itemId]: event.target.value })} /></label>
     </fieldset>)}
     <label className="vendor-order-complete"><input type="checkbox" checked={complete}
-      onChange={(event) => setComplete(event.target.checked)} /> Nothing more is coming on this order</label>
-    <Button type="submit">Record delivery</Button>
+      onChange={(event) => setComplete(event.target.checked)} /> <T id="order-lists.receive-form.nothing-more-is-coming-on-this">{" Nothing more is coming on this order"}</T></label>
+    <Button type="submit"><T id="order-lists.receive-form.record-delivery">Record delivery</T></Button>
   </form>;
 }

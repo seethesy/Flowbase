@@ -26,6 +26,7 @@ import { LoadError } from "../components/record-display";
 import { paymentsApi } from "../services/payments";
 import { date } from "./event-format";
 import "./event-payments.css";
+import { T, TPlural } from "../app/live-copy";
 
 // The event's payment schedule and payment log (FLOW-131), with the overdue flag
 // (FLOW-132). Amounts are integer cents everywhere; the forms take dollars.
@@ -52,7 +53,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
   const [payForm, setPayForm] = useState(false);
   if (payments.error)
     return (
-      <Section title="Payments">
+      <Section title={<T id="event-payments.event-payments-section.payments">Payments</T>}>
         <LoadError message={payments.error} />
       </Section>
     );
@@ -68,12 +69,12 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
   };
   return (
     <Section
-      title="Payments"
+      title={<T id="event-payments.event-payments-section.payments">Payments</T>}
       action={
         data.canEdit && (
           <Button onClick={() => setPayForm(true)}>
             <Plus size={14} />
-            Record payment
+            <T id="event-payments.event-payments-section.record-payment">Record payment</T>
           </Button>
         )
       }
@@ -85,27 +86,26 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
       )}
       <dl className="payments-summary">
         <div>
-          <dt>Total</dt>
+          <dt><T id="event-payments.event-payments-section.total">Total</T></dt>
           <dd>{formatCents(data.totalCents)}</dd>
         </div>
         <div>
-          <dt>Paid</dt>
+          <dt><T id="event-payments.event-payments-section.paid">Paid</T></dt>
           <dd>{formatCents(data.paidCents)}</dd>
         </div>
         <div>
-          <dt>Balance</dt>
+          <dt><T id="event-payments.event-payments-section.balance">Balance</T></dt>
           <dd data-testid="payments-balance">{formatCents(data.balanceCents)}</dd>
         </div>
       </dl>
       {data.overdueCount > 0 && (
         <p role="status" className="payments-overdue">
-          Overdue: {formatCents(data.overdueCents)} across {data.overdueCount}{" "}
-          {data.overdueCount === 1 ? "payment" : "payments"}.
+          <TPlural id="event-payments.event-payments-section.overdue-across" count={data.overdueCount} values={{ overdueCents: formatCents(data.overdueCents) }} one="Overdue: {overdueCents} across {count} payment." other="Overdue: {overdueCents} across {count} payments." />
         </p>
       )}
       {data.suggestions.length > 0 && data.canEdit && (
         <div className="payments-suggestions">
-          <strong>From the proposal</strong>
+          <strong><T id="event-payments.event-payments-section.from-the-proposal">From the proposal</T></strong>
           <ul>
             {data.suggestions.map((s) => (
               <li key={`${s.proposalId}:${s.sourceKey}`}>
@@ -124,7 +124,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
                     })
                   }
                 >
-                  Add
+                  <T id="event-payments.event-payments-section.add">Add</T>
                 </Button>
               </li>
             ))}
@@ -132,7 +132,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
         </div>
       )}
       <div className="payments-subhead">
-        <h3>Schedule</h3>
+        <h3><T id="event-payments.event-payments-section.schedule">Schedule</T></h3>
         {data.canEdit && (
           <Button
             variant="outline"
@@ -147,22 +147,22 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
             }
           >
             <Plus size={14} />
-            Add scheduled payment
+            <T id="event-payments.event-payments-section.add-scheduled-payment">Add scheduled payment</T>
           </Button>
         )}
       </div>
       {data.schedule.length === 0 ? (
-        <p className="muted">No scheduled payments.</p>
+        <p className="muted"><T id="event-payments.event-payments-section.no-scheduled-payments">No scheduled payments.</T></p>
       ) : (
         <div className="table-scroll">
         <table className="payments-table">
           <thead>
             <tr>
-              <th>Due</th>
-              <th>Item</th>
-              <th>Amount</th>
-              <th>Paid</th>
-              <th>Status</th>
+              <th><T id="event-payments.event-payments-section.due">Due</T></th>
+              <th><T id="event-payments.event-payments-section.item">Item</T></th>
+              <th><T id="event-payments.event-payments-section.amount">Amount</T></th>
+              <th><T id="event-payments.event-payments-section.paid">Paid</T></th>
+              <th><T id="event-payments.event-payments-section.status">Status</T></th>
               <th />
             </tr>
           </thead>
@@ -178,10 +178,10 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
                 <td>{formatCents(item.paidCents)}</td>
                 <td>
                   {item.overdue
-                    ? "Overdue"
+                    ? <T id="event-payments.event-payments-section.overdue">Overdue</T>
                     : item.remainingCents === 0
-                      ? "Paid"
-                      : "Due"}
+                      ? <T id="event-payments.event-payments-section.paid">Paid</T>
+                      : <T id="event-payments.event-payments-section.due">Due</T>}
                 </td>
                 <td>
                   {data.canEdit && (
@@ -199,7 +199,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
                           })
                         }
                       >
-                        Edit
+                        <T id="event-payments.event-payments-section.edit">Edit</T>
                       </Button>
                       <Button
                         variant="ghost"
@@ -219,19 +219,19 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
         </table>
         </div>
       )}
-      <h3>Payments received</h3>
+      <h3><T id="event-payments.event-payments-section.payments-received">Payments received</T></h3>
       {data.payments.length === 0 ? (
-        <p className="muted">No payments recorded.</p>
+        <p className="muted"><T id="event-payments.event-payments-section.no-payments-recorded">No payments recorded.</T></p>
       ) : (
         <div className="table-scroll">
         <table className="payments-table">
           <thead>
             <tr>
-              <th>Received</th>
-              <th>Method</th>
-              <th>Amount</th>
-              <th>Reference</th>
-              <th>Recorded by</th>
+              <th><T id="event-payments.event-payments-section.received">Received</T></th>
+              <th><T id="event-payments.event-payments-section.method">Method</T></th>
+              <th><T id="event-payments.event-payments-section.amount">Amount</T></th>
+              <th><T id="event-payments.event-payments-section.reference">Reference</T></th>
+              <th><T id="event-payments.event-payments-section.recorded-by">Recorded by</T></th>
               <th />
             </tr>
           </thead>
@@ -324,7 +324,7 @@ function ScheduleItemDrawer({
     <DetailDrawer
       open
       onClose={onClose}
-      title={form.id ? "Edit scheduled payment" : "Add scheduled payment"}
+      title={form.id ? <T id="event-payments.schedule-item-drawer.edit-scheduled-payment">Edit scheduled payment</T> : <T id="event-payments.schedule-item-drawer.add-scheduled-payment">Add scheduled payment</T>}
     >
       <form
         noValidate
@@ -353,7 +353,7 @@ function ScheduleItemDrawer({
           </p>
         )}
         <div className="form-grid">
-          <FormField label="Type">
+          <FormField label={<T id="event-payments.schedule-item-drawer.type">Type</T>}>
             <select
               value={draft.kind}
               onChange={(e) => set("kind", e.target.value as ScheduleKind)}
@@ -365,21 +365,21 @@ function ScheduleItemDrawer({
               ))}
             </select>
           </FormField>
-          <FormField label="Amount ($)">
+          <FormField label={<T id="event-payments.schedule-item-drawer.amount">Amount ($)</T>}>
             <input
               inputMode="decimal"
               value={draft.amount}
               onChange={(e) => set("amount", e.target.value)}
             />
           </FormField>
-          <FormField label="Due date">
+          <FormField label={<T id="event-payments.schedule-item-drawer.due-date">Due date</T>}>
             <input
               type="date"
               value={draft.dueDate}
               onChange={(e) => set("dueDate", e.target.value)}
             />
           </FormField>
-          <FormField label="Label">
+          <FormField label={<T id="event-payments.schedule-item-drawer.label">Label</T>}>
             <input
               value={draft.label}
               maxLength={100}
@@ -389,9 +389,9 @@ function ScheduleItemDrawer({
         </div>
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="event-payments.schedule-item-drawer.cancel">Cancel</T>
           </Button>
-          <Button type="submit">Save</Button>
+          <Button type="submit"><T id="event-payments.schedule-item-drawer.save">Save</T></Button>
         </div>
       </form>
     </DetailDrawer>
@@ -417,8 +417,8 @@ function PaymentDrawer({
     <DetailDrawer
       open
       onClose={onClose}
-      title="Record payment"
-      description="Never enter a card number. Use the last 4 digits or a confirmation code as the reference."
+      title={<T id="event-payments.payment-drawer.record-payment">Record payment</T>}
+      description={<T id="event-payments.payment-drawer.never-enter-a-card-number-use">Never enter a card number. Use the last 4 digits or a confirmation code as the reference.</T>}
     >
       <form
         noValidate
@@ -448,7 +448,7 @@ function PaymentDrawer({
           </p>
         )}
         <div className="form-grid">
-          <FormField label="Method">
+          <FormField label={<T id="event-payments.payment-drawer.method">Method</T>}>
             <select
               value={method}
               onChange={(e) => setMethod(e.target.value as PaymentMethod)}
@@ -460,21 +460,21 @@ function PaymentDrawer({
               ))}
             </select>
           </FormField>
-          <FormField label="Amount ($)">
+          <FormField label={<T id="event-payments.payment-drawer.amount">Amount ($)</T>}>
             <input
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
           </FormField>
-          <FormField label="Date received">
+          <FormField label={<T id="event-payments.payment-drawer.date-received">Date received</T>}>
             <input
               type="date"
               value={receivedOn}
               onChange={(e) => setReceivedOn(e.target.value)}
             />
           </FormField>
-          <FormField label="Reference">
+          <FormField label={<T id="event-payments.payment-drawer.reference">Reference</T>}>
             <input
               value={reference}
               maxLength={100}
@@ -482,7 +482,7 @@ function PaymentDrawer({
             />
           </FormField>
         </div>
-        <FormField label="Note">
+        <FormField label={<T id="event-payments.payment-drawer.note">Note</T>}>
           <textarea
             rows={2}
             value={note}
@@ -492,9 +492,9 @@ function PaymentDrawer({
         </FormField>
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="event-payments.payment-drawer.cancel">Cancel</T>
           </Button>
-          <Button type="submit">Record payment</Button>
+          <Button type="submit"><T id="event-payments.payment-drawer.record-payment">Record payment</T></Button>
         </div>
       </form>
     </DetailDrawer>

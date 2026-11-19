@@ -55,6 +55,7 @@ import { EventTasksSection } from "./task-lists";
 import { EventHistorySection } from "./event-activity";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
+import { T, useCopy } from "../app/live-copy";
 
 const statusLabels = eventStatusLabels;
 
@@ -120,6 +121,7 @@ export function EventTable({
 // Events (FLOW-55), created by hand so the calendar and tasks work before leads
 // and proposals exist.
 export function EventList() {
+  const copyPlaceholder = useCopy("events.event-list.placeholder-search-events-clients-or-venues", "Search events, clients or venues…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -151,14 +153,14 @@ export function EventList() {
   return (
     <>
       <PageHeader
-        title="Events"
-        subtitle="Every proposal, BEO and task hangs off an event."
-        eyebrow="Events"
+        title={<T id="events.event-list.events">Events</T>}
+        subtitle={<T id="events.event-list.every-proposal-beo-and-task-hangs">Every proposal, BEO and task hangs off an event.</T>}
+        eyebrow={<T id="events.event-list.events">Events</T>}
       >
         <Allowed action="events.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Event
+            <T id="events.event-list.new-event">New Event</T>
           </Button>
         </Allowed>
       </PageHeader>
@@ -166,7 +168,7 @@ export function EventList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search events, clients or venues…"
+          placeholder={copyPlaceholder}
         />
         <Select
           label="Statuses"
@@ -175,7 +177,7 @@ export function EventList() {
           onChange={setStatus}
         />
         <label className="date-filter">
-          From
+          <T id="events.event-list.from">From</T>
           <input
             type="date"
             value={range.from}
@@ -183,7 +185,7 @@ export function EventList() {
           />
         </label>
         <label className="date-filter">
-          To
+          <T id="events.event-list.to">To</T>
           <input
             type="date"
             value={range.to}
@@ -196,11 +198,10 @@ export function EventList() {
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="events.event-list.show-archived">Show archived</T>
         </label>
         <span className="result-count">
-          {data.length}
-          {events.hasMore ? "+" : ""} events
+          <T id="events.event-list.events-2" values={{ count: data.length, value: events.hasMore ? "+" : "" }}>{"{count}{value} events"}</T>
         </span>
       </FilterBar>
       {events.loading && !events.data && !events.error ? (
@@ -290,6 +291,7 @@ function EventFormFields({
   conflict,
   onStale,
 }: EventFormProps & { conflict: string; onStale: () => Promise<void> }) {
+  const copyPlaceholder = useCopy("events.event-form-fields.placeholder-type-a-client-or-contact-name", "Type a client or contact name");
   const [draft, setDraft] = useState<Draft>(() => draftOf(event, clientId));
   // Left untouched, areas follow the venue: the API copies a newly picked venue's.
   const [areas, setAreas] = useState<string | undefined>(
@@ -397,8 +399,8 @@ function EventFormFields({
     <DetailDrawer
       open
       onClose={onClose}
-      title={event ? "Edit event" : "New event"}
-      description="Only title, date, start time and client are required."
+      title={event ? <T id="events.event-form-fields.edit-event">Edit event</T> : <T id="events.event-form-fields.new-event">New event</T>}
+      description={<T id="events.event-form-fields.only-title-date-start-time-and">Only title, date, start time and client are required.</T>}
       wide
     >
       <form
@@ -421,7 +423,7 @@ function EventFormFields({
         {(clients.error || venues.error) && (
           <LoadError message={clients.error ?? venues.error ?? ""} />
         )}
-        <FormField label="Title *">
+        <FormField label={<T id="events.event-form-fields.title">Title *</T>}>
           <input
             value={draft.title}
             onChange={(e) => set("title", e.target.value)}
@@ -430,15 +432,15 @@ function EventFormFields({
         </FormField>
         <div className="form-grid">
           {text("date", "Date *", "date")}
-          <FormField label="Find client">
+          <FormField label={<T id="events.event-form-fields.find-client">Find client</T>}>
             <input
               type="search"
               value={clientSearch}
               onChange={(e) => setClientSearch(e.target.value)}
-              placeholder="Type a client or contact name"
+              placeholder={copyPlaceholder}
             />
           </FormField>
-          <FormField label="Client *">
+          <FormField label={<T id="events.event-form-fields.client">Client *</T>}>
             <select
               value={draft.clientId}
               onChange={(e) => {
@@ -456,7 +458,7 @@ function EventFormFields({
           </FormField>
           {text("startTime", "Start time *", "time")}
           {text("endTime", "End time", "time")}
-          <FormField label="Point of contact">
+          <FormField label={<T id="events.event-form-fields.point-of-contact">Point of contact</T>}>
             <select
               value={draft.pocContactId ?? ""}
               onChange={(e) => set("pocContactId", e.target.value || null)}
@@ -471,7 +473,7 @@ function EventFormFields({
           </FormField>
           {/* Any status on create; afterwards it changes on the event page. */}
           {!event && (
-            <FormField label="Status">
+            <FormField label={<T id="events.event-form-fields.status">Status</T>}>
               <select
                 value={draft.status}
                 onChange={(e) =>
@@ -486,7 +488,7 @@ function EventFormFields({
               </select>
             </FormField>
           )}
-          <FormField label="Venue">
+          <FormField label={<T id="events.event-form-fields.venue">Venue</T>}>
             <select
               value={draft.venueId ?? ""}
               onChange={(e) => set("venueId", e.target.value || null)}
@@ -499,7 +501,7 @@ function EventFormFields({
               ))}
             </select>
           </FormField>
-          <FormField label="Address" hint="Leave empty to use the venue's.">
+          <FormField label={<T id="events.event-form-fields.address">Address</T>} hint={<T id="events.event-form-fields.leave-empty-to-use-the-venue">{"Leave empty to use the venue's."}</T>}>
             <input
               value={draft.address}
               onChange={(e) => set("address", e.target.value)}
@@ -508,7 +510,7 @@ function EventFormFields({
           {list("eventType", "Event type", "event_type")}
           {list("serviceType", "Service type", "service_type")}
           {list("foodServiceStyle", "Food service style", "food_service_style")}
-          <FormField label="Dress code" hint="Pick a preset or type your own.">
+          <FormField label={<T id="events.event-form-fields.dress-code">Dress code</T>} hint={<T id="events.event-form-fields.pick-a-preset-or-type-your">Pick a preset or type your own.</T>}>
             <input
               list="dress-code-presets"
               value={draft.dressCode ?? ""}
@@ -521,8 +523,8 @@ function EventFormFields({
           {text("servingsCount", "Servings count", "number")}
         </div>
         <FormField
-          label="Areas"
-          hint="One per line. Left unchanged, a newly picked venue's areas are used."
+          label={<T id="events.event-form-fields.areas">Areas</T>}
+          hint={<T id="events.event-form-fields.one-per-line-left-unchanged-a">{"One per line. Left unchanged, a newly picked venue's areas are used."}</T>}
         >
           <textarea
             rows={3}
@@ -530,14 +532,14 @@ function EventFormFields({
             onChange={(e) => setAreas(e.target.value)}
           />
         </FormField>
-        <FormField label="Transportation notes">
+        <FormField label={<T id="events.event-form-fields.transportation-notes">Transportation notes</T>}>
           <textarea
             rows={2}
             value={draft.transportationNotes}
             onChange={(e) => set("transportationNotes", e.target.value)}
           />
         </FormField>
-        <FormField label="Internal notes">
+        <FormField label={<T id="events.event-form-fields.internal-notes">Internal notes</T>}>
           <textarea
             rows={3}
             value={draft.internalNotes}
@@ -546,10 +548,10 @@ function EventFormFields({
         </FormField>
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="events.event-form-fields.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            Save event
+            <T id="events.event-form-fields.save-event">Save event</T>
           </Button>
         </div>
       </form>
@@ -595,7 +597,7 @@ function EventStatusPanel({
     }
   };
   return (
-    <Section title="Status">
+    <Section title={<T id="events.event-status-panel.status">Status</T>}>
       {canChange && (
         <form
           noValidate
@@ -609,7 +611,7 @@ function EventStatusPanel({
               {error}
             </p>
           )}
-          <FormField label="New status">
+          <FormField label={<T id="events.event-status-panel.new-status">New status</T>}>
             <select
               value={target}
               onChange={(e) => setTo(eventStatusSchema.parse(e.target.value))}
@@ -621,7 +623,7 @@ function EventStatusPanel({
               ))}
             </select>
           </FormField>
-          <FormField label="Why (optional)">
+          <FormField label={<T id="events.event-status-panel.why-optional">Why (optional)</T>}>
             <textarea
               rows={2}
               value={reason}
@@ -629,11 +631,11 @@ function EventStatusPanel({
             />
           </FormField>
           <Button type="submit" disabled={saving}>
-            Change status
+            <T id="events.event-status-panel.change-status">Change status</T>
           </Button>
         </form>
       )}
-      <h3>Status history</h3>
+      <h3><T id="events.event-status-panel.status-history">Status history</T></h3>
       {history.error ? (
         <LoadError message={history.error} />
       ) : (
@@ -643,11 +645,11 @@ function EventStatusPanel({
               <strong>
                 {entry.from
                   ? `${eventStatusDetailLabels[entry.from]} → ${eventStatusDetailLabels[entry.to]}`
-                  : `Created as ${eventStatusDetailLabels[entry.to]}`}
+                  : <T id="events.event-status-panel.created-as" values={{ eventStatusDetailLabels: eventStatusDetailLabels[entry.to] }}>{"Created as {eventStatusDetailLabels}"}</T>}
               </strong>{" "}
               <small>
                 {new Date(entry.at).toLocaleString("en-US")}
-                {entry.manual ? "" : " · automatic"}
+                {entry.manual ? "" : <T id="events.event-status-panel.automatic">{" · automatic"}</T>}
               </small>
               {entry.reason && <p>{entry.reason}</p>}
             </li>
@@ -673,7 +675,7 @@ export function EventDetail() {
   const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/events" className="back-link">
-      ← All events
+      <T id="events.event-detail.all-events">← All events</T>
     </Link>
   );
   if (hub.error)
@@ -706,7 +708,7 @@ export function EventDetail() {
     details: () => (
       <Fragment key="details">
         <div className="detail-grid">
-          <Section title="Event details">
+          <Section title={<T id="events.event-detail.event-details">Event details</T>}>
             <div className="info-grid">
               {facts.map(([label, value]) => (
                 <div key={label}>
@@ -717,14 +719,14 @@ export function EventDetail() {
             </div>
             {e.venue && (
               <p>
-                <Link to={`/venues/${e.venue.id}`}>Open venue</Link>
+                <Link to={`/venues/${e.venue.id}`}><T id="events.event-detail.open-venue">Open venue</T></Link>
               </p>
             )}
           </Section>
-          <Section title="Notes">
-            <small>Transportation</small>
+          <Section title={<T id="events.event-detail.notes">Notes</T>}>
+            <small><T id="events.event-detail.transportation">Transportation</T></small>
             <p>{e.transportationNotes || "—"}</p>
-            <small>Internal</small>
+            <small><T id="events.event-detail.internal">Internal</T></small>
             <p>{e.internalNotes || "—"}</p>
           </Section>
         </div>
@@ -742,15 +744,15 @@ export function EventDetail() {
       client && (
         <Section
           key="client"
-          title="Client"
-          action={<Link to={`/clients/${client.id}`}>Open client</Link>}
+          title={<T id="events.event-detail.client">Client</T>}
+          action={<Link to={`/clients/${client.id}`}><T id="events.event-detail.open-client">Open client</T></Link>}
         >
           <div className="contact-profile">
             <span className="avatar">{initials(client.name)}</span>
             <div>
               <strong>{client.name}</strong>
               <small>
-                {client.kind === "organization" ? "Organization" : "Person"}
+                {client.kind === "organization" ? <T id="events.event-detail.organization">Organization</T> : <T id="events.event-detail.person">Person</T>}
                 {client.tags.length ? ` · ${client.tags.join(", ")}` : ""}
               </small>
             </div>
@@ -761,7 +763,7 @@ export function EventDetail() {
               <div>
                 <strong>
                   {contact.name}
-                  {contact.id === e.pocContactId && " (point of contact)"}
+                  {contact.id === e.pocContactId && <T id="events.event-detail.point-of-contact">{" (point of contact)"}</T>}
                 </strong>
                 <small>
                   {contactRoleLabels[contact.role]} · {hidden(contact.email)} ·{" "}
@@ -832,7 +834,7 @@ export function EventDetail() {
           <h1>{e.title}</h1>
           <p>
             <span className="badge neutral">{statusLabels[e.status]}</span>
-            {e.archivedAt && <span className="badge error">Archived</span>}
+            {e.archivedAt && <span className="badge error"><T id="events.event-detail.archived">Archived</T></span>}
             <span>{when(e)}</span>
           </p>
         </div>
@@ -841,7 +843,7 @@ export function EventDetail() {
             <Allowed action="events.write">
               <Button variant="outline" onClick={() => setEdit(true)}>
                 <Pencil size={14} />
-                Edit
+                <T id="events.event-detail.edit">Edit</T>
               </Button>
             </Allowed>
             {e.archivedAt ? (
@@ -853,14 +855,14 @@ export function EventDetail() {
                   }
                 >
                   <RotateCcw size={14} />
-                  Restore
+                  <T id="events.event-detail.restore">Restore</T>
                 </Button>
               </Allowed>
             ) : (
               <Allowed action="events.write">
                 <Button variant="outline" onClick={() => setArchive(true)}>
                   <Archive size={14} />
-                  Archive
+                  <T id="events.event-detail.archive">Archive</T>
                 </Button>
               </Allowed>
             )}
@@ -879,14 +881,14 @@ export function EventDetail() {
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this event?"
+        title={<T id="events.event-detail.archive-this-event">Archive this event?</T>}
         onConfirm={async () => {
           await eventsApi.setArchived(e.id, true);
           setArchive(false);
           navigate("/events");
         }}
       >
-        {e.title} will be hidden from the event list.
+        <T id="events.event-detail.will-be-hidden-from-the-event" values={{ title: e.title }}>{"{title} will be hidden from the event list."}</T>
       </ConfirmationDialog>
     </>
   );

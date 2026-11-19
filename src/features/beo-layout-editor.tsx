@@ -5,6 +5,7 @@ import { ANNOTATED_GROUP, type BeoArea, type BeoView } from "../../shared/beo";
 import { Button } from "../components/shared";
 import { attachmentsApi, uploadAttachment } from "../services/attachments";
 import { beoApi } from "../services/beo";
+import { T } from "../app/live-copy";
 
 // The layout annotation screen (FLOW-147, ADR-20). Excalidraw (MIT) loads only
 // here, through React.lazy in beo-areas.tsx, so it stays out of the main bundle
@@ -128,12 +129,12 @@ export default function LayoutEditor({
   return (
     <div className="beo-layout-editor" role="dialog" aria-label={`Annotate ${area.name}`}>
       <div className="page-actions">
-        <strong>Annotate {area.name}</strong>
+        <strong><T id="beo-layout-editor.layout-editor.annotate" values={{ name: area.name }}>{"Annotate {name}"}</T></strong>
         <Button onClick={() => void save()} disabled={!loaded || saving}>
-          {saving ? "Saving…" : "Save annotation"}
+          {saving ? <T id="beo-layout-editor.layout-editor.saving">Saving…</T> : <T id="beo-layout-editor.layout-editor.save-annotation">Save annotation</T>}
         </Button>
         <Button variant="ghost" onClick={onClose} disabled={saving}>
-          Cancel
+          <T id="beo-layout-editor.layout-editor.cancel">Cancel</T>
         </Button>
       </div>
       {error && (
@@ -158,7 +159,7 @@ export default function LayoutEditor({
           />
         </div>
       ) : (
-        !error && <p className="muted">Loading the plan…</p>
+        !error && <p className="muted"><T id="beo-layout-editor.layout-editor.loading-the-plan">Loading the plan…</T></p>
       )}
     </div>
   );

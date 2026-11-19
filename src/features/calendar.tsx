@@ -23,6 +23,7 @@ import { LoadError } from "../components/record-display";
 import { CalendarDetail } from "./calendar-detail";
 import { toCalendarEntries } from "./calendar-entries";
 import "./calendar.css";
+import { T } from "../app/live-copy";
 
 // Basic calendar (FLOW-63, ADR-19): FullCalendar's free standard views only
 // (month, week, day, list). The API sends New York wall-clock times, and the
@@ -174,13 +175,13 @@ export function CalendarPage() {
     <>
       <div className="page-heading">
         <div>
-          <h1>Calendar</h1>
-          <p>Events and the tasks you're on, in New York time.</p>
+          <h1><T id="calendar.calendar-page.calendar">Calendar</T></h1>
+          <p><T id="calendar.calendar-page.events-and-the-tasks-you-re">{"Events and the tasks you're on, in New York time."}</T></p>
         </div>
       </div>
       {error && <LoadError message={error} />}
       <fieldset className="calendar-layers">
-        <legend>Layers</legend>
+        <legend><T id="calendar.calendar-page.layers">Layers</T></legend>
         {calendarLayers.map((layer) => (
           <label key={layer} className={`calendar-layer-toggle calendar-layer-${layer}`}>
             <input
@@ -201,7 +202,7 @@ export function CalendarPage() {
             if (!e.target.checked) setSelected(null);
           }}
         />
-        Detail mode
+        <T id="calendar.calendar-page.detail-mode">Detail mode</T>
       </label>
       {detail && selected && <CalendarDetail eventId={selected} onClose={() => setSelected(null)} />}
       <div className="calendar-panel">

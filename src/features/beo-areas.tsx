@@ -8,6 +8,7 @@ import { Button } from "../components/shared";
 import { attachmentsApi, uploadAttachment } from "../services/attachments";
 import { beoApi } from "../services/beo";
 import { eventsApi } from "../services/core";
+import { T, useCopy } from "../app/live-copy";
 
 // Setup areas (FLOW-146) and layout areas (FLOW-147) of the BEO: notes and photos
 // for each area of the venue. Photos are attachments on the area (beo_area), so
@@ -100,7 +101,7 @@ export function AreaPhotos({
               <Button asChild variant="outline">
                 <label className="beo-photo-add">
                   {camera ? <Camera size={14} /> : <Upload size={14} />}
-                  {busy === group ? "Uploading…" : camera ? "Take or add photo" : "Add image"}
+                  {busy === group ? <T id="beo-areas.area-photos.uploading">Uploading…</T> : camera ? <T id="beo-areas.area-photos.take-or-add-photo">Take or add photo</T> : <T id="beo-areas.area-photos.add-image">Add image</T>}
                   {/* "capture" opens the camera on a phone and the file picker elsewhere. */}
                   <input
                     type="file"
@@ -154,12 +155,12 @@ function CopyLayout({ event, onChange }: { event: FlowEvent; onChange: (view: Be
   return (
     <div className="beo-copy">
       <Button variant="outline" onClick={() => void run({ from: "venue" })}>
-        Copy the venue's areas
+        <T id="beo-areas.copy-layout.copy-the-venue-s-areas">{"Copy the venue's areas"}</T>
       </Button>
       {(others.data ?? []).length > 0 && (
         <>
           <label className="form-field">
-            <span>Past event at this venue</span>
+            <span><T id="beo-areas.copy-layout.past-event-at-this-venue">Past event at this venue</T></span>
             <select value={from} onChange={(e) => setFrom(e.target.value)}>
               <option value="">Choose an event</option>
               {(others.data ?? []).map((row) => (
@@ -170,7 +171,7 @@ function CopyLayout({ event, onChange }: { event: FlowEvent; onChange: (view: Be
             </select>
           </label>
           <Button variant="outline" disabled={!from} onClick={() => void run({ from: "event", eventId: from })}>
-            Copy its layout
+            <T id="beo-areas.copy-layout.copy-its-layout">Copy its layout</T>
           </Button>
         </>
       )}
@@ -196,6 +197,7 @@ export function BeoAreaList({
   areas: BeoArea[];
   onChange: (view: BeoView) => void;
 }) {
+  const copyPlaceholder = useCopy("beo-areas.beo-area-list.placeholder-e-g-inside-tent", "e.g. Inside Tent");
   const canEdit = data.exists && data.canEdit;
   const [adding, setAdding] = useState("");
   const [editing, setEditing] = useState<{ id: string; name: string; notes: string } | null>(null);
@@ -214,7 +216,7 @@ export function BeoAreaList({
   };
   return (
     <div className="beo-areas" data-kind={kind}>
-      {areas.length === 0 && <p className="muted">No {kind === "setup" ? "setup" : "layout"} areas yet.</p>}
+      {areas.length === 0 && <p className="muted"><T id="beo-areas.beo-area-list.no-areas-yet" values={{ value: kind === "setup" ? <T id="beo-areas.beo-area-list.setup">setup</T> : <T id="beo-areas.beo-area-list.layout">layout</T> }}>{"No {value} areas yet."}</T></p>}
       {areas.map((area) => (
         <article key={area.id} className="beo-area" data-testid={`beo-${kind}-area`}>
           {editing?.id === area.id ? (
@@ -227,33 +229,33 @@ export function BeoAreaList({
               }}
             >
               <label className="form-field">
-                <span>Area name</span>
+                <span><T id="beo-areas.beo-area-list.area-name">Area name</T></span>
                 <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
               </label>
               <label className="form-field">
-                <span>Notes</span>
+                <span><T id="beo-areas.beo-area-list.notes">Notes</T></span>
                 <textarea value={editing.notes} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} />
               </label>
-              <Button type="submit">Save area</Button>
+              <Button type="submit"><T id="beo-areas.beo-area-list.save-area">Save area</T></Button>
               <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
-                Cancel
+                <T id="beo-areas.beo-area-list.cancel">Cancel</T>
               </Button>
             </form>
           ) : (
             <>
               <h4>{area.name}</h4>
-              {area.notes ? <p>{area.notes}</p> : <p className="muted">No notes.</p>}
+              {area.notes ? <p>{area.notes}</p> : <p className="muted"><T id="beo-areas.beo-area-list.no-notes">No notes.</T></p>}
             </>
           )}
           <AreaPhotos areaId={area.id} groups={photoGroups(kind)} canEdit={canEdit} canAddActual={data.canCheckOff && kind === "setup"} />
           {canEdit && editing?.id !== area.id && (
             <div className="beo-area-actions">
               <Button variant="outline" onClick={() => setEditing({ id: area.id, name: area.name, notes: area.notes })}>
-                Edit {area.name}
+                <T id="beo-areas.beo-area-list.edit" values={{ name: area.name }}>{"Edit {name}"}</T>
               </Button>
               {kind === "layout" && (
                 <Button variant="outline" onClick={() => setAnnotating(area)}>
-                  {area.hasScene ? "Edit annotation" : "Annotate"}
+                  {area.hasScene ? <T id="beo-areas.beo-area-list.edit-annotation">Edit annotation</T> : <T id="beo-areas.beo-area-list.annotate">Annotate</T>}
                 </Button>
               )}
               <Button
@@ -268,7 +270,7 @@ export function BeoAreaList({
         </article>
       ))}
       {annotating && (
-        <Suspense fallback={<p className="muted">Loading the drawing tool…</p>}>
+        <Suspense fallback={<p className="muted"><T id="beo-areas.beo-area-list.loading-the-drawing-tool">Loading the drawing tool…</T></p>}>
           <LayoutEditor
             eventId={event.id}
             area={annotating}
@@ -295,12 +297,12 @@ export function BeoAreaList({
           }}
         >
           <label className="form-field">
-            <span>New {kind === "setup" ? "setup" : "layout"} area</span>
-            <input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="e.g. Inside Tent" />
+            <span><T id="beo-areas.beo-area-list.new-area" values={{ value: kind === "setup" ? <T id="beo-areas.beo-area-list.setup">setup</T> : <T id="beo-areas.beo-area-list.layout">layout</T> }}>{"New {value} area"}</T></span>
+            <input value={adding} onChange={(e) => setAdding(e.target.value)} placeholder={copyPlaceholder} />
           </label>
           <Button type="submit" variant="outline" disabled={!adding.trim()}>
             <Plus size={14} />
-            Add area
+            <T id="beo-areas.beo-area-list.add-area">Add area</T>
           </Button>
         </form>
       )}
@@ -338,8 +340,8 @@ export function BeoCleanup({
   const when = (iso: string) => new Date(iso).toLocaleString();
   return (
     <div className="beo-cleanup" data-testid="beo-cleanup">
-      <h4>Cleanup and breakdown checklist</h4>
-      {sections.length === 0 && <p className="muted">No checklist yet.</p>}
+      <h4><T id="beo-areas.beo-cleanup.cleanup-and-breakdown-checklist">Cleanup and breakdown checklist</T></h4>
+      {sections.length === 0 && <p className="muted"><T id="beo-areas.beo-cleanup.no-checklist-yet">No checklist yet.</T></p>}
       {!draft &&
         sections.map((section) => (
           <fieldset key={section.section} className="beo-cleanup-section">
@@ -358,7 +360,7 @@ export function BeoCleanup({
                   </label>
                   {item.checkedAt && (
                     <small>
-                      {item.checkedBy || "Someone"} · {when(item.checkedAt)}
+                      {item.checkedBy || <T id="beo-areas.beo-cleanup.someone">Someone</T>} · {when(item.checkedAt)}
                     </small>
                   )}
                 </li>
@@ -395,14 +397,14 @@ export function BeoCleanup({
               {draft.map((section, i) => (
                 <div key={i} className="beo-cleanup-edit">
                   <label className="form-field">
-                    <span>Section {i + 1}</span>
+                    <span><T id="beo-areas.beo-cleanup.section" values={{ value: i + 1 }}>{"Section {value}"}</T></span>
                     <input
                       value={section.section}
                       onChange={(e) => setDraft(draft.map((s, j) => (j === i ? { ...s, section: e.target.value } : s)))}
                     />
                   </label>
                   <label className="form-field">
-                    <span>Items for section {i + 1} (one per line)</span>
+                    <span><T id="beo-areas.beo-cleanup.items-for-section-one-per-line" values={{ value: i + 1 }}>{"Items for section {value} (one per line)"}</T></span>
                     <textarea
                       value={section.items}
                       onChange={(e) => setDraft(draft.map((s, j) => (j === i ? { ...s, items: e.target.value } : s)))}
@@ -420,11 +422,11 @@ export function BeoCleanup({
               ))}
               <Button type="button" variant="outline" onClick={() => setDraft([...draft, { section: "", items: "" }])}>
                 <Plus size={14} />
-                Add section
+                <T id="beo-areas.beo-cleanup.add-section">Add section</T>
               </Button>
-              <Button type="submit">Save checklist</Button>
+              <Button type="submit"><T id="beo-areas.beo-cleanup.save-checklist">Save checklist</T></Button>
               <Button type="button" variant="ghost" onClick={() => setDraft(null)}>
-                Cancel
+                <T id="beo-areas.beo-cleanup.cancel">Cancel</T>
               </Button>
             </form>
           ) : (
@@ -434,7 +436,7 @@ export function BeoCleanup({
                 setDraft(sections.map((s) => ({ section: s.section, items: s.items.map((i) => i.label).join("\n") })))
               }
             >
-              Edit checklist
+              <T id="beo-areas.beo-cleanup.edit-checklist">Edit checklist</T>
             </Button>
           )}
         </div>

@@ -40,6 +40,7 @@ import {
 } from "../components/shared";
 import { RecordForm } from "./forms";
 import "./proposals.css";
+import { T, useCopy } from "../app/live-copy";
 export function ProposalDrawer({
   id,
   onClose,
@@ -75,23 +76,23 @@ export function ProposalDrawer({
         <p>{store.clients.find(c.clientId)?.name}</p>
         <div className="info-grid">
           <div>
-            <small>Event date</small>
+            <small><T id="proposals.proposal-drawer.event-date">Event date</T></small>
             <strong>{date(c.eventDate)}</strong>
           </div>
           <div>
-            <small>Owner</small>
+            <small><T id="proposals.proposal-drawer.owner">Owner</T></small>
             <strong>{c.owner}</strong>
           </div>
           <div>
-            <small>Date sent</small>
+            <small><T id="proposals.proposal-drawer.date-sent">Date sent</T></small>
             <strong>{date(c.sent)}</strong>
           </div>
           <div>
-            <small>Last updated</small>
+            <small><T id="proposals.proposal-drawer.last-updated">Last updated</T></small>
             <strong>{date(c.updated)}</strong>
           </div>
         </div>
-        <FormField label="Proposal stage">
+        <FormField label={<T id="proposals.proposal-drawer.proposal-stage">Proposal stage</T>}>
           <select
             aria-label="Proposal stage"
             value={c.stage}
@@ -116,9 +117,9 @@ export function ProposalDrawer({
             }}
           >
             <p className="demo-callout">
-              Confirm marking this proposal Lost. A loss reason is required.
+              <T id="proposals.proposal-drawer.confirm-marking-this-proposal-lost-a">Confirm marking this proposal Lost. A loss reason is required.</T>
             </p>
-            <FormField label="Loss reason">
+            <FormField label={<T id="proposals.proposal-drawer.loss-reason">Loss reason</T>}>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -131,9 +132,9 @@ export function ProposalDrawer({
                 type="button"
                 onClick={() => setTarget(undefined)}
               >
-                Cancel loss
+                <T id="proposals.proposal-drawer.cancel-loss">Cancel loss</T>
               </Button>
-              <Button variant="destructive">Confirm Lost</Button>
+              <Button variant="destructive"><T id="proposals.proposal-drawer.confirm-lost">Confirm Lost</T></Button>
             </div>
           </form>
         )}
@@ -143,12 +144,12 @@ export function ProposalDrawer({
           </p>
         )}
         {c.lossReason && (
-          <p className="demo-callout">Loss reason: {c.lossReason}</p>
+          <p className="demo-callout"><T id="proposals.proposal-drawer.loss-reason-2" values={{ lossReason: c.lossReason }}>{"Loss reason: {lossReason}"}</T></p>
         )}
         <Button variant="outline" onClick={() => setEdit(true)}>
-          Edit proposal
+          <T id="proposals.proposal-drawer.edit-proposal">Edit proposal</T>
         </Button>
-        <h3 className="spaced">Attachments</h3>
+        <h3 className="spaced"><T id="proposals.proposal-drawer.attachments">Attachments</T></h3>
         <FileList />
       </DetailDrawer>
       {edit && (
@@ -244,6 +245,7 @@ function KanbanColumn({
   );
 }
 export function Proposals() {
+  const copyPlaceholder = useCopy("proposals.proposals.placeholder-search-proposals", "Search proposals…");
   const store = useDemo();
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState(params.get("q") ?? "");
@@ -328,13 +330,13 @@ export function Proposals() {
   return (
     <>
       <PageHeader
-        title="Proposals"
-        subtitle="Keep every opportunity moving forward."
-        eyebrow="YOUR BUSINESS, CONNECTED"
+        title={<T id="proposals.proposals.proposals">Proposals</T>}
+        subtitle={<T id="proposals.proposals.keep-every-opportunity-moving-forward">Keep every opportunity moving forward.</T>}
+        eyebrow={<T id="proposals.proposals.your-business-connected">YOUR BUSINESS, CONNECTED</T>}
       >
         <Button onClick={() => setCreate(true)}>
           <Plus size={16} />
-          New Proposal
+          <T id="proposals.proposals.new-proposal">New Proposal</T>
         </Button>
       </PageHeader>
       <OpenAddendums />
@@ -347,7 +349,7 @@ export function Proposals() {
               ).length
             }
           </strong>
-          <span>open opportunities</span>
+          <span><T id="proposals.proposals.open-opportunities">open opportunities</T></span>
         </div>
         <div>
           <strong>
@@ -357,20 +359,20 @@ export function Proposals() {
                 .reduce((a, c) => a + c.value, 0),
             )}
           </strong>
-          <span>in your pipeline</span>
+          <span><T id="proposals.proposals.in-your-pipeline">in your pipeline</T></span>
         </div>
         <div>
           <strong>
             {store.proposals.records.filter((c) => c.stage === "Signed").length}
           </strong>
-          <span>proposals won this month</span>
+          <span><T id="proposals.proposals.proposals-won-this-month">proposals won this month</T></span>
         </div>
       </div>
       <FilterBar>
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search proposals…"
+          placeholder={copyPlaceholder}
         />
         <Select
           label="Owners"
@@ -385,7 +387,7 @@ export function Proposals() {
           options={stages}
         />
         <label className="date-filter">
-          Events from{" "}
+          <T id="proposals.proposals.events-from">{"Events from "}</T>
           <input
             aria-label="Events from"
             type="date"
@@ -399,14 +401,14 @@ export function Proposals() {
             onClick={() => change("view", "pipeline")}
           >
             <LayoutGrid size={15} />
-            Pipeline
+            <T id="proposals.proposals.pipeline">Pipeline</T>
           </Button>
           <Button
             variant={view === "table" ? "default" : "ghost"}
             onClick={() => change("view", "table")}
           >
             <List size={15} />
-            Table
+            <T id="proposals.proposals.table">Table</T>
           </Button>
         </div>
       </FilterBar>
@@ -420,8 +422,7 @@ export function Proposals() {
       ) : (
         <>
           <p className="board-hint">
-            Drag cards to move stages, or open a card to update its status with
-            the keyboard.
+            <T id="proposals.proposals.drag-cards-to-move-stages-or">Drag cards to move stages, or open a card to update its status with the keyboard.</T>
           </p>
           <DndContext sensors={sensors} onDragEnd={drop}>
             <div className="kanban-board">
@@ -447,8 +448,8 @@ export function Proposals() {
                       ))}
                     {!rows.some((c) => c.stage === s) && (
                       <EmptyState
-                        title="No proposals"
-                        description="This stage is ready for its next opportunity."
+                        title={<T id="proposals.proposals.no-proposals">No proposals</T>}
+                        description={<T id="proposals.proposals.this-stage-is-ready-for-its">This stage is ready for its next opportunity.</T>}
                       />
                     )}
                   </KanbanColumn>
@@ -471,7 +472,7 @@ function OpenAddendums() {
   const pending = useResource(["open-addendums"], proposalsApi.openAddendums);
   if (!pending.data?.length) return null;
   return <section className="table-card" aria-label="Open addendums" style={{ padding: 16, marginBottom: 16 }}>
-    <h2>Open addendums</h2>
-    <ul>{pending.data.map((row) => <li key={row.id}><Link to={`/events/${row.eventId}?proposal=${row.proposalId}`}>{row.eventTitle} · sent {new Date(row.sentAt).toLocaleDateString()} · proposal version {row.proposalVersionId}</Link></li>)}</ul>
+    <h2><T id="proposals.open-addendums.open-addendums">Open addendums</T></h2>
+    <ul>{pending.data.map((row) => <li key={row.id}><Link to={`/events/${row.eventId}?proposal=${row.proposalId}`}><T id="proposals.open-addendums.sent-proposal-version" values={{ eventTitle: row.eventTitle, toLocaleDateString: new Date(row.sentAt).toLocaleDateString(), proposalVersionId: row.proposalVersionId }}>{"{eventTitle} · sent {toLocaleDateString} · proposal version {proposalVersionId}"}</T></Link></li>)}</ul>
   </section>;
 }

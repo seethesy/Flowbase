@@ -10,27 +10,29 @@ import { RichTextView } from "../components/rich-text/RichTextView";
 import { emptyRichText } from "../components/rich-text/extensions";
 import { sopsApi } from "../services/sops";
 import { Attachments } from "./attachments";
+import { T, useCopy } from "../app/live-copy";
 
 export function SopLibrary() {
+  const copyPlaceholder = useCopy("sops.sop-library.placeholder-all-categories", "All categories");
   const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const sops = useResource(["sops", search, category], () => sopsApi.list(search, category));
   if (sops.error) return <LoadError message={sops.error} />;
   return <>
-    <PageHeader title="SOP library" subtitle="Standard procedures for production and kitchen work.">
-      {can("sops.write") && <Button asChild><Link to="/sops/new">New SOP</Link></Button>}
+    <PageHeader title={<T id="sops.sop-library.sop-library">SOP library</T>} subtitle={<T id="sops.sop-library.standard-procedures-for-production-and-kitchen">Standard procedures for production and kitchen work.</T>}>
+      {can("sops.write") && <Button asChild><Link to="/sops/new"><T id="sops.sop-library.new-sop">New SOP</T></Link></Button>}
     </PageHeader>
-    <Section title="Find a procedure">
-      <FormField label="Search SOPs"><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} /></FormField>
-      <FormField label="Category"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="All categories" /></FormField>
+    <Section title={<T id="sops.sop-library.find-a-procedure">Find a procedure</T>}>
+      <FormField label={<T id="sops.sop-library.search-sops">Search SOPs</T>}><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} /></FormField>
+      <FormField label={<T id="sops.sop-library.category">Category</T>}><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={copyPlaceholder} /></FormField>
     </Section>
-    <Section title="Procedures">
+    <Section title={<T id="sops.sop-library.procedures">Procedures</T>}>
       {!sops.data ? <LoadingSkeleton /> : sops.data.length ? <ul>
         {sops.data.map((sop) => <li key={sop.id}>
-          <Link to={`/sops/${sop.id}`}>{sop.title}</Link> · {sop.category} · Version {sop.version}
+          <Link to={`/sops/${sop.id}`}>{sop.title}</Link> <T id="sops.sop-library.version" values={{ category: sop.category, version: sop.version }}>{" · {category} · Version {version}"}</T>
         </li>)}
-      </ul> : <p>No SOPs found.</p>}
+      </ul> : <p><T id="sops.sop-library.no-sops-found">No SOPs found.</T></p>}
     </Section>
   </>;
 }
@@ -71,29 +73,29 @@ export function SopDetail() {
   };
   const selected = data?.history.find((version) => version.version === shownVersion);
   return <>
-    <Link className="back-link" to="/sops">← SOP library</Link>
-    <PageHeader title={creating ? "New SOP" : data?.title ?? "SOP"} subtitle={data ? `${data.category} · Version ${data.version}` : "Standard procedure"}>
-      {data && can("sops.write") && !editing && <Button onClick={beginEdit}>Edit SOP</Button>}
+    <Link className="back-link" to="/sops"><T id="sops.sop-detail.sop-library">← SOP library</T></Link>
+    <PageHeader title={creating ? <T id="sops.sop-detail.new-sop">New SOP</T> : data?.title ?? <T id="sops.sop-detail.sop">SOP</T>} subtitle={data ? <T id="sops.sop-detail.version" values={{ category: data.category, version: data.version }}>{"{category} · Version {version}"}</T> : <T id="sops.sop-detail.standard-procedure">Standard procedure</T>}>
+      {data && can("sops.write") && !editing && <Button onClick={beginEdit}><T id="sops.sop-detail.edit-sop">Edit SOP</T></Button>}
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}
-    {editing ? <Section title="Procedure">
+    {editing ? <Section title={<T id="sops.sop-detail.procedure">Procedure</T>}>
       <form onSubmit={save}>
-        <FormField label="Title"><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} /></FormField>
-        <FormField label="Category"><input required maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} /></FormField>
+        <FormField label={<T id="sops.sop-detail.title">Title</T>}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} /></FormField>
+        <FormField label={<T id="sops.sop-detail.category">Category</T>}><input required maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} /></FormField>
         <RichTextEditor label="SOP content" value={content} onChange={setContent} />
-        <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save SOP"}</Button>
-        {data && <Button type="button" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>}
+        <Button type="submit" disabled={busy}>{busy ? <T id="sops.sop-detail.saving">Saving…</T> : <T id="sops.sop-detail.save-sop">Save SOP</T>}</Button>
+        {data && <Button type="button" variant="outline" onClick={() => setEditing(false)}><T id="sops.sop-detail.cancel">Cancel</T></Button>}
       </form>
     </Section> : data && <>
-      <Section title="Procedure"><RichTextView doc={data.content} /></Section>
+      <Section title={<T id="sops.sop-detail.procedure">Procedure</T>}><RichTextView doc={data.content} /></Section>
       <Attachments recordType="sop" recordId={id} />
-      <Section title="Edit history">
+      <Section title={<T id="sops.sop-detail.edit-history">Edit history</T>}>
         <ol>{data.history.map((version) => <li key={version.id}>
           <button type="button" onClick={() => setShownVersion(version.version)}>
-            Version {version.version} · {version.editorName ?? "Unknown editor"} · {new Date(version.editedAt).toLocaleString()}
+            <T id="sops.sop-detail.version-2" values={{ version: version.version, editorName: version.editorName ?? <T id="sops.sop-detail.unknown-editor">Unknown editor</T>, toLocaleString: new Date(version.editedAt).toLocaleString() }}>{"Version {version} · {editorName} · {toLocaleString}"}</T>
           </button>
         </li>)}</ol>
-        {selected && <div><h3>Version {selected.version}: {selected.title}</h3><p>{selected.category}</p><RichTextView doc={selected.content} /></div>}
+        {selected && <div><h3><T id="sops.sop-detail.version-3" values={{ version: selected.version, title: selected.title }}>{"Version {version}: {title}"}</T></h3><p>{selected.category}</p><RichTextView doc={selected.content} /></div>}
       </Section>
     </>}
   </>;

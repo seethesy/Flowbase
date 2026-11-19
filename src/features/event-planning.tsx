@@ -24,6 +24,7 @@ import { preparationApi } from "../services/preparation";
 import { rentalRequestStatuses, rentalRequestText, type RentalRequest } from "../../shared/rental-requests";
 import { date } from "./event-format";
 import "./event-planning.css";
+import { copySlug, T, useCopy } from "../app/live-copy";
 
 // What the event needs from the warehouse and the pantry (FLOW-76/77/85): the
 // equipment it holds, the conflicts those holds are in, and the consumables it
@@ -51,7 +52,7 @@ export function EventPlanningSection(props: { event: FlowEvent; canEdit: boolean
   if (!near)
     return (
       <div ref={anchor}>
-        <Section title="Equipment & stock">
+        <Section title={<T id="event-planning.event-planning-section.equipment-stock">{"Equipment & stock"}</T>}>
           <LoadingSkeleton />
         </Section>
       </div>
@@ -84,7 +85,7 @@ function PlanningSections({
   const failed = holds.error ?? conflicts.error ?? needs.error ?? bar.error ?? rentals.error;
   if (failed)
     return (
-      <Section title="Equipment & stock">
+      <Section title={<T id="event-planning.planning-sections.equipment-stock">{"Equipment & stock"}</T>}>
         <LoadError message={failed} />
       </Section>
     );
@@ -112,7 +113,7 @@ function PlanningSections({
   const open = conflicts.data.filter((conflict) => conflict.state !== "resolved");
   return (
     <>
-      <Section title="Equipment holds">
+      <Section title={<T id="event-planning.planning-sections.equipment-holds">Equipment holds</T>}>
         {error && (
           <p role="alert" className="error-message">
             {error}
@@ -139,7 +140,7 @@ function PlanningSections({
               onRemove={() => act(() => planningApi.removeHold(hold.id))}
             />
           ))}
-          {!holds.data.length && <li className="muted">No equipment held yet.</li>}
+          {!holds.data.length && <li className="muted"><T id="event-planning.planning-sections.no-equipment-held-yet">No equipment held yet.</T></li>}
         </ul>
         {canEdit && (
           <AddLine
@@ -158,7 +159,7 @@ function PlanningSections({
           rentals.replace(await preparationApi.updateRentalRequest(event.id, request.vendorId, input));
         }}
       />
-      <Section title="Consumable needs">
+      <Section title={<T id="event-planning.planning-sections.consumable-needs">Consumable needs</T>}>
         <ul className="planning-list">
           {otherNeeds.map((need) => (
             <NeedRow
@@ -177,7 +178,7 @@ function PlanningSections({
               }
             />
           ))}
-          {!otherNeeds.length && <li className="muted">No consumables required yet.</li>}
+          {!otherNeeds.length && <li className="muted"><T id="event-planning.planning-sections.no-consumables-required-yet">No consumables required yet.</T></li>}
         </ul>
         {canEdit && (
           <AddLine
@@ -237,37 +238,37 @@ function RentalRequestsSection({ requests, canEdit, onSave }: {
     } catch (cause) { setError((cause as Error).message); }
   };
   return (
-    <Section title="Vendor rental requests">
+    <Section title={<T id="event-planning.rental-requests-section.vendor-rental-requests">Vendor rental requests</T>}>
       {error && <p role="alert" className="error-message">{error}</p>}
-      {!requests.length && <p className="muted">No vendor rentals are held for this event.</p>}
+      {!requests.length && <p className="muted"><T id="event-planning.rental-requests-section.no-vendor-rentals-are-held-for">No vendor rentals are held for this event.</T></p>}
       {requests.map((request) => (
         <article key={request.vendorId} className="rental-request-document" data-print={printing === request.vendorId}>
-          <h3>Rental request: {request.vendorName}</h3>
-          <p><strong>Event:</strong> {request.eventTitle} · {date(request.eventDate)}</p>
+          <h3><T id="event-planning.rental-requests-section.rental-request" values={{ vendorName: request.vendorName }}>{"Rental request: {vendorName}"}</T></h3>
+          <p><strong><T id="event-planning.rental-requests-section.event">Event:</T></strong> {request.eventTitle} · {date(request.eventDate)}</p>
           {canEdit ? (
             <div className="rental-request-controls">
-              <label>Status <select aria-label={`${request.vendorName} request status`} value={request.status}
+              <label><T id="event-planning.rental-requests-section.status">{"Status "}</T><select aria-label={`${request.vendorName} request status`} value={request.status}
                 onChange={(event) => void save(request, { status: event.target.value as RentalRequest["status"] })}>
                 {rentalRequestStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
               </select></label>
-              <label>Fulfillment <select aria-label={`${request.vendorName} fulfillment`} value={request.method}
+              <label><T id="event-planning.rental-requests-section.fulfillment">{"Fulfillment "}</T><select aria-label={`${request.vendorName} fulfillment`} value={request.method}
                 onChange={(event) => void save(request, { method: event.target.value as RentalRequest["method"] })}>
                 <option value="delivery">Delivery</option><option value="pickup">Pickup</option>
               </select></label>
-              <label>Delivery or pickup details <input aria-label={`${request.vendorName} delivery details`}
+              <label><T id="event-planning.rental-requests-section.delivery-or-pickup-details">{"Delivery or pickup details "}</T><input aria-label={`${request.vendorName} delivery details`}
                 defaultValue={request.details} onBlur={(event) => {
                   if (event.target.value !== request.details) void save(request, { details: event.target.value });
                 }} /></label>
             </div>
-          ) : <p>{request.status} · {request.method}: {request.details || "Details to confirm"}</p>}
-          <p className="rental-request-print-details"><strong>{request.method === "delivery" ? "Delivery" : "Pickup"}:</strong> {request.details || "Details to confirm"}</p>
-          <table><thead><tr><th>Item</th><th>Quantity</th><th>Rental dates</th></tr></thead>
+          ) : <p>{request.status} · {request.method}: {request.details || <T id="event-planning.rental-requests-section.details-to-confirm">Details to confirm</T>}</p>}
+          <p className="rental-request-print-details"><strong>{request.method === "delivery" ? <T id="event-planning.rental-requests-section.delivery">Delivery</T> : <T id="event-planning.rental-requests-section.pickup">Pickup</T>}:</strong> {request.details || <T id="event-planning.rental-requests-section.details-to-confirm">Details to confirm</T>}</p>
+          <table><thead><tr><th><T id="event-planning.rental-requests-section.item">Item</T></th><th><T id="event-planning.rental-requests-section.quantity">Quantity</T></th><th><T id="event-planning.rental-requests-section.rental-dates">Rental dates</T></th></tr></thead>
             <tbody>{request.lines.map((line) => <tr key={line.itemId}><td>{line.name}</td><td>{number(line.quantity)}</td>
               <td>{date(line.from)}–{date(line.through)}</td></tr>)}</tbody></table>
           <div className="rental-request-actions">
-            <Button variant="outline" onClick={() => setPrinting(request.vendorId)}><Printer size={14} /> Print request</Button>
+            <Button variant="outline" onClick={() => setPrinting(request.vendorId)}><Printer size={14} /> <T id="event-planning.rental-requests-section.print-request">{" Print request"}</T></Button>
             <Button variant="outline" onClick={() => void navigator.clipboard.writeText(rentalRequestText(request))}>
-              <Copy size={14} /> Copy text</Button>
+              <Copy size={14} /> <T id="event-planning.rental-requests-section.copy-text">{" Copy text"}</T></Button>
           </div>
         </article>
       ))}
@@ -300,7 +301,7 @@ function BarPlanSection({
     quantity,
   }));
   return (
-    <Section title="Bar plan">
+    <Section title={<T id="event-planning.bar-plan-section.bar-plan">Bar plan</T>}>
       <ul className="planning-list">
         {plan.items.map((need) => (
           <NeedRow
@@ -322,7 +323,7 @@ function BarPlanSection({
             }
           />
         ))}
-        {!plan.items.length && !plan.tiers.length && <li className="muted">No bar planned yet.</li>}
+        {!plan.items.length && !plan.tiers.length && <li className="muted"><T id="event-planning.bar-plan-section.no-bar-planned-yet">No bar planned yet.</T></li>}
       </ul>
       {canEdit && (
         <>
@@ -369,19 +370,15 @@ function TierRow({ line, canEdit, onRemove }: { line: BarTierPlan; canEdit: bool
     <li className="planning-row">
       <strong>{name}</strong>
       <span className="muted">
-        {number(line.quantity)}
-        {line.basis === "per_guest" ? " per guest" : ""} → needs {number(line.required)} ·{" "}
-        {line.items.length ? `from ${line.items.join(", ")}` : "no matching bar items"}
+        <T id="event-planning.tier-row.needs" values={{ quantity: number(line.quantity), value: line.basis === "per_guest" ? <T id="event-planning.tier-row.per-guest">{" per guest"}</T> : "", required: number(line.required), value2: line.items.length ? <T id="event-planning.tier-row.from" values={{ join: line.items.join(", ") }}>{"from {join}"}</T> : <T id="event-planning.tier-row.no-matching-bar-items">no matching bar items</T> }}>{"{quantity}{value} → needs {required} · {value2}"}</T>
       </span>
       {line.shortage !== null && line.shortage > 0 && (
         <span className="planning-badge conflict">
-          Short {number(line.shortage)}
-          {line.reorderItemName ? ` · order ${line.reorderItemName}` : ""}
-          {line.orderBy ? ` by ${date(line.orderBy)}` : ""}
+          <T id="event-planning.tier-row.short" values={{ shortage: number(line.shortage), value: line.reorderItemName ? <T id="event-planning.tier-row.order" values={{ reorderItemName: line.reorderItemName }}>{" · order {reorderItemName}"}</T> : "", value2: line.orderBy ? <T id="event-planning.tier-row.by" values={{ orderBy: date(line.orderBy) }}>{" by {orderBy}"}</T> : "" }}>{"Short {shortage}{value}{value2}"}</T>
         </span>
       )}
-      {line.shortage === 0 && <span className="planning-badge ok">Covered</span>}
-      {line.shortage === null && <span className="muted">Allocated once the event is Closed</span>}
+      {line.shortage === 0 && <span className="planning-badge ok"><T id="event-planning.tier-row.covered">Covered</T></span>}
+      {line.shortage === null && <span className="muted"><T id="event-planning.tier-row.allocated-once-the-event-is-closed">Allocated once the event is Closed</T></span>}
       {canEdit && (
         <Button variant="outline" aria-label={`Remove ${name}`} onClick={onRemove}>
           <Trash2 size={14} />
@@ -466,7 +463,7 @@ function AddTierLine({
       </select>
       <Button type="submit" variant="outline">
         <Plus size={14} />
-        Add bar tier
+        <T id="event-planning.add-tier-line.add-bar-tier">Add bar tier</T>
       </Button>
     </form>
   );
@@ -492,7 +489,7 @@ function HoldRow({
       </span>
       {hold.issue && (
         <span className={`planning-badge ${hold.issue}`}>
-          {hold.issue === "conflict" ? "Conflict" : "Warning"}: {number(hold.shortfall)} short
+          <T id="event-planning.hold-row.short" values={{ value: hold.issue === "conflict" ? <T id="event-planning.hold-row.conflict">Conflict</T> : <T id="event-planning.hold-row.warning">Warning</T>, shortfall: number(hold.shortfall) }}>{"{value}: {shortfall} short"}</T>
         </span>
       )}
       {canEdit ? (
@@ -535,17 +532,15 @@ function NeedRow({
       <strong>{need.itemName}</strong>
       {need.source !== "manual" && <small className="muted">{need.source}</small>}
       <span className="muted">
-        {number(need.quantity)} {need.unit}
-        {need.basis === "per_guest" ? " per guest" : ""} → needs {number(need.required)} {need.unit}
+        <T id="event-planning.need-row.needs" values={{ quantity: number(need.quantity), unit: need.unit, value: need.basis === "per_guest" ? <T id="event-planning.need-row.per-guest">{" per guest"}</T> : "", required: number(need.required) }}>{"{quantity} {unit}{value} → needs {required} {unit}"}</T>
       </span>
       {need.shortage !== null && need.shortage > 0 && (
         <span className="planning-badge conflict">
-          Short {number(need.shortage)} {need.unit}
-          {need.orderBy ? ` · order by ${date(need.orderBy)}` : ""}
+          <T id="event-planning.need-row.short" values={{ shortage: number(need.shortage), unit: need.unit, value: need.orderBy ? <T id="event-planning.need-row.order-by" values={{ orderBy: date(need.orderBy) }}>{" · order by {orderBy}"}</T> : "" }}>{"Short {shortage} {unit}{value}"}</T>
         </span>
       )}
-      {need.shortage === 0 && <span className="planning-badge ok">Covered</span>}
-      {need.shortage === null && <span className="muted">Allocated once the event is Closed</span>}
+      {need.shortage === 0 && <span className="planning-badge ok"><T id="event-planning.need-row.covered">Covered</T></span>}
+      {need.shortage === null && <span className="muted"><T id="event-planning.need-row.allocated-once-the-event-is-closed">Allocated once the event is Closed</T></span>}
       {canEdit && (
         <Button variant="outline" aria-label={`Remove ${need.itemName}`} onClick={onRemove}>
           <Trash2 size={14} />
@@ -613,7 +608,7 @@ function AddLine({
       )}
       <Button type="submit" variant="outline" disabled={!itemId}>
         <Plus size={14} />
-        {label}
+        <T id={`event-planning.add-line.${copySlug(label)}`}>{label}</T>
       </Button>
     </form>
   );
@@ -630,6 +625,7 @@ function ConflictCard({
   rentals: { id: string; name: string }[];
   onResolve: (input: ResolveInput) => void;
 }) {
+  const copyPlaceholder = useCopy("event-planning.conflict-card.placeholder-note", "Note");
   // A kit's part follows the kit's hold: the risk can be accepted here, and the
   // quantity is changed on the kit (FLOW-212).
   const methods: readonly ResolveInput["method"][] = conflict.kitName
@@ -648,10 +644,7 @@ function ConflictCard({
   return (
     <div className={`planning-conflict ${conflict.kind}`} role="group" aria-label={`${conflict.itemName} conflict`}>
       <p>
-        <strong>{conflict.kind === "conflict" ? "Conflict" : "Warning"}:</strong> {conflict.itemName}
-        {conflict.kitName ? ` (in ${conflict.kitName})` : ""} is{" "}
-        {number(conflict.shortfall)} short ({number(conflict.allocated)} of {number(conflict.quantity)}
-        {conflict.state === "accepted" ? ", risk accepted" : ""}).
+        <strong>{conflict.kind === "conflict" ? <T id="event-planning.conflict-card.conflict">Conflict</T> : <T id="event-planning.conflict-card.warning">Warning</T>}:</strong> <T id="event-planning.conflict-card.is-short-of" values={{ itemName: conflict.itemName, value: conflict.kitName ? <T id="event-planning.conflict-card.in" values={{ kitName: conflict.kitName }}>{" (in {kitName})"}</T> : "", shortfall: number(conflict.shortfall), allocated: number(conflict.allocated), quantity: number(conflict.quantity), value2: conflict.state === "accepted" ? <T id="event-planning.conflict-card.risk-accepted">, risk accepted</T> : "" }}>{" {itemName}{value} is {shortfall} short ({allocated} of {quantity}{value2})."}</T>
       </p>
       {canEdit && conflict.state === "open" && (
         <form
@@ -694,9 +687,9 @@ function ConflictCard({
               onChange={(e) => setQuantity(e.target.value)}
             />
           )}
-          <input aria-label="Note" placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
+          <input aria-label="Note" placeholder={copyPlaceholder} value={note} onChange={(e) => setNote(e.target.value)} />
           <Button type="submit" variant="outline">
-            Resolve
+            <T id="event-planning.conflict-card.resolve">Resolve</T>
           </Button>
         </form>
       )}

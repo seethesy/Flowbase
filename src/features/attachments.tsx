@@ -11,6 +11,7 @@ import { useResource } from "../app/useResource";
 import { Button, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import "./attachments.css";
+import { T } from "../app/live-copy";
 
 const ACCEPT =
   "image/jpeg,image/png,image/webp,image/heic,application/pdf,.docx";
@@ -123,7 +124,7 @@ export function Attachments({
             onClick={() => input.current?.click()}
           >
             <Upload size={14} />
-            {busy ? "Uploading…" : "Add files"}
+            {busy ? <T id="attachments.attachments.uploading">Uploading…</T> : <T id="attachments.attachments.add-files">Add files</T>}
           </Button>
         </Allowed>
       }
@@ -175,7 +176,7 @@ export function Attachments({
         </ul>
       ) : (
         <p className="muted">
-          {files.loading ? "Loading files…" : "No files yet."}
+          {files.loading ? <T id="attachments.attachments.loading-files">Loading files…</T> : <T id="attachments.attachments.no-files-yet">No files yet.</T>}
         </p>
       )}
     </Section>

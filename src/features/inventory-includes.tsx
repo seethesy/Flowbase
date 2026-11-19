@@ -3,6 +3,7 @@ import type { includedItemSchema } from "../../shared/inventory";
 import { allPages, inventoryApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { Button, FormField } from "../components/shared";
+import { T } from "../app/live-copy";
 
 type Line = z.infer<typeof includedItemSchema>;
 export function CatalogIncludes({
@@ -26,11 +27,11 @@ export function CatalogIncludes({
     );
   return (
     <fieldset>
-      <legend>{service ? "Includes" : "Kit components"}</legend>
+      <legend>{service ? <T id="inventory-includes.catalog-includes.includes">Includes</T> : <T id="inventory-includes.catalog-includes.kit-components">Kit components</T>}</legend>
       {items.error && <p role="alert">{items.error}</p>}
       {value.map((line, index) => (
         <div className="form-grid" key={index}>
-          <FormField label={`Component ${index + 1}`}>
+          <FormField label={<T id="inventory-includes.catalog-includes.component" values={{ value: index + 1 }}>{"Component {value}"}</T>}>
             <select
               value={line.itemId}
               onChange={(e) => change(index, { itemId: e.target.value })}
@@ -49,7 +50,7 @@ export function CatalogIncludes({
               ))}
             </select>
           </FormField>
-          <FormField label={`Component ${index + 1} quantity`}>
+          <FormField label={<T id="inventory-includes.catalog-includes.component-quantity" values={{ value: index + 1 }}>{"Component {value} quantity"}</T>}>
             <input
               type="number"
               min="0"
@@ -61,7 +62,7 @@ export function CatalogIncludes({
             />
           </FormField>
           {service && (
-            <FormField label={`Component ${index + 1} basis`}>
+            <FormField label={<T id="inventory-includes.catalog-includes.component-basis" values={{ value: index + 1 }}>{"Component {value} basis"}</T>}>
               <select
                 value={line.basis}
                 onChange={(e) =>
@@ -78,7 +79,7 @@ export function CatalogIncludes({
             type="button"
             onClick={() => onChange(value.filter((_, i) => i !== index))}
           >
-            Remove component {index + 1}
+            <T id="inventory-includes.catalog-includes.remove-component" values={{ value: index + 1 }}>{"Remove component {value}"}</T>
           </Button>
         </div>
       ))}
@@ -96,7 +97,7 @@ export function CatalogIncludes({
           ])
         }
       >
-        Add component
+        <T id="inventory-includes.catalog-includes.add-component">Add component</T>
       </Button>
     </fieldset>
   );

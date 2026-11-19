@@ -35,6 +35,7 @@ import { Attachments } from "./attachments";
 import { centsLabel, quantityLabel } from "./inventory-labels";
 import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./inventory.css";
+import { copySlug, T, TPlural, useCopy } from "../app/live-copy";
 
 // Recipe book (FLOW-93): one record per dish, with its cost (FLOW-94), allergens
 // and dietary tags (FLOW-95) and a scaling tool (FLOW-98). The API works costs out
@@ -55,15 +56,16 @@ function RecipeFlags({ recipe }: { recipe: Recipe }) {
   return (
     <>
       {recipe.duplicates.length > 0 && (
-        <span className="badge warning">Duplicate name</span>
+        <span className="badge warning"><T id="recipes.recipe-flags.duplicate-name">Duplicate name</T></span>
       )}
-      {!recipe.yield && <span className="badge neutral">No yield</span>}
-      {!recipe.active && <span className="badge error">Inactive</span>}
+      {!recipe.yield && <span className="badge neutral"><T id="recipes.recipe-flags.no-yield">No yield</T></span>}
+      {!recipe.active && <span className="badge error"><T id="recipes.recipe-flags.inactive">Inactive</T></span>}
     </>
   );
 }
 
 export function RecipeList() {
+  const copyPlaceholder = useCopy("recipes.recipe-list.placeholder-search-recipes", "Search recipes…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -121,15 +123,15 @@ export function RecipeList() {
   return (
     <>
       <PageHeader
-        title="Recipe book"
-        subtitle="Every dish with its ingredients, method, cost and allergens."
-        eyebrow="Kitchen"
+        title={<T id="recipes.recipe-list.recipe-book">Recipe book</T>}
+        subtitle={<T id="recipes.recipe-list.every-dish-with-its-ingredients-method">Every dish with its ingredients, method, cost and allergens.</T>}
+        eyebrow={<T id="recipes.recipe-list.kitchen">Kitchen</T>}
       >
-        <Button asChild variant="outline"><Link to="/recipes/client">Client recipe book</Link></Button>
+        <Button asChild variant="outline"><Link to="/recipes/client"><T id="recipes.recipe-list.client-recipe-book">Client recipe book</T></Link></Button>
         <Allowed action="recipes.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Recipe
+            <T id="recipes.recipe-list.new-recipe">New Recipe</T>
           </Button>
         </Allowed>
       </PageHeader>
@@ -137,7 +139,7 @@ export function RecipeList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search recipes…"
+          placeholder={copyPlaceholder}
         />
         <select
           aria-label="Category"
@@ -165,9 +167,9 @@ export function RecipeList() {
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="recipes.recipe-list.show-archived">Show archived</T>
         </label>
-        <span className="result-count">{data.length} recipes</span>
+        <span className="result-count"><T id="recipes.recipe-list.recipes" values={{ count: data.length }}>{"{count} recipes"}</T></span>
       </FilterBar>
       {recipes.error ? (
         <LoadError message={recipes.error} />
@@ -225,7 +227,9 @@ function TagChoices({
   const hinted = options.filter((option) => hints?.[option.label]);
   return (
     <fieldset className="form-group" aria-label={label}>
-      <legend>{label}</legend>
+      <legend>
+        <T id={`recipes.tag-choices.${copySlug(label)}`}>{label}</T>
+      </legend>
       {options.map((option) => (
         <label className="checkbox-filter" key={option.label}>
           <input
@@ -239,7 +243,7 @@ function TagChoices({
               )
             }
           />
-          {option.archived ? `${option.label} (archived)` : option.label}
+          {option.archived ? <T id="recipes.tag-choices.archived" values={{ label: option.label }}>{"{label} (archived)"}</T> : option.label}
         </label>
       ))}
       {hints && hinted.length > 0 && (
@@ -395,8 +399,8 @@ export function RecipeForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title={recipe ? "Edit recipe" : "New recipe"}
-      description="Saved to Flowbase."
+      title={recipe ? <T id="recipes.recipe-form.edit-recipe">Edit recipe</T> : <T id="recipes.recipe-form.new-recipe">New recipe</T>}
+      description={<T id="recipes.recipe-form.saved-to-flowbase">Saved to Flowbase.</T>}
     >
       <form
         noValidate
@@ -410,14 +414,14 @@ export function RecipeForm({
             {error}
           </p>
         )}
-        <FormField label="Name *">
+        <FormField label={<T id="recipes.recipe-form.name">Name *</T>}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
         </FormField>
-        <FormField label="Category">
+        <FormField label={<T id="recipes.recipe-form.category">Category</T>}>
           <select
             aria-label="Category"
             value={category}
@@ -430,7 +434,7 @@ export function RecipeForm({
             ))}
           </select>
         </FormField>
-        <FormField label="Description">
+        <FormField label={<T id="recipes.recipe-form.description">Description</T>}>
           <textarea
             rows={2}
             value={description}
@@ -439,8 +443,8 @@ export function RecipeForm({
         </FormField>
         <div className="form-grid">
           <FormField
-            label="Yield (servings)"
-            hint="Leave empty if unknown; the dish can't be scaled without it"
+            label={<T id="recipes.recipe-form.yield-servings">Yield (servings)</T>}
+            hint={<T id="recipes.recipe-form.leave-empty-if-unknown-the-dish">{"Leave empty if unknown; the dish can't be scaled without it"}</T>}
           >
             <input
               type="number"
@@ -450,14 +454,14 @@ export function RecipeForm({
               onChange={(e) => setServings(e.target.value)}
             />
           </FormField>
-          <FormField label="Portion size" hint="e.g. 6 oz">
+          <FormField label={<T id="recipes.recipe-form.portion-size">Portion size</T>} hint={<T id="recipes.recipe-form.e-g-6-oz">e.g. 6 oz</T>}>
             <input
               value={portionSize}
               onChange={(e) => setPortionSize(e.target.value)}
             />
           </FormField>
         </div>
-        <h3 className="form-subheading">Ingredients</h3>
+        <h3 className="form-subheading"><T id="recipes.recipe-form.ingredients">Ingredients</T></h3>
         {lines.map((line, index) => (
           <fieldset
             className="form-group"
@@ -465,7 +469,7 @@ export function RecipeForm({
             aria-label={`Ingredient line ${index + 1}`}
           >
             <div className="form-grid">
-              <FormField label={`Ingredient ${index + 1}`}>
+              <FormField label={<T id="recipes.recipe-form.ingredient" values={{ value: index + 1 }}>{"Ingredient {value}"}</T>}>
                 <select
                   value={line.itemId}
                   onChange={(e) =>
@@ -483,7 +487,7 @@ export function RecipeForm({
                   ))}
                 </select>
               </FormField>
-              <FormField label="Quantity" hint="Empty for “as needed”">
+              <FormField label={<T id="recipes.recipe-form.quantity">Quantity</T>} hint={<T id="recipes.recipe-form.empty-for-as-needed">Empty for “as needed”</T>}>
                 <input
                   type="number"
                   min="0"
@@ -494,7 +498,7 @@ export function RecipeForm({
                   }
                 />
               </FormField>
-              <FormField label="Unit">
+              <FormField label={<T id="recipes.recipe-form.unit">Unit</T>}>
                 <select
                   value={line.unit}
                   onChange={(e) =>
@@ -509,7 +513,7 @@ export function RecipeForm({
                   ))}
                 </select>
               </FormField>
-              <FormField label="Prep note">
+              <FormField label={<T id="recipes.recipe-form.prep-note">Prep note</T>}>
                 <input
                   value={line.prepNote}
                   onChange={(e) =>
@@ -519,8 +523,8 @@ export function RecipeForm({
               </FormField>
               {showCost && (
                 <FormField
-                  label="Entered cost ($)"
-                  hint="Used until the ingredient has a unit cost"
+                  label={<T id="recipes.recipe-form.entered-cost">Entered cost ($)</T>}
+                  hint={<T id="recipes.recipe-form.used-until-the-ingredient-has-a">Used until the ingredient has a unit cost</T>}
                 >
                   <input
                     type="number"
@@ -541,7 +545,7 @@ export function RecipeForm({
                 )
               }
             >
-              Remove ingredient
+              <T id="recipes.recipe-form.remove-ingredient">Remove ingredient</T>
             </Button>
           </fieldset>
         ))}
@@ -562,23 +566,23 @@ export function RecipeForm({
             ])
           }
         >
-          <Plus size={14} /> Add ingredient
+          <Plus size={14} /> <T id="recipes.recipe-form.add-ingredient">{" Add ingredient"}</T>
         </Button>
-        <h3 className="form-subheading">Method</h3>
-        <FormField label="Steps" hint="One step per line, in order">
+        <h3 className="form-subheading"><T id="recipes.recipe-form.method">Method</T></h3>
+        <FormField label={<T id="recipes.recipe-form.steps">Steps</T>} hint={<T id="recipes.recipe-form.one-step-per-line-in-order">One step per line, in order</T>}>
           <textarea
             rows={5}
             value={steps}
             onChange={(e) => setSteps(e.target.value)}
           />
         </FormField>
-        <FormField label="Finishing note" hint="e.g. garnish with microgreens">
+        <FormField label={<T id="recipes.recipe-form.finishing-note">Finishing note</T>} hint={<T id="recipes.recipe-form.e-g-garnish-with-microgreens">e.g. garnish with microgreens</T>}>
           <input
             value={finishingNote}
             onChange={(e) => setFinishingNote(e.target.value)}
           />
         </FormField>
-        <h3 className="form-subheading">Allergens and dietary tags</h3>
+        <h3 className="form-subheading"><T id="recipes.recipe-form.allergens-and-dietary-tags">Allergens and dietary tags</T></h3>
         <TagChoices
           label="Allergens"
           options={listOptions(settings.lists.allergen, allergens)}
@@ -598,14 +602,14 @@ export function RecipeForm({
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
           />
-          Active
+          <T id="recipes.recipe-form.active">Active</T>
         </label>
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="recipes.recipe-form.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            Save recipe
+            <T id="recipes.recipe-form.save-recipe">Save recipe</T>
           </Button>
         </div>
       </form>
@@ -622,29 +626,29 @@ function TagsSection({ recipe }: { recipe: Recipe }) {
   const markAllergen = useArchivedMarks("allergen");
   const markDietaryTag = useArchivedMarks("dietary_tag");
   return (
-    <Section title="Allergens and dietary tags">
-      <small>Allergens</small>
-      <p>{markedList(recipe.allergens, markAllergen) || "None"}</p>
-      <small>Dietary tags</small>
-      <p>{markedList(recipe.dietaryTags, markDietaryTag) || "None"}</p>
+    <Section title={<T id="recipes.tags-section.allergens-and-dietary-tags">Allergens and dietary tags</T>}>
+      <small><T id="recipes.tags-section.allergens">Allergens</T></small>
+      <p>{markedList(recipe.allergens, markAllergen) || <T id="recipes.tags-section.none">None</T>}</p>
+      <small><T id="recipes.tags-section.dietary-tags">Dietary tags</T></small>
+      <p>{markedList(recipe.dietaryTags, markDietaryTag) || <T id="recipes.tags-section.none">None</T>}</p>
     </Section>
   );
 }
 
 function IngredientsSection({ recipe }: { recipe: Recipe }) {
   return (
-    <Section title="Ingredients">
+    <Section title={<T id="recipes.ingredients-section.ingredients">Ingredients</T>}>
       {recipe.lines.length ? (
         <table className="stock-table">
           <thead>
             <tr>
-              <th>Ingredient</th>
-              <th>Quantity</th>
-              <th>Prep</th>
+              <th><T id="recipes.ingredients-section.ingredient">Ingredient</T></th>
+              <th><T id="recipes.ingredients-section.quantity">Quantity</T></th>
+              <th><T id="recipes.ingredients-section.prep">Prep</T></th>
               {!recipe.costHidden && (
                 <>
-                  <th>Cost</th>
-                  <th>Source</th>
+                  <th><T id="recipes.ingredients-section.cost">Cost</T></th>
+                  <th><T id="recipes.ingredients-section.source">Source</T></th>
                 </>
               )}
             </tr>
@@ -656,7 +660,7 @@ function IngredientsSection({ recipe }: { recipe: Recipe }) {
                   <Link to={`/inventory/${line.itemId}`}>
                     {line.ingredientName}
                   </Link>
-                  {line.ingredientArchived && " (archived)"}
+                  {line.ingredientArchived && <T id="recipes.ingredients-section.archived">{" (archived)"}</T>}
                 </td>
                 <td>{lineQuantity(line.quantity, line.unit)}</td>
                 <td>{line.prepNote || "—"}</td>
@@ -679,14 +683,14 @@ function IngredientsSection({ recipe }: { recipe: Recipe }) {
           {recipe.cost && (
             <tfoot>
               <tr>
-                <th colSpan={3}>Batch cost</th>
+                <th colSpan={3}><T id="recipes.ingredients-section.batch-cost">Batch cost</T></th>
                 <th colSpan={2}>{centsLabel(recipe.cost.batchCents)}</th>
               </tr>
               <tr>
-                <th colSpan={3}>Per serving</th>
+                <th colSpan={3}><T id="recipes.ingredients-section.per-serving">Per serving</T></th>
                 <th colSpan={2}>
                   {recipe.cost.perServingCents === null
-                    ? "Needs a yield"
+                    ? <T id="recipes.ingredients-section.needs-a-yield">Needs a yield</T>
                     : centsLabel(recipe.cost.perServingCents)}
                 </th>
               </tr>
@@ -694,17 +698,15 @@ function IngredientsSection({ recipe }: { recipe: Recipe }) {
           )}
         </table>
       ) : (
-        <p className="muted">No ingredients yet.</p>
+        <p className="muted"><T id="recipes.ingredients-section.no-ingredients-yet">No ingredients yet.</T></p>
       )}
       {recipe.cost && recipe.cost.noCostLines > 0 && (
         <p className="muted">
-          {recipe.cost.noCostLines} line
-          {recipe.cost.noCostLines === 1 ? " has" : "s have"} no cost and
-          count as $0.
+          <TPlural id="recipes.ingredients-section.lines-have-no-cost" count={recipe.cost.noCostLines} one="{count} line has no cost and count as $0." other="{count} lines have no cost and count as $0." />
         </p>
       )}
       {recipe.costHidden && (
-        <p className="muted">Costs are visible to full-time staff only.</p>
+        <p className="muted"><T id="recipes.ingredients-section.costs-are-visible-to-full-time">Costs are visible to full-time staff only.</T></p>
       )}
     </Section>
   );
@@ -729,7 +731,7 @@ function ScaleSection({ recipe, requestedServings }: { recipe: Recipe; requested
     void recipesApi.scale(recipe.id, requestedServings).then(setResult, (cause: Error) => setError(cause.message));
   }, [recipe.id, requestedServings]);
   return (
-    <section id="scale"><Section title="Scale">
+    <section id="scale"><Section title={<T id="recipes.scale-section.scale">Scale</T>}>
       <form
         className="inline-row"
         noValidate
@@ -738,7 +740,7 @@ function ScaleSection({ recipe, requestedServings }: { recipe: Recipe; requested
           void scale();
         }}
       >
-        <FormField label="Servings">
+        <FormField label={<T id="recipes.scale-section.servings">Servings</T>}>
           <input
             type="number"
             min="1"
@@ -748,7 +750,7 @@ function ScaleSection({ recipe, requestedServings }: { recipe: Recipe; requested
           />
         </FormField>
         <Button type="submit" variant="outline">
-          Scale
+          <T id="recipes.scale-section.scale">Scale</T>
         </Button>
       </form>
       {error && (
@@ -765,9 +767,9 @@ function ScaleSection({ recipe, requestedServings }: { recipe: Recipe; requested
         <table className="stock-table" aria-label="Scaled ingredients">
           <thead>
             <tr>
-              <th>Ingredient</th>
-              <th>Quantity</th>
-              <th>Purchase units</th>
+              <th><T id="recipes.scale-section.ingredient">Ingredient</T></th>
+              <th><T id="recipes.scale-section.quantity">Quantity</T></th>
+              <th><T id="recipes.scale-section.purchase-units">Purchase units</T></th>
             </tr>
           </thead>
           <tbody>
@@ -803,7 +805,7 @@ export function RecipeDetail() {
   const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/recipes" className="back-link">
-      ← Recipe book
+      <T id="recipes.recipe-detail.recipe-book">← Recipe book</T>
     </Link>
   );
   if (recipe.error)
@@ -823,17 +825,17 @@ export function RecipeDetail() {
           <h1>{r.name}</h1>
           <p>
             <CategoryBadge category={r.category} />
-            {r.archivedAt && <span className="badge error">Archived</span>}
+            {r.archivedAt && <span className="badge error"><T id="recipes.recipe-detail.archived">Archived</T></span>}
             <RecipeFlags recipe={r} />
             <span>{yieldLabel(r)}</span>
           </p>
         </div>
         <div className="page-actions">
-          <Button asChild variant="outline"><Link to={`/print/recipes/${r.id}`}>Kitchen card</Link></Button>
+          <Button asChild variant="outline"><Link to={`/print/recipes/${r.id}`}><T id="recipes.recipe-detail.kitchen-card">Kitchen card</T></Link></Button>
           <Allowed action="recipes.write">
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
-              Edit
+              <T id="recipes.recipe-detail.edit">Edit</T>
             </Button>
             {r.archivedAt ? (
               <Button
@@ -843,12 +845,12 @@ export function RecipeDetail() {
                 }
               >
                 <RotateCcw size={14} />
-                Restore
+                <T id="recipes.recipe-detail.restore">Restore</T>
               </Button>
             ) : (
               <Button variant="outline" onClick={() => setArchive(true)}>
                 <Archive size={14} />
-                Archive
+                <T id="recipes.recipe-detail.archive">Archive</T>
               </Button>
             )}
           </Allowed>
@@ -856,8 +858,7 @@ export function RecipeDetail() {
       </div>
       {r.duplicates.length > 0 && (
         <p role="status" className="error-message">
-          <AlertTriangle size={14} /> Another dish in this category has the
-          same name:{" "}
+          <AlertTriangle size={14} /> <T id="recipes.recipe-detail.another-dish-in-this-category-has">{" Another dish in this category has the same name: "}</T>
           {r.duplicates.map((other, index) => (
             <span key={other.id}>
               {index > 0 && ", "}
@@ -867,18 +868,18 @@ export function RecipeDetail() {
         </p>
       )}
       <div className="detail-grid">
-        <Section title="Dish">
-          <small>Description</small>
+        <Section title={<T id="recipes.recipe-detail.dish">Dish</T>}>
+          <small><T id="recipes.recipe-detail.description">Description</T></small>
           <p>{r.description || "—"}</p>
-          <small>Yield</small>
-          <p>{r.yield ? `${Number(r.yield.servings)} servings` : "Not set"}</p>
-          <small>Portion size</small>
+          <small><T id="recipes.recipe-detail.yield">Yield</T></small>
+          <p>{r.yield ? <T id="recipes.recipe-detail.servings" values={{ servings: Number(r.yield.servings) }}>{"{servings} servings"}</T> : <T id="recipes.recipe-detail.not-set">Not set</T>}</p>
+          <small><T id="recipes.recipe-detail.portion-size">Portion size</T></small>
           <p>{r.yield?.portionSize || "—"}</p>
         </Section>
         <TagsSection recipe={r} />
       </div>
       <IngredientsSection recipe={r} />
-      <Section title="Method">
+      <Section title={<T id="recipes.recipe-detail.method">Method</T>}>
         {r.steps.length ? (
           <ol>
             {r.steps.map((step, index) => (
@@ -886,11 +887,11 @@ export function RecipeDetail() {
             ))}
           </ol>
         ) : (
-          <p className="muted">No method yet.</p>
+          <p className="muted"><T id="recipes.recipe-detail.no-method-yet">No method yet.</T></p>
         )}
         {r.finishingNote && (
           <p>
-            <strong>Finish:</strong> {r.finishingNote}
+            <strong><T id="recipes.recipe-detail.finish">Finish:</T></strong> {r.finishingNote}
           </p>
         )}
       </Section>
@@ -906,14 +907,14 @@ export function RecipeDetail() {
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this recipe?"
+        title={<T id="recipes.recipe-detail.archive-this-recipe">Archive this recipe?</T>}
         onConfirm={async () => {
           await recipesApi.setArchived(r.id, true);
           setArchive(false);
           navigate("/recipes");
         }}
       >
-        {r.name} will be hidden from the recipe book.
+        <T id="recipes.recipe-detail.will-be-hidden-from-the-recipe" values={{ name: r.name }}>{"{name} will be hidden from the recipe book."}</T>
       </ConfirmationDialog>
     </>
   );

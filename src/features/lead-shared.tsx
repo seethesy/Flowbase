@@ -5,6 +5,7 @@ import {
   type LeadStatus,
 } from "../../shared/leads";
 import { Button, FormField } from "../components/shared";
+import { copySlug, T } from "../app/live-copy";
 
 const statusTone: Record<LeadStatus, string> = {
   new: "info",
@@ -83,14 +84,14 @@ export function AssignForm({
         </p>
       )}
       <div className="filter-bar">
-        <FormField label={label}>
+        <FormField label={<T id={`lead-shared.assign-form.${copySlug(label)}`}>{label}</T>}>
           <input
             value={salespersonId}
             onChange={(e) => setSalespersonId(e.target.value)}
           />
         </FormField>
         <Button type="submit" variant="outline" disabled={saving}>
-          {button}
+          <T id={`lead-shared.assign-form.${copySlug(button)}`}>{button}</T>
         </Button>
       </div>
     </form>

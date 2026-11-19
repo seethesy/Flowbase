@@ -6,6 +6,7 @@ import { LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { eventsApi } from "../services/core";
 import "./event-activity.css";
+import { T } from "../app/live-copy";
 
 // The event hub's history section (FLOW-166): the event's change history, for
 // anyone who can open the event. (The tasks section is FLOW-59's, in task-lists.)
@@ -78,13 +79,13 @@ export function EventHistorySection({
   );
   if (list.error)
     return (
-      <Section title="History">
+      <Section title={<T id="event-activity.event-history-section.history">History</T>}>
         <LoadError message={list.error} />
       </Section>
     );
   if (!list.data) return <LoadingSkeleton />;
   return (
-    <Section title="History">
+    <Section title={<T id="event-activity.event-history-section.history">History</T>}>
       {list.data.length ? (
         <ul aria-label="Event history" className="event-activity-list">
           {list.data.map((entry) => {
@@ -93,7 +94,7 @@ export function EventHistorySection({
               <li key={entry.id}>
                 <strong>{actionLabels[entry.action]}</strong>{" "}
                 <small>
-                  {entry.actorName || (entry.actorId ? "Someone" : "Flowbase")} ·{" "}
+                  {entry.actorName || (entry.actorId ? <T id="event-activity.event-history-section.someone">Someone</T> : <T id="event-activity.event-history-section.flowbase">Flowbase</T>)} ·{" "}
                   {stamp(entry.at)}
                 </small>
                 {entry.action === "update" && changes.length > 0 && (
@@ -102,7 +103,7 @@ export function EventHistorySection({
                       <li key={field}>
                         {fieldLabels[field] ?? field}
                         {byId(field)
-                          ? " changed"
+                          ? <T id="event-activity.event-history-section.changed">{" changed"}</T>
                           : `: ${shown(field, change.before)} → ${shown(field, change.after)}`}
                       </li>
                     ))}
@@ -113,7 +114,7 @@ export function EventHistorySection({
           })}
         </ul>
       ) : (
-        <p className="muted">No changes recorded yet.</p>
+        <p className="muted"><T id="event-activity.event-history-section.no-changes-recorded-yet">No changes recorded yet.</T></p>
       )}
       <LoadMore list={list} label="Show older changes" />
     </Section>

@@ -17,6 +17,7 @@ import { Button, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { dayOfApi } from "../services/day-of";
 import { csvFileName, downloadCsv, toCsv } from "../services/csv";
+import { T } from "../app/live-copy";
 
 const clock = (instant: string) => clockLabel(utcToBusinessTime(new Date(instant)).time);
 
@@ -51,13 +52,13 @@ export function DayOfPage() {
     <>
       <div className="record-heading">
         <div>
-          <h1>Day-of board</h1>
-          <p>{date === today ? "Today" : date}</p>
+          <h1><T id="day-of.day-of-page.day-of-board">Day-of board</T></h1>
+          <p>{date === today ? <T id="day-of.day-of-page.today">Today</T> : date}</p>
         </div>
         <div className="page-actions">
-          <Button variant="ghost" onClick={() => go(addLocalDays(date, -1))}>Previous day</Button>
+          <Button variant="ghost" onClick={() => go(addLocalDays(date, -1))}><T id="day-of.day-of-page.previous-day">Previous day</T></Button>
           <input type="date" aria-label="Board date" value={date} onChange={(e) => e.target.value && go(e.target.value)} />
-          <Button variant="ghost" onClick={() => go(addLocalDays(date, 1))}>Next day</Button>
+          <Button variant="ghost" onClick={() => go(addLocalDays(date, 1))}><T id="day-of.day-of-page.next-day">Next day</T></Button>
         </div>
       </div>
       {board.error && <LoadError message={board.error} />}
@@ -65,10 +66,10 @@ export function DayOfPage() {
       {error && <p role="alert" className="error-message">{error}</p>}
       {board.data?.canUpdate && (
         <label>
-          <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgent: text the people affected
+          <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> <T id="day-of.day-of-page.urgent-text-the-people-affected">{" Urgent: text the people affected"}</T>
         </label>
       )}
-      {board.data && !board.data.events.length && <p>No events on this date.</p>}
+      {board.data && !board.data.events.length && <p><T id="day-of.day-of-page.no-events-on-this-date">No events on this date.</T></p>}
       {board.data?.events.map((event) => (
         <Section key={event.id} title={event.title}>
           <p>
@@ -96,8 +97,8 @@ export function DayOfPage() {
               ))}
             </ul>
           )}
-          <h3>Trucks</h3>
-          {!event.trucks.length && <p>No trucks assigned.</p>}
+          <h3><T id="day-of.day-of-page.trucks">Trucks</T></h3>
+          {!event.trucks.length && <p><T id="day-of.day-of-page.no-trucks-assigned">No trucks assigned.</T></p>}
           <ul aria-label={`${event.title} trucks`} className="planning-list">
             {event.trucks.map((truck) => (
               <TruckRow
@@ -109,8 +110,8 @@ export function DayOfPage() {
               />
             ))}
           </ul>
-          <h3>Staff</h3>
-          {!event.staff.length && <p>No staff scheduled.</p>}
+          <h3><T id="day-of.day-of-page.staff">Staff</T></h3>
+          {!event.staff.length && <p><T id="day-of.day-of-page.no-staff-scheduled">No staff scheduled.</T></p>}
           <ul aria-label={`${event.title} staff`} className="planning-list">
             {event.staff.map((member) => (
               <StaffRow
@@ -144,10 +145,10 @@ function CheckpointRow({
       <strong>{checkpoint.label}</strong>
       <span>
         {checkpoint.reachedAt
-          ? `Reached ${clock(checkpoint.reachedAt)}${checkpoint.reachedByName ? ` by ${checkpoint.reachedByName}` : ""}`
+          ? <T id="day-of.checkpoint-row.reached" values={{ reachedAt: clock(checkpoint.reachedAt), value: checkpoint.reachedByName ? ` by ${checkpoint.reachedByName}` : "" }}>{"Reached {reachedAt}{value}"}</T>
           : checkpoint.plannedAt
-            ? `Planned ${clock(checkpoint.plannedAt)}`
-            : "Not marked"}
+            ? <T id="day-of.checkpoint-row.planned" values={{ plannedAt: clock(checkpoint.plannedAt) }}>{"Planned {plannedAt}"}</T>
+            : <T id="day-of.checkpoint-row.not-marked">Not marked</T>}
       </span>
       {canUpdate && (
         <Button
@@ -156,7 +157,7 @@ function CheckpointRow({
           aria-label={`${checkpoint.reachedAt ? "Clear" : "Mark"} ${checkpoint.label}`}
           onClick={onToggle}
         >
-          {checkpoint.reachedAt ? "Clear" : "Mark now"}
+          {checkpoint.reachedAt ? <T id="day-of.checkpoint-row.clear">Clear</T> : <T id="day-of.checkpoint-row.mark-now">Mark now</T>}
         </Button>
       )}
     </li>
@@ -178,7 +179,7 @@ function TruckRow({
   return (
     <li className="planning-row">
       <strong>{truck.name}</strong>
-      <span>Driver: {truck.driverName ?? "Unassigned"}</span>
+      <span><T id="day-of.truck-row.driver" values={{ driverName: truck.driverName ?? <T id="day-of.truck-row.unassigned">Unassigned</T> }}>{"Driver: {driverName}"}</T></span>
       {canUpdate ? (
         <>
           <select
@@ -203,7 +204,7 @@ function TruckRow({
             aria-label={`Save ${truck.name} location`}
             onClick={() => onSave({ location })}
           >
-            Save
+            <T id="day-of.truck-row.save">Save</T>
           </Button>
         </>
       ) : (
@@ -253,7 +254,7 @@ function StaffRow({
             aria-label={`Save ${member.name} location`}
             onClick={() => onSave({ location })}
           >
-            Save
+            <T id="day-of.staff-row.save">Save</T>
           </Button>
         </>
       ) : (
@@ -268,7 +269,7 @@ function StaffRow({
 // after it is completed.
 export function EventDayOfSection({ event }: { event: { id: string; title: string } }) {
   const log = useResource(["day-of-log", event.id], () => dayOfApi.log(event.id));
-  if (log.error) return <Section title="Day-of log"><LoadError message={log.error} /></Section>;
+  if (log.error) return <Section title={<T id="day-of.event-day-of-section.day-of-log">Day-of log</T>}><LoadError message={log.error} /></Section>;
   if (!log.data) return <LoadingSkeleton />;
   const { entries, truncated } = log.data;
   const exportCsv = () => {
@@ -280,19 +281,19 @@ export function EventDayOfSection({ event }: { event: { id: string; title: strin
   };
   return (
     <Section
-      title="Day-of log"
-      action={entries.length ? <Button variant="ghost" onClick={exportCsv}>Export CSV</Button> : undefined}
+      title={<T id="day-of.event-day-of-section.day-of-log">Day-of log</T>}
+      action={entries.length ? <Button variant="ghost" onClick={exportCsv}><T id="day-of.event-day-of-section.export-csv">Export CSV</T></Button> : undefined}
     >
-      {!entries.length && <p>No day-of updates yet.</p>}
-      {truncated && <p>Showing the latest {entries.length} updates.</p>}
+      {!entries.length && <p><T id="day-of.event-day-of-section.no-day-of-updates-yet">No day-of updates yet.</T></p>}
+      {truncated && <p><T id="day-of.event-day-of-section.showing-the-latest-updates" values={{ count: entries.length }}>{"Showing the latest {count} updates."}</T></p>}
       <ul aria-label="Day-of log" className="planning-list">
         {entries.map((entry) => {
           const { date, time } = utcToBusinessTime(new Date(entry.at));
           return (
             <li key={entry.id} className="planning-row">
               <small>{date} {clockLabel(time)}</small>
-              <span>{entry.urgent && <span className="badge error">Urgent</span>} {entry.summary}</span>
-              <small>{entry.actorName ?? "System"}</small>
+              <span>{entry.urgent && <span className="badge error"><T id="day-of.event-day-of-section.urgent">Urgent</T></span>} {entry.summary}</span>
+              <small>{entry.actorName ?? <T id="day-of.event-day-of-section.system">System</T>}</small>
             </li>
           );
         })}
