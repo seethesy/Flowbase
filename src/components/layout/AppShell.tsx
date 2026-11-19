@@ -1,9 +1,11 @@
 import { usePermissions } from "../../app/permissions";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useResource } from "../../app/useResource";
-import { clientsApi, inventoryApi } from "../../services/core";
+import { clientsApi, eventsApi, inventoryApi, recipesApi, venuesApi } from "../../services/core";
+import { leadsApi } from "../../services/leads";
+import { vendorsApi } from "../../services/vendors";
+import { staffApi } from "../../services/staff";
 import {
-  NavLink,
   Outlet,
   Link,
   useLocation,
@@ -11,29 +13,24 @@ import {
 } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
   Inbox,
   FileText,
   Package,
   ChefHat,
-  ShoppingCart,
-  Truck,
-  Calendar,
   CalendarDays,
-  ClipboardCheck,
-  MapPin,
   ChartNoAxesCombined,
   Settings,
   CircleHelp,
-  PanelLeftClose,
-  PanelLeftOpen,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Search,
   Menu,
   X,
   Leaf,
   Contact,
-  ListChecks,
+  Megaphone,
+  type LucideIcon,
 } from "lucide-react";
 import { DetailDrawer } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
@@ -42,51 +39,98 @@ import { NotificationBell } from "../../features/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
 import { useAuth } from "../../app/auth";
 import { roleLabel } from "../../services/users";
-const navigation = [
-  { name: "Dashboard", to: "/", icon: LayoutDashboard },
-  { name: "Tasks", to: "/tasks", icon: ListChecks },
-  { name: "SOPs", to: "/sops", icon: FileText },
-  { name: "Leads", to: "/leads", icon: Inbox },
-  { name: "Clients", to: "/clients", icon: Users },
-  { name: "Proposals", to: "/proposals", icon: FileText },
-  { name: "Inventory", to: "/inventory", icon: Package },
-  { name: "Recipes", to: "/recipes", icon: ChefHat },
-  { name: "Purchasing", to: "/purchasing", icon: ShoppingCart },
-  { name: "Vendors", to: "/vendors", icon: Truck },
-  { name: "Events", to: "/events", icon: CalendarDays },
-  { name: "Calendar", to: "/calendar", icon: Calendar },
-  { name: "Day-of", to: "/day-of", icon: ClipboardCheck },
-  { name: "Production", to: "/production", icon: ListChecks },
-  { name: "Venues", to: "/venues", icon: MapPin },
-  { name: "Staff", to: "/staff", icon: Contact },
-  { name: "Reports", to: "/reports", icon: ChartNoAxesCombined },
-];
-export function Breadcrumbs() {
+import {
+  breadcrumbTrail,
+  matchNavigation,
+  visibleGroups,
+  visibleTabs,
+  type RecordKind,
+} from "../../app/navigation";
+const groupIcons: Record<string, LucideIcon> = {
+  Dashboard: LayoutDashboard,
+  Sales: Inbox,
+  Events: CalendarDays,
+  Staffing: Contact,
+  Inventory: Package,
+  Kitchen: ChefHat,
+  Marketing: Megaphone,
+  Documents: FileText,
+  Reports: ChartNoAxesCombined,
+};
+// Day-of sits under Dashboard and Events. Links say which heading they came from,
+// so the sidebar, tabs and breadcrumb stay on it.
+type NavState = { navGroup?: string } | null;
+function useNavMatch() {
   const location = useLocation();
-  const parts = location.pathname.split("/").filter(Boolean);
-  const name =
-    parts[0] === "clients"
-      ? "Clients"
-      : parts[0]
-        ? parts[0][0].toUpperCase() + parts[0].slice(1)
-        : "Dashboard";
+  const state = location.state as NavState;
+  return {
+    pathname: location.pathname,
+    preferredGroup: state?.navGroup,
+    match: matchNavigation(location.pathname, state?.navGroup),
+  };
+}
+export function Breadcrumbs() {
+  const { pathname, preferredGroup } = useNavMatch();
+  const { actor } = usePermissions();
+  const crumbs = breadcrumbTrail(pathname, actor, preferredGroup);
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
-      <span>Workspace</span>
-      <span>/</span>
-      <Link to={parts[0] ? `/${parts[0]}` : "/"}>{name}</Link>
-      {parts[1] && (parts[0] === "clients" || (parts[0] === "inventory" && !["ingredients", "bar", "supplies", "counts", "sections", "low-stock"].includes(parts[1]))) && (
-        <RecordBreadcrumb key={location.pathname} resource={parts[0]} id={parts[1]} />
-      )}
+      {crumbs.map((crumb, index) => {
+        const label = crumb.record ? (
+          <RecordName key={pathname} {...crumb.record} fallback={crumb.label} />
+        ) : (
+          crumb.label
+        );
+        return (
+          <span className={index === 0 ? "crumb crumb-root" : "crumb"} key={`${index}:${crumb.label}`}>
+            {index > 0 && <span className="crumb-separator" aria-hidden="true">/</span>}
+            {crumb.to ? (
+              <Link to={crumb.to} state={preferredGroup ? { navGroup: preferredGroup } : undefined}>
+                {label}
+              </Link>
+            ) : (
+              <span aria-current="page">{label}</span>
+            )}
+          </span>
+        );
+      })}
     </nav>
   );
 }
-function RecordBreadcrumb({ resource, id }: { resource: string; id: string }) {
-  const record = useResource(["breadcrumb", resource, id], async () => {
-    const result = resource === "clients" ? await clientsApi.get(id) : await inventoryApi.get(id);
-    return { name: result.name };
+const recordNames: Record<RecordKind, (id: string) => Promise<{ name?: string; title?: string }>> = {
+  clients: (id) => clientsApi.get(id),
+  leads: (id) => leadsApi.get(id),
+  events: (id) => eventsApi.get(id),
+  venues: (id) => venuesApi.get(id),
+  vendors: (id) => vendorsApi.get(id),
+  inventory: (id) => inventoryApi.get(id),
+  recipes: (id) => recipesApi.get(id),
+  staff: (id) => staffApi.get(id),
+};
+function RecordName({ kind, id, fallback }: { kind: RecordKind; id: string; fallback: string }) {
+  const record = useResource(["breadcrumb", kind, id], async () => {
+    const result = await recordNames[kind](id);
+    return { name: result.name ?? result.title ?? "" };
   });
-  return record.data ? <><span>/</span><span>{record.data.name}</span></> : null;
+  return <>{record.data?.name || fallback}</>;
+}
+const COLLAPSED_KEY = "flowbase.sidebar.collapsed";
+// Remembered per browser (FLOW-246). Storage can be unavailable (private mode).
+function storedCollapsed() {
+  try {
+    const stored = window.localStorage.getItem(COLLAPSED_KEY);
+    if (stored !== null) return stored === "true";
+  } catch {
+    // Fall through to the screen-width default.
+  }
+  return window.innerWidth < 1200;
+}
+function storeCollapsed(value: boolean) {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, String(value));
+  } catch {
+    // Not remembered; the toggle still works for this visit.
+  }
 }
 function Sidebar({
   collapsed,
@@ -100,7 +144,10 @@ function Sidebar({
   setMobile: (v: boolean) => void;
 }) {
   const auth = useAuth();
+  const { actor } = usePermissions();
+  const { match, pathname } = useNavMatch();
   const displayName = auth?.user.name ?? "Profile";
+  const groups = visibleGroups(actor);
   return (
     <>
       {mobile && (
@@ -134,70 +181,49 @@ function Sidebar({
           <ChevronDown size={14} />
         </button>
         <div className="nav-label sidebar-text">WORKSPACE</div>
-        <nav className="primary-nav">
-          {navigation.map(({ name, to, icon: Icon }) => (
-            <NavLink
-              end={to === "/"}
-              to={to}
-              key={name}
-              title={name}
-              onClick={() => setMobile(false)}
-            >
-              <Icon size={19} />
-              <span className="sidebar-text">{name}</span>
-              {name === "Proposals" && (
-                <span className="nav-count sidebar-text">40</span>
-              )}
-              {["Purchasing", "Events"].includes(name) && (
-                <span className="nav-placeholder sidebar-text">↗</span>
-              )}
-            </NavLink>
-          ))}
-          {(auth?.user.role === "admin" || auth?.user.role === "sales_manager") && (
-            <NavLink to="/reports/operations" title="Operational reports" onClick={() => setMobile(false)}>
-              <ChartNoAxesCombined size={19} /><span className="sidebar-text">Operational reports</span>
-            </NavLink>
-          )}
+        <nav className="primary-nav" aria-label="Main">
+          {groups.map(({ name, tabs }) => {
+            const Icon = groupIcons[name] ?? LayoutDashboard;
+            // The heading stays highlighted on any of its tabs or record pages.
+            const active = match?.group.name === name;
+            return (
+              <Link
+                to={tabs[0].to}
+                state={{ navGroup: name }}
+                key={name}
+                title={name}
+                className={active ? "active" : undefined}
+                aria-current={active ? "page" : undefined}
+                onClick={() => setMobile(false)}
+              >
+                <Icon size={19} />
+                <span className="sidebar-text">{name}</span>
+              </Link>
+            );
+          })}
         </nav>
         <div className="sidebar-bottom">
-          <div className="demo-sidebar-note sidebar-text">
-            <span className="demo-note-label">A LITTLE LOOK AROUND</span>
-            <p>
-              Your operations,
-              <br />
-              in flow.
-            </p>
-            <small>Explore the interactive demo.</small>
-            <span className="demo-version">DEMO · v0.1</span>
-          </div>
-          <nav className="secondary-nav">
+          <nav className="secondary-nav" aria-label="Settings and help">
             {[
               { name: "Settings", icon: Settings, to: "/settings" },
               { name: "Help & resources", icon: CircleHelp, to: "/help" },
-            ].map(({ name, icon: Icon, to }) => (
-              <NavLink
-                to={to}
-                key={to}
-                title={name}
-                onClick={() => setMobile(false)}
-              >
-                <Icon size={18} />
-                <span className="sidebar-text">{name}</span>
-              </NavLink>
-            ))}
+            ].map(({ name, icon: Icon, to }) => {
+              const active = pathname === to || pathname.startsWith(`${to}/`);
+              return (
+                <Link
+                  to={to}
+                  key={to}
+                  title={name}
+                  className={active ? "active" : undefined}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setMobile(false)}
+                >
+                  <Icon size={18} />
+                  <span className="sidebar-text">{name}</span>
+                </Link>
+              );
+            })}
           </nav>
-          <button
-            className="sidebar-collapse"
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={17} />
-            ) : (
-              <PanelLeftClose size={17} />
-            )}
-            <span className="sidebar-text">Collapse sidebar</span>
-          </button>
           <Link
             to="/profile"
             className="profile"
@@ -214,7 +240,45 @@ function Sidebar({
           </Link>
         </div>
       </aside>
+      {/* Full-height collapse edge on the sidebar's right eighth (FLOW-246). */}
+      <button
+        type="button"
+        className="sidebar-edge"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <span className="sidebar-edge-bar" aria-hidden="true">
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </span>
+      </button>
     </>
+  );
+}
+// The current heading's sub-pages, as tabs at the top of the page (FLOW-246).
+function SectionTabs() {
+  const { actor } = usePermissions();
+  const { match } = useNavMatch();
+  if (!match) return null;
+  const tabs = visibleTabs(match.group, actor);
+  if (tabs.length < 2) return null;
+  return (
+    <nav className="section-tabs" aria-label={`${match.group.name} pages`}>
+      {tabs.map((tab) => {
+        const active = tab.to === match.tab.to;
+        return (
+          <Link
+            key={tab.to}
+            to={tab.to}
+            state={{ navGroup: match.group.name }}
+            className={active ? "active" : undefined}
+            aria-current={active ? "page" : undefined}
+          >
+            {tab.name}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
@@ -222,8 +286,27 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   const permissions = usePermissions();
   const displayName = auth?.user.name ?? "Profile";
   const navigate = useNavigate();
+  const location = useLocation();
   const [global, setGlobal] = useState(false);
   const [profile, setProfile] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+  // The profile menu closes on an outside click, Escape, or navigation (FLOW-247).
+  useEffect(() => setProfile(false), [location.key, location.pathname]);
+  useEffect(() => {
+    if (!profile) return;
+    const outside = (event: PointerEvent) => {
+      if (!menu.current?.contains(event.target as Node)) setProfile(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfile(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [profile]);
   return (
     <>
       <header className="top-header">
@@ -243,14 +326,13 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
           >
             <Search size={16} />
             <span>Search anything…</span>
-            <kbd>/</kbd>
           </button>
-          <span className="header-demo">DEMO</span>
           <NotificationBell />
-          <div className="menu-wrap">
+          <div className="menu-wrap" ref={menu}>
             <button
               className="avatar header-avatar"
               aria-label="Open profile menu"
+              aria-expanded={profile}
               onClick={() => setProfile(!profile)}
             >
               {displayName.slice(0, 2).toUpperCase()}
@@ -290,7 +372,11 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   );
 }
 export function AppShell() {
-  const [collapsed, setCollapsed] = useState(() => window.innerWidth < 1200);
+  const [collapsed, setCollapsedState] = useState(storedCollapsed);
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value);
+    storeCollapsed(value);
+  };
   const [mobile, setMobile] = useState(false);
   useActivityTracking();
   return (
@@ -303,6 +389,7 @@ export function AppShell() {
         <TopHeader setMobile={setMobile} />
         <main id="main-content">
           <TrackingNotice />
+          <SectionTabs />
           <Suspense fallback={<p role="status">Loading screen…</p>}><Outlet /></Suspense>
         </main>
         <footer className="app-footer">

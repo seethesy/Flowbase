@@ -114,7 +114,7 @@ const RecipeDetail = lazy(() => import("../features/recipes").then((module) => (
 const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
 const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
 const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
-import { Button, PageHeader, Section } from "../components/shared";
+import { Button, EmptyState, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
 import { roleLabel } from "../services/users";
@@ -170,6 +170,18 @@ function Placeholder() {
           </Button>
         </div>
       </Section>
+    </>
+  );
+}
+// Schedule, Marketing and Documents have a place in the navigation before they
+// have a screen (FLOW-246).
+function ComingSoon({ title }: { title: string }) {
+  return (
+    <>
+      <PageHeader title={title} subtitle="This page is on its way." />
+      <section className="panel">
+        <EmptyState title="Coming soon" description={`${title} isn't available yet.`} />
+      </section>
     </>
   );
 }
@@ -262,6 +274,9 @@ export const getRouter = () =>
         { path: "/vendors/:id", element: <VendorDetail /> },
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
+        { path: "/staffing/schedule", element: <ComingSoon title="Schedule" /> },
+        { path: "/marketing", element: <ComingSoon title="Marketing" /> },
+        { path: "/documents", element: <ComingSoon title="Documents" /> },
         { path: "/profile", element: <Profile /> },
         { path: "/tasks", element: <TaskDashboardPage /> },
         { path: "/tasks/all", element: <TaskList /> },

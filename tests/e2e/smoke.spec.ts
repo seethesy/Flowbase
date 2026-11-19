@@ -12,7 +12,9 @@ test("sidebar, client search, detail tabs, and browser history", async ({
   ).toBeVisible();
   if (isMobile)
     await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "Clients", exact: true }).click();
+  // Clients is a tab under the Sales heading (FLOW-246).
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true }).click();
+  await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Clients", exact: true }).click();
   await page.getByPlaceholder("Search clients or contacts…").fill("Juniper");
   await page.getByRole("button", { name: "JC Juniper & Co." }).click();
   await page.getByRole("tab", { name: "Contacts", exact: true }).click();

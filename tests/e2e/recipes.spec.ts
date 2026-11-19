@@ -24,7 +24,8 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
   await page.goto("/");
   if (isMobile)
     await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "Recipes", exact: true }).click();
+  // Kitchen opens its first tab, Recipes (FLOW-246).
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Kitchen", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Recipe book", exact: true }),
   ).toBeVisible();
