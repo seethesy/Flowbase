@@ -79,6 +79,7 @@ Start only when the developer prompts you with a ticket key (or several keys, se
 ### 4.3 Implement
 - Deliver the ticket's ACs and requirements. Nothing else: no unrelated refactors, renames, or reformatting.
 - Follow the existing patterns in the files you touch (README → Architecture).
+- Wrap new screen wording in `<T>` / `useCopy` so the admin can edit it (`docs/live-text-editing.md`); `npm run lint` fails on unwrapped text.
 - Make routine technical decisions yourself. Ask only about product decisions (behavior, scope, security, cost, architecture).
 - Add a dependency only when the ticket requires it, with `npm install <pkg>` (the only npm command you may run), and justify it in the PR.
 - Write or update tests for every delivered AC and for edge cases and regressions the change risks: Vitest in `tests/`, Playwright in `tests/e2e/`. Write them; do not run them.
