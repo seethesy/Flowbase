@@ -1,0 +1,105 @@
+/* Live text editing (FLOW-240). */
+.live-copy {
+  outline: 1px dashed var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+  cursor: text;
+}
+.live-copy:hover,
+.live-copy:focus-visible {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+/* Edited from the default. */
+.live-copy-changed {
+  position: relative;
+}
+.live-copy-changed::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  pointer-events: none;
+}
+.live-copy-editor {
+  position: fixed;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 16px));
+  padding: 12px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.live-copy-editor label {
+  display: grid;
+  gap: 4px;
+}
+.live-copy-editor textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+.live-copy-default {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.live-copy-editor-actions,
+.live-edit-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.live-edit-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.live-edit-save {
+  background: var(--primary);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+.live-edit-save:disabled {
+  opacity: 0.5;
+}
+.live-edit-cancel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+.live-edit-guard-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.35);
+}
+.live-edit-guard {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+}

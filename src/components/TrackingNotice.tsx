@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "./shared";
 import { useBusinessSettings } from "../services/settings";
 import "../features/time-tracking.css";
+import { T } from "../app/live-copy";
 
 // The idle cutoff is a business setting (FLOW-45).
 export const trackingNoticeText = (idleMinutes: number) =>
@@ -25,8 +26,8 @@ export function TrackingNotice() {
   return (
     <aside className="demo-callout tracking-notice" aria-label="Time tracking">
       <p>
-        <strong>Time tracking is on.</strong> {trackingNoticeText(idleMinutes)}{" "}
-        <Link to="/settings">More about time tracking</Link>
+        <strong><T id="shared.trackingnotice.tracking-notice.time-tracking-is-on">Time tracking is on.</T></strong> {trackingNoticeText(idleMinutes)}{" "}
+        <Link to="/settings"><T id="shared.trackingnotice.tracking-notice.more-about-time-tracking">More about time tracking</T></Link>
       </p>
       <Button
         variant="outline"
@@ -39,7 +40,7 @@ export function TrackingNotice() {
           setOpen(false);
         }}
       >
-        Got it
+        <T id="shared.trackingnotice.tracking-notice.got-it">Got it</T>
       </Button>
     </aside>
   );

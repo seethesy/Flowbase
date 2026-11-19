@@ -387,6 +387,10 @@ Bar plan (FLOW-170; `allocatePool` in `shared/allocation.ts`, `recomputeBarPool`
 | `POST /api/approvals/<id>/approve` `{comment?}`, `POST …/reject` `{comment}` | Decide it |
 | `POST /api/approvals/<id>/withdraw` | The requester takes it back |
 
+## Live text editing
+
+The admin rewords the app's built-in screen text in place (FLOW-240 to FLOW-244): the header's pencil turns on edit mode, every editable string gets a dashed outline, and Save writes the changes for everyone. Wording is written as `<T id="area.screen.element">Default</T>` or `useCopy(…)` (`src/app/live-copy.tsx`); overrides live in `ui_copy` behind `/api/copy` (`copy.edit`, Admin only), and `live-copy/wrap-text` (`scripts/eslint-live-copy.mjs`) fails lint on unwrapped text. Conventions and exclusions: `docs/live-text-editing.md`.
+
 ## Notifications
 
 In-app and email notifications (FLOW-43, ADR-12; catalog in `shared/notifications.ts`, fan-out in `worker/notifications/fanout.ts`, API `worker/routes/notifications.ts`). Each notification type subscribes to one domain event through the job registry:

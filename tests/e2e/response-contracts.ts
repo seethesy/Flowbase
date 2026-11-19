@@ -84,6 +84,7 @@ import {
 } from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
 import { calendarSchema } from "../../shared/calendar";
+import { copyOverridesSchema } from "../../shared/copy";
 import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
 import { orderListSchema } from "../../shared/order-lists";
 import { salesClientSchema, salesDataSchema, salesReportSchema, salesViewSchema } from "../../shared/sales";
@@ -102,6 +103,8 @@ export function responseSchema(
   if (status >= 400) return apiErrorSchema;
   const [, , resource, id, action] = path.split("/");
   if (resource === "health") return healthSchema;
+  // Live text editing (FLOW-240): every write answers with all overrides.
+  if (resource === "copy") return copyOverridesSchema;
   if (resource === "home" && id === "my-shifts") return z.object({ count: z.number().int() });
   if (resource === "home" && id === "kitchen") return z.object({ menus: z.number().int(), openOrderLists: z.number().int() });
   if (resource === "home" && id === "kitchen-orders") return z.array(z.object({ id: z.string(), fromDate: z.string(), toDate: z.string(), status: z.string() }));

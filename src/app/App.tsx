@@ -4,6 +4,7 @@ import { queryClient } from "./queryClient";
 import { DemoProvider } from "./store";
 import { getRouter } from "./router";
 import { AuthGate } from "./auth";
+import { CopyProvider } from "./live-copy";
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -16,6 +17,9 @@ export function App() {
 
 function Workspace() {
   return (
-    <DemoProvider><RouterProvider router={getRouter()} /></DemoProvider>
+    // The admin's wording for every screen (FLOW-240), once signed in.
+    <CopyProvider>
+      <DemoProvider><RouterProvider router={getRouter()} /></DemoProvider>
+    </CopyProvider>
   );
 }

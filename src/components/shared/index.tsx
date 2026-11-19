@@ -27,6 +27,7 @@ import { Button } from "../ui/button";
 import { canSeeField, type FieldGroup } from "../../../shared/visibility";
 import type { Actor } from "../../../shared/access";
 import { usePermissions } from "../../app/permissions";
+import { copySlug, T, TPlural, useCopy } from "../../app/live-copy";
 import {
   csvFileName,
   downloadCsv,
@@ -117,12 +118,14 @@ export function StatusBadge({ status }: { status: string }) {
 export function SearchInput({
   value,
   onChange,
-  placeholder = "Search records…",
+  placeholder: given,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
+  const fallback = useCopy("shared.search-input.placeholder", "Search records…");
+  const placeholder = given ?? fallback;
   return (
     <div className="search-input">
       <Search size={16} />
@@ -173,10 +176,10 @@ export function PageHeader({
   children,
   eyebrow,
 }: {
-  title: string;
-  subtitle: string;
+  title: ReactNode;
+  subtitle: ReactNode;
   children?: ReactNode;
-  eyebrow?: string;
+  eyebrow?: ReactNode;
 }) {
   return (
     <div className="page-heading">
@@ -190,11 +193,13 @@ export function PageHeader({
   );
 }
 export function EmptyState({
-  title = "No records found",
-  description = "Try adjusting your search or filters.",
+  title = <T id="shared.empty-state.title">No records found</T>,
+  description = (
+    <T id="shared.empty-state.description">Try adjusting your search or filters.</T>
+  ),
 }: {
-  title?: string;
-  description?: string;
+  title?: ReactNode;
+  description?: ReactNode;
 }) {
   return (
     <div className="empty">
@@ -273,9 +278,16 @@ export function DataTable<T>({
             onClick={() => void exportCsv(exportName)}
           >
             <Download size={16} />
-            {exporting === null
-              ? "Export CSV"
-              : `Exporting… ${exporting} ${exporting === 1 ? "row" : "rows"}`}
+            {exporting === null ? (
+              <T id="shared.data-table.export">Export CSV</T>
+            ) : (
+              <TPlural
+                id="shared.data-table.exporting"
+                count={exporting}
+                one="Exporting… {count} row"
+                other="Exporting… {count} rows"
+              />
+            )}
           </Button>
         </div>
       )}
@@ -287,7 +299,7 @@ export function DataTable<T>({
                 <th key={h.id}>
                   {h.column.getCanSort() ? (
                     <button onClick={h.column.getToggleSortingHandler()}>
-                      {flexRender(h.column.columnDef.header, h.getContext())}
+                      <ColumnHeader table={label} header={h} />
                       <ArrowUpDown size={12} />
                       {h.column.getIsSorted() === "asc"
                         ? " ↑"
@@ -296,7 +308,7 @@ export function DataTable<T>({
                           : ""}
                     </button>
                   ) : (
-                    flexRender(h.column.columnDef.header, h.getContext())
+                    <ColumnHeader table={label} header={h} />
                   )}
                 </th>
               ))}
@@ -330,12 +342,17 @@ export function DataTable<T>({
       {!data.length && <EmptyState />}
       <div className="pagination">
         <span>
-          {data.length ? table.getState().pagination.pageIndex * 8 + 1 : 0}–
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * 8,
-            data.length,
-          )}{" "}
-          of {data.length} {label}
+          <T
+            id="shared.data-table.range"
+            values={{
+              first: data.length ? table.getState().pagination.pageIndex * 8 + 1 : 0,
+              last: Math.min((table.getState().pagination.pageIndex + 1) * 8, data.length),
+              total: data.length,
+              label,
+            }}
+          >
+            {"{first}–{last} of {total} {label}"}
+          </T>
         </span>
         <div>
           <Button
@@ -348,8 +365,15 @@ export function DataTable<T>({
             <ChevronLeft size={16} />
           </Button>
           <span>
-            Page {table.getState().pagination.pageIndex + 1} of{" "}
-            {Math.max(1, table.getPageCount())}
+            <T
+              id="shared.data-table.page"
+              values={{
+                page: table.getState().pagination.pageIndex + 1,
+                pages: Math.max(1, table.getPageCount()),
+              }}
+            >
+              {"Page {page} of {pages}"}
+            </T>
           </span>
           <Button
             variant="outline"
@@ -369,14 +393,16 @@ export function DetailDrawer({
   open,
   onClose,
   title,
-  description = "Changes are simulated and reset when you refresh.",
+  description = (
+    <T id="shared.drawer.description">Changes are simulated and reset when you refresh.</T>
+  ),
   children,
   wide = false,
 }: {
   open: boolean;
   onClose: () => void;
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
   wide?: boolean;
 }) {
@@ -430,7 +456,7 @@ export function ConfirmationDialog({
   open: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
-  title: string;
+  title: ReactNode;
   children: ReactNode;
 }) {
   const [error, setError] = useState("");
@@ -440,7 +466,7 @@ export function ConfirmationDialog({
       {error && <p role="alert">{error}</p>}
       <div className="form-actions">
         <Button variant="outline" onClick={onClose}>
-          Cancel
+          <T id="shared.confirm.cancel">Cancel</T>
         </Button>
         <Button
           variant="destructive"
@@ -452,7 +478,7 @@ export function ConfirmationDialog({
             }
           }}
         >
-          Confirm
+          <T id="shared.confirm.confirm">Confirm</T>
         </Button>
       </div>
     </DetailDrawer>
@@ -463,9 +489,9 @@ export function FormField({
   children,
   hint,
 }: {
-  label: string;
+  label: ReactNode;
   children: ReactNode;
-  hint?: string;
+  hint?: ReactNode;
 }) {
   return (
     <label className="form-field">
@@ -508,7 +534,7 @@ export function Tabs({
             }
           }}
         >
-          {t}
+          <T id={`tabs.${copySlug(t)}`}>{t}</T>
         </button>
       ))}
     </div>
@@ -526,9 +552,15 @@ export function FileList() {
           <FileText size={22} />
           <div>
             <strong>{name}</strong>
-            <small>{size} · Sample attachment · preview only</small>
+            <small>
+              <T id="shared.file-list.sample" values={{ size }}>
+                {"{size} · Sample attachment · preview only"}
+              </T>
+            </small>
           </div>
-          <span className="badge neutral">Demo file</span>
+          <span className="badge neutral">
+            <T id="shared.file-list.demo">Demo file</T>
+          </span>
         </div>
       ))}
     </div>
@@ -539,7 +571,7 @@ export function Section({
   children,
   action,
 }: {
-  title: string;
+  title: ReactNode;
   children: ReactNode;
   action?: ReactNode;
 }) {
@@ -560,10 +592,10 @@ export function KpiCard({
   comparison,
   onClick,
 }: {
-  label: string;
+  label: ReactNode;
   value: string | number;
   icon: ReactNode;
-  comparison: string;
+  comparison: ReactNode;
   onClick: () => void;
 }) {
   return (
@@ -579,4 +611,19 @@ export function KpiCard({
       </div>
     </button>
   );
+}
+
+// A table's column header: a plain string header shows through the admin's
+// wording for this table and column (FLOW-240); a rendered header shows as is.
+function ColumnHeader<T>({
+  table,
+  header,
+}: {
+  table: string;
+  header: import("@tanstack/react-table").Header<T, unknown>;
+}) {
+  const text = header.column.columnDef.header;
+  if (typeof text !== "string")
+    return <>{flexRender(text, header.getContext())}</>;
+  return <T id={`tables.${copySlug(table)}.${copySlug(header.column.id)}`}>{text}</T>;
 }

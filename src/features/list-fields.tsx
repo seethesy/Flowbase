@@ -1,5 +1,6 @@
 import { listOptions, type ListKey } from "../../shared/settings";
 import { useBusinessSettings } from "../services/settings";
+import { copySlug, T } from "../app/live-copy";
 
 // Form controls fed by the configurable lists (FLOW-45). Only active values can be
 // picked; a record's archived (or pre-list) value stays selected and is marked.
@@ -78,7 +79,9 @@ export function ListCheckboxes({
   const settings = useBusinessSettings();
   return (
     <fieldset className="list-checkboxes">
-      <legend>{legend}</legend>
+      <legend>
+        <T id={`list-fields.list-checkboxes.${copySlug(legend)}`}>{legend}</T>
+      </legend>
       {listOptions(settings.lists[list], values).map((option) => (
         <label key={option.label}>
           <input
@@ -92,7 +95,7 @@ export function ListCheckboxes({
               )
             }
           />
-          {option.archived ? `${option.label} (archived)` : option.label}
+          {option.archived ? <T id="list-fields.list-checkboxes.archived" values={{ label: option.label }}>{"{label} (archived)"}</T> : option.label}
         </label>
       ))}
     </fieldset>

@@ -8,6 +8,7 @@ import type { Page } from "../services/core";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
 import { isRefused } from "./useResource";
+import { copySlug, T } from "./live-copy";
 
 // Every row a list's `load` returns, walking its pages from the first (FLOW-216:
 // Export CSV writes the whole filtered list, not just the pages on screen). Each
@@ -89,7 +90,11 @@ export function LoadMore({
         disabled={list.loadingMore}
         onClick={list.loadMore}
       >
-        {list.loadingMore ? "Loading…" : label}
+        {list.loadingMore ? (
+          <T id="app.paging.load-more.loading">Loading…</T>
+        ) : (
+          <T id={`app.paging.load-more.${copySlug(label)}`}>{label}</T>
+        )}
       </Button>
     </p>
   );

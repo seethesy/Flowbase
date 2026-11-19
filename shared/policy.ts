@@ -73,6 +73,8 @@ const adminOnly = [
   "rentals.approve",
   "proposals.approve",
   "order_lists.approve",
+  // Live text editing (FLOW-240): changing the app's built-in wording.
+  "copy.edit",
 ] as const;
 export const actions = [
   ...new Set([

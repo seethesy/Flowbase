@@ -7,6 +7,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
+import { LiveEditGuard, T } from "./live-copy";
 const Dashboard = lazy(() =>
   import("../features/dashboard").then((module) => ({ default: module.Dashboard })),
 );
@@ -154,19 +155,18 @@ function Placeholder() {
   return (
     <>
       <PageHeader
-        title="Room to grow"
-        subtitle="A peek at what comes next for your workspace."
+        title={<T id="app.router.placeholder.room-to-grow">Room to grow</T>}
+        subtitle={<T id="app.router.placeholder.a-peek-at-what-comes-next">A peek at what comes next for your workspace.</T>}
       />
-      <Section title="Not included in demo">
+      <Section title={<T id="app.router.placeholder.not-included-in-demo">Not included in demo</T>}>
         <div className="placeholder-content">
           <Leaf size={40} />
-          <h2>One step at a time.</h2>
+          <h2><T id="app.router.placeholder.one-step-at-a-time">One step at a time.</T></h2>
           <p>
-            This module is a placeholder in Flowbase v0.1. Explore Clients,
-            proposals, and inventory to see the interactive prototype.
+            <T id="app.router.placeholder.this-module-is-a-placeholder-in">This module is a placeholder in Flowbase v0.1. Explore Clients, proposals, and inventory to see the interactive prototype.</T>
           </p>
           <Button asChild>
-            <Link to="/">Back to overview</Link>
+            <Link to="/"><T id="app.router.placeholder.back-to-overview">Back to overview</T></Link>
           </Button>
         </div>
       </Section>
@@ -179,15 +179,15 @@ function Profile() {
   return (
     <>
       <PageHeader
-        title={user?.name ?? "Employee profile"}
+        title={user?.name ?? <T id="app.router.profile.employee-profile">Employee profile</T>}
         subtitle={user ? roleLabel(user.role) : ""}
       />
-      <Section title="Employee profile">
+      <Section title={<T id="app.router.profile.employee-profile">Employee profile</T>}>
         <p>{user?.email}</p>
         <p>
-          {user?.employmentType === "full_time" ? "Full-time" : "Part-time"}
+          {user?.employmentType === "full_time" ? <T id="app.router.profile.full-time">Full-time</T> : <T id="app.router.profile.part-time">Part-time</T>}
         </p>
-        <Button onClick={() => void auth?.signOut()}>Sign out</Button>
+        <Button onClick={() => void auth?.signOut()}><T id="app.router.profile.sign-out">Sign out</T></Button>
       </Section>
       {user && <StaffProfile id={user.id} heading={false} />}
       {user && <NotificationSettings />}
@@ -210,15 +210,21 @@ let router: ReturnType<typeof createHashRouter> | undefined;
 export const getRouter = () =>
   (router ??= createHashRouter([
     // Printable documents render without the app shell.
-    { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense> },
-    { path: "/print/recipes/client", element: <Suspense fallback={<p role="status">Loading document…</p>}><ClientRecipePrint /></Suspense> },
+    { path: "/print/sample", element: <Suspense fallback={<p role="status"><T id="app.router.file.loading-document">Loading document…</T></p>}><PrintSample /></Suspense> },
+    { path: "/print/recipes/client", element: <Suspense fallback={<p role="status"><T id="app.router.file.loading-document">Loading document…</T></p>}><ClientRecipePrint /></Suspense> },
     // Saved BEOs, read with no signal (FLOW-150): outside the app shell too.
-    { path: "/offline", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoList /></Suspense> },
-    { path: "/offline/events/:id", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoPage /></Suspense> },
-    { path: "/print/events/:id/beo", element: <Suspense fallback={<p role="status">Loading document…</p>}><BeoPrint /></Suspense> },
-    { path: "/print/recipes/:id", element: <Suspense fallback={<p role="status">Loading document…</p>}><KitchenRecipePrint /></Suspense> },
+    { path: "/offline", element: <Suspense fallback={<p role="status"><T id="app.router.file.loading">Loading…</T></p>}><OfflineBeoList /></Suspense> },
+    { path: "/offline/events/:id", element: <Suspense fallback={<p role="status"><T id="app.router.file.loading">Loading…</T></p>}><OfflineBeoPage /></Suspense> },
+    { path: "/print/events/:id/beo", element: <Suspense fallback={<p role="status"><T id="app.router.file.loading-document">Loading document…</T></p>}><BeoPrint /></Suspense> },
+    { path: "/print/recipes/:id", element: <Suspense fallback={<p role="status"><T id="app.router.file.loading-document">Loading document…</T></p>}><KitchenRecipePrint /></Suspense> },
     {
-      element: <AppShell />,
+      // Unsaved wording edits ask before leaving a page (FLOW-240).
+      element: (
+        <>
+          <LiveEditGuard />
+          <AppShell />
+        </>
+      ),
       children: [
         { path: "/", element: <Dashboard /> },
         { path: "/leads", element: <LeadInbox /> },

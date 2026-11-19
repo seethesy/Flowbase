@@ -45,6 +45,7 @@ import { taskRoutes } from "./routes/tasks";
 import { sopRoutes } from "./routes/sops";
 import { approvalRoutes } from "./routes/approvals";
 import { calendarRoutes } from "./routes/calendar";
+import { copyRoutes } from "./routes/copy";
 import { dayOfRoutes } from "./routes/day-of";
 import { productionRoutes } from "./routes/production";
 import { enqueueJob } from "./jobs/queue";
@@ -311,6 +312,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/approvals", approvalRoutes(options));
   app.route("/api/order-lists", orderListRoutes(options));
   app.route("/api/calendar", calendarRoutes(options));
+  app.route("/api/copy", copyRoutes(options));
   app.route("/api/day-of", dayOfRoutes(options));
   app.route("/api/production", productionRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));

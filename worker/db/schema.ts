@@ -2273,3 +2273,17 @@ export const beoChanges = pgTable(
     index("beo_changes_event_idx").on(table.eventId),
   ],
 ).enableRLS();
+
+// Live text editing (FLOW-240): the admin's rewording of built-in screen text, one
+// row per key. No live row means the code's default; resetting archives the row
+// (ADR-04: rows are never hard-deleted), and saving the key again restores it.
+// updated_by records who last changed it.
+export const uiCopy = pgTable(
+  "ui_copy",
+  {
+    ...baseColumns(),
+    key: text("key").notNull(),
+    text: text("text").notNull(),
+  },
+  (table) => [uniqueIndex("ui_copy_key_idx").on(table.key)],
+).enableRLS();
