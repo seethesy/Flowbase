@@ -34,6 +34,7 @@ import {
 import { LoadError } from "../components/record-display";
 import { centsLabel, kindLabels, subtypeLabel } from "./inventory-labels";
 import "./vendors.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 const daysLabel = (days: Weekday[]) =>
   days.map((day) => weekdayLabels[day]).join(", ") || "—";
@@ -117,8 +118,7 @@ export function VendorList() {
           ))}
         </select>
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
@@ -329,8 +329,7 @@ export function VendorForm({
           <legend>Delivery days</legend>
           {weekdaySchema.options.map((day) => (
             <label className="checkbox-filter" key={day}>
-              <input
-                type="checkbox"
+              <RoundCheck
                 checked={deliveryDays.includes(day)}
                 onChange={(e) =>
                   setDeliveryDays((current) =>

@@ -21,6 +21,7 @@ import { ListCheckboxes, useListLabels } from "./list-fields";
 import { roleLabel } from "../services/users";
 import { dateTimeLabel } from "./inventory-labels";
 import "./settings.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Staff directory and profiles (FLOW-40): one list of staff with the positions they
 // can work. Phone numbers show to FT+ and to the person; notes to FT+.
@@ -129,8 +130,7 @@ export function StaffDirectory() {
           ))}
         </select>
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={inactive}
             onChange={(e) => setInactive(e.target.checked)}
           />
@@ -357,8 +357,7 @@ function StaffForm({
           )}
         </div>
         <label className="staff-consent">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={draft.smsConsent}
             onChange={(e) => set("smsConsent", e.target.checked)}
           />

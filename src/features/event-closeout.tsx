@@ -5,6 +5,7 @@ import { useResource } from "../app/useResource";
 import { Button, FormField, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { closeoutApi } from "../services/closeout";
+import { RoundCheck } from "../components/ui/round-check";
 
 type Entry = { returned: string; damaged: string; missing: string; used: string };
 const amount = (value: string) => (value.trim() === "" ? 0 : Number(value));
@@ -139,8 +140,7 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
         <fieldset key={rental.vendorId} className="planning-row">
           <legend>Sub-rental: {rental.vendorName}</legend>
           <label>
-            <input
-              type="checkbox"
+            <RoundCheck
               checked={!!vendorReturned[rental.vendorId]}
               onChange={(e) => setVendorReturned({ ...vendorReturned, [rental.vendorId]: e.target.checked })}
             />{" "}

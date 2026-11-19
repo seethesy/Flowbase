@@ -41,6 +41,7 @@ import { preparationApi } from "../services/preparation";
 import { sopsApi } from "../services/sops";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Task lists (FLOW-59/60/61): the dashboard at /tasks (my tasks by when they're
 // due, the tasks I oversee, and "Needs delegation" for managers), the communal
@@ -311,8 +312,7 @@ export function NewTaskDrawer({
           </>
         ) : (
           <label className="task-check">
-            <input
-              type="checkbox"
+            <RoundCheck
               checked={assignees.includes(actor.userId)}
               onChange={(e) => setAssignees(e.target.checked ? [actor.userId] : [])}
             />

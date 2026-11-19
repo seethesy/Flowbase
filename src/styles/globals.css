@@ -1945,8 +1945,87 @@ tbody tr:last-child td {
 .checkbox-filter {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
+}
+/* RoundCheck (FLOW-245): the app's only checkbox, a 16px circle. Rich-text
+   checklists below use the same look. */
+input.round-check,
+.rich-text input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--border-dark);
+  border-radius: 50%;
+  background: #fff;
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+/* The tick: a short L rotated, white on the filled circle. */
+input.round-check::before,
+.rich-text input[type="checkbox"]::before {
+  content: "";
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid #fff;
+  border-bottom: 1.5px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+  opacity: 0;
+}
+input.round-check:checked,
+input.round-check:indeterminate,
+.rich-text input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+input.round-check:checked::before,
+.rich-text input[type="checkbox"]:checked::before {
+  opacity: 1;
+}
+/* "Select all" with only some rows selected: a dash. */
+input.round-check:indeterminate::before {
+  width: 7px;
+  height: 0;
+  border-left: 0;
+  transform: none;
+  opacity: 1;
+}
+input.round-check:hover:not(:disabled),
+.rich-text input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px #3274591f;
+}
+input.round-check:focus-visible,
+.rich-text input[type="checkbox"]:focus-visible {
+  outline: 2px solid #80ac92;
+  outline-offset: 2px;
+}
+input.round-check:disabled,
+.rich-text input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+input.round-check:disabled {
+  opacity: 0.45;
+}
+/* The label sits directly to the right of the check, left-aligned. :where keeps
+   this at zero specificity so a screen's own label class can still lay it out. */
+:where(label:has(> input.round-check)) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
 }
 .form-subheading {
   font-size: 12px;
@@ -2024,17 +2103,6 @@ tbody tr:last-child td {
 .rich-text li[data-type="taskItem"] > div {
   flex: 1;
   min-width: 0;
-}
-.rich-text input[type="checkbox"] {
-  width: 16px;
-  min-height: 0;
-  height: 16px;
-  margin: 0;
-  padding: 0;
-  accent-color: var(--primary);
-}
-.rich-text input[type="checkbox"]:disabled {
-  opacity: 1;
 }
 .rich-text-field {
   border: 1px solid var(--border);

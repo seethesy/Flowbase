@@ -8,6 +8,7 @@ import { Button } from "../components/shared";
 import { attachmentsApi, uploadAttachment } from "../services/attachments";
 import { beoApi } from "../services/beo";
 import { eventsApi } from "../services/core";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Setup areas (FLOW-146) and layout areas (FLOW-147) of the BEO: notes and photos
 // for each area of the venue. Photos are attachments on the area (beo_area), so
@@ -348,8 +349,7 @@ export function BeoCleanup({
               {section.items.map((item) => (
                 <li key={item.id}>
                   <label className="beo-check">
-                    <input
-                      type="checkbox"
+                    <RoundCheck
                       checked={item.checkedAt !== null}
                       disabled={!data.canCheckOff}
                       onChange={(e) => void run(() => beoApi.checkItem(eventId, item.id, e.target.checked))}

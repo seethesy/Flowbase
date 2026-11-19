@@ -27,6 +27,7 @@ import {
 import { TimeTrackingSettings } from "./time-tracking";
 import { dateTimeLabel } from "./inventory-labels";
 import "./settings.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Settings (FLOW-45). Everyone sees how time tracking works; Admin also edits the
 // company profile, the defaults and the configurable lists. Every change is audited.
@@ -546,8 +547,7 @@ function DefaultSettings() {
             <p className="settings-hint">Recorded in the SMS outbox for staff who opted in. No text is sent by the stub provider.</p>
             {notificationTypes.map((type) => (
               <label key={type}>
-                <input
-                  type="checkbox"
+                <RoundCheck
                   checked={draft.urgentNotificationTypes.includes(type)}
                   onChange={(e) =>
                     set(

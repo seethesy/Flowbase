@@ -14,6 +14,7 @@ import { LoadError } from "../components/record-display";
 import { notificationsApi } from "../services/notifications";
 import { dateTimeLabel } from "./inventory-labels";
 import "./notifications.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Notification center and email preferences (FLOW-43). The bell shows the unread
 // count; opening a notification marks it read and goes to its record.
@@ -207,8 +208,7 @@ export function NotificationSettings() {
             {preferences.data.map((preference: NotificationPreference) => (
               <li key={preference.type}>
                 <label>
-                  <input
-                    type="checkbox"
+                  <RoundCheck
                     checked={draft[preference.type] ?? preference.email}
                     onChange={(e) =>
                       setDraft((current) => ({

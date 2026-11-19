@@ -19,6 +19,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import "./inventory.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Sections (FLOW-70): Admin adds, renames and archives them.
 export function SectionList() {
@@ -94,8 +95,7 @@ export function SectionList() {
       )}
       <FilterBar>
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />

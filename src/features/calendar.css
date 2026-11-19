@@ -62,7 +62,7 @@
 .calendar-layer-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-height: 24px;
   cursor: pointer;
 }

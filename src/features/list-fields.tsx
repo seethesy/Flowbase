@@ -1,5 +1,6 @@
 import { listOptions, type ListKey } from "../../shared/settings";
 import { useBusinessSettings } from "../services/settings";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Form controls fed by the configurable lists (FLOW-45). Only active values can be
 // picked; a record's archived (or pre-list) value stays selected and is marked.
@@ -81,8 +82,7 @@ export function ListCheckboxes({
       <legend>{legend}</legend>
       {listOptions(settings.lists[list], values).map((option) => (
         <label key={option.label}>
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={values.includes(option.label)}
             onChange={(e) =>
               onChange(

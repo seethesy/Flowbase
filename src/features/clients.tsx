@@ -42,6 +42,7 @@ import { ClientSalesTracker } from "./sales";
 import "./clients.css";
 
 import { initials, hidden, LoadError } from "../components/record-display";
+import { RoundCheck } from "../components/ui/round-check";
 
 const primaryContact = (client: Client) =>
   client.contacts.find((contact) => contact.role === "primary_poc") ??
@@ -139,8 +140,7 @@ export function ClientList() {
           placeholder="Search clients or contacts…"
         />
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
