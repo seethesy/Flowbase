@@ -6,6 +6,7 @@ import { Button, FormField, LoadingSkeleton, Section } from "../components/share
 import { LoadError } from "../components/record-display";
 import { closeoutApi } from "../services/closeout";
 import { RoundCheck } from "../components/ui/round-check";
+import { T } from "../app/copy";
 
 type Entry = { returned: string; damaged: string; missing: string; used: string };
 const amount = (value: string) => (value.trim() === "" ? 0 : Number(value));
@@ -26,16 +27,15 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  if (closeout.error) return <Section title="Closeout and returns"><LoadError message={closeout.error} /></Section>;
+  if (closeout.error) return <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}><LoadError message={closeout.error} /></Section>;
   if (!closeout.data) return <LoadingSkeleton />;
   const data: Closeout = closeout.data;
 
   if (data.closedOut)
     return (
-      <Section title="Closeout and returns">
+      <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}>
         <p>
-          Closed out{data.closedByName ? ` by ${data.closedByName}` : ""} on{" "}
-          {data.closedAt ? new Date(data.closedAt).toLocaleDateString() : ""}.
+          <T id="event-closeout.event-closeout-section.closed-out">Closed out</T>{data.closedByName ? <T id="event-closeout.event-closeout-section.by" values={{ closedByName: data.closedByName }}>{" by {closedByName}"}</T> : ""}<T id="event-closeout.event-closeout-section.on" values={{ value: data.closedAt ? new Date(data.closedAt).toLocaleDateString() : "" }}>{" on {value}."}</T>
         </p>
         <ul aria-label="Closeout lines" className="planning-list">
           {data.lines.map((line) => (
@@ -43,15 +43,15 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
               <strong>{line.name}</strong>
               <span>
                 {line.consumable
-                  ? `Used ${line.used ?? 0}, left over ${line.leftover ?? 0}`
-                  : `Returned ${line.returned ?? 0}, damaged ${line.damaged ?? 0}, missing ${line.missing ?? 0}`}
+                  ? <T id="event-closeout.event-closeout-section.used-left-over" values={{ value: line.used ?? 0, value2: line.leftover ?? 0 }}>{"Used {value}, left over {value2}"}</T>
+                  : <T id="event-closeout.event-closeout-section.returned-damaged-missing" values={{ value: line.returned ?? 0, value2: line.damaged ?? 0, value3: line.missing ?? 0 }}>{"Returned {value}, damaged {value2}, missing {value3}"}</T>}
               </span>
             </li>
           ))}
         </ul>
         {data.subRentals.map((rental) => (
           <p key={rental.vendorId}>
-            {rental.vendorName}: {rental.status === "returned" ? "returned" : rental.status}
+            {rental.vendorName}: {rental.status === "returned" ? <T id="event-closeout.event-closeout-section.returned">returned</T> : rental.status}
             {rental.notes ? ` — ${rental.notes}` : ""}
           </p>
         ))}
@@ -61,11 +61,9 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
 
   if (!data.canClose)
     return (
-      <Section title="Closeout and returns">
+      <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}>
         <p>
-          {event.status === "preparation"
-            ? "Only managers can close out an event."
-            : "An event can be closed out once it is in Preparation."}
+          {event.status === "preparation" ? <T id="event-closeout.event-closeout-section.only-managers-can-close-out">Only managers can close out an event.</T> : <T id="event-closeout.event-closeout-section.an-event-can-be-closed">An event can be closed out once it is in Preparation.</T>}
         </p>
       </Section>
     );
@@ -108,27 +106,27 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
   };
 
   return (
-    <Section title="Closeout and returns">
+    <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}>
       {error && <p role="alert" className="error-message">{error}</p>}
-      {!data.lines.length && <p>The pull list is empty; there is nothing to check in.</p>}
+      {!data.lines.length && <p><T id="event-closeout.event-closeout-section.the-pull-list-is-empty">The pull list is empty; there is nothing to check in.</T></p>}
       {data.lines.map((line) => {
         const entry = entryOf(line);
         return (
           <fieldset key={line.lineId} className="planning-row">
-            <legend>{line.name} {line.pulled !== null && <small>({line.pulled} pulled)</small>}</legend>
+            <legend>{line.name} {line.pulled !== null && <small><T id="event-closeout.event-closeout-section.pulled" values={{ pulled: line.pulled }}>{"({pulled} pulled)"}</T></small>}</legend>
             {line.consumable ? (
-              <FormField label={`${line.name} used`}>
+              <FormField label={<T id="event-closeout.event-closeout-section.used" values={{ name: line.name }}>{"{name} used"}</T>}>
                 <input inputMode="decimal" value={entry.used} onChange={(e) => change(line, "used", e.target.value)} />
               </FormField>
             ) : (
               <>
-                <FormField label={`${line.name} returned`}>
+                <FormField label={<T id="event-closeout.event-closeout-section.returned-2" values={{ name: line.name }}>{"{name} returned"}</T>}>
                   <input inputMode="decimal" value={entry.returned} onChange={(e) => change(line, "returned", e.target.value)} />
                 </FormField>
-                <FormField label={`${line.name} damaged`}>
+                <FormField label={<T id="event-closeout.event-closeout-section.damaged" values={{ name: line.name }}>{"{name} damaged"}</T>}>
                   <input inputMode="decimal" value={entry.damaged} onChange={(e) => change(line, "damaged", e.target.value)} />
                 </FormField>
-                <FormField label={`${line.name} missing`}>
+                <FormField label={<T id="event-closeout.event-closeout-section.missing" values={{ name: line.name }}>{"{name} missing"}</T>}>
                   <input inputMode="decimal" value={entry.missing} onChange={(e) => change(line, "missing", e.target.value)} />
                 </FormField>
               </>
@@ -138,15 +136,14 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
       })}
       {open.map((rental) => (
         <fieldset key={rental.vendorId} className="planning-row">
-          <legend>Sub-rental: {rental.vendorName}</legend>
+          <legend><T id="event-closeout.event-closeout-section.sub-rental" values={{ vendorName: rental.vendorName }}>{"Sub-rental: {vendorName}"}</T></legend>
           <label>
             <RoundCheck
               checked={!!vendorReturned[rental.vendorId]}
               onChange={(e) => setVendorReturned({ ...vendorReturned, [rental.vendorId]: e.target.checked })}
-            />{" "}
-            Returned to {rental.vendorName}
+            /><T id="event-closeout.event-closeout-section.returned-to" values={{ vendorName: rental.vendorName }}>{" Returned to {vendorName}"}</T>
           </label>
-          <FormField label={`${rental.vendorName} return notes`}>
+          <FormField label={<T id="event-closeout.event-closeout-section.return-notes" values={{ vendorName: rental.vendorName }}>{"{vendorName} return notes"}</T>}>
             <input
               value={vendorNotes[rental.vendorId] ?? ""}
               maxLength={1000}
@@ -155,10 +152,10 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
           </FormField>
         </fieldset>
       ))}
-      <FormField label="Final notes">
+      <FormField label={<T id="event-closeout.event-closeout-section.final-notes">Final notes</T>}>
         <textarea value={notes} maxLength={4000} onChange={(e) => setNotes(e.target.value)} />
       </FormField>
-      <Button disabled={busy} onClick={() => void submit()}>Close out event</Button>
+      <Button disabled={busy} onClick={() => void submit()}><T id="event-closeout.event-closeout-section.close-out-event">Close out event</T></Button>
     </Section>
   );
 }

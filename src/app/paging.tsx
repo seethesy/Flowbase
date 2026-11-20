@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -8,6 +8,7 @@ import type { Page } from "../services/core";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
 import { isRefused } from "./useResource";
+import { T } from "./copy";
 
 // Every row a list's `load` returns, walking its pages from the first (FLOW-216:
 // Export CSV writes the whole filtered list, not just the pages on screen). Each
@@ -76,10 +77,10 @@ export function usePagedList<T>(
 // "Load more" under a paged list; nothing when the list is complete.
 export function LoadMore({
   list,
-  label = "Load more",
+  label = <T id="paging.load-more.load-more">Load more</T>,
 }: {
   list: { hasMore: boolean; loadingMore: boolean; loadMore: () => void };
-  label?: string;
+  label?: ReactNode;
 }) {
   if (!list.hasMore) return null;
   return (
@@ -89,7 +90,7 @@ export function LoadMore({
         disabled={list.loadingMore}
         onClick={list.loadMore}
       >
-        {list.loadingMore ? "Loading…" : label}
+        {list.loadingMore ? <T id="paging.load-more.loading">Loading…</T> : label}
       </Button>
     </p>
   );

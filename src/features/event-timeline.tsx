@@ -25,6 +25,7 @@ import { staffApi } from "../services/staff";
 import { vendorsApi } from "../services/vendors";
 import { date, time } from "./event-format";
 import { ListSelect } from "./list-fields";
+import { T } from "../app/copy";
 import "./event-timeline.css";
 
 // The event timeline and production schedule (FLOW-126): every day the event
@@ -80,7 +81,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
   >(null);
   if (timeline.error)
     return (
-      <Section title="Timeline">
+      <Section title={<T id="event-timeline.event-timeline-section.timeline">Timeline</T>}>
         <LoadError message={timeline.error} />
       </Section>
     );
@@ -96,12 +97,12 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
   };
   return (
     <Section
-      title="Timeline"
+      title={<T id="event-timeline.event-timeline-section.timeline">Timeline</T>}
       action={
         data.canEdit && (
           <Button variant="outline" onClick={() => setForm({})}>
             <Plus size={14} />
-            Add entry
+            <T id="event-timeline.event-timeline-section.add-entry">Add entry</T>
           </Button>
         )
       }
@@ -113,7 +114,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
       )}
       {data.suggestions.length > 0 && data.canEdit && (
         <div className="timeline-suggestions">
-          <strong>From the proposal</strong>
+          <strong><T id="event-timeline.event-timeline-section.from-the-proposal">From the proposal</T></strong>
           <ul>
             {data.suggestions.map((s) => (
               <li key={`${s.proposalId}:${s.sourceKey}`}>
@@ -121,7 +122,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
                   {s.text} <small>({s.proposalTitle})</small>
                 </span>
                 <Button variant="outline" onClick={() => setForm({ suggestion: s })}>
-                  Add
+                  <T id="event-timeline.event-timeline-section.add">Add</T>
                 </Button>
               </li>
             ))}
@@ -132,17 +133,15 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
         <div key={day.date} className="timeline-day">
           <h3>
             {date(day.date)}
-            {day.isEventDay && <small> · Event day</small>}
+            {day.isEventDay && <small><T id="event-timeline.event-timeline-section.event-day">{" · Event day"}</T></small>}
           </h3>
           {day.shifts.map((shift) => (
             <p key={shift.id} className="timeline-shift">
-              Staff shift {time(shift.startTime)}–{time(shift.endTime)}
-              {shift.activities && `: ${shift.activities}`} ({shift.filled}/
-              {shift.slots} filled)
+              <T id="event-timeline.event-timeline-section.staff-shift-filled" values={{ startTime: time(shift.startTime), endTime: time(shift.endTime), value: shift.activities && `: ${shift.activities}`, filled: shift.filled, slots: shift.slots }}>{"Staff shift {startTime}–{endTime}{value} ({filled}/{slots} filled)"}</T>
             </p>
           ))}
           {day.entries.length === 0 ? (
-            <p className="muted">No timeline entries.</p>
+            <p className="muted"><T id="event-timeline.event-timeline-section.no-timeline-entries">No timeline entries.</T></p>
           ) : (
             <ul className="timeline-entries">
               {day.entries.map((entry) => (
@@ -240,8 +239,8 @@ function EntryForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title={entry ? "Edit timeline entry" : "Add timeline entry"}
-      description="Times are New York time. An end time before the start runs past midnight."
+      title={entry ? <T id="event-timeline.entry-form.edit-timeline-entry">Edit timeline entry</T> : <T id="event-timeline.entry-form.add-timeline-entry">Add timeline entry</T>}
+      description={<T id="event-timeline.entry-form.times-are-new-york-time">Times are New York time. An end time before the start runs past midnight.</T>}
     >
       <form
         noValidate
@@ -273,7 +272,7 @@ function EntryForm({
           </p>
         )}
         <div className="form-grid">
-          <FormField label="Kind">
+          <FormField label={<T id="event-timeline.entry-form.kind">Kind</T>}>
             <select
               value={draft.kind}
               onChange={(e) =>
@@ -287,21 +286,21 @@ function EntryForm({
               ))}
             </select>
           </FormField>
-          <FormField label="Date">
+          <FormField label={<T id="event-timeline.entry-form.date">Date</T>}>
             <input
               type="date"
               value={draft.date}
               onChange={(e) => set("date", e.target.value)}
             />
           </FormField>
-          <FormField label="Start time">
+          <FormField label={<T id="event-timeline.entry-form.start-time">Start time</T>}>
             <input
               type="time"
               value={draft.startTime}
               onChange={(e) => set("startTime", e.target.value)}
             />
           </FormField>
-          <FormField label="End time">
+          <FormField label={<T id="event-timeline.entry-form.end-time">End time</T>}>
             <input
               type="time"
               value={draft.endTime}
@@ -309,7 +308,7 @@ function EntryForm({
             />
           </FormField>
         </div>
-        <FormField label="Activity">
+        <FormField label={<T id="event-timeline.entry-form.activity">Activity</T>}>
           <input
             value={draft.activity}
             maxLength={500}
@@ -317,7 +316,7 @@ function EntryForm({
           />
         </FormField>
         <div className="form-grid">
-          <FormField label="Who">
+          <FormField label={<T id="event-timeline.entry-form.who">Who</T>}>
             <select
               value={draft.whoType}
               onChange={(e) => {
@@ -332,7 +331,7 @@ function EntryForm({
             </select>
           </FormField>
           {draft.whoType === "staff" && (
-            <FormField label="Staff member">
+            <FormField label={<T id="event-timeline.entry-form.staff-member">Staff member</T>}>
               <select
                 value={draft.whoValue}
                 onChange={(e) => set("whoValue", e.target.value)}
@@ -347,7 +346,7 @@ function EntryForm({
             </FormField>
           )}
           {draft.whoType === "role" && (
-            <FormField label="Role">
+            <FormField label={<T id="event-timeline.entry-form.role">Role</T>}>
               <ListSelect
                 list="staff_position"
                 label="Role"
@@ -358,7 +357,7 @@ function EntryForm({
             </FormField>
           )}
           {draft.whoType === "vendor" && (
-            <FormField label="Event partner">
+            <FormField label={<T id="event-timeline.entry-form.event-partner">Event partner</T>}>
               <select
                 value={draft.whoValue}
                 onChange={(e) => set("whoValue", e.target.value)}
@@ -372,7 +371,7 @@ function EntryForm({
               </select>
             </FormField>
           )}
-          <FormField label="Where">
+          <FormField label={<T id="event-timeline.entry-form.where">Where</T>}>
             <select
               value={draft.where}
               onChange={(e) => set("where", e.target.value)}
@@ -390,9 +389,9 @@ function EntryForm({
         </div>
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="event-timeline.entry-form.cancel">Cancel</T>
           </Button>
-          <Button type="submit">Save</Button>
+          <Button type="submit"><T id="event-timeline.entry-form.save">Save</T></Button>
         </div>
       </form>
     </DetailDrawer>

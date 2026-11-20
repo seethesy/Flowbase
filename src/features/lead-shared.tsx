@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import {
   leadStatusLabels,
   type Lead,
@@ -54,8 +54,8 @@ export function AssignForm({
   button,
   onAssign,
 }: {
-  label: string;
-  button: string;
+  label: ReactNode;
+  button: ReactNode;
   onAssign: (salespersonId: string) => Promise<void>;
 }) {
   const [salespersonId, setSalespersonId] = useState("");

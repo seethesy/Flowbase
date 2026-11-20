@@ -13,6 +13,7 @@ import { Button, Section, LoadingSkeleton } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
 import { CorrectionForm } from "./inventory-stock-forms";
+import { T } from "../app/copy";
 import "./inventory.css";
 
 // The item's stock ledger, newest first (FLOW-71).
@@ -39,25 +40,25 @@ export function MovementHistory({
       .filter((other) => other.correctsId === movement.id)
       .reduce((sum, other) => sum + other.quantity, 0);
   return (
-    <Section title="Movement history">
+    <Section title={<T id="inventory-histories.movement-history.movement-history">Movement history</T>}>
       {movements.error ? (
         <LoadError message={movements.error} />
       ) : !movements.data ? (
         <LoadingSkeleton />
       ) : !all.length ? (
-        <p className="muted">No stock movements yet.</p>
+        <p className="muted"><T id="inventory-histories.movement-history.no-stock-movements-yet">No stock movements yet.</T></p>
       ) : (
         <div className="table-scroll">
           <table className="stock-table movement-table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Type</th>
-                <th>Section</th>
-                <th>Change</th>
-                <th>Reason</th>
+                <th><T id="inventory-histories.movement-history.when">When</T></th>
+                <th><T id="inventory-histories.movement-history.type">Type</T></th>
+                <th><T id="inventory-histories.movement-history.section">Section</T></th>
+                <th><T id="inventory-histories.movement-history.change">Change</T></th>
+                <th><T id="inventory-histories.movement-history.reason">Reason</T></th>
                 <th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only"><T id="inventory-histories.movement-history.actions">Actions</T></span>
                 </th>
               </tr>
             </thead>
@@ -68,10 +69,10 @@ export function MovementHistory({
                   <td>
                     {movementTypeLabels[movement.type]}
                     {movement.correctsId && (
-                      <span className="badge neutral">Correction</span>
+                      <span className="badge neutral"><T id="inventory-histories.movement-history.correction">Correction</T></span>
                     )}
                     {movement.correctedBy.length > 0 && (
-                      <span className="badge warning">Corrected</span>
+                      <span className="badge warning"><T id="inventory-histories.movement-history.corrected">Corrected</T></span>
                     )}
                   </td>
                   <td>
@@ -90,7 +91,7 @@ export function MovementHistory({
                             onClick={() => setCorrecting(movement)}
                             aria-label={`Correct the ${movementTypeLabels[movement.type].toLowerCase()} of ${dateTimeLabel(movement.createdAt)}`}
                           >
-                            Correct
+                            <T id="inventory-histories.movement-history.correct">Correct</T>
                           </Button>
                         </Allowed>
                       )}
@@ -110,7 +111,7 @@ export function MovementHistory({
           onSaved={onCorrected}
         />
       )}
-      <LoadMore list={movements} label="Show older movements" />
+      <LoadMore list={movements} label={<T id="inventory-histories.movement-history.show-older-movements">Show older movements</T>} />
     </Section>
   );
 }
@@ -129,21 +130,21 @@ export function CostHistory({
   );
   const unit = item.consumable ? unitLabel(item.consumable.purchaseUnit) : "";
   return (
-    <Section title="Cost history">
+    <Section title={<T id="inventory-histories.cost-history.cost-history">Cost history</T>}>
       {history.error ? (
         <LoadError message={history.error} />
       ) : !history.data ? (
         <LoadingSkeleton />
       ) : !history.data.length ? (
-        <p className="muted">No cost changes yet.</p>
+        <p className="muted"><T id="inventory-histories.cost-history.no-cost-changes-yet">No cost changes yet.</T></p>
       ) : (
         <table className="stock-table">
           <thead>
             <tr>
-              <th>When</th>
-              <th>Cost per {unit}</th>
-              <th>Was</th>
-              <th>Source</th>
+              <th><T id="inventory-histories.cost-history.when">When</T></th>
+              <th><T id="inventory-histories.cost-history.cost-per" values={{ unit }}>{"Cost per {unit}"}</T></th>
+              <th><T id="inventory-histories.cost-history.was">Was</T></th>
+              <th><T id="inventory-histories.cost-history.source">Source</T></th>
             </tr>
           </thead>
           <tbody>
@@ -158,7 +159,7 @@ export function CostHistory({
           </tbody>
         </table>
       )}
-      <LoadMore list={history} label="Show older changes" />
+      <LoadMore list={history} label={<T id="inventory-histories.cost-history.show-older-changes">Show older changes</T>} />
     </Section>
   );
 }

@@ -9,6 +9,7 @@ import { usePermissions } from "../app/permissions";
 import { Button, DataTable, LoadingSkeleton, PageHeader } from "../components/shared";
 import { csvFileName, downloadCsv, toCsv } from "../services/csv";
 import { LoadError } from "../components/record-display";
+import { T, useCopy } from "../app/copy";
 import "./inventory.css";
 
 const location = (item: InventoryItem) => item.stock.map((level) => level.sectionName).join(", ") ||
@@ -20,6 +21,7 @@ const valueOf = (item: InventoryItem, field: string) => field === "priceCents"
   : String(item[field as "name" | "description" | "category" | "group"] ?? "");
 
 export function MasterInventory() {
+  const searchPlaceholder = useCopy("inventory-master.master-inventory.search.placeholder", "Search");
   const { can } = usePermissions();
   const items = useResource(["inventory", "master"], () => allPages((cursor) => inventoryApi.list({}, cursor), 500));
   const pending = useResource(["inventory", "master", "pending", items.data?.map((item) => item.id).join(",")], async () => {
@@ -67,8 +69,8 @@ export function MasterInventory() {
       cell: ({ row }) => row.original.kind === "rental" && row.original.stock.length === 1
         ? edit(row.original, "quantity") : row.original.totalQuantity },
     { accessorKey: "name", header: "Item", cell: ({ row }) => <div className="master-item-cell">
-      {edit(row.original, "name")} <Link to={`/inventory/${row.original.id}`}>Open</Link>
-      {pendingIds.has(row.original.id) && <span className="badge warning">Pending</span>}
+      {edit(row.original, "name")} <Link to={`/inventory/${row.original.id}`}><T id="inventory-master.master-inventory.open">Open</T></Link>
+      {pendingIds.has(row.original.id) && <span className="badge warning"><T id="inventory-master.master-inventory.pending">Pending</T></span>}
     </div> },
     { accessorKey: "description", header: "Description", cell: ({ row }) => edit(row.original, "description") },
     { id: "location", header: "Location", accessorFn: location },
@@ -110,14 +112,14 @@ export function MasterInventory() {
       item.archivedAt ? "Archived" : pendingIds.has(item.id) ? "Pending" : item.active ? "Active" : "Inactive"]),
   ));
   return <>
-    <PageHeader title="Master inventory" subtitle="All items and sections, grouped like the Master sheet." eyebrow="STOCK & SUPPLIES">
-      <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
-      {canEdit && <Button onClick={() => void save()}>{can("rentals.apply_directly") ? "Save changes" : "Submit batch for approval"}</Button>}
+    <PageHeader title={<T id="inventory-master.master-inventory.master-inventory">Master inventory</T>} subtitle={<T id="inventory-master.master-inventory.all-items-and-sections-grouped">All items and sections, grouped like the Master sheet.</T>} eyebrow={<T id="inventory-master.master-inventory.stock-supplies">{"STOCK & SUPPLIES"}</T>}>
+      <Button variant="outline" onClick={exportCsv}><T id="inventory-master.master-inventory.export-csv">Export CSV</T></Button>
+      {canEdit && <Button onClick={() => void save()}>{can("rentals.apply_directly") ? <T id="inventory-master.master-inventory.save-changes">Save changes</T> : <T id="inventory-master.master-inventory.submit-batch-for-approval">Submit batch for approval</T>}</Button>}
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}
     {message && <p role="status">{message}</p>}
     <div className="master-filters">
-      <input aria-label="Search Master inventory" placeholder="Search" value={search} onChange={(event) => setSearch(event.target.value)} />
+      <input aria-label="Search Master inventory" placeholder={searchPlaceholder} data-copy-id="inventory-master.master-inventory.search.placeholder" value={search} onChange={(event) => setSearch(event.target.value)} />
       <select aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value as ItemKind | "")}>
         <option value="">All kinds</option><option value="rental">Rental</option><option value="service">Service</option><option value="consumable">Consumable</option>
       </select>
@@ -136,7 +138,7 @@ export function MasterInventory() {
     </div>
     {items.error ? <LoadError message={items.error} /> : items.loading && !items.data ? <LoadingSkeleton /> :
       [...new Set(filtered.map((item) => item.group || "Ungrouped"))].map((name) =>
-        <section key={name} className="master-group"><h2>{name}</h2><DataTable data={filtered.filter((item) => (item.group || "Ungrouped") === name)}
-          columns={columns} label="items" /></section>)}
+        <section key={name} className="master-group"><h2>{name}</h2><DataTable copyKey="inventory-master.master-inventory" data={filtered.filter((item) => (item.group || "Ungrouped") === name)}
+          columns={columns} label={<T id="inventory-master.master-inventory.items">items</T>} /></section>)}
   </>;
 }

@@ -22,6 +22,7 @@ import { roleLabel } from "../services/users";
 import { dateTimeLabel } from "./inventory-labels";
 import "./settings.css";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 // Staff directory and profiles (FLOW-40): one list of staff with the positions they
 // can work. Phone numbers show to FT+ and to the person; notes to FT+.
@@ -40,6 +41,7 @@ const mobileLabel = (mobile: string | null) =>
   mobile === null ? "Hidden" : mobile || "—";
 
 export function StaffDirectory() {
+  const searchNameOrEmailPlaceholder = useCopy("staff.staff-directory.search-name-or-email.placeholder", "Search name or email…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
@@ -97,15 +99,15 @@ export function StaffDirectory() {
   return (
     <>
       <PageHeader
-        title="Staff"
-        subtitle="Who works for the business and the positions they can work."
-        eyebrow="TEAM"
+        title={<T id="staff.staff-directory.staff">Staff</T>}
+        subtitle={<T id="staff.staff-directory.who-works-for-the-business">Who works for the business and the positions they can work.</T>}
+        eyebrow={<T id="staff.staff-directory.team">TEAM</T>}
       />
       <FilterBar>
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search name or email…"
+          placeholder={searchNameOrEmailPlaceholder} copyId="staff.staff-directory.search-name-or-email.placeholder"
         />
         <select
           aria-label="Position"
@@ -134,20 +136,20 @@ export function StaffDirectory() {
             checked={inactive}
             onChange={(e) => setInactive(e.target.checked)}
           />
-          Show inactive
+          <T id="staff.staff-directory.show-inactive">Show inactive</T>
         </label>
-        <span className="result-count">{data.length} staff</span>
+        <span className="result-count"><T id="staff.staff-directory.staff-2" values={{ dataCount: data.length }}>{"{dataCount} staff"}</T></span>
       </FilterBar>
       {staff.error ? (
         <LoadError message={staff.error} />
       ) : staff.loading && !staff.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable
+        <DataTable copyKey="staff.staff-directory"
           data={data}
           columns={columns}
           onRow={(member) => navigate(`/staff/${member.id}`)}
-          label="staff"
+          label={<T id="staff.staff-directory.staff-3">staff</T>}
           exportName="staff"
         />
       )}
@@ -160,7 +162,7 @@ export function StaffDetail() {
   return (
     <>
       <Link to="/staff" className="back-link">
-        ← All staff
+        <T id="staff.staff-detail.all-staff">← All staff</T>
       </Link>
       <StaffProfile id={id} />
     </>
@@ -201,7 +203,7 @@ export function StaffProfile({
           onSaved={(saved) => member.replace(saved)}
         />
       ) : (
-        <Section title="Staff profile">
+        <Section title={<T id="staff.staff-profile.staff-profile">Staff profile</T>}>
           <StaffSummary member={data} />
         </Section>
       )}
@@ -213,17 +215,17 @@ function StaffSummary({ member }: { member: StaffMember }) {
   return (
     <div className="staff-detail">
       <dl>
-        <dt>Email</dt>
+        <dt><T id="staff.staff-summary.email">Email</T></dt>
         <dd>{member.email}</dd>
-        <dt>Mobile</dt>
+        <dt><T id="staff.staff-summary.mobile">Mobile</T></dt>
         <dd>{mobileLabel(member.mobile)}</dd>
-        <dt>Positions</dt>
+        <dt><T id="staff.staff-summary.positions">Positions</T></dt>
         <dd>{member.positions.join(", ") || "—"}</dd>
-        <dt>Status</dt>
+        <dt><T id="staff.staff-summary.status">Status</T></dt>
         <dd>{statusLabel(member)}</dd>
         {member.notes !== null && (
           <>
-            <dt>Notes</dt>
+            <dt><T id="staff.staff-summary.notes">Notes</T></dt>
             <dd>{member.notes || "—"}</dd>
           </>
         )}
@@ -278,7 +280,7 @@ function StaffForm({
     }
   };
   return (
-    <Section title={manage ? "Staff profile" : "Your contact details"}>
+    <Section title={manage ? <T id="staff.staff-form.staff-profile">Staff profile</T> : <T id="staff.staff-form.your-contact-details">Your contact details</T>}>
       <form
         className="settings-form"
         noValidate
@@ -295,13 +297,13 @@ function StaffForm({
         {notice && <p role="status">{notice}</p>}
         <div className="staff-detail">
           <dl>
-            <dt>Email</dt>
+            <dt><T id="staff.staff-form.email">Email</T></dt>
             <dd>{member.email}</dd>
-            <dt>Status</dt>
+            <dt><T id="staff.staff-form.status">Status</T></dt>
             <dd>{statusLabel(member)}</dd>
             {!manage && (
               <>
-                <dt>Positions</dt>
+                <dt><T id="staff.staff-form.positions">Positions</T></dt>
                 <dd>{member.positions.join(", ") || "—"}</dd>
               </>
             )}
@@ -309,7 +311,7 @@ function StaffForm({
         </div>
         <div className="form-grid">
           {manage && (
-            <FormField label="Name *">
+            <FormField label={<T id="staff.staff-form.name">Name *</T>}>
               <input
                 value={draft.name}
                 maxLength={200}
@@ -317,7 +319,7 @@ function StaffForm({
               />
             </FormField>
           )}
-          <FormField label="Mobile number *">
+          <FormField label={<T id="staff.staff-form.mobile-number">Mobile number *</T>}>
             <input
               type="tel"
               value={draft.mobile}
@@ -327,7 +329,7 @@ function StaffForm({
           </FormField>
           {manage && (
             <>
-              <FormField label="Role">
+              <FormField label={<T id="staff.staff-form.role">Role</T>}>
                 <select
                   value={draft.role}
                   onChange={(e) => set("role", e.target.value as Role)}
@@ -339,7 +341,7 @@ function StaffForm({
                   ))}
                 </select>
               </FormField>
-              <FormField label="Employment type">
+              <FormField label={<T id="staff.staff-form.employment-type">Employment type</T>}>
                 <select
                   value={draft.employmentType}
                   onChange={(e) =>
@@ -361,22 +363,22 @@ function StaffForm({
             checked={draft.smsConsent}
             onChange={(e) => set("smsConsent", e.target.checked)}
           />
-          Text me work updates (SMS). Reply STOP to any text to opt out.
+          <T id="staff.staff-form.text-me-work-updates-sms">Text me work updates (SMS). Reply STOP to any text to opt out.</T>
         </label>
         {member.smsConsentAt && (
           <p className="settings-hint">
-            Opted in {dateTimeLabel(member.smsConsentAt)}.
+            <T id="staff.staff-form.opted-in" values={{ smsConsentAt: dateTimeLabel(member.smsConsentAt) }}>{"Opted in {smsConsentAt}."}</T>
           </p>
         )}
         {manage && (
           <>
             <ListCheckboxes
               list="staff_position"
-              legend="Positions"
+              legend={<T id="staff.staff-form.positions">Positions</T>}
               values={draft.positions}
               onChange={(positions) => set("positions", positions)}
             />
-            <FormField label="Notes" hint="Seen by full-time staff and above.">
+            <FormField label={<T id="staff.staff-form.notes">Notes</T>} hint={<T id="staff.staff-form.seen-by-full-time-staff">Seen by full-time staff and above.</T>}>
               <textarea
                 rows={3}
                 maxLength={5000}
@@ -388,7 +390,7 @@ function StaffForm({
         )}
         <div className="form-actions">
           <Button type="submit" disabled={saving}>
-            Save profile
+            <T id="staff.staff-form.save-profile">Save profile</T>
           </Button>
         </div>
       </form>

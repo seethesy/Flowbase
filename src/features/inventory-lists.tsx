@@ -42,6 +42,7 @@ import {
 } from "./inventory-labels";
 import "./inventory.css";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 // Unit cost in a CSV file: dollars without formatting, blank when unknown.
 const costCsv = (item: InventoryItem) => {
@@ -82,6 +83,7 @@ function SectionFilter({
 }
 
 export function InventoryList() {
+  const searchItemNameOrCodePlaceholder = useCopy("inventory-lists.inventory-list.search-item-name-or-code.placeholder", "Search item name or code…");
   const navigate = useNavigate();
   const { actor, can } = usePermissions();
   const [search, setSearch] = useState("");
@@ -139,45 +141,45 @@ export function InventoryList() {
   return (
     <>
       <PageHeader
-        title="Inventory"
-        subtitle="Rentals, decor, kitchen, bar and supplies, and the services you sell."
-        eyebrow="STOCK & SUPPLIES"
+        title={<T id="inventory-lists.inventory-list.inventory">Inventory</T>}
+        subtitle={<T id="inventory-lists.inventory-list.rentals-decor-kitchen-bar-and">Rentals, decor, kitchen, bar and supplies, and the services you sell.</T>}
+        eyebrow={<T id="inventory-lists.inventory-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
       >
         <Button variant="outline" asChild>
-          <Link to="/inventory/master">Master sheet</Link>
+          <Link to="/inventory/master"><T id="inventory-lists.inventory-list.master-sheet">Master sheet</T></Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/inventory/orders">Order lists</Link>
+          <Link to="/inventory/orders"><T id="inventory-lists.inventory-list.order-lists">Order lists</T></Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/approvals">Approvals</Link>
+          <Link to="/approvals"><T id="inventory-lists.inventory-list.approvals">Approvals</T></Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/inventory/ingredients">Ingredients</Link>
+          <Link to="/inventory/ingredients"><T id="inventory-lists.inventory-list.ingredients">Ingredients</T></Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/inventory/bar">Bar</Link>
+          <Link to="/inventory/bar"><T id="inventory-lists.inventory-list.bar">Bar</T></Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link to="/inventory/supplies">Supplies</Link>
+          <Link to="/inventory/supplies"><T id="inventory-lists.inventory-list.supplies">Supplies</T></Link>
         </Button>
         <Allowed action="inventory.count">
           <Button variant="outline" asChild>
-            <Link to="/inventory/counts">Counts</Link>
+            <Link to="/inventory/counts"><T id="inventory-lists.inventory-list.counts">Counts</T></Link>
           </Button>
         </Allowed>
         <Button variant="outline" asChild>
-          <Link to="/inventory/low-stock">Low stock</Link>
+          <Link to="/inventory/low-stock"><T id="inventory-lists.inventory-list.low-stock">Low stock</T></Link>
         </Button>
         <Allowed action="inventory.sections">
           <Button variant="outline" asChild>
-            <Link to="/inventory/sections">Sections</Link>
+            <Link to="/inventory/sections"><T id="inventory-lists.inventory-list.sections">Sections</T></Link>
           </Button>
         </Allowed>
         {actor && (can("inventory.write") || isFtPlus(actor)) && (
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Item
+            <T id="inventory-lists.inventory-list.new-item">New Item</T>
           </Button>
         )}
       </PageHeader>
@@ -185,7 +187,7 @@ export function InventoryList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search item name or code…"
+          placeholder={searchItemNameOrCodePlaceholder} copyId="inventory-lists.inventory-list.search-item-name-or-code.placeholder"
         />
         <select
           aria-label="Kind"
@@ -205,11 +207,10 @@ export function InventoryList() {
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="inventory-lists.inventory-list.show-archived">Show archived</T>
         </label>
         <span className="result-count">
-          {data.length}
-          {items.hasMore ? "+" : ""} items
+          {items.hasMore ? <T id="inventory-lists.inventory-list.items" values={{ dataCount: data.length }}>{"{dataCount}+ items"}</T> : <T id="inventory-lists.inventory-list.items-2" values={{ dataCount: data.length }}>{"{dataCount} items"}</T>}
         </span>
       </FilterBar>
       {items.error ? (
@@ -218,15 +219,15 @@ export function InventoryList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="inventory-lists.inventory-list"
             data={data}
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label="items"
+            label={<T id="inventory-lists.inventory-list.items-3">items</T>}
             exportName="inventory"
             exportAll={items.loadAll}
           />
-          <LoadMore list={items} label="Load more items" />
+          <LoadMore list={items} label={<T id="inventory-lists.inventory-list.load-more-items">Load more items</T>} />
         </>
       )}
       {create && (
@@ -243,6 +244,9 @@ export function InventoryList() {
 export function IngredientList({
   supplies = false,
 }: { supplies?: boolean } = {}) {
+  const searchSuppliesPlaceholder = useCopy("inventory-lists.ingredient-list.search-supplies.placeholder", "Search supplies…");
+  const searchIngredientsPlaceholder = useCopy("inventory-lists.ingredient-list.search-ingredients.placeholder", "Search ingredients…");
+  const vendorPlaceholder = useCopy("inventory-lists.ingredient-list.vendor.placeholder", "Vendor");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -322,7 +326,7 @@ export function IngredientList({
         <>
           {quantityLabel(c.row.original.totalQuantity, c.row.original.unit)}
           {c.row.original.belowPar && (
-            <span className="badge warning">Below par</span>
+            <span className="badge warning"><T id="inventory-lists.ingredient-list.below-par">Below par</T></span>
           )}
         </>
       ),
@@ -331,33 +335,33 @@ export function IngredientList({
   return (
     <>
       <Link to="/inventory" className="back-link">
-        ← All inventory
+        <T id="inventory-lists.ingredient-list.all-inventory">← All inventory</T>
       </Link>
       <PageHeader
-        title={supplies ? "Supplies" : "Ingredients"}
+        title={supplies ? <T id="inventory-lists.ingredient-list.supplies">Supplies</T> : <T id="inventory-lists.ingredient-list.ingredients">Ingredients</T>}
         subtitle={
           supplies
-            ? "Disposables, pack sizes, stock and low-stock supplies."
-            : "What the kitchen buys, how it's used in recipes, and where it's kept."
+            ? <T id="inventory-lists.ingredient-list.disposables-pack-sizes-stock-and">Disposables, pack sizes, stock and low-stock supplies.</T>
+            : <T id="inventory-lists.ingredient-list.what-the-kitchen-buys-how">{"What the kitchen buys, how it's used in recipes, and where it's kept."}</T>
         }
-        eyebrow={supplies ? "SUPPLIES" : "KITCHEN"}
+        eyebrow={supplies ? <T id="inventory-lists.ingredient-list.supplies-2">SUPPLIES</T> : <T id="inventory-lists.ingredient-list.kitchen">KITCHEN</T>}
       >
         {supplies && (
           <>
             <Allowed action="inventory.count">
               <Button variant="outline" asChild>
-                <Link to="/inventory/counts">Count</Link>
+                <Link to="/inventory/counts"><T id="inventory-lists.ingredient-list.count">Count</T></Link>
               </Button>
             </Allowed>
             <Button variant="outline" asChild>
-              <Link to="/inventory/low-stock">Low stock</Link>
+              <Link to="/inventory/low-stock"><T id="inventory-lists.ingredient-list.low-stock">Low stock</T></Link>
             </Button>
           </>
         )}
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            {supplies ? "New Supply" : "New Ingredient"}
+            {supplies ? <T id="inventory-lists.ingredient-list.new-supply">New Supply</T> : <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>}
           </Button>
         </Allowed>
       </PageHeader>
@@ -365,7 +369,8 @@ export function IngredientList({
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder={supplies ? "Search supplies…" : "Search ingredients…"}
+          placeholder={supplies ? searchSuppliesPlaceholder : searchIngredientsPlaceholder}
+          copyId={supplies ? "inventory-lists.ingredient-list.search-supplies.placeholder" : "inventory-lists.ingredient-list.search-ingredients.placeholder"}
         />
         <select
           aria-label="Category"
@@ -379,7 +384,7 @@ export function IngredientList({
         </select>
         <input
           aria-label="Vendor"
-          placeholder="Vendor"
+          placeholder={vendorPlaceholder} data-copy-id="inventory-lists.ingredient-list.vendor.placeholder"
           value={vendor}
           onChange={(e) => setVendor(e.target.value)}
         />
@@ -394,11 +399,11 @@ export function IngredientList({
             checked={belowPar}
             onChange={(e) => setBelowPar(e.target.checked)}
           />
-          Below par only
+          <T id="inventory-lists.ingredient-list.below-par-only">Below par only</T>
         </label>
         <span className="result-count">
           {data.length}
-          {items.hasMore ? "+" : ""} {supplies ? "supplies" : "ingredients"}
+          {items.hasMore ? "+" : ""} {supplies ? <T id="inventory-lists.ingredient-list.supplies-3">supplies</T> : <T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
         </span>
       </FilterBar>
       {items.error ? (
@@ -407,15 +412,15 @@ export function IngredientList({
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="inventory-lists.ingredient-list"
             data={data}
             columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label={supplies ? "supplies" : "ingredients"}
+            label={supplies ? <T id="inventory-lists.ingredient-list.supplies-3">supplies</T> : <T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
             exportName={supplies ? "supplies" : "ingredients"}
             exportAll={items.loadAll}
           />
-          <LoadMore list={items} label={supplies ? "Load more supplies" : "Load more ingredients"} />
+          <LoadMore list={items} label={supplies ? <T id="inventory-lists.ingredient-list.load-more-supplies">Load more supplies</T> : <T id="inventory-lists.ingredient-list.load-more-ingredients">Load more ingredients</T>} />
         </>
       )}
       {create && (
@@ -439,6 +444,8 @@ export function SuppliesList() {
 // Bar stock (FLOW-90): consumables of subtype bar, counted, flagged below par and
 // costed like ingredients.
 export function BarList() {
+  const searchNameOrBrandPlaceholder = useCopy("inventory-lists.bar-list.search-name-or-brand.placeholder", "Search name or brand…");
+  const distributorPlaceholder = useCopy("inventory-lists.bar-list.distributor.placeholder", "Distributor");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -526,7 +533,7 @@ export function BarList() {
         <>
           {quantityLabel(c.row.original.totalQuantity, c.row.original.unit)}
           {c.row.original.belowPar && (
-            <span className="badge warning">Below par</span>
+            <span className="badge warning"><T id="inventory-lists.bar-list.below-par">Below par</T></span>
           )}
         </>
       ),
@@ -535,25 +542,25 @@ export function BarList() {
   return (
     <>
       <Link to="/inventory" className="back-link">
-        ← All inventory
+        <T id="inventory-lists.bar-list.all-inventory">← All inventory</T>
       </Link>
       <PageHeader
-        title="Bar"
-        subtitle="Beer, wine and liquor: what's in stock, what's low, and who supplies it."
-        eyebrow="BAR"
+        title={<T id="inventory-lists.bar-list.bar">Bar</T>}
+        subtitle={<T id="inventory-lists.bar-list.beer-wine-and-liquor-what">{"Beer, wine and liquor: what's in stock, what's low, and who supplies it."}</T>}
+        eyebrow={<T id="inventory-lists.bar-list.bar-2">BAR</T>}
       >
         <Allowed action="inventory.count">
           <Button variant="outline" asChild>
             <Link to="/inventory/counts">
               <ClipboardCheck size={16} />
-              Count
+              <T id="inventory-lists.bar-list.count">Count</T>
             </Link>
           </Button>
         </Allowed>
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Bar Item
+            <T id="inventory-lists.bar-list.new-bar-item">New Bar Item</T>
           </Button>
         </Allowed>
       </PageHeader>
@@ -561,7 +568,7 @@ export function BarList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search name or brand…"
+          placeholder={searchNameOrBrandPlaceholder} copyId="inventory-lists.bar-list.search-name-or-brand.placeholder"
         />
         <select
           aria-label="Category"
@@ -614,7 +621,7 @@ export function BarList() {
         </select>
         <input
           aria-label="Distributor"
-          placeholder="Distributor"
+          placeholder={distributorPlaceholder} data-copy-id="inventory-lists.bar-list.distributor.placeholder"
           value={distributor}
           onChange={(e) => setDistributor(e.target.value)}
         />
@@ -623,11 +630,10 @@ export function BarList() {
             checked={belowPar}
             onChange={(e) => setBelowPar(e.target.checked)}
           />
-          Below par only
+          <T id="inventory-lists.bar-list.below-par-only">Below par only</T>
         </label>
         <span className="result-count">
-          {data.length}
-          {items.hasMore ? "+" : ""} bar items
+          {items.hasMore ? <T id="inventory-lists.bar-list.bar-items" values={{ dataCount: data.length }}>{"{dataCount}+ bar items"}</T> : <T id="inventory-lists.bar-list.bar-items-2" values={{ dataCount: data.length }}>{"{dataCount} bar items"}</T>}
         </span>
       </FilterBar>
       {items.error ? (
@@ -636,15 +642,15 @@ export function BarList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="inventory-lists.bar-list"
             data={data}
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label="bar items"
+            label={<T id="inventory-lists.bar-list.bar-items-3">bar items</T>}
             exportName="bar"
             exportAll={items.loadAll}
           />
-          <LoadMore list={items} label="Load more bar items" />
+          <LoadMore list={items} label={<T id="inventory-lists.bar-list.load-more-bar-items">Load more bar items</T>} />
         </>
       )}
       {create && (

@@ -41,6 +41,7 @@ import {
   valueOf,
 } from "./lead-shared";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 const views = ["All leads", "Triage", "Needs review", "Duplicates"];
 
@@ -77,7 +78,7 @@ function DuplicateQueue() {
   if (duplicates.error) return <LoadError message={duplicates.error} />;
   if (!duplicates.data) return <LoadingSkeleton />;
   if (!duplicates.data.length)
-    return <p className="muted">No possible duplicates to resolve.</p>;
+    return <p className="muted"><T id="lead-inbox.duplicate-queue.no-possible-duplicates-to-resolve">No possible duplicates to resolve.</T></p>;
   const pair = (duplicate: LeadDuplicate) => {
     const other = duplicate.matchedLead;
     return (
@@ -85,12 +86,12 @@ function DuplicateQueue() {
         <p>
           <strong>{leadDuplicateReasonLabels[duplicate.reason]}</strong>
           {duplicate.crossOwner && (
-            <span className="badge warning">Different salespeople</span>
+            <span className="badge warning"><T id="lead-inbox.pair.different-salespeople">Different salespeople</T></span>
           )}
         </p>
         <p>
           <Link to={`/leads/${duplicate.lead.id}`}>
-            {duplicate.lead.name || "Unnamed lead"}
+            {duplicate.lead.name || <T id="lead-inbox.pair.unnamed-lead">Unnamed lead</T>}
           </Link>{" "}
           <small>{summaryLine(duplicate.lead)}</small>
         </p>
@@ -98,14 +99,14 @@ function DuplicateQueue() {
           {other ? (
             <>
               <Link to={`/leads/${other.id}`}>
-                {other.name || "Unnamed lead"}
+                {other.name || <T id="lead-inbox.pair.unnamed-lead">Unnamed lead</T>}
               </Link>{" "}
               <small>{summaryLine(other)}</small>
             </>
           ) : (
             duplicate.matchedClient && (
               <>
-                Client{" "}
+                <T id="lead-inbox.pair.client">{"Client "}</T>
                 <Link to={`/clients/${duplicate.matchedClient.id}`}>
                   {duplicate.matchedClient.name}
                 </Link>
@@ -126,7 +127,7 @@ function DuplicateQueue() {
                     )
                   }
                 >
-                  Keep {duplicate.lead.name || "first"}
+                  <T id="lead-inbox.pair.keep">{"Keep "}</T>{duplicate.lead.name || <T id="lead-inbox.pair.first">first</T>}
                 </Button>
               </Allowed>
               <Allowed action="leads.merge">
@@ -137,7 +138,7 @@ function DuplicateQueue() {
                     void act(() => leadsApi.merge(duplicate.id, other.id))
                   }
                 >
-                  Keep {other.name || "second"}
+                  <T id="lead-inbox.pair.keep">{"Keep "}</T>{other.name || <T id="lead-inbox.pair.second">second</T>}
                 </Button>
               </Allowed>
             </>
@@ -148,7 +149,7 @@ function DuplicateQueue() {
               disabled={busy}
               onClick={() => void act(() => leadsApi.dismiss(duplicate.id))}
             >
-              Not a duplicate
+              <T id="lead-inbox.pair.not-a-duplicate">Not a duplicate</T>
             </Button>
           </Allowed>
         </div>
@@ -165,7 +166,7 @@ function DuplicateQueue() {
       <ul className="duplicate-list" aria-label="Possible duplicates">
         {duplicates.data.map(pair)}
       </ul>
-      <LoadMore list={duplicates} label="Load more duplicates" />
+      <LoadMore list={duplicates} label={<T id="lead-inbox.duplicate-queue.load-more-duplicates">Load more duplicates</T>} />
     </>
   );
 }
@@ -173,6 +174,7 @@ function DuplicateQueue() {
 // The unified inbox (FLOW-100) with the triage queue (FLOW-111): every source in one
 // list, filters, a "needs review" view, and bulk assignment.
 export function LeadInbox() {
+  const searchNameEmailOrPhonePlaceholder = useCopy("lead-inbox.lead-inbox.search-name-email-or-phone.placeholder", "Search name, email or phone…");
   const navigate = useNavigate();
   const [view, setView] = useState(views[0]);
   const [status, setStatus] = useState("");
@@ -248,7 +250,7 @@ export function LeadInbox() {
             <strong>{leadTitle(c.row.original)}</strong>
           </Link>
           {c.row.original.needsReview && (
-            <span className="badge warning">Needs review</span>
+            <span className="badge warning"><T id="lead-inbox.lead-inbox.needs-review">Needs review</T></span>
           )}
         </span>
       ),
@@ -293,7 +295,7 @@ export function LeadInbox() {
               onClick={() => setConverting(c.row.original)}
             >
               <ArrowRightLeft size={14} />
-              Convert
+              <T id="lead-inbox.lead-inbox.convert">Convert</T>
             </Button>
           </Allowed>
         ) : null,
@@ -302,18 +304,18 @@ export function LeadInbox() {
   return (
     <>
       <PageHeader
-        title="Leads"
-        subtitle="Every inquiry from every source, in one place."
-        eyebrow="Leads"
+        title={<T id="lead-inbox.lead-inbox.leads">Leads</T>}
+        subtitle={<T id="lead-inbox.lead-inbox.every-inquiry-from-every-source">Every inquiry from every source, in one place.</T>}
+        eyebrow={<T id="lead-inbox.lead-inbox.leads">Leads</T>}
       >
         <Allowed action="leads.create">
-          <Button onClick={() => setEntering(true)}>New lead</Button>
+          <Button onClick={() => setEntering(true)}><T id="lead-inbox.lead-inbox.new-lead">New lead</T></Button>
         </Allowed>
         <Button variant="outline" asChild>
-          <Link to="/leads/dashboard">Lead dashboard</Link>
+          <Link to="/leads/dashboard"><T id="lead-inbox.lead-inbox.lead-dashboard">Lead dashboard</T></Link>
         </Button>
       </PageHeader>
-      <Tabs
+      <Tabs copyKey="lead-inbox.lead-inbox"
         tabs={views}
         value={view}
         onChange={(next) => {
@@ -330,7 +332,7 @@ export function LeadInbox() {
               <SearchInput
                 value={search}
                 onChange={setSearch}
-                placeholder="Search name, email or phone…"
+                placeholder={searchNameEmailOrPhonePlaceholder} copyId="lead-inbox.lead-inbox.search-name-email-or-phone.placeholder"
               />
               <Select
                 label="Statuses"
@@ -355,16 +357,15 @@ export function LeadInbox() {
                 )}
               />
               <span className="result-count">
-                {data.length}
-                {leads.hasMore ? "+" : ""} leads
+                {leads.hasMore ? <T id="lead-inbox.lead-inbox.leads-2" values={{ dataCount: data.length }}>{"{dataCount}+ leads"}</T> : <T id="lead-inbox.lead-inbox.leads-3" values={{ dataCount: data.length }}>{"{dataCount} leads"}</T>}
               </span>
             </FilterBar>
             {selected.length > 0 && (
-              <Section title={`${selected.length} selected`}>
+              <Section title={<T id="lead-inbox.lead-inbox.selected" values={{ selectedCount: selected.length }}>{"{selectedCount} selected"}</T>}>
                 <Allowed action="leads.assign">
                   <AssignForm
-                    label="Assign selected to (user ID)"
-                    button="Assign selected"
+                    label={<T id="lead-inbox.lead-inbox.assign-selected-to-user-id">Assign selected to (user ID)</T>}
+                    button={<T id="lead-inbox.lead-inbox.assign-selected">Assign selected</T>}
                     onAssign={async (salespersonId) => {
                       await leadsApi.bulkAssign(selected, salespersonId);
                       setSelected([]);
@@ -380,14 +381,14 @@ export function LeadInbox() {
               <LoadingSkeleton />
             ) : (
               <>
-                <DataTable
+                <DataTable copyKey="lead-inbox.lead-inbox"
                   data={data}
                   columns={columns}
-                  label="leads"
+                  label={<T id="lead-inbox.lead-inbox.leads-4">leads</T>}
                   exportName="leads"
                   exportAll={leads.loadAll}
                 />
-                <LoadMore list={leads} label="Load more leads" />
+                <LoadMore list={leads} label={<T id="lead-inbox.lead-inbox.load-more-leads">Load more leads</T>} />
               </>
             )}
           </>

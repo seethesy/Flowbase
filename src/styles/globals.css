@@ -2324,3 +2324,103 @@ input.round-check:disabled {
 .user-access-row button {
   margin: 4px;
 }
+
+/* Admin live text editing (FLOW-240). */
+.live-edit-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.live-edit-toggle:hover {
+  color: var(--primary);
+  background: var(--primary-soft, rgba(50, 116, 89, 0.08));
+}
+.live-edit-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.live-copy {
+  outline: 1px dashed var(--border-dark);
+  outline-offset: 2px;
+  border-radius: 3px;
+  cursor: text;
+  position: relative;
+}
+.live-copy:hover,
+.live-copy-active {
+  outline-color: var(--primary);
+  background: rgba(50, 116, 89, 0.06);
+}
+.live-copy-edited::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.live-editing input[data-copy-id],
+.live-editing textarea[data-copy-id] {
+  outline: 1px dashed var(--border-dark);
+  outline-offset: 2px;
+  cursor: text;
+}
+.live-copy-editor {
+  position: fixed;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 16px));
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text, #1f2a24);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.live-copy-editor textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
+.live-copy-error {
+  color: var(--danger, #b42318);
+  font-size: 13px;
+  margin: 0;
+}
+.live-copy-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.live-copy-editor-actions small {
+  margin-right: auto;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-edit-leave {
+  position: fixed;
+  z-index: 1001;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}

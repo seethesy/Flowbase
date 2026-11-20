@@ -8,6 +8,7 @@ import { LoadError } from "../components/record-display";
 import { preparationApi } from "../services/preparation";
 import { staffApi } from "../services/staff";
 import { ApiRequestError } from "../services/core";
+import { T } from "../app/copy";
 
 const localInput = (instant: string) => {
   const { date, time } = utcToBusinessTime(new Date(instant));
@@ -31,7 +32,7 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState("");
   const [busy, setBusy] = useState(false);
-  if (log.error) return <Section title="Truck log"><LoadError message={log.error} /></Section>;
+  if (log.error) return <Section title={<T id="event-trucks.event-truck-section.truck-log">Truck log</T>}><LoadError message={log.error} /></Section>;
   if (!log.data) return <LoadingSkeleton />;
   const data = log.data;
   const assigned = new Set(data.assignments.map((assignment) => assignment.truckId));
@@ -55,7 +56,7 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
       else setError(message);
     } finally { setBusy(false); }
   };
-  return <Section title="Truck log">
+  return <Section title={<T id="event-trucks.event-truck-section.truck-log">Truck log</T>}>
     {error && <p role="alert" className="error-message">{error}</p>}
     {data.missingDriverWarning && <p role="alert" className="warning-message">{data.missingDriverWarning}</p>}
     <ul className="planning-list">
@@ -70,39 +71,39 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
     {data.assignments.map((assignment) => <div key={assignment.id} className="planning-row">
       <strong>{assignment.truckName}</strong>
       <span>{localInput(assignment.departsAt).replace("T", " ")} – {localInput(assignment.returnsAt).replace("T", " ")}</span>
-      <span>Driver: {assignment.driverName ?? "Unassigned"}</span>
-      {assignment.conflictMessage && <small>Conflict acknowledged: {assignment.conflictMessage}</small>}
+      <span><T id="event-trucks.event-truck-section.driver">{"Driver: "}</T>{assignment.driverName ?? <T id="event-trucks.event-truck-section.unassigned">Unassigned</T>}</span>
+      {assignment.conflictMessage && <small><T id="event-trucks.event-truck-section.conflict-acknowledged" values={{ conflictMessage: assignment.conflictMessage }}>{"Conflict acknowledged: {conflictMessage}"}</T></small>}
       {data.canEdit && <Button variant="ghost" disabled={busy}
-        onClick={() => void update(() => preparationApi.removeTruckAssignment(event.id, assignment.id))}>Remove</Button>}
+        onClick={() => void update(() => preparationApi.removeTruckAssignment(event.id, assignment.id))}><T id="event-trucks.event-truck-section.remove">Remove</T></Button>}
     </div>)}
     {data.canEdit && <>
       <div className="form-grid">
-        <FormField label="Truck"><select value={truckId} onChange={(e) => { setTruckId(e.target.value); setConflict(""); }}>
+        <FormField label={<T id="event-trucks.event-truck-section.truck">Truck</T>}><select value={truckId} onChange={(e) => { setTruckId(e.target.value); setConflict(""); }}>
           <option value="">Choose a truck</option>
           {data.trucks.filter((truck) => !assigned.has(truck.id)).map((truck) => <option key={truck.id} value={truck.id}>{truck.name}</option>)}
         </select></FormField>
-        <FormField label="Departure"><input type="datetime-local" value={departsAt} onChange={(e) => { setDepartsAt(e.target.value); setConflict(""); }} /></FormField>
-        <FormField label="Back at warehouse"><input type="datetime-local" value={returnsAt} onChange={(e) => { setReturnsAt(e.target.value); setConflict(""); }} /></FormField>
-        <FormField label="Driver"><select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
+        <FormField label={<T id="event-trucks.event-truck-section.departure">Departure</T>}><input type="datetime-local" value={departsAt} onChange={(e) => { setDepartsAt(e.target.value); setConflict(""); }} /></FormField>
+        <FormField label={<T id="event-trucks.event-truck-section.back-at-warehouse">Back at warehouse</T>}><input type="datetime-local" value={returnsAt} onChange={(e) => { setReturnsAt(e.target.value); setConflict(""); }} /></FormField>
+        <FormField label={<T id="event-trucks.event-truck-section.driver-2">Driver</T>}><select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
           <option value="">Unassigned</option>
           {(staff.data ?? []).filter((person) => person.active).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
         </select></FormField>
-        <FormField label="Loaders"><select multiple value={loaderIds} onChange={(e) => setLoaderIds([...e.target.selectedOptions].map((option) => option.value))}>
+        <FormField label={<T id="event-trucks.event-truck-section.loaders">Loaders</T>}><select multiple value={loaderIds} onChange={(e) => setLoaderIds([...e.target.selectedOptions].map((option) => option.value))}>
           {(staff.data ?? []).filter((person) => person.active).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
         </select></FormField>
       </div>
-      <Button disabled={busy || !truckId} onClick={() => void assign(false)}>Assign truck</Button>
+      <Button disabled={busy || !truckId} onClick={() => void assign(false)}><T id="event-trucks.event-truck-section.assign-truck">Assign truck</T></Button>
       {conflict && <div role="alert" className="warning-message"><p>{conflict}</p>
-        <Button disabled={busy} onClick={() => void assign(true)}>Acknowledge and assign</Button>
-        <Button variant="outline" onClick={() => setConflict("")}>Cancel</Button>
+        <Button disabled={busy} onClick={() => void assign(true)}><T id="event-trucks.event-truck-section.acknowledge-and-assign">Acknowledge and assign</T></Button>
+        <Button variant="outline" onClick={() => setConflict("")}><T id="event-trucks.event-truck-section.cancel">Cancel</T></Button>
       </div>}
-      <div className="form-grid"><FormField label="Add truck"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} /></FormField>
+      <div className="form-grid"><FormField label={<T id="event-trucks.event-truck-section.add-truck">Add truck</T>}><input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} /></FormField>
         <Button disabled={busy || !name.trim()} onClick={() => void update(async () => {
           const next = await preparationApi.addTruck(event.id, name.trim()); setName(""); return next;
-        })}>Add truck</Button></div>
+        })}><T id="event-trucks.event-truck-section.add-truck">Add truck</T></Button></div>
     </>}
     {pull.data && pull.data.groups.flatMap((group) => group.lines).length > 0 && <div>
-      <h3>Pull-list lines by truck</h3>
+      <h3><T id="event-trucks.event-truck-section.pull-list-lines-by-truck">Pull-list lines by truck</T></h3>
       {pull.data.groups.flatMap((group) => group.lines).map((line) => <div key={line.id} className="planning-row">
         <span>{line.name}</span>
         <select aria-label={`Truck for ${line.name}`} disabled={!data.canEdit || busy}

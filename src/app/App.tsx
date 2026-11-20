@@ -4,6 +4,8 @@ import { queryClient } from "./queryClient";
 import { DemoProvider } from "./store";
 import { getRouter } from "./router";
 import { AuthGate } from "./auth";
+import { CopyProvider } from "./copy";
+import { usePermissions } from "./permissions";
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -15,7 +17,11 @@ export function App() {
 }
 
 function Workspace() {
+  // Admin live text editing (FLOW-240): saved wording for every screen.
+  const permissions = usePermissions();
   return (
-    <DemoProvider><RouterProvider router={getRouter()} /></DemoProvider>
+    <CopyProvider canEdit={permissions.can("copy.edit")}>
+      <DemoProvider><RouterProvider router={getRouter()} /></DemoProvider>
+    </CopyProvider>
   );
 }

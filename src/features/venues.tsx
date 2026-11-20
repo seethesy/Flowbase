@@ -30,11 +30,13 @@ import { LoadError } from "../components/record-display";
 import { EventTable } from "./events";
 import { Attachments } from "./attachments";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 const contactRoleLabels = { manager: "Manager", coordinator: "Coordinator" };
 
 // Venues (FLOW-54): reused across events, with the areas used for layouts.
 export function VenueList() {
+  const searchVenuesPlaceholder = useCopy("venues.venue-list.search-venues.placeholder", "Search venues…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
@@ -63,14 +65,14 @@ export function VenueList() {
   return (
     <>
       <PageHeader
-        title="Venues"
-        subtitle="Addresses, areas and load-in details, ready for every event."
-        eyebrow="Venues"
+        title={<T id="venues.venue-list.venues">Venues</T>}
+        subtitle={<T id="venues.venue-list.addresses-areas-and-load-in">Addresses, areas and load-in details, ready for every event.</T>}
+        eyebrow={<T id="venues.venue-list.venues">Venues</T>}
       >
         <Allowed action="venues.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Venue
+            <T id="venues.venue-list.new-venue">New Venue</T>
           </Button>
         </Allowed>
       </PageHeader>
@@ -78,18 +80,17 @@ export function VenueList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search venues…"
+          placeholder={searchVenuesPlaceholder} copyId="venues.venue-list.search-venues.placeholder"
         />
         <label className="checkbox-filter">
           <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="venues.venue-list.show-archived">Show archived</T>
         </label>
         <span className="result-count">
-          {data.length}
-          {venues.hasMore ? "+" : ""} venues
+          {venues.hasMore ? <T id="venues.venue-list.venues-2" values={{ dataCount: data.length }}>{"{dataCount}+ venues"}</T> : <T id="venues.venue-list.venues-3" values={{ dataCount: data.length }}>{"{dataCount} venues"}</T>}
         </span>
       </FilterBar>
       {venues.error ? (
@@ -98,15 +99,15 @@ export function VenueList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="venues.venue-list"
             data={data}
             columns={columns}
             onRow={(venue) => navigate(`/venues/${venue.id}`)}
-            label="venues"
+            label={<T id="venues.venue-list.venues-4">venues</T>}
             exportName="venues"
             exportAll={venues.loadAll}
           />
-          <LoadMore list={venues} label="Load more venues" />
+          <LoadMore list={venues} label={<T id="venues.venue-list.load-more-venues">Load more venues</T>} />
         </>
       )}
       {create && (
@@ -221,8 +222,8 @@ function VenueFormFields({
     <DetailDrawer
       open
       onClose={onClose}
-      title={venue ? "Edit venue" : "New venue"}
-      description="Saved to Flowbase."
+      title={venue ? <T id="venues.venue-form-fields.edit-venue">Edit venue</T> : <T id="venues.venue-form-fields.new-venue">New venue</T>}
+      description={<T id="venues.venue-form-fields.saved-to-flowbase">Saved to Flowbase.</T>}
     >
       <form
         noValidate
@@ -241,21 +242,21 @@ function VenueFormFields({
             {error}
           </p>
         )}
-        <FormField label="Name *">
+        <FormField label={<T id="venues.venue-form-fields.name">Name *</T>}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
         </FormField>
-        <FormField label="Address">
+        <FormField label={<T id="venues.venue-form-fields.address">Address</T>}>
           <textarea
             rows={2}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />
         </FormField>
-        <FormField label="Jurisdiction" hint="Stored for future tax use.">
+        <FormField label={<T id="venues.venue-form-fields.jurisdiction">Jurisdiction</T>} hint={<T id="venues.venue-form-fields.stored-for-future-tax-use">Stored for future tax use.</T>}>
           <select
             value={jurisdiction}
             onChange={(e) => setJurisdiction(e.target.value)}
@@ -266,24 +267,24 @@ function VenueFormFields({
             ))}
           </select>
         </FormField>
-        <FormField label="Load-in notes">
+        <FormField label={<T id="venues.venue-form-fields.load-in-notes">Load-in notes</T>}>
           <textarea
             rows={2}
             value={loadInNotes}
             onChange={(e) => setLoadInNotes(e.target.value)}
           />
         </FormField>
-        <FormField label="Parking notes">
+        <FormField label={<T id="venues.venue-form-fields.parking-notes">Parking notes</T>}>
           <textarea
             rows={2}
             value={parkingNotes}
             onChange={(e) => setParkingNotes(e.target.value)}
           />
         </FormField>
-        <h3 className="form-subheading">Areas</h3>
+        <h3 className="form-subheading"><T id="venues.venue-form-fields.areas">Areas</T></h3>
         {areas.map((area, index) => (
           <div className="inline-row" key={area.key}>
-            <FormField label={`Area ${index + 1}`}>
+            <FormField label={<T id="venues.venue-form-fields.area" values={{ value: index + 1 }}>{"Area {value}"}</T>}>
               <input
                 value={area.name}
                 onChange={(e) =>
@@ -306,7 +307,7 @@ function VenueFormFields({
                 )
               }
             >
-              Remove area
+              <T id="venues.venue-form-fields.remove-area">Remove area</T>
             </Button>
           </div>
         ))}
@@ -315,12 +316,12 @@ function VenueFormFields({
           variant="outline"
           onClick={() => setAreas((current) => [...current, keyed({ name: "" })])}
         >
-          <Plus size={14} /> Add area
+          <Plus size={14} /><T id="venues.venue-form-fields.add-area">{" Add area"}</T>
         </Button>
-        <h3 className="form-subheading">Venue contacts</h3>
+        <h3 className="form-subheading"><T id="venues.venue-form-fields.venue-contacts">Venue contacts</T></h3>
         {contacts === null ? (
           <p className="muted">
-            Venue contacts are visible to full-time staff only.
+            <T id="venues.venue-form-fields.venue-contacts-are-visible-to">Venue contacts are visible to full-time staff only.</T>
           </p>
         ) : (
           <>
@@ -336,10 +337,10 @@ function VenueFormFields({
                       key={field}
                       label={
                         field === "name"
-                          ? "Contact name *"
+                          ? <T id="venues.venue-form-fields.contact-name">Contact name *</T>
                           : field === "email"
-                            ? "Email"
-                            : "Phone"
+                            ? <T id="venues.venue-form-fields.email">Email</T>
+                            : <T id="venues.venue-form-fields.phone">Phone</T>
                       }
                     >
                       <input
@@ -356,7 +357,7 @@ function VenueFormFields({
                       />
                     </FormField>
                   ))}
-                  <FormField label="Role">
+                  <FormField label={<T id="venues.venue-form-fields.role">Role</T>}>
                     <select
                       value={contact.role}
                       onChange={(e) =>
@@ -393,7 +394,7 @@ function VenueFormFields({
                     )
                   }
                 >
-                  Remove contact
+                  <T id="venues.venue-form-fields.remove-contact">Remove contact</T>
                 </Button>
               </fieldset>
             ))}
@@ -412,16 +413,16 @@ function VenueFormFields({
                 ])
               }
             >
-              <Plus size={14} /> Add venue contact
+              <Plus size={14} /><T id="venues.venue-form-fields.add-venue-contact">{" Add venue contact"}</T>
             </Button>
           </>
         )}
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="venues.venue-form-fields.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            Save venue
+            <T id="venues.venue-form-fields.save-venue">Save venue</T>
           </Button>
         </div>
       </form>
@@ -444,7 +445,7 @@ export function VenueDetail() {
   const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/venues" className="back-link">
-      ← All venues
+      <T id="venues.venue-detail.all-venues">← All venues</T>
     </Link>
   );
   if (venue.error)
@@ -466,7 +467,7 @@ export function VenueDetail() {
             {v.jurisdiction && (
               <span className="badge neutral">{v.jurisdiction}</span>
             )}
-            {v.archivedAt && <span className="badge error">Archived</span>}
+            {v.archivedAt && <span className="badge error"><T id="venues.venue-detail.archived">Archived</T></span>}
             <span>{v.address}</span>
           </p>
         </div>
@@ -474,7 +475,7 @@ export function VenueDetail() {
           <Allowed action="venues.write">
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
-              Edit
+              <T id="venues.venue-detail.edit">Edit</T>
             </Button>
           </Allowed>
           {v.archivedAt ? (
@@ -486,32 +487,32 @@ export function VenueDetail() {
                 }
               >
                 <RotateCcw size={14} />
-                Restore
+                <T id="venues.venue-detail.restore">Restore</T>
               </Button>
             </Allowed>
           ) : (
             <Allowed action="venues.write">
               <Button variant="outline" onClick={() => setArchive(true)}>
                 <Archive size={14} />
-                Archive
+                <T id="venues.venue-detail.archive">Archive</T>
               </Button>
             </Allowed>
           )}
         </div>
       </div>
       <div className="detail-grid">
-        <Section title="Venue details">
-          <small>Areas</small>
-          <p>{v.areas.map((area) => area.name).join(", ") || "No areas yet."}</p>
-          <small>Load-in</small>
+        <Section title={<T id="venues.venue-detail.venue-details">Venue details</T>}>
+          <small><T id="venues.venue-detail.areas">Areas</T></small>
+          <p>{v.areas.map((area) => area.name).join(", ") || <T id="venues.venue-detail.no-areas-yet">No areas yet.</T>}</p>
+          <small><T id="venues.venue-detail.load-in">Load-in</T></small>
           <p>{v.loadInNotes || "—"}</p>
-          <small>Parking</small>
+          <small><T id="venues.venue-detail.parking">Parking</T></small>
           <p>{v.parkingNotes || "—"}</p>
         </Section>
-        <Section title="Venue contacts">
+        <Section title={<T id="venues.venue-detail.venue-contacts">Venue contacts</T>}>
           {v.contacts === null ? (
             <p className="muted">
-              Venue contacts are visible to full-time staff only.
+              <T id="venues.venue-detail.venue-contacts-are-visible-to">Venue contacts are visible to full-time staff only.</T>
             </p>
           ) : v.contacts.length ? (
             v.contacts.map((contact) => (
@@ -526,7 +527,7 @@ export function VenueDetail() {
               </div>
             ))
           ) : (
-            <p className="muted">No venue contacts yet.</p>
+            <p className="muted"><T id="venues.venue-detail.no-venue-contacts-yet">No venue contacts yet.</T></p>
           )}
         </Section>
       </div>
@@ -544,7 +545,7 @@ export function VenueDetail() {
           title="Aerial images"
         />
       </div>
-      <Section title="Event history">
+      <Section title={<T id="venues.venue-detail.event-history">Event history</T>}>
         <EventTable events={events.data ?? []} error={events.error} />
       </Section>
       {edit && (
@@ -557,14 +558,14 @@ export function VenueDetail() {
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this venue?"
+        title={<T id="venues.venue-detail.archive-this-venue">Archive this venue?</T>}
         onConfirm={async () => {
           await venuesApi.setArchived(v.id, true);
           setArchive(false);
           navigate("/venues");
         }}
       >
-        {v.name} will no longer be offered for new events.
+        <T id="venues.venue-detail.will-no-longer-be-offered" values={{ name: v.name }}>{"{name} will no longer be offered for new events."}</T>
       </ConfirmationDialog>
     </>
   );

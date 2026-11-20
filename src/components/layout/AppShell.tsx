@@ -37,6 +37,9 @@ import { TrackingNotice } from "../TrackingNotice";
 import { GlobalSearch } from "../../features/search";
 import { NotificationBell } from "../../features/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
+import { LiveEditControls, LiveEditLayer } from "../../app/live-edit";
+import { T } from "../../app/copy";
+import { copySlug } from "../../../shared/copy";
 import { useAuth } from "../../app/auth";
 import { roleLabel } from "../../services/users";
 import {
@@ -57,6 +60,8 @@ const groupIcons: Record<string, LucideIcon> = {
   Documents: FileText,
   Reports: ChartNoAxesCombined,
 };
+// Headings, tabs and crumbs share one key per name (nav.<name>, FLOW-240), so an
+// edited name reads the same in the sidebar, the tabs and the breadcrumb.
 // Day-of sits under Dashboard and Events. Links say which heading they came from,
 // so the sidebar, tabs and breadcrumb stay on it.
 type NavState = { navGroup?: string } | null;
@@ -79,7 +84,7 @@ export function Breadcrumbs() {
         const label = crumb.record ? (
           <RecordName key={pathname} {...crumb.record} fallback={crumb.label} />
         ) : (
-          crumb.label
+          <T id={`nav.${copySlug(crumb.label)}`}>{crumb.label}</T>
         );
         return (
           <span className={index === 0 ? "crumb crumb-root" : "crumb"} key={`${index}:${crumb.label}`}>
@@ -161,9 +166,9 @@ function Sidebar({
         className={`sidebar ${collapsed ? "collapsed" : ""} ${mobile ? "mobile-open" : ""}`}
       >
         <Link className="logo" to="/" onClick={() => setMobile(false)}>
-          <span className="brand-mark">f</span>
+          <span className="brand-mark"><T id="app-shell.sidebar.f">f</T></span>
           <span className="logo-text">
-            flowbase<span className="logo-dot">.</span>
+            <T id="app-shell.sidebar.flowbase">flowbase</T><span className="logo-dot">.</span>
           </span>
         </Link>
         <button
@@ -175,12 +180,12 @@ function Sidebar({
             <Leaf size={17} />
           </span>
           <span className="sidebar-text">
-            <strong>CoreOps</strong>
-            <small>Catering workspace</small>
+            <strong><T id="app-shell.sidebar.coreops">CoreOps</T></strong>
+            <small><T id="app-shell.sidebar.catering-workspace">Catering workspace</T></small>
           </span>
           <ChevronDown size={14} />
         </button>
-        <div className="nav-label sidebar-text">WORKSPACE</div>
+        <div className="nav-label sidebar-text"><T id="app-shell.sidebar.workspace">WORKSPACE</T></div>
         <nav className="primary-nav" aria-label="Main">
           {groups.map(({ name, tabs }) => {
             const Icon = groupIcons[name] ?? LayoutDashboard;
@@ -197,7 +202,9 @@ function Sidebar({
                 onClick={() => setMobile(false)}
               >
                 <Icon size={19} />
-                <span className="sidebar-text">{name}</span>
+                <span className="sidebar-text">
+                  <T id={`nav.${copySlug(name)}`}>{name}</T>
+                </span>
               </Link>
             );
           })}
@@ -219,7 +226,9 @@ function Sidebar({
                   onClick={() => setMobile(false)}
                 >
                   <Icon size={18} />
-                  <span className="sidebar-text">{name}</span>
+                  <span className="sidebar-text">
+                    <T id={`nav.${copySlug(name)}`}>{name}</T>
+                  </span>
                 </Link>
               );
             })}
@@ -274,7 +283,7 @@ function SectionTabs() {
             className={active ? "active" : undefined}
             aria-current={active ? "page" : undefined}
           >
-            {tab.name}
+            <T id={`nav.${copySlug(tab.name)}`}>{tab.name}</T>
           </Link>
         );
       })}
@@ -325,9 +334,10 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
             onClick={() => setGlobal(true)}
           >
             <Search size={16} />
-            <span>Search anything…</span>
+            <span><T id="app-shell.top-header.search-anything">Search anything…</T></span>
           </button>
           <NotificationBell />
+          <LiveEditControls />
           <div className="menu-wrap" ref={menu}>
             <button
               className="avatar header-avatar"
@@ -342,14 +352,14 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
                 <strong>{displayName}</strong>
                 <small>{auth ? roleLabel(auth.user.role) : ""}</small>
                 <Link to="/profile" onClick={() => setProfile(false)}>
-                  Employee profile
+                  <T id="app-shell.top-header.employee-profile">Employee profile</T>
                 </Link>
                 {permissions.can("users.manage") && (
                   <Link to="/settings/users" onClick={() => setProfile(false)}>
-                    Manage users
+                    <T id="app-shell.top-header.manage-users">Manage users</T>
                   </Link>
                 )}
-                <button onClick={() => void auth?.signOut()}>Sign out</button>
+                <button onClick={() => void auth?.signOut()}><T id="app-shell.top-header.sign-out">Sign out</T></button>
               </div>
             )}
           </div>
@@ -358,8 +368,8 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
       <DetailDrawer
         open={global}
         onClose={() => setGlobal(false)}
-        title="Search your workspace"
-        description="Find clients, leads, events, venues and inventory items."
+        title={<T id="app-shell.top-header.search-your-workspace">Search your workspace</T>}
+        description={<T id="app-shell.top-header.find-clients-leads-events-venues">Find clients, leads, events, venues and inventory items.</T>}
       >
         <GlobalSearch
           onOpen={(path) => {
@@ -382,7 +392,7 @@ export function AppShell() {
   return (
     <div className={`app-shell ${collapsed ? "shell-collapsed" : ""}`}>
       <a className="skip-link" href="#main-content">
-        Skip to content
+        <T id="app-shell.app-shell.skip-to-content">Skip to content</T>
       </a>
       <Sidebar {...{ collapsed, setCollapsed, mobile, setMobile }} />
       <div className="app-main">
@@ -390,15 +400,16 @@ export function AppShell() {
         <main id="main-content">
           <TrackingNotice />
           <SectionTabs />
-          <Suspense fallback={<p role="status">Loading screen…</p>}><Outlet /></Suspense>
+          <Suspense fallback={<p role="status"><T id="app-shell.app-shell.loading-screen">Loading screen…</T></p>}><Outlet /></Suspense>
         </main>
         <footer className="app-footer">
           <span>
-            <span className="footer-dot" /> Flowbase workspace.
+            <span className="footer-dot" /><T id="app-shell.app-shell.flowbase-workspace">{" Flowbase workspace."}</T>
           </span>
-          <span>Dashboard contains sample data</span>
+          <span><T id="app-shell.app-shell.dashboard-contains-sample-data">Dashboard contains sample data</T></span>
         </footer>
       </div>
+      <LiveEditLayer />
       {mobile && (
         <button
           className="drawer-mobile-close"

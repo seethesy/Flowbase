@@ -4,6 +4,7 @@ import { useResource } from "../app/useResource";
 import { PageHeader, Section } from "../components/shared";
 import { request } from "../services/core";
 import { usePermissions } from "../app/permissions";
+import { T } from "../app/copy";
 
 const runSchema = z.object({ at: z.string(), leadsFound: z.number(), status: z.string() });
 const healthSchema = z.object({ site: z.string(), lastSuccessfulAt: z.string().nullable(),
@@ -31,9 +32,9 @@ export function CollectorHealthPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save."); }
   };
   return <>
-    <PageHeader title="Collector health" subtitle="Recent site runs and alert thresholds." />
-    <p><a href={instructions} target="_blank" rel="noreferrer">Collector re-login and ops instructions</a></p>
-    {manage && <p>Monitor a site before its first run: {(["bark", "perfect_venue", "weddingpro", "eventective"] as const)
+    <PageHeader title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />
+    <p><a href={instructions} target="_blank" rel="noreferrer"><T id="collector-health.collector-health-page.collector-re-login-and-ops">Collector re-login and ops instructions</T></a></p>
+    {manage && <p><T id="collector-health.collector-health-page.monitor-a-site-before-its">{"Monitor a site before its first run: "}</T>{(["bark", "perfect_venue", "weddingpro", "eventective"] as const)
       .filter((site) => !health.data?.some((row) => row.site === site))
       .map((site) => <button key={site} type="button" onClick={() => {
         void request(z.object({ saved: z.boolean() }), `/api/admin/collector-health/${site}`, "PUT",
@@ -41,20 +42,20 @@ export function CollectorHealthPage() {
           .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to save."));
       }}>{site}</button>)}</p>}
     {error && <p role="alert">{error}</p>}
-    {health.error && <p role="alert">Unable to load collector health.</p>}
+    {health.error && <p role="alert"><T id="collector-health.collector-health-page.unable-to-load-collector-health">Unable to load collector health.</T></p>}
     {health.data?.map((site) => <Section key={site.site} title={site.site}>
-      <p>Status: <strong>{site.status.replaceAll("_", " ")}</strong> · Last successful run: {site.lastSuccessfulAt ?? "Never"} · Latest leads: {site.leadsFound ?? "—"}</p>
-      {site.lastError && <p>Last error: {site.lastError}</p>}
+      <p><T id="collector-health.collector-health-page.status">{"Status: "}</T><strong>{site.status.replaceAll("_", " ")}</strong><T id="collector-health.collector-health-page.last-successful-run">{" · Last successful run: "}</T>{site.lastSuccessfulAt ?? <T id="collector-health.collector-health-page.never">Never</T>}<T id="collector-health.collector-health-page.latest-leads" values={{ value: site.leadsFound ?? "—" }}>{" · Latest leads: {value}"}</T></p>
+      {site.lastError && <p><T id="collector-health.collector-health-page.last-error" values={{ lastError: site.lastError }}>{"Last error: {lastError}"}</T></p>}
       {manage && <form key={`${site.site}-${revision}`} onSubmit={(event) => { event.preventDefault(); void save(site.site, event.currentTarget); }}>
-        <label>No-leads gap (hours) <input name="gap" type="number" min="1" max="720" defaultValue={site.noLeadsGapHours} /></label>{" "}
-        <label>Failures before alert <input name="failures" type="number" min="1" max="20" defaultValue={site.failureThreshold} /></label>{" "}
-        <button type="submit">Save</button>
+        <label><T id="collector-health.collector-health-page.no-leads-gap-hours">{"No-leads gap (hours) "}</T><input name="gap" type="number" min="1" max="720" defaultValue={site.noLeadsGapHours} /></label>{" "}
+        <label><T id="collector-health.collector-health-page.failures-before-alert">{"Failures before alert "}</T><input name="failures" type="number" min="1" max="20" defaultValue={site.failureThreshold} /></label>{" "}
+        <button type="submit"><T id="collector-health.collector-health-page.save">Save</T></button>
       </form>}
-      <ul>{site.recentRuns.map((run) => <li key={run.at}>{run.at}: {run.status}, {run.leadsFound} leads</li>)}</ul>
+      <ul>{site.recentRuns.map((run) => <li key={run.at}><T id="collector-health.collector-health-page.leads" values={{ at: run.at, status: run.status, leadsFound: run.leadsFound }}>{"{at}: {status}, {leadsFound} leads"}</T></li>)}</ul>
     </Section>)}
-    {manage && <Section title="SMS outbox">
-      <p>Stub messages are recorded here; no text is sent.</p>
-      {sms.error && <p role="alert">Unable to load SMS outbox.</p>}
+    {manage && <Section title={<T id="collector-health.collector-health-page.sms-outbox">SMS outbox</T>}>
+      <p><T id="collector-health.collector-health-page.stub-messages-are-recorded-here">Stub messages are recorded here; no text is sent.</T></p>
+      {sms.error && <p role="alert"><T id="collector-health.collector-health-page.unable-to-load-sms-outbox">Unable to load SMS outbox.</T></p>}
       <ul>{sms.data?.map((message) => <li key={message.id}>{message.createdAt} · {message.mobile} · {message.status} · {message.body}</li>)}</ul>
     </Section>}
   </>;

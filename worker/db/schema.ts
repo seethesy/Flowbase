@@ -2273,3 +2273,12 @@ export const beoChanges = pgTable(
     index("beo_changes_event_idx").on(table.eventId),
   ],
 ).enableRLS();
+
+// Admin live text editing (FLOW-240): the admin's wording for a built-in string,
+// keyed by its <T id>. A missing row means the default in code. Reset deletes the
+// row (wording, not record data, so nothing is kept). updated_by is the editor.
+export const uiCopy = pgTable("ui_copy", {
+  ...baseColumns(),
+  key: text("key").notNull().unique(),
+  text: text("text").notNull(),
+}).enableRLS();

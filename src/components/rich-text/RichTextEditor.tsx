@@ -16,6 +16,7 @@ import {
 import { Button } from "../ui/button";
 import { emptyRichText, isAllowedLink, richTextExtensions, type RichTextDoc } from "./extensions";
 import { normalizePastedHtml } from "./render";
+import { T, useCopy } from "../../app/copy";
 
 type Props = {
   label: string;
@@ -58,6 +59,7 @@ function ToolbarButton({
 
 // Rich text editor (FLOW-50). Emits TipTap JSON; render it with RichTextView.
 export function RichTextEditor({ label, value, onChange }: Props) {
+  const httpsPlaceholder = useCopy("rich-text-editor.rich-text-editor.https.placeholder", "https://");
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const editor = useEditor({
     extensions: richTextExtensions,
@@ -157,12 +159,12 @@ export function RichTextEditor({ label, value, onChange }: Props) {
       {linkDraft !== null && (
         <form className="rich-text-link" onSubmit={applyLink}>
           <label>
-            <span>Link URL</span>
+            <span><T id="rich-text-editor.rich-text-editor.link-url">Link URL</T></span>
             <input
               autoFocus
               type="url"
               value={linkDraft}
-              placeholder="https://"
+              placeholder={httpsPlaceholder} data-copy-id="rich-text-editor.rich-text-editor.https.placeholder"
               aria-invalid={linkInvalid}
               onChange={(event) => setLinkDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -170,12 +172,12 @@ export function RichTextEditor({ label, value, onChange }: Props) {
               }}
             />
           </label>
-          {linkInvalid && <small role="alert">Use an http, https, mailto or tel link.</small>}
+          {linkInvalid && <small role="alert"><T id="rich-text-editor.rich-text-editor.use-an-http-https-mailto">Use an http, https, mailto or tel link.</T></small>}
           <Button type="submit" variant="outline">
-            {linkDraft.trim() ? "Apply link" : "Remove link"}
+            {linkDraft.trim() ? <T id="rich-text-editor.rich-text-editor.apply-link">Apply link</T> : <T id="rich-text-editor.rich-text-editor.remove-link">Remove link</T>}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setLinkDraft(null)}>
-            Cancel
+            <T id="rich-text-editor.rich-text-editor.cancel">Cancel</T>
           </Button>
         </form>
       )}

@@ -10,6 +10,7 @@ import { LoadingSkeleton, Section } from "../components/shared";
 import { planningApi } from "../services/planning";
 import { date } from "./event-format";
 import { quantityLabel } from "./inventory-labels";
+import { T } from "../app/copy";
 import "./event-planning.css";
 
 // What an item is committed to (FLOW-76, FLOW-77, FLOW-85), on the item page: a
@@ -19,7 +20,7 @@ import "./event-planning.css";
 
 const number = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 4 });
 const today = () => new Date().toLocaleDateString("en-CA");
-const hiddenEvent = <span className="muted">An event you can't open</span>;
+const hiddenEvent = <span className="muted"><T id="inventory-planning.screen.an-event-you-can-t">{"An event you can't open"}</T></span>;
 
 export function ItemPlanning({ item }: { item: InventoryItem }) {
   if (item.kind === "rental") return <RentalPlanning item={item} />;
@@ -41,18 +42,18 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
   const figures = availability.data;
   return (
     <>
-      <Section title="Availability">
+      <Section title={<T id="inventory-planning.rental-planning.availability">Availability</T>}>
         <form className="planning-add" aria-label="Availability range" onSubmit={(e) => e.preventDefault()}>
           <label>
-            From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <T id="inventory-planning.rental-planning.from">{"From "}</T><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
           <label>
-            To <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <T id="inventory-planning.rental-planning.to">{"To "}</T><input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
         </form>
         {!valid && (
           <p role="alert" className="error-message">
-            Choose a range that ends on or after the day it starts.
+            <T id="inventory-planning.rental-planning.choose-a-range-that-ends">Choose a range that ends on or after the day it starts.</T>
           </p>
         )}
         {valid && availability.error && <LoadError message={availability.error} />}
@@ -62,24 +63,24 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
             <table className="stock-table" aria-label="Availability for the range">
               <tbody>
                 <tr>
-                  <th scope="row">Owned</th>
+                  <th scope="row"><T id="inventory-planning.rental-planning.owned">Owned</T></th>
                   <td>{quantityLabel(figures.owned, item.unit)}</td>
                 </tr>
                 <tr>
-                  <th scope="row">Available</th>
-                  <td>{figures.onRequest ? "Available on request" : quantityLabel(figures.available ?? 0, item.unit)}</td>
+                  <th scope="row"><T id="inventory-planning.rental-planning.available">Available</T></th>
+                  <td>{figures.onRequest ? <T id="inventory-planning.rental-planning.available-on-request">Available on request</T> : quantityLabel(figures.available ?? 0, item.unit)}</td>
                 </tr>
                 <tr>
-                  <th scope="row">Available with tentative holds</th>
+                  <th scope="row"><T id="inventory-planning.rental-planning.available-with-tentative-holds">Available with tentative holds</T></th>
                   <td>
                     {figures.onRequest
-                      ? "Available on request"
+                      ? <T id="inventory-planning.rental-planning.available-on-request">Available on request</T>
                       : quantityLabel(figures.availableWithTentative ?? 0, item.unit)}
                   </td>
                 </tr>
               </tbody>
             </table>
-            <h3>Holds in this range</h3>
+            <h3><T id="inventory-planning.rental-planning.holds-in-this-range">Holds in this range</T></h3>
             <ul className="planning-list">
               {figures.holds.map((hold) => (
                 <li className="planning-row" key={hold.id}>
@@ -93,18 +94,18 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
                   </span>
                   {hold.issue && (
                     <span className={`planning-badge ${hold.issue}`}>
-                      {hold.issue === "conflict" ? "Conflict" : "Warning"}: {number(hold.shortfall)} short
+                      {hold.issue === "conflict" ? <T id="inventory-planning.rental-planning.conflict-short" values={{ number: number(hold.shortfall) }}>{"Conflict: {number} short"}</T> : <T id="inventory-planning.rental-planning.warning-short" values={{ number: number(hold.shortfall) }}>{"Warning: {number} short"}</T>}
                     </span>
                   )}
                   <span className="planning-actions">{number(hold.quantity)}</span>
                 </li>
               ))}
-              {!figures.holds.length && <li className="muted">Nothing is held in this range.</li>}
+              {!figures.holds.length && <li className="muted"><T id="inventory-planning.rental-planning.nothing-is-held-in-this">Nothing is held in this range.</T></li>}
             </ul>
           </>
         )}
       </Section>
-      <Section title="Open conflicts">
+      <Section title={<T id="inventory-planning.rental-planning.open-conflicts">Open conflicts</T>}>
         {conflicts.error && <LoadError message={conflicts.error} />}
         {!conflicts.error && !conflicts.data && <LoadingSkeleton />}
         {conflicts.data && (
@@ -112,7 +113,7 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
             {conflicts.data.map((conflict) => (
               <li className="planning-row" key={conflict.id}>
                 <span className={`planning-badge ${conflict.kind}`}>
-                  {conflict.kind === "conflict" ? "Conflict" : "Warning"}
+                  {conflict.kind === "conflict" ? <T id="inventory-planning.rental-planning.conflict">Conflict</T> : <T id="inventory-planning.rental-planning.warning">Warning</T>}
                 </span>
                 {conflict.eventTitle ? (
                   <Link to={`/events/${conflict.eventId}`}>
@@ -123,12 +124,12 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
                   hiddenEvent
                 )}
                 <span>
-                  {number(conflict.shortfall)} short ({number(conflict.allocated)} of {number(conflict.quantity)})
+                  <T id="inventory-planning.rental-planning.short-of" values={{ number: number(conflict.shortfall), number2: number(conflict.allocated), number3: number(conflict.quantity) }}>{"{number} short ({number2} of {number3})"}</T>
                 </span>
                 {conflict.state !== "open" && <span className="muted">{conflictStateLabels[conflict.state]}</span>}
               </li>
             ))}
-            {!conflicts.data.length && <li className="muted">No open conflicts.</li>}
+            {!conflicts.data.length && <li className="muted"><T id="inventory-planning.rental-planning.no-open-conflicts">No open conflicts.</T></li>}
           </ul>
         )}
       </Section>
@@ -139,7 +140,7 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
 function ConsumablePlanning({ item }: { item: InventoryItem }) {
   const allocations = useResource(["inventory-allocations", item.id], () => planningApi.allocations(item.id));
   return (
-    <Section title="Allocations">
+    <Section title={<T id="inventory-planning.consumable-planning.allocations">Allocations</T>}>
       {allocations.error && <LoadError message={allocations.error} />}
       {!allocations.error && !allocations.data && <LoadingSkeleton />}
       {allocations.data &&
@@ -147,13 +148,13 @@ function ConsumablePlanning({ item }: { item: InventoryItem }) {
           <table className="stock-table" aria-label="Allocations in booking order">
             <thead>
               <tr>
-                <th>Event</th>
-                <th>Date</th>
-                <th>Required</th>
-                <th>Allocated</th>
-                <th>Shortage</th>
-                <th>Projected stock</th>
-                <th>Order by</th>
+                <th><T id="inventory-planning.consumable-planning.event">Event</T></th>
+                <th><T id="inventory-planning.consumable-planning.date">Date</T></th>
+                <th><T id="inventory-planning.consumable-planning.required">Required</T></th>
+                <th><T id="inventory-planning.consumable-planning.allocated">Allocated</T></th>
+                <th><T id="inventory-planning.consumable-planning.shortage">Shortage</T></th>
+                <th><T id="inventory-planning.consumable-planning.projected-stock">Projected stock</T></th>
+                <th><T id="inventory-planning.consumable-planning.order-by">Order by</T></th>
               </tr>
             </thead>
             <tbody>
@@ -163,7 +164,7 @@ function ConsumablePlanning({ item }: { item: InventoryItem }) {
             </tbody>
           </table>
         ) : (
-          <p className="muted">No event needs this item yet.</p>
+          <p className="muted"><T id="inventory-planning.consumable-planning.no-event-needs-this-item">No event needs this item yet.</T></p>
         ))}
     </Section>
   );

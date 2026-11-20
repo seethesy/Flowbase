@@ -9,6 +9,7 @@ import { communicationsApi, type CommunicationTarget } from "../services/communi
 import { LoadMore, usePagedList } from "../app/paging";
 import { Button, FormField, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { T } from "../app/copy";
 import "./leads.css";
 
 const when = (iso: string) =>
@@ -61,7 +62,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
     }
   };
   return (
-    <Section title="Communication log">
+    <Section title={<T id="communications.communication-log.communication-log">Communication log</T>}>
       <form
         noValidate
         onSubmit={(e) => {
@@ -75,7 +76,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
           </p>
         )}
         <div className="form-grid">
-          <FormField label="Type">
+          <FormField label={<T id="communications.communication-log.type">Type</T>}>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as CommunicationKind)}
@@ -87,7 +88,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
               ))}
             </select>
           </FormField>
-          <FormField label="Next follow-up">
+          <FormField label={<T id="communications.communication-log.next-follow-up">Next follow-up</T>}>
             <input
               type="date"
               value={followUp}
@@ -95,7 +96,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
             />
           </FormField>
         </div>
-        <FormField label="Summary *">
+        <FormField label={<T id="communications.communication-log.summary">Summary *</T>}>
           <textarea
             rows={3}
             value={summary}
@@ -103,7 +104,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
           />
         </FormField>
         <Button type="submit" disabled={saving}>
-          Log conversation
+          <T id="communications.communication-log.log-conversation">Log conversation</T>
         </Button>
       </form>
       {entries.error ? (
@@ -111,7 +112,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
       ) : !entries.data ? (
         <LoadingSkeleton />
       ) : entries.data.length === 0 ? (
-        <p className="muted">Nothing logged yet.</p>
+        <p className="muted"><T id="communications.communication-log.nothing-logged-yet">Nothing logged yet.</T></p>
       ) : (
         <>
           <ul className="communication-log">
@@ -128,12 +129,11 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
                 {entry.followUpDate && (
                   <p>
                     <small>
-                      Follow-up {day(entry.followUpDate)}
-                      {entry.followUpOpen ? " · open" : " · done"}
+                      {entry.followUpOpen ? <T id="communications.communication-log.follow-up-open" values={{ day: day(entry.followUpDate) }}>{"Follow-up {day} · open"}</T> : <T id="communications.communication-log.follow-up-done" values={{ day: day(entry.followUpDate) }}>{"Follow-up {day} · done"}</T>}
                       {entry.followUpTaskId && entry.followUpOpen && (
                         <>
                           {" · "}
-                          <Link to={`/tasks/${entry.followUpTaskId}`}>View task</Link>
+                          <Link to={`/tasks/${entry.followUpTaskId}`}><T id="communications.communication-log.view-task">View task</T></Link>
                         </>
                       )}
                     </small>
@@ -142,7 +142,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
               </li>
             ))}
           </ul>
-          <LoadMore list={entries} label="Load more entries" />
+          <LoadMore list={entries} label={<T id="communications.communication-log.load-more-entries">Load more entries</T>} />
         </>
       )}
     </Section>

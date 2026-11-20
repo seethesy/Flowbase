@@ -23,6 +23,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
+import { T, useCopy } from "../app/copy";
 import "./stock-counts.css";
 
 // Count mode (FLOW-82): count a storage section on a phone, item by item in shelf
@@ -60,12 +61,12 @@ export function CountList() {
   return (
     <>
       <Link to="/inventory" className="back-link">
-        ← All inventory
+        <T id="stock-counts.count-list.all-inventory">← All inventory</T>
       </Link>
       <PageHeader
-        title="Counts"
-        subtitle="Count a storage section item by item. A count you leave part-way picks up where you stopped."
-        eyebrow="STOCK & SUPPLIES"
+        title={<T id="stock-counts.count-list.counts">Counts</T>}
+        subtitle={<T id="stock-counts.count-list.count-a-storage-section-item">Count a storage section item by item. A count you leave part-way picks up where you stopped.</T>}
+        eyebrow={<T id="stock-counts.count-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
       />
       {error && (
         <p role="alert" className="error-message">
@@ -77,7 +78,7 @@ export function CountList() {
       ) : !sections.data || !open.data ? (
         <LoadingSkeleton />
       ) : (
-        <Section title="Storage sections">
+        <Section title={<T id="stock-counts.count-list.storage-sections">Storage sections</T>}>
           <ul className="count-sections">
             {sections.data.map((section) => {
               const count = open.data?.find(
@@ -89,8 +90,7 @@ export function CountList() {
                     <strong>{section.name}</strong>
                     {count && (
                       <small>
-                        Started {dateTimeLabel(count.startedAt)},{" "}
-                        {count.countedItems} counted
+                        <T id="stock-counts.count-list.started-counted" values={{ startedAt: dateTimeLabel(count.startedAt), countedItems: count.countedItems }}>{"Started {startedAt}, {countedItems} counted"}</T>
                       </small>
                     )}
                   </div>
@@ -100,7 +100,7 @@ export function CountList() {
                     aria-label={`${count ? "Resume" : "Start"} counting ${section.name}`}
                   >
                     <ClipboardCheck size={14} />
-                    {count ? "Resume count" : "Start count"}
+                    {count ? <T id="stock-counts.count-list.resume-count">Resume count</T> : <T id="stock-counts.count-list.start-count">Start count</T>}
                   </Button>
                 </li>
               );
@@ -123,6 +123,7 @@ function CountLineRow({
   autoFocus: boolean;
   onSaved: (count: StockCount) => void;
 }) {
+  const optionalPlaceholder = useCopy("stock-counts.count-line-row.optional.placeholder", "Optional");
   const [quantity, setQuantity] = useState(
     line.counted ? String(line.counted.quantity) : "",
   );
@@ -168,17 +169,15 @@ function CountLineRow({
             .join(" · ")}
         </small>
         <small>
-          In system: {quantityLabel(line.systemQuantity, line.unit)}
+          <T id="stock-counts.count-line-row.in-system" values={{ quantityLabel: quantityLabel(line.systemQuantity, line.unit) }}>{"In system: {quantityLabel}"}</T>
           {line.parLevel !== null &&
-            ` · Par ${quantityLabel(line.parLevel, line.unit)}`}
-          {line.belowPar && <span className="badge warning">Below par</span>}
+            <T id="stock-counts.count-line-row.par" values={{ quantityLabel: quantityLabel(line.parLevel, line.unit) }}>{" · Par {quantityLabel}"}</T>}
+          {line.belowPar && <span className="badge warning"><T id="stock-counts.count-line-row.below-par">Below par</T></span>}
         </small>
       </div>
       {line.counted && (
         <p className="count-result" role="status">
-          <CheckCircle2 size={14} /> Counted{" "}
-          {quantityLabel(line.counted.quantity, line.unit)} (
-          {changeLabel(line.counted.difference)})
+          <CheckCircle2 size={14} /><T id="stock-counts.count-line-row.counted" values={{ quantityLabel: quantityLabel(line.counted.quantity, line.unit), changeLabel: changeLabel(line.counted.difference) }}>{" Counted {quantityLabel} ({changeLabel})"}</T>
         </p>
       )}
       {editable ? (
@@ -191,7 +190,7 @@ function CountLineRow({
           }}
         >
           <label className="form-field">
-            <span>Counted ({unit})</span>
+            <span><T id="stock-counts.count-line-row.counted-2" values={{ unit }}>{"Counted ({unit})"}</T></span>
             <input
               type="number"
               inputMode="decimal"
@@ -201,13 +200,13 @@ function CountLineRow({
               autoFocus={autoFocus}
               onChange={(e) => setQuantity(e.target.value)}
             />
-            {step && <small>Nearest {step}</small>}
+            {step && <small><T id="stock-counts.count-line-row.nearest" values={{ step }}>{"Nearest {step}"}</T></small>}
           </label>
           <label className="form-field">
-            <span>Reason</span>
+            <span><T id="stock-counts.count-line-row.reason">Reason</T></span>
             <input
               value={reason}
-              placeholder="Optional"
+              placeholder={optionalPlaceholder} data-copy-id="stock-counts.count-line-row.optional.placeholder"
               onChange={(e) => setReason(e.target.value)}
             />
           </label>
@@ -216,7 +215,7 @@ function CountLineRow({
             disabled={saving}
             aria-label={`Save count for ${line.name}`}
           >
-            {line.counted ? "Recount" : "Save"}
+            {line.counted ? <T id="stock-counts.count-line-row.recount">Recount</T> : <T id="stock-counts.count-line-row.save">Save</T>}
           </Button>
           {error && (
             <p role="alert" className="error-message">
@@ -226,7 +225,7 @@ function CountLineRow({
         </form>
       ) : (
         count.status === "open" && (
-          <p className="muted">You can't count this item.</p>
+          <p className="muted"><T id="stock-counts.count-line-row.you-can-t-count-this">{"You can't count this item."}</T></p>
         )
       )}
     </li>
@@ -243,7 +242,7 @@ export function CountMode() {
   const [completing, setCompleting] = useState(false);
   const back = (
     <Link to="/inventory/counts" className="back-link">
-      ← All counts
+      <T id="stock-counts.count-mode.all-counts">← All counts</T>
     </Link>
   );
   if (count.error)
@@ -262,22 +261,22 @@ export function CountMode() {
     <>
       {back}
       <PageHeader
-        title={`Count: ${current.sectionName}`}
+        title={<T id="stock-counts.count-mode.count" values={{ sectionName: current.sectionName }}>{"Count: {sectionName}"}</T>}
         subtitle={
           current.status === "open"
-            ? "Type what's on the shelf. Each save records the difference; you can stop and come back."
-            : `Completed ${dateTimeLabel(current.completedAt ?? current.startedAt)}.`
+            ? <T id="stock-counts.count-mode.type-what-s-on-the">{"Type what's on the shelf. Each save records the difference; you can stop and come back."}</T>
+            : <T id="stock-counts.count-mode.completed" values={{ dateTimeLabel: dateTimeLabel(current.completedAt ?? current.startedAt) }}>{"Completed {dateTimeLabel}."}</T>
         }
-        eyebrow="COUNT MODE"
+        eyebrow={<T id="stock-counts.count-mode.count-mode">COUNT MODE</T>}
       >
         {current.status === "open" && (
           <Button variant="outline" onClick={() => setCompleting(true)}>
-            Finish count
+            <T id="stock-counts.count-mode.finish-count">Finish count</T>
           </Button>
         )}
       </PageHeader>
       <p className="count-progress" role="status">
-        {counted} of {current.lines.length} counted
+        <T id="stock-counts.count-mode.of-counted" values={{ counted, count: current.lines.length }}>{"{counted} of {count} counted"}</T>
       </p>
       {current.lines.length ? (
         <ol className="count-lines">
@@ -293,14 +292,13 @@ export function CountMode() {
         </ol>
       ) : (
         <p className="muted">
-          Nothing is kept in this section yet. Set an item's storage section to
-          count it here.
+          <T id="stock-counts.count-mode.nothing-is-kept-in-this">{"Nothing is kept in this section yet. Set an item's storage section to count it here."}</T>
         </p>
       )}
       <ConfirmationDialog
         open={completing}
         onClose={() => setCompleting(false)}
-        title="Finish this count?"
+        title={<T id="stock-counts.count-mode.finish-this-count">Finish this count?</T>}
         onConfirm={async () => {
           await countsApi.complete(current.id);
           setCompleting(false);
@@ -308,8 +306,8 @@ export function CountMode() {
         }}
       >
         {current.lines.length - counted > 0
-          ? `${current.lines.length - counted} items weren't counted; their stock stays as it is.`
-          : "Every item has been counted."}
+          ? <T id="stock-counts.count-mode.items-weren-t-counted-their" values={{ value: current.lines.length - counted }}>{"{value} items weren't counted; their stock stays as it is."}</T>
+          : <T id="stock-counts.count-mode.every-item-has-been-counted">Every item has been counted.</T>}
       </ConfirmationDialog>
     </>
   );
@@ -363,17 +361,17 @@ export function LowStockList() {
   return (
     <>
       <Link to="/inventory" className="back-link">
-        ← All inventory
+        <T id="stock-counts.low-stock-list.all-inventory">← All inventory</T>
       </Link>
       <PageHeader
-        title="Low stock"
-        subtitle="Ingredients, bar stock and supplies below their par level."
-        eyebrow="STOCK & SUPPLIES"
+        title={<T id="stock-counts.low-stock-list.low-stock">Low stock</T>}
+        subtitle={<T id="stock-counts.low-stock-list.ingredients-bar-stock-and-supplies">Ingredients, bar stock and supplies below their par level.</T>}
+        eyebrow={<T id="stock-counts.low-stock-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
       >
         <Button variant="outline" asChild>
           <Link to="/inventory/counts">
             <ClipboardCheck size={16} />
-            Counts
+            <T id="stock-counts.low-stock-list.counts">Counts</T>
           </Link>
         </Button>
       </PageHeader>
@@ -383,15 +381,15 @@ export function LowStockList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="stock-counts.low-stock-list"
             data={items.data}
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label="items below par"
+            label={<T id="stock-counts.low-stock-list.items-below-par">items below par</T>}
             exportName="low stock"
             exportAll={items.loadAll}
           />
-          <LoadMore list={items} label="Load more items" />
+          <LoadMore list={items} label={<T id="stock-counts.low-stock-list.load-more-items">Load more items</T>} />
         </>
       )}
     </>
