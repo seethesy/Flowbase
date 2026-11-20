@@ -223,7 +223,7 @@ describe("card queries (FLOW-256)", () => {
   });
 
   it("rejects unknown fields, operators, sorts and limits", () => {
-    const bad = [
+    const bad: Record<string, string>[] = [
       { where: JSON.stringify([{ field: "nope", op: "is" }]) },
       { where: JSON.stringify([{ field: "title", op: "before" }]) },
       { where: "{not json" },

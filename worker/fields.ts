@@ -90,7 +90,7 @@ function matches(actor: Actor, source: SourceKey, row: Row, filter: CardFilter, 
     case "is_not": {
       let same: boolean;
       if (def.type === "person") same = personIds(value).includes(String(wanted ?? ""));
-      else if (def.type === "boolean") same = Boolean(value) === (wanted === true || wanted === "true");
+      else if (def.type === "boolean") same = Boolean(value) === (String(wanted) === "true");
       else if (def.type === "number" || def.type === "money") same = !empty(value) && Number(value) === Number(wanted);
       else same = text(value).toLowerCase() === String(wanted ?? "").toLowerCase();
       return filter.op === "is" ? same : !same;

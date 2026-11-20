@@ -188,7 +188,7 @@ export function LeadInbox() {
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
         <TableLayout tableKey="leads.inbox.table" codeColumns={leadColumns.map((column) => ({ key: column.key, header: column.heading }))}>
           {(layout) => {
-            const visible = layout.custom ? layout.columns : leadColumns.map((column) => ({ key: column.key }));
+            const visible: { key: string; width?: number }[] = layout.custom ? layout.columns : leadColumns.map((column) => ({ key: column.key }));
             const code = (key: string) => leadColumns.find((column) => column.key === key);
             return <>
               {layout.editor && <div className="table-toolbar">{layout.editor}</div>}
