@@ -28,7 +28,7 @@ test("shows an event at its New York times in every view and opens its hub", asy
   // Month
   await expect(page.getByRole("heading", { name: "September 2026" })).toBeVisible();
   const day = page.locator('.fc-daygrid-day[data-date="2026-09-17"]');
-  await expect(day).toContainText("Fall gala · Closed");
+  await expect(day).toContainText("Fall gala Closed");
   await expect(day).toContainText(/5:00/);
   await expect(page.locator('.fc-daygrid-day[data-date="2026-09-18"]')).not.toContainText(
     "Fall gala",
@@ -37,31 +37,31 @@ test("shows an event at its New York times in every view and opens its hub", asy
   // Week: in the 9/17 column, from 5 to 10 PM.
   await page.getByRole("button", { name: "Week", exact: true }).click();
   const column = page.locator('.fc-timegrid-col[data-date="2026-09-17"]');
-  await expect(column).toContainText("Fall gala · Closed");
+  await expect(column).toContainText("Fall gala Closed");
   await expect(column.locator(".fc-event-time")).toHaveText(/5:00.*10:00/);
   await expect(page).toHaveURL(/view=timeGridWeek/);
 
   // Day
   await page.getByRole("button", { name: "Day", exact: true }).click();
   await expect(page.getByRole("heading", { name: "September 17, 2026" })).toBeVisible();
-  await expect(page.locator(".fc-timegrid-event")).toContainText("Fall gala · Closed");
+  await expect(page.locator(".fc-timegrid-event")).toContainText("Fall gala Closed");
   await expect(page.locator(".fc-timegrid-event .fc-event-time")).toHaveText(/5:00.*10:00/);
 
   // List
   await page.getByRole("button", { name: "List", exact: true }).click();
   await expect(page.locator('.fc-list-day[data-date="2026-09-17"]')).toBeVisible();
-  const row = page.locator(".fc-list-event", { hasText: "Fall gala · Closed" });
+  const row = page.locator(".fc-list-event", { hasText: "Fall gala Closed" });
   await expect(row.locator(".fc-list-event-time")).toHaveText(/5:00.*10:00/);
   // Navigation: next month and back. (Done last: it moves the current date to
   // the first of the month, which the week and day views above would follow.)
   await page.locator(".fc-next-button").click();
   await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
-  await expect(page.getByText("Fall gala · Closed")).toHaveCount(0);
+  await expect(page.getByText("Fall gala Closed")).toHaveCount(0);
   await page.locator(".fc-prev-button").click();
   await expect(page.getByRole("heading", { name: "September 2026" })).toBeVisible();
 
   // Clicking the event opens its hub, with its tasks and history (FLOW-166).
-  await row.getByText("Fall gala · Closed").click();
+  await row.getByText("Fall gala Closed").click();
   await expect(page).toHaveURL(new RegExp(`#/events/${fallGala().id}$`));
   await expect(page.getByRole("heading", { name: "Fall gala", level: 1 })).toBeVisible();
   for (const section of ["Tasks", "History"])
@@ -130,7 +130,7 @@ test("shows each event's overview: time, title, venue, guests, status, salespers
   await page.goto("/#/calendar?date=2026-09-17");
   const entry = page.locator('.fc-daygrid-day[data-date="2026-09-17"] .calendar-event');
   await expect(entry.locator(".fc-event-time")).toHaveText(/5:00/);
-  await expect(entry.locator(".fc-event-title")).toHaveText("Fall gala · Closed");
+  await expect(entry.locator(".fc-event-title")).toHaveText("Fall gala Closed");
   await expect(entry.locator(".calendar-overview-details")).toHaveText(
     `No venue · 120 guests · ${salesperson.name} · 1 staff`,
   );
@@ -150,7 +150,7 @@ test("toggles calendar layers without reloading the page (FLOW-67)", async ({ pa
   await page.goto("/#/calendar?view=timeGridWeek&date=2026-09-17");
   const setupDay = page.locator('.fc-timegrid-col[data-date="2026-09-16"]');
   const eventDay = page.locator('.fc-timegrid-col[data-date="2026-09-17"]');
-  await expect(eventDay).toContainText("Fall gala · Closed");
+  await expect(eventDay).toContainText("Fall gala Closed");
   // Layers start off.
   await expect(page.locator(".calendar-layer")).toHaveCount(0);
   // Marks this page load: a reload would clear it.
@@ -183,7 +183,7 @@ test("toggles calendar layers without reloading the page (FLOW-67)", async ({ pa
   await page.getByRole("checkbox", { name: "Production tasks" }).uncheck();
   await page.getByRole("checkbox", { name: "Tentative holds" }).uncheck();
   await expect(page.locator(".calendar-layer")).toHaveCount(0);
-  await expect(eventDay).toContainText("Fall gala · Closed");
+  await expect(eventDay).toContainText("Fall gala Closed");
   expect(
     await page.evaluate(() => (window as unknown as { calendarLoad?: string }).calendarLoad),
   ).toBe("first");

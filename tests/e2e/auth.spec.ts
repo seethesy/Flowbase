@@ -109,8 +109,7 @@ test("Admin can invite staff, resend/revoke pending invites, and deactivate/reac
     if (path === "/api/admin/users") {
       expect(route.request().postDataJSON()).toMatchObject({
         email: staff.email,
-        role: "staff",
-        employmentType: "part_time",
+        role: "part_time_staff",
         mobile: "2025550102",
       });
       staff = { ...staff, ...route.request().postDataJSON() };
@@ -128,7 +127,7 @@ test("Admin can invite staff, resend/revoke pending invites, and deactivate/reac
   });
   await page.goto("/#/settings/users");
   await page.getByLabel("Email", { exact: true }).fill(staff.email);
-  await page.getByLabel("Employment type").selectOption("part_time");
+  await page.getByLabel("Role", { exact: true }).selectOption("part_time_staff");
   await page.getByLabel("Mobile number").fill("2025550102");
   await page.getByRole("button", { name: "Send invite", exact: true }).click();
   await expect(
