@@ -317,7 +317,7 @@ describe("event changes", () => {
     date: event.date,
     startTime: event.startTime,
     endTime: event.endTime,
-    clientId: event.client.id,
+    clientId: event.client!.id,
     pocContactId: event.pocContactId,
     venueId: event.venue?.id ?? null,
     address: event.address,

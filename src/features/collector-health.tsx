@@ -15,7 +15,7 @@ const smsSchema = z.object({ id: z.string(), mobile: z.string(), body: z.string(
   status: z.string(), provider: z.string(), createdAt: z.string() });
 const instructions = "https://github.com/seethesy/Flowbase/blob/main/collector/README.md#ops-repo-setup";
 
-export function CollectorHealthPage() {
+export function CollectorHealthPage({ embedded = false }: { embedded?: boolean } = {}) {
   const manage = usePermissions().can("settings.manage");
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
@@ -32,7 +32,8 @@ export function CollectorHealthPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save."); }
   };
   return <>
-    <PageHeader title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />
+    {embedded ? <h2><T id="collector-health.collector-health-page.collector-health">Collector health</T></h2> :
+      <PageHeader title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />}
     <p><a href={instructions} target="_blank" rel="noreferrer"><T id="collector-health.collector-health-page.collector-re-login-and-ops">Collector re-login and ops instructions</T></a></p>
     {manage && <p><T id="collector-health.collector-health-page.monitor-a-site-before-its">{"Monitor a site before its first run: "}</T>{(["bark", "perfect_venue", "weddingpro", "eventective"] as const)
       .filter((site) => !health.data?.some((row) => row.site === site))

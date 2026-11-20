@@ -30,7 +30,6 @@ const db = drizzle(connection, { schema });
 const admin: Actor = {
   userId: "41000000-0000-4000-8000-000000000001",
   role: "admin",
-  employmentType: "full_time",
 };
 // dress_code starts empty, so this file owns every value in it; seeded lists are
 // only read, which keeps the other DB test files independent of this one.

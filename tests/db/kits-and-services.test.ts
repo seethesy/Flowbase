@@ -31,9 +31,9 @@ const people = {
   admin: "c0000000-0000-4000-8000-000000000001",
   sam: "c0000000-0000-4000-8000-000000000003",
 };
-const adminActor: Actor = { userId: people.admin, role: "admin", employmentType: "full_time" };
+const adminActor: Actor = { userId: people.admin, role: "admin" };
 const as = (userId: string, role: Role) => {
-  const app = createApp({ withDb, resolveActor: async () => ({ userId, role, employmentType: "full_time" }) });
+  const app = createApp({ withDb, resolveActor: async () => ({ userId, role }) });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
       path,
@@ -150,7 +150,7 @@ async function eventWith(lines: Line[], { status = "closed", guests = 80 }: { st
     .returning();
   const [proposal] = await db
     .insert(schema.proposals)
-    .values({ eventId: event.id, clientId: owner.id, title: "Holiday", stage: "signed" })
+    .values({ eventId: event.id, clientId: owner.id, title: "Holiday", stage: "closed" })
     .returning();
   const [version] = await db
     .insert(schema.proposalVersions)

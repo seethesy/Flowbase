@@ -14,13 +14,13 @@ for (const role of ["admin", "salesperson"] as const) {
   }) => {
     test.setTimeout(90_000);
     const user = seedUsers.find(
-      (u) => u.role === role && u.employmentType === "full_time",
+      (u) => u.role === role && u.role !== "part_time_staff",
     )!;
     await seedDatabase(process.env.DATABASE_URL);
     await mockBrowserAuth(page, { userId: user.id });
     await browserDb(async (db) => {
       const otherOwner = seedUsers.find(
-        (u) => u.role === "salesperson" && u.employmentType === "part_time",
+        (u) => u.role === "part_time_staff",
       )!.id;
       await db.insert(clients).values({
         id: seedId(30, 1),
@@ -133,18 +133,18 @@ for (const role of ["admin", "salesperson"] as const) {
 
     await page.goto("/#/leads");
     await expect(
-      page.getByRole("link", { name: "Seed wedding inquiry", exact: true }),
+      page.getByRole("button", { name: "Seed wedding inquiry", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Other salesperson lead", exact: true }),
+      page.getByRole("button", { name: "Other salesperson lead", exact: true }),
     ).toHaveCount(role === "admin" ? 1 : 0);
-    await page
-      .getByRole("link", { name: "Seed wedding inquiry", exact: true })
-      .click();
-    await page.getByRole("button", { name: "Mark contacted" }).click();
-    await expect(page.getByText("Contacted", { exact: true })).toBeVisible();
+    await page.getByRole("row").filter({ has: page.getByRole("button", { name: "Seed wedding inquiry", exact: true }) })
+      .getByRole("link", { name: "Open" }).click();
+    await page.getByRole("button", { name: "Lead status" }).click();
+    await page.getByRole("option", { name: "Pitching" }).click();
+    await expect(page.getByText("Pitching", { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByText("Contacted", { exact: true })).toBeVisible();
+    await expect(page.getByText("Pitching", { exact: true })).toBeVisible();
 
     await page.goto(`/#/inventory/${seedId(8, 3)}`);
     await expect(

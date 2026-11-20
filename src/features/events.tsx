@@ -58,6 +58,7 @@ import type { ListKey } from "../../shared/settings";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy } from "../app/copy";
 import { copySlug } from "../../shared/copy";
+import { StatusPill, StatusSelect } from "../components/ui/status-pill";
 
 const statusLabels = eventStatusLabels;
 
@@ -90,7 +91,7 @@ export function EventTable({
     {
       id: "client",
       header: "Client",
-      accessorFn: (event) => event.client.name,
+      accessorFn: (event) => event.client?.name ?? "—",
     },
     {
       id: "venue",
@@ -106,6 +107,7 @@ export function EventTable({
       id: "status",
       header: "Status",
       accessorFn: (event) => statusLabels[event.status],
+      cell: ({ row }) => <StatusPill status={row.original.status} />,
     },
   ];
   return (
@@ -133,7 +135,7 @@ export function EventList() {
   // the date range reaches anything else, and clearing it shows every event.
   const [range, setRange] = useState(defaultEventWindow);
   const term = useDebounced(search.trim());
-  // A label can stand for several statuses ("Pending"); ask for all of them.
+  // Filter by the displayed status label.
   const statuses = status
     ? eventStatusSchema.options.filter((value) => statusLabels[value] === status)
     : [];
@@ -237,7 +239,7 @@ const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
   date: event?.date ?? "",
   startTime: event?.startTime ?? "",
   endTime: event?.endTime ?? null,
-  clientId: event?.client.id ?? clientId,
+  clientId: event?.client?.id ?? clientId,
   pocContactId: event?.pocContactId ?? null,
   venueId: event?.venue?.id ?? null,
   address: event?.address ?? "",
@@ -475,18 +477,7 @@ function EventFormFields({
           {/* Any status on create; afterwards it changes on the event page. */}
           {!event && (
             <FormField label={<T id="events.event-form-fields.status">Status</T>}>
-              <select
-                value={draft.status}
-                onChange={(e) =>
-                  set("status", eventStatusSchema.parse(e.target.value))
-                }
-              >
-                {eventStatusSchema.options.map((status) => (
-                  <option key={status} value={status}>
-                    {eventStatusDetailLabels[status]}
-                  </option>
-                ))}
-              </select>
+              <StatusSelect value={draft.status} includeEventStages onChange={(value) => set("status", eventStatusSchema.parse(value))} />
             </FormField>
           )}
           <FormField label={<T id="events.event-form-fields.venue">Venue</T>}>
@@ -613,16 +604,7 @@ function EventStatusPanel({
             </p>
           )}
           <FormField label={<T id="events.event-status-panel.new-status">New status</T>}>
-            <select
-              value={target}
-              onChange={(e) => setTo(eventStatusSchema.parse(e.target.value))}
-            >
-              {others.map((status) => (
-                <option key={status} value={status}>
-                  {eventStatusDetailLabels[status]}
-                </option>
-              ))}
-            </select>
+            <StatusSelect value={target} includeEventStages options={others} onChange={(value) => setTo(eventStatusSchema.parse(value))} />
           </FormField>
           <FormField label={<T id="events.event-status-panel.why-optional">Why (optional)</T>}>
             <textarea
@@ -691,7 +673,7 @@ export function EventDetail() {
   const setEvent = (event: FlowEvent) => hub.replace({ ...hub.data!, event });
   const facts: [string, string][] = [
     ["When", when(e)],
-    ["Client", e.client.name],
+    ["Client", e.client?.name ?? "—"],
     ["Venue", e.venue?.name ?? "No venue"],
     ["Address", e.address || "—"],
     ["Areas", e.areas.map((area) => area.name).join(", ") || "—"],
@@ -833,7 +815,7 @@ export function EventDetail() {
         <div>
           <h1>{e.title}</h1>
           <p>
-            <span className="badge neutral">{statusLabels[e.status]}</span>
+            <StatusPill status={e.status} />
             {e.archivedAt && <span className="badge error"><T id="events.event-detail.archived">Archived</T></span>}
             <span>{when(e)}</span>
           </p>

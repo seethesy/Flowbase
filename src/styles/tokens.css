@@ -14,4 +14,20 @@
   --warning: #92400e;
   --error: #b91c1c;
   --info: #1d4ed8;
+  --status-inquiry-bg: #e8e7e7;
+  --status-inquiry-fg: #242424;
+  --status-pitching-bg: #f8d5cc;
+  --status-pitching-fg: #793734;
+  --status-p_creation-bg: #c9d9df;
+  --status-p_creation-fg: #345a6a;
+  --status-p_sent-bg: #d9d3fb;
+  --status-p_sent-fg: #3b3a75;
+  --status-negotiation-bg: #fbe4a7;
+  --status-negotiation-fg: #463b29;
+  --status-closing-bg: #f7d0c9;
+  --status-closing-fg: #a1261d;
+  --status-closed-bg: #a1261d;
+  --status-closed-fg: #ffffff;
+  --status-lost-bg: #3f3f3f;
+  --status-lost-fg: #ffffff;
 }

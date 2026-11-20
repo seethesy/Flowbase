@@ -40,7 +40,7 @@ it("keeps lead assignment out of the salesperson's inbox", async () => {
         eventType: "",
         budgetCents: null,
         message: "",
-        status: "qualified",
+        status: "p_creation",
         lostReason: "",
         firstRespondedAt: null,
         firstResponseSeconds: null,

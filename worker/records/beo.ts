@@ -49,7 +49,7 @@ type BeoRow = typeof beos.$inferSelect;
 
 // Assembly reads everything, whoever asks; what a reader sees is decided once, by
 // projectBeo in the policy module.
-const reader = (actor: Actor): Actor => ({ ...actor, role: "admin", employmentType: "full_time" });
+const reader = (actor: Actor): Actor => ({ ...actor, role: "admin" });
 const asDb = (tx: DbLike) => tx as unknown as Db;
 const roleLabel = (role: string) => role.replaceAll("_", " ");
 
@@ -87,11 +87,11 @@ export async function assembleBeo(
     getPullList(db, all, eventId),
   ]);
   const [clientRows, venueRows, venue, salesperson] = await Promise.all([
-    tx
+    event.client ? tx
       .select()
       .from(clientContacts)
       .where(and(eq(clientContacts.clientId, event.client.id), isNull(clientContacts.archivedAt)))
-      .orderBy(asc(clientContacts.sortOrder), asc(clientContacts.createdAt)),
+      .orderBy(asc(clientContacts.sortOrder), asc(clientContacts.createdAt)) : Promise.resolve([]),
     event.venue
       ? tx
           .select()
@@ -137,7 +137,7 @@ export async function assembleBeo(
     header: { title: "Banquet event order", eventId, eventDate: event.date },
     event: {
       title: event.title,
-      client: event.client.name,
+      client: event.client?.name ?? "",
       pointOfContact: poc ? toContact(poc) : null,
       venue: event.venue?.name ?? "",
       address: event.address,
@@ -366,7 +366,7 @@ export async function createBeo(db: Db, actor: Actor, eventId: string): Promise<
 // existing draft, its edits and approval history.
 export async function ensureBeoDraft(tx: DbLike, userId: string, eventId: string) {
   if (await findBeo(tx, eventId, true)) return false;
-  const actor: Actor = { userId, role: "admin", employmentType: "full_time" };
+  const actor: Actor = { userId, role: "admin" };
   const [row] = await tx.insert(beos)
     .values({ eventId, status: "working_on", snapshot: {}, createdBy: userId, updatedBy: userId })
     .returning();

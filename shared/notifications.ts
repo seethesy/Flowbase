@@ -7,6 +7,7 @@ import { id, text, timestamp } from "./schema-primitives";
 // settings mark types as urgent; the SMS channel (FLOW-52) reads that flag.
 
 export const notificationTypes = [
+  "account_email_changed",
   "task_assigned",
   "task_claimed",
   "task_due_soon",
@@ -40,6 +41,11 @@ export type NotificationTypeInfo = {
   event: string;
 };
 export const notificationCatalog: Record<NotificationType, NotificationTypeInfo> = {
+  account_email_changed: {
+    label: "Account email changed",
+    description: "An Admin changed your account contact email.",
+    event: "user.email_changed",
+  },
   task_assigned: {
     label: "Task assigned",
     description: "A task is assigned to you, or reassigned from you to someone else.",
@@ -191,19 +197,21 @@ export const notificationInboxSchema = z.object({
 });
 export type NotificationInbox = z.infer<typeof notificationInboxSchema>;
 
-// GET/PUT /api/notifications/preferences: email on or off per type. In-app
+// GET/PUT /api/notifications/preferences: email and SMS per type. In-app
 // notifications are always on.
 export const notificationPreferenceSchema = z.object({
   type: notificationTypeSchema,
   label: z.string(),
   description: z.string(),
   email: z.boolean(),
+  sms: z.boolean(),
   // Marked urgent in business settings (sent by SMS too once FLOW-52 lands).
   urgent: z.boolean(),
 });
 export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
 export const notificationPreferencesInputSchema = z.object({
-  email: z.partialRecord(notificationTypeSchema, z.boolean()),
+  email: z.partialRecord(notificationTypeSchema, z.boolean()).default({}),
+  sms: z.partialRecord(notificationTypeSchema, z.boolean()).default({}),
 });
 export type NotificationPreferencesInput = z.infer<
   typeof notificationPreferencesInputSchema

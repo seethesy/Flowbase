@@ -67,7 +67,7 @@ test("a phone-sized print view does not overflow and the hub links to it", async
 });
 
 databaseTest("a part-time user's printout has no client or venue contact details", async ({ page }) => {
-  const staff = seedUsers.find((u) => u.role === "staff" && u.employmentType === "part_time")!;
+  const staff = seedUsers.find((u) => u.role === "part_time_staff")!;
   await approvedBeo();
   await browserDb((db) =>
     db.update(s.events).set({ productionLeadId: staff.id }).where(eq(s.events.id, fallGala().id)),

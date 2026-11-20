@@ -25,10 +25,10 @@ test("sales tracker filters, saved views, export and live proposal stages", asyn
   await page.getByRole("link", { name: /Gala proposal/ }).click();
   const drawer = page.getByRole("dialog", { name: "Gala proposal" });
   await expect(drawer).toBeVisible();
-  await drawer.getByLabel("Move to stage").selectOption({ label: "Menu curation" });
-  await expect(drawer.getByRole("list", { name: "Stage history" })).toContainText("Client communication → Menu curation");
+  await drawer.getByLabel("Move to stage").selectOption({ label: "Negotiation" });
+  await expect(drawer.getByRole("list", { name: "Stage history" })).toContainText("P Creation → Negotiation");
   await page.goto("/#/proposals");
-  await expect(page.getByRole("table").getByText("Menu curation")).toBeVisible();
+  await expect(page.getByRole("table").getByText("Negotiation")).toBeVisible();
 });
 
 test("client tracker includes finished and preparation events with balances", async ({ page }) => {
@@ -43,7 +43,7 @@ test("client tracker includes finished and preparation events with balances", as
       const proposalId = `f0000000-0000-4000-8000-00000000000${index + 1}`;
       const versionId = `a0000000-0000-4000-8000-00000000000${index + 1}`;
       const totalCents = (index + 1) * 100_000;
-      await db.insert(proposals).values({ id: proposalId, eventId: event.id, clientId: juniper().id, title: `${event.title} proposal`, stage: "signed" });
+      await db.insert(proposals).values({ id: proposalId, eventId: event.id, clientId: juniper().id, title: `${event.title} proposal`, stage: "closed" });
       await db.insert(proposalVersions).values({ id: versionId, proposalId, number: 1, status: "ready", completedAt: new Date(), docx: { key: `test-${index}`, fileName: "test.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
       await db.update(proposals).set({ currentVersionId: versionId }).where(eq(proposals.id, proposalId));
       const data = { versionId, totalCents, fields: {}, lines: [], staffing: [], timeline: [], charges: [], paymentSchedule: [], unextractedBlockIds: [] };
@@ -61,5 +61,5 @@ test("client tracker includes finished and preparation events with balances", as
   await expect(page.getByText("Balance due $2,800.00")).toBeVisible();
   await page.goto("/#/sales/reports");
   await expect(page.getByRole("heading", { name: "Sales reports" })).toBeVisible();
-  await expect(page.getByRole("table").first().getByText("Signed")).toBeVisible();
+  await expect(page.getByRole("table").first().getByText("Closed")).toBeVisible();
 });

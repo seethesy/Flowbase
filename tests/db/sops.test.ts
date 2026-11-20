@@ -22,7 +22,7 @@ const users: { id: string; role: Role }[] = [
 ];
 const requestAs = (index: number, method: string, path: string, body?: unknown) =>
   createApp({ withDb, resolveActor: async () => ({ userId: users[index].id,
-    role: users[index].role, employmentType: "full_time" as const }) })
+    role: users[index].role }) })
     .request(path, { method, ...(body !== undefined ? { body: JSON.stringify(body),
       headers: { "Content-Type": "application/json" } } : {}) }, { ASSETS: { fetch } });
 const content = (text: string) => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
@@ -32,7 +32,7 @@ beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(sql`truncate table task_assignees, task_checklist_items, task_comments, tasks, task_template_items, task_templates, sop_versions, sops, users cascade`);
   await db.insert(schema.users).values(users.map((user, index) => ({
-    id: user.id, role: user.role, employmentType: "full_time" as const,
+    id: user.id, role: user.role,
     email: `sop-${index}@example.test`, name: `Editor ${index}`,
     mobile: `20255513${String(index).padStart(2, "0")}`, status: "active" as const,
   })));

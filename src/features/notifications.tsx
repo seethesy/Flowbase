@@ -160,14 +160,14 @@ export function NotificationSettings() {
   const preferences = useResource(["notifications", "preferences"], () =>
     notificationsApi.preferences(),
   );
-  const [draft, setDraft] = useState<Record<string, boolean>>({});
+  const [draft, setDraft] = useState<Record<string, { email: boolean; sms: boolean }>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (preferences.data)
       setDraft(
-        Object.fromEntries(preferences.data.map((p) => [p.type, p.email])),
+        Object.fromEntries(preferences.data.map((p) => [p.type, { email: p.email, sms: p.sms }])),
       );
   }, [preferences.data]);
   if (preferences.error) return <LoadError message={preferences.error} />;
@@ -177,8 +177,11 @@ export function NotificationSettings() {
     setError("");
     setNotice("");
     try {
-      preferences.replace(await notificationsApi.setPreferences({ email: draft }));
-      setNotice("Email settings saved.");
+      preferences.replace(await notificationsApi.setPreferences({
+        email: Object.fromEntries(Object.entries(draft).map(([type, value]) => [type, value.email])),
+        sms: Object.fromEntries(Object.entries(draft).map(([type, value]) => [type, value.sms])),
+      }));
+      setNotice("Notification settings saved.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -186,7 +189,7 @@ export function NotificationSettings() {
     }
   };
   return (
-    <Section title={<T id="notifications.notification-settings.email-notifications">Email notifications</T>}>
+    <Section title={<T id="notifications.settings.title">Notifications</T>}>
         <form
           className="notification-settings"
           noValidate
@@ -196,7 +199,7 @@ export function NotificationSettings() {
           }}
         >
           <p className="notification-hint">
-            <T id="notifications.notification-settings.notifications-always-appear-in-the">Notifications always appear in the app. Choose which ones are also emailed to you.</T>
+            <T id="notifications.settings.hint">Notifications always appear in the app. Choose Email and SMS for each update.</T>
           </p>
           {error && (
             <p role="alert" className="error-message">
@@ -207,17 +210,7 @@ export function NotificationSettings() {
           <ul>
             {preferences.data.map((preference: NotificationPreference) => (
               <li key={preference.type}>
-                <label>
-                  <RoundCheck
-                    checked={draft[preference.type] ?? preference.email}
-                    onChange={(e) =>
-                      setDraft((current) => ({
-                        ...current,
-                        [preference.type]: e.target.checked,
-                      }))
-                    }
-                  />
-                  <span>
+                  <span className="notification-settings__text">
                     <strong>
                       {preference.label}
                       {preference.urgent && (
@@ -226,13 +219,22 @@ export function NotificationSettings() {
                     </strong>
                     <small>{preference.description}</small>
                   </span>
-                </label>
+                <span className="notification-settings__channels">
+                  {(["email", "sms"] as const).map((channel) => <label key={channel}>
+                    <RoundCheck aria-label={`${preference.label} ${channel.toUpperCase()}`}
+                      checked={draft[preference.type]?.[channel] ?? preference[channel]}
+                      onChange={(event) => setDraft((current) => ({ ...current,
+                        [preference.type]: { ...(current[preference.type] ?? { email: preference.email, sms: preference.sms }), [channel]: event.target.checked },
+                      }))} />
+                    <T id={`notifications.settings.${channel}`}>{channel.toUpperCase()}</T>
+                  </label>)}
+                </span>
               </li>
             ))}
           </ul>
           <div className="form-actions">
             <Button type="submit" disabled={saving}>
-              {saving ? <T id="notifications.notification-settings.saving">Saving…</T> : <T id="notifications.notification-settings.save-email-settings">Save email settings</T>}
+              {saving ? <T id="notifications.settings.saving">Saving…</T> : <T id="notifications.settings.save">Save notification settings</T>}
             </Button>
           </div>
         </form>

@@ -32,7 +32,7 @@ const env = {
   },
 };
 const signedIn = (userId: string, role: Role) => {
-  const actor: Actor = { userId, role, employmentType: "full_time" };
+  const actor: Actor = { userId, role };
   const app = createApp({ withDb, resolveActor: async () => actor });
   return (method: string, path: string, body?: unknown) =>
     app.request(

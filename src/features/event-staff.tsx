@@ -545,9 +545,9 @@ function LeadsForm({
     roster.assistantLeads.map((lead) => lead.id),
   );
   const [error, setError] = useState("");
-  // AC4: only full-time staff can be the primary Production Lead.
+  // Part-time Staff cannot be the primary Production Lead.
   const fullTime = staff.filter(
-    (member) => member.employmentType === "full_time",
+    (member) => member.role !== "part_time_staff",
   );
   return (
     <DetailDrawer

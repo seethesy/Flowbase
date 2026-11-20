@@ -33,10 +33,10 @@ import {
 } from "../../shared/leads";
 import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { clientContacts, events, leads } from "../db/schema";
+import { clientContacts, events, leadDuplicates, leads, proposals, users } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
-import { can, clientScope, leadScope, type Scope } from "../policy";
+import { can, clientScope, leadScope, mayCloseLead, type Scope } from "../policy";
 import {
   checkDuplicates,
   clientSnapshot,
@@ -45,7 +45,7 @@ import {
   insertClient,
   requireClientAccess,
 } from "./clients";
-import { insertEvent } from "./events";
+import { getEvent, insertEvent, insertLeadEvent, updateLeadEventBasics } from "./events";
 import { insertProposal } from "./proposals";
 import { auditLead, leadSnapshot } from "./lead-audit";
 import {
@@ -55,6 +55,7 @@ import {
 } from "./lead-duplicates";
 import { keyset, type Page, type PageRequest } from "./paging";
 import { phoneDigits } from "./sync";
+import type { LeadUpdateInput } from "../../shared/leads";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion). Admin and
 // Sales Manager see every lead; a salesperson sees only the leads assigned to them,
@@ -90,6 +91,8 @@ function toLead(row: LeadRow, actor: Actor, withRawPayload = false): Lead {
     guestCount: row.guestCount,
     location: row.location,
     eventType: row.eventType,
+    eventName: row.eventName,
+    notes: row.notes,
     budgetCents: row.budgetCents,
     message: row.message,
     status: row.status,
@@ -118,6 +121,19 @@ function toLead(row: LeadRow, actor: Actor, withRawPayload = false): Lead {
   });
 }
 
+async function latestEventsFor(db: DbLike, ids: string[]) {
+  const latest = new Map<string, { id: string; title: string; startsAt: string }>();
+  if (!ids.length) return latest;
+  const linked = await db.select({ id: events.id, leadId: events.leadId,
+    title: events.title, startsAt: events.startsAt }).from(events)
+    .where(and(inArray(events.leadId, ids), isNull(events.archivedAt)))
+    .orderBy(desc(events.createdAt), desc(events.id));
+  for (const event of linked) if (event.leadId && !latest.has(event.leadId))
+    latest.set(event.leadId, { id: event.id, title: event.title,
+      startsAt: event.startsAt.toISOString() });
+  return latest;
+}
+
 type ParsedIntake = ReturnType<typeof leadIntakeSchema.parse>;
 
 // The same source record again (FLOW-110 matching step 1, and source status
@@ -137,6 +153,8 @@ function updatedFromSource(lead: ParsedIntake) {
     guestCount: given(lead.guestCount),
     location: given(lead.location),
     eventType: given(lead.eventType),
+    eventName: given(lead.eventName),
+    notes: lead.notes ?? undefined,
     budgetCents: given(lead.budgetCents),
     message: given(lead.message),
     ...(lead.rawPayload !== undefined && { rawPayload: lead.rawPayload }),
@@ -201,6 +219,8 @@ export async function createLead(
         guestCount: lead.guestCount,
         location: lead.location,
         eventType: lead.eventType,
+        eventName: lead.eventName,
+        notes: lead.notes,
         budgetCents: lead.budgetCents,
         message: lead.message,
         rawPayload: lead.rawPayload ?? null,
@@ -333,7 +353,25 @@ export async function listLeads(
     )
     .orderBy(...paging.orderBy)
     .limit(paging.limit);
-  return paging.page(rows, (kept) => kept.map((row) => toLead(row, actor)));
+  const latest = await latestEventsFor(db, rows.map((row) => row.id));
+  const ids = rows.map((row) => row.id);
+  const proposalRows = ids.length ? await db.select({ id: proposals.id,
+    eventId: proposals.eventId, title: proposals.title, leadId: events.leadId })
+    .from(proposals).innerJoin(events, eq(events.id, proposals.eventId))
+    .where(and(inArray(events.leadId, ids), isNull(proposals.archivedAt)))
+    .orderBy(desc(proposals.createdAt), desc(proposals.id)) : [];
+  const latestProposal = new Map<string, { id: string; eventId: string; title: string }>();
+  for (const proposal of proposalRows) if (proposal.leadId && !latestProposal.has(proposal.leadId))
+    latestProposal.set(proposal.leadId, proposal);
+  const duplicateRows = ids.length ? await db.select({ leadId: leadDuplicates.leadId,
+    matchedLeadId: leadDuplicates.matchedLeadId }).from(leadDuplicates)
+    .where(and(eq(leadDuplicates.status, "open"),
+      or(inArray(leadDuplicates.leadId, ids), inArray(leadDuplicates.matchedLeadId, ids)))) : [];
+  const duplicateIds = new Set(duplicateRows.flatMap((row) => [row.leadId, row.matchedLeadId].filter((id): id is string => Boolean(id))));
+  return paging.page(rows, (kept) => kept.map((row) => ({ ...toLead(row, actor),
+    latestEvent: latest.get(row.id) ?? null,
+    latestProposal: latestProposal.get(row.id) ?? null,
+    possibleDuplicate: duplicateIds.has(row.id) })));
 }
 
 // A lead the actor may see; otherwise 404, never 403.
@@ -376,6 +414,7 @@ export async function getLead(
   );
   return {
     ...toLead(row, actor, true),
+    latestEvent: (await latestEventsFor(db, [id])).get(id) ?? null,
     sourceLinks: await sourceLinksFor(db, row),
     duplicates,
     assignedElsewhere,
@@ -423,6 +462,11 @@ export async function bulkAssignLeads(
   salespersonId: string,
 ): Promise<Lead[]> {
   requireAssign(actor);
+  const [owner] = await db.select({ id: users.id }).from(users).where(and(
+    eq(users.id, salespersonId), inArray(users.role, ["salesperson", "sales_manager", "admin"]),
+    eq(users.status, "active"), isNull(users.archivedAt),
+  ));
+  if (!owner) throw new ApiError(400, "INVALID_OWNER", "Choose an active Salesperson, Sales Manager or Admin.");
   const ids = [...new Set(leadIds)];
   const updated = await db.transaction(async (tx) => {
     // Locked in id order (FLOW-199), so a conversion that commits first is seen
@@ -472,6 +516,13 @@ export async function bulkAssignLeads(
   return rows.map((row) => toLead(row, actor));
 }
 
+export async function listLeadOwners(db: DbLike) {
+  return db.select({ id: users.id, name: users.name, role: users.role }).from(users)
+    .where(and(inArray(users.role, ["salesperson", "sales_manager", "admin"]),
+      eq(users.status, "active"), isNull(users.archivedAt)))
+    .orderBy(asc(users.name));
+}
+
 export async function assignLead(
   db: Db,
   actor: Actor,
@@ -480,6 +531,52 @@ export async function assignLead(
 ): Promise<Lead> {
   await bulkAssignLeads(db, actor, [id], salespersonId);
   return getLead(db, actor, id);
+}
+
+export async function createLeadEvent(
+  db: Db, actor: Actor, id: string,
+  input: { title: string; date: string; startTime: string },
+) {
+  const eventId = await db.transaction(async (tx) => {
+    const lead = await lockVisibleLead(tx, actor, id);
+    if (lead.status === "lost")
+      throw new ApiError(409, "INVALID_TRANSITION", "Reopen this lead before creating an event.");
+    return insertLeadEvent(tx, actor, lead, input);
+  });
+  return getEvent(db, actor, eventId);
+}
+
+export async function updateLead(db: Db, actor: Actor, id: string, input: LeadUpdateInput) {
+  await db.transaction(async (tx) => {
+    await lockVisibleLead(tx, actor, id);
+    const before = await leadSnapshot(tx, id);
+    const { eventTime, ...leadInput } = input;
+    if (input.eventName !== undefined || input.eventDate !== undefined || eventTime !== undefined) {
+      const [linked] = await tx.select({ id: events.id }).from(events)
+        .where(and(eq(events.leadId, id), isNull(events.archivedAt)))
+        .orderBy(desc(events.createdAt)).limit(1);
+      if (linked) await updateLeadEventBasics(tx, actor, linked.id, {
+        ...(input.eventName !== undefined && { title: input.eventName }),
+        ...(input.eventDate !== undefined && { date: input.eventDate }),
+        ...(eventTime !== undefined && { startTime: eventTime }),
+      });
+    }
+    await tx.update(leads).set({ ...leadInput,
+      ...(input.phone !== undefined && { phoneDigits: phoneDigits(input.phone) }),
+      updatedBy: actor.userId,
+    }).where(eq(leads.id, id));
+    await auditLead(tx, actor, id, before);
+    await emitDomainEvent(tx, { name: "lead.updated", entityId: id });
+  });
+  return getLead(db, actor, id);
+}
+
+export async function listLeadEvents(db: Db, actor: Actor, id: string) {
+  await findVisibleLead(db, actor, id);
+  const rows = await db.select({ id: events.id }).from(events)
+    .where(and(eq(events.leadId, id), isNull(events.archivedAt)))
+    .orderBy(desc(events.createdAt), desc(events.id));
+  return Promise.all(rows.map((row) => getEvent(db, actor, row.id)));
 }
 
 // Status moves: new -> contacted -> qualified, or lost (with a reason) from any open
@@ -494,6 +591,10 @@ export async function changeLeadStatus(
   await db.transaction(async (tx) => {
     // Authorized and checked against the current, locked lead (FLOW-199).
     const current = await lockVisibleLead(tx, actor, id);
+    if (change.status === "closing")
+      throw new ApiError(409, "CLOSING_ACTION_REQUIRED", "Confirm Closing to create or link the client.");
+    if (change.status === "closed" && !mayCloseLead(actor, current.assignedSalespersonId))
+      throw forbidden();
     if (!leadStatusTransitions[current.status].includes(change.status))
       throw new ApiError(
         409,
@@ -507,7 +608,7 @@ export async function changeLeadStatus(
         status: change.status,
         lostReason: change.status === "lost" ? change.reason : current.lostReason,
         firstRespondedAt:
-          change.status === "contacted" && !current.firstRespondedAt
+          change.status !== "inquiry" && change.status !== "lost" && !current.firstRespondedAt
             ? new Date()
             : current.firstRespondedAt,
         updatedBy: actor.userId,
@@ -556,21 +657,19 @@ export async function convertLead(
     // another conversion that commits first stops this one before it creates a
     // client, contact, event, proposal or outbox row.
     const lead = await lockVisibleLead(tx, actor, id);
-    if (lead.status === "converted")
+    if (lead.status === "closing" || lead.status === "closed")
       throw new ApiError(
         409,
         "INVALID_TRANSITION",
         "This lead was already converted.",
       );
-    if (lead.status !== "qualified")
+    if (lead.status === "lost")
       throw new ApiError(
         409,
         "INVALID_TRANSITION",
-        "Only a qualified lead can be converted.",
+        "A lost lead cannot move to Closing.",
       );
     const date = input.event.date ?? lead.eventDate;
-    if (!date)
-      throw new ApiError(400, "INVALID_REQUEST", "Enter the event date.");
     const before = await leadSnapshot(tx, id);
     const hasContact = Boolean(lead.name || lead.email || lead.phone);
     const contact = {
@@ -694,13 +793,20 @@ export async function convertLead(
       input.event.title.trim() || `${clientName} — ${lead.eventType || "Event"}`,
       200,
     );
-    const eventId = await insertEvent(
+    const [existingEvent] = input.event.existingEventId
+      ? await tx.select().from(events).where(and(eq(events.id, input.event.existingEventId), eq(events.leadId, id), isNull(events.archivedAt)))
+      : await tx.select().from(events).where(and(eq(events.leadId, id), isNull(events.archivedAt))).orderBy(desc(events.createdAt)).limit(1);
+    if (input.event.existingEventId && !existingEvent)
+      throw new ApiError(400, "INVALID_REQUEST", "Choose an event linked to this lead.");
+    if (!existingEvent && (!date || !input.event.startTime))
+      throw new ApiError(400, "INVALID_REQUEST", "Enter an event date and start time.");
+    const eventId = existingEvent ? existingEvent.id : await insertEvent(
       tx,
       actor,
       eventInputSchema.parse({
         title,
-        date,
-        startTime: input.event.startTime,
+        date: date!,
+        startTime: input.event.startTime!,
         clientId,
         pocContactId,
         address: clip(lead.location, 500),
@@ -711,29 +817,36 @@ export async function convertLead(
         status: "inquiry",
       }),
     );
+    await tx.update(events).set({ clientId, updatedBy: actor.userId })
+      .where(and(eq(events.leadId, id), isNull(events.archivedAt)));
+    await tx.update(events).set({ clientId, leadId: id, updatedBy: actor.userId }).where(eq(events.id, eventId));
+    const linkedEventIds = (await tx.select({ id: events.id }).from(events)
+      .where(and(eq(events.leadId, id), isNull(events.archivedAt)))).map((row) => row.id);
     // The proposal starts in Client communication with the event's title and
     // salesperson, before the lead is marked converted.
     const [event] = await tx
-      .select({ salespersonId: events.assignedSalespersonId })
+      .select({ salespersonId: events.assignedSalespersonId, title: events.title })
       .from(events)
       .where(eq(events.id, eventId));
-    const proposalId = await insertProposal(tx, actor, {
-      eventId,
-      clientId,
-      title,
-      assignedSalespersonId: event.salespersonId,
-      notes: "",
+    const [existingProposal] = await tx.select({ id: proposals.id }).from(proposals)
+      .where(and(eq(proposals.eventId, eventId), isNull(proposals.archivedAt)))
+      .orderBy(desc(proposals.createdAt)).limit(1);
+    const proposalId = existingProposal?.id ?? await insertProposal(tx, actor, {
+      eventId, clientId, title: event.title,
+      assignedSalespersonId: event.salespersonId, notes: "",
     });
+    if (linkedEventIds.length) await tx.update(proposals).set({ clientId, updatedBy: actor.userId })
+      .where(and(inArray(proposals.eventId, linkedEventIds), isNull(proposals.clientId)));
 
     const converted = await tx
       .update(leads)
       .set({
-        status: "converted",
+        status: "closing",
         convertedClientId: clientId,
         convertedEventId: eventId,
         updatedBy: actor.userId,
       })
-      .where(and(eq(leads.id, id), eq(leads.status, "qualified")))
+      .where(and(eq(leads.id, id), eq(leads.status, lead.status)))
       .returning({ id: leads.id });
     if (!converted.length) throw staleLead();
     await auditLead(tx, actor, id, before);
@@ -742,7 +855,7 @@ export async function convertLead(
       entityId: id,
       data: { clientId, eventId, proposalId },
     });
-    return { clientId, clientName, eventId, title, proposalId };
+    return { clientId, clientName, eventId, title: event.title, proposalId };
   });
 
   return {

@@ -68,7 +68,7 @@ describe("Thumbtack webhook intake (FLOW-108)", () => {
       eventDate: "2026-11-14",
       guestCount: 80,
       budgetCents: 1_200_000,
-      status: "new",
+      status: "inquiry",
     });
     expect(rows[0].rawPayload).toEqual(fixture("lead"));
   });
@@ -171,7 +171,7 @@ describe("website inquiry intake (FLOW-109)", () => {
       eventDate: "2027-06-12",
       guestCount: 85,
       eventType: "Wedding",
-      status: "new",
+      status: "inquiry",
     });
   });
 

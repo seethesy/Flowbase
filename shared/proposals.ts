@@ -1,46 +1,21 @@
 import { z } from "zod";
 import { id, text, timestamp } from "./schema-primitives";
+import { pipelineLabels, pipelineStatusSchema, pipelineStatuses } from "./pipeline";
 
 // Proposals (FLOW-122): an event has one or more proposals, each written in Google
 // Docs outside Flowbase and tracked here through its stages. These stages are the
 // proposal's own, separate from the event's statuses (FLOW-56).
-export const proposalStages = [
-  "client_communication",
-  "menu_curation",
-  "revisions",
-  // A .docx export was uploaded (FLOW-123).
-  "finalized",
-  // Admin approved the current version (F-11-06).
-  "approved",
-  // Recorded as sent to the client.
-  "sent",
-  // The booking was recorded (F-12-01).
-  "signed",
-  "lost",
-] as const;
-export const proposalStageSchema = z.enum(proposalStages);
+export const proposalStages = pipelineStatuses;
+export const proposalStageSchema = pipelineStatusSchema;
 export type ProposalStage = z.infer<typeof proposalStageSchema>;
-export const proposalStageLabels: Record<ProposalStage, string> = {
-  client_communication: "Client communication",
-  menu_curation: "Menu curation",
-  revisions: "Revisions",
-  finalized: "Finalized",
-  approved: "Approved",
-  sent: "Sent",
-  signed: "Signed",
-  lost: "Lost",
-};
+export const proposalStageLabels: Record<ProposalStage, string> = pipelineLabels;
 
 // The salesperson moves these by hand; every later stage is set by its action
 // (upload, approval, sending, booking), never by hand (AC1).
-export const manualProposalStages = [
-  "client_communication",
-  "menu_curation",
-  "revisions",
-] as const satisfies readonly ProposalStage[];
+export const manualProposalStages = ["p_creation", "negotiation", "closing"] as const satisfies readonly ProposalStage[];
 // Signed and Lost end a proposal; everything else is open.
 export const closedProposalStages = [
-  "signed",
+  "closed",
   "lost",
 ] as const satisfies readonly ProposalStage[];
 export const isOpenProposal = (stage: ProposalStage) =>
@@ -49,11 +24,8 @@ export const isOpenProposal = (stage: ProposalStage) =>
 // Where a person may move a proposal by hand: any manual stage, or Lost, from any
 // open stage. A finalized, approved or sent proposal can go back to Revisions when
 // the client asks for changes. Signed and Lost are final.
-const manualTargets = [
-  ...manualProposalStages,
-  "lost",
-] as const satisfies readonly ProposalStage[];
-export type ManualProposalTarget = (typeof manualTargets)[number];
+const manualTargets: ProposalStage[] = [...manualProposalStages, "lost"];
+export type ManualProposalTarget = ProposalStage;
 export function manualProposalTargets(
   from: ProposalStage,
 ): ManualProposalTarget[] {
@@ -65,20 +37,12 @@ export function manualProposalTargets(
 // from Finalized or Approved (the new version needs approving again). A sent
 // proposal goes back to Revisions first. A signed contract can have an addendum
 // version; Lost takes no uploads.
-export const uploadableProposalStages = [
-  ...manualProposalStages,
-  "finalized",
-  "approved",
-  "signed",
-] as const satisfies readonly ProposalStage[];
+export const uploadableProposalStages = pipelineStatuses.filter((stage) => stage !== "lost");
 
 export const lostReasonRequired = "Enter why the proposal was lost.";
 export const proposalStageChangeSchema = z
   .object({
-    stage: z.enum(manualTargets, {
-      error:
-        "Finalized, Approved, Sent and Signed are set by uploading, approving, sending and booking the proposal, not by hand.",
-    }),
+    stage: proposalStageSchema,
     reason: text(1000).default(""),
   })
   .superRefine((value, ctx) => {
@@ -179,8 +143,8 @@ export type ProposalVersion = z.infer<typeof proposalVersionSchema>;
 
 export const proposalStageChangeEntrySchema = z.object({
   id,
-  from: proposalStageSchema.nullable(),
-  to: proposalStageSchema,
+  from: z.string().nullable(),
+  to: z.string(),
   reason: z.string(),
   // false when an action (upload, approval, sending, booking) set the stage.
   manual: z.boolean(),
@@ -194,7 +158,7 @@ export type ProposalStageChangeEntry = z.infer<
 export const proposalSchema = z.object({
   id,
   eventId: id,
-  clientId: id,
+  clientId: id.nullable(),
   title: z.string(),
   assignedSalesperson: z.object({ id, name: z.string() }).nullable(),
   notes: z.string(),
@@ -202,6 +166,7 @@ export const proposalSchema = z.object({
   lostReason: z.string(),
   // The number of the current version; null before the first upload.
   currentVersion: z.number().nullable(),
+  approvalStatus: z.enum(["pending", "approved", "rejected", "withdrawn"]).nullable().optional(),
   createdAt: timestamp,
   updatedAt: timestamp,
 });

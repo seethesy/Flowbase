@@ -5,6 +5,8 @@ import {
   leadConvertSchema,
   leadManualSchema,
   leadMergeSchema,
+  leadEventInputSchema,
+  leadUpdateSchema,
   leadStatusChangeSchema,
 } from "../../shared/leads";
 import { id as uuid } from "../../shared/schema-primitives";
@@ -23,11 +25,15 @@ import {
   assignLead,
   bulkAssignLeads,
   changeLeadStatus,
+  createLeadEvent,
   convertLead,
   createManualLead,
   getLead,
   leadHistory,
   listLeads,
+  listLeadEvents,
+  listLeadOwners,
+  updateLead,
 } from "../records/leads";
 import { leadDashboard } from "../records/lead-dashboard";
 import {
@@ -98,6 +104,9 @@ export function leadRoutes(options: {
       ),
     ),
   );
+  routes.get("/owners", requirePermission("leads.read"), async (c) =>
+    c.json(await record(c, (db) => listLeadOwners(db))),
+  );
   // Possible duplicates (FLOW-110): the queue, merge into the kept lead, dismiss.
   routes.get("/duplicates", requirePermission("leads.read"), async (c) =>
     sendPage(
@@ -142,6 +151,11 @@ export function leadRoutes(options: {
     const id = param(c);
     return c.json(await record(c, (db, actor) => getLead(db, actor, id)));
   });
+  routes.put("/:id", requirePermission("leads.update"), async (c) => {
+    const id = param(c);
+    const input = await parseBody(c, leadUpdateSchema);
+    return c.json(await record(c, (db, actor) => updateLead(db, actor, id, input)));
+  });
   // Lead history (FLOW-185): read-only for anyone who can see the lead.
   routes.get("/:id/history", requirePermission("leads.read"), async (c) => {
     const id = param(c);
@@ -165,6 +179,15 @@ export function leadRoutes(options: {
     return c.json(
       await record(c, (db, actor) => changeLeadStatus(db, actor, id, input)),
     );
+  });
+  routes.post("/:id/events", requirePermission("leads.update"), async (c) => {
+    const id = param(c);
+    const input = await parseBody(c, leadEventInputSchema);
+    return c.json(await record(c, (db, actor) => createLeadEvent(db, actor, id, input)), 201);
+  });
+  routes.get("/:id/events", requirePermission("leads.read"), async (c) => {
+    const id = param(c);
+    return c.json(await record(c, (db, actor) => listLeadEvents(db, actor, id)));
   });
   routes.post("/:id/convert", requirePermission("leads.convert"), async (c) => {
     const id = param(c);

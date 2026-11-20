@@ -117,7 +117,6 @@ const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((m
 import { Button, EmptyState, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
-import { roleLabel } from "../services/users";
 const NotificationSettings = lazy(() =>
   import("../features/notifications").then((module) => ({ default: module.NotificationSettings })),
 );
@@ -192,17 +191,11 @@ function Profile() {
     <>
       <PageHeader
         title={user?.name ?? "Employee profile"}
-        subtitle={user ? roleLabel(user.role) : ""}
+        subtitle="Your profile and how Flowbase reaches you"
       />
-      <Section title="Employee profile">
-        <p>{user?.email}</p>
-        <p>
-          {user?.employmentType === "full_time" ? "Full-time" : "Part-time"}
-        </p>
-        <Button onClick={() => void auth?.signOut()}>Sign out</Button>
-      </Section>
       {user && <StaffProfile id={user.id} heading={false} />}
       {user && <NotificationSettings />}
+      <Button onClick={() => void auth?.signOut()}>Sign out</Button>
     </>
   );
 }

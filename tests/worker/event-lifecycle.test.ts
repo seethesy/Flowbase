@@ -11,9 +11,9 @@ import {
 // FLOW-56 AC3: every pair of statuses, written out rather than derived.
 const automatic: Record<EventStatus, EventStatus[]> = {
   inquiry: ["pitching", "lost"],
-  pitching: ["proposal_creation", "lost"],
-  proposal_creation: ["initial_proposal_sent", "lost"],
-  initial_proposal_sent: ["negotiation", "lost"],
+  pitching: ["p_creation", "lost"],
+  p_creation: ["p_sent", "lost"],
+  p_sent: ["negotiation", "lost"],
   negotiation: ["closing", "lost"],
   closing: ["closed", "lost"],
   closed: ["preparation", "lost"],
@@ -53,6 +53,7 @@ describe("manual overrides", () => {
     kitchen_lead: { own: false, other: false },
     kitchen_staff: { own: false, other: false },
     staff: { own: false, other: false },
+    part_time_staff: { own: false, other: false },
   };
   it("covers every role", () => {
     expect(Object.keys(expected).sort()).toEqual([...roleSchema.options].sort());

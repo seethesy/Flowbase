@@ -6,7 +6,7 @@ import { addendums, approvalRequests, attachments, contracts, events, proposalCh
 import { ApiError, notFound } from "../hono";
 import { writeAudit } from "../audit/log";
 import { emitDomainEvent } from "../jobs/queue";
-import { advanceEventStatus, findVisibleEvent, lockVisibleEvent, visibleEvents } from "./events";
+import { findVisibleEvent, lockVisibleEvent, visibleEvents } from "./events";
 import { findVisibleProposal, markProposalSigned } from "./proposals";
 import { defaultBusinessDefaults, businessDefaultsSchema } from "../../shared/settings";
 
@@ -32,7 +32,7 @@ export async function recordContract(db: Db, actor: Actor, proposalId: string, i
   return db.transaction(async (tx) => {
     const [current] = await tx.select().from(proposals).where(eq(proposals.id, proposalId)).for("update");
     const event = await lockVisibleEvent(tx, actor, proposal.eventId);
-    if (!current || current.stage !== "sent" || !current.currentVersionId)
+    if (!current || !current.sentAt || !current.currentVersionId)
       throw new ApiError(409, "INVALID_TRANSITION", "Record a sent proposal before signing its contract.");
     if (input.attachmentId) {
       const [file] = await tx.select().from(attachments).where(and(eq(attachments.id, input.attachmentId), eq(attachments.recordType, "event"), eq(attachments.recordId, event.id), eq(attachments.status, "ready"), isNull(attachments.archivedAt)));
@@ -53,9 +53,6 @@ export async function recordContract(db: Db, actor: Actor, proposalId: string, i
         before: { bookedAt: null }, after: { bookedAt: input.signedAt } });
     }
     await markProposalSigned(tx, actor, proposalId);
-    if (event.status === "initial_proposal_sent") await advanceEventStatus(tx, event.id, "negotiation", "Contract signed");
-    if (event.status === "initial_proposal_sent" || event.status === "negotiation")
-      await advanceEventStatus(tx, event.id, "closing", "Contract signed");
     return contractView(row);
   });
 }

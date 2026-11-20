@@ -19,26 +19,23 @@ const db = drizzle(connection, { schema });
 const system: Actor = {
   userId: "42000000-0000-4000-8000-000000000000",
   role: "admin",
-  employmentType: "full_time",
 };
 
 let invited = 0;
 const invite = async (
   email: string,
   role: Actor["role"],
-  employmentType: Actor["employmentType"],
 ): Promise<Actor> => {
   const user = await inviteUser(db, system, {
     email,
     role,
-    employmentType,
     mobile: `20255501${String(++invited).padStart(2, "0")}`,
   });
   await db
     .update(schema.users)
     .set({ status: "active", name: email.split("@")[0] })
     .where(eq(schema.users.id, user.id));
-  return { userId: user.id, role, employmentType };
+  return { userId: user.id, role };
 };
 let admin: Actor;
 let partTime: Actor;
@@ -52,9 +49,9 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await cleanUp();
-  admin = await invite("admin@gmail.com", "admin", "full_time");
-  partTime = await invite("server@gmail.com", "staff", "part_time");
-  fullTime = await invite("lead@gmail.com", "kitchen_lead", "full_time");
+  admin = await invite("admin@gmail.com", "admin");
+  partTime = await invite("server@gmail.com", "part_time_staff");
+  fullTime = await invite("lead@gmail.com", "kitchen_lead");
 });
 afterAll(async () => {
   await cleanUp();
@@ -65,14 +62,12 @@ it("lists staff for everyone, showing phone numbers to FT+ and to the person onl
   await updateStaffMember(db, admin, fullTime.userId, { notes: "Drives the box truck" });
   const pending = await inviteUser(db, system, {
     email: "new@gmail.com",
-    role: "staff",
-    employmentType: "part_time",
+    role: "part_time_staff",
     mobile: "2025550000",
   });
   const revoked = await inviteUser(db, system, {
     email: "gone@gmail.com",
-    role: "staff",
-    employmentType: "part_time",
+    role: "part_time_staff",
     mobile: "2025550001",
   });
   await changeUser(db, system, revoked.id, "revoke");
@@ -131,14 +126,12 @@ it("lets a user change only their own phone number and SMS consent", async () =>
 it("lets Admin edit everything, with positions from the configurable list, and audits it", async () => {
   const saved = await updateStaffMember(db, admin, partTime.userId, {
     name: "Sam Server",
-    employmentType: "full_time",
     role: "kitchen_staff",
     positions: ["Server", "Bartender"],
     notes: "Prefers weekends",
   });
   expect(saved).toMatchObject({
     name: "Sam Server",
-    employmentType: "full_time",
     role: "kitchen_staff",
     positions: ["Server", "Bartender"],
     notes: "Prefers weekends",
@@ -204,8 +197,7 @@ it("lets Admin edit everything, with positions from the configurable list, and a
 it("keeps a name Admin set before the first Google sign-in", async () => {
   const named = await inviteUser(db, system, {
     email: "named@gmail.com",
-    role: "staff",
-    employmentType: "part_time",
+    role: "part_time_staff",
     mobile: "2025550123",
   });
   await updateStaffMember(db, admin, named.id, { name: "Pat Named" });

@@ -23,9 +23,9 @@ export const toStaffMember = (row: typeof users.$inferSelect): StaffMember =>
     id: row.id,
     name: row.name || row.email,
     email: row.email,
+    secondaryEmail: row.secondaryEmail,
     mobile: row.mobile,
     role: row.role,
-    employmentType: row.employmentType,
     status: row.status,
     active: row.status === "active",
     positions: row.positions,
@@ -96,11 +96,12 @@ export async function updateStaffMember(
     if (input.positions)
       await assertListLabels(tx, "staff_position", input.positions, row.positions);
     const before = toStaffMember(row);
-    const { smsConsent, ...values } = input;
+    const { smsConsent, secondaryEmail, ...values } = input;
     const [updated] = await tx
       .update(users)
       .set({
         ...values,
+        ...(secondaryEmail !== undefined && { secondaryEmail: secondaryEmail || null }),
         // The opt-in date is when consent was given; turning it off clears it.
         ...(smsConsent !== undefined && {
           smsConsentAt: smsConsent ? (row.smsConsentAt ?? new Date()) : null,

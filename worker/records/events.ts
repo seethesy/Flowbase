@@ -113,15 +113,15 @@ export function instants(input: {
 async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
   if (!rows.length) return [];
   const ids = rows.map((row) => row.id);
-  const clientIds = [...new Set(rows.map((row) => row.clientId))];
+  const clientIds = [...new Set(rows.map((row) => row.clientId).filter((id): id is string => !!id))];
   const venueIds = [
     ...new Set(rows.map((row) => row.venueId).filter((id): id is string => !!id)),
   ];
   const [clientNames, venueNames, areas] = await Promise.all([
-    db
+    clientIds.length ? db
       .select({ id: clients.id, name: clients.name })
       .from(clients)
-      .where(inArray(clients.id, clientIds)),
+      .where(inArray(clients.id, clientIds)) : Promise.resolve([]),
     venueIds.length
       ? db
           .select({ id: venues.id, name: venues.name })
@@ -147,7 +147,8 @@ async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
       endTime: row.endsAt ? utcToBusinessTime(row.endsAt).time : null,
       startsAt: row.startsAt.toISOString(),
       endsAt: row.endsAt?.toISOString() ?? null,
-      client: clientById.get(row.clientId) ?? { id: row.clientId, name: "" },
+      client: row.clientId ? clientById.get(row.clientId) ?? { id: row.clientId, name: "" } : null,
+      leadId: row.leadId,
       pocContactId: row.pocContactId,
       venue: (row.venueId && venueById.get(row.venueId)) || null,
       address: row.address,
@@ -314,7 +315,7 @@ export async function getEventHub(
 ): Promise<EventHub> {
   const event = await getEvent(db, actor, id);
   const client =
-    clientScope(actor) === "none"
+    clientScope(actor) === "none" || !event.client
       ? null
       : await getClient(db, actor, event.client.id).catch((error: unknown) => {
           if (error instanceof ApiError && error.status === 404) return null;
@@ -462,6 +463,65 @@ export async function insertEvent(
   });
   await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
   return row.id;
+}
+
+// A lead may have events and proposals before Closing creates its client.
+export async function insertLeadEvent(
+  tx: DbLike,
+  actor: Actor,
+  lead: {
+    id: string; convertedClientId: string | null; assignedSalespersonId: string | null;
+    location: string; eventType: string; guestCount: number | null; message: string;
+  },
+  input: { title: string; date: string; startTime: string },
+): Promise<string> {
+  const [row] = await tx.insert(events).values({
+    title: input.title,
+    ...instants({ date: input.date, startTime: input.startTime, endTime: null }),
+    clientId: lead.convertedClientId,
+    leadId: lead.id,
+    assignedSalespersonId: lead.assignedSalespersonId,
+    address: lead.location.slice(0, 500),
+    eventType: lead.eventType,
+    guestCount: lead.guestCount,
+    internalNotes: lead.message.slice(0, 5000),
+    status: "inquiry",
+    createdBy: actor.userId,
+    updatedBy: actor.userId,
+  }).returning({ id: events.id });
+  await tx.insert(eventStatusHistory).values({
+    eventId: row.id, fromStatus: null, toStatus: "inquiry", createdBy: actor.userId,
+    updatedBy: actor.userId,
+  });
+  await writeAudit(tx, actor, { entityType: "event", entityId: row.id,
+    action: "create", before: null, after: await eventSnapshot(tx, row.id) });
+  await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
+  return row.id;
+}
+
+export async function updateLeadEventBasics(tx: DbLike, actor: Actor, id: string,
+  input: { title?: string; date?: string | null; startTime?: string }) {
+  const current = await lockEvent(tx, id);
+  const before = await eventSnapshot(tx, id);
+  const local = utcToBusinessTime(current.startsAt);
+  const startsAt = input.date || input.startTime
+    ? businessTimeToUtc(input.date ?? local.date, input.startTime ?? local.time)
+    : current.startsAt;
+  const duration = current.endsAt ? current.endsAt.getTime() - current.startsAt.getTime() : null;
+  await tx.update(events).set({
+    ...(input.title !== undefined && { title: input.title }),
+    startsAt,
+    endsAt: duration === null ? null : new Date(startsAt.getTime() + duration),
+    updatedBy: actor.userId,
+  }).where(eq(events.id, id));
+  await writeAudit(tx, actor, { entityType: "event", entityId: id,
+    action: "update", before, after: await eventSnapshot(tx, id) });
+  await emitDomainEvent(tx, { name: "event.updated", entityId: id });
+  if (startsAt.getTime() !== current.startsAt.getTime()) {
+    await markPlanningStale(tx, actor, id, "Event date or time changed");
+    await syncEventHolds(tx, id);
+    await requestEventRecompute(tx, id);
+  }
 }
 
 export async function createEvent(
@@ -726,7 +786,7 @@ export async function setProductionLeads(
   ];
   const people = named.length
     ? await db
-        .select({ id: users.id, employmentType: users.employmentType })
+        .select({ id: users.id, role: users.role })
         .from(users)
         .where(
           and(
@@ -743,11 +803,11 @@ export async function setProductionLeads(
       "Production Leads must be active staff members.",
     );
   const primary = people.find((person) => person.id === input.productionLeadId);
-  if (primary && primary.employmentType !== "full_time")
+  if (primary && primary.role === "part_time_staff")
     throw new ApiError(
       400,
       "INVALID_REQUEST",
-      "Only full-time staff can be the primary Production Lead.",
+      "Part-time Staff cannot be the primary Production Lead.",
     );
   await db.transaction(async (tx) => {
     const current = await lockEvent(tx, id);

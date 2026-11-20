@@ -55,7 +55,7 @@ let clientId = "";
 beforeEach(async () => {
   await db.execute(tables);
   await db.insert(schema.users).values(directory.map(([name, role, employmentType]) => ({
-    id: people[name], email: `${name}@allocations.example`, name, role, employmentType,
+    id: people[name], email: `${name}@allocations.example`, name, role: employmentType === "part_time" ? "part_time_staff" : role,
     status: "active" as const, mobile: "555-0100",
   }))).onConflictDoNothing({ target: schema.users.id });
   [{ id: clientId }] = await db.insert(schema.clients).values({ name: "Allocation client", kind: "organization" }).returning();
@@ -129,7 +129,7 @@ describe("allocations (FLOW-85)", () => {
     const current = await admin.get<FlowEvent>(`/api/events/${gala.id}`);
     await admin.send("PUT", `/api/events/${gala.id}`, {
       title: current.title, date: current.date, startTime: current.startTime, endTime: current.endTime,
-      clientId: current.client.id, guestCount: 175, updatedAt: current.updatedAt,
+      clientId: current.client!.id, guestCount: 175, updatedAt: current.updatedAt,
     });
     await drain();
     expect(await table(itemId)).toMatchObject([{ required: 350, allocated: 350, shortage: 0 }]);

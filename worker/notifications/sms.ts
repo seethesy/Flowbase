@@ -1,8 +1,8 @@
-import { and, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { businessDefaultsSchema, defaultBusinessDefaults } from "../../shared/settings";
 import type { NotificationType } from "../../shared/notifications";
 import type { DbLike } from "../db/client";
-import { notifications, settings, smsOutbox, users } from "../db/schema";
+import { notificationPreferences, notifications, settings, smsOutbox, users } from "../db/schema";
 import { enqueueJob } from "../jobs/queue";
 
 export type SmsMessage = { notificationId: string; userId: string; mobile: string; body: string };
@@ -44,9 +44,14 @@ export async function routeSms(
   const { urgentNotificationTypes, monthlySmsCap } = defaults.success
     ? defaults.data : defaultBusinessDefaults;
   if (!urgentNotificationTypes.includes(type)) return fallback;
+  const selected = await db.select({ userId: notificationPreferences.userId }).from(notificationPreferences)
+    .where(and(inArray(notificationPreferences.userId, rows.map((row) => row.userId)),
+      eq(notificationPreferences.type, type), eq(notificationPreferences.sms, true),
+      isNull(notificationPreferences.archivedAt)));
+  const optedIn = new Set(selected.map((row) => row.userId));
   const recipients = await db.select({ id: users.id, mobile: users.mobile, consent: users.smsConsentAt })
     .from(users).where(and(eq(users.status, "active"), isNull(users.archivedAt)));
-  const eligible = new Map(recipients.filter((u) => u.consent && u.mobile.trim())
+  const eligible = new Map(recipients.filter((u) => optedIn.has(u.id) && u.consent && u.mobile.trim())
     .map((u) => [u.id, u.mobile]));
   const { start, end } = monthBounds(now);
   const [{ used }] = await db.select({ used: sql<number>`count(*)::int` }).from(smsOutbox)

@@ -34,7 +34,7 @@ const appOn = (database: typeof db) => {
   const withDb: RunWithDb = (_env, run) => run(database);
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people.admin, role: "admin", employmentType: "full_time" }),
+    resolveActor: async () => ({ userId: people.admin, role: "admin" }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(path, {
@@ -57,7 +57,7 @@ let clientId = "";
 beforeEach(async () => {
   await db.execute(tables);
   await db.insert(schema.users).values(directory.map(([name, role, employmentType]) => ({
-    id: people[name], email: `${name}@reservations.example`, name, role, employmentType,
+    id: people[name], email: `${name}@reservations.example`, name, role: employmentType === "part_time" ? "part_time_staff" : role,
     status: "active" as const, mobile: "555-0100",
   }))).onConflictDoNothing({ target: schema.users.id });
   [{ id: clientId }] = await db.insert(schema.clients).values({ name: "Hold client", kind: "organization" }).returning();
@@ -152,7 +152,7 @@ describe("holds (FLOW-76)", () => {
     const current = await admin.get<FlowEvent>(`/api/events/${gala.id}`);
     await admin.send("PUT", `/api/events/${gala.id}`, {
       title: current.title, date: "2026-12-05", startTime: current.startTime, endTime: current.endTime,
-      clientId: current.client.id, assignedSalespersonId: people.sam, updatedAt: current.updatedAt,
+      clientId: current.client!.id, assignedSalespersonId: people.sam, updatedAt: current.updatedAt,
     });
     expect((await holdsOf(gala.id))[0]).toMatchObject({ windowStart: "2026-12-04", windowEnd: "2026-12-06" });
   });

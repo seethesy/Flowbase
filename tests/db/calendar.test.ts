@@ -82,8 +82,7 @@ beforeEach(async () => {
         id: people[name],
         email: `${name}@calendar.example`,
         name: name[0].toUpperCase() + name.slice(1),
-        role,
-        employmentType,
+        role: employmentType === "part_time" ? "part_time_staff" : role,
         mobile: `20255595${i}`,
         status: "active" as const,
       })),
@@ -518,7 +517,7 @@ describe("event hub tasks and history (FLOW-166)", () => {
       date: "2026-09-17",
       startTime: "17:00",
       endTime: "22:00",
-      clientId: gala.client.id,
+      clientId: gala.client!.id,
       assignedSalespersonId: people.sam,
       updatedAt: (await admin.get<FlowEvent>(`/api/events/${gala.id}`)).updatedAt,
     });

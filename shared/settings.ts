@@ -185,6 +185,7 @@ export const businessDefaultsSchema = z.object({
   urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure", "beo_changed", "production_urgent"]),
   // SMS messages the app may send in a calendar month; 0 sends none.
   monthlySmsCap: z.number().int().min(0).max(100_000).default(1000),
+  hideCompletedTasksAfterDays: z.number().int().min(0).max(90).default(7),
   freeTierLimits: z.object({
     workerRequests: z.number().int().positive().default(100_000),
     dbQueries: z.number().int().positive().default(100_000),

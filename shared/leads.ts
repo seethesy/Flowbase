@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { email, id, localDate, text, timestamp } from "./schema-primitives";
+import { pipelineLabels, pipelineStatusSchema, pipelineStatuses } from "./pipeline";
+import { sopContentSchema } from "./sops";
+import { localTime } from "./core-records";
 
 // Leads (FLOW-100 inbox, FLOW-111 triage and status, FLOW-112 conversion), shared by
 // the API and the app. Every lead source (collector, webhook, manual entry, import)
@@ -30,35 +33,17 @@ export const defaultLeadSources = [
   "Other",
 ] as const;
 
-export const leadStatusSchema = z.enum([
-  "new",
-  "contacted",
-  "qualified",
-  "converted",
-  "lost",
-]);
+export const leadStatusSchema = pipelineStatusSchema;
 export type LeadStatus = z.infer<typeof leadStatusSchema>;
-export const leadStatusLabels: Record<LeadStatus, string> = {
-  new: "New",
-  contacted: "Contacted",
-  qualified: "Qualified",
-  converted: "Converted",
-  lost: "Lost",
-};
-// Open leads can still move; converted and lost are final.
-export const openLeadStatuses = ["new", "contacted", "qualified"] as const;
+export const leadStatusLabels = pipelineLabels;
+export const openLeadStatuses = pipelineStatuses.filter((status) => status !== "closed" && status !== "lost");
 export const isOpenLeadStatus = (status: LeadStatus) =>
   (openLeadStatuses as readonly string[]).includes(status);
 
-// new -> contacted -> qualified, and lost from any open status. "converted" is reached
-// only through the convert action (FLOW-112), never by a status change.
-export const leadStatusTransitions: Record<LeadStatus, readonly LeadStatus[]> = {
-  new: ["contacted", "lost"],
-  contacted: ["qualified", "lost"],
-  qualified: ["lost"],
-  converted: [],
-  lost: [],
-};
+export const leadStatusTransitions: Record<LeadStatus, readonly LeadStatus[]> = Object.fromEntries(
+  pipelineStatuses.map((from) => [from, from === "closed" || from === "lost" ? [] :
+    pipelineStatuses.filter((to) => to !== from && (to !== "closed" || from === "closing"))]),
+) as Record<LeadStatus, readonly LeadStatus[]>;
 
 export const lostReasonRequired = "A reason is required when marking a lead lost.";
 
@@ -86,6 +71,8 @@ export const leadIntakeSchema = z.object({
   guestCount: z.number().int().min(0).max(100_000).nullable().default(null),
   location: text(500).default(""),
   eventType: text(100).default(""),
+  eventName: text(200).default(""),
+  notes: sopContentSchema.nullable().default(null),
   budgetCents: z.number().int().min(0).max(1_000_000_000).nullable().default(null),
   message: text(10_000).default(""),
   rawPayload: z.unknown().optional(),
@@ -174,6 +161,11 @@ export const leadSchema = z.object({
   budgetCents: z.number().nullable(),
   message: z.string(),
   status: leadStatusSchema,
+  eventName: z.string().optional(),
+  latestEvent: z.object({ id, title: z.string(), startsAt: timestamp }).nullable().optional(),
+  latestProposal: z.object({ id, eventId: id, title: z.string() }).nullable().optional(),
+  possibleDuplicate: z.boolean().optional(),
+  notes: sopContentSchema.nullable().optional(),
   lostReason: z.string(),
   firstRespondedAt: timestamp.nullable(),
   // Seconds from received to the first move to "contacted".
@@ -199,7 +191,7 @@ export type Lead = z.infer<typeof leadSchema>;
 
 export const leadStatusChangeSchema = z
   .object({
-    status: z.enum(["contacted", "qualified", "lost"]),
+    status: leadStatusSchema,
     reason: text(1000).default(""),
   })
   .superRefine((value, ctx) => {
@@ -221,6 +213,8 @@ export const leadManualSchema = leadIntakeSchema
     guestCount: true,
     location: true,
     eventType: true,
+    eventName: true,
+    notes: true,
     budgetCents: true,
     message: true,
   })
@@ -228,6 +222,22 @@ export const leadManualSchema = leadIntakeSchema
 export type LeadManualInput = z.input<typeof leadManualSchema>;
 
 export const leadAssignSchema = z.object({ assignedSalespersonId: id });
+export const leadEventInputSchema = z.object({
+  title: text(200).min(1, "Event name is required."),
+  date: localDate,
+  startTime: localTime,
+});
+export type LeadEventInput = z.infer<typeof leadEventInputSchema>;
+export const leadUpdateSchema = z.object({
+  name: text(200).optional(),
+  email: email.optional(),
+  phone: text(40).optional(),
+  eventName: text(200).optional(),
+  eventDate: localDate.nullable().optional(),
+  eventTime: localTime.optional(),
+  notes: sopContentSchema.nullable().optional(),
+}).strict();
+export type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;
 export const leadBulkAssignSchema = z.object({
   leadIds: z.array(id).min(1, "Pick at least one lead.").max(200),
   assignedSalespersonId: id,
@@ -248,13 +258,14 @@ export const leadConvertSchema = z.object({
     ])
     .default({ mode: "create", name: "", kind: "person", allowDuplicate: false }),
   event: z.object({
+    existingEventId: id.optional(),
     // Empty takes "<client> - <event type>".
     title: text(200).default(""),
     // Empty takes the lead's event date.
     date: localDate.optional(),
     startTime: z
       .string()
-      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a start time."),
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a start time.").optional(),
   }),
 });
 export type LeadConvertInput = z.input<typeof leadConvertSchema>;

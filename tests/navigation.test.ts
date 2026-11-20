@@ -15,7 +15,7 @@ const actor = (role: Actor["role"], employmentType: Actor["employmentType"] = "f
 });
 const admin = actor("admin");
 const salesperson = actor("salesperson");
-const staff = actor("staff", "part_time");
+const staff = actor("part_time_staff");
 
 const headings = (who: Actor) => visibleGroups(who).map((group) => group.name);
 const tabs = (who: Actor, heading: string) =>

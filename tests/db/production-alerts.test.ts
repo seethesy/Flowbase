@@ -26,8 +26,8 @@ beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(clear);
   await db.insert(s.users).values([
-    { id: lead, email: "lead@example.test", name: "Lead", role: "staff", employmentType: "full_time", status: "active", mobile: "2025550101", smsConsentAt: now },
-    { id: manager, email: "manager@example.test", name: "Manager", role: "sales_manager", employmentType: "full_time", status: "active", mobile: "2025550102", smsConsentAt: now },
+    { id: lead, email: "lead@example.test", name: "Lead", role: "staff", status: "active", mobile: "2025550101", smsConsentAt: now },
+    { id: manager, email: "manager@example.test", name: "Manager", role: "sales_manager", status: "active", mobile: "2025550102", smsConsentAt: now },
   ]);
   const clientId = "c1530000-0000-4000-8000-000000000003";
   await db.insert(s.clients).values({ id: clientId, name: "Sample client", kind: "organization" });
@@ -72,7 +72,7 @@ it("reminds each assigned person to open the BEO offline once the day before", a
 });
 
 it("records a readiness answer and reopens it when the source changes", async () => {
-  const actor = { userId: lead, role: "staff" as const, employmentType: "full_time" as const };
+  const actor = { userId: lead, role: "staff" as const };
   const [pull] = await db.insert(s.pullLists).values({ eventId }).returning();
   const [check] = await getReadiness(db, actor, eventId, now);
   expect(check.question).toBe("What day and time are items being pulled from inventory?");
@@ -94,19 +94,19 @@ it("lets a primary lead and Sales Manager see every event list while staff see a
     dueAt: businessTimeToUtc("2026-11-14", "10:00") }).returning();
   await db.insert(s.tasks).values({ eventId: otherId, type: "production", title: "Build dais",
     dueAt: businessTimeToUtc("2026-11-14", "11:00") });
-  const leadActor = { userId: lead, role: "staff" as const, employmentType: "full_time" as const };
-  const managerActor = { userId: manager, role: "sales_manager" as const, employmentType: "full_time" as const };
+  const leadActor = { userId: lead, role: "staff" as const };
+  const managerActor = { userId: manager, role: "sales_manager" as const };
   expect((await getProductionList(db, leadActor, otherId, now)).items.some((item) => item.title === "Set tables")).toBe(true);
   expect((await getProductionList(db, managerActor, otherId, now)).items.some((item) => item.title === "Set tables")).toBe(true);
   const staffId = "c1530000-0000-4000-8000-000000000004";
-  await db.insert(s.users).values({ id: staffId, email: "staff@example.test", name: "Staff", role: "staff",
-    employmentType: "part_time", status: "active", mobile: "2025550103" });
-  await expect(getProductionList(db, { userId: staffId, role: "staff", employmentType: "part_time" }, otherId, now)).rejects.toMatchObject({ status: 404 });
+  await db.insert(s.users).values({ id: staffId, email: "staff@example.test", name: "Staff", role: "part_time_staff",
+    status: "active", mobile: "2025550103" });
+  await expect(getProductionList(db, { userId: staffId, role: "part_time_staff" }, otherId, now)).rejects.toMatchObject({ status: 404 });
   const [shift] = await db.insert(s.eventShifts).values({ eventId: otherId, kind: "event_day",
     startsAt: businessTimeToUtc("2026-11-15", "12:00"), endsAt: businessTimeToUtc("2026-11-15", "22:00") }).returning();
   await db.insert(s.eventStaffSlots).values({ shiftId: shift.id, position: "Server", department: "service", assigneeId: staffId });
   await db.insert(s.taskAssignees).values({ taskId: assignedTask.id, userId: staffId });
-  const staffList = await getProductionList(db, { userId: staffId, role: "staff", employmentType: "part_time" }, otherId, now);
+  const staffList = await getProductionList(db, { userId: staffId, role: "part_time_staff" }, otherId, now);
   expect(staffList.items.some((item) => item.title === "Set tables")).toBe(true);
   expect(staffList.items.some((item) => item.title === "Build dais")).toBe(false);
 });

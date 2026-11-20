@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { proposalStageLabels } from "../../shared/proposals";
+import { StatusPill } from "../components/ui/status-pill";
+import { pipelineLabels, pipelineStatusSchema } from "../../shared/pipeline";
 import { filterSalesRows, salesCsv, salesFilterSchema, type SalesFilter, type SalesRow } from "../../shared/sales";
 import { useResource } from "../app/useResource";
 import { Button, LoadingSkeleton, PageHeader, Section } from "../components/shared";
@@ -19,6 +20,10 @@ const download = (name: string, content: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 };
 const path = (row: SalesRow) => row.kind === "lead" ? `/leads/${row.id}` : row.kind === "client" ? `/clients/${row.id}` : `/events/${row.eventId}${row.kind === "proposal" ? `?proposal=${row.id}` : ""}`;
+const stageLabel = (stage: string) => {
+  const parsed = pipelineStatusSchema.safeParse(stage);
+  return parsed.success ? pipelineLabels[parsed.data] : stage;
+};
 
 export function SalesTracker() {
   const viewNamePlaceholder = useCopy("sales.sales-tracker.view-name.placeholder", "View name");
@@ -41,7 +46,7 @@ export function SalesTracker() {
         {["all", "lead", "client", "event", "proposal"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
       </select></label>
       <label><T id="sales.sales-tracker.stage">{"Stage "}</T><select value={filter.stage} onChange={(event) => patch({ stage: event.target.value })}>
-        <option value="">All stages</option>{[...new Set(data.data.rows.map((row) => row.stage))].sort().map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+        <option value="">All stages</option>{[...new Set(data.data.rows.map((row) => row.stage))].sort().map((stage) => <option key={stage} value={stage}>{stageLabel(stage)}</option>)}
       </select></label>
       <label><T id="sales.sales-tracker.salesperson">{"Salesperson "}</T><select value={filter.owner ?? ""} onChange={(event) => patch({ owner: event.target.value || undefined })}>
         <option value="">All salespeople</option>{owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -61,7 +66,7 @@ export function SalesTracker() {
     </div>
     {error && <p role="alert">{error}</p>}
     <Section title={<T id="sales.sales-tracker.rows" values={{ rowsCount: rows.length }}>{"{rowsCount} rows"}</T>}><div className="sales-table-wrap"><table className="sales-table"><thead><tr><th><T id="sales.sales-tracker.type-2">Type</T></th><th><T id="sales.sales-tracker.client-record">Client / record</T></th><th><T id="sales.sales-tracker.event-date">Event date</T></th><th><T id="sales.sales-tracker.event-type">Event type</T></th><th><T id="sales.sales-tracker.stage-2">Stage</T></th><th><T id="sales.sales-tracker.salesperson-2">Salesperson</T></th><th><T id="sales.sales-tracker.source">Source</T></th><th><T id="sales.sales-tracker.total">Total</T></th><th><T id="sales.sales-tracker.balance-due">Balance due</T></th><th><T id="sales.sales-tracker.last-activity">Last activity</T></th><th><T id="sales.sales-tracker.next-follow-up">Next follow-up</T></th></tr></thead>
-      <tbody>{rows.map((row) => <tr key={`${row.kind}:${row.id}`}><td>{row.kind}</td><td><Link to={path(row)}>{row.client} · {row.title}</Link></td><td>{day(row.eventDate)}</td><td>{row.eventType || "—"}</td><td>{row.proposalStage ? proposalStageLabels[row.proposalStage] : row.stage}</td><td>{row.owner ?? "—"}</td><td>{row.source ?? "—"}</td><td>{dollars(row.totalCents)}</td><td>{dollars(row.balanceCents)}</td><td>{day(row.lastActivity)}</td><td>{day(row.nextFollowUp)}</td></tr>)}</tbody>
+      <tbody>{rows.map((row) => <tr key={`${row.kind}:${row.id}`}><td>{row.kind}</td><td><Link to={path(row)}>{row.client} · {row.title}</Link></td><td>{day(row.eventDate)}</td><td>{row.eventType || "—"}</td><td>{row.proposalStage ? <StatusPill status={row.proposalStage} /> : row.eventStatus ? <StatusPill status={row.eventStatus} /> : row.leadStatus ? <StatusPill status={row.leadStatus} /> : row.stage}{row.approvalStatus && <span className={`badge ${row.approvalStatus === "approved" ? "success" : "neutral"}`}>{row.approvalStatus}</span>}</td><td>{row.owner ?? "—"}</td><td>{row.source ?? "—"}</td><td>{dollars(row.totalCents)}</td><td>{dollars(row.balanceCents)}</td><td>{day(row.lastActivity)}</td><td>{day(row.nextFollowUp)}</td></tr>)}</tbody>
     </table></div></Section>
   </>;
 }
@@ -74,10 +79,10 @@ export function ClientSalesTracker({ clientId }: { clientId: string }) {
     <p><T id="sales.client-sales-tracker.events-lifetime-booked-total" values={{ eventCount: data.data.eventCount, dollars: dollars(data.data.lifetimeBookedCents) }}>{"{eventCount} events · Lifetime booked total: {dollars}"}</T></p>
     {data.data.events.map((event) => <article className="sales-client-event" key={event.eventId}>
       <h3><Link to={`/events/${event.eventId}`}>{event.title}</Link></h3>
-      <p><T id="sales.client-sales-tracker.booked" values={{ day: day(event.eventDate), status: event.status, day2: day(event.bookedAt) }}>{"{day} · {status} · Booked {day2}"}</T></p>
+      <p>{day(event.eventDate)} · <StatusPill status={event.status} /> · <T id="sales.client-sales-tracker.booked" values={{ day: day(event.bookedAt) }}>{"Booked {day}"}</T></p>
       <p><T id="sales.client-sales-tracker.total-received-balance-due" values={{ dollars: dollars(event.totalCents), dollars2: dollars(event.receivedCents), dollars3: dollars(event.balanceCents) }}>{"Total {dollars} · Received {dollars2} · Balance due {dollars3}"}</T></p>
       {event.proposals.map((proposal) => <div key={proposal.id}>
-        <Link to={`/events/${event.eventId}?proposal=${proposal.id}`}>{proposal.title}</Link> · {proposalStageLabels[proposal.stage]}
+        <Link to={`/events/${event.eventId}?proposal=${proposal.id}`}>{proposal.title}</Link> · <StatusPill status={proposal.stage} />
         <span><T id="sales.client-sales-tracker.versions">{" · Versions: "}</T>{proposal.versions.map((version) => `v${version.number} ${dollars(version.totalCents)}`).join(", ") || <T id="sales.client-sales-tracker.none">None</T>}</span>
       </div>)}
     </article>)}
@@ -104,7 +109,7 @@ export function SalesReports() {
   return <><PageHeader title={<T id="sales.sales-reports.sales-reports">Sales reports</T>} subtitle={<T id="sales.sales-reports.pipeline-booked-events-and-win">Pipeline, booked events and win rates</T>} />
     <p><Link to="/proposals"><T id="sales.sales-reports.sales-tracker">← Sales tracker</T></Link></p>
     <div className="sales-actions"><label><T id="sales.sales-reports.from">{"From "}</T><input aria-label="Report from" type="date" value={from} onChange={(event) => { setFrom(event.target.value); if (to && event.target.value > to) setTo(""); }} /></label><label><T id="sales.sales-reports.to">{"To "}</T><input aria-label="Report to" type="date" value={to} onChange={(event) => { setTo(event.target.value); if (from && event.target.value < from) setFrom(""); }} /></label><Button onClick={() => download("sales-reports.csv", csv)}><T id="sales.sales-reports.export-csv">Export CSV</T></Button></div>
-    <Section title={<T id="sales.sales-reports.pipeline-by-proposal-stage">Pipeline by proposal stage</T>}><table className="sales-table"><thead><tr><th><T id="sales.sales-reports.stage">Stage</T></th><th><T id="sales.sales-reports.count">Count</T></th><th><T id="sales.sales-reports.total">Total</T></th></tr></thead><tbody>{report.pipeline.map((row) => <tr key={row.stage}><td>{proposalStageLabels[row.stage]}</td><td>{row.count}</td><td>{dollars(row.totalCents)}</td></tr>)}</tbody></table></Section>
+    <Section title={<T id="sales.sales-reports.pipeline-by-proposal-stage">Pipeline by proposal stage</T>}><table className="sales-table"><thead><tr><th><T id="sales.sales-reports.stage">Stage</T></th><th><T id="sales.sales-reports.count">Count</T></th><th><T id="sales.sales-reports.total">Total</T></th></tr></thead><tbody>{report.pipeline.map((row) => <tr key={row.stage}><td><StatusPill status={row.stage} /></td><td>{row.count}</td><td>{dollars(row.totalCents)}</td></tr>)}</tbody></table></Section>
     <Section title={<T id="sales.sales-reports.booked-total-by-event-month">Booked total by event month</T>}><table className="sales-table"><thead><tr><th><T id="sales.sales-reports.month">Month</T></th><th><T id="sales.sales-reports.events">Events</T></th><th><T id="sales.sales-reports.total">Total</T></th></tr></thead><tbody>{report.bookedByMonth.map((row) => <tr key={row.month}><td>{row.month}</td><td>{row.count}</td><td>{dollars(row.totalCents)}</td></tr>)}</tbody></table></Section>
     {(["winBySalesperson", "winBySource"] as const).map((key) => <Section key={key} title={key === "winBySource" ? <T id="sales.sales-reports.win-rate-by-lead-source">Win rate by lead source</T> : <T id="sales.sales-reports.win-rate-by-salesperson">Win rate by salesperson</T>}><table className="sales-table"><thead><tr><th>{key === "winBySource" ? <T id="sales.sales-reports.source">Source</T> : <T id="sales.sales-reports.salesperson">Salesperson</T>}</th><th><T id="sales.sales-reports.wins">Wins</T></th><th><T id="sales.sales-reports.decided">Decided</T></th><th><T id="sales.sales-reports.win-rate">Win rate</T></th></tr></thead><tbody>{report[key].map((row) => <tr key={"source" in row ? row.source : row.owner}><td>{"source" in row ? row.source : row.owner}</td><td>{row.wins}</td><td>{row.decided}</td><td>{row.rate === null ? "—" : `${Math.round(row.rate * 100)}%`}</td></tr>)}</tbody></table></Section>)}
   </>;

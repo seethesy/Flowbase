@@ -34,7 +34,7 @@ const people = {
   sue: "a0000000-0000-4000-8000-000000000004",
 };
 const signedInAs = (userId: string, role: Role) => {
-  const actor: Actor = { userId, role, employmentType: "full_time" };
+  const actor: Actor = { userId, role };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -266,7 +266,7 @@ describe("merge (FLOW-110)", () => {
   it("keeps a converted lead and refuses to merge it away", async () => {
     const converted = await seed(intake());
     const fresh = await seed(thumbtack());
-    await db.update(leads).set({ status: "converted" }).where(eq(leads.id, converted));
+    await db.update(leads).set({ status: "closing" }).where(eq(leads.id, converted));
     const [duplicate] = await admin.get<LeadDuplicate[]>("/api/leads/duplicates");
     const refused = await admin.call("POST", `/api/leads/duplicates/${duplicate.id}/merge`, {
       keepLeadId: fresh,

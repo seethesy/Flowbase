@@ -137,7 +137,7 @@ it("requires a reason to mark a lead lost, before touching the database", async 
     (
       await app.request(
         `/api/leads/${id}/status`,
-        post({ status: "converted" }),
+        post({ status: "closing" }),
         env,
       )
     ).status,
@@ -197,14 +197,11 @@ it("accepts a sparse intake and rejects a bad one", () => {
   ).toThrow();
 });
 
-it("allows only the documented status moves", () => {
-  expect(leadStatusTransitions).toEqual({
-    new: ["contacted", "lost"],
-    contacted: ["qualified", "lost"],
-    qualified: ["lost"],
-    converted: [],
-    lost: [],
-  });
+it("exposes the shared pipeline moves", () => {
+  expect(leadStatusTransitions.inquiry).toContain("pitching");
+  expect(leadStatusTransitions.closing).toContain("closed");
+  expect(leadStatusTransitions.closed).toEqual([]);
+  expect(leadStatusTransitions.lost).toEqual([]);
   expect(leadStatusChangeSchema.safeParse({ status: "lost", reason: "Booked elsewhere" }).success).toBe(true);
   expect(leadBulkAssignSchema.safeParse({ leadIds: [id], assignedSalespersonId: id }).success).toBe(true);
   const convert = leadConvertSchema.parse({ event: { startTime: "18:00" } });

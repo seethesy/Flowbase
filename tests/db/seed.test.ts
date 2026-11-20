@@ -47,8 +47,8 @@ it("seeds repeatable counts, all roles and employment types, lifecycle stages an
       .where(sql`${s.users.id}::text like 'f0260001-%'`);
     expect(seeded).toHaveLength(14);
     expect(
-      new Set(seeded.map((u) => `${u.role}/${u.employmentType}`)).size,
-    ).toBe(14);
+      new Set(seeded.map((u) => u.role)).size,
+    ).toBe(8);
     for (const [table, expected] of [
       ["clients", 35],
       ["client_contacts", 45],
@@ -84,7 +84,6 @@ it("seeds repeatable counts, all roles and employment types, lifecycle stages an
       resolveActor: async () => ({
         userId: seedUsers[0].id,
         role: "admin",
-        employmentType: "full_time",
       }),
     });
     const response = await app.request(

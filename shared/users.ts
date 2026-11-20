@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { employmentTypeSchema, roleSchema } from "./access";
+import { roleSchema } from "./access";
 
 export const userStatuses = [
   "pending",
@@ -13,10 +13,10 @@ export const inviteInputSchema = z.object({
     .max(254)
     .transform((email) => email.toLowerCase()),
   role: roleSchema,
-  employmentType: employmentTypeSchema,
   mobile: z.string().trim().min(1, "Mobile number is required.").max(40),
 });
 export type InviteInput = z.infer<typeof inviteInputSchema>;
+export const userEmailChangeSchema = z.object({ email: z.email().max(254).transform((value) => value.toLowerCase()) });
 export const userActionSchema = z.enum([
   "resend",
   "revoke",
@@ -27,6 +27,7 @@ export type UserAction = z.infer<typeof userActionSchema>;
 export const userSchema = inviteInputSchema.extend({
   id: z.uuid(),
   name: z.string(),
+  secondaryEmail: z.email().nullable(),
   status: z.enum(userStatuses),
   invitedAt: z.iso.datetime(),
   activatedAt: z.iso.datetime().nullable(),

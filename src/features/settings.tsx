@@ -55,7 +55,6 @@ export function SettingsPage() {
       )}
       {manage && (
         <>
-          <Section title={<T id="settings.settings-page.operations">Operations</T>}><Link to="/settings/collector"><T id="settings.settings-page.collector-health-and-sms-outbox">Collector health and SMS outbox</T></Link> ·{" "}<Link to="/settings/usage"><T id="settings.settings-page.free-tier-usage">Free-tier usage</T></Link></Section>
           <CompanySettings />
           <ListSettings />
           <DefaultSettings />
@@ -373,6 +372,7 @@ type DefaultsDraft = Omit<
   | "rentalBufferDaysBefore"
   | "rentalBufferDaysAfter"
   | "monthlySmsCap"
+  | "hideCompletedTasksAfterDays"
   | "idleCutoffMinutes"
   | "addendumReminderDays"
   | "paymentReminderDays"
@@ -387,6 +387,7 @@ type DefaultsDraft = Omit<
   rentalBufferDaysBefore: string;
   rentalBufferDaysAfter: string;
   monthlySmsCap: string;
+  hideCompletedTasksAfterDays: string;
   idleCutoffMinutes: string;
   addendumReminderDays: string;
   paymentReminderDays: string;
@@ -424,6 +425,7 @@ const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
   rentalBufferDaysBefore: String(defaults.rentalBufferDaysBefore),
   rentalBufferDaysAfter: String(defaults.rentalBufferDaysAfter),
   monthlySmsCap: String(defaults.monthlySmsCap),
+  hideCompletedTasksAfterDays: String(defaults.hideCompletedTasksAfterDays),
   idleCutoffMinutes: String(defaults.idleCutoffMinutes),
   addendumReminderDays: String(defaults.addendumReminderDays),
   paymentReminderDays: String(defaults.paymentReminderDays),
@@ -477,6 +479,7 @@ function DefaultSettings() {
       rentalBufferDaysBefore: numberOf(draft.rentalBufferDaysBefore),
       rentalBufferDaysAfter: numberOf(draft.rentalBufferDaysAfter),
       monthlySmsCap: numberOf(draft.monthlySmsCap),
+      hideCompletedTasksAfterDays: numberOf(draft.hideCompletedTasksAfterDays),
       idleCutoffMinutes: numberOf(draft.idleCutoffMinutes),
       addendumReminderDays: numberOf(draft.addendumReminderDays),
       paymentReminderDays: numberOf(draft.paymentReminderDays),
@@ -521,6 +524,7 @@ function DefaultSettings() {
           {number("rentalBufferDaysBefore", "Rental buffer days before", "Days a rental is held before its event.")}
           {number("rentalBufferDaysAfter", "Rental buffer days after", "Days a rental is held after its event.")}
           {number("monthlySmsCap", "Monthly SMS cap", "Texts sent per calendar month; 0 sends none.")}
+          {number("hideCompletedTasksAfterDays", "Hide completed tasks after N days", "Completed tasks stay on the dashboard for this many days, from 0 to 90.")}
           {number("idleCutoffMinutes", "Time tracking idle cutoff (minutes)", "Time stops after this long without typing or clicking.", 1)}
           {number("addendumReminderDays", "Addendum reminder days", "Remind the salesperson when an addendum remains unsigned.", 1)}
           {number("paymentReminderDays", "Payment reminder days", "Days before a payment is due that the assigned salesperson is reminded.")}

@@ -65,12 +65,14 @@ function ClientPicker({
 export function ConvertLeadForm({
   lead,
   linkClientId = "",
+  preferredEventId = "",
   onClose,
   onConverted,
 }: {
   lead: Lead;
   // Preselects linking to this client (a possible duplicate, FLOW-110).
   linkClientId?: string;
+  preferredEventId?: string;
   onClose: () => void;
   onConverted: (result: LeadConversion) => void;
 }) {
@@ -81,14 +83,17 @@ export function ConvertLeadForm({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(lead.eventDate ?? "");
   const [startTime, setStartTime] = useState("");
+  const [existingEventId, setExistingEventId] = useState(preferredEventId);
+  const events = useResource(["lead-events", lead.id], () => leadsApi.events(lead.id));
+  const chosenEventId = existingEventId === "new" ? "" : existingEventId || events.data?.[0]?.id || "";
   const [error, setError] = useState("");
   const [duplicates, setDuplicates] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const submit = async (allowDuplicate: boolean) => {
     if (mode === "create" && !name.trim()) return setError("Enter a client name.");
     if (mode === "link" && !clientId) return setError("Choose a client.");
-    if (!date) return setError("Enter the event date.");
-    if (!startTime) return setError("Enter a start time.");
+    if (!chosenEventId && !date) return setError("Enter the event date.");
+    if (!chosenEventId && !startTime) return setError("Enter a start time.");
     setSaving(true);
     setError("");
     setDuplicates([]);
@@ -99,7 +104,7 @@ export function ConvertLeadForm({
             mode === "create"
               ? { mode, name, kind, allowDuplicate }
               : { mode, clientId },
-          event: { title, date, startTime },
+          event: { title, ...(date && { date }), ...(startTime && { startTime }), ...(chosenEventId && { existingEventId: chosenEventId }) },
         }),
       );
       onClose();
@@ -115,8 +120,8 @@ export function ConvertLeadForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title={<T id="lead-convert.convert-lead-form.convert-lead">Convert lead</T>}
-      description={<T id="lead-convert.convert-lead-form.creates-a-client-contact-and" values={{ leadTitle: leadTitle(lead) }}>{"Creates a client, contact and inquiry event from {leadTitle}."}</T>}
+      title={<T id="lead-convert.confirm.title">Move to Closing</T>}
+      description={<T id="lead-convert.confirm.description" values={{ name: leadTitle(lead) }}>{"Move to Closing? This creates the client and attaches {name}'s events. If none exists, an event is created."}</T>}
     >
       <form
         noValidate
@@ -201,6 +206,10 @@ export function ConvertLeadForm({
           <ClientPicker value={clientId} onChange={setClientId} />
         )}
         <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.event">Event</T></h3>
+        {Boolean(events.data?.length) && <FormField label={<T id="lead-convert.confirm.linked-event">Linked event</T>}><select value={existingEventId || events.data?.[0]?.id || ""} onChange={(event) => setExistingEventId(event.target.value)}>
+          <option value="new">Create another event</option>{events.data?.map((event) => <option value={event.id} key={event.id}>{event.title}</option>)}
+        </select></FormField>}
+        {!chosenEventId && <>
         <FormField
           label={<T id="lead-convert.convert-lead-form.event-title">Event title</T>}
           hint={`Blank uses "client — ${lead.eventType || "Event"}".`}
@@ -223,12 +232,13 @@ export function ConvertLeadForm({
             />
           </FormField>
         </div>
+        </>}
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
             <T id="lead-convert.convert-lead-form.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            <T id="lead-convert.convert-lead-form.convert-lead">Convert lead</T>
+            <T id="lead-convert.confirm.submit">Confirm Closing</T>
           </Button>
         </div>
       </form>

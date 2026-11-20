@@ -26,7 +26,6 @@ const withDb: RunWithDb = (_env, run) => run(db);
 const admin: Actor = {
   userId: "3f0b8d2c-7a41-4c69-8e1f-5d2a9b6c0e17",
   role: "admin",
-  employmentType: "full_time",
 };
 const app = createApp({ withDb, resolveActor: async () => admin });
 const env = { ASSETS: { fetch }, INGEST_TOKEN_LEADS: "lead-token" };

@@ -18,14 +18,12 @@ const id = "37000000-0000-4000-8000-000000000001";
 const actor = {
   userId: id,
   role: "admin",
-  employmentType: "full_time",
 } as const;
 const user = {
   id,
   name: "invited@gmail.com",
   email: "invited@gmail.com",
-  role: "staff",
-  employmentType: "part_time",
+  role: "part_time_staff",
   mobile: "2025550101",
   status: "pending",
   invitedAt: new Date().toISOString(),
@@ -42,7 +40,6 @@ const app = createApp({ withDb, resolveActor: async () => actor });
 const input = {
   email: user.email,
   role: user.role,
-  employmentType: user.employmentType,
   mobile: user.mobile,
 };
 beforeEach(() => {

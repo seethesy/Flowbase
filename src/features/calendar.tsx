@@ -25,6 +25,8 @@ import { toCalendarEntries } from "./calendar-entries";
 import "./calendar.css";
 import { RoundCheck } from "../components/ui/round-check";
 import { T } from "../app/copy";
+import { StatusPill } from "../components/ui/status-pill";
+import { eventStatusSchema } from "../../shared/core-records";
 
 // Basic calendar (FLOW-63, ADR-19): FullCalendar's free standard views only
 // (month, week, day, list). The API sends New York wall-clock times, and the
@@ -73,7 +75,7 @@ function renderEntry(arg: EventContentArg) {
   return (
     <div className="calendar-overview">
       {showTime && <div className="fc-event-time">{arg.timeText}</div>}
-      <div className="fc-event-title">{arg.event.title}</div>
+      <div className="fc-event-title">{arg.event.title} <StatusPill status={eventStatusSchema.parse(arg.event.extendedProps.status)} /></div>
       <div className="calendar-overview-details">{overview}</div>
     </div>
   );

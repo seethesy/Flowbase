@@ -88,8 +88,7 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@roster.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255590${i}`,
       status: name === "gone" ? ("deactivated" as const) : ("active" as const),
     })),
@@ -468,7 +467,7 @@ describe("Production Leads", () => {
       title: "Fall gala",
       date: "2026-11-14",
       startTime: "18:00",
-      clientId: gala.client.id,
+      clientId: gala.client!.id,
       arrivalTime: "15:30",
       productionLeadId: people.jamie,
     });

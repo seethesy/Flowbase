@@ -21,7 +21,7 @@ const people = {
 };
 const as = (who: keyof typeof people) => {
   const role = who === "admin" ? "admin" as const : who === "lead" ? "kitchen_lead" as const : "staff" as const;
-  const app = createApp({ withDb, resolveActor: async () => ({ userId: people[who], role, employmentType: "full_time" }) });
+  const app = createApp({ withDb, resolveActor: async () => ({ userId: people[who], role }) });
   const call = (method: string, path: string, body?: unknown) => app.request(path, {
     method, ...(body !== undefined && { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
   }, env);
@@ -36,8 +36,7 @@ beforeEach(async () => {
   await db.execute(tables);
   await db.insert(schema.users).values(Object.entries(people).map(([name, id]) => ({
     id, email: `${name}@order-list.example`, name,
-    role: name === "admin" ? "admin" as const : name === "lead" ? "kitchen_lead" as const : "staff" as const,
-    employmentType: "full_time" as const, status: "active" as const, mobile: "555-0100",
+    role: name === "admin" ? "admin" as const : name === "lead" ? "kitchen_lead" as const : "staff" as const, status: "active" as const, mobile: "555-0100",
   }))).onConflictDoNothing({ target: schema.users.id });
 });
 afterAll(async () => {

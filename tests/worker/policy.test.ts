@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import { readFileSync, readdirSync } from "node:fs";
 import {
   roles,
-  employmentTypes,
   isFtPlus,
   type Actor,
 } from "../../shared/access";
@@ -23,13 +22,9 @@ import { createApp } from "../../worker/app";
 import { permissionOf, requirePermission, isActorGuard } from "../../worker/auth";
 import type { AppEnv } from "../../worker/hono";
 
-const actor = (
-  role: Actor["role"],
-  employmentType: Actor["employmentType"],
-): Actor => ({
+const actor = (role: Actor["role"]): Actor => ({
   userId: "38000000-0000-4000-8000-000000000001",
   role,
-  employmentType,
 });
 // Columns: Admin, Technical, Sales Manager, Salesperson, Kitchen Lead,
 // Kitchen Staff, Staff. F = full-time only; absent entries are denied.
@@ -54,7 +49,7 @@ const expected: Record<Action, string> = {
   "tasks.templates": "1110100",
   "home.kitchen": "1000110",
   "operations.read": "1100000",
-  "reports.operations.read": "1010000",
+  "reports.operations.read": "1110000",
   "notifications.read": "1111111",
   "approvals.read": "1111111",
   "approvals.write": "1111111",
@@ -102,49 +97,34 @@ const expected: Record<Action, string> = {
 it("accounts for every protected action in the role matrix", () => {
   expect(Object.keys(expected).sort()).toEqual([...actions].sort());
 });
-for (const employmentType of employmentTypes) {
-  describe(employmentType, () => {
-    for (const [index, role] of roles.entries()) {
-      it(`${role} against every protected action`, () => {
-        for (const action of actions) {
-          const cell = expected[action][index];
-          expect(can(actor(role, employmentType), action), action).toBe(
-            cell === "1" || (cell === "F" && employmentType === "full_time"),
-          );
-        }
-      });
-      it(`${role} scopes records and stock operations`, () => {
-        const who = actor(role, employmentType);
-        const all = ["admin", "technical", "sales_manager"].includes(role);
-        const owned = role === "salesperson";
-        expect([clientScope(who), leadScope(who), eventScope(who)]).toEqual(
-          all
-            ? ["all", "all", "all"]
-            : owned
-              ? ["own", "own", "own"]
-              : ["none", "none", "staffed"],
-        );
-        expect(isFtPlus(who)).toBe(all || employmentType === "full_time");
-        expect(
-          canCountItem(who, { kind: "consumable", subtype: "ingredient" }),
-        ).toBe(["admin", "kitchen_lead", "kitchen_staff"].includes(role));
-        expect(canCountItem(who, { kind: "consumable", subtype: "bar" })).toBe(
-          all || employmentType === "full_time",
-        );
-        expect(
-          canMoveItem(who, { kind: "consumable", subtype: "ingredient" }),
-        ).toBe(
-          ["admin", "technical", "sales_manager", "kitchen_lead"].includes(
-            role,
-          ),
-        );
-      });
+for (const [index, role] of roles.entries()) {
+  it(`${role} against every protected action`, () => {
+    for (const action of actions) {
+      const matrix = expected[action];
+      const cell = index === 7 ? matrix[6] : matrix[index];
+      expect(can(actor(role), action), action).toBe(cell === "1" || (cell === "F" && role !== "part_time_staff"));
     }
+  });
+  it(`${role} scopes records and stock operations`, () => {
+    const who = actor(role);
+    const all = ["admin", "technical", "sales_manager"].includes(role);
+    const owned = role === "salesperson";
+    expect([clientScope(who), leadScope(who), eventScope(who)]).toEqual(
+      all ? ["all", "all", "all"] : owned ? ["own", "own", "own"] : ["none", "none", "staffed"],
+    );
+    expect(isFtPlus(who)).toBe(role !== "part_time_staff");
+    expect(canCountItem(who, { kind: "consumable", subtype: "ingredient" })).toBe(
+      ["admin", "kitchen_lead", "kitchen_staff"].includes(role),
+    );
+    expect(canCountItem(who, { kind: "consumable", subtype: "bar" })).toBe(role !== "part_time_staff");
+    expect(canMoveItem(who, { kind: "consumable", subtype: "ingredient" })).toBe(
+      ["admin", "technical", "sales_manager", "kitchen_lead"].includes(role),
+    );
   });
 }
 it("keeps status overrides on Admin or the assigned salesperson", () => {
   for (const role of roles) {
-    const who = actor(role, "part_time");
+    const who = actor(role);
     expect(mayOverrideStatus(who, { assignedSalespersonId: who.userId })).toBe(
       role === "admin" || role === "salesperson",
     );
@@ -157,7 +137,7 @@ it("denied middleware never invokes a protected handler", async () => {
   for (const role of roles) {
     const app = new Hono<AppEnv>();
     app.use("*", async (c, next) => {
-      c.set("actor", actor(role, "part_time"));
+      c.set("actor", actor(role));
       await next();
     });
     let writes = 0;

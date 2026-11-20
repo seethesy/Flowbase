@@ -98,13 +98,14 @@ it("shows no count when the notifications can't load", async () => {
   expect(await screen.findByText(/Notifications couldn't load/)).toBeInTheDocument();
 });
 
-it("saves email on or off per type and says in-app notifications stay on", async () => {
+it("saves email and SMS choices while in-app notifications stay on", async () => {
   const preferences: NotificationPreference[] = [
     {
       type: "task_assigned",
       label: "Task assigned",
       description: "A task is assigned to you.",
       email: true,
+      sms: false,
       urgent: false,
     },
     {
@@ -112,6 +113,7 @@ it("saves email on or off per type and says in-app notifications stay on", async
       label: "Lead collector failure",
       description: "The lead collector stopped collecting from a site.",
       email: true,
+      sms: false,
       urgent: true,
     },
   ];
@@ -121,10 +123,10 @@ it("saves email on or off per type and says in-app notifications stay on", async
     if (path !== "/api/notifications/preferences")
       throw new Error(`Unexpected request ${path}`);
     if (init?.method === "PUT") {
-      const body = JSON.parse(String(init.body)) as { email: Record<string, boolean> };
+      const body = JSON.parse(String(init.body)) as { email: Record<string, boolean>; sms: Record<string, boolean> };
       saved.push(body);
       return Response.json(
-        preferences.map((p) => ({ ...p, email: body.email[p.type] ?? p.email })),
+        preferences.map((p) => ({ ...p, email: body.email[p.type] ?? p.email, sms: body.sms[p.type] ?? p.sms })),
       );
     }
     return Response.json(preferences);
@@ -140,15 +142,15 @@ it("saves email on or off per type and says in-app notifications stay on", async
     await screen.findByText(/Notifications always appear in the app/),
   ).toBeInTheDocument();
   expect(screen.getByText("Urgent")).toBeInTheDocument();
-  const box = screen.getByRole("checkbox", { name: /Task assigned/ });
+  const box = screen.getByRole("checkbox", { name: /Task assigned EMAIL/ });
   expect(box).toBeChecked();
   fireEvent.click(box);
-  fireEvent.click(screen.getByRole("button", { name: "Save email settings" }));
-  expect(await screen.findByText("Email settings saved.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Save notification settings" }));
+  expect(await screen.findByText("Notification settings saved.")).toBeInTheDocument();
   expect(saved).toEqual([
-    { email: { task_assigned: false, collector_failure: true } },
+    { email: { task_assigned: false, collector_failure: true }, sms: { task_assigned: false, collector_failure: false } },
   ]);
   await waitFor(() =>
-    expect(screen.getByRole("checkbox", { name: /Task assigned/ })).not.toBeChecked(),
+    expect(screen.getByRole("checkbox", { name: /Task assigned EMAIL/ })).not.toBeChecked(),
   );
 });

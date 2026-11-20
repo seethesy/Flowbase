@@ -87,8 +87,7 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@concurrency.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255593${i}`,
       status: "active" as const,
     })),
@@ -421,7 +420,7 @@ describe("FLOW-199: lead transitions hold under concurrent reassignment and conv
       },
       { assignedSalespersonId: owner },
     );
-    await db.update(schema.leads).set({ status: "qualified" }).where(eq(schema.leads.id, id));
+    await db.update(schema.leads).set({ status: "p_creation" }).where(eq(schema.leads.id, id));
     // Other tables reference jobs, so clear the lead's queued jobs by deleting.
     await db.execute(sql`delete from jobs`);
     return id;
@@ -448,7 +447,7 @@ describe("FLOW-199: lead transitions hold under concurrent reassignment and conv
     expect(await response.text()).not.toContain("Priya");
     await nothingCreated();
     const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, id));
-    expect(lead).toMatchObject({ status: "qualified", convertedClientId: null });
+    expect(lead).toMatchObject({ status: "p_creation", convertedClientId: null });
   });
 
   it("a lead reassigned away first stops the previous salesperson's status change (AC2)", async () => {
@@ -461,7 +460,7 @@ describe("FLOW-199: lead transitions hold under concurrent reassignment and conv
     await reassign.commit();
     expect((await change).status).toBe(404);
     const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, id));
-    expect(lead.status).toBe("qualified");
+    expect(lead.status).toBe("p_creation");
     expect(await count("jobs", sql`type = 'event:lead.status_changed'`)).toBe(0);
   });
 
@@ -510,7 +509,7 @@ describe("FLOW-199: lead transitions hold under concurrent reassignment and conv
     }
     await nothingCreated();
     const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, id));
-    expect(lead.status).toBe("qualified");
+    expect(lead.status).toBe("p_creation");
     // With the failure gone, the same conversion succeeds (AC4).
     await sam.send("POST", `/api/leads/${id}/convert`, conversion, 200);
     expect(await count("clients")).toBe(1);
@@ -629,7 +628,7 @@ describe("FLOW-198: stock units are fixed once stock has moved", () => {
 
 describe("FLOW-196: stock and archive ordering", () => {
   const secondApp = createApp({ withDb: (_env, run) => run(secondDb),
-    resolveActor: async () => ({ userId: people.admin, role: "admin", employmentType: "full_time" }) });
+    resolveActor: async () => ({ userId: people.admin, role: "admin" }) });
   const secondCall = (path: string, body: unknown) => secondApp.request(path,
     { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }, env);
   const create = () => admin.send<InventoryItem>("POST", "/api/inventory/items", gloves());

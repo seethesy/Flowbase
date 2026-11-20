@@ -8,10 +8,10 @@ import { seedUsers } from "../../worker/db/seed";
 
 // seedUsers: each role full-time then part-time.
 const lead = seedUsers.find(
-  (u) => u.role === "kitchen_lead" && u.employmentType === "full_time",
+  (u) => u.role === "kitchen_lead" && u.role !== "part_time_staff",
 )!;
 const server = seedUsers.find(
-  (u) => u.role === "staff" && u.employmentType === "part_time",
+  (u) => u.role === "part_time_staff",
 )!;
 
 test("builds a multi-day roster with open slots, a double-booking warning and Production Leads", async ({

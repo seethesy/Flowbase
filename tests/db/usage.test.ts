@@ -19,7 +19,7 @@ beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(clear);
   await db.insert(schema.users).values({ email: "usage-admin@example.com", name: "Admin",
-    role: "admin", employmentType: "full_time", mobile: "2025550100", status: "active" });
+    role: "admin", mobile: "2025550100", status: "active" });
   await db.insert(schema.settings).values({ key: "defaults", value: {
     freeTierLimits: { workerRequests: 100, supabaseBytes: 1 }, monthlySmsCap: 10 } });
 });

@@ -1,20 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import {
-  leadStatusLabels,
-  type Lead,
-  type LeadStatus,
-} from "../../shared/leads";
+import { type Lead, type LeadStatus } from "../../shared/leads";
+import { StatusPill } from "../components/ui/status-pill";
+import { useResource } from "../app/useResource";
+import { leadsApi } from "../services/leads";
 import { Button, FormField } from "../components/shared";
 
-const statusTone: Record<LeadStatus, string> = {
-  new: "info",
-  contacted: "warning",
-  qualified: "info",
-  converted: "success",
-  lost: "error",
-};
 export function LeadStatusBadge({ status }: { status: LeadStatus }) {
-  return <span className={`badge ${statusTone[status]}`}>{leadStatusLabels[status]}</span>;
+  return <StatusPill status={status} />;
 }
 
 export const businessDate = (iso: string) =>
@@ -59,11 +51,12 @@ export function AssignForm({
   onAssign: (salespersonId: string) => Promise<void>;
 }) {
   const [salespersonId, setSalespersonId] = useState("");
+  const owners = useResource(["lead-owners"], leadsApi.owners);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!salespersonId.trim()) return setError("Enter the salesperson's user ID.");
+    if (!salespersonId.trim()) return setError("Choose an owner.");
     setSaving(true);
     setError("");
     try {
@@ -84,10 +77,10 @@ export function AssignForm({
       )}
       <div className="filter-bar">
         <FormField label={label}>
-          <input
-            value={salespersonId}
-            onChange={(e) => setSalespersonId(e.target.value)}
-          />
+          <select value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)}>
+            <option value="">Choose an owner</option>
+            {owners.data?.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
+          </select>
         </FormField>
         <Button type="submit" variant="outline" disabled={saving}>
           {button}

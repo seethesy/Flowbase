@@ -12,13 +12,13 @@ const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL must point to the disposable CI Postgres service.");
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
-const admin: Actor = { userId: "b2400000-0000-4000-8000-000000000001", role: "admin", employmentType: "full_time" };
+const admin: Actor = { userId: "b2400000-0000-4000-8000-000000000001", role: "admin" };
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(sql`truncate table ui_copy, users cascade`);
   await db.insert(schema.users).values({
-    id: admin.userId, role: "admin", employmentType: "full_time",
+    id: admin.userId, role: "admin",
     email: "copy-admin@example.test", name: "Copy Admin", mobile: "2025551300", status: "active",
   });
 });

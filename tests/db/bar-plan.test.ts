@@ -19,7 +19,7 @@ const db = drizzle(client, { schema });
 const withDb: RunWithDb = (_env, run) => run(db);
 const env = { ASSETS: { fetch } };
 const adminId = "c8170000-0000-4000-8000-000000000001";
-const app = createApp({ withDb, resolveActor: async () => ({ userId: adminId, role: "admin", employmentType: "full_time" }) });
+const app = createApp({ withDb, resolveActor: async () => ({ userId: adminId, role: "admin" }) });
 const call = async (method: string, path: string, body?: unknown) => {
   const response = await app.request(path, {
     method, ...(body !== undefined && { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }),
@@ -33,7 +33,7 @@ beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(tables);
   await db.insert(schema.users).values({ id: adminId, email: "admin@bar-plan.example", name: "Admin",
-    role: "admin", employmentType: "full_time", status: "active", mobile: "555-0100" })
+    role: "admin", status: "active", mobile: "555-0100" })
     .onConflictDoNothing({ target: schema.users.id });
 });
 afterAll(async () => {

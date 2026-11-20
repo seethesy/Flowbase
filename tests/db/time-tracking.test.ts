@@ -176,7 +176,7 @@ describe("event hub", () => {
     const hub = await helper.get<EventHub>(`/api/events/${gala.id}/hub`);
     expect(hub.sections).toEqual(["details", "inventory", "tasks", "production", "staff", "timeline", "planning", "pull_list", "trucks", "kitchen_menu", "day_of", "closeout", "beo", "files", "history"]);
     expect(hub.client).toBeNull();
-    expect(hub.event.client.name).toBe("Juniper & Co.");
+    expect(hub.event.client!.name).toBe("Juniper & Co.");
     expect(hub.canEdit).toBe(false);
     expect(
       (await helper.call("GET", `/api/events/${brunch.id}/hub`)).status,

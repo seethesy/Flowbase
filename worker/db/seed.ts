@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq, and, isNull } from "drizzle-orm";
 import * as schema from "./schema";
-import { roles, employmentTypes } from "../../shared/access";
+import { roles } from "../../shared/access";
 import { eventStatuses } from "../../shared/core-records";
 import { businessTimeToUtc } from "../../shared/time";
 import * as fixtures from "../../src/data/mock/fixtures";
@@ -65,17 +65,16 @@ export function assertSeedDatabaseUrl(
 // Stable, namespaced IDs make every insert repeatable without overwriting edits.
 export const seedId = (group: number, index: number) =>
   `f026${String(group).padStart(4, "0")}-0000-4000-8000-${String(index).padStart(12, "0")}`;
-export const seedUsers = roles.flatMap((role, r) =>
-  employmentTypes.map((employmentType, e) => ({
-    id: seedId(1, r * 2 + e + 1),
-    authId: seedId(2, r * 2 + e + 1),
-    email: `seed.${role}.${employmentType}@flowbase.example`,
+export const seedUsers = roles.filter((role) => role !== "part_time_staff").flatMap((role, r) =>
+  [0, 1].map((copy) => ({
+    id: seedId(1, r * 2 + copy + 1),
+    authId: seedId(2, r * 2 + copy + 1),
+    email: `seed.${role}.${copy + 1}@flowbase.example`,
     name:
-      fixtures.employees[(r * 2 + e) % fixtures.employees.length].name +
-      ` (${role}, ${employmentType})`,
-    role,
-    employmentType,
-    mobile: `202555${String(100 + r * 2 + e).padStart(4, "0")}`,
+      fixtures.employees[(r * 2 + copy) % fixtures.employees.length].name +
+      ` (${role})`,
+    role: role === "staff" && copy === 1 ? "part_time_staff" as const : role,
+    mobile: `202555${String(100 + r * 2 + copy).padStart(4, "0")}`,
     status: "active" as const,
     activatedAt: new Date("2026-10-20T12:00:00Z"),
   })),
@@ -93,9 +92,7 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
       const salesperson = seedUsers.find((u) => u.role === "salesperson")!.id;
       const staff = seedUsers.find((u) => u.role === "staff")!.id;
       // Assistants need a full-time primary Production Lead (FLOW-140).
-      const productionLead = seedUsers.find(
-        (u) => u.role === "kitchen_lead" && u.employmentType === "full_time",
-      )!.id;
+      const productionLead = seedUsers.find((u) => u.role === "kitchen_lead")!.id;
       for (const [i, row] of fixtures.clients.entries()) {
         await tx
           .insert(schema.clients)
@@ -273,7 +270,7 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
           email: "wedding@flowbase.example",
           eventDate: "2026-12-05",
           assignedSalespersonId: salesperson,
-          status: "new",
+          status: "inquiry",
         })
         .onConflictDoNothing();
     });

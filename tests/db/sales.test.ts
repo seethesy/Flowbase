@@ -14,7 +14,7 @@ const db = drizzle(client, { schema: s });
 const withDb: RunWithDb = (_env, run) => run(db);
 const admin = seedUsers.find((row) => row.role === "admin")!;
 const salespeople = seedUsers.filter((row) => row.role === "salesperson");
-const actor = (id: string, role: Role): Actor => ({ userId: id, role, employmentType: "full_time" });
+const actor = (id: string, role: Role): Actor => ({ userId: id, role });
 const call = (id: string, role: Role, path: string, init?: RequestInit) => createApp({ withDb, resolveActor: async () => actor(id, role) }).request(path, init, { ASSETS: { fetch } });
 const ids = {
   client: "a0000000-0000-4000-8000-000000000001",
@@ -32,7 +32,7 @@ beforeEach(async () => {
       startsAt: new Date(`2026-${i === 2 ? "12" : "11"}-${String(12 + i).padStart(2, "0")}T23:00:00Z`),
       status: i === 2 ? "preparation" : "finished", assignedSalespersonId: owner });
     await db.insert(s.proposals).values({ id: ids.proposals[i], eventId: ids.events[i], clientId: ids.client,
-      title: `Proposal ${i + 1}`, stage: i === 2 ? "finalized" : "signed", assignedSalespersonId: owner });
+      title: `Proposal ${i + 1}`, stage: i === 2 ? "p_creation" : "closed", assignedSalespersonId: owner });
     await db.insert(s.proposalVersions).values({ id: ids.versions[i], proposalId: ids.proposals[i], number: 1,
       status: "ready", completedAt: new Date(), docx: { key: `test-${i}`, fileName: `test-${i}.docx`, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 10 } });
     await db.update(s.proposals).set({ currentVersionId: ids.versions[i] }).where(eq(s.proposals.id, ids.proposals[i]));
@@ -43,7 +43,7 @@ beforeEach(async () => {
     await db.insert(s.paymentScheduleItems).values({ eventId: ids.events[i], kind: "balance", amountCents: totalCents, dueDate: "2026-12-20" });
     await db.insert(s.payments).values({ eventId: ids.events[i], method: "cash", amountCents: 20_000, receivedOn: "2026-11-10" });
     await db.insert(s.leads).values({ name: `Lead ${i}`, channel: "manual", source: i === 1 ? "Bark" : "Referral",
-      status: "converted", assignedSalespersonId: owner, convertedClientId: ids.client, convertedEventId: ids.events[i] });
+      status: "closing", assignedSalespersonId: owner, convertedClientId: ids.client, convertedEventId: ids.events[i] });
   }
 });
 afterAll(async () => { await db.execute(sql`truncate table sales_views`); await client.end(); });
@@ -51,10 +51,10 @@ afterAll(async () => { await db.execute(sql`truncate table sales_views`); await 
 describe("sales dataset (FLOW-117/118/121)", () => {
   it("updates the proposal stage and scopes a salesperson's rows", async () => {
     const before = salesDataSchema.parse(await (await call(admin.id, "admin", "/api/sales")).json());
-    expect(before.rows.find((row) => row.id === ids.proposals[0])?.stage).toBe("signed");
-    await db.update(s.proposals).set({ stage: "revisions" }).where(eq(s.proposals.id, ids.proposals[0]));
+    expect(before.rows.find((row) => row.id === ids.proposals[0])?.stage).toBe("closed");
+    await db.update(s.proposals).set({ stage: "negotiation" }).where(eq(s.proposals.id, ids.proposals[0]));
     const after = salesDataSchema.parse(await (await call(admin.id, "admin", "/api/sales")).json());
-    expect(after.rows.find((row) => row.id === ids.proposals[0])?.stage).toBe("revisions");
+    expect(after.rows.find((row) => row.id === ids.proposals[0])?.stage).toBe("negotiation");
     const own = salesDataSchema.parse(await (await call(salespeople[0].id, "salesperson", "/api/sales")).json());
     expect(own.rows.some((row) => row.id === ids.events[2] || row.id === ids.proposals[2])).toBe(false);
     expect(own.rows.find((row) => row.id === ids.proposals[0])?.totalCents).toBe(100_000);

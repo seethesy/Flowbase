@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   authConfigSchema,
   inviteInputSchema,
+  userEmailChangeSchema,
   userActionSchema,
 } from "../../shared/users";
 import { id as uuid } from "../../shared/schema-primitives";
@@ -14,7 +15,7 @@ import {
   type AppEnv,
   type RunWithDb,
 } from "../hono";
-import { changeUser, inviteUser, listUsers, toUser } from "../records/users";
+import { changeUser, changeUserEmail, inviteUser, listUsers, toUser } from "../records/users";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import type { Bindings } from "../bindings";
@@ -87,6 +88,12 @@ export function userRoutes(options: { withDb?: RunWithDb }) {
     const user = await record(c, (db, actor) => inviteUser(db, actor, input));
     await send(user.email);
     return c.json(user, 201);
+  });
+  routes.put("/:id/email", requirePermission("users.manage"), async (c) => {
+    const id = uuid.safeParse(c.req.param("id"));
+    if (!id.success) throw new ApiError(400, "INVALID_REQUEST", "Invalid user.");
+    const input = await parseBody(c, userEmailChangeSchema);
+    return c.json(await record(c, (db, actor) => changeUserEmail(db, actor, id.data, input.email)));
   });
   routes.post("/:id/:action", requirePermission("users.manage"), async (c) => {
     const id = uuid.safeParse(c.req.param("id"));

@@ -382,6 +382,9 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
   );
 }
 export function AppShell() {
+  const location = useLocation();
+  const dashboardParams = new URLSearchParams(location.search);
+  const dashboardRole = dashboardParams.get("dashboardRole");
   const [collapsed, setCollapsedState] = useState(storedCollapsed);
   const setCollapsed = (value: boolean) => {
     setCollapsedState(value);
@@ -400,6 +403,7 @@ export function AppShell() {
         <main id="main-content">
           <TrackingNotice />
           <SectionTabs />
+          {dashboardParams.get("fromDashboard") === "1" && <Link className="back-link" to={`/${dashboardRole ? `?role=${encodeURIComponent(dashboardRole)}` : ""}`}><T id="app-shell.app-shell.back-to-dashboard">← Back</T></Link>}
           <Suspense fallback={<p role="status"><T id="app-shell.app-shell.loading-screen">Loading screen…</T></p>}><Outlet /></Suspense>
         </main>
         <footer className="app-footer">

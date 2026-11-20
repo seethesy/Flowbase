@@ -7,7 +7,7 @@ import { emitDomainEvent } from "../jobs/queue";
 import { getSettings } from "./settings";
 import { getProductionList } from "./production";
 
-const scanner: Actor = { userId: "00000000-0000-4000-8000-000000000000", role: "admin", employmentType: "full_time" };
+const scanner: Actor = { userId: "00000000-0000-4000-8000-000000000000", role: "admin" };
 
 // Called by cron and by event write middleware. Job keys include the source
 // situation and stage, so a repeated scan cannot send the same alert twice.

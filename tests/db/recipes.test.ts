@@ -293,7 +293,7 @@ describe("background recipe costs (FLOW-169)", () => {
     const unrelated = await createRecipe(tuscanChicken(ids, { name: "Plain chicken", lines: [{ itemId: ids.chicken, quantity: 1, unit: "each" }] }));
     await db.transaction(async (tx) => {
       await tx.update(schema.inventoryConsumableDetails).set({ unitCostCents: 2400 }).where(eq(schema.inventoryConsumableDetails.itemId, ids.cream));
-      await recordCostChange(tx, { userId: "c1000000-0000-4000-8000-000000000001", role: "admin", employmentType: "full_time" }, { itemId: ids.cream, previousCents: null, unitCostCents: 2400, source });
+      await recordCostChange(tx, { userId: "c1000000-0000-4000-8000-000000000001", role: "admin" }, { itemId: ids.cream, previousCents: null, unitCostCents: 2400, source });
     });
     const [event] = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:inventory_item.cost_changed"));
     expect(event.payload).toMatchObject({ entityId: ids.cream, source });
@@ -349,7 +349,6 @@ describe("recipe lists from settings (FLOW-218)", () => {
   const settingsAdmin: Actor = {
     userId: "c1000000-0000-4000-8000-000000000001",
     role: "admin",
-    employmentType: "full_time",
   };
   const added: string[] = [];
   const add = async (key: "recipe_category" | "allergen" | "dietary_tag", label: string) => {

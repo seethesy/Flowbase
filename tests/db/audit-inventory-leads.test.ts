@@ -311,8 +311,8 @@ describe("leads", () => {
     await admin.send("POST", `/api/leads/${id}/assign`, {
       assignedSalespersonId: people.sam,
     });
-    await sam.send("POST", `/api/leads/${id}/status`, { status: "contacted" });
-    await sam.send("POST", `/api/leads/${id}/status`, { status: "qualified" });
+    await sam.send("POST", `/api/leads/${id}/status`, { status: "pitching" });
+    await sam.send("POST", `/api/leads/${id}/status`, { status: "p_creation" });
     const converted = await sam.send<LeadConversion>(
       "POST",
       `/api/leads/${id}/convert`,
@@ -329,25 +329,25 @@ describe("leads", () => {
     expect(rows[0].changes).toEqual({
       assignedSalespersonId: { before: null, after: people.sam },
     });
-    expect(rows[1].changes.status).toEqual({ before: "new", after: "contacted" });
+    expect(rows[1].changes.status).toEqual({ before: "inquiry", after: "pitching" });
     expect(Object.keys(rows[1].changes).sort()).toEqual([
       "firstRespondedAt",
       "status",
     ]);
     expect(rows[2].changes).toEqual({
-      status: { before: "contacted", after: "qualified" },
+      status: { before: "pitching", after: "p_creation" },
     });
     expect(rows[3].changes).toEqual({
-      status: { before: "qualified", after: "converted" },
+      status: { before: "p_creation", after: "closing" },
       convertedClientId: { before: null, after: converted.client.id },
       convertedEventId: { before: null, after: converted.event.id },
     });
 
     const history = await sam.get<HistoryEntry[]>(`/api/leads/${id}/history`);
     expect(history.map((entry) => entry.changes.status?.after ?? "assigned")).toEqual([
-      "converted",
-      "qualified",
-      "contacted",
+      "closing",
+      "p_creation",
+      "pitching",
       "assigned",
     ]);
     // Raw source payloads never reach the history.
@@ -422,8 +422,8 @@ describe("leads", () => {
       201,
     );
     const id = await seed();
-    await admin.send("POST", `/api/leads/${id}/status`, { status: "contacted" });
-    await admin.send("POST", `/api/leads/${id}/status`, { status: "qualified" });
+    await admin.send("POST", `/api/leads/${id}/status`, { status: "pitching" });
+    await admin.send("POST", `/api/leads/${id}/status`, { status: "p_creation" });
     await admin.send("POST", `/api/leads/${id}/convert`, {
       event: { startTime: "18:00" },
       client: { mode: "link", clientId: existing.id },
@@ -443,7 +443,7 @@ describe("leads", () => {
     await db
       .transaction(async (tx) => {
         await changeLeadStatus(tx as unknown as Db, admin.actor, id, {
-          status: "contacted",
+          status: "pitching",
         } as never);
         tx.rollback();
       })

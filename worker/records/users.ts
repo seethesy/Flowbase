@@ -10,6 +10,8 @@ import type { Actor } from "../../shared/access";
 import type { Db } from "../db/client";
 import { users } from "../db/schema";
 import { ApiError, notFound } from "../hono";
+import { emitDomainEvent } from "../jobs/queue";
+import { writeAudit } from "../audit/log";
 
 export const toUser = (row: typeof users.$inferSelect) =>
   userSchema.parse({
@@ -98,6 +100,25 @@ export async function changeUser(
   });
 }
 
+export async function changeUserEmail(db: Db, actor: Actor, id: string, email: string) {
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(users).where(eq(users.id, id)).for("update");
+    if (!row || row.archivedAt || row.status === "revoked") throw notFound("User");
+    const [taken] = await tx.select({ id: users.id }).from(users)
+      .where(and(sql`lower(${users.email}) = ${email.toLowerCase()}`, isNull(users.archivedAt)));
+    if (taken && taken.id !== id) throw new ApiError(409, "USER_EXISTS", "This email already belongs to another user.");
+    if (row.email.toLowerCase() === email.toLowerCase()) return toUser(row);
+    const [updated] = await tx.update(users).set({ email, updatedBy: actor.userId }).where(eq(users.id, id)).returning();
+  await writeAudit(tx, actor, { entityType: "user", entityId: id, action: "update",
+    before: { email: row.email }, after: { email: updated.email } });
+    await emitDomainEvent(tx, { name: "user.email_changed", entityId: id,
+      data: { recipientIds: [id], title: "Account email changed",
+        body: `Your account contact email changed from ${row.email} to ${email}. Your existing Google sign-in remains linked.`,
+        link: "/profile" } });
+    return toUser(updated);
+  });
+}
+
 export const identitySchema = z.object({
   sub: z.uuid(),
   email: z.email(),
@@ -112,7 +133,9 @@ export async function resolveUser(
   return db.transaction(async (tx) => {
     // Lock the invitation: concurrent first requests cannot claim it twice, and
     // revocation/deactivation cannot be overwritten by a sign-in.
-    const [row] = await tx
+    const [byIdentity] = await tx.select().from(users)
+      .where(and(eq(users.authId, identity.sub), isNull(users.archivedAt))).for("update");
+    const [byEmail] = byIdentity ? [] : await tx
       .select()
       .from(users)
       .where(
@@ -122,6 +145,7 @@ export async function resolveUser(
         ),
       )
       .for("update");
+    const row = byIdentity ?? byEmail;
     if (!row || !["active", "pending"].includes(row.status)) return null;
     if (row.authId && row.authId !== identity.sub) return null;
     if (row.status === "pending") {
@@ -140,7 +164,6 @@ export async function resolveUser(
     return {
       userId: row.id,
       role: row.role,
-      employmentType: row.employmentType,
     };
   });
 }
