@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Printer, RefreshCw, Trash2 } from "lucide-react";
@@ -352,7 +353,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
             />
           </FormField>
           <FormField label={<T id="event-preparation.event-pull-list-section.puller">Puller</T>}>
-            <select
+            <Dropdown
               value={data.pullerId ?? ""}
               onChange={(e) =>
                 void change(() =>
@@ -372,7 +373,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                     {member.name}
                   </option>
                 ))}
-            </select>
+            </Dropdown>
           </FormField>
         </div>
       )}
@@ -431,7 +432,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                     <span className="pull-quantity">{line.quantity ?? <T id="event-preparation.event-pull-list-section.tbd">TBD</T>}</span>
                   )}
                   {data.canEdit && (
-                    <select
+                    <Dropdown
                       aria-label={`Section of ${line.name}`}
                       value={line.sectionId ?? ""}
                       onChange={(e) => void change(() => preparationApi.updatePullLine(
@@ -441,9 +442,9 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                       <option value="">No section</option>
                       {(sections.data ?? []).filter((section) => !section.archivedAt || section.id === line.sectionId)
                         .map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
-                    </select>
+                    </Dropdown>
                   )}
-                  <select
+                  <Dropdown
                     aria-label={`Status of ${line.name}`}
                     value={line.status}
                     onChange={(e) =>
@@ -457,7 +458,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                         {pullStatusLabels[status]}
                       </option>
                     ))}
-                  </select>
+                  </Dropdown>
                   {data.canEdit && (
                     <Button
                       variant="ghost"
@@ -491,7 +492,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
             });
           }}
         >
-          <select
+          <Dropdown
             aria-label="New line group"
             value={draft.group}
             onChange={(e) => setDraft({ ...draft, group: e.target.value as PullGroup })}
@@ -501,7 +502,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                 {pullGroupLabels[group]}
               </option>
             ))}
-          </select>
+          </Dropdown>
           <input
             aria-label="New line name"
             placeholder={itemPlaceholder} data-copy-id="event-preparation.event-pull-list-section.item.placeholder"
@@ -696,7 +697,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
             });
           }}
         >
-          <select
+          <Dropdown
             aria-label="New dish"
             value={draft.recipeId}
             onChange={(e) => setDraft({ ...draft, recipeId: e.target.value })}
@@ -707,7 +708,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
                 {dish.name}
               </option>
             ))}
-          </select>
+          </Dropdown>
           <input
             aria-label="New dish course"
             placeholder={coursePlaceholder} data-copy-id="event-preparation.event-kitchen-menu-section.course.placeholder"
@@ -766,7 +767,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
               value={task.title}
               onChange={(e) => setTask({ ...task, title: e.target.value })}
             />
-            <select
+            <Dropdown
               aria-label="Kitchen task assignee"
               value={task.assigneeId}
               onChange={(e) => setTask({ ...task, assigneeId: e.target.value })}
@@ -779,7 +780,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
                     {member.name}
                   </option>
                 ))}
-            </select>
+            </Dropdown>
             <Button type="submit" variant="outline">
               <Plus size={14} />
               <T id="event-preparation.event-kitchen-menu-section.assign-prep">Assign prep</T>

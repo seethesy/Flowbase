@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { strToU8, zipSync } from "fflate";
 import { eq } from "drizzle-orm";
@@ -32,11 +33,11 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   const menu = dialog.locator(".proposal-mapping-line").first();
   await menu.getByLabel("Section").fill("Mains");
   await menu.getByLabel("Line name").fill("Tuscan Chicken");
-  await expect(menu.getByLabel("Catalog match for Tuscan Chicken").locator("option", { hasText: "Suggested: Tuscan Chicken" })).toHaveCount(1);
-  await menu.getByLabel("Catalog match for Tuscan Chicken").selectOption({ label: "Suggested: Tuscan Chicken" });
+  await expect.poll(() => optionTexts(menu.getByLabel("Catalog match for Tuscan Chicken"))).toContain("Suggested: Tuscan Chicken");
+  await choose(menu.getByLabel("Catalog match for Tuscan Chicken"), { label: "Suggested: Tuscan Chicken" });
   await dialog.getByRole("button", { name: "Add line", exact: true }).click();
   const rental = dialog.locator(".proposal-mapping-line").last();
-  await rental.getByLabel("Line kind").selectOption("rental");
+  await choose(rental.getByLabel("Line kind"), "rental");
   await rental.getByLabel("Line name").fill("Gold chairs");
   await dialog.getByRole("button", { name: "Submit for approval" }).click();
   await expect(dialog.getByRole("alert")).toContainText("Gold chairs");

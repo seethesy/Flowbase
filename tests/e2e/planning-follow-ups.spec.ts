@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { eq } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper, consumable, defaultSections } from "./fixtures";
@@ -35,10 +36,10 @@ test("pull lines can be checked off and given a section on a phone", async ({ pa
   });
   await page.goto(`/#/events/${fallGala().id}`);
   await expect(page.getByText("Readiness check: Missing schedule — set the pull date, time and puller.")).toBeVisible();
-  await page.getByRole("combobox", { name: "Section of Lantern" }).selectOption(defaultSections[0].id);
-  await expect(page.getByRole("combobox", { name: "Section of Lantern" })).toHaveValue(defaultSections[0].id);
-  await page.getByRole("combobox", { name: "Status of Lantern" }).selectOption("pulled");
-  await expect(page.getByRole("combobox", { name: "Status of Lantern" })).toHaveValue("pulled");
+  await choose(page.getByRole("combobox", { name: "Section of Lantern" }), defaultSections[0].id);
+  await expect(page.getByRole("combobox", { name: "Section of Lantern" })).toHaveAttribute("data-value", defaultSections[0].id);
+  await choose(page.getByRole("combobox", { name: "Status of Lantern" }), "pulled");
+  await expect(page.getByRole("combobox", { name: "Status of Lantern" })).toHaveAttribute("data-value", "pulled");
   await expect(page.getByText("Production list: pull quantity TBD for Vase.")).toBeVisible();
 });
 
@@ -55,7 +56,7 @@ test("kitchen dishes open their method and scaled ingredients and prep can be as
   });
   await page.goto(`/#/events/${fallGala().id}`);
   await page.getByRole("textbox", { name: "Kitchen task title" }).fill("Prep chicken");
-  await page.getByRole("combobox", { name: "Kitchen task assignee" }).selectOption({ label: "Test Admin" });
+  await choose(page.getByRole("combobox", { name: "Kitchen task assignee" }), { label: "Test Admin" });
   await page.getByRole("button", { name: "Assign prep" }).click();
   await expect(page.locator(".kitchen-tasks li").filter({ hasText: "Prep chicken" })).toContainText("Test Admin");
   await page.emulateMedia({ media: "print" });

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { defaultLeadSources, type Lead } from "../../shared/leads";
 import { leadsApi } from "../services/leads";
@@ -88,11 +89,11 @@ export function NewLeadForm({
         )}
         <div className="form-grid">
           <FormField label={<T id="lead-entry.new-lead-form.source">Source *</T>}>
-            <select value={source} onChange={(e) => setSource(e.target.value)}>
+            <Dropdown value={source} onChange={(e) => setSource(e.target.value)}>
               {sources.map((value) => (
                 <option key={value}>{value}</option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="lead-entry.new-lead-form.name">Name *</T>}>
             <input value={name} onChange={(e) => setName(e.target.value)} />

@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "./auth-fixture";
 import { chairs, fallGala, juniper } from "./fixtures";
@@ -15,7 +16,7 @@ test("prints one vendor request with event, delivery and two rental lines", asyn
   await page.getByRole("heading", { name: "Equipment & stock" }).scrollIntoViewIfNeeded();
   const hold = page.getByRole("form", { name: "Hold equipment" });
   for (const name of ["Chiavari Chair", "Coupe glass"]) {
-    await hold.getByLabel("Item").selectOption({ label: name });
+    await choose(hold.getByLabel("Item"), { label: name });
     await hold.getByLabel("Quantity").fill("2");
     await hold.getByRole("button", { name: "Hold equipment" }).click();
   }

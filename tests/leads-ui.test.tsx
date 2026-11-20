@@ -1,4 +1,5 @@
 import { TestAuth } from "./auth-provider";
+import { choose } from "./dropdown-helpers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -124,8 +125,8 @@ it("asks for owner and status filters from the API", async () => {
   const user = userEvent.setup();
   mount(<LeadInbox />);
   await screen.findByText("0 leads");
-  await user.selectOptions(screen.getByLabelText("Owners"), "unassigned");
-  await user.selectOptions(screen.getByLabelText("Statuses"), "Pitching");
+  await choose(user, screen.getByLabelText("Owners"), "unassigned");
+  await choose(user, screen.getByLabelText("Statuses"), "Pitching");
   // The inbox also loads business settings (lead sources, FLOW-45).
   expect(requested.filter((path) => path.startsWith("/api/leads"))).toEqual([
     "/api/leads/owners",

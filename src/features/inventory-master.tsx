@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -120,21 +121,21 @@ export function MasterInventory() {
     {message && <p role="status">{message}</p>}
     <div className="master-filters">
       <input aria-label="Search Master inventory" placeholder={searchPlaceholder} data-copy-id="inventory-master.master-inventory.search.placeholder" value={search} onChange={(event) => setSearch(event.target.value)} />
-      <select aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value as ItemKind | "")}>
+      <Dropdown aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value as ItemKind | "")}>
         <option value="">All kinds</option><option value="rental">Rental</option><option value="service">Service</option><option value="consumable">Consumable</option>
-      </select>
-      <select aria-label="Section" value={section} onChange={(event) => setSection(event.target.value)}>
+      </Dropdown>
+      <Dropdown aria-label="Section" value={section} onChange={(event) => setSection(event.target.value)}>
         <option value="">All sections</option>{sections.map((value) => <option key={value}>{value}</option>)}
-      </select>
-      <select aria-label="Category" value={category} onChange={(event) => setCategory(event.target.value)}>
+      </Dropdown>
+      <Dropdown aria-label="Category" value={category} onChange={(event) => setCategory(event.target.value)}>
         <option value="">All categories</option>{categories.map((value) => <option key={value}>{value}</option>)}
-      </select>
-      <select aria-label="Group" value={group} onChange={(event) => setGroup(event.target.value)}>
+      </Dropdown>
+      <Dropdown aria-label="Group" value={group} onChange={(event) => setGroup(event.target.value)}>
         <option value="">All groups</option>{groups.map((value) => <option key={value}>{value}</option>)}
-      </select>
-      <select aria-label="Sort" value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}>
+      </Dropdown>
+      <Dropdown aria-label="Sort" value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}>
         <option value="name">Item</option><option value="quantity">Qty</option><option value="price">Price</option>
-      </select>
+      </Dropdown>
     </div>
     {items.error ? <LoadError message={items.error} /> : items.loading && !items.data ? <LoadingSkeleton /> :
       [...new Set(filtered.map((item) => item.group || "Ungrouped"))].map((name) =>

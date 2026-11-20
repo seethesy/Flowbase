@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { juniper } from "./fixtures";
 import { seedRecords } from "./database";
@@ -56,7 +57,7 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await dialog
     .getByLabel("Address", { exact: true })
     .fill("100 Garden Way, Arlington, VA");
-  await dialog.getByLabel("Jurisdiction").selectOption("VA");
+  await choose(dialog.getByLabel("Jurisdiction"), "VA");
   await dialog.getByRole("button", { name: "Add area" }).click();
   await dialog.getByLabel("Area 1", { exact: true }).fill("Inside Tent");
   await dialog.getByRole("button", { name: "Add area" }).click();
@@ -74,10 +75,9 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await dialog.getByLabel("Start time *", { exact: true }).fill("18:00");
   // A label that wraps a <select> also contains its option text, so match the
   // start of the label instead of the whole string.
-  await dialog
-    .getByLabel(/^Client \*/)
-    .selectOption({ label: "Juniper & Co." });
-  await dialog.getByLabel(/^Venue/).selectOption({ label: "The Glasshouse" });
+  await choose(dialog
+    .getByLabel(/^Client \*/), { label: "Juniper & Co." });
+  await choose(dialog.getByLabel(/^Venue/), { label: "The Glasshouse" });
   await dialog.getByRole("button", { name: "Save event" }).click();
   await expect(
     page.getByRole("heading", { name: "Fall gala", level: 1 }),
@@ -95,8 +95,8 @@ test("event created at a venue picks up its address and areas, then edits", asyn
 
   // The status is a pill picker (FLOW-251).
   const newStatus = page.locator("label.form-field", { hasText: "New status" });
-  await newStatus.getByRole("button", { name: "Status" }).click();
-  await newStatus.getByRole("option", { name: "Lost" }).click();
+  await newStatus.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("option", { name: "Lost" }).click();
   await page.getByLabel("Why (optional)").fill("Went with another caterer");
   await page.getByRole("button", { name: "Change status" }).click();
   await expect(page.getByText("Lost").first()).toBeVisible();

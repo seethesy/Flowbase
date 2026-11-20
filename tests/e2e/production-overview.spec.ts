@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { test, expect, signedInUser } from "./auth-fixture";
@@ -51,6 +52,6 @@ test("two same-day events show pulls and trucks and flag full truck capacity", a
   await expect(page.getByRole("link", { name: "Winter lunch" }).first()).toBeVisible();
   await expect(page.getByText("All 3 trucks are assigned")).toBeVisible();
   await expect(page.getByText("Staff shifts overlap.")).toBeVisible();
-  await page.getByRole("combobox", { name: "Event" }).selectOption(second.id);
+  await choose(page.getByRole("combobox", { name: "Event" }), second.id);
   await expect(page.getByRole("link", { name: "Winter lunch" }).first()).toBeVisible();
 });

@@ -140,7 +140,7 @@ for (const role of ["admin", "salesperson"] as const) {
     ).toHaveCount(role === "admin" ? 1 : 0);
     await page.getByRole("row").filter({ has: page.getByRole("button", { name: "Seed wedding inquiry", exact: true }) })
       .getByRole("link", { name: "Open" }).click();
-    await page.getByRole("button", { name: "Lead status" }).click();
+    await page.getByRole("combobox", { name: "Lead status" }).click();
     await page.getByRole("option", { name: "Pitching" }).click();
     await expect(page.getByText("Pitching", { exact: true })).toBeVisible();
     await page.reload();

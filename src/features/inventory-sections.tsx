@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -77,7 +78,7 @@ export function SectionList() {
               <input value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
             <FormField label={<T id="inventory-sections.section-list.holds">Holds</T>}>
-              <select
+              <Dropdown
                 value={kind}
                 onChange={(e) => setKind(e.target.value as SectionKind)}
               >
@@ -86,7 +87,7 @@ export function SectionList() {
                     {sectionKindLabels[option]}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
             <Button type="submit">
               <Plus size={14} /><T id="inventory-sections.section-list.add-section">{" Add section"}</T>

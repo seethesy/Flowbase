@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { useDemo } from "../app/store";
@@ -85,7 +86,7 @@ export function RecordForm({
         {kind === "proposal" && (
           <>
             <FormField label={<T id="forms.record-form.client">Client *</T>}>
-              <select
+              <Dropdown
                 name="clientId"
                 defaultValue={value("clientId", clientId ?? "")}
                 required
@@ -96,7 +97,7 @@ export function RecordForm({
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
             <FormField label={<T id="forms.record-form.proposal-value">Proposal value ($) *</T>}>
               <input
@@ -119,14 +120,14 @@ export function RecordForm({
         )}
         {(
           <FormField label={<T id="forms.record-form.account-owner">Account owner</T>}>
-            <select
+            <Dropdown
               name="owner"
               defaultValue={value("owner", employees[0].name)}
             >
               {employees.map((e) => (
                 <option key={e.id}>{e.name}</option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
         )}
         <div className="form-actions">

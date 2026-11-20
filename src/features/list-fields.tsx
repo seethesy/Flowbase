@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import type { ReactNode } from "react";
 import { listOptions, type ListKey } from "../../shared/settings";
 import { useBusinessSettings } from "../services/settings";
@@ -21,7 +22,7 @@ export function ListSelect({
 }) {
   const settings = useBusinessSettings();
   return (
-    <select
+    <Dropdown
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -32,7 +33,7 @@ export function ListSelect({
           {option.archived ? `${option.label} (archived)` : option.label}
         </option>
       ))}
-    </select>
+    </Dropdown>
   );
 }
 
