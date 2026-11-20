@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { operationalReportSchema } from "../../shared/operational-reports";
+import { homeDashboardSchema } from "../../shared/home-dashboard";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 import { copyOverridesSchema } from "../../shared/copy";
 import { authConfigSchema, userSchema } from "../../shared/users";
@@ -105,6 +106,7 @@ export function responseSchema(
   if (resource === "health") return healthSchema;
   // Admin live text editing (FLOW-240): GET and PUT answer with every override.
   if (resource === "copy") return copyOverridesSchema;
+  if (resource === "home" && id === "dashboard") return homeDashboardSchema;
   if (resource === "home" && id === "my-shifts") return z.object({ count: z.number().int() });
   if (resource === "home" && id === "kitchen") return z.object({ menus: z.number().int(), openOrderLists: z.number().int() });
   if (resource === "home" && id === "kitchen-orders") return z.array(z.object({ id: z.string(), fromDate: z.string(), toDate: z.string(), status: z.string() }));
@@ -148,6 +150,10 @@ export function responseSchema(
     return method === "GET" ? communicationSchema.array() : communicationSchema;
   if (resource === "leads") {
     if (id === "dashboard") return leadDashboardSchema;
+    // Lead owners and a lead's linked events (FLOW-250).
+    if (id === "owners")
+      return z.array(z.object({ id: z.string(), name: z.string(), role: z.enum(["salesperson", "sales_manager", "admin"]) }));
+    if (action === "events") return method === "GET" ? eventSchema.array() : eventSchema;
     if (id === "duplicates")
       return action ? leadSchema : leadDuplicateSchema.array();
     if (id === "assign") return leadSchema.array();

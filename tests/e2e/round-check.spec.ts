@@ -36,7 +36,7 @@ test("profile checkboxes are round and toggle from their label", async ({ page }
 test("lead selection checkboxes are round", async ({ page }) => {
   await seedLeads([lead({ name: "Maya Ortiz", source: "Bark" })]);
   await page.goto("/#/leads");
-  await expect(page.getByRole("link", { name: "Maya Ortiz", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Maya Ortiz", exact: true })).toBeVisible();
   await expectAllRound(page);
   const select = page.getByRole("checkbox").first();
   await select.check();
