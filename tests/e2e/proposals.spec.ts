@@ -68,7 +68,9 @@ test("tracks proposal stages independently of the event", async ({
   const row = page.getByRole("listitem", { name: "Gala dinner" });
   await expect(row).toContainText("Lost");
   await expect(row).toContainText("No version yet");
+  // A lost proposal never moves the event, and an event already Closed stays
+  // there as its proposal moves forward (FLOW-252).
   await expect(
-    page.locator(".record-heading").getByText("Closing", { exact: true }),
+    page.locator(".record-heading").getByText("Closed", { exact: true }),
   ).toBeVisible();
 });
