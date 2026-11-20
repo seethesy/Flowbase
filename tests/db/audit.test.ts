@@ -246,7 +246,7 @@ describe("history endpoint", () => {
     ).toBe(404);
   });
 
-  it("hides contact email and phone from part-time users", async () => {
+  it("keeps client history, contacts included, from part-time staff", async () => {
     const created = await sam.post<Client>("/api/clients", newClient());
     const emailOnly = asInput(created);
     emailOnly.contacts[0].email = "olivia@new.example";
@@ -263,16 +263,11 @@ describe("history endpoint", () => {
       "update",
       "create",
     ]);
-    const partTime = await partTimeSam.get<HistoryEntry[]>(
-      `/api/clients/${created.id}/history`,
-    );
-    // The email-only change disappears; the rename shows without contact details.
-    expect(partTime.map((entry) => entry.action)).toEqual(["update", "create"]);
-    expect(JSON.stringify(partTime)).not.toContain("olivia@");
-    expect(JSON.stringify(partTime)).not.toContain("555-0101");
-    expect(partTime[0].changes.contacts.after).toEqual([
-      expect.objectContaining({ name: "Olivia B.", email: null, phone: null }),
-    ]);
+    // Part-time Staff (FLOW-249) can't open client records or their history;
+    // contact redaction in history is covered in tests/worker/visibility.test.ts.
+    expect(
+      (await partTimeSam.call("GET", `/api/clients/${created.id}/history`)).status,
+    ).toBe(403);
   });
 
   it("hides the possible-duplicate match from salespeople", async () => {

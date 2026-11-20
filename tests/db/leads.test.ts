@@ -254,12 +254,14 @@ describe("inbox (FLOW-100)", () => {
     expect((await sam.get<Lead>(`/api/leads/${id}`)).rawPayload).toEqual({
       bark: { id: 1001, answers: ["a", "b"] },
     });
-    const partTime = await partTimeSam.get<Lead>(`/api/leads/${id}`);
-    expect(partTime.rawPayload).toBeNull();
-    expect(JSON.stringify(partTime)).not.toContain("answers");
+    // Part-time Staff (FLOW-249) can't open leads at all.
+    const partTime = await partTimeSam.call("GET", `/api/leads/${id}`);
+    expect(partTime.status).toBe(403);
+    expect(await partTime.text()).not.toContain("answers");
+    expect((await partTimeSam.call("GET", "/api/leads")).status).toBe(403);
     for (const list of [
       await admin.get<Lead[]>("/api/leads"),
-      await partTimeSam.get<Lead[]>("/api/leads"),
+      await sam.get<Lead[]>("/api/leads"),
     ])
       expect(list.every((row) => !("rawPayload" in row))).toBe(true);
   });

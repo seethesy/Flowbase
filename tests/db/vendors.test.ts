@@ -80,9 +80,9 @@ const signedInAs = (
   };
 };
 const admin = signedInAs(people.admin, "admin");
-// Kitchen leads edit inventory, and so the directory, but a part-time one can't
-// see or change contacts.
-const partTimeLead = signedInAs(people.lead, "kitchen_lead", "part_time");
+// Kitchen leads edit inventory, and so the directory. Employment type no longer
+// changes access; Part-time Staff is a role (FLOW-249).
+const kitchenLead = signedInAs(people.lead, "kitchen_lead");
 const fullTimeStaff = signedInAs(people.staff, "staff");
 const partTimeStaff = signedInAs(people.staff, "staff", "part_time");
 
@@ -165,7 +165,7 @@ describe("vendor directory (FLOW-84)", () => {
 
   it("AC3: hides contacts and the account number from part-time users", async () => {
     const vendor = await admin.create(imperio);
-    for (const who of [partTimeStaff, partTimeLead]) {
+    for (const who of [partTimeStaff]) {
       const seen = await who.get<VendorDetail>(`/api/vendors/${vendor.id}`);
       expect(seen.contacts).toBeNull();
       expect(seen.accountNumber).toBeNull();
@@ -186,11 +186,11 @@ describe("vendor directory (FLOW-84)", () => {
     expect(seen.contacts?.[0].email).toBe("dana@bevco.example");
   });
 
-  it("lets a part-time editor change ordering details without touching contacts", async () => {
+  it("keeps stored contacts when an editor saves ordering details without them", async () => {
     const vendor = await admin.create(imperio);
     // Without contacts or an account number: the stored ones stay.
     const rest = { ...imperio, contacts: undefined, accountNumber: undefined };
-    const result = await partTimeLead.call(`/api/vendors/${vendor.id}`, "PUT", {
+    const result = await kitchenLead.call(`/api/vendors/${vendor.id}`, "PUT", {
       ...rest,
       orderCutoff: "Monday noon",
     });
@@ -204,7 +204,7 @@ describe("vendor directory (FLOW-84)", () => {
     for (const change of [{ accountNumber: "X" }, { contacts: [] }])
       expect(
         (
-          await partTimeLead.call(`/api/vendors/${vendor.id}`, "PUT", {
+          await partTimeStaff.call(`/api/vendors/${vendor.id}`, "PUT", {
             ...rest,
             ...change,
           })

@@ -86,8 +86,9 @@ const signedInAs = (
   };
 };
 const admin = signedInAs("admin");
-const kitchenLead = signedInAs("kitchen_lead", "part_time");
-const cook = signedInAs("kitchen_staff", "part_time");
+// Employment type no longer changes access; Part-time Staff is a role (FLOW-249).
+const kitchenLead = signedInAs("kitchen_lead");
+const cook = signedInAs("kitchen_staff");
 const partTimeStaff = signedInAs("staff", "part_time");
 const fullTimeStaff = signedInAs("staff", "full_time");
 
@@ -263,15 +264,12 @@ describe("recipe books (FLOW-96/97)", () => {
     expect((await app.request("/api/recipes/client", {}, env)).status).toBe(401);
   });
 
-  it("prevents part-time kitchen edits from reading or changing stored costs", async () => {
+  it("keeps recipe edits, and so stored costs, from part-time staff", async () => {
     const dish = await createRecipe(tuscanChicken(ids));
-    expect((await cook.call("PUT", `/api/recipes/${dish.id}`, tuscanChicken(ids))).status).toBe(403);
     const input = tuscanChicken(ids, { lines: dish.lines.map((line) => ({ id: line.id, itemId: line.itemId, quantity: line.quantity, unit: line.unit })), steps: ["New method"] });
-    const updated = await cook.send<Recipe>("PUT", `/api/recipes/${dish.id}`, input);
-    expect(updated.cost).toBeNull();
-    expect(updated.lines.every((line) => line.cost === null && line.enteredCostCents === null)).toBe(true);
+    expect((await partTimeStaff.call("PUT", `/api/recipes/${dish.id}`, input)).status).toBe(403);
     expect((await getRecipe(dish.id)).cost).toEqual(dish.cost);
-    const history = await cook.send<HistoryEntry[]>("GET", `/api/recipes/${dish.id}/history`);
+    const history = await partTimeStaff.send<HistoryEntry[]>("GET", `/api/recipes/${dish.id}/history`);
     expect(JSON.stringify(history)).not.toContain('"enteredCostCents":5000');
   });
 });

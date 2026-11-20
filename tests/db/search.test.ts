@@ -246,9 +246,8 @@ describe("global search (FLOW-46)", () => {
     expect(ofType(await partTimeSam.search("2025550151"), "client")).toEqual(
       [],
     );
-    expect(ofType(await partTimeSam.search("Quinn"), "client")).toEqual([
-      "Quinn Avery",
-    ]);
+    // Part-time Staff (FLOW-249) don't find clients at all.
+    expect(ofType(await partTimeSam.search("Quinn"), "client")).toEqual([]);
   });
 
   it("shows events only to the salesperson they are assigned to", async () => {
@@ -308,10 +307,11 @@ it("uses the field-group policy for search matching across every role and employ
   for (const role of roles)
     for (const employmentType of employmentTypes) {
       const who = signedInAs(people.sam, role, employmentType);
-      const privileged = ["admin", "technical", "sales_manager"].includes(role);
-      const seesRecords = privileged || role === "salesperson";
-      const seesClientContact =
-        seesRecords && (privileged || employmentType === "full_time");
+      // signedInAs makes any part-time user Part-time Staff (FLOW-249).
+      const actual = employmentType === "part_time" ? "part_time_staff" : role;
+      const privileged = ["admin", "technical", "sales_manager"].includes(actual);
+      const seesRecords = privileged || actual === "salesperson";
+      const seesClientContact = seesRecords;
       for (const query of ["privateclient@secret.example", "2025550187"])
         expect(ofType(await who.search(query), "client")).toEqual(
           seesClientContact ? ["Visible client"] : [],

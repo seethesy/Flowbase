@@ -95,10 +95,10 @@ const signedInAs = (
 };
 const admin = signedInAs(people.admin, "admin");
 const lead = signedInAs(people.lead, "kitchen_lead");
-const partTimeLead = signedInAs(people.lead, "kitchen_lead", "part_time");
-const cook = signedInAs(people.cook, "kitchen_staff", "part_time");
+// Employment type no longer changes access; Part-time Staff is a role (FLOW-249).
+const cook = signedInAs(people.cook, "kitchen_staff");
 const fullTimeStaff = signedInAs(people.cook, "staff", "full_time");
-const partTimeSales = signedInAs(people.cook, "salesperson", "part_time");
+const sales = signedInAs(people.cook, "salesperson");
 const partTimeStaff = signedInAs(people.cook, "staff", "part_time");
 
 describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
@@ -568,7 +568,7 @@ describe("sections (FLOW-70)", () => {
     const unlabeled = await section("Unlabeled");
     const item = await createItem(chairs());
     await count(item.id, unlabeled.id, 12);
-    for (const who of [partTimeSales, cook, fullTimeStaff]) {
+    for (const who of [sales, cook, fullTimeStaff]) {
       // Rental counts follow the Master approval rules (FLOW-82, FLOW-73).
       const counted = await who.call(
         "POST",
@@ -602,7 +602,7 @@ describe("sections (FLOW-70)", () => {
     const creamItem = await createItem(cream());
     expect(
       (
-        await partTimeSales.call(
+        await sales.call(
           "POST",
           `/api/inventory/items/${creamItem.id}/movements`,
           { type: "receive", sectionId: fridge.id, quantity: 1 },
@@ -749,7 +749,7 @@ describe("items (FLOW-69)", () => {
 describe("ingredients (FLOW-81)", () => {
   it("applies FLOW-39 cost visibility to detail, lists, writes and history", async () => {
     const item = await createItem(cream());
-    for (const who of [cook, partTimeLead, fullTimeStaff]) {
+    for (const who of [cook, lead, fullTimeStaff, sales]) {
       const seen = await who.get<InventoryItem>(
         `/api/inventory/items/${item.id}`,
       );
@@ -764,7 +764,7 @@ describe("ingredients (FLOW-81)", () => {
           .status,
       ).toBe(200);
     }
-    for (const who of [partTimeSales, partTimeStaff]) {
+    for (const who of [partTimeStaff]) {
       const seen = await who.get<InventoryItem>(
         `/api/inventory/items/${item.id}`,
       );
@@ -781,7 +781,7 @@ describe("ingredients (FLOW-81)", () => {
           .status,
       ).toBe(403);
     }
-    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+    await lead.send("PUT", `/api/inventory/items/${item.id}`, {
       updatedAt: await versionOf(item.id),
       ...cream(),
       name: "Heavy Cream 36%",
@@ -791,7 +791,7 @@ describe("ingredients (FLOW-81)", () => {
       (await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`))
         .consumable?.unitCostCents,
     ).toBe(2400);
-    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+    await lead.send("PUT", `/api/inventory/items/${item.id}`, {
       ...cream(),
       updatedAt: await versionOf(item.id),
     });
@@ -1349,18 +1349,11 @@ describe("count mode (FLOW-82)", () => {
       consumable: { purchaseUnit: "each", storageSectionId: bar.id },
     });
     const started = await startCount(bar.id, cook);
+    // Kitchen Staff count both; general Staff count bar stock but not ingredients.
     expect(started.lines.map((line) => [line.name, line.canCount])).toEqual([
-      ["Lager", false],
+      ["Lager", true],
       ["Limes", true],
     ]);
-    expect(
-      (
-        await cook.call("POST", `/api/inventory/counts/${started.id}/lines`, {
-          itemId: beer.id,
-          quantity: 3,
-        })
-      ).status,
-    ).toBe(403);
     await saveLine(started.id, { itemId: limes.id, quantity: 30 }, cook);
     await saveLine(
       started.id,
@@ -1403,15 +1396,14 @@ describe("cost history (FLOW-83)", () => {
       ...cream(),
       consumable: { ...cream().consumable!, unitCostCents: 2650 },
     });
-    // Saving without a cost change, or as a part-time user who can't see the
-    // cost, adds nothing.
+    // Saving without a cost change, or without sending the cost, adds nothing.
     await admin.send("PUT", `/api/inventory/items/${item.id}`, {
       updatedAt: await versionOf(item.id),
       ...cream(),
       name: "Heavy Cream 40%",
       consumable: { ...cream().consumable!, unitCostCents: 2650 },
     });
-    await partTimeLead.send("PUT", `/api/inventory/items/${item.id}`, {
+    await lead.send("PUT", `/api/inventory/items/${item.id}`, {
       updatedAt: await versionOf(item.id),
       ...cream(),
       consumable: { ...cream().consumable!, unitCostCents: undefined },
