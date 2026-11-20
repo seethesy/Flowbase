@@ -11,7 +11,7 @@ import {
 } from "../../shared/layout";
 import { Button } from "../components/ui/button";
 import { ColumnPicker } from "./column-picker";
-import { BoxEditorList, newBoxId } from "./box-editor";
+import { BoxEditorList } from "./box-editor";
 import { usePermissions } from "./permissions";
 
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
@@ -30,14 +30,6 @@ const operatorNames: Record<string, string> = {
   is_me: "is me",
   is_empty: "is empty",
 };
-
-export const newCard = (source: CardConfig["source"]): CardConfig => ({
-  title: "New card",
-  source,
-  filters: [],
-  limit: 10,
-  display: { type: "table", columns: [] },
-});
 
 function cardSourceKey(card: CardConfig, recordSource: SourceKey | null): SourceKey | null {
   if (card.source.type === "list") return card.source.list;
@@ -307,4 +299,3 @@ export function CardBuilder({
   );
 }
 
-export { newBoxId };

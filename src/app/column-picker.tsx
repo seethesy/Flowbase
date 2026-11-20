@@ -15,6 +15,7 @@ export function ColumnPicker({
   columns,
   locked = [],
   controls = {},
+  extra = [],
   onChange,
 }: {
   source: SourceKey;
@@ -22,6 +23,8 @@ export function ColumnPicker({
   locked?: string[];
   // Names of pseudo-columns that aren't registry fields, e.g. { open: "Open" }.
   controls?: Record<string, string>;
+  // Code-only columns that may be hidden and shown again (named in controls).
+  extra?: string[];
   onChange: (columns: ColumnConfig[]) => void;
 }) {
   const { actor } = usePermissions();
@@ -34,6 +37,7 @@ export function ColumnPicker({
       key: column.key,
       label: controls[column.key] ?? fields.find((field) => field.key === column.key)?.label ?? column.key,
     })),
+    ...extra.filter((key) => !shown.has(key)).map((key) => ({ key, label: controls[key] ?? key })),
     ...fields.filter((field) => !shown.has(field.key)).map((field) => ({ key: field.key, label: field.label })),
   ];
   const isLocked = (key: string) => locked.includes(key);

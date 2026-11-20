@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import ReactGridLayout, { useContainerWidth, type Layout } from "react-grid-layout";
+import ReactGridLayout, { noCompactor, useContainerWidth, type Layout } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { GRID_COLUMNS } from "../../shared/layout";
@@ -41,7 +41,11 @@ export default function LayoutGridEditor({
           gridConfig={{ cols: GRID_COLUMNS, rowHeight, margin: [12, 12], containerPadding: [0, 0] }}
           dragConfig={{ enabled: true, handle: ".layout-handle" }}
           resizeConfig={{ enabled: true, handles: ["se", "e", "s"] }}
-          onLayoutChange={changed}
+          // Saved positions stay as placed (view mode places blocks the same
+          // way); only a drag or resize the Admin makes changes the layout.
+          compactor={noCompactor}
+          onDragStop={(next) => changed(next)}
+          onResizeStop={(next) => changed(next)}
         >
           {items.map((item) => (
             <div key={item.id} className="layout-grid-item" data-layout-id={item.id}>

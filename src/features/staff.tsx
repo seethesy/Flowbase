@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -126,6 +127,8 @@ export function StaffDirectory() {
       ) : staff.loading && !staff.data ? (
         <LoadingSkeleton />
       ) : (
+<PageGrid pageKey="staff.list">
+        <Block id="list" name="List" h={24}>
         <DataTable copyKey="staff.staff-directory"
           data={data}
           columns={columns}
@@ -133,6 +136,8 @@ export function StaffDirectory() {
           label={<T id="staff.staff-directory.staff-3">staff</T>}
           exportName="staff"
         />
+        </Block>
+        </PageGrid>
       )}
     </>
   );

@@ -1,5 +1,5 @@
 import { Allowed } from "../app/permissions";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -36,6 +36,9 @@ import {
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy, LabelT, Plural } from "../app/copy";
 import { copySlug } from "../../shared/copy";
+import { Block, PageGrid } from "../app/page-grid";
+import { TableLayout } from "../app/table-layout";
+import { FieldLabel, FieldValue } from "../components/layout-fields";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { emptyRichText } from "../components/rich-text/extensions";
@@ -128,12 +131,36 @@ export function LeadInbox() {
   const editable = (lead: Lead, key: "name" | "eventName" | "phone" | "email", value: string) =>
     <InlineCell key={`${lead.id}-${key}`} value={value} label={`${key} for ${lead.name}`}
       type={key === "email" ? "email" : "text"} onSave={(next) => void save(lead, { [key]: next })} />;
+  // The table's code columns (FLOW-254): an Admin may hide, reorder or add
+  // registry fields; Open stays first.
+  const leadColumns: { key: string; heading: string; cell: (lead: Lead) => ReactNode }[] = [
+    { key: "open", heading: "Open", cell: (lead) => <span className="lead-open-cell"><RoundCheck aria-label={`Select ${leadTitle(lead)}`} checked={selected.includes(lead.id)}
+      onPointerDown={() => setSelecting(true)} onChange={() => toggle(lead.id)} />
+      <Link to={`/leads/${lead.id}`} aria-label={`Open ${leadTitle(lead)}`}><T id="leads.inbox.open">Open</T></Link></span> },
+    { key: "status", heading: "Status", cell: (lead) => <StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /> },
+    { key: "updatedAt", heading: "Last updated", cell: (lead) => businessDate(lead.updatedAt) },
+    { key: "name", heading: "Client", cell: (lead) => <>{editable(lead, "name", lead.name)}{(lead.needsReview || lead.possibleDuplicate) &&
+      <span className="badge warning" title={lead.possibleDuplicate ? "Possible duplicate" : "Needs review"}><T id="leads.inbox.needs-review">Needs review</T></span>}</> },
+    { key: "eventName", heading: "Event", cell: (lead) => editable(lead, "eventName", lead.latestEvent?.title ?? lead.eventName ?? "") },
+    { key: "phone", heading: "Phone", cell: (lead) => editable(lead, "phone", lead.phone) },
+    { key: "email", heading: "Email", cell: (lead) => editable(lead, "email", lead.email) },
+    { key: "eventDate", heading: "Time & Date", cell: (lead) => lead.latestEvent ? <InlineCell key={`${lead.id}-date`} label={`Time and date for ${lead.name}`}
+      type="datetime-local" value={`${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).date}T${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).time}`}
+      onSave={(next) => { if (next) void save(lead, { eventDate: next.slice(0, 10), eventTime: next.slice(11, 16) }); }} /> :
+      <InlineCell key={`${lead.id}-date`} label={`Date for ${lead.name}`} type="datetime-local"
+        value={lead.eventDate ? `${lead.eventDate}T00:00` : ""}
+        onSave={(next) => void save(lead, { eventDate: next ? next.slice(0, 10) : null })} /> },
+    { key: "notes", heading: "Notes", cell: (lead) => <button type="button" onClick={() => { setEditingNotes(lead); setNotesDraft(lead.notes ?? emptyRichText); }}>{lead.notes ? <T id="leads.inbox.view-notes">View notes</T> : <T id="leads.inbox.add-notes">Add notes</T>}</button> },
+    { key: "source", heading: "Source", cell: (lead) => lead.source },
+    { key: "latestProposal", heading: "Proposal", cell: (lead) => lead.latestProposal ? <Link to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—" },
+  ];
   return <>
     <PageHeader title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
       <Allowed action="leads.create"><Button onClick={() => setEntering(true)}><T id="leads.inbox.new-lead">New lead</T></Button></Allowed>
       <Button variant="outline" asChild><Link to="/leads/dashboard"><T id="leads.inbox.lead-dashboard">Lead dashboard</T></Link></Button>
     </PageHeader>
-    <>
+    <PageGrid pageKey="leads.inbox">
+    <Block id="lead-table" name="Leads table" h={24}>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="leads.inbox.search-placeholder" />
         <label><T id="leads.inbox.owners">Owners </T><select aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
@@ -159,38 +186,34 @@ export function LeadInbox() {
           .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</select>
       </Section>}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
-        <div className="table-card"><div className="table-scroll"><table className="lead-pipeline-table">
-          <thead><tr>{["Open", "Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal"].map((heading) => <th key={heading}><T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T></th>)}</tr></thead>
-          <tbody>{shown.map((lead, index) => <tr key={lead.id}
-            className={lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""}
-            onPointerDown={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
-              setAnchor(index); setSelecting(true); }}
-            onPointerEnter={() => { if (selecting && anchor >= 0 && anchor !== index)
-              setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id)); }}
-            onClick={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
-              if (event.shiftKey && anchor >= 0) setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id));
-              else if (event.ctrlKey || event.metaKey) { toggle(lead.id); setAnchor(index); } }}>
-            <td><span className="lead-open-cell"><RoundCheck aria-label={`Select ${leadTitle(lead)}`} checked={selected.includes(lead.id)}
-              onPointerDown={() => setSelecting(true)} onChange={() => toggle(lead.id)} />
-              <Link to={`/leads/${lead.id}`} aria-label={`Open ${leadTitle(lead)}`}><T id="leads.inbox.open">Open</T></Link></span></td>
-            <td><StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /></td>
-            <td>{businessDate(lead.updatedAt)}</td>
-            <td>{editable(lead, "name", lead.name)}{(lead.needsReview || lead.possibleDuplicate) &&
-              <span className="badge warning" title={lead.possibleDuplicate ? "Possible duplicate" : "Needs review"}><T id="leads.inbox.needs-review">Needs review</T></span>}</td>
-            <td>{editable(lead, "eventName", lead.latestEvent?.title ?? lead.eventName ?? "")}</td>
-            <td>{editable(lead, "phone", lead.phone)}</td>
-            <td>{editable(lead, "email", lead.email)}</td>
-            <td>{lead.latestEvent ? <InlineCell key={`${lead.id}-date`} label={`Time and date for ${lead.name}`}
-              type="datetime-local" value={`${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).date}T${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).time}`}
-              onSave={(next) => { if (next) void save(lead, { eventDate: next.slice(0, 10), eventTime: next.slice(11, 16) }); }} /> :
-              <InlineCell key={`${lead.id}-date`} label={`Date for ${lead.name}`} type="datetime-local"
-                value={lead.eventDate ? `${lead.eventDate}T00:00` : ""}
-                onSave={(next) => void save(lead, { eventDate: next ? next.slice(0, 10) : null })} />}</td>
-            <td><button type="button" onClick={() => { setEditingNotes(lead); setNotesDraft(lead.notes ?? emptyRichText); }}>{lead.notes ? <T id="leads.inbox.view-notes">View notes</T> : <T id="leads.inbox.add-notes">Add notes</T>}</button></td>
-            <td>{lead.source}</td>
-            <td>{lead.latestProposal ? <Link to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—"}</td>
-          </tr>)}</tbody>
-        </table></div></div>}
+        <TableLayout tableKey="leads.inbox.table" codeColumns={leadColumns.map((column) => ({ key: column.key, header: column.heading }))}>
+          {(layout) => {
+            const visible = layout.custom ? layout.columns : leadColumns.map((column) => ({ key: column.key }));
+            const code = (key: string) => leadColumns.find((column) => column.key === key);
+            return <>
+              {layout.editor && <div className="table-toolbar">{layout.editor}</div>}
+              <div className="table-card"><div className="table-scroll"><table className="lead-pipeline-table">
+                <thead><tr>{visible.map((column) => {
+                  const heading = code(column.key)?.heading;
+                  return <th key={column.key} style={column.width ? { width: column.width } : undefined}>
+                    {heading ? <T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T> : <FieldLabel source="leads" field={column.key} />}</th>;
+                })}</tr></thead>
+                <tbody>{shown.map((lead, index) => <tr key={lead.id}
+                  className={lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""}
+                  onPointerDown={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
+                    setAnchor(index); setSelecting(true); }}
+                  onPointerEnter={() => { if (selecting && anchor >= 0 && anchor !== index)
+                    setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id)); }}
+                  onClick={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
+                    if (event.shiftKey && anchor >= 0) setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id));
+                    else if (event.ctrlKey || event.metaKey) { toggle(lead.id); setAnchor(index); } }}>
+                  {visible.map((column) => <td key={column.key}>{code(column.key)?.cell(lead) ??
+                    <FieldValue source="leads" field={column.key} row={lead as unknown as Record<string, unknown>} />}</td>)}
+                </tr>)}</tbody>
+              </table></div></div>
+            </>;
+          }}
+        </TableLayout>}
       <div className="lead-pager"><label><T id="leads.inbox.rows-per-page">Rows per page </T><select value={pageSize} onChange={(event) => {
         const size = Number(event.target.value); setPageSize(size); setPageNumber(1);
         localStorage.setItem(`flowbase.leads.page-size.${userId}`, String(size));
@@ -202,7 +225,8 @@ export function LeadInbox() {
             onClick={() => setPageNumber(number)}>{number}</button>)}
         <button type="button" disabled={pageNumber === pageCount} onClick={() => setPageNumber(pageNumber + 1)}><T id="leads.inbox.next">Next</T></button>
       </div>
-    </>
+    </Block>
+    </PageGrid>
     {entering && <NewLeadForm onClose={() => setEntering(false)} onCreated={() => leads.reload()} />}
     {editingNotes && <div className="lead-notes-overlay" role="dialog" aria-modal="true" aria-label={`Notes for ${editingNotes.name}`}>
       <form className="lead-notes-dialog" onSubmit={async (event) => {
