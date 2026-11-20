@@ -11,6 +11,7 @@ import {
 } from "../../shared/leads";
 import { leadsApi } from "../services/leads";
 import { useResource } from "../app/useResource";
+import { beoStatusLabels } from "../../shared/beo";
 import { useOpenFor, useStateFor } from "../app/useOpenFor";
 import {
   Button,
@@ -58,6 +59,7 @@ export function LeadDetail() {
   const [eventDate, setEventDate] = useStateFor(`${id}-event-date`, "");
   const [eventTime, setEventTime] = useStateFor(`${id}-event-time`, "");
   const events = useResource(["lead-events", id], () => leadsApi.events(id));
+  const beos = useResource(["lead-beos", id], () => leadsApi.beos(id));
   if (lead.error)
     return (
       <>
@@ -241,7 +243,11 @@ export function LeadDetail() {
           </form>
         </Section>}
         <Section title={<T id="lead-detail.events.title">Linked events</T>}>
-          <ul>{events.data?.map((event) => <li key={event.id}><Link to={`/events/${event.id}`}>{event.title}</Link> · {eventDay(event.date)}</li>)}</ul>
+          <ul>{events.data?.map((event) => {
+            const beo = beos.data?.find((item) => item.eventId === event.id);
+            return <li key={event.id}><Link to={`/events/${event.id}`}>{event.title}</Link> · {eventDay(event.date)}
+              {beo && <>{" · "}<Link to={`/events/${event.id}/beo/${beo.id}`}><T id="lead-detail.events.beo-version" values={{ version: beo.version, status: beoStatusLabels[beo.status] }}>{"BEO: v{version} ({status})"}</T></Link></>}</li>;
+          })}</ul>
           {newEvent && l.status !== "lost" && <form onSubmit={async (event) => {
             event.preventDefault(); setBusy(true); setError("");
             try { await leadsApi.createEvent(id, { title: eventTitle, date: eventDate, startTime: eventTime });

@@ -8,7 +8,10 @@ const maya = () => lead({ name: "Maya Ortiz", source: "Bark" });
 const noah = () => lead({ name: "Noah Kim", source: "Thumbtack", channel: "collector", eventDate: null, needsReview: true });
 const priya = () => lead({ name: "Priya Shah", source: "Referral", channel: "manual", status: "pitching", assignedSalespersonId: "a0000000-0000-4000-8000-000000000003" });
 const leadRow = (page: import("@playwright/test").Page, name: string) =>
-  page.getByRole("row").filter({ has: page.getByRole("button", { name, exact: true }) });
+  page.getByRole("row").filter({ has: page.getByRole("link", { name, exact: true }) });
+// FLOW-260/264: Ctrl/Cmd+click on a row (outside Status and links) selects it.
+const ctrlSelect = (page: import("@playwright/test").Page, name: string) =>
+  leadRow(page, name).getByRole("cell").nth(1).click({ modifiers: ["ControlOrMeta"] });
 
 test("pipeline inbox filters by source, owner and status", async ({ page }) => {
   await seedLeads([maya(), noah(), priya()]);
@@ -31,8 +34,9 @@ test("bulk assigns selected unassigned leads", async ({ page }) => {
   await seedLeads([maya(), noah(), priya()]);
   await page.goto("/#/leads");
   await choose(page.getByLabel("Owners", { exact: true }), "unassigned");
-  await page.getByLabel("Select Maya Ortiz").check();
-  await page.getByLabel("Select Noah Kim").check();
+  await ctrlSelect(page, "Maya Ortiz");
+  await ctrlSelect(page, "Noah Kim");
+  await expect(page).toHaveURL(/#\/leads$/);
   await expect(page.getByText("2 selected")).toBeVisible();
   // Owners are active sales users (FLOW-250).
   const owner = seedUsers.find((user) => user.role === "salesperson")!;
@@ -116,4 +120,40 @@ test("logging a call with a follow-up shows it in the lead's log and creates a t
   await expect(
     page.getByRole("heading", { name: "Follow up: Maya Ortiz", level: 1 }),
   ).toBeVisible();
+});
+
+test("FLOW-264: a row click opens the lead, only Status edits in the table, and selecting doesn't navigate", async ({ page }) => {
+  await seedLeads([maya(), noah(), priya()]);
+  await page.goto("/#/leads");
+  const table = page.locator("table.lead-pipeline-table");
+  // AC1: no Open column.
+  await expect(table.getByRole("columnheader", { name: "Open" })).toHaveCount(0);
+  await expect(table.getByRole("columnheader", { name: "BEO" })).toBeVisible();
+  // AC2: Status is the only control in a row besides links.
+  await expect(leadRow(page, "Maya Ortiz").getByRole("textbox")).toHaveCount(0);
+  await expect(leadRow(page, "Maya Ortiz").getByRole("combobox")).toHaveCount(1);
+  // The BEO cell shows — when there's none.
+  await expect(leadRow(page, "Maya Ortiz").getByRole("cell").last()).toHaveText("—");
+
+  // AC3: drag and Shift select instead of opening.
+  const cell = (name: string) => leadRow(page, name).getByRole("cell").nth(1);
+  await cell("Maya Ortiz").hover();
+  await page.mouse.down();
+  await cell("Noah Kim").hover();
+  await page.mouse.up();
+  await expect(page.getByText("2 selected")).toBeVisible();
+  await expect(page).toHaveURL(/#\/leads$/);
+  await cell("Priya Shah").click({ modifiers: ["Shift"] });
+  await expect(page).toHaveURL(/#\/leads$/);
+  await page.getByRole("button", { name: "Clear" }).click();
+
+  // Opening the Status dropdown doesn't open the lead.
+  await leadRow(page, "Maya Ortiz").getByRole("combobox").click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/#\/leads$/);
+
+  // AC1: a plain click anywhere else on the row opens the lead.
+  await cell("Maya Ortiz").click();
+  await expect(page).toHaveURL(/#\/leads\/[0-9a-f-]+$/);
+  await expect(page.getByRole("heading", { name: "Maya Ortiz", level: 1 })).toBeVisible();
 });

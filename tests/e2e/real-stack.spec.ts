@@ -133,13 +133,12 @@ for (const role of ["admin", "salesperson"] as const) {
 
     await page.goto("/#/leads");
     await expect(
-      page.getByRole("button", { name: "Seed wedding inquiry", exact: true }),
+      page.getByRole("link", { name: "Seed wedding inquiry", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Other salesperson lead", exact: true }),
+      page.getByRole("link", { name: "Other salesperson lead", exact: true }),
     ).toHaveCount(role === "admin" ? 1 : 0);
-    await page.getByRole("row").filter({ has: page.getByRole("button", { name: "Seed wedding inquiry", exact: true }) })
-      .getByRole("link", { name: "Open" }).click();
+    await page.getByRole("link", { name: "Seed wedding inquiry", exact: true }).click();
     await page.getByRole("combobox", { name: "Lead status" }).click();
     await page.getByRole("option", { name: "Pitching" }).click();
     await expect(page.getByText("Pitching", { exact: true })).toBeVisible();

@@ -1,6 +1,6 @@
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -19,9 +19,9 @@ import {
   Button,
   SearchInput,
   FilterBar,
-  Section,
   LoadingSkeleton,
   Select,
+  useTableSelection,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { useListLabels } from "./list-fields";
@@ -34,11 +34,8 @@ import {
   leadTitle,
   valueOf,
 } from "./lead-shared";
-import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy } from "../app/copy";
 import type { JSONContent } from "@tiptap/core";
-import { RichTextEditor } from "../components/rich-text/RichTextEditor";
-import { emptyRichText } from "../components/rich-text/extensions";
 
 export const summaryLine = (lead: LeadSummary) =>
   [
@@ -48,23 +45,10 @@ export const summaryLine = (lead: LeadSummary) =>
     lead.assignedSalespersonId ?? "Unassigned",
   ].join(" · ");
 
-function InlineCell({ value, type = "text", label, onSave }: {
-  value: string; type?: "text" | "email" | "datetime-local";
-  label: string; onSave: (value: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const cancelled = useRef(false);
-  const finish = () => {
-    setEditing(false);
-    if (!cancelled.current && draft !== value) onSave(draft);
-    cancelled.current = false;
-  };
-  return editing ? <input className="lead-inline-input" aria-label={label} autoFocus type={type}
-    value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={finish}
-    onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur();
-      if (event.key === "Escape") { cancelled.current = true; setDraft(value); event.currentTarget.blur(); } }} /> :
-    <button type="button" className="lead-inline-display" onClick={() => { setDraft(value); setEditing(true); }}>{value || "—"}</button>;
+// Notes are edited on the lead page; the table shows the start of the text.
+function notesText(node: JSONContent | null | undefined): string {
+  if (!node) return "";
+  return [node.text ?? "", ...(node.content ?? []).map(notesText)].join(node.type === "paragraph" ? " " : "").trim();
 }
 
 // The shared pipeline table. A lead can have several events; the detail lists all
@@ -76,18 +60,12 @@ export function LeadInbox() {
   const [source, setSource] = useState("");
   const [owner, setOwner] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [selecting, setSelecting] = useState(false);
-  const [anchor, setAnchor] = useState(-1);
   const userId = useAuth()?.user.id ?? "anonymous";
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(`flowbase.leads.page-size.${userId}`)) || 25);
   const [pageNumber, setPageNumber] = useState(1);
   useEffect(() => { setPageSize(Number(localStorage.getItem(`flowbase.leads.page-size.${userId}`)) || 25); }, [userId]);
   useEffect(() => { setPageNumber(1); }, [status, source, owner, search]);
-  useEffect(() => { const end = () => setSelecting(false); window.addEventListener("pointerup", end); return () => window.removeEventListener("pointerup", end); }, []);
   const [closing, setClosing] = useState<Lead | null>(null);
-  const [editingNotes, setEditingNotes] = useState<Lead | null>(null);
-  const [notesDraft, setNotesDraft] = useState<JSONContent>(emptyRichText);
   const [entering, setEntering] = useState(false);
   const [error, setError] = useState("");
   const term = useDebounced(search.trim());
@@ -102,11 +80,6 @@ export function LeadInbox() {
   const shown = data.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
   const listedSources = useListLabels("lead_source");
   const sources = [...new Set([...listedSources, ...data.map((lead) => lead.source)])];
-  const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-  const save = async (lead: Lead, input: Parameters<typeof leadsApi.update>[1]) => {
-    try { setError(""); await leadsApi.update(lead.id, input); leads.reload(); return true; }
-    catch (cause) { setError((cause as Error).message); return false; }
-  };
   const changeStatus = async (lead: Lead, next: Lead["status"]) => {
     if (next === "closing") { setClosing(lead); return; }
     if (next === "lost") {
@@ -119,9 +92,28 @@ export function LeadInbox() {
     try { await leadsApi.setStatus(lead.id, { status: next }); leads.reload(); }
     catch (cause) { setError((cause as Error).message); }
   };
-  const editable = (lead: Lead, key: "name" | "eventName" | "phone" | "email", value: string) =>
-    <InlineCell key={`${lead.id}-${key}`} value={value} label={`${key} for ${lead.name}`}
-      type={key === "email" ? "email" : "text"} onSave={(next) => void save(lead, { [key]: next })} />;
+  // FLOW-260 selection: drag, Shift+click and Ctrl/Cmd+click select rows instead
+  // of opening them. Closing and Closed aren't offered in bulk (they need a client).
+  const selection = useTableSelection({
+    actions: (ids, clear) => <>
+      <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
+        onAssign={async (owner) => { await leadsApi.bulkAssign(ids, owner); clear(); leads.reload(); }} /></Allowed>
+      <Dropdown variant="dark" aria-label="Change selected status" value="" onChange={async (event) => {
+        const next = event.target.value as Lead["status"];
+        if (!next) return;
+        const reason = next === "lost" ? window.prompt("Why were these leads lost?") : "";
+        if (next === "lost" && !reason?.trim()) return;
+        try { await Promise.all(ids.map((id) => leadsApi.setStatus(id, { status: next, reason: reason ?? "" }))); clear(); leads.reload(); }
+        catch (cause) { setError((cause as Error).message); }
+      }}><option value="">Change status</option>{leadStatusSchema.options.filter((value) => value !== "closing" && value !== "closed")
+        .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</Dropdown>
+    </>,
+  }, shown.map((lead) => lead.id));
+  // A click anywhere on a row opens the lead, except on the Status cell and links.
+  const openRow = (lead: Lead, event: MouseEvent<HTMLTableRowElement>) => {
+    if ((event.target as HTMLElement).closest("a, button, input, [role='combobox'], .lead-status-cell")) return;
+    navigate(`/leads/${lead.id}`);
+  };
   return <>
     <PageHeader title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
       <Allowed action="leads.create"><Button onClick={() => setEntering(true)}><T id="leads.inbox.new-lead">New lead</T></Button></Allowed>
@@ -139,51 +131,31 @@ export function LeadInbox() {
         <span className="result-count"><T id="leads.inbox.lead-count" values={{ count: data.length }}>{"{count} leads"}</T></span>
       </FilterBar>
       {error && <p role="alert" className="error-message">{error}</p>}
-      {selected.length > 0 && <Section title={`${selected.length} selected`}>
-        <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
-          onAssign={async (id) => { await leadsApi.bulkAssign(selected, id); setSelected([]); leads.reload(); }} /></Allowed>
-        <Dropdown aria-label="Change selected status" defaultValue="" onChange={async (event) => {
-          const next = event.target.value as Lead["status"];
-          if (!next) return;
-          const reason = next === "lost" ? window.prompt("Why were these leads lost?") : "";
-          if (next === "lost" && !reason?.trim()) return;
-          try { await Promise.all(selected.map((id) => leadsApi.setStatus(id, { status: next, reason: reason ?? "" }))); setSelected([]); leads.reload(); }
-          catch (cause) { setError((cause as Error).message); }
-        }}><option value="">Change status</option>{leadStatusSchema.options.filter((value) => value !== "closing" && value !== "closed")
-          .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</Dropdown>
-      </Section>}
+      {selection.bar}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
-        <div className="table-card"><div className="table-scroll"><table className="lead-pipeline-table">
-          <thead><tr>{["Open", "Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal"].map((heading) => <th key={heading}>{heading}</th>)}</tr></thead>
-          <tbody>{shown.map((lead, index) => <tr key={lead.id}
-            className={lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""}
-            onPointerDown={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
-              setAnchor(index); setSelecting(true); }}
-            onPointerEnter={() => { if (selecting && anchor >= 0 && anchor !== index)
-              setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id)); }}
-            onClick={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
-              if (event.shiftKey && anchor >= 0) setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id));
-              else if (event.ctrlKey || event.metaKey) { toggle(lead.id); setAnchor(index); } }}>
-            <td><span className="lead-open-cell"><RoundCheck aria-label={`Select ${leadTitle(lead)}`} checked={selected.includes(lead.id)}
-              onPointerDown={() => setSelecting(true)} onChange={() => toggle(lead.id)} />
-              <Link to={`/leads/${lead.id}`} aria-label={`Open ${leadTitle(lead)}`}><T id="leads.inbox.open">Open</T></Link></span></td>
-            <td><StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /></td>
+        <div className={["table-card", selection.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")} tabIndex={0} onKeyDown={selection.onKeyDown}><div className="table-scroll"><table className="lead-pipeline-table">
+          <thead><tr>{["Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal", "BEO"].map((heading) => <th key={heading}>{heading}</th>)}</tr></thead>
+          <tbody {...selection.bodyProps}>{shown.map((lead, index) => {
+            const row = selection.rowProps(index);
+            const startsAt = lead.latestEvent ? utcToBusinessTime(new Date(lead.latestEvent.startsAt)) : null;
+            return <tr key={lead.id} {...row}
+            className={[row.className, "lead-row", lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""].filter(Boolean).join(" ")}
+            onClick={(event) => openRow(lead, event)}
+            onAuxClick={(event) => { if (event.button === 1 && !(event.target as HTMLElement).closest("a")) window.open(`#/leads/${lead.id}`, "_blank", "noopener"); }}>
+            <td className="lead-status-cell"><StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /></td>
             <td>{businessDate(lead.updatedAt)}</td>
-            <td>{editable(lead, "name", lead.name)}{(lead.needsReview || lead.possibleDuplicate) &&
+            <td><Link className="lead-client-link" draggable={false} to={`/leads/${lead.id}`}>{leadTitle(lead)}</Link>{(lead.needsReview || lead.possibleDuplicate) &&
               <span className="badge warning" title={lead.possibleDuplicate ? "Possible duplicate" : "Needs review"}><T id="leads.inbox.needs-review">Needs review</T></span>}</td>
-            <td>{editable(lead, "eventName", lead.latestEvent?.title ?? lead.eventName ?? "")}</td>
-            <td>{editable(lead, "phone", lead.phone)}</td>
-            <td>{editable(lead, "email", lead.email)}</td>
-            <td>{lead.latestEvent ? <InlineCell key={`${lead.id}-date`} label={`Time and date for ${lead.name}`}
-              type="datetime-local" value={`${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).date}T${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).time}`}
-              onSave={(next) => { if (next) void save(lead, { eventDate: next.slice(0, 10), eventTime: next.slice(11, 16) }); }} /> :
-              <InlineCell key={`${lead.id}-date`} label={`Date for ${lead.name}`} type="datetime-local"
-                value={lead.eventDate ? `${lead.eventDate}T00:00` : ""}
-                onSave={(next) => void save(lead, { eventDate: next ? next.slice(0, 10) : null })} />}</td>
-            <td><button type="button" onClick={() => { setEditingNotes(lead); setNotesDraft(lead.notes ?? emptyRichText); }}>{lead.notes ? <T id="leads.inbox.view-notes">View notes</T> : <T id="leads.inbox.add-notes">Add notes</T>}</button></td>
+            <td>{lead.latestEvent?.title ?? lead.eventName ?? "—"}</td>
+            <td>{lead.phone || "—"}</td>
+            <td>{lead.email || "—"}</td>
+            <td>{startsAt ? `${startsAt.date} ${startsAt.time}` : lead.eventDate ?? "—"}</td>
+            <td className="lead-notes-cell">{notesText(lead.notes) || "—"}</td>
             <td>{lead.source}</td>
-            <td>{lead.latestProposal ? <Link to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—"}</td>
-          </tr>)}</tbody>
+            <td>{lead.latestProposal ? <Link draggable={false} to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—"}</td>
+            <td>{lead.latestBeo ? <Link draggable={false} to={`/events/${lead.latestBeo.eventId}/beo/${lead.latestBeo.id}`}><T id="leads.inbox.beo-version" values={{ version: lead.latestBeo.version }}>{"BEO v{version}"}</T></Link> : "—"}</td>
+          </tr>;
+          })}</tbody>
         </table></div></div>}
       <div className="lead-pager"><label><T id="leads.inbox.rows-per-page">Rows per page </T><Dropdown value={pageSize} onChange={(event) => {
         const size = Number(event.target.value); setPageSize(size); setPageNumber(1);
@@ -198,15 +170,8 @@ export function LeadInbox() {
       </div>
     </>
     {entering && <NewLeadForm onClose={() => setEntering(false)} onCreated={() => leads.reload()} />}
-    {editingNotes && <div className="lead-notes-overlay" role="dialog" aria-modal="true" aria-label={`Notes for ${editingNotes.name}`}>
-      <form className="lead-notes-dialog" onSubmit={async (event) => {
-        event.preventDefault(); if (await save(editingNotes, { notes: notesDraft })) setEditingNotes(null);
-      }}><h2><T id="leads.inbox.edit-notes">Edit notes</T></h2>
-        <RichTextEditor label="Lead notes" value={notesDraft} onChange={setNotesDraft} />
-        <Button type="submit"><T id="leads.inbox.save-notes">Save notes</T></Button>
-        <Button type="button" variant="outline" onClick={() => setEditingNotes(null)}><T id="leads.inbox.cancel-notes">Cancel</T></Button>
-      </form></div>}
     {closing && <ConvertLeadForm lead={closing} onClose={() => setClosing(null)} onConverted={(result) => navigate(`/events/${result.event.id}`)} />}
+    {selection.toast}
   </>;
 }
 

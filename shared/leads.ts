@@ -143,6 +143,17 @@ export type LeadDuplicate = z.infer<typeof leadDuplicateSchema>;
 
 export const leadMergeSchema = z.object({ keepLeadId: id });
 
+// A BEO of one of a lead's events (FLOW-264). version counts approvals: an
+// approved BEO is at the number of times it was approved; one being worked on
+// after N approvals is version N + 1.
+export const leadBeoSchema = z.object({
+  id,
+  eventId: id,
+  version: z.number().int().min(1),
+  status: z.enum(["working_on", "pending_approval", "approved"]),
+});
+export type LeadBeo = z.infer<typeof leadBeoSchema>;
+
 export const leadSchema = z.object({
   id,
   receivedAt: timestamp,
@@ -164,6 +175,8 @@ export const leadSchema = z.object({
   eventName: z.string().optional(),
   latestEvent: z.object({ id, title: z.string(), startsAt: timestamp }).nullable().optional(),
   latestProposal: z.object({ id, eventId: id, title: z.string() }).nullable().optional(),
+  // FLOW-264: the latest BEO of the lead's events, for the Leads table link.
+  latestBeo: leadBeoSchema.nullable().optional(),
   possibleDuplicate: z.boolean().optional(),
   notes: sopContentSchema.nullable().optional(),
   lostReason: z.string(),
@@ -320,3 +333,4 @@ export const leadDashboardSchema = z.object({
     .array(),
 });
 export type LeadDashboard = z.infer<typeof leadDashboardSchema>;
+

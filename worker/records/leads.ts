@@ -30,10 +30,11 @@ import {
   type LeadManualInput,
   type leadConvertSchema,
   type leadStatusChangeSchema,
+  type LeadBeo,
 } from "../../shared/leads";
 import { listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { clientContacts, events, leadDuplicates, leads, proposals, users } from "../db/schema";
+import { approvalRequests, beos, clientContacts, events, leadDuplicates, leads, proposals, users } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, clientScope, leadScope, mayCloseLead, type Scope } from "../policy";
@@ -363,6 +364,7 @@ export async function listLeads(
   const latestProposal = new Map<string, { id: string; eventId: string; title: string }>();
   for (const proposal of proposalRows) if (proposal.leadId && !latestProposal.has(proposal.leadId))
     latestProposal.set(proposal.leadId, proposal);
+  const latestBeo = await latestBeosForLeads(db, ids);
   const duplicateRows = ids.length ? await db.select({ leadId: leadDuplicates.leadId,
     matchedLeadId: leadDuplicates.matchedLeadId }).from(leadDuplicates)
     .where(and(eq(leadDuplicates.status, "open"),
@@ -371,6 +373,7 @@ export async function listLeads(
   return paging.page(rows, (kept) => kept.map((row) => ({ ...toLead(row, actor),
     latestEvent: latest.get(row.id) ?? null,
     latestProposal: latestProposal.get(row.id) ?? null,
+    latestBeo: latestBeo.get(row.id) ?? null,
     possibleDuplicate: duplicateIds.has(row.id) })));
 }
 
@@ -577,6 +580,52 @@ export async function listLeadEvents(db: Db, actor: Actor, id: string) {
     .where(and(eq(events.leadId, id), isNull(events.archivedAt)))
     .orderBy(desc(events.createdAt), desc(events.id));
   return Promise.all(rows.map((row) => getEvent(db, actor, row.id)));
+}
+
+// FLOW-264: the BEO of each of the lead's events, newest first (the lead page's
+// "BEO: v3 (Approved)" links). The lead must be visible.
+export async function listLeadBeos(db: Db, actor: Actor, id: string): Promise<LeadBeo[]> {
+  await findVisibleLead(db, actor, id);
+  const rows = await beoRowsForLeads(db, [id]);
+  return withVersions(db, rows);
+}
+
+type BeoRow = { id: string; eventId: string; leadId: string | null; status: LeadBeo["status"] };
+async function beoRowsForLeads(db: DbLike, leadIds: string[]): Promise<BeoRow[]> {
+  if (!leadIds.length) return [];
+  return db
+    .select({ id: beos.id, eventId: beos.eventId, leadId: events.leadId, status: beos.status })
+    .from(beos)
+    .innerJoin(events, eq(events.id, beos.eventId))
+    .where(and(inArray(events.leadId, leadIds), isNull(beos.archivedAt), isNull(events.archivedAt)))
+    .orderBy(desc(beos.updatedAt), desc(beos.id));
+}
+async function withVersions(db: DbLike, rows: BeoRow[]): Promise<LeadBeo[]> {
+  if (!rows.length) return [];
+  const approved = await db
+    .select({ subjectId: approvalRequests.subjectId, count: sql<number>`count(*)::int` })
+    .from(approvalRequests)
+    .where(
+      and(
+        eq(approvalRequests.subjectType, "beo"),
+        eq(approvalRequests.status, "approved"),
+        inArray(approvalRequests.subjectId, rows.map((row) => row.id)),
+      ),
+    )
+    .groupBy(approvalRequests.subjectId);
+  const counts = new Map(approved.map((row) => [row.subjectId, Number(row.count)]));
+  return rows.map((row) => {
+    const times = counts.get(row.id) ?? 0;
+    return { id: row.id, eventId: row.eventId, status: row.status, version: Math.max(1, row.status === "approved" ? times : times + 1) };
+  });
+}
+async function latestBeosForLeads(db: DbLike, leadIds: string[]): Promise<Map<string, LeadBeo>> {
+  const rows = await beoRowsForLeads(db, leadIds);
+  const latest = new Map<string, BeoRow>();
+  for (const row of rows) if (row.leadId && !latest.has(row.leadId)) latest.set(row.leadId, row);
+  const versioned = await withVersions(db, [...latest.values()]);
+  const byId = new Map(versioned.map((beo) => [beo.id, beo]));
+  return new Map([...latest].map(([leadId, row]) => [leadId, byId.get(row.id)!]));
 }
 
 // Status moves: new -> contacted -> qualified, or lost (with a reason) from any open
