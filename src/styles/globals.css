@@ -2475,3 +2475,16 @@ input.round-check:disabled {
   border-radius: var(--radius);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
 }
+/* Table selection, bulk bar and Undo toast (FLOW-260). */
+.table-card:focus { outline: none; }
+.table-card:focus-visible { outline: 3px solid #80ac92; outline-offset: 2px; }
+.table-card.is-selecting, .table-card.is-selecting * { user-select: none; }
+tbody tr.is-selected td { background: #e3efe7; }
+tbody tr.is-selected:hover td { background: #d7e9dd; }
+.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 10px; padding: 8px 12px; border-radius: 12px; background: var(--sidebar); color: white; font-size: 12px; }
+.bulk-bar > strong { margin-right: 6px; font-weight: 600; }
+.bulk-bar .button.ghost, .bulk-bar button[class*="ghost"] { color: white; }
+.bulk-bar__error { flex-basis: 100%; margin: 0; color: #fecaca; }
+.undo-toast { display: flex; align-items: center; gap: 14px; }
+.undo-toast__undo { display: inline-flex; align-items: center; gap: 5px; color: #b8e0c6; font-weight: 600; }
+.undo-toast__close { display: inline-flex; color: #c9d4cd; }
