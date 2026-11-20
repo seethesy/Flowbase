@@ -88,7 +88,7 @@ test("logging a call with a follow-up shows it in the lead's log and creates a t
 }) => {
   await seedLeads([maya()]);
   await page.goto("/#/leads");
-  await row(page, "Maya Ortiz").click();
+  await leadRow(page, "Maya Ortiz").click();
   await expect(
     page.getByRole("heading", { name: "Maya Ortiz", level: 1 }),
   ).toBeVisible();

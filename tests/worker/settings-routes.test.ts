@@ -171,7 +171,6 @@ const member: StaffMember = {
   email: "sam@gmail.com",
   mobile: "2025550123",
   role: "staff",
-  employmentType: "part_time",
   status: "active",
   active: true,
   positions: ["Server"],

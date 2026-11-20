@@ -25,7 +25,7 @@ for (const [role, labels] of Object.entries(expected) as [Role, string[]][]) {
 }
 
 test("manager can filter and export operational reports", async ({ page }) => {
-  const user = seedUsers.find((candidate) => candidate.role === "sales_manager" && candidate.role !== "part_time_staff")!;
+  const user = seedUsers.find((candidate) => candidate.role === "sales_manager")!;
   await mockBrowserAuth(page, { userId: user.id });
   await page.goto("/#/reports/operations");
   await expect(page.getByRole("heading", { name: "Operational reports" })).toBeVisible();

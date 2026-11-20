@@ -2,7 +2,7 @@ import { test, expect, mockBrowserAuth, type Page } from "./auth-fixture";
 import { seedUsers } from "../../worker/db/seed";
 
 // Admin live text editing (FLOW-240), against the real Worker and database.
-const salesperson = seedUsers.find((user) => user.role === "salesperson" && user.role !== "part_time_staff")!;
+const salesperson = seedUsers.find((user) => user.role === "salesperson")!;
 const sidebar = (page: Page) => page.getByRole("navigation", { name: "Main" });
 // Phones show the sidebar as a drawer: open it to reach the labels, close it
 // (its scrim covers the page) to reach the page and the header Save.

@@ -14,7 +14,7 @@ for (const role of ["admin", "salesperson"] as const) {
   }) => {
     test.setTimeout(90_000);
     const user = seedUsers.find(
-      (u) => u.role === role && u.role !== "part_time_staff",
+      (u) => u.role === role,
     )!;
     await seedDatabase(process.env.DATABASE_URL);
     await mockBrowserAuth(page, { userId: user.id });

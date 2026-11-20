@@ -23,6 +23,7 @@ const user = {
   id,
   name: "invited@gmail.com",
   email: "invited@gmail.com",
+  secondaryEmail: null,
   role: "part_time_staff",
   mobile: "2025550101",
   status: "pending",

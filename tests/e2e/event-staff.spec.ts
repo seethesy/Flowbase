@@ -8,7 +8,7 @@ import { seedUsers } from "../../worker/db/seed";
 
 // seedUsers: each role full-time then part-time.
 const lead = seedUsers.find(
-  (u) => u.role === "kitchen_lead" && u.role !== "part_time_staff",
+  (u) => u.role === "kitchen_lead",
 )!;
 const server = seedUsers.find(
   (u) => u.role === "part_time_staff",

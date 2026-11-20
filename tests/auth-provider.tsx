@@ -18,6 +18,7 @@ export function TestAuth({
           id: "38000000-0000-4000-8000-000000000001",
           name: "Test User",
           email: "test@example.com",
+          secondaryEmail: null,
           role: employmentType === "part_time" ? "part_time_staff" : role,
           mobile: "2025550101",
           status: "active",

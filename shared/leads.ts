@@ -43,7 +43,7 @@ export const isOpenLeadStatus = (status: LeadStatus) =>
 export const leadStatusTransitions: Record<LeadStatus, readonly LeadStatus[]> = Object.fromEntries(
   pipelineStatuses.map((from) => [from, from === "closed" || from === "lost" ? [] :
     pipelineStatuses.filter((to) => to !== from && (to !== "closed" || from === "closing"))]),
-) as Record<LeadStatus, readonly LeadStatus[]>;
+) as unknown as Record<LeadStatus, readonly LeadStatus[]>;
 
 export const lostReasonRequired = "A reason is required when marking a lead lost.";
 

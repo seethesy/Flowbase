@@ -11,10 +11,10 @@ import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared
 
 const admin = seedUsers[0];
 const kitchenLead = seedUsers.find(
-  (u) => u.role === "kitchen_lead" && u.role !== "part_time_staff",
+  (u) => u.role === "kitchen_lead",
 )!;
 const fullTimeStaff = seedUsers.find(
-  (u) => u.role === "staff" && u.role !== "part_time_staff",
+  (u) => u.role === "staff",
 )!;
 const partTimeStaff = seedUsers.find(
   (u) => u.role === "part_time_staff",

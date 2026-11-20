@@ -477,7 +477,7 @@ function EventFormFields({
           {/* Any status on create; afterwards it changes on the event page. */}
           {!event && (
             <FormField label={<T id="events.event-form-fields.status">Status</T>}>
-              <StatusSelect value={draft.status} includeEventStages onChange={(value) => set("status", eventStatusSchema.parse(value))} />
+              <StatusSelect value={draft.status ?? "inquiry"} includeEventStages onChange={(value) => set("status", eventStatusSchema.parse(value))} />
             </FormField>
           )}
           <FormField label={<T id="events.event-form-fields.venue">Venue</T>}>

@@ -624,14 +624,14 @@ export async function completeProposalUpload(
 
 registerApprovalSubject("proposal_version", {
   approverRole: "admin",
-  onApproved: async (tx, actor, request) => {
+  onApproved: async (tx, _actor, request) => {
     const [version] = await tx.select().from(proposalVersions).where(eq(proposalVersions.id, request.subjectId));
     if (!version) throw notFound("Proposal version");
     const proposal = await lockProposal(tx, version.proposalId);
     if (proposal.currentVersionId !== version.id)
       throw new ApiError(409, "VERSION_CHANGED", "This proposal version is no longer awaiting approval.");
   },
-  onRejected: async (tx, actor, request, comment) => {
+  onRejected: async (tx, _actor, request, comment) => {
     const [version] = await tx.select().from(proposalVersions).where(eq(proposalVersions.id, request.subjectId));
     if (!version) throw notFound("Proposal version");
     const proposal = await lockProposal(tx, version.proposalId);

@@ -439,8 +439,8 @@ export async function sendNotificationEmail(
     .where(eq(notifications.id, notificationId));
   if (!row || row.notification.emailedAt || row.notification.archivedAt) return;
   if (row.status !== "active" || row.archivedAt) return;
-  const off = await emailOff(db, [row.notification.userId], row.notification.type);
-  if (off.size && payloadOf(job).force !== true) {
+  const on = await emailOn(db, [row.notification.userId], row.notification.type);
+  if (!on.size && payloadOf(job).force !== true) {
     log("notification_email_skipped", { notificationId, reason: "turned_off" });
     return;
   }
