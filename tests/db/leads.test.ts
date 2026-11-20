@@ -145,6 +145,8 @@ beforeEach(async () => {
     });
 });
 afterAll(async () => {
+  // Leave no seeded users behind for later files (any order, FLOW-250).
+  await db.execute(sql`truncate table users cascade`);
   await client.end();
 });
 

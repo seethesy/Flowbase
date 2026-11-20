@@ -135,6 +135,8 @@ beforeEach(async () => {
     });
 });
 afterAll(async () => {
+  // Leave no seeded users behind for later files (any order, FLOW-250).
+  await db.execute(sql`truncate table users cascade`);
   // beforeEach clears inventory_sections; give later files the seeded defaults back.
   await restoreDefaultSections(client);
   await client.end();
