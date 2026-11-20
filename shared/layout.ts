@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fieldDef, fieldRegistry, isSourceKey, sourceKeys, type SourceKey } from "./fields";
+import { styleContrastOk } from "./contrast";
 
 // Saved page layouts (FLOW-253): one LayoutDoc per page, shared by everyone, live
 // on Save through the same live-edit session as wording (FLOW-240). Table column
@@ -12,7 +13,6 @@ export const GRID_COLUMNS = 12;
 export const MAX_BLOCKS = 20;
 export const MAX_CARDS = 12;
 export const MAX_CARD_ROWS = 100;
-export const MIN_CONTRAST = 4.5;
 
 // A page key, e.g. "leads.detail"; a block, table or box id, e.g. "lead-facts".
 export const layoutKeySchema = z
@@ -185,31 +185,9 @@ export const recordPages: Record<string, { source: SourceKey; fieldCards: string
   "inventory.detail": { source: "inventory", fieldCards: ["item-facts"] },
 };
 
-// ---- Contrast ----------------------------------------------------------------
+// ---- Contrast: shared/contrast.ts -------------------------------------------
 
-// The default text and card colors, for a block that sets only one of them.
-export const DEFAULT_TEXT = "#202c27";
-export const DEFAULT_BACKGROUND = "#ffffff";
-
-const channel = (value: number) => {
-  const c = value / 255;
-  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-};
-const luminance = (hex: string) => {
-  const n = Number.parseInt(hex.slice(1), 16);
-  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
-};
-// WCAG contrast ratio, 1 to 21.
-export function contrastRatio(a: string, b: string): number {
-  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (light + 0.05) / (dark + 0.05);
-}
-// Whether a style keeps text readable (4.5:1), checking a single override
-// against the default of the other color.
-export function styleContrastOk(style: BlockStyle | undefined): boolean {
-  if (!style || (!style.text && !style.background)) return true;
-  return contrastRatio(style.text ?? DEFAULT_TEXT, style.background ?? DEFAULT_BACKGROUND) >= MIN_CONTRAST;
-}
+export { contrastRatio, DEFAULT_BACKGROUND, DEFAULT_TEXT, MIN_CONTRAST, styleContrastOk } from "./contrast";
 
 // ---- Server-side validation beyond the schema ----------------------------------
 

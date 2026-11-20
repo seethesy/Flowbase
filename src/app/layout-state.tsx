@@ -1,11 +1,13 @@
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
 import { queryClient } from "./queryClient";
-import type { SourceKey } from "../../shared/fields";
 import { emptyLayout, GRID_COLUMNS, type LayoutBlock, type LayoutDoc, type SavedLayout } from "../../shared/layout";
 import { layoutApi } from "../services/layout";
 import { layoutQueryKey, useLiveEdit } from "./copy";
+import { PageLayoutProvider, usePageLayoutContext, type PageLayout } from "./layout-context";
+
+export { PageLayoutProvider, usePageLayoutContext, type PageLayout };
 
 // A page's layout (FLOW-253): the saved document, the session's unsaved one, and
 // how page parts (blocks, tables, field cards) change it.
@@ -15,27 +17,6 @@ const LAYOUT_STALE_MS = 30 * 60_000;
 // A built-in block as the page's code declares it: its id, a name for the edit
 // chrome, and its default size in grid units.
 export type BuiltinBlock = { id: string; name: string; w: number; h: number };
-
-export type PageLayout = {
-  pageKey: string;
-  // The record a record page shows ("This record" cards, field cards).
-  record: { source: SourceKey; id: string; row?: Record<string, unknown> } | null;
-  saved: LayoutDoc | null;
-  // Pending in this session, else saved; null with neither (the code default).
-  doc: LayoutDoc | null;
-  editing: boolean;
-  // Applies a change to the current document (the code default when none),
-  // staging it for the session's Save.
-  update: (change: (doc: LayoutDoc) => LayoutDoc) => void;
-  // Back to the code default on Save, colors included.
-  reset: () => void;
-  dirty: boolean;
-};
-
-const PageLayoutContext = createContext<PageLayout | null>(null);
-export const PageLayoutProvider = PageLayoutContext.Provider;
-// The surrounding page's layout; null outside a PageGrid.
-export const usePageLayoutContext = () => useContext(PageLayoutContext);
 
 // The code default's blocks: built-in blocks stacked full width in code order.
 export function defaultBlocks(builtins: BuiltinBlock[]): LayoutBlock[] {

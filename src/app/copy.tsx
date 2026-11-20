@@ -18,8 +18,8 @@ import {
   type CopyOverrides,
 } from "../../shared/copy";
 import { request } from "../services/core";
-import { layoutApi } from "../services/layout";
-import { styleContrastOk, type LayoutDoc } from "../../shared/layout";
+import type { LayoutDoc } from "../../shared/layout";
+import { styleContrastOk } from "../../shared/contrast";
 
 // Admin live text editing (FLOW-240). Every built-in string on a screen is a
 // <T id="area.screen.element">Default text</T> (or useCopy for an input
@@ -175,11 +175,15 @@ export function CopyProvider({
     if (edits.length) client.setQueryData(COPY_QUERY_KEY, await copyApi.save(edits));
     for (const [key, edit] of entries) if (edit.text === null) await copyApi.reset(key);
     if (entries.length) await client.invalidateQueries({ queryKey: COPY_QUERY_KEY });
-    for (const [pageKey, layout] of layouts) {
-      if (layout) client.setQueryData(layoutQueryKey(pageKey), await layoutApi.save(pageKey, layout));
-      else {
-        await layoutApi.reset(pageKey);
-        client.setQueryData(layoutQueryKey(pageKey), null);
+    // The layout API loads with the layout schemas, only when there is a layout to save.
+    if (layouts.length) {
+      const { layoutApi } = await import("../services/layout");
+      for (const [pageKey, layout] of layouts) {
+        if (layout) client.setQueryData(layoutQueryKey(pageKey), await layoutApi.save(pageKey, layout));
+        else {
+          await layoutApi.reset(pageKey);
+          client.setQueryData(layoutQueryKey(pageKey), null);
+        }
       }
     }
     setPending({});

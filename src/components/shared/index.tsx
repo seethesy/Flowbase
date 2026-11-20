@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, type ReactNode } from "react";
+import { lazy, Suspense, useState, useRef, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Search,
@@ -36,10 +36,7 @@ import {
 import { LabelT, Plural, T, useCopy } from "../../app/copy";
 import { roleLabel } from "../../services/users";
 import { copySlug } from "../../../shared/copy";
-import { fieldDef } from "../../../shared/fields";
-import { layoutTables } from "../../../shared/layout";
-import { useTableLayout } from "../../app/table-layout";
-import { FieldValue, fieldText } from "../layout-fields";
+import { usePageLayoutContext } from "../../app/layout-context";
 export { Button };
 
 // List export (FLOW-48). A column's CSV value is its accessor's value unless meta.csv
@@ -232,54 +229,11 @@ function headerText(header: unknown, copyKey: string): ReactNode | null {
   if (typeof header !== "string" || !/[A-Za-z]/.test(header)) return null;
   return <T id={`${copyKey}.column.${copySlug(header)}`}>{header}</T>;
 }
-const columnKey = <Row,>(column: ColumnDef<Row, unknown>) =>
-  column.id ?? (column as { accessorKey?: string }).accessorKey ?? "";
+// Saved columns and the Columns editor (FLOW-254) load only on a page that has
+// a saved column set for this table or is in edit mode.
+const LayoutColumns = lazy(() => import("../layout-table"));
 
-// A layout-aware table's columns (FLOW-254): the code's columns as they are
-// until a column set is saved for the table; then the saved set in its order,
-// the code's own cell for a column it has and a registry cell for one it
-// doesn't, sorting only where the field is sortable.
-function useLayoutColumns<Row>(copyKey: string, columns: ColumnDef<Row, unknown>[]) {
-  const target = layoutTables[copyKey];
-  const codeColumns = columns.map((column) => ({
-    key: columnKey(column),
-    header: typeof column.header === "string" ? column.header : columnKey(column),
-  }));
-  const layout = useTableLayout(copyKey, codeColumns);
-  const configKey = JSON.stringify(layout.custom ? layout.columns : null);
-  const shown = useMemo(() => {
-    if (!target || !layout.custom) return columns;
-    return layout.columns.flatMap((config): ColumnDef<Row, unknown>[] => {
-      const def = fieldDef(target.source, config.key);
-      const existing = columns.find((column) => columnKey(column) === config.key);
-      const meta = { ...existing?.meta, width: config.width };
-      if (existing) return [{ ...existing, meta, ...(def ? { enableSorting: Boolean(def.sortable) } : {}) }];
-      if (!def) return [];
-      return [
-        {
-          id: def.key,
-          header: def.label,
-          accessorFn: (row) => fieldText(target.source, def.key, row as Record<string, unknown>),
-          cell: ({ row }) => <FieldValue source={target.source} field={def.key} row={row.original as Record<string, unknown>} />,
-          enableSorting: Boolean(def.sortable),
-          meta,
-        },
-      ];
-    });
-    // configKey stands for layout.columns.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns, configKey, target]);
-  return { columns: shown, editor: layout.editor };
-}
-export function DataTable<Row>({
-  data,
-  columns,
-  onRow,
-  label = <T id="shared.data-table.records">records</T>,
-  exportName,
-  exportAll,
-  copyKey = "shared.data-table",
-}: {
+type DataTableProps<Row> = {
   data: Row[];
   columns: ColumnDef<Row, unknown>[];
   onRow?: (record: Row) => void;
@@ -291,16 +245,39 @@ export function DataTable<Row>({
   // A paged list's every matching row (usePagedList's loadAll, FLOW-216); the
   // export fetches them instead of writing only the rows loaded so far.
   exportAll?: (onProgress: (rows: number) => void) => Promise<Row[]>;
-}) {
+};
+export function DataTable<Row>(props: DataTableProps<Row>) {
+  const layout = usePageLayoutContext();
+  const copyKey = props.copyKey ?? "shared.data-table";
+  if (!layout || !(layout.editing || layout.doc?.tables[copyKey])) return <DataTableView {...props} />;
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <LayoutColumns copyKey={copyKey} columns={props.columns as unknown as ColumnDef<unknown, unknown>[]}>
+        {(columns, editor) => (
+          <DataTableView {...props} columns={columns as unknown as ColumnDef<Row, unknown>[]} editor={editor} />
+        )}
+      </LayoutColumns>
+    </Suspense>
+  );
+}
+function DataTableView<Row>({
+  data,
+  columns,
+  onRow,
+  label = <T id="shared.data-table.records">records</T>,
+  exportName,
+  exportAll,
+  copyKey = "shared.data-table",
+  editor = null,
+}: DataTableProps<Row> & { editor?: ReactNode }) {
   const { actor } = usePermissions();
-  const shownColumns = useLayoutColumns(copyKey, columns);
   const [sorting, setSorting] = useState<SortingState>([]);
   // Rows fetched so far while an export runs; null when none is running.
   const [exporting, setExporting] = useState<number | null>(null);
   const [exportError, setExportError] = useState("");
   const table = useReactTable({
     data,
-    columns: shownColumns.columns,
+    columns,
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -326,9 +303,9 @@ export function DataTable<Row>({
   };
   return (
     <div className="table-card">
-      {(exportName || shownColumns.editor) && (
+      {(exportName || editor) && (
         <div className="table-toolbar">
-          {shownColumns.editor}
+          {editor}
           {exportError && (
             <p role="alert" className="error-message">
               {exportError}
