@@ -138,7 +138,7 @@ describe("live edit mode", () => {
     ]);
     // Saved: edit mode ends and the new wording stays.
     await waitFor(() => expect(screen.getByRole("button", { name: "Edit screen text" })).toBeInTheDocument());
-    expect(screen.getByRole("heading", { name: "Lead inbox" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Lead inbox" })).toBeInTheDocument();
   });
 
   it("blocks Save while a placeholder is missing (AC5)", () => {

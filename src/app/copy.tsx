@@ -120,7 +120,8 @@ export function CopyProvider({ canEdit, children }: { canEdit: boolean; children
     const edits = entries.flatMap(([key, edit]) =>
       edit.text === null ? [] : [{ key, text: edit.text, placeholders: edit.placeholders }],
     );
-    if (edits.length) await copyApi.save(edits);
+    // The PUT answers with every override: show them at once, then refetch.
+    if (edits.length) client.setQueryData(COPY_QUERY_KEY, await copyApi.save(edits));
     for (const [key, edit] of entries) if (edit.text === null) await copyApi.reset(key);
     await client.invalidateQueries({ queryKey: COPY_QUERY_KEY });
     setPending({});
