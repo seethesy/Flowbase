@@ -35,7 +35,7 @@ const directory: [keyof typeof people, Role, EmploymentType][] = [
 ];
 const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
-  const actor = { userId: people[who], role, employmentType };
+  const actor = { userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(

@@ -43,7 +43,7 @@ const as = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = async (method: string, path: string, body?: unknown) =>
     app.request(
@@ -467,7 +467,7 @@ describe("FLOW-199: lead transitions hold under concurrent reassignment and conv
   it("a conversion that commits first can't be followed by a bulk assignment as if the lead were open (AC2)", async () => {
     const id = await qualifiedLead();
     const converted = await holding(
-      (tx) => tx`update leads set status = 'converted' where id = ${id}`,
+      (tx) => tx`update leads set status = 'closed' where id = ${id}`,
     );
     const assign = admin.call("POST", "/api/leads/assign", {
       leadIds: [id],

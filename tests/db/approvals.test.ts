@@ -46,7 +46,7 @@ const directory: [keyof typeof people, Role, EmploymentType][] = [
 ];
 const actorOf = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
-  return { userId: people[who], role, employmentType };
+  return { userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
 };
 const signedInAs = (who: keyof typeof people) => {
   const app = createApp({ withDb, resolveActor: async () => actorOf(who) });
@@ -412,7 +412,7 @@ describe("FLOW-73 Master inventory approvals", () => {
 
   it("refuses a part-time proposal", async () => {
     const item = await createRental();
-    const app = createApp({ withDb, resolveActor: async () => ({ ...actorOf("sam"), employmentType: "part_time" }) });
+    const app = createApp({ withDb, resolveActor: async () => ({ ...actorOf("sam"), role: "part_time_staff", employmentType: "part_time" }) });
     const response = await app.request("/api/inventory/items/changes", { method: "POST",
       body: JSON.stringify({ changes: [{ type: "field", itemId: item.id,
         field: "priceCents", value: 1000 }] }) }, env);

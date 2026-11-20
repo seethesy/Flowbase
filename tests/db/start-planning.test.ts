@@ -34,7 +34,7 @@ const people = {
   kitchen: "c0000000-0000-4000-8000-000000000006",
 };
 const as = (userId: string, role: Role, employmentType: Actor["employmentType"] = "full_time") => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(

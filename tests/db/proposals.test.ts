@@ -55,7 +55,7 @@ const signedInAs = (
   role: Role,
   employmentType: EmploymentType = "full_time",
 ) => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -237,7 +237,8 @@ describe("proposal record and stages (FLOW-122)", () => {
       "GET",
       `/api/events/${event.id}/status-history`,
     );
-    expect(history).toEqual([]);
+    // Only the creation entry: losing proposals never moved the event.
+    expect(history).toEqual([expect.objectContaining({ from: null, to: "inquiry" })]);
     expect(await jobTypes()).not.toContain("event:event.lost");
   });
 
@@ -372,7 +373,6 @@ describe("proposal approval, revision, booking and addendum (FLOW-127–130)", (
     const booked = await sam.send<FlowEvent>("GET", `/api/events/${event.id}`);
     expect(booked.status).toBe("closed");
     expect(booked.bookedAt).toBe(contract.signedAt);
-    await admin.send("POST", `/api/events/${event.id}/status`, { status: "closed" }, 200);
     const second = await upload(proposal, { docx: docx("Revised.docx") });
     expect(second.stage).toBe("closed");
     expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).planningStaleAt).not.toBeNull();

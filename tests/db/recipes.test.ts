@@ -54,7 +54,7 @@ const signedInAs = (
 ) => {
   const actor: Actor = {
     userId: "c1000000-0000-4000-8000-000000000001",
-    role,
+    role: employmentType === "part_time" ? "part_time_staff" : role,
     employmentType,
   };
   const app = createApp({ withDb, resolveActor: async () => actor });
@@ -316,7 +316,7 @@ it("projects only the first ready recipe photo with a signed URL", async () => {
     { recordType: "recipe", recordId: dish.id, status: "pending", fileName: "pending.jpg", sortOrder: 0, variants: [{ name: "display", key: "pending.jpg", contentType: "image/jpeg", size: 100 }] },
     { recordType: "recipe", recordId: dish.id, status: "ready", fileName: "internal-filename.jpg", caption: "Internal caption", sortOrder: 1, variants: [{ name: "display", key: "recipe/photo.jpg", contentType: "image/jpeg", size: 100 }] },
   ]);
-  const projected = await listClientRecipes(db, { userId: "c1000000-0000-4000-8000-000000000001", role: "salesperson", employmentType: "part_time" }, { R2_ACCOUNT_ID: "test", R2_BUCKET: "files", R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test" }, {});
+  const projected = await listClientRecipes(db, { userId: "c1000000-0000-4000-8000-000000000001", role: "part_time_staff", employmentType: "part_time" }, { R2_ACCOUNT_ID: "test", R2_BUCKET: "files", R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test" }, {});
   expect(projected[0].photo).toContain("/files/recipe/photo.jpg?");
   expect(projected[0].photo).toContain("X-Amz-Expires=300");
   expect(JSON.stringify(projected)).not.toMatch(/internal-filename|Internal caption|pending.jpg/);

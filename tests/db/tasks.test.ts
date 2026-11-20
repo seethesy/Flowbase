@@ -44,7 +44,7 @@ const directory: [keyof typeof people, Role, EmploymentType][] = [
 ];
 const actorOf = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
-  return { userId: people[who], role, employmentType };
+  return { userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
 };
 const signedInAs = (who: keyof typeof people) => {
   const app = createApp({ withDb, resolveActor: async () => actorOf(who) });

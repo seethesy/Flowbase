@@ -36,6 +36,9 @@ beforeEach(async () => {
   await db.insert(s.tasks).values({ id: taskId, eventId, type: "production", title: "Build arch",
     status: "todo", dueAt: businessTimeToUtc("2026-11-10", "09:00") });
   await db.insert(s.taskAssignees).values({ taskId, userId: lead });
+  // SMS is opt-in per type (FLOW-249).
+  await db.insert(s.notificationPreferences).values([lead, manager].map((userId) =>
+    ({ userId, type: "production_urgent" as const, email: false, sms: true })));
 });
 afterAll(async () => { await db.execute(clear); await client.end(); });
 

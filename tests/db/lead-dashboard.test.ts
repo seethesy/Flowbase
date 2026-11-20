@@ -167,9 +167,9 @@ describe("lead dashboard (FLOW-113)", () => {
       },
     ]);
     expect(Object.fromEntries(dashboard.byStatus.map((row) => [row.status, row.leads]))).toEqual({
-      new: 1,
-      contacted: 1,
-      converted: 2,
+      inquiry: 1,
+      pitching: 1,
+      closing: 2,
       lost: 1,
     });
     expect(dashboard.byChannel.map((row) => [row.channel, row.leads])).toEqual([

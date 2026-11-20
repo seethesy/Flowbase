@@ -266,7 +266,14 @@ describe("merge (FLOW-110)", () => {
   it("keeps a converted lead and refuses to merge it away", async () => {
     const converted = await seed(intake());
     const fresh = await seed(thumbtack());
-    await db.update(leads).set({ status: "closing" }).where(eq(leads.id, converted));
+    const [client] = await db
+      .insert(schema.clients)
+      .values({ name: "Converted client", kind: "person" })
+      .returning({ id: schema.clients.id });
+    await db
+      .update(leads)
+      .set({ status: "closed", convertedClientId: client.id })
+      .where(eq(leads.id, converted));
     const [duplicate] = await admin.get<LeadDuplicate[]>("/api/leads/duplicates");
     const refused = await admin.call("POST", `/api/leads/duplicates/${duplicate.id}/merge`, {
       keepLeadId: fresh,

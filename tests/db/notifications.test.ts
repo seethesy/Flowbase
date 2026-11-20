@@ -57,7 +57,7 @@ const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -564,6 +564,8 @@ describe("SMS stub routing", () => {
       value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 10 } });
     await db.update(schema.users).set({ smsConsentAt: new Date() })
       .where(eq(schema.users.id, people.casey));
+    // SMS is opt-in per type (FLOW-249).
+    await casey.send("PUT", "/api/notifications/preferences", { sms: { task_assigned: true } });
     await send("urgent-1", "task_assigned", people.casey);
     await send("ordinary-1", "collector_failure", people.casey);
     await send("urgent-no-consent", "task_assigned", people.drew);
@@ -576,6 +578,7 @@ describe("SMS stub routing", () => {
       value: { urgentNotificationTypes: ["staff_assigned"], monthlySmsCap: 10 } });
     await db.update(schema.users).set({ smsConsentAt: new Date() })
       .where(eq(schema.users.id, people.casey));
+    await casey.send("PUT", "/api/notifications/preferences", { sms: { staff_assigned: true } });
     for (const [key, smsEligible] of [["future", false], ["event-day", true]] as const) {
       const [job] = await db.insert(schema.jobs).values({ type: "event:event.staff_assigned",
         payload: {}, idempotencyKey: `assignment-${key}` }).returning();
@@ -589,7 +592,10 @@ describe("SMS stub routing", () => {
       value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 1 } });
     await db.update(schema.users).set({ smsConsentAt: new Date() })
       .where(eq(schema.users.id, people.casey));
-    await casey.send("PUT", "/api/notifications/preferences", { email: { task_assigned: false } });
+    await casey.send("PUT", "/api/notifications/preferences", {
+      email: { task_assigned: false },
+      sms: { task_assigned: true },
+    });
     await send("first-urgent", "task_assigned", people.casey);
     await send("second-urgent", "task_assigned", people.casey);
     await send("third-urgent", "task_assigned", people.casey);
