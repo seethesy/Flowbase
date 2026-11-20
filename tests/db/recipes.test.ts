@@ -227,9 +227,9 @@ describe("recipe costing (FLOW-94)", () => {
     expect(seen.cost).toBeNull();
     expect(seen.costHidden).toBe(true);
     expect(seen.lines.every((line) => line.cost === null && line.enteredCostCents === null)).toBe(true);
-    // FLOW-96: recipe costs are FT+ only, including kitchen roles.
-    expect((await getRecipe(recipe.id, kitchenLead)).cost).toBeNull();
-    expect((await getRecipe(recipe.id, cook)).cost).toBeNull();
+    // FLOW-96: recipe costs are FT+ only; every role but Part-time Staff (FLOW-249).
+    expect((await getRecipe(recipe.id, kitchenLead)).cost?.batchCents).toBe(5415);
+    expect((await getRecipe(recipe.id, cook)).cost?.batchCents).toBe(5415);
     expect((await getRecipe(recipe.id, cook)).steps).toEqual(recipe.steps);
     expect((await getRecipe(recipe.id, fullTimeStaff)).cost?.batchCents).toBe(5415);
     const [created] = await partTimeStaff.send<HistoryEntry[]>("GET", `/api/recipes/${recipe.id}/history`);

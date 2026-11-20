@@ -317,7 +317,7 @@ describe("payment schedule and log (FLOW-131)", () => {
       receivedOn: "2026-11-01",
     });
     expect([403, 404]).toContain(write.status);
-    expect((await paymentsOf(event)).payments).toEqual([]);
+    expect((await paymentsOf(event, admin)).payments).toEqual([]);
   });
 
   it("shows payments to Admin and to the event's FT salesperson, not to other salespeople", async () => {
