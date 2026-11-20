@@ -81,6 +81,7 @@ Start only when the developer prompts you with a ticket key (or several keys, se
 - Follow the existing patterns in the files you touch (README → Architecture).
 - Make routine technical decisions yourself. Ask only about product decisions (behavior, scope, security, cost, architecture).
 - Add a dependency only when the ticket requires it, with `npm install <pkg>` (the only npm command you may run), and justify it in the PR.
+- Screen wording is editable live by the Admin (FLOW-240): wrap new or changed screen text in `<T id="area.screen.element">`, `<Plural>` or `useCopy` (placeholders), never a bare string. `npm run lint` fails on unwrapped text (FLOW-244). Key convention and exceptions: `docs/live-text-editing.md`.
 - Write or update tests for every delivered AC and for edge cases and regressions the change risks: Vitest in `tests/`, Playwright in `tests/e2e/`. Write them; do not run them.
 - Commit message: `FLOW-123: <imperative summary>`. Stage only files you changed for this ticket.
 

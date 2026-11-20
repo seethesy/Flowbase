@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import ts from "typescript-eslint";
 import hooks from "eslint-plugin-react-hooks";
 import globals from "globals";
+import liveCopy from "./scripts/eslint-live-copy.mjs";
 export default ts.config(
   {
     ignores: [
@@ -36,5 +37,19 @@ export default ts.config(
         },
       ],
     },
+  },
+  {
+    // Screen wording is editable live (FLOW-240): wrap it in <T>, or useCopy for a
+    // placeholder (FLOW-244, docs/live-text-editing.md). Print documents are out
+    // of scope.
+    files: ["src/features/**/*.tsx", "src/components/**/*.tsx"],
+    ignores: [
+      "src/components/print/**",
+      "src/features/print-sample.tsx",
+      "src/features/beo-print.tsx",
+      "src/features/offline-beos.tsx",
+    ],
+    plugins: { "live-copy": liveCopy },
+    rules: { "live-copy/no-literal-text": "error" },
   },
 );
