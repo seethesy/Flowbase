@@ -44,6 +44,8 @@ function UserList() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState("");
   const change = async (user: User, action: UserAction) => {
     setBusy(true);
     setError("");
@@ -125,13 +127,6 @@ function UserList() {
             </select>
           </label>
           <label>
-            <T id="users.user-list.employment-type">Employment type</T>
-            <select name="employmentType">
-              <option value="full_time">Full-time</option>
-              <option value="part_time">Part-time</option>
-            </select>
-          </label>
-          <label>
             <T id="users.user-list.mobile-number">Mobile number</T>
             <input name="mobile" type="tel" required maxLength={40} />
           </label>
@@ -156,7 +151,7 @@ function UserList() {
                 )}
               </strong>
               <p>
-                {user.employmentType === "full_time" ? <T id="users.user-list.full-time" values={{ email: user.email, roleLabel: roleLabel(user.role) }}>{"{email} · {roleLabel} · Full-time"}</T> : <T id="users.user-list.part-time" values={{ email: user.email, roleLabel: roleLabel(user.role) }}>{"{email} · {roleLabel} · Part-time"}</T>}
+                {user.email} · {roleLabel(user.role)}
               </p>
               <p>
                 {user.mobile} · {roleLabel(user.status)}
@@ -173,7 +168,17 @@ function UserList() {
                   {labels[action]}
                 </Button>
               ))}
+              {user.status !== "revoked" && <Button variant="outline" disabled={busy} onClick={() => { setEditingEmail(user.id); setEmailDraft(user.email); }}><T id="users.user-list.change-email">Change primary email</T></Button>}
             </div>
+            {editingEmail === user.id && <form onSubmit={async (event) => {
+              event.preventDefault(); setBusy(true); setError(""); setNotice("");
+              try {
+                await request(userSchema, `/api/admin/users/${user.id}/email`, "PUT", { email: emailDraft });
+                setEditingEmail(null); setNotice("Contact email changed. The user's Google sign-in stays linked, and they were notified."); resource.reload();
+              } catch (cause) { setError((cause as Error).message); }
+              finally { setBusy(false); }
+            }}><label><T id="users.user-list.primary-email">Primary contact email </T><input type="email" required maxLength={254} value={emailDraft} onChange={(event) => setEmailDraft(event.target.value)} /></label>
+              <Button type="submit" disabled={busy}><T id="users.user-list.save-email">Save email</T></Button><Button type="button" variant="outline" onClick={() => setEditingEmail(null)}><T id="users.user-list.cancel-email">Cancel</T></Button></form>}
           </article>
         ))}
         {resource.data?.length === 0 && <p><T id="users.user-list.no-users-yet">No users yet.</T></p>}

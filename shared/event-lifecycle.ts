@@ -1,7 +1,7 @@
 import { eventStatusSchema, type EventStatus } from "./core-records";
 
 // Event lifecycle (FLOW-56):
-// inquiry → pitching → P creation → initial P sent → negotiation → closing →
+// inquiry → pitching → P Creation → P Sent → negotiation → closing →
 // closed → preparation → finished | lost.
 // The system moves an event along the forward chain automatically (A1); those
 // moves are the only ones it may make. A person may override to any other status

@@ -1,6 +1,5 @@
 import type { EventInput } from "@fullcalendar/core";
 import type { Calendar, CalendarEvent, CalendarLayer } from "../../shared/calendar";
-import { eventStatusLabels } from "../../shared/core-records";
 import { shiftKindLabels } from "../../shared/event-staff";
 import { addLocalDays } from "../../shared/time";
 
@@ -29,13 +28,13 @@ export function toCalendarEntries(
   return [
     ...calendar.events.map((event) => ({
       id: `event:${event.id}`,
-      title: `${event.title} · ${eventStatusLabels[event.status]}`,
+      title: event.title,
       start: event.start,
       end: event.end ?? undefined,
       // A block in the month view too, so the overview line fits under the title.
       display: "block",
       classNames: ["calendar-event", `calendar-status-${event.status}`],
-      extendedProps: { path: `/events/${event.id}`, eventId: event.id, overview: overviewLine(event) },
+      extendedProps: { path: `/events/${event.id}`, eventId: event.id, overview: overviewLine(event), status: event.status },
     })),
     ...calendar.tasks.map((task) => ({
       id: `task:${task.id}`,

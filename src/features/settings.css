@@ -84,14 +84,22 @@
 }
 .list-checkboxes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 6px 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 16px;
 }
 .list-checkboxes label {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 28px;
+  justify-content: flex-start;
 }
+.employee-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.staff-profile-readonly { margin: 18px 0 0; }.staff-profile-readonly dt { color: var(--muted); font-size: 13px; }.staff-profile-readonly dd { margin: 6px 0 0; }
+.staff-positions-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
+.staff-positions-grid label { display: flex; align-items: center; gap: 8px; min-height: 30px; text-align: left; }
+.staff-role { color: var(--muted); margin-top: -4px; }
+@media (max-width: 640px) { .employee-profile-grid, .list-checkboxes { grid-template-columns: 1fr; } }
 .settings-history {
   margin: 0;
   padding-left: 18px;

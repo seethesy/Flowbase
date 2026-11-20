@@ -42,7 +42,7 @@ const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -89,8 +89,7 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@pay.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255591${i}`,
       status: "active" as const,
     })),
@@ -308,17 +307,17 @@ describe("payment schedule and log (FLOW-131)", () => {
       .update(schema.events)
       .set({ assignedSalespersonId: people.pat })
       .where(eq(schema.events.id, event.id));
+    // Part-time Staff (FLOW-249) can't open the event's payments at all.
     const read = await pat.call("GET", `/api/events/${event.id}/payments`);
-    expect(read.status).toBe(403);
+    expect([403, 404]).toContain(read.status);
     expect(await read.text()).not.toContain("150000");
     const write = await pat.call("POST", `/api/events/${event.id}/payments`, {
       method: "cash",
       amountCents: 100,
       receivedOn: "2026-11-01",
     });
-    expect(write.status).toBe(403);
-    const hub = await pat.send<EventHub>("GET", `/api/events/${event.id}/hub`);
-    expect(hub.sections).not.toContain("payments");
+    expect([403, 404]).toContain(write.status);
+    expect((await paymentsOf(event, admin)).payments).toEqual([]);
   });
 
   it("shows payments to Admin and to the event's FT salesperson, not to other salespeople", async () => {

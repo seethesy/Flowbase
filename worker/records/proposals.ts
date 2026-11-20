@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { Actor } from "../../shared/access";
+import { isForward, pipelineStatuses, type PipelineStatus } from "../../shared/pipeline";
 import { DOWNLOAD_URL_SECONDS, UPLOAD_URL_SECONDS } from "../../shared/attachments";
 import {
   manualProposalTargets,
@@ -23,6 +24,7 @@ import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import {
   events,
+  leads,
   approvalRequests,
   proposalMappings,
   proposalVersionMappings,
@@ -62,7 +64,7 @@ async function toProposals(db: DbLike, rows: ProposalRow[]): Promise<Proposal[]>
   const versionIds = rows
     .map((row) => row.currentVersionId)
     .filter((id): id is string => !!id);
-  const [names, current] = await Promise.all([
+  const [names, current, approvals] = await Promise.all([
     userNames(
       db,
       rows.map((row) => row.assignedSalespersonId),
@@ -73,8 +75,14 @@ async function toProposals(db: DbLike, rows: ProposalRow[]): Promise<Proposal[]>
           .from(proposalVersions)
           .where(inArray(proposalVersions.id, versionIds))
       : Promise.resolve([]),
+    versionIds.length ? db.select({ subjectId: approvalRequests.subjectId,
+      status: approvalRequests.status, createdAt: approvalRequests.createdAt })
+      .from(approvalRequests).where(and(eq(approvalRequests.subjectType, "proposal_version"),
+        inArray(approvalRequests.subjectId, versionIds)))
+      .orderBy(desc(approvalRequests.createdAt)) : Promise.resolve([]),
   ]);
   const numberOf = indexBy(current, (row) => row.id);
+  const approvalOf = indexBy(approvals, (row) => row.subjectId);
   return rows.map((row) => ({
     id: row.id,
     eventId: row.eventId,
@@ -92,6 +100,7 @@ async function toProposals(db: DbLike, rows: ProposalRow[]): Promise<Proposal[]>
     currentVersion:
       (row.currentVersionId && numberOf.get(row.currentVersionId)?.number) ||
       null,
+    approvalStatus: row.currentVersionId ? approvalOf.get(row.currentVersionId)?.status ?? null : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }));
@@ -253,7 +262,7 @@ export async function insertProposal(
   actor: Actor,
   input: {
     eventId: string;
-    clientId: string;
+    clientId: string | null;
     title: string;
     assignedSalespersonId: string | null;
     notes: string;
@@ -263,7 +272,7 @@ export async function insertProposal(
     .insert(proposals)
     .values({
       ...input,
-      stage: "client_communication",
+      stage: "p_creation",
       createdBy: actor.userId,
       updatedBy: actor.userId,
     })
@@ -271,7 +280,7 @@ export async function insertProposal(
   await tx.insert(proposalStageHistory).values({
     proposalId: row.id,
     fromStage: null,
-    toStage: "client_communication",
+    toStage: "p_creation",
     createdBy: actor.userId,
     updatedBy: actor.userId,
   });
@@ -399,12 +408,27 @@ async function changeStage(
     entityId: current.id,
     data: { eventId: current.eventId, from: current.stage, to, reason, manual },
   });
+  if (isForward(current.stage, to)) {
+    const [event] = await tx.select({ status: events.status, leadId: events.leadId, clientId: events.clientId }).from(events).where(eq(events.id, current.eventId));
+    if (event && event.status !== "lost" && event.status !== "finished") {
+      const chain = pipelineStatuses.slice(0, -1);
+      const start = chain.indexOf(event.status as PipelineStatus);
+      const end = chain.indexOf(to);
+      if (start >= 0) for (let index = start + 1; index <= end; index++)
+        await advanceEventStatus(tx, current.eventId, chain[index], "Proposal status advanced");
+    }
+    if (event?.leadId) {
+      const [lead] = await tx.select({ status: leads.status }).from(leads).where(eq(leads.id, event.leadId));
+      if (lead && isForward(lead.status, to) && !(to === "closing" && !event.clientId))
+        await tx.update(leads).set({ status: to, updatedBy: actor.userId }).where(eq(leads.id, event.leadId));
+    }
+  }
 }
 
 export async function markProposalSigned(tx: DbLike, actor: Actor, id: string) {
   const proposal = await lockProposal(tx, id);
-  if (proposal.stage !== "sent") throw new ApiError(409, "INVALID_TRANSITION", "The proposal must be sent before signing.");
-  await changeStage(tx, actor, proposal, { to: "signed", reason: "Contract signed", manual: false });
+  if (!proposal.sentAt) throw new ApiError(409, "INVALID_TRANSITION", "The proposal must be sent before signing.");
+  if (isForward(proposal.stage, "closed")) await changeStage(tx, actor, proposal, { to: "closed", reason: "Contract signed", manual: false });
 }
 
 // A person moving a proposal (AC1): only between the manual stages, back to
@@ -420,6 +444,18 @@ export async function changeProposalStage(
   await findVisibleProposal(db, actor, id);
   await db.transaction(async (tx) => {
     const current = await lockProposal(tx, id);
+    if (input.stage === "closing") {
+      const [linked] = await tx.select({ leadId: events.leadId, clientId: events.clientId }).from(events)
+        .where(eq(events.id, current.eventId));
+      if (!linked?.clientId)
+        throw new ApiError(409, "CLOSING_ACTION_REQUIRED", "Confirm Closing and link a client first.");
+      if (linked?.leadId) {
+        const [lead] = await tx.select({ status: leads.status }).from(leads)
+          .where(eq(leads.id, linked.leadId));
+        if (lead && lead.status !== "closing" && lead.status !== "closed")
+          throw new ApiError(409, "CLOSING_ACTION_REQUIRED", "Confirm Closing on the linked lead first.");
+      }
+    }
     if (!manualProposalTargets(current.stage).includes(input.stage))
       throw new ApiError(
         409,
@@ -434,31 +470,6 @@ export async function changeProposalStage(
       reason: input.reason,
       manual: true,
     });
-    if (input.stage !== "lost") return;
-    const [kept] = await tx
-      .select({ id: proposals.id })
-      .from(proposals)
-      .where(
-        and(
-          eq(proposals.eventId, current.eventId),
-          ne(proposals.id, id),
-          isNull(proposals.archivedAt),
-          ne(proposals.stage, "lost"),
-        ),
-      )
-      .limit(1);
-    if (kept) return;
-    const [event] = await tx
-      .select({ status: events.status })
-      .from(events)
-      .where(eq(events.id, current.eventId));
-    if (event.status === "finished" || event.status === "lost") return;
-    await advanceEventStatus(
-      tx,
-      current.eventId,
-      "lost",
-      `Proposal "${current.title}" was lost: ${input.reason}`,
-    );
   });
   return getProposal(db, actor, env, id);
 }
@@ -467,7 +478,7 @@ const uploadRefusal = (stage: ProposalStage) =>
   new ApiError(
     409,
     "INVALID_TRANSITION",
-    stage === "sent"
+    stage === "p_sent"
       ? "This proposal was sent. Move it back to Revisions before uploading a new version."
       : `A ${proposalStageLabels[stage]} proposal takes no new versions.`,
   );
@@ -606,34 +617,26 @@ export async function completeProposalUpload(
       entityId: id,
       data: { versionId, number },
     });
-    if (current.stage !== "finalized")
-      await changeStage(
-        tx,
-        actor,
-        { ...current, currentVersionId: versionId },
-        { to: "finalized", reason: `Version ${number} uploaded`, manual: false },
-      );
+    // Uploading creates a new version; approval stays separate from pipeline status.
   });
   return getProposal(db, actor, env, id);
 }
 
 registerApprovalSubject("proposal_version", {
   approverRole: "admin",
-  onApproved: async (tx, actor, request) => {
+  onApproved: async (tx, _actor, request) => {
     const [version] = await tx.select().from(proposalVersions).where(eq(proposalVersions.id, request.subjectId));
     if (!version) throw notFound("Proposal version");
     const proposal = await lockProposal(tx, version.proposalId);
-    if (proposal.currentVersionId !== version.id || proposal.stage !== "finalized")
+    if (proposal.currentVersionId !== version.id)
       throw new ApiError(409, "VERSION_CHANGED", "This proposal version is no longer awaiting approval.");
-    await changeStage(tx, actor, proposal, { to: "approved", reason: `Version ${version.number} approved`, manual: false });
   },
-  onRejected: async (tx, actor, request, comment) => {
+  onRejected: async (tx, _actor, request, comment) => {
     const [version] = await tx.select().from(proposalVersions).where(eq(proposalVersions.id, request.subjectId));
     if (!version) throw notFound("Proposal version");
     const proposal = await lockProposal(tx, version.proposalId);
-    if (proposal.currentVersionId !== version.id || proposal.stage !== "finalized")
+    if (proposal.currentVersionId !== version.id)
       throw new ApiError(409, "VERSION_CHANGED", "This proposal version is no longer awaiting approval.");
-    await changeStage(tx, actor, proposal, { to: "revisions", reason: `Version ${version.number} rejected`, manual: false });
     if (proposal.assignedSalespersonId && proposal.assignedSalespersonId !== request.requesterId)
       await emitDomainEvent(tx, { name: "approval.decided", entityId: request.id,
         idempotencyKey: `proposal.rejected:${request.id}`, data: {
@@ -647,7 +650,7 @@ export async function submitProposalForApproval(db: Db, actor: Actor, env: Parti
   await findVisibleProposal(db, actor, id);
   await db.transaction(async (tx) => {
     const proposal = await lockProposal(tx, id);
-    if (proposal.stage !== "finalized" || !proposal.currentVersionId)
+    if (proposal.stage === "lost" || !proposal.currentVersionId)
       throw new ApiError(409, "INVALID_TRANSITION", "Upload and review the current version first.");
     const [mapping] = await tx.select({ versionId: proposalMappings.versionId, data: proposalMappings.data })
       .from(proposalMappings).where(eq(proposalMappings.proposalId, id));
@@ -669,7 +672,7 @@ export async function recordProposalSent(db: Db, actor: Actor, env: Partial<Bind
   await findVisibleProposal(db, actor, id);
   await db.transaction(async (tx) => {
     const proposal = await lockProposal(tx, id);
-    if (proposal.stage !== "approved" || !proposal.currentVersionId)
+    if (proposal.stage === "lost" || !proposal.currentVersionId)
       throw new ApiError(409, "INVALID_TRANSITION", "The current version must be approved before it is recorded as sent.");
     const [approved] = await tx.select({ id: approvalRequests.id }).from(approvalRequests)
       .where(and(eq(approvalRequests.subjectType, "proposal_version"), eq(approvalRequests.subjectId, proposal.currentVersionId), eq(approvalRequests.status, "approved")));
@@ -680,12 +683,8 @@ export async function recordProposalSent(db: Db, actor: Actor, env: Partial<Bind
       throw new ApiError(409, "MAPPING_REQUIRED", "Review the current version's mapping first.");
     await tx.update(proposals).set({ sentAt: new Date(input.sentAt), sentMethod: input.method, updatedBy: actor.userId }).where(eq(proposals.id, id));
     await tx.update(proposalVersions).set({ sentAt: new Date(input.sentAt), sentMethod: input.method }).where(eq(proposalVersions.id, proposal.currentVersionId));
-    await changeStage(tx, actor, proposal, { to: "sent", reason: `Sent by ${input.method}`, manual: false });
-    const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, proposal.eventId));
-    const chain = ["inquiry", "pitching", "proposal_creation", "initial_proposal_sent"] as const;
-    const from = chain.indexOf(event.status as typeof chain[number]);
-    if (from >= 0) for (let index = from + 1; index < chain.length; index++)
-      await advanceEventStatus(tx, proposal.eventId, chain[index], "Approved proposal sent");
+    if (isForward(proposal.stage, "p_sent"))
+      await changeStage(tx, actor, proposal, { to: "p_sent", reason: `Sent by ${input.method}`, manual: false });
     const [version] = await tx.select({ number: proposalVersions.number }).from(proposalVersions).where(eq(proposalVersions.id, proposal.currentVersionId));
     const [priorVersion] = version.number && version.number > 1
       ? await tx.select({ id: proposalVersions.id }).from(proposalVersions)

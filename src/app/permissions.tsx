@@ -14,7 +14,6 @@ export function usePermissions() {
     ? {
         userId: auth.user.id,
         role: auth.user.role,
-        employmentType: auth.user.employmentType,
       }
     : null;
   return {

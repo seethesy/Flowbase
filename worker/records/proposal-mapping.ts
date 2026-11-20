@@ -45,7 +45,7 @@ export async function getProposalCatalog(db: Db, actor: Actor, proposalId: strin
 // saves, so an assigned slot keeps its person and a second save adds no duplicate.
 export async function saveProposalMapping(db: Db, actor: Actor, proposalId: string, data: ProposalMapping) {
   const current = await findVisibleProposal(db, actor, proposalId);
-  if (current.stage !== "finalized")
+  if (current.stage === "lost")
     throw new ApiError(409, "INVALID_TRANSITION", "Only a finalized proposal can be reviewed for approval.");
   if (current.currentVersionId !== data.versionId)
     throw new ApiError(409, "VERSION_CHANGED", "Review the current proposal version before saving.");

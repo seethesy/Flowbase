@@ -208,7 +208,7 @@ export const lead = (overrides: Partial<Lead> = {}): Lead => {
     eventType: "Wedding",
     budgetCents: null,
     message: "",
-    status: "new",
+    status: "inquiry",
     lostReason: "",
     firstRespondedAt: null,
     firstResponseSeconds: null,

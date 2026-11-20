@@ -14,7 +14,9 @@ test("the lead dashboard shows real conversion, estimated value and response tim
     lead({
       receivedAt,
       firstRespondedAt,
-      status: "converted",
+      status: "closing",
+      // Converted means the lead has a client (FLOW-250).
+      convertedClientId: juniper().id,
       convertedEventId: fallGala().id,
       budgetCents: 1_000_000,
       purchased: true,
@@ -22,17 +24,19 @@ test("the lead dashboard shows real conversion, estimated value and response tim
     lead({
       receivedAt,
       firstRespondedAt,
-      status: "converted",
+      status: "closing",
+      // Converted means the lead has a client (FLOW-250).
+      convertedClientId: juniper().id,
       convertedEventId: fallGala().id,
     }),
     lead({ receivedAt }),
     lead({
       receivedAt,
       source: "Thumbtack",
-      status: "contacted",
+      status: "pitching",
       budgetCents: 500_000,
     }),
-    lead({ receivedAt, source: "Thumbtack", status: "contacted" }),
+    lead({ receivedAt, source: "Thumbtack", status: "pitching" }),
   ]);
   const asked: string[] = [];
   page.on("request", (request) => {

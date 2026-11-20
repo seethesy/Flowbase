@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "../../worker/db/schema";
 import {
   changeUser,
+  changeUserEmail,
   inviteUser,
   listUsers,
   resolveUser,
@@ -21,12 +22,10 @@ const db = drizzle(connection, { schema });
 const admin: Actor = {
   userId: "36000000-0000-4000-8000-000000000001",
   role: "admin",
-  employmentType: "full_time",
 };
 const input = {
   email: "invited@gmail.com",
-  role: "staff",
-  employmentType: "part_time",
+  role: "part_time_staff",
   mobile: "2025550101",
 } as const;
 const identity = {
@@ -52,18 +51,16 @@ it("adds the allowlist entry, links first Google identity atomically, and preser
   const actor = await resolveUser(db, identity);
   expect(actor).toEqual({
     userId: invited.id,
-    role: "staff",
-    employmentType: "part_time",
-  });
+    role: "part_time_staff",
+    });
   expect(await resolveUser(db, identity)).toEqual(actor);
   await db
     .update(schema.users)
-    .set({ role: "salesperson", employmentType: "full_time" })
+    .set({ role: "salesperson" })
     .where(eq(schema.users.id, invited.id));
   expect(await resolveUser(db, identity)).toMatchObject({
     role: "salesperson",
-    employmentType: "full_time",
-  });
+    });
   expect((await listUsers(db))[0]).toMatchObject({
     id: invited.id,
     name: "Invited Person",
@@ -77,6 +74,17 @@ it("adds the allowlist entry, links first Google identity atomically, and preser
 it("doesn't create an app user for an uninvited identity", async () => {
   expect(await resolveUser(db, identity)).toBeNull();
   expect(await listUsers(db)).toEqual([]);
+});
+it("changes the allowlisted contact email while retaining the Google identity", async () => {
+  const invited = await inviteUser(db, admin, input);
+  expect(await resolveUser(db, identity)).toMatchObject({ userId: invited.id });
+  const updated = await changeUserEmail(db, admin, invited.id, "new-contact@gmail.com");
+  expect(updated.email).toBe("new-contact@gmail.com");
+  expect(await resolveUser(db, identity)).toMatchObject({ userId: invited.id });
+  const [row] = await db.select().from(schema.users).where(eq(schema.users.id, invited.id));
+  expect(row.authId).toBe(identity.sub);
+  const jobs = await db.select({ type: schema.jobs.type }).from(schema.jobs);
+  expect(jobs.map((job) => job.type)).toContain("event:user.email_changed");
 });
 it("supports resend, revoke, re-invite and deactivation/reactivation without losing name or history", async () => {
   const user = await inviteUser(db, admin, input);

@@ -131,6 +131,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
       "tasks.triage",
       "tasks.templates",
       "operations.read",
+      "reports.operations.read",
     ]),
   },
   sales_manager: {
@@ -187,6 +188,7 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
     "inventory.changes.request": isFtPlus,
     "tasks.delegate": isFtPlus,
   },
+  part_time_staff: grants(common),
 };
 export const can = (actor: Actor, action: Action): boolean =>
   permissionMap[actor.role]?.[action]?.(actor) ?? false;
@@ -219,6 +221,7 @@ const recordScopes: Record<Role, { client: Scope; lead: Scope; event: Scope }> =
     kitchen_lead: { client: "none", lead: "none", event: "staffed" },
     kitchen_staff: { client: "none", lead: "none", event: "staffed" },
     staff: { client: "none", lead: "none", event: "staffed" },
+    part_time_staff: { client: "none", lead: "none", event: "staffed" },
   };
 export const clientScope = (actor: Actor): Scope =>
   recordScopes[actor.role].client;
@@ -254,6 +257,8 @@ export const mayOverrideStatus = (
 ) =>
   can(actor, "events.status") &&
   (actor.role === "admin" || event.assignedSalespersonId === actor.userId);
+export const mayCloseLead = (actor: Actor, assignedSalespersonId: string | null) =>
+  actor.role === "admin" || assignedSalespersonId === actor.userId;
 
 // "Start planning" (FLOW-133): Admin, the Sales Manager or the event's salesperson.
 export const mayStartPlanning = (

@@ -25,7 +25,7 @@ const count = (condition?: SQL) =>
 
 const aggregates = (averageBudgetCents: number) => ({
   leads: count(),
-  converted: count(sql`${leads.status} = 'converted'`),
+  converted: count(isNotNull(leads.convertedClientId)),
   closed: count(isClosed),
   estimatedClosedCents: sql<number>`coalesce(
     (sum(coalesce(${leads.budgetCents}, ${averageBudgetCents}::int)) filter (where ${isClosed})),
@@ -33,7 +33,7 @@ const aggregates = (averageBudgetCents: number) => ({
   medianFirstResponseSeconds: sql<number | null>`(percentile_cont(0.5) within group (
     order by extract(epoch from ${leads.firstRespondedAt} - ${leads.receivedAt}))
     filter (where ${leads.firstRespondedAt} is not null))::float8`,
-  awaitingAction: count(sql`${leads.status} = 'new'`),
+  awaitingAction: count(sql`${leads.status} = 'inquiry'`),
   purchased: count(sql`${leads.purchased}`),
 });
 

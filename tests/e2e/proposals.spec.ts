@@ -5,9 +5,9 @@ import { docxExportHint } from "../../shared/proposals";
 
 // Proposals on the event hub (FLOW-122/123), as the seeded Admin on the real Worker
 // and database: create one, move its manual stages, refuse a PDF-only upload
-// before anything is sent, and lose it, which loses the event too.
+// before anything is sent, and lose it without losing the event.
 
-test("tracks a proposal's stages and loses the event with its last proposal", async ({
+test("tracks proposal stages independently of the event", async ({
   page,
 }) => {
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
@@ -26,16 +26,16 @@ test("tracks a proposal's stages and loses the event with its last proposal", as
   const drawer = page.getByRole("dialog", { name: "Gala dinner" });
   await expect(drawer).toBeVisible();
   const history = drawer.getByRole("list", { name: "Stage history" });
-  await expect(history).toContainText("Created in Client communication");
+  await expect(history).toContainText("Created in P Creation");
 
-  // AC1: Finalized, Approved, Sent and Signed are never offered by hand.
+  // Inquiry, Pitching, P Sent and Closed are never offered by hand.
   const stage = drawer.getByLabel("Move to stage");
-  for (const name of ["Finalized", "Approved", "Sent", "Signed"])
+  for (const name of ["Inquiry", "Pitching", "P Sent", "Closed"])
     await expect(stage.locator("option", { hasText: name })).toHaveCount(0);
-  await stage.selectOption({ label: "Menu curation" });
-  await expect(history).toContainText("Client communication → Menu curation");
-  await stage.selectOption({ label: "Revisions" });
-  await expect(history).toContainText("Menu curation → Revisions");
+  await stage.selectOption({ label: "Negotiation" });
+  await expect(history).toContainText("P Creation → Negotiation");
+  await stage.selectOption({ label: "Closing" });
+  await expect(history).toContainText("Negotiation → Closing");
 
   // FLOW-123 AC3: a PDF alone is refused with the export hint; nothing uploads.
   let versionRequests = 0;
@@ -52,7 +52,7 @@ test("tracks a proposal's stages and loses the event with its last proposal", as
   expect(versionRequests).toBe(0);
   await expect(drawer.getByText("No versions uploaded yet.")).toBeVisible();
 
-  // AC2: Lost needs a reason, and the event's only proposal takes the event along.
+  // Lost needs a reason and leaves the event in its existing stage.
   await stage.selectOption({ label: "Lost" });
   await drawer.getByRole("button", { name: "Mark lost" }).click();
   await expect(drawer.getByRole("alert")).toHaveText(
@@ -61,14 +61,16 @@ test("tracks a proposal's stages and loses the event with its last proposal", as
   await drawer.getByLabel("Why was it lost? *").fill("Booked another caterer");
   await drawer.getByRole("button", { name: "Mark lost" }).click();
   await expect(drawer.getByText("Lost: Booked another caterer")).toBeVisible();
-  await expect(history).toContainText("Revisions → Lost");
+  await expect(history).toContainText("Closing → Lost");
   await expect(drawer.getByLabel("Move to stage")).toHaveCount(0);
   await drawer.getByRole("button", { name: "Close dialog" }).click();
 
   const row = page.getByRole("listitem", { name: "Gala dinner" });
   await expect(row).toContainText("Lost");
   await expect(row).toContainText("No version yet");
+  // A lost proposal never moves the event, and an event already Closed stays
+  // there as its proposal moves forward (FLOW-252).
   await expect(
-    page.locator(".record-heading").getByText("Lost", { exact: true }),
+    page.locator(".record-heading").getByText("Closed", { exact: true }),
   ).toBeVisible();
 });

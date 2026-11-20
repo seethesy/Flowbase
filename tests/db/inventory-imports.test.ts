@@ -51,7 +51,7 @@ const actor = (
   userId: string,
   employmentType: Actor["employmentType"] = "full_time",
   role: Actor["role"] = "admin",
-): Actor => ({ userId, role, employmentType });
+): Actor => ({ userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType });
 const signedInAs = (who: Actor) => {
   const app = createApp({ withDb, resolveActor: async () => who });
   return async <T>(method: string, path: string, body?: unknown, status = 200) => {

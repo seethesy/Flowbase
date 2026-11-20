@@ -108,5 +108,6 @@ it("shows everyone's time only to Admin and Sales Manager", () => {
     kitchen_lead: "own",
     kitchen_staff: "own",
     staff: "own",
+    part_time_staff: "own",
   });
 });

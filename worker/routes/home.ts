@@ -4,11 +4,14 @@ import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import { recordRunner, type AppEnv, type RunWithDb } from "../hono";
 import { eventShifts, eventStaffSlots, events, orderLists, kitchenMenus } from "../db/schema";
 import { visibleEvents } from "../records/events";
+import { homeDashboard } from "../records/home-dashboard";
 
 export function homeRoutes(options: { withDb?: RunWithDb; resolveActor?: ResolveActor }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
+  routes.get("/dashboard", requirePermission("tasks.read"), async (c) =>
+    c.json(await record(c, (db, actor) => homeDashboard(db, actor))));
   routes.get("/my-shifts", requirePermission("events.read"), async (c) => c.json(await record(c, async (db, actor) => {
     const [row] = await db.select({ count: sql<number>`count(distinct ${eventShifts.id})::int` })
       .from(eventStaffSlots).innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))

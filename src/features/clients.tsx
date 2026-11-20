@@ -34,7 +34,7 @@ import {
   FormField,
   LoadingSkeleton,
 } from "../components/shared";
-import { EventForm, EventTable } from "./events";
+import { EventTable } from "./events";
 import { Attachments } from "./attachments";
 import { CommunicationLog } from "./communications";
 import { StaleReload, isStale } from "../components/stale-reload";
@@ -493,7 +493,6 @@ export function ClientDetail() {
   const [tab, setTab] = useState("Overview");
   const [edit, setEdit] = useOpenFor(id);
   const [archive, setArchive] = useOpenFor(id);
-  const [newEvent, setNewEvent] = useOpenFor(id);
   if (client.error)
     return (
       <>
@@ -526,12 +525,6 @@ export function ClientDetail() {
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
               <T id="clients.client-detail.edit">Edit</T>
-            </Button>
-          </Allowed>
-          <Allowed action="events.write">
-            <Button onClick={() => setNewEvent(true)}>
-              <Plus size={16} />
-              <T id="clients.client-detail.new-event">New Event</T>
             </Button>
           </Allowed>
           {c.archivedAt ? (
@@ -629,13 +622,6 @@ export function ClientDetail() {
           client={c}
           onClose={() => setEdit(false)}
           onSaved={client.replace}
-        />
-      )}
-      {newEvent && (
-        <EventForm
-          clientId={c.id}
-          onClose={() => setNewEvent(false)}
-          onSaved={(event) => navigate(`/events/${event.id}`)}
         />
       )}
       <ConfirmationDialog

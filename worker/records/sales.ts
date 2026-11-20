@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull, max, or, type SQL } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { SalesRow } from "../../shared/sales";
 import type { DbLike } from "../db/client";
-import { auditLog, clients, communications, events, leads, payments, tasks, paymentScheduleItems, proposalMappings, proposals, proposalVersionMappings, proposalVersions, users, salesViews } from "../db/schema";
+import { approvalRequests, auditLog, clients, communications, events, leads, payments, tasks, paymentScheduleItems, proposalMappings, proposals, proposalVersionMappings, proposalVersions, users, salesViews } from "../db/schema";
 import { forbidden, notFound, ApiError } from "../hono";
 import { visibleClients } from "./clients";
 import { visibleLeads } from "./leads";
@@ -37,9 +37,14 @@ export async function salesDataset(db: DbLike, actor: Actor) {
     eventIds.length ? db.select().from(payments).where(and(inArray(payments.eventId, eventIds), isNull(payments.archivedAt))) : [],
   ]);
   const proposalIds = proposalRows.map((row) => row.id);
-  const [mappingRows, versionRows] = await Promise.all([
+  const currentVersionIds = proposalRows.map((row) => row.currentVersionId).filter((id): id is string => Boolean(id));
+  const [mappingRows, versionRows, approvalRows] = await Promise.all([
     proposalIds.length ? db.select().from(proposalMappings).where(inArray(proposalMappings.proposalId, proposalIds)) : [],
     proposalIds.length ? db.select().from(proposalVersions).where(and(inArray(proposalVersions.proposalId, proposalIds), eq(proposalVersions.status, "ready"))) : [],
+    currentVersionIds.length ? db.select({ subjectId: approvalRequests.subjectId, status: approvalRequests.status, createdAt: approvalRequests.createdAt })
+      .from(approvalRequests).where(and(eq(approvalRequests.subjectType, "proposal_version"),
+        inArray(approvalRequests.subjectId, currentVersionIds)))
+      .orderBy(asc(approvalRequests.createdAt)) : [],
   ]);
   const visibleIds = [...clientRows, ...eventRows, ...leadRows, ...proposalRows].map((row) => row.id);
   const activities = visibleIds.length ? await db.select({ entityType: auditLog.entityType, entityId: auditLog.entityId, at: max(auditLog.createdAt) })
@@ -80,6 +85,7 @@ export async function salesDataset(db: DbLike, actor: Actor) {
   const received = sumBy(paymentRows, (row) => row.eventId, (row) => row.amountCents);
   const mappings = new Map(mappingRows.map((row) => [row.proposalId, row]));
   const currentVersions = new Map(versionRows.map((row) => [row.id, row]));
+  const latestApprovals = new Map(approvalRows.map((row) => [row.subjectId, row.status]));
   const proposalsByEvent = new Map<string, typeof proposalRows>();
   for (const proposal of proposalRows) proposalsByEvent.set(proposal.eventId, [...(proposalsByEvent.get(proposal.eventId) ?? []), proposal]);
   for (const list of proposalsByEvent.values()) list.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
@@ -93,18 +99,18 @@ export async function salesDataset(db: DbLike, actor: Actor) {
   };
   const eventTotal = (eventId: string) => {
     const choices = proposalsByEvent.get(eventId) ?? [];
-    const selected = choices.find((proposal) => proposal.stage === "signed") ?? choices.find((proposal) => proposal.stage !== "lost");
+    const selected = choices.find((proposal) => proposal.stage === "closed") ?? choices.find((proposal) => proposal.stage !== "lost");
     return selected ? proposalTotal(selected) : null;
   };
   const rows: SalesRow[] = [];
-  for (const lead of leadRows) if (["new", "contacted", "qualified"].includes(lead.status)) rows.push({
+  for (const lead of leadRows) if (lead.status !== "closed" && lead.status !== "lost") rows.push({
     id: lead.id, kind: "lead", clientId: lead.convertedClientId, client: lead.name,
     eventId: lead.convertedEventId, title: lead.name, eventDate: lead.eventDate,
     eventType: lead.eventType, stage: lead.status, ownerId: lead.assignedSalespersonId,
     owner: owners.get(lead.assignedSalespersonId ?? "") ?? null, source: lead.source,
     totalCents: null, receivedCents: null, balanceCents: null,
     lastActivity: last("lead", lead.id, lead.updatedAt), nextFollowUp: nextFollowUp("lead", lead.id), bookedAt: null,
-    eventStatus: null, leadStatus: lead.status, proposalStage: null, versionNumber: null,
+    eventStatus: null, leadStatus: lead.status, proposalStage: null, versionNumber: null, approvalStatus: null,
   });
   for (const client of clientRows) rows.push({
     id: client.id, kind: "client", clientId: client.id, client: client.name,
@@ -112,12 +118,12 @@ export async function salesDataset(db: DbLike, actor: Actor) {
     ownerId: client.assignedSalespersonId, owner: owners.get(client.assignedSalespersonId ?? "") ?? null,
     source: null, totalCents: null, receivedCents: null, balanceCents: null,
     lastActivity: last("client", client.id, client.updatedAt), nextFollowUp: nextFollowUp("client", client.id), bookedAt: null,
-    eventStatus: null, leadStatus: null, proposalStage: null, versionNumber: null,
+    eventStatus: null, leadStatus: null, proposalStage: null, versionNumber: null, approvalStatus: null,
   });
   for (const event of eventRows) {
     const total = eventTotal(event.id);
     const common = {
-      clientId: event.clientId, client: clientNames.get(event.clientId) ?? "Client",
+      clientId: event.clientId, client: event.clientId ? clientNames.get(event.clientId) ?? "Client" : "Lead",
       eventId: event.id, eventDate: utcToBusinessTime(event.startsAt).date,
       eventType: event.eventType, source: sources.get(event.id) ?? null,
       bookedAt: event.bookedAt?.toISOString() ?? null, eventStatus: event.status,
@@ -125,13 +131,14 @@ export async function salesDataset(db: DbLike, actor: Actor) {
     };
     rows.push({ ...common, id: event.id, kind: "event", title: event.title, stage: event.status,
       ownerId: event.assignedSalespersonId, owner: owners.get(event.assignedSalespersonId ?? "") ?? null,
-      ...money(event.id, total), lastActivity: last("event", event.id, event.updatedAt), nextFollowUp: nextFollowUp("event", event.id), proposalStage: null, versionNumber: null });
+      ...money(event.id, total), lastActivity: last("event", event.id, event.updatedAt), nextFollowUp: nextFollowUp("event", event.id), proposalStage: null, versionNumber: null, approvalStatus: null });
     for (const proposal of proposalsByEvent.get(event.id) ?? []) rows.push({
       ...common, nextFollowUp: null, id: proposal.id, kind: "proposal", title: proposal.title,
       stage: proposal.stage, ownerId: proposal.assignedSalespersonId,
       owner: owners.get(proposal.assignedSalespersonId ?? "") ?? null,
       ...money(event.id, proposalTotal(proposal)), lastActivity: last("proposal", proposal.id, proposal.updatedAt),
       proposalStage: proposal.stage, versionNumber: currentVersions.get(proposal.currentVersionId ?? "")?.number ?? null,
+      approvalStatus: latestApprovals.get(proposal.currentVersionId ?? "") ?? null,
     });
   }
   return { rows, clientRows, eventRows, proposalRows, versionRows, money, eventTotal };
@@ -174,10 +181,10 @@ export async function salesReport(db: DbLike, actor: Actor, range: { from?: stri
     const rows = eventRows.filter((row) => row.eventDate!.startsWith(month));
     return { month, count: rows.length, totalCents: rows.reduce((sum, row) => sum + (row.totalCents ?? 0), 0) };
   });
-  const decided = proposalRows.filter((row) => row.proposalStage === "signed" || row.proposalStage === "lost");
+  const decided = proposalRows.filter((row) => row.proposalStage === "closed" || row.proposalStage === "lost");
   const win = (key: "owner" | "source") => [...new Set(decided.map((row) => row[key] ?? "Unassigned"))].sort().map((value) => {
     const rows = decided.filter((row) => (row[key] ?? "Unassigned") === value);
-    const wins = rows.filter((row) => row.proposalStage === "signed").length;
+    const wins = rows.filter((row) => row.proposalStage === "closed").length;
     return { [key]: value, wins, decided: rows.length, rate: rows.length ? wins / rows.length : null };
   });
   return { pipeline, bookedByMonth, winBySalesperson: win("owner"), winBySource: win("source") };

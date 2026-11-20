@@ -95,12 +95,14 @@ export async function getPreferences(
       ),
     );
   const email = new Map(rows.map((row) => [row.type, row.email]));
+  const sms = new Map(rows.map((row) => [row.type, row.sms]));
   const urgent = await urgentTypes(db);
   return notificationTypes.map((type) => ({
     type,
     label: notificationCatalog[type].label,
     description: notificationCatalog[type].description,
-    email: email.get(type) ?? true,
+    email: email.get(type) ?? false,
+    sms: sms.get(type) ?? false,
     urgent: urgent.has(type),
   }));
 }
@@ -111,18 +113,18 @@ export async function setPreferences(
   actor: Actor,
   input: NotificationPreferencesInput,
 ) {
-  const changes = Object.entries(input.email).filter(
-    (entry): entry is [keyof typeof notificationCatalog, boolean] =>
-      typeof entry[1] === "boolean",
-  );
-  if (changes.length)
+  const types = [...new Set([...Object.keys(input.email), ...Object.keys(input.sms)])] as (keyof typeof notificationCatalog)[];
+  if (types.length) {
+    const existing = await getPreferences(db, actor);
+    const byType = new Map(existing.map((row) => [row.type, row]));
     await db
       .insert(notificationPreferences)
       .values(
-        changes.map(([type, email]) => ({
+        types.map((type) => ({
           userId: actor.userId,
           type,
-          email,
+          email: input.email[type] ?? byType.get(type)?.email ?? false,
+          sms: input.sms[type] ?? byType.get(type)?.sms ?? false,
           createdBy: actor.userId,
           updatedBy: actor.userId,
         })),
@@ -131,10 +133,12 @@ export async function setPreferences(
         target: [notificationPreferences.userId, notificationPreferences.type],
         set: {
           email: excluded("email"),
+          sms: excluded("sms"),
           updatedBy: actor.userId,
           updatedAt: new Date(),
           archivedAt: null,
         },
       });
+  }
   return getPreferences(db, actor);
 }

@@ -22,7 +22,6 @@ const env = { ASSETS: { fetch } };
 const admin: Actor = {
   userId: "e0000000-0000-4000-8000-000000000001",
   role: "admin",
-  employmentType: "full_time",
 };
 const app = createApp({ withDb, resolveActor: async () => admin });
 const get = (path: string) => app.request(path, {}, env);

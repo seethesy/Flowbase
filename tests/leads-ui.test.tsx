@@ -29,7 +29,7 @@ const lead = (overrides: Partial<Lead> = {}): Lead => ({
   eventType: "Wedding",
   budgetCents: null,
   message: "",
-  status: "qualified",
+  status: "p_creation",
   lostReason: "",
   firstRespondedAt: null,
   firstResponseSeconds: null,
@@ -80,18 +80,19 @@ const mount = (node: ReactNode) =>
 
 it("lists leads, flags the ones that need review and filters by search", async () => {
   mockApi({
+    "GET /api/leads/owners": () => Response.json([]),
     "GET /api/leads": (_init, url) => {
       // The search runs on the server (FLOW-179); stand in for it here.
       const search = (url?.searchParams.get("search") ?? "").toLowerCase();
       return Response.json(
         [
-          lead({ status: "new" }),
+          lead({ status: "inquiry" }),
           lead({
             id: "d0000000-0000-4000-8000-000000000002",
             name: "Noah Kim",
             eventDate: null,
             needsReview: true,
-            status: "new",
+            status: "inquiry",
           }),
         ].filter((row) => row.name.toLowerCase().includes(search)),
       );
@@ -101,18 +102,20 @@ it("lists leads, flags the ones that need review and filters by search", async (
   mount(<LeadInbox />);
   expect(await screen.findByText("Noah Kim")).toBeInTheDocument();
   expect(screen.getByText("Maya Ortiz")).toBeInTheDocument();
-  expect(screen.getAllByText("Needs review")).toHaveLength(2); // tab + badge
+  expect(screen.getAllByText("Needs review")).toHaveLength(1);
   await user.type(
-    screen.getByRole("textbox", { name: "Search name, email or phone…" }),
+    screen.getByRole("textbox", { name: "Search leads" }),
     "noah",
   );
   await waitFor(() =>
     expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument(),
   );
-  expect(screen.getByText("Noah Kim")).toBeInTheDocument();
+  // The filtered list reloads behind a skeleton, so wait for it.
+  expect(await screen.findByText("Noah Kim")).toBeInTheDocument();
+  expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument();
 });
 
-it("asks for the view's filters from the API", async () => {
+it("asks for owner and status filters from the API", async () => {
   const requested: string[] = [];
   vi.mocked(fetch).mockImplementation(async (input) => {
     requested.push(String(input));
@@ -121,20 +124,21 @@ it("asks for the view's filters from the API", async () => {
   const user = userEvent.setup();
   mount(<LeadInbox />);
   await screen.findByText("0 leads");
-  await user.click(screen.getByRole("tab", { name: "Triage" }));
-  await user.click(screen.getByRole("tab", { name: "Needs review" }));
+  await user.selectOptions(screen.getByLabelText("Owners"), "unassigned");
+  await user.selectOptions(screen.getByLabelText("Statuses"), "Pitching");
   // The inbox also loads business settings (lead sources, FLOW-45).
   expect(requested.filter((path) => path.startsWith("/api/leads"))).toEqual([
+    "/api/leads/owners",
     "/api/leads",
-    "/api/leads?triage=true",
-    "/api/leads?needsReview=true",
+    "/api/leads?assigned=unassigned",
+    "/api/leads?status=pitching&assigned=unassigned",
   ]);
 });
 
 it("warns about a matching client on convert and offers to link instead", async () => {
   const posts: unknown[] = [];
   const converted = lead({
-    status: "converted",
+    status: "closing",
     convertedClientId: juniper.id,
     convertedEventId: "e0000000-0000-4000-8000-000000000001",
   });
@@ -189,7 +193,7 @@ it("warns about a matching client on convert and offers to link instead", async 
     target: { value: "18:00" },
   });
   await user.click(
-    within(dialog).getByRole("button", { name: "Convert lead" }),
+    within(dialog).getByRole("button", { name: "Confirm Closing" }),
   );
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
     "A client with this email or phone already exists",
@@ -200,7 +204,7 @@ it("warns about a matching client on convert and offers to link instead", async 
   const picker = await within(dialog).findByLabelText("Existing client");
   await vi.waitFor(() => expect(picker).toHaveValue(juniper.id));
   await user.click(
-    within(dialog).getByRole("button", { name: "Convert lead" }),
+    within(dialog).getByRole("button", { name: "Confirm Closing" }),
   );
   await vi.waitFor(() => expect(onConverted).toHaveBeenCalled());
   expect(posts).toEqual([

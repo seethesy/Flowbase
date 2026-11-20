@@ -14,8 +14,9 @@ for (const role of roles)
   for (const employmentType of employmentTypes) {
     const who: Actor = { userId, role, employmentType };
     const privileged = ["admin", "technical", "sales_manager"].includes(role);
-    const ft = privileged || employmentType === "full_time";
-    const cost = ft || role === "kitchen_lead" || role === "kitchen_staff";
+    // Role decides, not employment type (FLOW-249).
+    const ft = role !== "part_time_staff";
+    const cost = ft; // Every role but Part-time Staff, kitchen included.
     const expected = {
       client_contact: ft,
       venue_contact: ft,
@@ -131,8 +132,8 @@ for (const role of roles)
 it("redacts hidden nested contact values without losing a visible name change", () => {
   const who: Actor = {
     userId,
-    role: "salesperson",
-    employmentType: "part_time",
+    role: "part_time_staff",
+    employmentType: "full_time",
   };
   const changes = {
     contacts: {

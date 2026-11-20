@@ -44,7 +44,7 @@ const directory: [keyof typeof people, Role, EmploymentType][] = [
 ];
 const actorOf = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
-  return { userId: people[who], role, employmentType };
+  return { userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
 };
 const signedInAs = (who: keyof typeof people) => {
   const app = createApp({ withDb, resolveActor: async () => actorOf(who) });
@@ -89,8 +89,7 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@tasks.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255591${i}`,
       status: name === "gone" ? ("deactivated" as const) : ("active" as const),
     })),

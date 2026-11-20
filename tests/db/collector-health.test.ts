@@ -15,7 +15,7 @@ beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(clear);
   await db.insert(schema.users).values({ email: "collector-admin@example.com", name: "Admin",
-    role: "admin", employmentType: "full_time", mobile: "2025550100", status: "active" });
+    role: "admin", mobile: "2025550100", status: "active" });
 });
 afterAll(async () => { await db.execute(clear); await client.end(); });
 

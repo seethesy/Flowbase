@@ -55,7 +55,7 @@ const signedInAs = (
   role: Role,
   employmentType: EmploymentType = "full_time",
 ) => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -108,8 +108,35 @@ beforeEach(async () => {
   await db.execute(
     sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, lead_duplicates, leads, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
+  // Lead owners must be active sales users (FLOW-250).
+  await db
+    .insert(schema.users)
+    .values(
+      (
+        [
+          ["admin", "admin"],
+          ["sam", "salesperson"],
+          ["sue", "salesperson"],
+          ["staff", "part_time_staff"],
+        ] as const
+      ).map(([name, role], i) => ({
+        id: people[name],
+        email: `${name}@audit-leads.example`,
+        name: name[0].toUpperCase() + name.slice(1),
+        role,
+        mobile: `20255593${i}`,
+        status: "active" as const,
+      })),
+    )
+    // Another file may have left a user with the same id behind.
+    .onConflictDoUpdate({
+      target: schema.users.id,
+      set: { role: sql`excluded.role`, status: "active", archivedAt: null },
+    });
 });
 afterAll(async () => {
+  // Leave no seeded users behind for later files (any order, FLOW-250).
+  await db.execute(sql`truncate table users cascade`);
   // beforeEach clears inventory_sections; give later files the seeded defaults back.
   await restoreDefaultSections(client);
   await client.end();
@@ -311,8 +338,8 @@ describe("leads", () => {
     await admin.send("POST", `/api/leads/${id}/assign`, {
       assignedSalespersonId: people.sam,
     });
-    await sam.send("POST", `/api/leads/${id}/status`, { status: "contacted" });
-    await sam.send("POST", `/api/leads/${id}/status`, { status: "qualified" });
+    await sam.send("POST", `/api/leads/${id}/status`, { status: "pitching" });
+    await sam.send("POST", `/api/leads/${id}/status`, { status: "p_creation" });
     const converted = await sam.send<LeadConversion>(
       "POST",
       `/api/leads/${id}/convert`,
@@ -329,25 +356,25 @@ describe("leads", () => {
     expect(rows[0].changes).toEqual({
       assignedSalespersonId: { before: null, after: people.sam },
     });
-    expect(rows[1].changes.status).toEqual({ before: "new", after: "contacted" });
+    expect(rows[1].changes.status).toEqual({ before: "inquiry", after: "pitching" });
     expect(Object.keys(rows[1].changes).sort()).toEqual([
       "firstRespondedAt",
       "status",
     ]);
     expect(rows[2].changes).toEqual({
-      status: { before: "contacted", after: "qualified" },
+      status: { before: "pitching", after: "p_creation" },
     });
     expect(rows[3].changes).toEqual({
-      status: { before: "qualified", after: "converted" },
+      status: { before: "p_creation", after: "closing" },
       convertedClientId: { before: null, after: converted.client.id },
       convertedEventId: { before: null, after: converted.event.id },
     });
 
     const history = await sam.get<HistoryEntry[]>(`/api/leads/${id}/history`);
     expect(history.map((entry) => entry.changes.status?.after ?? "assigned")).toEqual([
-      "converted",
-      "qualified",
-      "contacted",
+      "closing",
+      "p_creation",
+      "pitching",
       "assigned",
     ]);
     // Raw source payloads never reach the history.
@@ -422,8 +449,8 @@ describe("leads", () => {
       201,
     );
     const id = await seed();
-    await admin.send("POST", `/api/leads/${id}/status`, { status: "contacted" });
-    await admin.send("POST", `/api/leads/${id}/status`, { status: "qualified" });
+    await admin.send("POST", `/api/leads/${id}/status`, { status: "pitching" });
+    await admin.send("POST", `/api/leads/${id}/status`, { status: "p_creation" });
     await admin.send("POST", `/api/leads/${id}/convert`, {
       event: { startTime: "18:00" },
       client: { mode: "link", clientId: existing.id },
@@ -443,7 +470,7 @@ describe("leads", () => {
     await db
       .transaction(async (tx) => {
         await changeLeadStatus(tx as unknown as Db, admin.actor, id, {
-          status: "contacted",
+          status: "pitching",
         } as never);
         tx.rollback();
       })

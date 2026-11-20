@@ -8,10 +8,9 @@ import { seedUsers } from "../../worker/db/seed";
 // Staff directory (FLOW-40), business settings (FLOW-45) and CSV export (FLOW-48)
 // on the real Worker and database, signed in as the seeded Admin.
 
-test("filters the staff directory by position and employment type and exports the filtered list", async ({
+test("filters the staff directory by position and exports the filtered list", async ({
   page,
 }) => {
-  // seedUsers: each role full-time then part-time; [1] and [3] are part-time.
   const [server, inactiveServer, driver] = [seedUsers[1], seedUsers[3], seedUsers[5]];
   await browserDb(async (db) => {
     await db
@@ -35,14 +34,6 @@ test("filters the staff directory by position and employment type and exports th
   await expect(page.getByText("1 staff", { exact: true })).toBeVisible();
   await page.getByLabel("Show inactive").check();
   await expect(page.getByText("2 staff", { exact: true })).toBeVisible();
-  await page
-    .getByLabel("Employment type", { exact: true })
-    .selectOption({ label: "Full-time" });
-  await expect(page.getByText("0 staff", { exact: true })).toBeVisible();
-  await page
-    .getByLabel("Employment type", { exact: true })
-    .selectOption({ label: "Part-time" });
-  await expect(page.getByText("2 staff", { exact: true })).toBeVisible();
 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
@@ -52,7 +43,8 @@ test("filters the staff directory by position and employment type and exports th
     .replace(/^\ufeff/, "")
     .trimEnd()
     .split("\r\n");
-  expect(lines[0]).toBe("Name,Positions,Role,Employment,Mobile,Email,Status");
+  // Employment type left with Part-time Staff becoming a role (FLOW-249).
+  expect(lines[0]).toBe("Name,Positions,Role,Mobile,Email,Status");
   expect(lines).toHaveLength(3);
   expect(lines.join("\n")).toContain(server.email);
   expect(lines.join("\n")).toContain(inactiveServer.email);

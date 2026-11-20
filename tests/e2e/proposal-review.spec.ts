@@ -17,7 +17,7 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   await browserDb(async (db) => {
     await db.update(s.events).set({ endsAt: new Date("2026-11-15T03:00:00.000Z") }).where(eq(s.events.id, fallGala().id));
     await db.insert(s.recipes).values({ name: "Tuscan Chicken", category: "Mains" });
-    await db.insert(s.proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", stage: "finalized" });
+    await db.insert(s.proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", stage: "p_creation" });
     await db.insert(s.proposalVersions).values({ id: versionId, proposalId, number: 1, status: "ready", docx: { key: `proposal/${proposalId}/${versionId}/proposal.docx`, fileName: "proposal.docx", contentType: DOCX_TYPE, size: word.length }, completedAt: new Date() });
     await db.update(s.proposals).set({ currentVersionId: versionId }).where(eq(s.proposals.id, proposalId));
   });
@@ -65,5 +65,5 @@ test("reviews a Word proposal, suggests a recipe and blocks an unmatched rental"
   await approved.getByLabel("Card on file").check();
   await approved.getByLabel("Card last 4").fill("1234");
   await approved.getByRole("button", { name: "Record booking" }).click();
-  await expect(approved.getByText("Signed", { exact: true }).first()).toBeVisible();
+  await expect(approved.getByText("Closed", { exact: true }).first()).toBeVisible();
 });

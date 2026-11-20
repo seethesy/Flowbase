@@ -266,25 +266,26 @@ it("offers every status when creating an event, and none when editing it", async
     <EventForm onClose={() => {}} onSaved={() => {}} />,
   );
   const dialog = screen.getByRole("dialog");
-  const status = within(dialog).getByLabelText("Status");
-  expect(status).toHaveValue("inquiry");
+  const status = within(dialog).getByRole("button", { name: "Status" });
+  expect(status).toHaveTextContent("Inquiry");
+  await user.click(status);
   expect(
-    within(status)
+    within(within(dialog).getByRole("listbox", { name: "Status" }))
       .getAllByRole("option")
       .map((option) => option.textContent),
   ).toEqual([
     "Inquiry",
     "Pitching",
-    "P creation",
-    "Initial P sent",
-    "Pending (Negotiation)",
-    "Pending (Closing)",
+    "P Creation",
+    "P Sent",
+    "Negotiation",
+    "Closing",
     "Closed",
     "Preparation",
     "Finished",
     "Lost",
   ]);
-  await user.selectOptions(status, "negotiation");
+  await user.click(within(dialog).getByRole("option", { name: "Negotiation" }));
   await user.type(within(dialog).getByLabelText("Title *"), "Fall gala");
   await user.type(within(dialog).getByLabelText("Date *"), "2026-11-14");
   await user.type(within(dialog).getByLabelText("Start time *"), "18:00");
@@ -340,7 +341,7 @@ it("offers every status when creating an event, and none when editing it", async
   ).not.toBeInTheDocument();
 });
 
-it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)", async () => {
+it("shows distinct pipeline statuses and filters one stage at a time (FLOW-251)", async () => {
   const flowEvent = (
     n: number,
     title: string,
@@ -397,23 +398,21 @@ it("shows Negotiation and Closing as Pending, with one Pending filter (FLOW-209)
   mount(<EventList />);
   const table = await screen.findByRole("table");
   await within(table).findByText("Fall gala");
-  expect(within(table).getAllByText("Pending")).toHaveLength(2);
-  expect(within(table).queryByText("Negotiation")).not.toBeInTheDocument();
-  expect(within(table).queryByText("Closing")).not.toBeInTheDocument();
+  expect(within(table).getByText("Negotiation")).toBeInTheDocument();
+  expect(within(table).getByText("Closing")).toBeInTheDocument();
   const filter = screen.getByLabelText("Statuses");
   expect(
     within(filter)
       .getAllByRole("option")
-      .filter((option) => option.textContent === "Pending"),
+      .filter((option) => option.textContent === "Negotiation"),
   ).toHaveLength(1);
-  await user.selectOptions(filter, "Pending");
+  await user.selectOptions(filter, "Negotiation");
   await waitFor(() =>
     expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument(),
   );
   expect(within(table).getByText("Fall gala")).toBeInTheDocument();
-  expect(within(table).getByText("Winter ball")).toBeInTheDocument();
-  // "Pending" asks the API for both statuses it stands for.
-  expect(requested.at(-1)?.searchParams.get("status")).toBe("negotiation,closing");
+  expect(within(table).queryByText("Winter ball")).not.toBeInTheDocument();
+  expect(requested.at(-1)?.searchParams.get("status")).toBe("negotiation");
   // The list opens on the default window: the past 7 days to the next 30.
   const first = requested[0].searchParams;
   expect(first.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}$/);

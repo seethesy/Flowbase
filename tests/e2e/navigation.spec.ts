@@ -4,8 +4,8 @@ import { seedUsers } from "../../worker/db/seed";
 
 // FLOW-246 (sidebar headings, tabs, collapse edge) and FLOW-247 (breadcrumb,
 // header cleanup, profile menu). seedUsers: each role full-time then part-time.
-const salesperson = seedUsers.find((u) => u.role === "salesperson" && u.employmentType === "full_time")!;
-const partTimeStaff = seedUsers.find((u) => u.role === "staff" && u.employmentType === "part_time")!;
+const salesperson = seedUsers.find((u) => u.role === "salesperson")!;
+const partTimeStaff = seedUsers.find((u) => u.role === "part_time_staff")!;
 
 const allHeadings = ["Dashboard", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports"];
 async function headings(page: Page, isMobile: boolean) {

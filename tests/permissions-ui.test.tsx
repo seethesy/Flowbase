@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { TestAuth } from "./auth-provider";
@@ -21,8 +21,7 @@ it("hides venue creation while keeping the readable list", async () => {
   ).not.toBeInTheDocument();
 });
 it("keeps lead assignment out of the salesperson's inbox", async () => {
-  vi.mocked(fetch).mockResolvedValue(
-    Response.json([
+  const leads = [
       {
         id: "39000000-0000-4000-8000-000000000001",
         receivedAt: "2026-10-20T00:00:00.000Z",
@@ -40,7 +39,7 @@ it("keeps lead assignment out of the salesperson's inbox", async () => {
         eventType: "",
         budgetCents: null,
         message: "",
-        status: "qualified",
+        status: "p_creation",
         lostReason: "",
         firstRespondedAt: null,
         firstResponseSeconds: null,
@@ -53,52 +52,60 @@ it("keeps lead assignment out of the salesperson's inbox", async () => {
         createdAt: "2026-10-20T00:00:00.000Z",
         updatedAt: "2026-10-20T00:00:00.000Z",
       },
-    ]),
+    ];
+  vi.mocked(fetch).mockImplementation(async (input) =>
+    Response.json(String(input).startsWith("/api/leads/owners") ? [] : String(input).startsWith("/api/leads") ? leads : []),
   );
   render(
-    <TestAuth role="salesperson" employmentType="part_time">
+    <TestAuth role="salesperson">
       <MemoryRouter>
         <LeadInbox />
       </MemoryRouter>
     </TestAuth>,
   );
   expect(await screen.findByText("My Lead")).toBeInTheDocument();
+  // Selecting a row offers bulk status changes but never bulk assignment.
+  fireEvent.click(screen.getByRole("checkbox", { name: "Select My Lead" }));
+  expect(screen.getByLabelText("Change selected status")).toBeInTheDocument();
   expect(
-    screen.queryByRole("checkbox", { name: "Select My Lead" }),
+    screen.queryByRole("button", { name: "Assign selected" }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Convert My Lead" }),
-  ).toBeInTheDocument();
 });
 it("applies item-specific permissions to stock controls", () => {
-  render(
-    <TestAuth role="kitchen_staff" employmentType="part_time">
-      <Allowed
-        action="inventory.count"
-        item={{ kind: "consumable", subtype: "ingredient" }}
-      >
-        <button>Count ingredients</button>
-      </Allowed>
-      <Allowed
-        action="inventory.count"
-        item={{ kind: "consumable", subtype: "bar" }}
-      >
-        <button>Count bar</button>
-      </Allowed>
-      <Allowed action="users.manage">
-        <button>Manage users</button>
-      </Allowed>
-    </TestAuth>,
-  );
+  const controls = (role: "kitchen_staff" | "part_time_staff") =>
+    render(
+      <TestAuth role={role}>
+        <Allowed
+          action="inventory.count"
+          item={{ kind: "consumable", subtype: "ingredient" }}
+        >
+          <button>Count ingredients</button>
+        </Allowed>
+        <Allowed
+          action="inventory.count"
+          item={{ kind: "consumable", subtype: "bar" }}
+        >
+          <button>Count bar</button>
+        </Allowed>
+        <Allowed action="users.manage">
+          <button>Manage users</button>
+        </Allowed>
+      </TestAuth>,
+    );
+  // Kitchen Staff count every consumable but cannot manage users.
+  const kitchen = controls("kitchen_staff");
   expect(
     screen.getByRole("button", { name: "Count ingredients" }),
   ).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Count bar" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Count bar" })).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Manage users" }),
   ).not.toBeInTheDocument();
+  kitchen.unmount();
+  // Part-time Staff (FLOW-249) get none of these controls.
+  controls("part_time_staff");
+  for (const name of ["Count ingredients", "Count bar", "Manage users"])
+    expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
 });
 it("hides protected controls without a signed-in profile", () => {
   render(

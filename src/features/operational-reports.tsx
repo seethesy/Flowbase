@@ -9,6 +9,8 @@ import { leadsApi } from "../services/leads";
 import { timeApi } from "../services/time-tracking";
 import { operationalReportsApi } from "../services/operational-reports";
 import { T } from "../app/copy";
+import { CollectorHealthPage } from "./collector-health";
+import { UsagePage } from "./usage";
 
 const csvCell = (value: string | number) => {
   const safe = typeof value === "string" && /^[\s]*[=+@-]/.test(value) ? `'${value}` : String(value);
@@ -26,7 +28,15 @@ const exportCsv = (rows: (string | number)[][]) => {
 
 export function OperationalReports() {
   const user = useAuth()?.user;
-  const allowed = user?.role === "admin" || user?.role === "sales_manager";
+  if (user?.role === "technical") return <>
+    <PageHeader title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} />
+    <CollectorHealthPage embedded /><UsagePage embedded />
+  </>;
+  return <OperationalReportsContent userRole={user?.role} />;
+}
+
+function OperationalReportsContent({ userRole }: { userRole?: string }) {
+  const allowed = userRole === "admin" || userRole === "sales_manager";
   const [from, setFrom] = useState(() => addLocalDays(utcToBusinessTime(new Date()).date, -29));
   const [to, setTo] = useState(() => utcToBusinessTime(new Date()).date);
   const range = { from, to };
@@ -67,6 +77,7 @@ export function OperationalReports() {
       </Section>
       <Section title={<T id="operational-reports.operational-reports.rental-utilization">Rental utilization</T>}><ul>{data.rentals.map((r) => <li key={r.itemId}><Link to={`/inventory/${r.itemId}`}>{r.name}</Link><T id="operational-reports.operational-reports.reservations-units" values={{ reservations: r.reservations, quantity: r.quantity }}>{": {reservations} reservations, {quantity} units"}</T></li>)}</ul></Section>
       <Section title={<T id="operational-reports.operational-reports.order-spend-by-vendor-and">Order spend by vendor and month</T>}><ul>{data.orders.map((r) => <li key={`${r.vendor}:${r.month}`}><T id="operational-reports.operational-reports.orders" values={{ vendor: r.vendor, month: r.month, orders: r.orders, toFixed: (r.spendCents / 100).toFixed(2) }}>{"{vendor} · {month}: {orders} orders, ${toFixed}"}</T></li>)}</ul></Section>
+      {userRole === "admin" && <><CollectorHealthPage embedded /><UsagePage embedded /></>}
     </>}
   </>;
 }

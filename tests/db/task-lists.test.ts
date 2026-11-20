@@ -54,7 +54,7 @@ const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -110,8 +110,7 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@task-lists.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255593${i}`,
       status: "active" as const,
     })),

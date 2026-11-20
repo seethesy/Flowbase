@@ -93,7 +93,10 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await dialog.getByRole("button", { name: "Save event" }).click();
   await expect(page.getByText("120", { exact: true })).toBeVisible();
 
-  await page.getByLabel(/^New status/).selectOption("lost");
+  // The status is a pill picker (FLOW-251).
+  const newStatus = page.locator("label.form-field", { hasText: "New status" });
+  await newStatus.getByRole("button", { name: "Status" }).click();
+  await newStatus.getByRole("option", { name: "Lost" }).click();
   await page.getByLabel("Why (optional)").fill("Went with another caterer");
   await page.getByRole("button", { name: "Change status" }).click();
   await expect(page.getByText("Lost").first()).toBeVisible();

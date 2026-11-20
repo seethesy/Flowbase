@@ -130,8 +130,8 @@ export const eventStatuses = [
   // Lead conversion (FLOW-112) creates events in Inquiry.
   "inquiry",
   "pitching",
-  "proposal_creation",
-  "initial_proposal_sent",
+  "p_creation",
+  "p_sent",
   "negotiation",
   "closing",
   "closed",
@@ -141,28 +141,21 @@ export const eventStatuses = [
 ] as const;
 export const eventStatusSchema = z.enum(eventStatuses);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
-// Negotiation and Closing both show as Pending until the client signs the first
-// contract (FLOW-209); the stored statuses stay separate.
+// Pipeline labels are shared with leads and proposals (FLOW-251).
 export const eventStatusLabels: Record<EventStatus, string> = {
   inquiry: "Inquiry",
   pitching: "Pitching",
-  proposal_creation: "P creation",
-  initial_proposal_sent: "Initial P sent",
-  negotiation: "Pending",
-  closing: "Pending",
+  p_creation: "P Creation",
+  p_sent: "P Sent",
+  negotiation: "Negotiation",
+  closing: "Closing",
   // Paid and signed.
   closed: "Closed",
   preparation: "Preparation",
   finished: "Finished",
   lost: "Lost",
 };
-// Tells the two Pending statuses apart where a person picks an exact status or
-// reads a change between them.
-export const eventStatusDetailLabels: Record<EventStatus, string> = {
-  ...eventStatusLabels,
-  negotiation: "Pending (Negotiation)",
-  closing: "Pending (Closing)",
-};
+export const eventStatusDetailLabels = eventStatusLabels;
 export const localTime = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a time.");
@@ -206,7 +199,8 @@ export const eventSchema = z.object({
   endTime: z.string().nullable(),
   startsAt: timestamp,
   endsAt: timestamp.nullable(),
-  client: z.object({ id, name: z.string() }),
+  client: z.object({ id, name: z.string() }).nullable(),
+  leadId: id.nullable().optional(),
   pocContactId: id.nullable(),
   venue: z.object({ id, name: z.string() }).nullable(),
   address: z.string(),

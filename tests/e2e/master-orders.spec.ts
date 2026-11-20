@@ -25,7 +25,7 @@ test("filters and exports the Master sheet with its displayed columns", async ({
 
 databaseTest("submits three edited cells as one request, then Admin approves", async ({ page }) => {
   await seedInventory({ items: [chairs()] });
-  const salesperson = seedUsers.find((user) => user.role === "salesperson" && user.employmentType === "full_time")!;
+  const salesperson = seedUsers.find((user) => user.role === "salesperson")!;
   await mockBrowserAuth(page, { userId: salesperson.id });
   await page.goto("/#/inventory/master");
   await page.getByLabel("name for Chiavari Chair").fill("Gold Chiavari Chair");
@@ -68,7 +68,7 @@ databaseTest("submits three edited cells as one request, then Admin approves", a
 });
 
 databaseTest("builds, edits, submits and prints an order list grouped by vendor", async ({ page }) => {
-  const lead = seedUsers.find((user) => user.role === "kitchen_lead" && user.employmentType === "full_time")!;
+  const lead = seedUsers.find((user) => user.role === "kitchen_lead")!;
   await seedInventory({ items: [consumable("Wine bottles", { details: { parLevel: 12,
     purchaseUnit: "case", packCount: 12 } })] });
   await mockBrowserAuth(page, { userId: lead.id });

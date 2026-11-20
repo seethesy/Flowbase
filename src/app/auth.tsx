@@ -44,8 +44,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       previous &&
       user &&
       previous.id === user.id &&
-      (previous.role !== user.role ||
-        previous.employmentType !== user.employmentType)
+      previous.role !== user.role
     )
       void queryClient.resetQueries();
   }, [user]);

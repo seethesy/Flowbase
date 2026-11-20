@@ -1,0 +1,6 @@
+ALTER TABLE "event_status_history" DROP CONSTRAINT "event_status_history_from_status_check";--> statement-breakpoint
+ALTER TABLE "event_status_history" DROP CONSTRAINT "event_status_history_to_status_check";--> statement-breakpoint
+ALTER TABLE "events" DROP CONSTRAINT "events_status_check";--> statement-breakpoint
+ALTER TABLE "event_status_history" ADD CONSTRAINT "event_status_history_from_status_check" CHECK ("event_status_history"."from_status" in ('inquiry', 'pitching', 'p_creation', 'p_sent', 'negotiation', 'closing', 'closed', 'preparation', 'finished', 'lost'));--> statement-breakpoint
+ALTER TABLE "event_status_history" ADD CONSTRAINT "event_status_history_to_status_check" CHECK ("event_status_history"."to_status" in ('inquiry', 'pitching', 'p_creation', 'p_sent', 'negotiation', 'closing', 'closed', 'preparation', 'finished', 'lost'));--> statement-breakpoint
+ALTER TABLE "events" ADD CONSTRAINT "events_status_check" CHECK ("events"."status" in ('inquiry', 'pitching', 'p_creation', 'p_sent', 'negotiation', 'closing', 'closed', 'preparation', 'finished', 'lost'));

@@ -55,7 +55,7 @@ export async function getCalendar(
       staffCount: sql<number>`(select count(distinct ${eventStaffSlots.assigneeId}) from ${eventStaffSlots} join ${eventShifts} on ${eventShifts.id} = ${eventStaffSlots.shiftId} where ${eventShifts.eventId} = ${events.id} and ${eventShifts.archivedAt} is null and ${eventStaffSlots.archivedAt} is null)`.mapWith(Number),
     })
     .from(events)
-    .innerJoin(clients, eq(clients.id, events.clientId))
+    .leftJoin(clients, eq(clients.id, events.clientId))
     .leftJoin(venues, eq(venues.id, events.venueId))
     .leftJoin(users, eq(users.id, events.assignedSalespersonId))
     .where(
@@ -103,7 +103,7 @@ export async function getCalendar(
       status: row.status,
       start: wallClock(row.startsAt),
       end: row.endsAt ? wallClock(row.endsAt) : null,
-      clientName: row.clientName,
+      clientName: row.clientName ?? "",
       venueName: row.venueName,
       guestCount: row.guestCount,
       // A user without a name shows as their email, as on the roster.

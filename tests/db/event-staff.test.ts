@@ -45,7 +45,7 @@ const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -88,8 +88,7 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@roster.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255590${i}`,
       status: name === "gone" ? ("deactivated" as const) : ("active" as const),
     })),
@@ -404,7 +403,7 @@ describe("Production Leads", () => {
     });
     expect(partTime.status).toBe(400);
     expect((await partTime.json()).error.message).toBe(
-      "Only full-time staff can be the primary Production Lead.",
+      "Part-time Staff cannot be the primary Production Lead.",
     );
     const inactive = await setLeads(manager, gala, {
       productionLeadId: people.gone,
@@ -468,7 +467,7 @@ describe("Production Leads", () => {
       title: "Fall gala",
       date: "2026-11-14",
       startTime: "18:00",
-      clientId: gala.client.id,
+      clientId: gala.client!.id,
       arrivalTime: "15:30",
       productionLeadId: people.jamie,
     });

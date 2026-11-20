@@ -60,7 +60,7 @@ it("draws events by their New York wall-clock times and opens their pages", () =
   });
   expect(entries).toEqual([
     expect.objectContaining({
-      title: "Fall gala · Closed",
+      title: "Fall gala",
       start: "2026-09-17T17:00",
       end: "2026-09-17T22:00",
       extendedProps: expect.objectContaining({
@@ -87,7 +87,7 @@ describe("overview mode (FLOW-64)", () => {
     expect(overviewLine({ ...gala, guestCount: 1 })).toContain("1 guest ·");
     const [entry] = toCalendarEntries({ events: [gala], tasks: [], layers: noLayers });
     expect(entry).toMatchObject({
-      title: "Fall gala · Closed",
+      title: "Fall gala",
       display: "block",
       extendedProps: { overview: "No venue · 120 guests · Sam · 6 staff" },
     });

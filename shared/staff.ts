@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { employmentTypeSchema, roleSchema } from "./access";
+import { roleSchema } from "./access";
 import { id, text } from "./schema-primitives";
 import { userStatuses } from "./users";
 
@@ -10,10 +10,10 @@ export const staffMemberSchema = z.object({
   id,
   name: z.string(),
   email: z.string(),
+  secondaryEmail: z.email().nullable(),
   // Visible to FT+ and to the person themselves (staff_contact); null otherwise.
   mobile: z.string().nullable(),
   role: roleSchema,
-  employmentType: employmentTypeSchema,
   status: z.enum(userStatuses),
   // Active staff can sign in and be staffed; pending and deactivated staff can't.
   active: z.boolean(),
@@ -32,8 +32,8 @@ export const staffUpdateSchema = z
   .object({
     name: text(200).min(1, "Name is required.").optional(),
     mobile: mobile.optional(),
+    secondaryEmail: z.union([z.email(), z.literal("")]).nullable().optional(),
     role: roleSchema.optional(),
-    employmentType: employmentTypeSchema.optional(),
     positions: z
       .array(text(100).min(1))
       .max(30)
@@ -48,5 +48,5 @@ export const staffUpdateSchema = z
   .strict();
 export type StaffUpdate = z.infer<typeof staffUpdateSchema>;
 // What anyone may change on their own profile; everything else is Admin's.
-export const selfEditableStaffFields = ["mobile", "smsConsent"] as const;
+export const selfEditableStaffFields = ["mobile", "secondaryEmail", "smsConsent"] as const;
 

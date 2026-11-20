@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
-import { roleSchema, type EmploymentType, type Role } from "../../shared/access";
+import { roleSchema, type Role } from "../../shared/access";
 import type { StaffMember, StaffUpdate } from "../../shared/staff";
 import { staffApi } from "../services/staff";
 import {
@@ -23,14 +23,12 @@ import { dateTimeLabel } from "./inventory-labels";
 import "./settings.css";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy } from "../app/copy";
+import { userSchema } from "../../shared/users";
+import { request } from "../services/core";
 
 // Staff directory and profiles (FLOW-40): one list of staff with the positions they
 // can work. Phone numbers show to FT+ and to the person; notes to FT+.
 
-const employmentLabels: Record<EmploymentType, string> = {
-  full_time: "Full-time",
-  part_time: "Part-time",
-};
 const statusLabel = (member: StaffMember) =>
   member.active
     ? "Active"
@@ -45,7 +43,6 @@ export function StaffDirectory() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
-  const [employment, setEmployment] = useState<EmploymentType | "">("");
   const [inactive, setInactive] = useState(false);
   const staff = useResource(
     ["staff"],
@@ -63,7 +60,6 @@ export function StaffDirectory() {
     (member) =>
       (inactive || member.active) &&
       (!position || member.positions.includes(position)) &&
-      (!employment || member.employmentType === employment) &&
       `${member.name} ${member.email}`.toLowerCase().includes(term),
   );
   const columns: ColumnDef<StaffMember, unknown>[] = [
@@ -78,11 +74,6 @@ export function StaffDirectory() {
       id: "role",
       header: "Role",
       accessorFn: (member) => roleLabel(member.role),
-    },
-    {
-      id: "employment",
-      header: "Employment",
-      accessorFn: (member) => employmentLabels[member.employmentType],
     },
     {
       id: "mobile",
@@ -117,18 +108,6 @@ export function StaffDirectory() {
           <option value="">All positions</option>
           {positions.map((option) => (
             <option key={option}>{option}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Employment type"
-          value={employment}
-          onChange={(e) => setEmployment(e.target.value as EmploymentType | "")}
-        >
-          <option value="">All employment types</option>
-          {Object.entries(employmentLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
           ))}
         </select>
         <label className="checkbox-filter">
@@ -179,6 +158,7 @@ export function StaffProfile({
   heading?: boolean;
 }) {
   const permissions = usePermissions();
+  const [editing, setEditing] = useState(false);
   const member = useResource(
     ["staff", id],
     () => staffApi.get(id),
@@ -193,55 +173,52 @@ export function StaffProfile({
       {heading && (
         <PageHeader
           title={data.name}
-          subtitle={`${roleLabel(data.role)} · ${employmentLabels[data.employmentType]}`}
+          subtitle={roleLabel(data.role)}
         />
       )}
-      {manage || own ? (
+      {(manage || own) && editing ? (
         <StaffForm
           member={data}
           manage={manage}
-          onSaved={(saved) => member.replace(saved)}
+          onSaved={(saved) => { member.replace(saved); setEditing(false); }}
+          onCancel={() => setEditing(false)}
         />
       ) : (
-        <Section title={<T id="staff.staff-profile.staff-profile">Staff profile</T>}>
-          <StaffSummary member={data} />
-        </Section>
+        <StaffSummary member={data} canEdit={manage || own} onEdit={() => setEditing(true)} />
       )}
     </>
   );
 }
 
-function StaffSummary({ member }: { member: StaffMember }) {
+function StaffSummary({ member, canEdit, onEdit }: { member: StaffMember; canEdit: boolean; onEdit: () => void }) {
+  const positions = useListLabels("staff_position");
   return (
-    <div className="staff-detail">
-      <dl>
-        <dt><T id="staff.staff-summary.email">Email</T></dt>
-        <dd>{member.email}</dd>
-        <dt><T id="staff.staff-summary.mobile">Mobile</T></dt>
-        <dd>{mobileLabel(member.mobile)}</dd>
-        <dt><T id="staff.staff-summary.positions">Positions</T></dt>
-        <dd>{member.positions.join(", ") || "—"}</dd>
-        <dt><T id="staff.staff-summary.status">Status</T></dt>
-        <dd>{statusLabel(member)}</dd>
-        {member.notes !== null && (
-          <>
-            <dt><T id="staff.staff-summary.notes">Notes</T></dt>
-            <dd>{member.notes || "—"}</dd>
-          </>
-        )}
-      </dl>
-    </div>
+    <>
+      <Section title={<T id="staff.staff-summary.employee-profile">Employee profile</T>}>
+        {canEdit && <Button variant="outline" onClick={onEdit}><T id="staff.staff-summary.edit">Edit</T></Button>}
+        <dl className="employee-profile-grid staff-profile-readonly">
+          <div><dt><T id="staff.staff-summary.name">Name</T></dt><dd>{member.name}</dd></div>
+          <div><dt><T id="staff.staff-summary.primary-email">Primary email</T></dt><dd>{member.email}</dd></div>
+          <div><dt><T id="staff.staff-summary.mobile">Phone number</T></dt><dd>{mobileLabel(member.mobile)}</dd></div>
+          <div><dt><T id="staff.staff-summary.secondary-email">Secondary email (optional)</T></dt><dd>{member.secondaryEmail || "—"}</dd></div>
+        </dl>
+      </Section>
+      <Section title={<T id="staff.staff-profile.staff-profile">Staff profile</T>}>
+        <p className="staff-role">{roleLabel(member.role)}</p>
+        <div className="staff-positions-grid">{[...new Set([...positions, ...member.positions])].map((position) =>
+          <label key={position}><RoundCheck checked={member.positions.includes(position)} disabled readOnly />{position}</label>)}</div>
+      </Section>
+    </>
   );
 }
 
-type Draft = Required<Omit<StaffUpdate, "notes">> & { notes: string };
+type Draft = Required<Omit<StaffUpdate, "notes">>;
 const draftOf = (member: StaffMember): Draft => ({
   name: member.name,
   mobile: member.mobile ?? "",
+  secondaryEmail: member.secondaryEmail ?? "",
   role: member.role,
-  employmentType: member.employmentType,
   positions: member.positions,
-  notes: member.notes ?? "",
   smsConsent: member.smsConsent,
 });
 
@@ -249,16 +226,20 @@ function StaffForm({
   member,
   manage,
   onSaved,
+  onCancel,
 }: {
   member: StaffMember;
   manage: boolean;
   onSaved: (member: StaffMember) => void;
+  onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(() => draftOf(member));
   useEffect(() => setDraft(draftOf(member)), [member]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [emailDraft, setEmailDraft] = useState(member.email);
+  const [editingEmail, setEditingEmail] = useState(false);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
   const save = async () => {
@@ -266,7 +247,8 @@ function StaffForm({
     if (manage && !draft.name.trim()) return setError("Name is required.");
     const input: StaffUpdate = manage
       ? { ...draft, name: draft.name.trim(), mobile: draft.mobile.trim() }
-      : { mobile: draft.mobile.trim(), smsConsent: draft.smsConsent };
+      : { mobile: draft.mobile.trim(), secondaryEmail: draft.secondaryEmail,
+          smsConsent: draft.smsConsent };
     setSaving(true);
     setError("");
     setNotice("");
@@ -279,121 +261,44 @@ function StaffForm({
       setSaving(false);
     }
   };
+  const saveEmail = async () => {
+    setSaving(true); setError(""); setNotice("");
+    try {
+      await request(userSchema, `/api/admin/users/${member.id}/email`, "PUT", { email: emailDraft });
+      setEditingEmail(false);
+      setNotice("Contact email changed. The existing Google sign-in remains linked, and the user was notified.");
+      window.location.reload();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setSaving(false); }
+  };
   return (
-    <Section title={manage ? <T id="staff.staff-form.staff-profile">Staff profile</T> : <T id="staff.staff-form.your-contact-details">Your contact details</T>}>
-      <form
-        className="settings-form"
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        {notice && <p role="status">{notice}</p>}
-        <div className="staff-detail">
-          <dl>
-            <dt><T id="staff.staff-form.email">Email</T></dt>
-            <dd>{member.email}</dd>
-            <dt><T id="staff.staff-form.status">Status</T></dt>
-            <dd>{statusLabel(member)}</dd>
-            {!manage && (
-              <>
-                <dt><T id="staff.staff-form.positions">Positions</T></dt>
-                <dd>{member.positions.join(", ") || "—"}</dd>
-              </>
-            )}
-          </dl>
+    <form className="settings-form" noValidate onSubmit={(event) => { event.preventDefault(); void save(); }}>
+      {error && <p role="alert" className="error-message">{error}</p>}
+      {notice && <p role="status">{notice}</p>}
+      <Section title={<T id="staff.staff-form.employee-profile">Employee profile</T>}>
+        <div className="employee-profile-grid">
+          <FormField label="Name"><input value={draft.name} readOnly={!manage} maxLength={200} onChange={(event) => set("name", event.target.value)} /></FormField>
+          <FormField label="Primary email">{editingEmail ? <span className="email-edit-row">
+            <input type="email" value={emailDraft} maxLength={254} onChange={(event) => setEmailDraft(event.target.value)} />
+            <Button type="button" disabled={saving} onClick={() => void saveEmail()}><T id="staff.staff-form.save-email">Save email</T></Button>
+            <Button type="button" variant="outline" onClick={() => setEditingEmail(false)}><T id="staff.staff-form.cancel-email">Cancel</T></Button>
+          </span> : <span className="email-edit-row"><input type="email" value={member.email} readOnly />
+            {manage && <Button type="button" variant="outline" onClick={() => setEditingEmail(true)}><T id="staff.staff-form.change-email">Change</T></Button>}</span>}</FormField>
+          <FormField label="Phone number"><input type="tel" value={draft.mobile} maxLength={40} onChange={(event) => set("mobile", event.target.value)} /></FormField>
+          <FormField label="Secondary email (optional)"><input type="email" value={draft.secondaryEmail ?? ""} maxLength={254} onChange={(event) => set("secondaryEmail", event.target.value)} /></FormField>
         </div>
-        <div className="form-grid">
-          {manage && (
-            <FormField label={<T id="staff.staff-form.name">Name *</T>}>
-              <input
-                value={draft.name}
-                maxLength={200}
-                onChange={(e) => set("name", e.target.value)}
-              />
-            </FormField>
-          )}
-          <FormField label={<T id="staff.staff-form.mobile-number">Mobile number *</T>}>
-            <input
-              type="tel"
-              value={draft.mobile}
-              maxLength={40}
-              onChange={(e) => set("mobile", e.target.value)}
-            />
-          </FormField>
-          {manage && (
-            <>
-              <FormField label={<T id="staff.staff-form.role">Role</T>}>
-                <select
-                  value={draft.role}
-                  onChange={(e) => set("role", e.target.value as Role)}
-                >
-                  {roleSchema.options.map((role) => (
-                    <option key={role} value={role}>
-                      {roleLabel(role)}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <FormField label={<T id="staff.staff-form.employment-type">Employment type</T>}>
-                <select
-                  value={draft.employmentType}
-                  onChange={(e) =>
-                    set("employmentType", e.target.value as EmploymentType)
-                  }
-                >
-                  {Object.entries(employmentLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-            </>
-          )}
-        </div>
-        <label className="staff-consent">
-          <RoundCheck
-            checked={draft.smsConsent}
-            onChange={(e) => set("smsConsent", e.target.checked)}
-          />
-          <T id="staff.staff-form.text-me-work-updates-sms">Text me work updates (SMS). Reply STOP to any text to opt out.</T>
-        </label>
-        {member.smsConsentAt && (
-          <p className="settings-hint">
-            <T id="staff.staff-form.opted-in" values={{ smsConsentAt: dateTimeLabel(member.smsConsentAt) }}>{"Opted in {smsConsentAt}."}</T>
-          </p>
-        )}
-        {manage && (
-          <>
-            <ListCheckboxes
-              list="staff_position"
-              legend={<T id="staff.staff-form.positions">Positions</T>}
-              values={draft.positions}
-              onChange={(positions) => set("positions", positions)}
-            />
-            <FormField label={<T id="staff.staff-form.notes">Notes</T>} hint={<T id="staff.staff-form.seen-by-full-time-staff">Seen by full-time staff and above.</T>}>
-              <textarea
-                rows={3}
-                maxLength={5000}
-                value={draft.notes}
-                onChange={(e) => set("notes", e.target.value)}
-              />
-            </FormField>
-          </>
-        )}
-        <div className="form-actions">
-          <Button type="submit" disabled={saving}>
-            <T id="staff.staff-form.save-profile">Save profile</T>
-          </Button>
-        </div>
-      </form>
-    </Section>
+      </Section>
+      <Section title={<T id="staff.staff-form.staff-profile">Staff profile</T>}>
+        <p className="staff-role">{roleLabel(draft.role)}</p>
+        {manage && <FormField label="Role"><select value={draft.role} onChange={(event) => set("role", event.target.value as Role)}>
+          {roleSchema.options.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+        </select></FormField>}
+        {manage ? <ListCheckboxes list="staff_position" legend="Positions" values={draft.positions} onChange={(positions) => set("positions", positions)} /> :
+          <p><T id="staff.staff-form.positions">Positions: </T>{member.positions.join(", ") || "—"}</p>}
+        <label className="staff-consent"><RoundCheck checked={draft.smsConsent} onChange={(event) => set("smsConsent", event.target.checked)} /><T id="staff.staff-form.sms-consent">Text me work updates (SMS)</T></label>
+        {member.smsConsentAt && <p className="settings-hint"><T id="staff.staff-form.opted-in">Opted in </T>{dateTimeLabel(member.smsConsentAt)}.</p>}
+        <div className="form-actions"><Button type="submit" disabled={saving}><T id="staff.staff-form.save">Save profile</T></Button><Button type="button" variant="outline" onClick={onCancel}><T id="staff.staff-form.cancel">Cancel</T></Button></div>
+      </Section>
+    </form>
   );
 }

@@ -15,10 +15,11 @@ import {
   type ExtraConfigColumn,
 } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../shared/core-records";
+import { pipelineStatuses } from "../../shared/pipeline";
 import { departments, shiftKinds } from "../../shared/event-staff";
 import { timelineKinds, timelineWhoKinds } from "../../shared/event-timeline";
 import { paymentMethods, scheduleKinds } from "../../shared/payments";
-import { roles, employmentTypes } from "../../shared/access";
+import { roles } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { proposalStages } from "../../shared/proposals";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
@@ -81,12 +82,10 @@ export const users = pgTable(
   {
     ...baseColumns(),
     email: text("email").notNull(),
+    secondaryEmail: text("secondary_email"),
     name: text("name").notNull().default(""),
     authId: uuid("auth_id").unique(),
     role: text("role", { enum: roles }).notNull(),
-    employmentType: text("employment_type", {
-      enum: employmentTypes,
-    }).notNull(),
     mobile: text("mobile").notNull(),
     status: text("status", { enum: userStatuses }).notNull().default("pending"),
     invitedAt: timestamptz("invited_at").notNull().defaultNow(),
@@ -100,7 +99,6 @@ export const users = pgTable(
   (table) => [
     uniqueIndex("users_email_idx").on(sql`lower(${table.email})`),
     oneOf("users_role_check", table.role, roles),
-    oneOf("users_employment_type_check", table.employmentType, employmentTypes),
     oneOf("users_status_check", table.status, userStatuses),
   ],
 ).enableRLS();
@@ -309,9 +307,8 @@ export const events = pgTable(
     address: text("address").notNull().default(""),
     guestCount: integer("guest_count"),
     servingsCount: integer("servings_count"),
-    clientId: uuid("client_id")
-      .notNull()
-      .references(() => clients.id),
+    clientId: uuid("client_id").references(() => clients.id),
+    leadId: uuid("lead_id").references((): AnyPgColumn => leads.id),
     pocContactId: uuid("poc_contact_id").references(() => clientContacts.id),
     assignedSalespersonId: uuid("assigned_salesperson_id"),
     productionLeadId: uuid("production_lead_id"),
@@ -336,6 +333,7 @@ export const events = pgTable(
   (table) => [
     index("events_starts_at_idx").on(table.startsAt),
     index("events_client_idx").on(table.clientId),
+    index("events_lead_idx").on(table.leadId),
     index("events_venue_idx").on(table.venueId),
     index("events_salesperson_idx").on(table.assignedSalespersonId),
     trigram("events_title_trgm_idx", table.title),
@@ -413,15 +411,13 @@ export const proposals = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id),
-    clientId: uuid("client_id")
-      .notNull()
-      .references(() => clients.id),
+    clientId: uuid("client_id").references(() => clients.id),
     title: text("title").notNull(),
     assignedSalespersonId: uuid("assigned_salesperson_id"),
     notes: text("notes").notNull().default(""),
     stage: text("stage", { enum: proposalStages })
       .notNull()
-      .default("client_communication"),
+      .default("p_creation"),
     lostReason: text("lost_reason").notNull().default(""),
     currentVersionId: uuid("current_version_id").references(
       (): AnyPgColumn => proposalVersions.id,
@@ -446,16 +442,14 @@ export const proposalStageHistory = pgTable(
       .notNull()
       .references(() => proposals.id),
     // null for the stage the proposal was created in.
-    fromStage: text("from_stage", { enum: proposalStages }),
-    toStage: text("to_stage", { enum: proposalStages }).notNull(),
+    fromStage: text("from_stage"),
+    toStage: text("to_stage").notNull(),
     reason: text("reason").notNull().default(""),
     // false when an action (upload, approval, sending, booking) set the stage.
     manual: boolean("manual").notNull().default(true),
   },
   (table) => [
     index("proposal_stage_history_proposal_idx").on(table.proposalId),
-    oneOf("proposal_stage_history_from_stage_check", table.fromStage, proposalStages),
-    oneOf("proposal_stage_history_to_stage_check", table.toStage, proposalStages),
   ],
 ).enableRLS();
 
@@ -739,13 +733,7 @@ export const leadChannels = [
   "manual",
   "import",
 ] as const;
-export const leadStatuses = [
-  "new",
-  "contacted",
-  "qualified",
-  "converted",
-  "lost",
-] as const;
+export const leadStatuses = pipelineStatuses;
 export const leads = pgTable(
   "leads",
   {
@@ -765,10 +753,12 @@ export const leads = pgTable(
     guestCount: integer("guest_count"),
     location: text("location").notNull().default(""),
     eventType: text("event_type").notNull().default(""),
+    eventName: text("event_name").notNull().default(""),
+    notes: jsonb("notes").$type<JSONContent>(),
     budgetCents: moneyCents("budget_cents"),
     message: text("message").notNull().default(""),
     rawPayload: jsonb("raw_payload"),
-    status: text("status", { enum: leadStatuses }).notNull().default("new"),
+    status: text("status", { enum: leadStatuses }).notNull().default("inquiry"),
     lostReason: text("lost_reason").notNull().default(""),
     firstRespondedAt: timestamptz("first_responded_at"),
     assignedSalespersonId: uuid("assigned_salesperson_id"),
@@ -1564,7 +1554,7 @@ export const notifications = pgTable(
   ],
 ).enableRLS();
 
-// Email on or off per user and notification type. No row means on.
+// Email and SMS choices per user and notification type. No row means off.
 export const notificationPreferences = pgTable(
   "notification_preferences",
   {
@@ -1572,6 +1562,7 @@ export const notificationPreferences = pgTable(
     userId: uuid("user_id").notNull(),
     type: text("type", { enum: notificationTypes }).notNull(),
     email: boolean("email").notNull(),
+    sms: boolean("sms").notNull().default(false),
   },
   (table) => [
     uniqueIndex("notification_preferences_user_type_idx").on(

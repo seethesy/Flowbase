@@ -1,5 +1,34 @@
 @import "tailwindcss";
 @import "./tokens.css";
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: 24px;
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  background: var(--status-bg);
+  color: var(--status-fg);
+}
+.status-select { position: relative; display: inline-block; }
+.status-select > button { display: inline-flex; align-items: center; gap: 5px; padding: 0; }
+.status-select__options { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 140px; max-height: 280px; overflow-y: auto; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px #0002; }
+.status-select__options > button { display: block; width: 100%; padding: 4px; text-align: left; border-radius: 5px; }
+.status-select__options > button:hover, .status-select__options > button:focus-visible { background: var(--soft); }
+.status-pill--inquiry { --status-bg: var(--status-inquiry-bg); --status-fg: var(--status-inquiry-fg); }
+.status-pill--pitching { --status-bg: var(--status-pitching-bg); --status-fg: var(--status-pitching-fg); }
+.status-pill--p_creation { --status-bg: var(--status-p_creation-bg); --status-fg: var(--status-p_creation-fg); }
+.status-pill--p_sent { --status-bg: var(--status-p_sent-bg); --status-fg: var(--status-p_sent-fg); }
+.status-pill--negotiation { --status-bg: var(--status-negotiation-bg); --status-fg: var(--status-negotiation-fg); }
+.status-pill--closing { --status-bg: var(--status-closing-bg); --status-fg: var(--status-closing-fg); }
+.status-pill--closed { --status-bg: var(--status-closed-bg); --status-fg: var(--status-closed-fg); }
+.status-pill--lost { --status-bg: var(--status-lost-bg); --status-fg: var(--status-lost-fg); }
+.status-pill--preparation { --status-bg: #edf3ee; --status-fg: #20543f; }
+.status-pill--finished { --status-bg: #e2e8e3; --status-fg: #202c27; }
 * {
   box-sizing: border-box;
 }

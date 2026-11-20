@@ -57,7 +57,7 @@ const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -124,11 +124,14 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@notify.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255592${i}`,
       status: name === "gone" ? ("deactivated" as const) : ("active" as const),
     })),
+  );
+  // Delivery tests opt in explicitly; production defaults are covered below.
+  await db.insert(schema.notificationPreferences).values(
+    Object.values(people).flatMap((userId) => notificationTypes.map((type) => ({ userId, type, email: true, sms: false }))),
   );
   sent.length = 0;
   failSends = false;
@@ -444,7 +447,8 @@ describe("AC2: email preferences", () => {
     }
   });
 
-  it("lists every type with email on by default and the urgent flag from business settings", async () => {
+  it("lists every type with delivery off by default and the urgent flag from business settings", async () => {
+    await db.delete(schema.notificationPreferences);
     await admin.send("PUT", "/api/settings/defaults", {
       urgentNotificationTypes: ["collector_failure", "staff_assigned"],
     });
@@ -453,7 +457,7 @@ describe("AC2: email preferences", () => {
       "/api/notifications/preferences",
     );
     expect(preferences).toHaveLength(notificationTypes.length);
-    expect(preferences.every((p) => p.email)).toBe(true);
+    expect(preferences.every((p) => !p.email && !p.sms)).toBe(true);
     expect(preferences.filter((p) => p.urgent).map((p) => p.type)).toEqual([
       "staff_assigned",
       "collector_failure",
@@ -560,6 +564,8 @@ describe("SMS stub routing", () => {
       value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 10 } });
     await db.update(schema.users).set({ smsConsentAt: new Date() })
       .where(eq(schema.users.id, people.casey));
+    // SMS is opt-in per type (FLOW-249).
+    await casey.send("PUT", "/api/notifications/preferences", { sms: { task_assigned: true } });
     await send("urgent-1", "task_assigned", people.casey);
     await send("ordinary-1", "collector_failure", people.casey);
     await send("urgent-no-consent", "task_assigned", people.drew);
@@ -572,6 +578,7 @@ describe("SMS stub routing", () => {
       value: { urgentNotificationTypes: ["staff_assigned"], monthlySmsCap: 10 } });
     await db.update(schema.users).set({ smsConsentAt: new Date() })
       .where(eq(schema.users.id, people.casey));
+    await casey.send("PUT", "/api/notifications/preferences", { sms: { staff_assigned: true } });
     for (const [key, smsEligible] of [["future", false], ["event-day", true]] as const) {
       const [job] = await db.insert(schema.jobs).values({ type: "event:event.staff_assigned",
         payload: {}, idempotencyKey: `assignment-${key}` }).returning();
@@ -585,7 +592,10 @@ describe("SMS stub routing", () => {
       value: { urgentNotificationTypes: ["task_assigned"], monthlySmsCap: 1 } });
     await db.update(schema.users).set({ smsConsentAt: new Date() })
       .where(eq(schema.users.id, people.casey));
-    await casey.send("PUT", "/api/notifications/preferences", { email: { task_assigned: false } });
+    await casey.send("PUT", "/api/notifications/preferences", {
+      email: { task_assigned: false },
+      sms: { task_assigned: true },
+    });
     await send("first-urgent", "task_assigned", people.casey);
     await send("second-urgent", "task_assigned", people.casey);
     await send("third-urgent", "task_assigned", people.casey);

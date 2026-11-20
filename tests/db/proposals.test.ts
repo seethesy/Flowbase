@@ -9,7 +9,6 @@ import type { RunWithDb } from "../../worker/hono";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
 import type {
   Client,
-  EventStatusChange,
   FlowEvent,
 } from "../../shared/core-records";
 import {
@@ -56,7 +55,7 @@ const signedInAs = (
   role: Role,
   employmentType: EmploymentType = "full_time",
 ) => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -133,15 +132,15 @@ describe("proposal record and stages (FLOW-122)", () => {
     const proposal = await newProposal(event);
     expect(proposal).toMatchObject({
       eventId: event.id,
-      clientId: event.client.id,
+      clientId: event.client!.id,
       title: "Gala dinner",
-      stage: "client_communication",
+      stage: "p_creation",
       assignedSalesperson: { id: people.sam },
       currentVersion: null,
       versions: [],
     });
     expect(proposal.history).toMatchObject([
-      { from: null, to: "client_communication", manual: true },
+      { from: null, to: "p_creation", manual: true },
     ]);
     // One or more proposals per event.
     await newProposal(event, "Cocktail option");
@@ -156,18 +155,18 @@ describe("proposal record and stages (FLOW-122)", () => {
   it("lets the salesperson move the manual stages, each audited and in the history", async () => {
     const event = await newEvent();
     const proposal = await newProposal(event);
-    expect((await move(proposal, "menu_curation")).status).toBe(200);
-    const moved = (await (await move(proposal, "revisions")).json()) as ProposalDetail;
-    expect(moved.stage).toBe("revisions");
+    expect((await move(proposal, "negotiation")).status).toBe(200);
+    const moved = (await (await move(proposal, "closing")).json()) as ProposalDetail;
+    expect(moved.stage).toBe("closing");
     expect(moved.history.map((change) => [change.from, change.to])).toEqual([
-      ["menu_curation", "revisions"],
-      ["client_communication", "menu_curation"],
-      [null, "client_communication"],
+      ["negotiation", "closing"],
+      ["p_creation", "negotiation"],
+      [null, "p_creation"],
     ]);
     expect(moved.history[0].actor).toMatchObject({ id: people.sam });
     // Back to an earlier manual stage is fine; staying put is not.
-    expect((await move(proposal, "client_communication")).status).toBe(200);
-    expect((await move(proposal, "client_communication")).status).toBe(409);
+    expect((await move(proposal, "p_creation")).status).toBe(200);
+    expect((await move(proposal, "p_creation")).status).toBe(409);
     const audit = await db
       .select()
       .from(schema.auditLog)
@@ -180,8 +179,8 @@ describe("proposal record and stages (FLOW-122)", () => {
       "update",
     ]);
     expect(audit[1].changes.stage).toEqual({
-      before: "client_communication",
-      after: "menu_curation",
+      before: "p_creation",
+      after: "negotiation",
     });
     const changed = await db
       .select({ payload: schema.jobs.payload })
@@ -191,18 +190,15 @@ describe("proposal record and stages (FLOW-122)", () => {
   });
 
   // AC1
-  it("never moves to Finalized, Approved, Sent or Signed by hand", async () => {
+  it("keeps Inquiry, Pitching, P Sent and Closed out of manual changes", async () => {
     const event = await newEvent();
     const proposal = await newProposal(event);
-    for (const stage of ["finalized", "approved", "sent", "signed"]) {
+    for (const stage of ["inquiry", "pitching", "p_sent", "closed"]) {
       const response = await move(proposal, stage, "", admin);
-      expect(response.status, stage).toBe(400);
-      expect(((await response.json()) as { error: { message: string } }).error.message).toBe(
-        "Finalized, Approved, Sent and Signed are set by uploading, approving, sending and booking the proposal, not by hand.",
-      );
+      expect(response.status, stage).toBe(409);
     }
     const [row] = await db.select().from(schema.proposals);
-    expect(row.stage).toBe("client_communication");
+    expect(row.stage).toBe("p_creation");
   });
 
   // AC2
@@ -217,15 +213,15 @@ describe("proposal record and stages (FLOW-122)", () => {
     const lost = (await (await move(proposal, "lost", "Went with another caterer")).json()) as ProposalDetail;
     expect(lost).toMatchObject({ stage: "lost", lostReason: "Went with another caterer" });
     expect(lost.history[0]).toMatchObject({
-      from: "client_communication",
+      from: "p_creation",
       to: "lost",
       reason: "Went with another caterer",
     });
-    expect((await move(proposal, "revisions")).status).toBe(409);
+    expect((await move(proposal, "closing")).status).toBe(409);
   });
 
   // AC2
-  it("moves the event to Lost only when its last open proposal is lost", async () => {
+  it("does not move the event when its proposals are lost", async () => {
     const event = await newEvent();
     const first = await newProposal(event, "Plated");
     const second = await newProposal(event, "Buffet");
@@ -236,18 +232,14 @@ describe("proposal record and stages (FLOW-122)", () => {
     await move(second, "lost", "Date fell through");
     expect(
       (await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).status,
-    ).toBe("lost");
-    const [change] = await sam.send<EventStatusChange[]>(
+    ).toBe("inquiry");
+    const history = await sam.send<unknown[]>(
       "GET",
       `/api/events/${event.id}/status-history`,
     );
-    expect(change).toMatchObject({
-      from: "inquiry",
-      to: "lost",
-      manual: false,
-      reason: 'Proposal "Buffet" was lost: Date fell through',
-    });
-    expect(await jobTypes()).toContain("event:event.lost");
+    // Only the creation entry: losing proposals never moved the event.
+    expect(history).toEqual([expect.objectContaining({ from: null, to: "inquiry" })]);
+    expect(await jobTypes()).not.toContain("event:event.lost");
   });
 
   it("leaves an event that is already Lost or Finished alone", async () => {
@@ -272,7 +264,7 @@ describe("proposal record and stages (FLOW-122)", () => {
     expect(
       (await sue.call("GET", `/api/proposals?eventId=${event.id}`)).status,
     ).toBe(404);
-    expect((await move(proposal, "menu_curation", "", sue)).status).toBe(404);
+    expect((await move(proposal, "negotiation", "", sue)).status).toBe(404);
     expect(
       (await sue.call("POST", "/api/proposals", { eventId: event.id, title: "Mine" }))
         .status,
@@ -372,18 +364,17 @@ describe("proposal approval, revision, booking and addendum (FLOW-127–130)", (
     expect(submitted.approval?.status).toBe("pending");
     await approve(submitted.approval!.id);
     await sendProposal(proposal.id);
-    expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).status).toBe("initial_proposal_sent");
+    expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).status).toBe("p_sent");
     const [hold] = await db.select().from(schema.reservations);
     expect(hold).toMatchObject({ eventId: event.id, itemId: item.id, quantity: 20, status: "tentative" });
     const contract = { signedAt: "2026-11-02T12:00:00.000Z", clientSigner: "Client", salespersonSigner: "Sam", cardOnFile: true, cardLast4: "1234", attachmentId: null, noFullCardNumberConfirmed: false };
     expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, { ...contract, cardLast4: "12345" })).status).toBe(400);
     expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, contract)).status).toBe(201);
     const booked = await sam.send<FlowEvent>("GET", `/api/events/${event.id}`);
-    expect(booked.status).toBe("closing");
+    expect(booked.status).toBe("closed");
     expect(booked.bookedAt).toBe(contract.signedAt);
-    await admin.send("POST", `/api/events/${event.id}/status`, { status: "closed" }, 200);
     const second = await upload(proposal, { docx: docx("Revised.docx") });
-    expect(second.stage).toBe("finalized");
+    expect(second.stage).toBe("closed");
     expect((await sam.send<FlowEvent>("GET", `/api/events/${event.id}`)).planningStaleAt).not.toBeNull();
     await setMapping(proposal.id, mapping(second.versions[0].id, "120", item.id));
     const revised = await sam.send<ProposalDetail>("GET", `/api/proposals/${proposal.id}`);
@@ -410,7 +401,7 @@ describe("proposal approval, revision, booking and addendum (FLOW-127–130)", (
     const submitted = await submit(proposal.id);
     const rejected = await admin.call("POST", `/api/approvals/${submitted.approval!.id}/reject`, { comment: "Please revise the guest count" });
     expect(rejected.status, await rejected.clone().text()).toBe(200);
-    expect((await sam.send<ProposalDetail>("GET", `/api/proposals/${proposal.id}`)).stage).toBe("revisions");
+    expect((await sam.send<ProposalDetail>("GET", `/api/proposals/${proposal.id}`)).stage).toBe("p_creation");
     const jobs = await db.select({ type: schema.jobs.type, payload: schema.jobs.payload }).from(schema.jobs);
     expect(jobs.some((job) => job.type === "event:approval.decided" && JSON.stringify(job.payload).includes("Please revise the guest count"))).toBe(true);
   });
@@ -422,16 +413,10 @@ describe("proposal file upload and versions (FLOW-123)", () => {
     const event = await newEvent();
     const proposal = await newProposal(event);
     const first = await upload(proposal, { docx: docx(), pdf: pdf() });
-    expect(first.stage).toBe("finalized");
+    expect(first.stage).toBe("p_creation");
     expect(first.currentVersion).toBe(1);
-    expect(first.history[0]).toMatchObject({
-      from: "client_communication",
-      to: "finalized",
-      manual: false,
-      reason: "Version 1 uploaded",
-      actor: { id: people.sam },
-    });
-    await move(proposal, "revisions");
+    expect(first.history[0]).toMatchObject({ from: null, to: "p_creation" });
+    await move(proposal, "negotiation");
     const second = await upload(proposal, { docx: docx("Gala proposal v2.docx") });
     expect(second.currentVersion).toBe(2);
     expect(
@@ -550,7 +535,7 @@ describe("proposal review and mapping (FLOW-125)", () => {
     expect(await missingTotal.text()).toContain("Confirm the total");
     expect((await sam.call("PUT", path, ready)).status).toBe(200);
     const [slot] = await db.select().from(schema.eventStaffSlots);
-    await db.insert(schema.users).values({ id: people.kit, email: "kit-proposal@example.test", role: "kitchen_staff", employmentType: "full_time", mobile: "" }).onConflictDoNothing();
+    await db.insert(schema.users).values({ id: people.kit, email: "kit-proposal@example.test", role: "kitchen_staff", mobile: "" }).onConflictDoNothing();
     await db.update(schema.eventStaffSlots).set({ assigneeId: people.kit }).where(eq(schema.eventStaffSlots.id, slot.id));
     expect((await sam.call("PUT", path, ready)).status).toBe(200);
     const slots = await db.select().from(schema.eventStaffSlots);

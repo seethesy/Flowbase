@@ -34,7 +34,7 @@ const people = {
   kitchen: "c0000000-0000-4000-8000-000000000006",
 };
 const as = (userId: string, role: Role, employmentType: Actor["employmentType"] = "full_time") => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -122,7 +122,7 @@ async function seed(status: "closed" | "negotiation" = "closed") {
   made.recipes.push(dish.id);
   const [proposal] = await db
     .insert(schema.proposals)
-    .values({ eventId: event.id, clientId: owner.id, title: "Holiday", stage: "signed" })
+    .values({ eventId: event.id, clientId: owner.id, title: "Holiday", stage: "closed" })
     .returning();
   const [version] = await db
     .insert(schema.proposalVersions)
@@ -216,7 +216,7 @@ describe("FLOW-141 change propagation", () => {
     const current = await admin.send<FlowEvent>("GET", `/api/events/${event.id}`);
     await admin.send("PUT", `/api/events/${event.id}`, {
       title: current.title, date: current.date, startTime: current.startTime,
-      endTime: current.endTime, clientId: current.client.id, pocContactId: current.pocContactId,
+      endTime: current.endTime, clientId: current.client!.id, pocContactId: current.pocContactId,
       venueId: current.venue?.id ?? null, address: current.address, guestCount: 120,
       servingsCount: current.servingsCount, eventType: current.eventType, serviceType: current.serviceType,
       foodServiceStyle: current.foodServiceStyle, dressCode: current.dressCode,
@@ -393,7 +393,7 @@ describe("pull list (FLOW-134)", () => {
     expect(set).toMatchObject({ scheduledDate: "2026-12-10", scheduledTime: "09:30", missingSchedule: true });
     expect(set.scheduledAt).toBe("2026-12-10T14:30:00.000Z");
     const [puller] = await db.insert(schema.users).values({ id: randomUUID(), email: `${randomUUID()}@example.test`,
-      name: "Puller", role: "staff", employmentType: "full_time", mobile: "", status: "active" }).returning();
+      name: "Puller", role: "staff", mobile: "", status: "active" }).returning();
     const ready = await admin.send<PullList>("PUT", `/api/events/${event.id}/pull-list/schedule`,
       { date: "2026-12-10", time: "09:30", pullerId: puller.id });
     expect(ready.missingSchedule).toBe(false);

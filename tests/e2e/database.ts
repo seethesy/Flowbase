@@ -110,7 +110,7 @@ export async function seedRecords(
           title: row.title,
           startsAt,
           endsAt,
-          clientId: row.client.id,
+          clientId: row.client!.id,
           pocContactId: row.pocContactId,
           address: row.address,
           eventType: row.eventType,

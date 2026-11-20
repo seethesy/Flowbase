@@ -8,7 +8,8 @@ const env = { ASSETS: { fetch } };
 const actor = (role: Role): Actor => ({ userId: "a1590000-0000-4000-8000-000000000001", role, employmentType: "full_time" });
 const path = "/api/operational-reports?from=2026-10-01&to=2026-10-31";
 
-it.each(["technical", "salesperson", "kitchen_lead", "kitchen_staff", "staff"] as Role[])(
+// Technical reads them for collector health and usage (FLOW-248).
+it.each(["salesperson", "kitchen_lead", "kitchen_staff", "staff", "part_time_staff"] as Role[])(
   "denies operational reports to %s before opening the database", async (role) => {
     const withDb = vi.fn() as unknown as RunWithDb;
     const app = createApp({ withDb, resolveActor: async () => actor(role) });

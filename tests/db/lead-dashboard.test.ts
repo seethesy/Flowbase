@@ -30,7 +30,7 @@ const people = {
   sue: "a0000000-0000-4000-8000-000000000004",
 };
 const signedInAs = (userId: string, role: Role) => {
-  const actor: Actor = { userId, role, employmentType: "full_time" };
+  const actor: Actor = { userId, role };
   const app = createApp({ withDb, resolveActor: async () => actor });
   return {
     call: (path: string) => app.request(path, {}, env),
@@ -93,7 +93,7 @@ async function seed(
   await db
     .update(leads)
     .set({
-      status: status ?? (eventStatus ? "converted" : "new"),
+      status: status ?? (eventStatus ? "closing" : "inquiry"),
       convertedClientId,
       convertedEventId,
       firstRespondedAt:
@@ -115,7 +115,7 @@ beforeEach(async () => {
   await seed({ purchased: true, budgetCents: 1_000_000, eventStatus: "closed", respondedAfterHours: 1, salesperson: people.sam });
   await seed({ eventStatus: "finished", respondedAfterHours: 3, salesperson: people.sue });
   await seed({ budgetCents: 500_000, salesperson: people.sam });
-  await seed({ source: "Thumbtack", channel: "webhook", status: "contacted", respondedAfterHours: 2, salesperson: people.sue });
+  await seed({ source: "Thumbtack", channel: "webhook", status: "pitching", respondedAfterHours: 2, salesperson: people.sue });
   await seed({ source: "Thumbtack", channel: "webhook", status: "lost" });
   // Outside the range.
   await seed({ budgetCents: 9_000_000, receivedAt: "2026-09-15T15:00:00.000Z" });
@@ -167,9 +167,9 @@ describe("lead dashboard (FLOW-113)", () => {
       },
     ]);
     expect(Object.fromEntries(dashboard.byStatus.map((row) => [row.status, row.leads]))).toEqual({
-      new: 1,
-      contacted: 1,
-      converted: 2,
+      inquiry: 1,
+      pitching: 1,
+      closing: 2,
       lost: 1,
     });
     expect(dashboard.byChannel.map((row) => [row.channel, row.leads])).toEqual([

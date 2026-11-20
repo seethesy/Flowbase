@@ -45,7 +45,7 @@ const signedInAs = (
   role: Role,
   employmentType: EmploymentType = "full_time",
 ) => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -106,8 +106,8 @@ const names = (rows: Lead[]) => rows.map((row) => row.name);
 const jobTypes = async () =>
   (await db.select({ type: jobs.type }).from(jobs)).map((row) => row.type);
 const qualify = async (id: string) => {
-  await admin.post<Lead>(`/api/leads/${id}/status`, { status: "contacted" });
-  await admin.post<Lead>(`/api/leads/${id}/status`, { status: "qualified" });
+  await admin.post<Lead>(`/api/leads/${id}/status`, { status: "pitching" });
+  await admin.post<Lead>(`/api/leads/${id}/status`, { status: "p_creation" });
 };
 
 beforeAll(async () => {
@@ -117,8 +117,36 @@ beforeEach(async () => {
   await db.execute(
     sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
+  // Lead owners must be active sales users (FLOW-250).
+  await db
+    .insert(schema.users)
+    .values(
+      (
+        [
+          ["admin", "admin"],
+          ["manager", "sales_manager"],
+          ["sam", "salesperson"],
+          ["sue", "salesperson"],
+          ["kitchen", "kitchen_lead"],
+        ] as const
+      ).map(([name, role], i) => ({
+        id: people[name],
+        email: `${name}@leads.example`,
+        name: name[0].toUpperCase() + name.slice(1),
+        role,
+        mobile: `20255592${i}`,
+        status: "active" as const,
+      })),
+    )
+    // Another file may have left a user with the same id behind.
+    .onConflictDoUpdate({
+      target: schema.users.id,
+      set: { role: sql`excluded.role`, status: "active", archivedAt: null },
+    });
 });
 afterAll(async () => {
+  // Leave no seeded users behind for later files (any order, FLOW-250).
+  await db.execute(sql`truncate table users cascade`);
   await client.end();
 });
 
@@ -146,7 +174,7 @@ describe("inbox (FLOW-100)", () => {
       source: "Bark",
       sourceLeadId: "bark-1001",
       purchased: true,
-      status: "new",
+      status: "inquiry",
       budgetCents: 1_200_000,
       assignedSalespersonId: null,
     });
@@ -205,7 +233,7 @@ describe("inbox (FLOW-100)", () => {
     expect(
       (
         await sam.call("POST", `/api/leads/${theirs}/status`, {
-          status: "contacted",
+          status: "pitching",
         })
       ).status,
     ).toBe(404);
@@ -228,12 +256,14 @@ describe("inbox (FLOW-100)", () => {
     expect((await sam.get<Lead>(`/api/leads/${id}`)).rawPayload).toEqual({
       bark: { id: 1001, answers: ["a", "b"] },
     });
-    const partTime = await partTimeSam.get<Lead>(`/api/leads/${id}`);
-    expect(partTime.rawPayload).toBeNull();
-    expect(JSON.stringify(partTime)).not.toContain("answers");
+    // Part-time Staff (FLOW-249) can't open leads at all.
+    const partTime = await partTimeSam.call("GET", `/api/leads/${id}`);
+    expect(partTime.status).toBe(403);
+    expect(await partTime.text()).not.toContain("answers");
+    expect((await partTimeSam.call("GET", "/api/leads")).status).toBe(403);
     for (const list of [
       await admin.get<Lead[]>("/api/leads"),
-      await partTimeSam.get<Lead[]>("/api/leads"),
+      await sam.get<Lead[]>("/api/leads"),
     ])
       expect(list.every((row) => !("rawPayload" in row))).toBe(true);
   });
@@ -344,46 +374,46 @@ describe("triage and status (FLOW-111)", () => {
       lostReason: "Booked another caterer",
     });
     const again = await admin.call("POST", `/api/leads/${id}/status`, {
-      status: "contacted",
+      status: "pitching",
     });
     expect(again.status).toBe(409);
     expect((await again.json()).error.code).toBe("INVALID_TRANSITION");
   });
 
-  it("follows new, contacted, qualified and never skips or converts by status", async () => {
+  it("allows pipeline moves but requires the Closing action", async () => {
     const id = await seed();
     const skip = await admin.call("POST", `/api/leads/${id}/status`, {
-      status: "qualified",
+      status: "p_creation",
     });
-    expect(skip.status).toBe(409);
+    expect(skip.status).toBe(200);
     expect(
-      (await admin.call("POST", `/api/leads/${id}/status`, { status: "converted" }))
+      (await admin.call("POST", `/api/leads/${id}/status`, { status: "closing" }))
         .status,
-    ).toBe(400);
+    ).toBe(409);
     await admin.post(`/api/leads/${id}/assign`, {
       assignedSalespersonId: people.sam,
     });
     // A salesperson moves their own lead along.
     const contacted = await sam.post<Lead>(`/api/leads/${id}/status`, {
-      status: "contacted",
+      status: "pitching",
     });
-    expect(contacted.status).toBe("contacted");
+    expect(contacted.status).toBe("pitching");
     expect(
-      (await sam.post<Lead>(`/api/leads/${id}/status`, { status: "qualified" }))
+      (await sam.post<Lead>(`/api/leads/${id}/status`, { status: "p_creation" }))
         .status,
-    ).toBe("qualified");
+    ).toBe("p_creation");
     const changes = await db
       .select({ payload: jobs.payload })
       .from(jobs)
       .where(sql`${jobs.type} = 'event:lead.status_changed'`);
-    expect(changes).toHaveLength(2);
+    expect(changes).toHaveLength(3);
   });
 
   it("records first-response time as received to the first move to contacted", async () => {
     const id = await seed({ receivedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() });
     expect((await admin.get<Lead>(`/api/leads/${id}`)).firstResponseSeconds).toBeNull();
     const contacted = await admin.post<Lead>(`/api/leads/${id}/status`, {
-      status: "contacted",
+      status: "pitching",
     });
     expect(contacted.firstRespondedAt).not.toBeNull();
     expect(contacted.firstResponseSeconds).toBeGreaterThanOrEqual(7200);
@@ -395,7 +425,7 @@ describe("triage and status (FLOW-111)", () => {
     );
     expect(contacted.firstResponseSeconds).toBe(expected);
     const qualified = await admin.post<Lead>(`/api/leads/${id}/status`, {
-      status: "qualified",
+      status: "p_creation",
     });
     expect(qualified.firstRespondedAt).toBe(contacted.firstRespondedAt);
   });
@@ -418,7 +448,7 @@ describe("conversion (FLOW-112)", () => {
       convertBody(),
     );
     expect(result.lead).toMatchObject({
-      status: "converted",
+      status: "closing",
       convertedClientId: result.client.id,
       convertedEventId: result.event.id,
     });
@@ -476,7 +506,7 @@ describe("conversion (FLOW-112)", () => {
       eventId: result.event.id,
       clientId: result.client.id,
       title: "Maya Ortiz — Wedding",
-      stage: "client_communication",
+      stage: "p_creation",
       assignedSalespersonId: people.sam,
       currentVersionId: null,
     });
@@ -484,7 +514,7 @@ describe("conversion (FLOW-112)", () => {
       await db
         .select({ from: proposalStageHistory.fromStage, to: proposalStageHistory.toStage })
         .from(proposalStageHistory),
-    ).toEqual([{ from: null, to: "client_communication" }]);
+    ).toEqual([{ from: null, to: "p_creation" }]);
   });
 
   // FLOW-163: linking to an existing client creates the proposal the same way.
@@ -506,7 +536,7 @@ describe("conversion (FLOW-112)", () => {
       id: result.proposal.id,
       eventId: result.event.id,
       clientId: existing.id,
-      stage: "client_communication",
+      stage: "p_creation",
     });
   });
 
@@ -525,12 +555,10 @@ describe("conversion (FLOW-112)", () => {
     });
   });
 
-  it("needs a qualified lead and converts only once", async () => {
+  it("moves an open lead to Closing only once", async () => {
     const id = await seed();
     const early = await admin.call("POST", `/api/leads/${id}/convert`, convertBody());
-    expect(early.status).toBe(409);
-    await qualify(id);
-    await admin.post(`/api/leads/${id}/convert`, convertBody());
+    expect(early.status).toBe(200);
     const twice = await admin.call("POST", `/api/leads/${id}/convert`, convertBody());
     expect(twice.status).toBe(409);
     expect(await db.select().from(clients)).toHaveLength(1);
@@ -542,7 +570,7 @@ describe("conversion (FLOW-112)", () => {
     await qualify(id);
     const missing = await admin.call("POST", `/api/leads/${id}/convert`, convertBody());
     expect(missing.status).toBe(400);
-    expect((await missing.json()).error.message).toBe("Enter the event date.");
+    expect((await missing.json()).error.message).toBe("Enter an event date and start time.");
     const result = await admin.post<LeadConversion>(
       `/api/leads/${id}/convert`,
       convertBody({ event: { startTime: "18:00", date: "2026-12-12" } }),
@@ -583,7 +611,7 @@ describe("conversion (FLOW-112)", () => {
     // The matching contact is reused, not duplicated.
     expect(after.contacts).toHaveLength(1);
     const event = await admin.get<FlowEvent>(`/api/events/${linked.event.id}`);
-    expect(event.client.id).toBe(existing.id);
+    expect(event.client!.id).toBe(existing.id);
     expect(event.pocContactId).toBe(after.contacts[0].id);
   });
 
@@ -681,7 +709,7 @@ describe("conversion (FLOW-112)", () => {
     expect(await db.select().from(proposalStageHistory)).toHaveLength(0);
     const [row] = await db.select().from(leads);
     expect(row).toMatchObject({
-      status: "qualified",
+      status: "p_creation",
       convertedClientId: null,
       convertedEventId: null,
     });
@@ -719,7 +747,7 @@ describe("conversion (FLOW-112)", () => {
     expect(await db.select().from(events)).toHaveLength(0);
     expect(await db.select().from(proposals)).toHaveLength(0);
     const [row] = await db.select().from(leads);
-    expect(row).toMatchObject({ status: "qualified", convertedEventId: null });
+    expect(row).toMatchObject({ status: "p_creation", convertedEventId: null });
   });
 });
 
@@ -738,7 +766,7 @@ describe("manual entry (FLOW-101)", () => {
     expect(created).toMatchObject({
       channel: "manual",
       source: "Phone",
-      status: "new",
+      status: "inquiry",
       name: "Priya Shah",
       assignedSalespersonId: null,
     });

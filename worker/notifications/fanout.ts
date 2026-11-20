@@ -62,8 +62,8 @@ const ids = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 const payloadOf = (job: JobRow) => (job.payload ?? {}) as Record<string, unknown>;
 
-// Users who turned email off for this type.
-async function emailOff(db: DbLike, userIds: string[], type: NotificationType) {
+// Email is opt-in for every notification type.
+async function emailOn(db: DbLike, userIds: string[], type: NotificationType) {
   if (!userIds.length) return new Set<string>();
   const rows = await db
     .select({ userId: notificationPreferences.userId })
@@ -72,7 +72,7 @@ async function emailOff(db: DbLike, userIds: string[], type: NotificationType) {
       and(
         inArray(notificationPreferences.userId, userIds),
         eq(notificationPreferences.type, type),
-        eq(notificationPreferences.email, false),
+        eq(notificationPreferences.email, true),
         isNull(notificationPreferences.archivedAt),
       ),
     );
@@ -124,17 +124,17 @@ export async function deliver(
         title: notifications.title, body: notifications.body });
     const fallback = await routeSms(tx, type, created.filter((row) =>
       !smsGated.has(type) || byUser.get(row.userId)?.smsEligible === true));
-    // AC2: in-app always; email only where the person hasn't turned it off.
-    const off = await emailOff(
+    // Account email changes are transactional notices; other email is opt-in.
+    const on = await emailOn(
       tx,
       created.map((row) => row.userId),
       type,
     );
     for (const row of created)
-      if (!off.has(row.userId) || fallback.has(row.id))
+      if (type === "account_email_changed" || on.has(row.userId) || fallback.has(row.id))
         await enqueueJob(tx, {
           type: EMAIL_JOB,
-          payload: { notificationId: row.id, force: fallback.has(row.id) },
+          payload: { notificationId: row.id, force: type === "account_email_changed" || fallback.has(row.id) },
           idempotencyKey: `${EMAIL_JOB}:${row.id}`,
         });
     return created.length;
@@ -439,8 +439,8 @@ export async function sendNotificationEmail(
     .where(eq(notifications.id, notificationId));
   if (!row || row.notification.emailedAt || row.notification.archivedAt) return;
   if (row.status !== "active" || row.archivedAt) return;
-  const off = await emailOff(db, [row.notification.userId], row.notification.type);
-  if (off.size && payloadOf(job).force !== true) {
+  const on = await emailOn(db, [row.notification.userId], row.notification.type);
+  if (!on.size && payloadOf(job).force !== true) {
     log("notification_email_skipped", { notificationId, reason: "turned_off" });
     return;
   }

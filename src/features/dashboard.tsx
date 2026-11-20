@@ -1,109 +1,74 @@
-import { Link } from "react-router-dom";
-import { z } from "zod";
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { homeDashboardSchema, type HomeDashboard } from "../../shared/home-dashboard";
 import type { Role } from "../../shared/access";
-import { addLocalDays, utcToBusinessTime } from "../../shared/time";
+import type { TaskSummary } from "../../shared/tasks";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
-import { LoadingSkeleton, PageHeader } from "../components/shared";
+import { PageHeader, LoadingSkeleton } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { RoundCheck } from "../components/ui/round-check";
+import { StatusPill } from "../components/ui/status-pill";
 import { roleLabel } from "../services/users";
-import { request, calendarApi, inventoryApi } from "../services/core";
-import { approvalsApi } from "../services/approvals";
-import { leadsApi } from "../services/leads";
-import { productionApi } from "../services/production";
-import { salesApi } from "../services/sales";
+import { request } from "../services/core";
 import { tasksApi } from "../services/tasks";
 import { T } from "../app/copy";
 import "./dashboard.css";
 
-type Widget = { label: string; value: number | string; to: string };
-const widget = (label: string, value: number | string, to: string): Widget => ({ label, value, to });
-const countSchema = z.object({ count: z.number().int() });
-const healthSchema = z.array(z.object({ status: z.string() }));
-const usageSchema = z.array(z.object({ percent: z.number().nullable() }));
-const rowsSchema = z.array(z.unknown());
+const day = (value: string | null) => value ? new Date(value).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }) : "—";
+const time = (value: string) => new Date(value).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
 
-// Each source enforces its own role and record scope in the Worker. Only the
-// sources for this role are requested, including financial and admin data.
-export async function homeWidgets(role: Role): Promise<Widget[]> {
-  const today = utcToBusinessTime(new Date()).date;
-  const tasks = await tasksApi.dashboard();
-  const myTasks = widget("My tasks", tasks.overdue.count + tasks.today.count + tasks.upcoming.count, "/tasks");
-  if (role === "salesperson") {
-    const [leads, sales] = await Promise.all([leadsApi.dashboard(), salesApi.list()]);
-    const rows = sales.rows;
-    return [
-      widget("New leads", leads.byStatus.find((r) => r.status === "new")?.leads ?? 0, "/leads?status=new"),
-      widget("Follow-ups due", rows.filter((r) => r.nextFollowUp && r.nextFollowUp.slice(0, 10) <= today).length, "/proposals"),
-      widget("Proposals awaiting approval", rows.filter((r) => r.kind === "proposal" && r.proposalStage === "finalized").length, "/proposals?stage=finalized"),
-      widget("Awaiting client response", rows.filter((r) => r.kind === "proposal" && r.proposalStage === "sent").length, "/proposals?stage=sent"),
-      widget("Unpaid balances", rows.filter((r) => r.kind === "event" && (r.balanceCents ?? 0) > 0).length, "/proposals"),
-    ];
-  }
-  if (role === "sales_manager") {
-    const [approvals, production, leads, calendar] = await Promise.all([
-      approvalsApi.list(), productionApi.overview(14), leadsApi.dashboard(), calendarApi.get(today, addLocalDays(today, 13)),
-    ]);
-    const items = production.days.flatMap((day) => day.items);
-    return [
-      widget("BEO approvals", approvals.rows.filter((r) => r.subjectType === "beo").length, "/approvals"),
-      widget("Inventory conflicts", items.filter((r) => r.type === "shortage" && !r.complete).length, "/production"),
-      widget("Production alerts", items.filter((r) => (r.type === "readiness" || r.type === "shortage") && !r.complete).length, "/production"),
-      widget("Upcoming events", calendar.events.length, "/calendar"),
-      widget("Leads in triage", leads.totals.awaitingAction, "/leads?triage=true"),
-    ];
-  }
-  if (role === "admin") {
-    const [approvals, health, usage, leads] = await Promise.all([
-      approvalsApi.list(), request(healthSchema, "/api/admin/collector-health"),
-      request(usageSchema, "/api/admin/usage"), leadsApi.list({ triage: true }),
-    ]);
-    return [
-      widget("Pending approvals", approvals.rows.length, "/approvals"),
-      widget("Collector health", health.filter((r) => r.status !== "ok").length, "/settings/collector"),
-      widget("Free-tier usage", usage.filter((r) => (r.percent ?? 0) >= 80).length, "/settings/usage"),
-      widget("Leads awaiting assignment", leads.rows.filter((r) => !r.assignedSalespersonId).length, "/leads?triage=true"),
-    ];
-  }
-  if (role === "technical") {
-    const [health, usage, jobs, receipts] = await Promise.all([
-      request(healthSchema, "/api/admin/collector-health"), request(usageSchema, "/api/admin/usage"),
-      request(rowsSchema, "/api/admin/jobs?status=failed"), request(rowsSchema, "/api/admin/ingest-receipts?status=failed"),
-    ]);
-    return [
-      widget("Free-tier usage", usage.filter((r) => (r.percent ?? 0) >= 80).length, "/settings/usage"),
-      widget("Collector health", health.filter((r) => r.status !== "ok").length, "/settings/collector"),
-      widget("Failed jobs", jobs.length, "/settings/operations#jobs"),
-      widget("Failed ingest receipts", receipts.length, "/settings/operations#receipts"),
-    ];
-  }
-  if (role === "kitchen_lead" || role === "kitchen_staff") {
-    const [kitchenState, lowStock] = await Promise.all([
-      request(z.object({ menus: z.number().int(), openOrderLists: z.number().int() }), "/api/home/kitchen"),
-      inventoryApi.list({ kind: "consumable", subtype: "ingredient", belowPar: true }),
-    ]);
-    const kitchen = tasks.overdue.tasks.concat(tasks.today.tasks, tasks.upcoming.tasks).filter((r) => r.type === "kitchen");
-    const base = [
-      widget("Kitchen tasks", kitchen.length, "/tasks"),
-      widget("Upcoming menus", kitchenState.menus, "/calendar"),
-      widget("Low stock", lowStock.rows.length, "/inventory/low-stock"),
-      widget("Order list status", kitchenState.openOrderLists, "/kitchen/orders"),
-    ];
-    return base;
-  }
-  const shifts = await request(countSchema, "/api/home/my-shifts");
-  return [myTasks, widget("My shifts", shifts.count, "/calendar")];
+function TaskRows({ rows, toggle, href, showAssignee = true }: { rows: TaskSummary[]; toggle: (task: TaskSummary) => void; href: (id: string) => string; showAssignee?: boolean }) {
+  return <ul className="dashboard-task-list">{rows.map((task) => <li key={task.id} className={task.status === "done" ? "completed" : ""}>
+    <RoundCheck aria-label={`${task.status === "done" ? "Reopen" : "Complete"} ${task.title}`} checked={task.status === "done"} onChange={() => toggle(task)} />
+    <span><Link to={href(task.id)}>{task.title}</Link><small>{showAssignee && <>{task.assignees.map((person) => person.name).join(", ") || <T id="dashboard.home.unassigned">Unassigned</T>} · </>}{task.eventTitle ?? <T id="dashboard.home.no-event">No event</T>}</small></span>
+    <time>{day(task.dueAt)}</time>
+  </li>)}</ul>;
 }
 
 export function Dashboard() {
   const role = useAuth()?.user.role;
-  const dashboard = useResource(["home", role], () => role ? homeWidgets(role) : Promise.resolve([]));
+  const [params, setParams] = useSearchParams();
+  const selectedRole = params.get("role") ?? "";
+  const dashboard = useResource(["home", "dashboard", role], () => request(homeDashboardSchema, "/api/home/dashboard"));
+  const [error, setError] = useState("");
+  const to = (path: string) => `${path}${path.includes("?") ? "&" : "?"}fromDashboard=1${selectedRole ? `&dashboardRole=${encodeURIComponent(selectedRole)}` : ""}`;
+  const toggle = async (task: TaskSummary) => {
+    const current = dashboard.data;
+    if (!current) return;
+    const status = task.status === "done" ? "todo" : "done";
+    const completedAt = status === "done" ? new Date().toISOString() : null;
+    const updated = (row: TaskSummary): TaskSummary => row.id === task.id ? { ...row, status, completedAt } : row;
+    dashboard.replace({ ...current, myTasks: current.myTasks.map(updated),
+      allTasks: current.allTasks?.map((row) => ({ ...row, task: updated(row.task) })) ?? null });
+    setError("");
+    try { await tasksApi.update(task.id, { status }); }
+    catch (cause) { dashboard.replace(current); setError((cause as Error).message); }
+  };
+  const data: HomeDashboard | undefined = dashboard.data;
+  const all = data?.allTasks?.filter((row) => !selectedRole || row.assigneeRoles.includes(selectedRole as Role)) ?? [];
   return <>
-    <PageHeader title={<T id="dashboard.dashboard.home">Home</T>} subtitle={role ? <T id="dashboard.dashboard.what-needs-your-attention" values={{ roleLabel: roleLabel(role) }}>{"{roleLabel} · what needs your attention"}</T> : <T id="dashboard.dashboard.what-needs-your-attention-2">What needs your attention</T>} />
-    {dashboard.error ? <LoadError message={dashboard.error} /> : !dashboard.data ? <LoadingSkeleton /> :
-      <div className="home-widget-grid">{dashboard.data.map((item) =>
-        <Link className="home-widget" key={item.label} to={item.to}>
-          <span>{item.label}</span><strong>{item.value}</strong><small><T id="dashboard.dashboard.view-list">View list →</T></small>
-        </Link>)}</div>}
+    <PageHeader title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? roleLabel(role) : ""} />
+    {error && <p role="alert">{error}</p>}
+    {dashboard.error ? <LoadError message={dashboard.error} /> : !data ? <LoadingSkeleton /> :
+      <div className={`dashboard-cards ${data.myLeads === null ? "dashboard-cards--no-leads" : ""} ${data.allTasks === null ? "dashboard-cards--no-all" : ""}`}>
+        {data.myLeads !== null && <section className="dashboard-card dashboard-card--leads"><header><h2><T id="dashboard.home.my-leads">My Leads</T> <span>{data.myLeads.length}</span></h2><Link to={to("/leads")}><T id="dashboard.home.view-all-leads">View all</T></Link></header>
+          <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.client">Client</T></th><th><T id="dashboard.home.event">Event</T></th><th><T id="dashboard.home.date">Date</T></th><th><T id="dashboard.home.status">Status</T></th></tr></thead><tbody>{data.myLeads.map((lead) => <tr key={lead.id}>
+            <td><Link to={to(`/leads/${lead.id}`)}>{lead.client || <T id="dashboard.home.unnamed-lead">Unnamed lead</T>}</Link></td><td>{lead.event || "—"}</td><td>{day(lead.date)}</td><td><StatusPill status={lead.status} /></td>
+          </tr>)}</tbody></table></div></section>}
+        <section className="dashboard-card dashboard-card--my-tasks"><header><h2><T id="dashboard.home.my-tasks">My Tasks</T> <span>{data.myTasks.filter((task) => task.status !== "done").length}</span></h2><Link to={to("/tasks?mine=true")}><T id="dashboard.home.view-all-tasks">View all</T></Link></header>
+          <div className="dashboard-card__scroll"><TaskRows rows={data.myTasks} showAssignee={false} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section>
+        {data.allTasks !== null && <section className="dashboard-card dashboard-card--all-tasks"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><select aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
+          <option value="">All roles</option>{data.roles.map((value) => <option key={value} value={value}>{roleLabel(value)}</option>)}
+        </select></header><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section>}
+        <section className="dashboard-card dashboard-card--events"><header><h2><T id="dashboard.home.upcoming-events">Upcoming Events</T></h2><Link to={to("/events")}><T id="dashboard.home.view-all-events">View all</T></Link></header>
+          <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.event-date">Date</T></th><th><T id="dashboard.home.event-name">Event</T></th><th><T id="dashboard.home.venue">Venue</T></th><th><T id="dashboard.home.guests">Guests</T></th></tr></thead><tbody>{data.upcomingEvents.map((event) => <tr key={event.id}>
+            <td>{day(event.date)}</td><td><Link to={to(`/events/${event.id}`)}>{event.event}</Link></td><td>{event.venue ?? "—"}</td><td>{event.guests ?? "—"}</td>
+          </tr>)}</tbody></table></div></section>
+        <section className="dashboard-card dashboard-card--staff"><header><h2><T id="dashboard.home.working-staff">Working Staff</T></h2><Link to={to("/staff")}><T id="dashboard.home.view-all-staff">View all</T></Link></header>
+          <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.staff-name">Name</T></th><th><T id="dashboard.home.position">Position</T></th><th><T id="dashboard.home.since">Since</T></th></tr></thead><tbody>{data.workingStaff.map((person, index) => <tr key={`${person.id}:${index}`}>
+            <td><Link to={to(`/staff/${person.id}`)}>{person.name}</Link></td><td>{person.position}</td><td>{time(person.since)}</td>
+          </tr>)}</tbody></table></div></section>
+      </div>}
   </>;
 }

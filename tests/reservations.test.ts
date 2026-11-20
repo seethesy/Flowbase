@@ -32,7 +32,7 @@ describe("FLOW-76 hold windows and status", () => {
   });
 
   it("holds tentatively until Closed, then confirms, and releases a lost event", () => {
-    expect(holdStatusForEvent("proposal_creation")).toBe("tentative");
+    expect(holdStatusForEvent("p_creation")).toBe("tentative");
     expect(holdStatusForEvent("closing")).toBe("tentative");
     expect(holdStatusForEvent("closed")).toBe("confirmed");
     expect(holdStatusForEvent("preparation")).toBe("confirmed");

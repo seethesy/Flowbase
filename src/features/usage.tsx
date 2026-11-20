@@ -17,7 +17,7 @@ const labels = {
 const format = (metric: string, value: number) =>
   metric.endsWith("bytes") ? `${(value / 1024 ** 2).toFixed(1)} MB` : value.toLocaleString();
 
-export function UsagePage() {
+export function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
   const manage = usePermissions().can("settings.manage");
   const settings = useBusinessSettings();
   const [revision, setRevision] = useState(0);
@@ -34,7 +34,8 @@ export function UsagePage() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to save limits."); }
   };
   return <>
-    <PageHeader title={<T id="usage.usage-page.free-tier-usage">Free-tier usage</T>} subtitle={<T id="usage.usage-page.approximate-current-usage-and-configurable">Approximate current usage and configurable warning levels.</T>} />
+    {embedded ? <h2><T id="usage.usage-page.free-tier-usage">Free-tier usage</T></h2> :
+      <PageHeader title={<T id="usage.usage-page.free-tier-usage">Free-tier usage</T>} subtitle={<T id="usage.usage-page.approximate-current-usage-and-configurable">Approximate current usage and configurable warning levels.</T>} />}
     <Section title={<T id="usage.usage-page.current-usage">Current usage</T>}>
       {usage.error && <p role="alert"><T id="usage.usage-page.unable-to-load-usage">Unable to load usage.</T></p>}
       <ul>{usage.data?.map((row) => <li key={row.metric}>

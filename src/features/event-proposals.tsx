@@ -2,6 +2,9 @@ import { useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FileText, Plus, Upload } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
+import { leadsApi } from "../services/leads";
+import { ConvertLeadForm } from "./lead-convert";
+import { StatusPill } from "../components/ui/status-pill";
 import {
   manualProposalTargets,
   proposalStageLabels,
@@ -126,6 +129,7 @@ export function EventProposalsSection({
       {open && (
         <ProposalDrawer
           id={open}
+          event={event}
           guestCount={event.guestCount}
           canWrite={canWrite}
           onChanged={() => {
@@ -185,7 +189,8 @@ function ProposalRow({
             : <T id="event-proposals.proposal-row.no-version-yet">No version yet</T>}
         </small>
       </span>
-      <span className="badge neutral">{proposalStageLabels[proposal.stage]}</span>
+      <StatusPill status={proposal.stage} />
+      {proposal.approvalStatus && <span className="badge neutral">{proposal.approvalStatus === "pending" ? <T id="event-proposals.proposal-row.awaiting-approval">Awaiting approval</T> : proposal.approvalStatus === "approved" ? <T id="event-proposals.proposal-row.approved">Approved</T> : proposal.approvalStatus}</span>}
       <Button variant="outline" onClick={onOpen}>
         <T id="event-proposals.proposal-row.open">Open</T>
       </Button>
@@ -260,12 +265,14 @@ function ProposalForm({
 
 function ProposalDrawer({
   id,
+  event,
   guestCount,
   canWrite,
   onChanged,
   onClose,
 }: {
   id: string;
+  event: FlowEvent;
   guestCount: number | null;
   canWrite: boolean;
   onChanged: () => void;
@@ -278,6 +285,9 @@ function ProposalDrawer({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [losing, setLosing] = useState(false);
+  const [closingLead, setClosingLead] = useState(false);
+  const linkedLead = useResource(["proposal-linked-lead", event.leadId],
+    () => leadsApi.get(event.leadId!), { enabled: Boolean(event.leadId) });
   const [reason, setReason] = useState("");
   const [editing, setEditing] = useState(false);
   const [sentAt, setSentAt] = useState(() => new Date().toISOString().slice(0, 10));
@@ -308,6 +318,7 @@ function ProposalDrawer({
   };
   const title = detail.data?.title ?? "Proposal";
   return (
+    <>
     <DetailDrawer
       open
       wide
@@ -354,14 +365,14 @@ function ProposalDrawer({
               {p.approval && <p><T id="event-proposals.proposal-drawer.current-version-approval" values={{ status: p.approval.status }}>{"Current version approval: {status}"}</T></p>}
               {p.sentAt && <p><T id="event-proposals.proposal-drawer.sent-by" values={{ stamp: stamp(p.sentAt), sentMethod: p.sentMethod }}>{"Sent {stamp} by {sentMethod}"}</T></p>}
               {p.changeLog.length > 0 && <section aria-label="Proposal change log"><h3><T id="event-proposals.proposal-drawer.change-log">Change log</T></h3><ul>{p.changeLog.map((change) => <li key={change.id}><T id="event-proposals.proposal-drawer.version-2">{"Version "}</T>{p.versions.find((version) => version.id === change.versionId)?.number}: {change.path}: {JSON.stringify(change.oldValue)} → {JSON.stringify(change.newValue)} · {change.actor?.name || <T id="event-proposals.proposal-drawer.someone">Someone</T>} · {stamp(change.at)}</li>)}</ul></section>}
-              {canWrite && p.stage === "approved" && p.approval?.status === "approved" && (
+              {canWrite && !p.sentAt && p.approval?.status === "approved" && (
                 <form onSubmit={(e) => { e.preventDefault(); void run(() => proposalsApi.recordSent(id, { sentAt: new Date(`${sentAt}T12:00:00`).toISOString(), method: sentMethod })); }}>
                   <FormField label={<T id="event-proposals.proposal-drawer.sent-date">Sent date</T>}><input type="date" required value={sentAt} onChange={(e) => setSentAt(e.target.value)} /></FormField>
                   <FormField label={<T id="event-proposals.proposal-drawer.method">Method</T>}><select value={sentMethod} onChange={(e) => setSentMethod(e.target.value as typeof sentMethod)}><option value="email">Email</option><option value="google_docs">Google Docs</option><option value="other">Other</option></select></FormField>
                   <Button type="submit" disabled={busy}><T id="event-proposals.proposal-drawer.record-as-sent">Record as sent</T></Button>
                 </form>
               )}
-              {canWrite && p.stage === "sent" && <form onSubmit={async (e) => {
+              {canWrite && p.sentAt && p.stage !== "closed" && <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (contractFile && !noFullCard) return setError("Confirm the PDF shows no full card number.");
                 if (cardLast4 && !/^\d{4}$/.test(cardLast4)) return setError("Enter exactly four digits.");
@@ -386,7 +397,7 @@ function ProposalDrawer({
                 {contractFile && <label><RoundCheck checked={noFullCard} onChange={(e) => setNoFullCard(e.target.checked)} /><T id="event-proposals.proposal-drawer.i-confirm-the-pdf-shows">{" I confirm the PDF shows no full card number"}</T></label>}
                 <Button type="submit" disabled={busy || Boolean(contractFile && !noFullCard)}><T id="event-proposals.proposal-drawer.record-booking">Record booking</T></Button>
               </form>}
-              {canWrite && p.approval?.status === "approved" && (p.stage === "sent" || p.stage === "signed") && p.currentVersion && p.changeLog.some((change) => change.versionId === currentVersion?.id) && <section><h3><T id="event-proposals.proposal-drawer.addendum">Addendum</T></h3>
+              {canWrite && p.approval?.status === "approved" && p.sentAt && p.currentVersion && p.changeLog.some((change) => change.versionId === currentVersion?.id) && <section><h3><T id="event-proposals.proposal-drawer.addendum">Addendum</T></h3>
                 <Button variant="outline" onClick={() => setNewAddendum(!newAddendum)}><T id="event-proposals.proposal-drawer.record-addendum-sent">Record addendum sent</T></Button>
                 {newAddendum && <form onSubmit={async (e) => {
                   e.preventDefault(); setError(""); setBusy(true);
@@ -411,6 +422,10 @@ function ProposalDrawer({
                           const stage = e.target.value as ManualProposalTarget | "";
                           if (!stage) return;
                           if (stage === "lost") return setLosing(true);
+                          if (stage === "closing" && event.leadId &&
+                              linkedLead.data?.status !== "closing" && linkedLead.data?.status !== "closed") {
+                            setClosingLead(true); return;
+                          }
                           void run(() =>
                             proposalsApi.changeStage(id, { stage, reason: "" }),
                           );
@@ -523,7 +538,7 @@ function ProposalDrawer({
                   key={currentVersion.id}
                   id={id}
                   version={currentVersion}
-                  canWrite={canWrite && p.stage === "finalized"}
+                  canWrite={canWrite && Boolean(p.currentVersion) && p.approval?.status !== "approved"}
                   guestCount={guestCount}
                   onSubmitted={() => { detail.reload(); onChanged(); }}
                 />
@@ -534,8 +549,8 @@ function ProposalDrawer({
                   <li key={change.id}>
                     <strong>
                       {change.from
-                        ? `${proposalStageLabels[change.from]} → ${proposalStageLabels[change.to]}`
-                        : <T id="event-proposals.proposal-drawer.created-in" values={{ proposalStageLabels: proposalStageLabels[change.to] }}>{"Created in {proposalStageLabels}"}</T>}
+                        ? `${proposalStageLabels[change.from as ProposalStage] ?? change.from} → ${proposalStageLabels[change.to as ProposalStage] ?? change.to}`
+                        : <T id="event-proposals.proposal-drawer.created-in" values={{ proposalStageLabels: proposalStageLabels[change.to as ProposalStage] ?? change.to }}>{"Created in {proposalStageLabels}"}</T>}
                     </strong>
                     <small>
                       {change.actor?.name || <T id="event-proposals.proposal-drawer.system">System</T>} · {stamp(change.at)}
@@ -561,5 +576,9 @@ function ProposalDrawer({
           );
         })()}
     </DetailDrawer>
+    {closingLead && linkedLead.data && <ConvertLeadForm lead={linkedLead.data}
+      preferredEventId={event.id} onClose={() => setClosingLead(false)}
+      onConverted={() => { setClosingLead(false); void run(() => proposalsApi.changeStage(id, { stage: "closing", reason: "" })); }} />}
+    </>
   );
 }

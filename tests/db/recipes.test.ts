@@ -54,7 +54,7 @@ const signedInAs = (
 ) => {
   const actor: Actor = {
     userId: "c1000000-0000-4000-8000-000000000001",
-    role,
+    role: employmentType === "part_time" ? "part_time_staff" : role,
     employmentType,
   };
   const app = createApp({ withDb, resolveActor: async () => actor });
@@ -86,8 +86,9 @@ const signedInAs = (
   };
 };
 const admin = signedInAs("admin");
-const kitchenLead = signedInAs("kitchen_lead", "part_time");
-const cook = signedInAs("kitchen_staff", "part_time");
+// Employment type no longer changes access; Part-time Staff is a role (FLOW-249).
+const kitchenLead = signedInAs("kitchen_lead");
+const cook = signedInAs("kitchen_staff");
 const partTimeStaff = signedInAs("staff", "part_time");
 const fullTimeStaff = signedInAs("staff", "full_time");
 
@@ -226,9 +227,9 @@ describe("recipe costing (FLOW-94)", () => {
     expect(seen.cost).toBeNull();
     expect(seen.costHidden).toBe(true);
     expect(seen.lines.every((line) => line.cost === null && line.enteredCostCents === null)).toBe(true);
-    // FLOW-96: recipe costs are FT+ only, including kitchen roles.
-    expect((await getRecipe(recipe.id, kitchenLead)).cost).toBeNull();
-    expect((await getRecipe(recipe.id, cook)).cost).toBeNull();
+    // FLOW-96: recipe costs are FT+ only; every role but Part-time Staff (FLOW-249).
+    expect((await getRecipe(recipe.id, kitchenLead)).cost?.batchCents).toBe(5415);
+    expect((await getRecipe(recipe.id, cook)).cost?.batchCents).toBe(5415);
     expect((await getRecipe(recipe.id, cook)).steps).toEqual(recipe.steps);
     expect((await getRecipe(recipe.id, fullTimeStaff)).cost?.batchCents).toBe(5415);
     const [created] = await partTimeStaff.send<HistoryEntry[]>("GET", `/api/recipes/${recipe.id}/history`);
@@ -263,15 +264,12 @@ describe("recipe books (FLOW-96/97)", () => {
     expect((await app.request("/api/recipes/client", {}, env)).status).toBe(401);
   });
 
-  it("prevents part-time kitchen edits from reading or changing stored costs", async () => {
+  it("keeps recipe edits, and so stored costs, from part-time staff", async () => {
     const dish = await createRecipe(tuscanChicken(ids));
-    expect((await cook.call("PUT", `/api/recipes/${dish.id}`, tuscanChicken(ids))).status).toBe(403);
     const input = tuscanChicken(ids, { lines: dish.lines.map((line) => ({ id: line.id, itemId: line.itemId, quantity: line.quantity, unit: line.unit })), steps: ["New method"] });
-    const updated = await cook.send<Recipe>("PUT", `/api/recipes/${dish.id}`, input);
-    expect(updated.cost).toBeNull();
-    expect(updated.lines.every((line) => line.cost === null && line.enteredCostCents === null)).toBe(true);
+    expect((await partTimeStaff.call("PUT", `/api/recipes/${dish.id}`, input)).status).toBe(403);
     expect((await getRecipe(dish.id)).cost).toEqual(dish.cost);
-    const history = await cook.send<HistoryEntry[]>("GET", `/api/recipes/${dish.id}/history`);
+    const history = await partTimeStaff.send<HistoryEntry[]>("GET", `/api/recipes/${dish.id}/history`);
     expect(JSON.stringify(history)).not.toContain('"enteredCostCents":5000');
   });
 });
@@ -293,7 +291,7 @@ describe("background recipe costs (FLOW-169)", () => {
     const unrelated = await createRecipe(tuscanChicken(ids, { name: "Plain chicken", lines: [{ itemId: ids.chicken, quantity: 1, unit: "each" }] }));
     await db.transaction(async (tx) => {
       await tx.update(schema.inventoryConsumableDetails).set({ unitCostCents: 2400 }).where(eq(schema.inventoryConsumableDetails.itemId, ids.cream));
-      await recordCostChange(tx, { userId: "c1000000-0000-4000-8000-000000000001", role: "admin", employmentType: "full_time" }, { itemId: ids.cream, previousCents: null, unitCostCents: 2400, source });
+      await recordCostChange(tx, { userId: "c1000000-0000-4000-8000-000000000001", role: "admin" }, { itemId: ids.cream, previousCents: null, unitCostCents: 2400, source });
     });
     const [event] = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:inventory_item.cost_changed"));
     expect(event.payload).toMatchObject({ entityId: ids.cream, source });
@@ -316,7 +314,7 @@ it("projects only the first ready recipe photo with a signed URL", async () => {
     { recordType: "recipe", recordId: dish.id, status: "pending", fileName: "pending.jpg", sortOrder: 0, variants: [{ name: "display", key: "pending.jpg", contentType: "image/jpeg", size: 100 }] },
     { recordType: "recipe", recordId: dish.id, status: "ready", fileName: "internal-filename.jpg", caption: "Internal caption", sortOrder: 1, variants: [{ name: "display", key: "recipe/photo.jpg", contentType: "image/jpeg", size: 100 }] },
   ]);
-  const projected = await listClientRecipes(db, { userId: "c1000000-0000-4000-8000-000000000001", role: "salesperson", employmentType: "part_time" }, { R2_ACCOUNT_ID: "test", R2_BUCKET: "files", R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test" }, {});
+  const projected = await listClientRecipes(db, { userId: "c1000000-0000-4000-8000-000000000001", role: "part_time_staff", employmentType: "part_time" }, { R2_ACCOUNT_ID: "test", R2_BUCKET: "files", R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test" }, {});
   expect(projected[0].photo).toContain("/files/recipe/photo.jpg?");
   expect(projected[0].photo).toContain("X-Amz-Expires=300");
   expect(JSON.stringify(projected)).not.toMatch(/internal-filename|Internal caption|pending.jpg/);
@@ -349,7 +347,6 @@ describe("recipe lists from settings (FLOW-218)", () => {
   const settingsAdmin: Actor = {
     userId: "c1000000-0000-4000-8000-000000000001",
     role: "admin",
-    employmentType: "full_time",
   };
   const added: string[] = [];
   const add = async (key: "recipe_category" | "allergen" | "dietary_tag", label: string) => {

@@ -111,6 +111,7 @@ it("scopes records by role", () => {
     kitchen_lead: ["none", "staffed", false],
     kitchen_staff: ["none", "staffed", false],
     staff: ["none", "staffed", false],
+    part_time_staff: ["none", "staffed", false],
   });
 });
 it("converts New York wall-clock times across daylight saving", () => {

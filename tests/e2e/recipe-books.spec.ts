@@ -11,7 +11,7 @@ async function seedDishes(count = 1) {
   const admin = seedUsers[0];
   return browserDb(async (db) => {
     const dishes = [];
-    for (let i = 0; i < count; i++) dishes.push(await createRecipe(db, { userId: admin.id, role: admin.role, employmentType: admin.employmentType }, recipeInputSchema.parse({
+    for (let i = 0; i < count; i++) dishes.push(await createRecipe(db, { userId: admin.id, role: admin.role }, recipeInputSchema.parse({
       name: i === 0 ? "Tuscan Chicken" : `Dish ${i + 1}`,
       category: i === count - 1 && count > 1 ? "Sides" : "Mains",
       description: "A dish for your event", lines: [{ itemId: chicken.id, quantity: 10, unit: "each", prepNote: "Internal prep note" }],
@@ -47,7 +47,7 @@ test("browses by category, ingredient, allergen and dietary tag and prints a kit
 });
 
 test("part-time Kitchen Staff reads the method with no recipe costs", async ({ page }) => {
-  const user = seedUsers.find((user) => user.role === "kitchen_staff" && user.employmentType === "part_time")!;
+  const user = seedUsers.find((user) => user.role === "part_time_staff")!;
   await mockBrowserAuth(page, { userId: user.id });
   const [dish] = await seedDishes();
   await page.goto(`/#/recipes/${dish.id}`);
@@ -59,7 +59,7 @@ test("part-time Kitchen Staff reads the method with no recipe costs", async ({ p
 });
 
 test("a salesperson selects ten dishes and prints a branded client PDF or category", async ({ page, isMobile }, testInfo) => {
-  const user = seedUsers.find((user) => user.role === "salesperson" && user.employmentType === "part_time")!;
+  const user = seedUsers.find((user) => user.role === "part_time_staff")!;
   await mockBrowserAuth(page, { userId: user.id });
   const dishes = await seedDishes(10);
   await page.goto("/#/recipes/client");

@@ -39,7 +39,7 @@ const people = {
   tech: "c0000000-0000-4000-8000-000000000005",
 };
 const as = (userId: string, role: Role) => {
-  const actor: Actor = { userId, role, employmentType: "full_time" };
+  const actor: Actor = { userId, role };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -137,7 +137,7 @@ describe("creating", () => {
   });
 
   it("never sets booked_at, whatever the starting status (FLOW-208)", async () => {
-    for (const status of ["initial_proposal_sent", "negotiation", "closing", "closed"] as const)
+    for (const status of ["p_sent", "negotiation", "closing", "closed"] as const)
       expect((await newEvent(status)).bookedAt).toBeNull();
   });
 });
@@ -278,7 +278,7 @@ describe("manual changes", () => {
         title: "Renamed",
         date: event.date,
         startTime: event.startTime,
-        clientId: event.client.id,
+        clientId: event.client!.id,
         status: "closed",
       } satisfies EventInput),
       updatedAt: event.updatedAt,
@@ -415,7 +415,7 @@ describe("existing events (A5)", () => {
     // A6 wrote the history row in the same transaction as booked_at.
     const a6 = await insert("a6", stamped);
     await client`insert into event_status_history (event_id, from_status, to_status, created_at)
-      values (${a6}, 'initial_proposal_sent', 'negotiation', ${new Date(stamped.getTime() + 20).toISOString()}::timestamptz)`;
+      values (${a6}, 'p_sent', 'negotiation', ${new Date(stamped.getTime() + 20).toISOString()}::timestamptz)`;
     // Converted from the FLOW-55 booked status; its history came later.
     const old = await insert("old", signed);
     await client`insert into event_status_history (event_id, from_status, to_status, created_at)

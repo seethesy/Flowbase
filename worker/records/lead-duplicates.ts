@@ -371,11 +371,11 @@ export async function mergeLeadDuplicate(
   const other = byId.get(otherId);
   if (!keep || !other)
     throw new ApiError(400, "INVALID_REQUEST", "Keep one of the two leads.");
-  if (other.status === "converted")
+  if (other.convertedClientId)
     throw new ApiError(
       409,
       "INVALID_TRANSITION",
-      keep.status === "converted"
+      keep.convertedClientId
         ? "Both leads were converted; they can't be merged."
         : "Keep the converted lead.",
     );

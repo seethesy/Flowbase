@@ -13,30 +13,19 @@ import {
 // Proposal stage rules (FLOW-122) and version file rules (FLOW-123).
 
 describe("stage transitions", () => {
-  it("moves by hand only between the manual stages, back to Revisions, or to Lost", () => {
-    expect(manualProposalTargets("client_communication")).toEqual([
-      "menu_curation",
-      "revisions",
-      "lost",
-    ]);
-    for (const from of ["finalized", "approved", "sent"] as const)
-      expect(manualProposalTargets(from)).toEqual([
-        "client_communication",
-        "menu_curation",
-        "revisions",
-        "lost",
-      ]);
-    expect(manualProposalTargets("signed")).toEqual([]);
+  it("offers open pipeline stages and Lost, but locks terminal stages", () => {
+    expect(manualProposalTargets("inquiry")).toContain("p_creation");
+    expect(manualProposalTargets("inquiry")).not.toContain("pitching");
+    expect(manualProposalTargets("p_sent")).toEqual(["p_creation", "negotiation", "closing", "lost"]);
+    expect(manualProposalTargets("closed")).toEqual([]);
     expect(manualProposalTargets("lost")).toEqual([]);
   });
 
   // AC1
-  it("never offers Finalized, Approved, Sent or Signed as a manual target", () => {
+  it("never offers Closed as a manual target", () => {
     for (const from of proposalStages)
-      for (const to of ["finalized", "approved", "sent", "signed"] as const)
-        expect(manualProposalTargets(from)).not.toContain(to);
-    for (const stage of ["finalized", "approved", "sent", "signed"])
-      expect(proposalStageChangeSchema.safeParse({ stage }).success).toBe(false);
+      expect(manualProposalTargets(from)).not.toContain("closed");
+    expect(proposalStageChangeSchema.safeParse({ stage: "closed" }).success).toBe(true);
   });
 
   // AC2
@@ -49,7 +38,7 @@ describe("stage transitions", () => {
         .success,
     ).toBe(true);
     expect(
-      proposalStageChangeSchema.safeParse({ stage: "revisions" }).success,
+      proposalStageChangeSchema.safeParse({ stage: "p_creation" }).success,
     ).toBe(true);
   });
 });

@@ -43,7 +43,7 @@ const signedInAs = (
   role: Role,
   employmentType: EmploymentType = "full_time",
 ) => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -212,34 +212,25 @@ describe("clients", () => {
     expect(await admin.get<Client[]>("/api/clients")).toHaveLength(1);
   });
 
-  it("hides contact phone and email from part-time users and keeps them on update", async () => {
+  it("keeps client records, contacts included, from part-time staff", async () => {
     const created = await sam.post<Client>("/api/clients", newClient());
-    const seen = await partTimeSam.get<Client>(`/api/clients/${created.id}`);
-    expect(seen.contacts[0]).toMatchObject({
-      name: "Olivia Bennett",
-      email: null,
-      phone: null,
-    });
-    const response = await partTimeSam.call(
-      "PUT",
-      `/api/clients/${created.id}`,
-      {
-        name: "Juniper & Co. Events",
-        kind: "organization",
-        contacts: [
-          {
-            id: created.contacts[0].id,
-            name: "Olivia B.",
-            role: "primary_poc",
-          },
-        ],
-        updatedAt: seen.updatedAt,
-      },
-    );
-    expect(response.status).toBe(200);
+    // Part-time Staff (FLOW-249) can't open or change clients.
+    const seen = await partTimeSam.call("GET", `/api/clients/${created.id}`);
+    expect(seen.status).toBe(403);
+    expect(await seen.text()).not.toContain("olivia@");
+    expect(
+      (
+        await partTimeSam.call("PUT", `/api/clients/${created.id}`, {
+          name: "Juniper & Co. Events",
+          kind: "organization",
+          contacts: [],
+          updatedAt: created.updatedAt,
+        })
+      ).status,
+    ).toBe(403);
     const full = await sam.get<Client>(`/api/clients/${created.id}`);
     expect(full.contacts[0]).toMatchObject({
-      name: "Olivia B.",
+      name: "Olivia Bennett",
       email: "olivia@juniper.example",
       phone: "(202) 555-0101",
     });
@@ -590,8 +581,10 @@ it("projects contacts consistently in records, event hubs and historical values"
   for (const role of roles)
     for (const employmentType of employmentTypes) {
       const who = signedInAs(people.sam, role, employmentType);
-      const manages = ["admin", "technical", "sales_manager"].includes(role);
-      const ft = manages || employmentType === "full_time";
+      // signedInAs makes any part-time user Part-time Staff (FLOW-249).
+      const actual = employmentType === "part_time" ? "part_time_staff" : role;
+      const manages = ["admin", "technical", "sales_manager"].includes(actual);
+      const ft = actual !== "part_time_staff";
       const hub = await who.get<EventHub>(`/api/events/${event.id}/hub`);
       const eventJson = JSON.stringify(hub);
       const venueView = await who.get<Venue>(`/api/venues/${venue.id}`);
@@ -611,7 +604,7 @@ it("projects contacts consistently in records, event hubs and historical values"
           true,
         );
       }
-      if (manages || role === "salesperson") {
+      if (manages || actual === "salesperson") {
         const clientView = await who.get<Client>(`/api/clients/${owner.id}`);
         expect(clientView.contacts[0].email).toBe(
           ft ? "olivia@juniper.example" : null,

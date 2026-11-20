@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eventStatusSchema } from "./core-records";
 import { leadStatusSchema } from "./leads";
 import { proposalStageSchema } from "./proposals";
+import { pipelineLabels, pipelineStatusSchema } from "./pipeline";
 import { id, localDate, timestamp } from "./schema-primitives";
 
 export const salesFilterSchema = z.object({
@@ -28,6 +29,7 @@ export const salesRowSchema = z.object({
   leadStatus: leadStatusSchema.nullable(),
   proposalStage: proposalStageSchema.nullable(),
   versionNumber: z.number().int().nullable(),
+  approvalStatus: z.enum(["pending", "approved", "rejected", "withdrawn"]).nullable().optional(),
 });
 export type SalesRow = z.infer<typeof salesRowSchema>;
 export const salesDataSchema = z.object({ rows: salesRowSchema.array() });
@@ -72,7 +74,8 @@ export function salesCsv(rows: SalesRow[]) {
     return `"${safe.replaceAll('"', '""')}"`;
   };
   return ["Type,Client,Title,Event date,Event type,Stage,Salesperson,Source,Total,Received,Balance,Last activity,Next follow-up",
-    ...rows.map((row) => [row.kind, row.client, row.title, row.eventDate, row.eventType, row.stage,
+    ...rows.map((row) => [row.kind, row.client, row.title, row.eventDate, row.eventType,
+      pipelineStatusSchema.safeParse(row.stage).success ? pipelineLabels[row.stage as keyof typeof pipelineLabels] : row.stage,
       row.owner, row.source, row.totalCents === null ? null : row.totalCents / 100,
       row.receivedCents === null ? null : row.receivedCents / 100,
       row.balanceCents === null ? null : row.balanceCents / 100,

@@ -134,12 +134,11 @@ describe("change tracking", () => {
 });
 
 describe("projectBeo (FLOW-148 AC3)", () => {
-  // Full-time staff, and Admin, Technical and the Sales Manager at any employment type.
-  const seesContacts = (role: Actor["role"], employmentType: EmploymentType) =>
-    employmentType === "full_time" || ["admin", "technical", "sales_manager"].includes(role);
+  // Everyone but Part-time Staff (FLOW-249); employment type no longer matters.
+  const seesContacts = (role: Actor["role"]) => role !== "part_time_staff";
   const cases = roles.flatMap((role) =>
     (["full_time", "part_time"] as const).map(
-      (employmentType) => [role, employmentType, seesContacts(role, employmentType)] as const,
+      (employmentType) => [role, employmentType, seesContacts(role)] as const,
     ),
   );
 

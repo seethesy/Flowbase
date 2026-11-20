@@ -65,7 +65,7 @@ const signedInAs = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
   const app = createApp({
     withDb,
-    resolveActor: async () => ({ userId: people[who], role, employmentType }),
+    resolveActor: async () => ({ userId: people[who], role: employmentType === "part_time" ? "part_time_staff" : role, employmentType }),
   });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -105,11 +105,19 @@ beforeEach(async () => {
       id: people[name],
       email: `${name}@beo.example`,
       name: name[0].toUpperCase() + name.slice(1),
-      role,
-      employmentType,
+      role: employmentType === "part_time" ? "part_time_staff" : role,
       mobile: `20255591${i}`,
       status: "active" as const,
       smsConsentAt: name === "jamie" ? new Date() : null,
+    })),
+  );
+  // SMS is opt-in per type (FLOW-249); consent still decides who can be texted.
+  await db.insert(schema.notificationPreferences).values(
+    directory.map(([name]) => ({
+      userId: people[name],
+      type: "beo_changed" as const,
+      email: false,
+      sms: true,
     })),
   );
 });
@@ -191,7 +199,7 @@ const edit = async (event: FlowEvent, patch: Record<string, unknown>) => {
     date: current.date,
     startTime: current.startTime,
     endTime: current.endTime,
-    clientId: current.client.id,
+    clientId: current.client!.id,
     pocContactId: current.pocContactId,
     venueId: current.venue?.id ?? null,
     address: current.address,
@@ -511,7 +519,7 @@ describe("FLOW-146: setup areas and the cleanup checklist", () => {
       date: later,
       startTime: "12:00",
       endTime: "15:00",
-      clientId: event.client.id,
+      clientId: event.client!.id,
       guestCount: 40,
       assignedSalespersonId: people.sam,
     });
@@ -598,7 +606,7 @@ describe("FLOW-147: layouts and annotations", () => {
       date: later,
       startTime: "18:00",
       endTime: "23:00",
-      clientId: past.client.id,
+      clientId: past.client!.id,
       pocContactId: past.pocContactId,
       guestCount: 40,
       assignedSalespersonId: people.sam,

@@ -1,12 +1,11 @@
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowRightLeft, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import {
   assignedElsewhereMessage,
   leadChannelLabels,
   leadDuplicateReasonLabels,
-  leadStatusTransitions,
   type Lead,
   type LeadStatus,
 } from "../../shared/leads";
@@ -20,6 +19,7 @@ import {
   LoadingSkeleton,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { StatusSelect } from "../components/ui/status-pill";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
 import { CommunicationLog } from "./communications";
@@ -29,18 +29,14 @@ import {
   businessDate,
   duration,
   eventDay,
-  LeadStatusBadge,
   leadTitle,
   money,
 } from "./lead-shared";
 import { T } from "../app/copy";
-
-const nextStep: Partial<
-  Record<LeadStatus, { status: "contacted" | "qualified"; label: string }>
-> = {
-  new: { status: "contacted", label: "Mark contacted" },
-  contacted: { status: "qualified", label: "Mark qualified" },
-};
+import type { JSONContent } from "@tiptap/core";
+import { RichTextEditor } from "../components/rich-text/RichTextEditor";
+import { RichTextView } from "../components/rich-text/RichTextView";
+import { emptyRichText } from "../components/rich-text/extensions";
 
 export function LeadDetail() {
   const { id = "" } = useParams();
@@ -51,10 +47,17 @@ export function LeadDetail() {
   );
   const [error, setError] = useStateFor(id, "");
   const [busy, setBusy] = useState(false);
-  const [losing, setLosing] = useOpenFor(id);
-  const [reason, setReason] = useStateFor(id, "");
+  const [editing, setEditing] = useState(false);
+  const [newEvent, setNewEvent] = useState(false);
+  const [draft, setDraft] = useState({ name: "", email: "", phone: "", eventName: "", eventDate: "" });
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notes, setNotes] = useState<JSONContent>(emptyRichText);
   const [convert, setConvert] = useOpenFor(id);
   const [linkClientId, setLinkClientId] = useStateFor(id, "");
+  const [eventTitle, setEventTitle] = useStateFor(`${id}-event-title`, "");
+  const [eventDate, setEventDate] = useStateFor(`${id}-event-date`, "");
+  const [eventTime, setEventTime] = useStateFor(`${id}-event-time`, "");
+  const events = useResource(["lead-events", id], () => leadsApi.events(id));
   if (lead.error)
     return (
       <>
@@ -66,21 +69,23 @@ export function LeadDetail() {
     );
   const l = lead.data;
   if (!l) return <LoadingSkeleton />;
-  const moves = leadStatusTransitions[l.status];
-  const move = async (status: "contacted" | "qualified" | "lost", why = "") => {
+  const move = async (status: LeadStatus, why = "") => {
+    if (status === "closing") { setConvert(true); return; }
+    if (status === "lost" && !why) {
+      const prompted = window.prompt("Why was this lead lost?");
+      if (!prompted?.trim()) return;
+      why = prompted.trim();
+    }
     setBusy(true);
     setError("");
     try {
       lead.replace(await leadsApi.setStatus(l.id, { status, reason: why }));
-      setLosing(false);
-      setReason("");
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
-  const step = nextStep[l.status];
   const resolve = async (run: () => Promise<Lead | null>) => {
     setBusy(true);
     setError("");
@@ -103,9 +108,10 @@ export function LeadDetail() {
       </Link>
       <div className="record-heading">
         <div>
-          <h1>{leadTitle(l)}</h1>
+          <h1>{editing ? <input aria-label="Lead name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /> : leadTitle(l)}</h1>
           <p>
-            <LeadStatusBadge status={l.status} />
+            <StatusSelect label="Lead status" value={l.status}
+              onChange={(value) => void move(value as LeadStatus)} disabled={busy} />
             {l.needsReview && (
               <span className="badge warning"><T id="lead-detail.lead-detail.needs-review">Needs review</T></span>
             )}
@@ -113,73 +119,24 @@ export function LeadDetail() {
           </p>
         </div>
         <div className="page-actions">
-          {step && moves.includes(step.status) && (
-            <Allowed action="leads.update">
-              <Button disabled={busy} onClick={() => void move(step.status)}>
-                {step.label}
-              </Button>
-            </Allowed>
-          )}
-          {moves.includes("lost") && (
-            <Allowed action="leads.update">
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => setLosing(true)}
-              >
-                <T id="lead-detail.lead-detail.mark-lost">Mark lost</T>
-              </Button>
-            </Allowed>
-          )}
-          {l.status === "qualified" && (
-            <Allowed action="leads.convert">
-              <Button onClick={() => setConvert(true)}>
-                <ArrowRightLeft size={14} />
-                <T id="lead-detail.lead-detail.convert">Convert</T>
-              </Button>
-            </Allowed>
-          )}
+          <Allowed action="leads.update">{editing ? <>
+            <Button variant="outline" onClick={() => {
+              const original = { name: l.name, email: l.email, phone: l.phone,
+                eventName: l.eventName ?? "", eventDate: l.eventDate ?? "" };
+              if (JSON.stringify(draft) !== JSON.stringify(original) && !window.confirm("Discard changes?")) return;
+              setEditing(false);
+            }}><T id="lead-detail.edit.cancel">Cancel</T></Button>
+            <Button type="submit" form="lead-edit-form" disabled={busy}><T id="lead-detail.edit.save">Save</T></Button>
+          </> : <Button variant="outline" onClick={() => { setDraft({ name: l.name,
+            email: l.email, phone: l.phone, eventName: l.eventName ?? "", eventDate: l.eventDate ?? "" });
+            setEditing(true); }}><T id="lead-detail.edit.edit">Edit</T></Button>}</Allowed>
+          <Allowed action="leads.update"><Button onClick={() => setNewEvent(true)}><T id="lead-detail.edit.new-event">New event</T></Button></Allowed>
         </div>
       </div>
       {error && (
         <p role="alert" className="error-message">
           {error}
         </p>
-      )}
-      {losing && (
-        <Section title={<T id="lead-detail.lead-detail.mark-lost">Mark lost</T>}>
-          <form
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!reason.trim())
-                return setError(
-                  "A reason is required when marking a lead lost.",
-                );
-              void move("lost", reason.trim());
-            }}
-          >
-            <FormField label={<T id="lead-detail.lead-detail.lost-reason">Lost reason *</T>}>
-              <textarea
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </FormField>
-            <div className="form-actions">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLosing(false)}
-              >
-                <T id="lead-detail.lead-detail.cancel">Cancel</T>
-              </Button>
-              <Button type="submit" disabled={busy}>
-                <T id="lead-detail.lead-detail.confirm-lost">Confirm lost</T>
-              </Button>
-            </div>
-          </form>
-        </Section>
       )}
       {l.assignedElsewhere && (
         <p role="note" className="demo-callout">
@@ -227,7 +184,7 @@ export function LeadDetail() {
                       </Button>
                     </Allowed>
                   )}
-                  {match.client && l.status === "qualified" && (
+                  {match.client && l.status !== "closed" && l.status !== "lost" && (
                     <Allowed action="leads.convert">
                       <Button
                         variant="outline"
@@ -257,7 +214,7 @@ export function LeadDetail() {
           </ul>
         </Section>
       )}
-      {l.status === "converted" && (
+      {(l.status === "closing" || l.status === "closed") && (
         <p role="note" className="demo-callout">
           <T id="lead-detail.lead-detail.converted">{"Converted. "}</T>
           {l.convertedClientId && (
@@ -269,6 +226,45 @@ export function LeadDetail() {
         </p>
       )}
       <div className="detail-grid">
+        {editing && <Section title={<T id="lead-detail.edit.title">Edit lead</T>}>
+          <form id="lead-edit-form" className="form-grid" onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true); setError("");
+            try { lead.replace(await leadsApi.update(id, { ...draft, eventDate: draft.eventDate || null })); setEditing(false); }
+            catch (cause) { setError((cause as Error).message); }
+            finally { setBusy(false); }
+          }}>
+            <FormField label="Event"><input value={draft.eventName} onChange={(event) => setDraft({ ...draft, eventName: event.target.value })} /></FormField>
+            <FormField label="Phone"><input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></FormField>
+            <FormField label="Email"><input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></FormField>
+            <FormField label="Time & Date"><input type="date" value={draft.eventDate} onChange={(event) => setDraft({ ...draft, eventDate: event.target.value })} /></FormField>
+          </form>
+        </Section>}
+        <Section title={<T id="lead-detail.events.title">Linked events</T>}>
+          <ul>{events.data?.map((event) => <li key={event.id}><Link to={`/events/${event.id}`}>{event.title}</Link> · {eventDay(event.date)}</li>)}</ul>
+          {newEvent && l.status !== "lost" && <form onSubmit={async (event) => {
+            event.preventDefault(); setBusy(true); setError("");
+            try { await leadsApi.createEvent(id, { title: eventTitle, date: eventDate, startTime: eventTime });
+              setEventTitle(""); setEventDate(""); setEventTime(""); setNewEvent(false); events.reload(); }
+            catch (cause) { setError((cause as Error).message); }
+            finally { setBusy(false); }
+          }}><FormField label="Event name"><input required value={eventTitle} onChange={(event) => setEventTitle(event.target.value)} /></FormField>
+            <FormField label="Date"><input required type="date" value={eventDate} onChange={(event) => setEventDate(event.target.value)} /></FormField>
+            <FormField label="Start time"><input required type="time" value={eventTime} onChange={(event) => setEventTime(event.target.value)} /></FormField>
+            <Button disabled={busy}><T id="lead-detail.events.add">Add event</T></Button><Button variant="outline" type="button" onClick={() => setNewEvent(false)}><T id="lead-detail.events.cancel">Cancel</T></Button></form>}
+        </Section>
+        <section id="notes"><Section title={<T id="lead-detail.notes.title">Notes</T>}>
+          {editingNotes ? <form onSubmit={async (event) => {
+            event.preventDefault(); setBusy(true); setError("");
+            try { lead.replace(await leadsApi.update(id, { notes })); setEditingNotes(false); }
+            catch (cause) { setError((cause as Error).message); }
+            finally { setBusy(false); }
+          }}><RichTextEditor label="Lead notes" value={notes} onChange={setNotes} />
+            <Button type="submit" disabled={busy}><T id="lead-detail.notes.save">Save notes</T></Button>
+            <Button type="button" variant="outline" onClick={() => setEditingNotes(false)}><T id="lead-detail.notes.cancel">Cancel</T></Button>
+          </form> : <>{l.notes ? <RichTextView doc={l.notes} /> : <p><T id="lead-detail.notes.empty">No notes yet.</T></p>}
+            <Button variant="outline" onClick={() => { setNotes(l.notes ?? emptyRichText); setEditingNotes(true); }}><T id="lead-detail.notes.edit">Edit notes</T></Button></>}
+        </Section></section>
         <Section title={<T id="lead-detail.lead-detail.contact">Contact</T>}>
           <div className="info-grid">
             <div>

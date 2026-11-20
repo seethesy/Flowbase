@@ -21,7 +21,6 @@ type AuditAction = (typeof auditActions)[number];
 export const fullView: Actor = {
   userId: "00000000-0000-4000-8000-000000000000",
   role: "admin",
-  employmentType: "full_time",
 };
 
 // Change on every write, or identify the row rather than describe it.

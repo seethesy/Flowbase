@@ -6,7 +6,7 @@ test("part-time kitchen staff can read venues without creation or user managemen
 }) => {
   await mockBrowserAuth(page, {
     userId: seedUsers.find(
-      (u) => u.role === "kitchen_staff" && u.employmentType === "part_time",
+      (u) => u.role === "part_time_staff",
     )!.id,
   });
   await page.goto("/#/venues");

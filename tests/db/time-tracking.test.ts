@@ -37,7 +37,7 @@ const signedInAs = (
   role: Role,
   employmentType: EmploymentType = "full_time",
 ) => {
-  const actor: Actor = { userId, role, employmentType };
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
   const app = createApp({ withDb, resolveActor: async () => actor });
   const call = (method: string, path: string, body?: unknown) =>
     app.request(
@@ -159,15 +159,12 @@ describe("event hub", () => {
   });
 
   // AC2
-  it("hides contact details from a part-time salesperson", async () => {
+  it("keeps an event's hub from part-time staff who aren't on it", async () => {
     const { gala } = await seed();
-    const hub = await partTimeSam.get<EventHub>(`/api/events/${gala.id}/hub`);
-    expect(hub.sections).toEqual(["details", "client", "proposal", "inventory", "tasks", "production", "staff", "timeline", "planning", "pull_list", "trucks", "kitchen_menu", "day_of", "closeout", "beo", "files", "history"]);
-    expect(hub.client?.contacts[0]).toMatchObject({
-      name: "Olivia Bennett",
-      email: null,
-      phone: null,
-    });
+    // Part-time Staff (FLOW-249) open only the events they're staffed on.
+    const response = await partTimeSam.call("GET", `/api/events/${gala.id}/hub`);
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain("olivia@juniper.example");
   });
 
   // AC2
@@ -176,7 +173,7 @@ describe("event hub", () => {
     const hub = await helper.get<EventHub>(`/api/events/${gala.id}/hub`);
     expect(hub.sections).toEqual(["details", "inventory", "tasks", "production", "staff", "timeline", "planning", "pull_list", "trucks", "kitchen_menu", "day_of", "closeout", "beo", "files", "history"]);
     expect(hub.client).toBeNull();
-    expect(hub.event.client.name).toBe("Juniper & Co.");
+    expect(hub.event.client!.name).toBe("Juniper & Co.");
     expect(hub.canEdit).toBe(false);
     expect(
       (await helper.call("GET", `/api/events/${brunch.id}/hub`)).status,
@@ -599,15 +596,12 @@ describe("BEO time and booked totals (FLOW-221)", () => {
   it("hides the booked total from users who may not see the event's money", async () => {
     const { gala } = await seed();
     await schedule(gala.id, 100_000);
-    await partTimeSam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 30, 20)] }, 200);
     await helper.post("/api/time/sessions", { sessions: [onEvent(gala.id, 20, 15)] }, 200);
-    for (const viewer of [partTimeSam, helper]) {
-      const report = await viewer.get<TimeReport>(`/api/time/report${range}`);
-      expect(report.effort).toHaveLength(1);
-      expect(report.effort[0].bookedTotalCents).toBeNull();
-    }
+    const own = await helper.get<TimeReport>(`/api/time/report${range}`);
+    expect(own.effort).toHaveLength(1);
+    expect(own.effort[0].bookedTotalCents).toBeNull();
     // The same event, seen by someone who may see its money.
     const report = await admin.get<TimeReport>(`/api/time/report${range}`);
-    expect(report.effort[0]).toMatchObject({ bookedTotalCents: 100_000, people: 2 });
+    expect(report.effort[0]).toMatchObject({ bookedTotalCents: 100_000, people: 1 });
   });
 });
