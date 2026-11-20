@@ -35,6 +35,7 @@ import { LoadError } from "../components/record-display";
 import { centsLabel, kindLabels, subtypeLabel } from "./inventory-labels";
 import "./vendors.css";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 const daysLabel = (days: Weekday[]) =>
   days.map((day) => weekdayLabels[day]).join(", ") || "—";
@@ -45,6 +46,7 @@ const hiddenNote = "Visible to full-time staff only.";
 // Vendor and distributor directory (FLOW-84): distributors, rental vendors and
 // event partners, with how to order from each.
 export function VendorList() {
+  const searchVendorsPlaceholder = useCopy("vendors.vendor-list.search-vendors.placeholder", "Search vendors…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [type, setType] = useState<VendorType | "">("");
@@ -86,14 +88,14 @@ export function VendorList() {
   return (
     <>
       <PageHeader
-        title="Vendors"
-        subtitle="Distributors, rental vendors and event partners, and how to order from each."
-        eyebrow="Inventory"
+        title={<T id="vendors.vendor-list.vendors">Vendors</T>}
+        subtitle={<T id="vendors.vendor-list.distributors-rental-vendors-and-event">Distributors, rental vendors and event partners, and how to order from each.</T>}
+        eyebrow={<T id="vendors.vendor-list.inventory">Inventory</T>}
       >
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Vendor
+            <T id="vendors.vendor-list.new-vendor">New Vendor</T>
           </Button>
         </Allowed>
       </PageHeader>
@@ -101,7 +103,7 @@ export function VendorList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search vendors…"
+          placeholder={searchVendorsPlaceholder} copyId="vendors.vendor-list.search-vendors.placeholder"
         />
         <select
           aria-label="Vendor type"
@@ -122,11 +124,10 @@ export function VendorList() {
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="vendors.vendor-list.show-archived">Show archived</T>
         </label>
         <span className="result-count">
-          {data.length}
-          {vendors.hasMore ? "+" : ""} vendors
+          {vendors.hasMore ? <T id="vendors.vendor-list.vendors-2" values={{ dataCount: data.length }}>{"{dataCount}+ vendors"}</T> : <T id="vendors.vendor-list.vendors-3" values={{ dataCount: data.length }}>{"{dataCount} vendors"}</T>}
         </span>
       </FilterBar>
       {vendors.error ? (
@@ -135,14 +136,14 @@ export function VendorList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="vendors.vendor-list"
             data={data}
             columns={columns}
             onRow={(vendor) => navigate(`/vendors/${vendor.id}`)}
-            label="vendors"
+            label={<T id="vendors.vendor-list.vendors-4">vendors</T>}
             exportName="vendors"
           />
-          <LoadMore list={vendors} label="Load more vendors" />
+          <LoadMore list={vendors} label={<T id="vendors.vendor-list.load-more-vendors">Load more vendors</T>} />
         </>
       )}
       {create && (
@@ -269,8 +270,8 @@ export function VendorForm({
     <DetailDrawer
       open
       onClose={onClose}
-      title={vendor ? "Edit vendor" : "New vendor"}
-      description="Saved to Flowbase. Portal passwords are never stored here."
+      title={vendor ? <T id="vendors.vendor-form.edit-vendor">Edit vendor</T> : <T id="vendors.vendor-form.new-vendor">New vendor</T>}
+      description={<T id="vendors.vendor-form.saved-to-flowbase-portal-passwords">Saved to Flowbase. Portal passwords are never stored here.</T>}
     >
       <form
         noValidate
@@ -284,14 +285,14 @@ export function VendorForm({
             {error}
           </p>
         )}
-        <FormField label="Name *">
+        <FormField label={<T id="vendors.vendor-form.name">Name *</T>}>
           <input
             value={fields.name}
             onChange={(e) => set("name")(e.target.value)}
             autoFocus
           />
         </FormField>
-        <FormField label="Type">
+        <FormField label={<T id="vendors.vendor-form.type">Type</T>}>
           <select
             value={type}
             onChange={(e) => setType(vendorTypeSchema.parse(e.target.value))}
@@ -304,10 +305,10 @@ export function VendorForm({
           </select>
         </FormField>
         <div className="form-grid">
-          <FormField label="Vendor portal URL">
+          <FormField label={<T id="vendors.vendor-form.vendor-portal-url">Vendor portal URL</T>}>
             {field("portalUrl", "url")}
           </FormField>
-          <FormField label="Account number">
+          <FormField label={<T id="vendors.vendor-form.account-number">Account number</T>}>
             {accountNumber === null ? (
               <p className="muted">{hiddenNote}</p>
             ) : (
@@ -317,16 +318,16 @@ export function VendorForm({
               />
             )}
           </FormField>
-          <FormField label="Order cutoff">{field("orderCutoff")}</FormField>
-          <FormField label="Minimum order ($)">
+          <FormField label={<T id="vendors.vendor-form.order-cutoff">Order cutoff</T>}>{field("orderCutoff")}</FormField>
+          <FormField label={<T id="vendors.vendor-form.minimum-order">Minimum order ($)</T>}>
             {field("minimumOrder", "number")}
           </FormField>
-          <FormField label="Lead time (days)">
+          <FormField label={<T id="vendors.vendor-form.lead-time-days">Lead time (days)</T>}>
             {field("leadTimeDays", "number")}
           </FormField>
         </div>
         <fieldset className="form-group">
-          <legend>Delivery days</legend>
+          <legend><T id="vendors.vendor-form.delivery-days">Delivery days</T></legend>
           {weekdaySchema.options.map((day) => (
             <label className="checkbox-filter" key={day}>
               <RoundCheck
@@ -343,23 +344,23 @@ export function VendorForm({
             </label>
           ))}
         </fieldset>
-        <FormField label="Ordering instructions">
+        <FormField label={<T id="vendors.vendor-form.ordering-instructions">Ordering instructions</T>}>
           <textarea
             rows={3}
             value={fields.orderingInstructions}
             onChange={(e) => set("orderingInstructions")(e.target.value)}
           />
         </FormField>
-        <FormField label="Notes">
+        <FormField label={<T id="vendors.vendor-form.notes">Notes</T>}>
           <textarea
             rows={2}
             value={fields.notes}
             onChange={(e) => set("notes")(e.target.value)}
           />
         </FormField>
-        <h3 className="form-subheading">Contacts</h3>
+        <h3 className="form-subheading"><T id="vendors.vendor-form.contacts">Contacts</T></h3>
         {contacts === null ? (
-          <p className="muted">Vendor contacts are {hiddenNote.toLowerCase()}</p>
+          <p className="muted"><T id="vendors.vendor-form.vendor-contacts-are" values={{ hiddenNote: hiddenNote.toLowerCase() }}>{"Vendor contacts are {hiddenNote}"}</T></p>
         ) : (
           <>
             {contacts.map((contact, index) => (
@@ -401,7 +402,7 @@ export function VendorForm({
                     )
                   }
                 >
-                  Remove contact
+                  <T id="vendors.vendor-form.remove-contact">Remove contact</T>
                 </Button>
               </fieldset>
             ))}
@@ -415,16 +416,16 @@ export function VendorForm({
                 ])
               }
             >
-              <Plus size={14} /> Add contact
+              <Plus size={14} /><T id="vendors.vendor-form.add-contact">{" Add contact"}</T>
             </Button>
           </>
         )}
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="vendors.vendor-form.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            Save vendor
+            <T id="vendors.vendor-form.save-vendor">Save vendor</T>
           </Button>
         </div>
       </form>
@@ -440,7 +441,7 @@ export function VendorDetail() {
   const [archive, setArchive] = useOpenFor(id);
   const back = (
     <Link to="/vendors" className="back-link">
-      ← All vendors
+      <T id="vendors.vendor-detail.all-vendors">← All vendors</T>
     </Link>
   );
   if (vendor.error)
@@ -460,14 +461,14 @@ export function VendorDetail() {
           <h1>{v.name}</h1>
           <p>
             <span className="badge neutral">{vendorTypeLabels[v.type]}</span>
-            {v.archivedAt && <span className="badge error">Archived</span>}
+            {v.archivedAt && <span className="badge error"><T id="vendors.vendor-detail.archived">Archived</T></span>}
           </p>
         </div>
         <div className="page-actions">
           <Allowed action="inventory.write">
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
-              Edit
+              <T id="vendors.vendor-detail.edit">Edit</T>
             </Button>
           </Allowed>
           <Allowed action="inventory.write">
@@ -479,20 +480,20 @@ export function VendorDetail() {
                 }
               >
                 <RotateCcw size={14} />
-                Restore
+                <T id="vendors.vendor-detail.restore">Restore</T>
               </Button>
             ) : (
               <Button variant="outline" onClick={() => setArchive(true)}>
                 <Archive size={14} />
-                Archive
+                <T id="vendors.vendor-detail.archive">Archive</T>
               </Button>
             )}
           </Allowed>
         </div>
       </div>
       <div className="detail-grid">
-        <Section title="Ordering">
-          <small>Vendor portal</small>
+        <Section title={<T id="vendors.vendor-detail.ordering">Ordering</T>}>
+          <small><T id="vendors.vendor-detail.vendor-portal">Vendor portal</T></small>
           <p>
             {v.portalUrl ? (
               <a href={v.portalUrl} target="_blank" rel="noreferrer">
@@ -502,7 +503,7 @@ export function VendorDetail() {
               "—"
             )}
           </p>
-          <small>Account number</small>
+          <small><T id="vendors.vendor-detail.account-number">Account number</T></small>
           <p>
             {v.accountNumber === null ? (
               <span className="muted">{hiddenNote}</span>
@@ -510,22 +511,22 @@ export function VendorDetail() {
               v.accountNumber || "—"
             )}
           </p>
-          <small>Order cutoff</small>
+          <small><T id="vendors.vendor-detail.order-cutoff">Order cutoff</T></small>
           <p>{v.orderCutoff || "—"}</p>
-          <small>Delivery days</small>
+          <small><T id="vendors.vendor-detail.delivery-days">Delivery days</T></small>
           <p>{daysLabel(v.deliveryDays)}</p>
-          <small>Minimum order</small>
+          <small><T id="vendors.vendor-detail.minimum-order">Minimum order</T></small>
           <p>{centsLabel(v.minimumOrderCents)}</p>
-          <small>Lead time</small>
+          <small><T id="vendors.vendor-detail.lead-time">Lead time</T></small>
           <p>{leadTimeLabel(v.leadTimeDays)}</p>
-          <small>Ordering instructions</small>
+          <small><T id="vendors.vendor-detail.ordering-instructions">Ordering instructions</T></small>
           <p className="vendor-text">{v.orderingInstructions || "—"}</p>
-          <small>Notes</small>
+          <small><T id="vendors.vendor-detail.notes">Notes</T></small>
           <p className="vendor-text">{v.notes || "—"}</p>
         </Section>
-        <Section title="Contacts">
+        <Section title={<T id="vendors.vendor-detail.contacts">Contacts</T>}>
           {v.contacts === null ? (
-            <p className="muted">Vendor contacts are {hiddenNote.toLowerCase()}</p>
+            <p className="muted"><T id="vendors.vendor-detail.vendor-contacts-are" values={{ hiddenNote: hiddenNote.toLowerCase() }}>{"Vendor contacts are {hiddenNote}"}</T></p>
           ) : v.contacts.length ? (
             v.contacts.map((contact) => (
               <div className="contact-profile" key={contact.id}>
@@ -540,11 +541,11 @@ export function VendorDetail() {
               </div>
             ))
           ) : (
-            <p className="muted">No contacts yet.</p>
+            <p className="muted"><T id="vendors.vendor-detail.no-contacts-yet">No contacts yet.</T></p>
           )}
         </Section>
       </div>
-      <Section title="Items they supply">
+      <Section title={<T id="vendors.vendor-detail.items-they-supply">Items they supply</T>}>
         {v.items.length ? (
           <ul className="vendor-items">
             {v.items.map((item) => (
@@ -552,7 +553,7 @@ export function VendorDetail() {
                 <Link to={`/inventory/${item.id}`}>{item.name}</Link>
                 <small>
                   {item.relation === "sub_rental"
-                    ? "Sub-rental"
+                    ? <T id="vendors.vendor-detail.sub-rental">Sub-rental</T>
                     : item.subtype
                       ? subtypeLabel(item.subtype)
                       : kindLabels[item.kind]}
@@ -563,7 +564,7 @@ export function VendorDetail() {
           </ul>
         ) : (
           <p className="muted">
-            No items yet. Pick this vendor on an item to list it here.
+            <T id="vendors.vendor-detail.no-items-yet-pick-this">No items yet. Pick this vendor on an item to list it here.</T>
           </p>
         )}
       </Section>
@@ -577,15 +578,14 @@ export function VendorDetail() {
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this vendor?"
+        title={<T id="vendors.vendor-detail.archive-this-vendor">Archive this vendor?</T>}
         onConfirm={async () => {
           await vendorsApi.setArchived(v.id, true);
           setArchive(false);
           navigate("/vendors");
         }}
       >
-        {v.name} will no longer be offered for new items. Items already linked
-        keep the link.
+        <T id="vendors.vendor-detail.will-no-longer-be-offered" values={{ name: v.name }}>{"{name} will no longer be offered for new items. Items already linked keep the link."}</T>
       </ConfirmationDialog>
     </>
   );

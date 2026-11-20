@@ -43,6 +43,7 @@ import "./clients.css";
 
 import { initials, hidden, LoadError } from "../components/record-display";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 const primaryContact = (client: Client) =>
   client.contacts.find((contact) => contact.role === "primary_poc") ??
@@ -50,6 +51,7 @@ const primaryContact = (client: Client) =>
 
 // Real client records (FLOW-53), replacing the prototype's mock clients.
 export function ClientList() {
+  const searchClientsOrContactsPlaceholder = useCopy("clients.client-list.search-clients-or-contacts.placeholder", "Search clients or contacts…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
@@ -73,7 +75,7 @@ export function ClientList() {
           </span>
           <strong>{c.getValue() as string}</strong>
           {c.row.original.possibleDuplicateOf && (
-            <span className="badge warning">Possible duplicate</span>
+            <span className="badge warning"><T id="clients.client-list.possible-duplicate">Possible duplicate</T></span>
           )}
         </span>
       ),
@@ -122,14 +124,14 @@ export function ClientList() {
   return (
     <>
       <PageHeader
-        title="Clients"
-        subtitle="Good relationships start with the little details."
-        eyebrow="Clients"
+        title={<T id="clients.client-list.clients">Clients</T>}
+        subtitle={<T id="clients.client-list.good-relationships-start-with-the">Good relationships start with the little details.</T>}
+        eyebrow={<T id="clients.client-list.clients">Clients</T>}
       >
         <Allowed action="clients.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
-            New Client
+            <T id="clients.client-list.new-client">New Client</T>
           </Button>
         </Allowed>
       </PageHeader>
@@ -137,18 +139,17 @@ export function ClientList() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search clients or contacts…"
+          placeholder={searchClientsOrContactsPlaceholder} copyId="clients.client-list.search-clients-or-contacts.placeholder"
         />
         <label className="checkbox-filter">
           <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
-          Show archived
+          <T id="clients.client-list.show-archived">Show archived</T>
         </label>
         <span className="result-count">
-          {data.length}
-          {clients.hasMore ? "+" : ""} clients
+          {clients.hasMore ? <T id="clients.client-list.clients-2" values={{ dataCount: data.length }}>{"{dataCount}+ clients"}</T> : <T id="clients.client-list.clients-3" values={{ dataCount: data.length }}>{"{dataCount} clients"}</T>}
         </span>
       </FilterBar>
       {clients.error ? (
@@ -157,15 +158,15 @@ export function ClientList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable
+          <DataTable copyKey="clients.client-list"
             data={data}
             columns={columns}
             onRow={(client) => navigate(`/clients/${client.id}`)}
-            label="clients"
+            label={<T id="clients.client-list.clients-4">clients</T>}
             exportName="clients"
             exportAll={clients.loadAll}
           />
-          <LoadMore list={clients} label="Load more clients" />
+          <LoadMore list={clients} label={<T id="clients.client-list.load-more-clients">Load more clients</T>} />
         </>
       )}
       {create && (
@@ -305,8 +306,8 @@ function ClientFormFields({
     <DetailDrawer
       open
       onClose={onClose}
-      title={client ? "Edit client" : "New client"}
-      description="Saved to Flowbase."
+      title={client ? <T id="clients.client-form-fields.edit-client">Edit client</T> : <T id="clients.client-form-fields.new-client">New client</T>}
+      description={<T id="clients.client-form-fields.saved-to-flowbase">Saved to Flowbase.</T>}
     >
       <form
         noValidate
@@ -328,8 +329,7 @@ function ClientFormFields({
         {duplicates.length > 0 && (
           <div role="alert" className="error-message">
             <p>
-              <TriangleAlert size={14} /> A client with this email or phone
-              already exists:
+              <TriangleAlert size={14} /><T id="clients.client-form-fields.a-client-with-this-email">{" A client with this email or phone already exists:"}</T>
             </p>
             <ul>
               {duplicates.map((duplicate) => (
@@ -346,11 +346,11 @@ function ClientFormFields({
               disabled={saving}
               onClick={() => void save(true)}
             >
-              Create anyway
+              <T id="clients.client-form-fields.create-anyway">Create anyway</T>
             </Button>
           </div>
         )}
-        <FormField label="Name *">
+        <FormField label={<T id="clients.client-form-fields.name">Name *</T>}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -358,7 +358,7 @@ function ClientFormFields({
           />
         </FormField>
         <div className="form-grid">
-          <FormField label="Type">
+          <FormField label={<T id="clients.client-form-fields.type">Type</T>}>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as Client["kind"])}
@@ -367,18 +367,18 @@ function ClientFormFields({
               <option value="person">Person</option>
             </select>
           </FormField>
-          <FormField label="Tags" hint="Separate tags with commas.">
+          <FormField label={<T id="clients.client-form-fields.tags">Tags</T>} hint={<T id="clients.client-form-fields.separate-tags-with-commas">Separate tags with commas.</T>}>
             <input value={tags} onChange={(e) => setTags(e.target.value)} />
           </FormField>
         </div>
-        <FormField label="Notes">
+        <FormField label={<T id="clients.client-form-fields.notes">Notes</T>}>
           <textarea
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </FormField>
-        <h3 className="form-subheading">Contacts</h3>
+        <h3 className="form-subheading"><T id="clients.client-form-fields.contacts">Contacts</T></h3>
         {contacts.map((contact, index) => (
           <fieldset
             className="form-group"
@@ -386,13 +386,13 @@ function ClientFormFields({
             aria-label={`Contact ${index + 1}`}
           >
             <div className="form-grid">
-              <FormField label="Contact name *">
+              <FormField label={<T id="clients.client-form-fields.contact-name">Contact name *</T>}>
                 <input
                   value={contact.name}
                   onChange={(e) => update(contact.key, { name: e.target.value })}
                 />
               </FormField>
-              <FormField label="Role">
+              <FormField label={<T id="clients.client-form-fields.role">Role</T>}>
                 <select
                   value={contact.role}
                   onChange={(e) =>
@@ -410,11 +410,11 @@ function ClientFormFields({
               </FormField>
               {contact.hiddenDetails ? (
                 <p className="muted">
-                  Email and phone are visible to full-time staff only.
+                  <T id="clients.client-form-fields.email-and-phone-are-visible">Email and phone are visible to full-time staff only.</T>
                 </p>
               ) : (
                 <>
-                  <FormField label="Email">
+                  <FormField label={<T id="clients.client-form-fields.email">Email</T>}>
                     <input
                       type="email"
                       value={contact.email ?? ""}
@@ -423,7 +423,7 @@ function ClientFormFields({
                       }
                     />
                   </FormField>
-                  <FormField label="Phone">
+                  <FormField label={<T id="clients.client-form-fields.phone">Phone</T>}>
                     <input
                       value={contact.phone ?? ""}
                       onChange={(e) =>
@@ -443,7 +443,7 @@ function ClientFormFields({
                 )
               }
             >
-              Remove contact
+              <T id="clients.client-form-fields.remove-contact">Remove contact</T>
             </Button>
           </fieldset>
         ))}
@@ -464,14 +464,14 @@ function ClientFormFields({
             ])
           }
         >
-          <Plus size={14} /> Add contact
+          <Plus size={14} /><T id="clients.client-form-fields.add-contact">{" Add contact"}</T>
         </Button>
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="clients.client-form-fields.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            Save client
+            <T id="clients.client-form-fields.save-client">Save client</T>
           </Button>
         </div>
       </form>
@@ -498,7 +498,7 @@ export function ClientDetail() {
     return (
       <>
         <Link to="/clients" className="back-link">
-          ← All clients
+          <T id="clients.client-detail.all-clients">← All clients</T>
         </Link>
         <LoadError message={client.error} />
       </>
@@ -508,7 +508,7 @@ export function ClientDetail() {
   return (
     <>
       <Link to="/clients" className="back-link">
-        ← All clients
+        <T id="clients.client-detail.all-clients">← All clients</T>
       </Link>
       <div className="record-heading">
         <span className="company-avatar large">{initials(c.name)}</span>
@@ -516,22 +516,22 @@ export function ClientDetail() {
           <h1>{c.name}</h1>
           <p>
             <span className="badge neutral">
-              {c.kind === "person" ? "Person" : "Organization"}
+              {c.kind === "person" ? <T id="clients.client-detail.person">Person</T> : <T id="clients.client-detail.organization">Organization</T>}
             </span>
-            {c.archivedAt && <span className="badge error">Archived</span>}
+            {c.archivedAt && <span className="badge error"><T id="clients.client-detail.archived">Archived</T></span>}
           </p>
         </div>
         <div className="page-actions">
           <Allowed action="clients.write">
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
-              Edit
+              <T id="clients.client-detail.edit">Edit</T>
             </Button>
           </Allowed>
           <Allowed action="events.write">
             <Button onClick={() => setNewEvent(true)}>
               <Plus size={16} />
-              New Event
+              <T id="clients.client-detail.new-event">New Event</T>
             </Button>
           </Allowed>
           {c.archivedAt ? (
@@ -543,14 +543,14 @@ export function ClientDetail() {
                 }
               >
                 <RotateCcw size={14} />
-                Restore
+                <T id="clients.client-detail.restore">Restore</T>
               </Button>
             </Allowed>
           ) : (
             <Allowed action="clients.write">
               <Button variant="outline" onClick={() => setArchive(true)}>
                 <Archive size={14} />
-                Archive
+                <T id="clients.client-detail.archive">Archive</T>
               </Button>
             </Allowed>
           )}
@@ -558,14 +558,14 @@ export function ClientDetail() {
       </div>
       {c.possibleDuplicateOf && (
         <p role="note" className="demo-callout">
-          Possible duplicate of{" "}
+          <T id="clients.client-detail.possible-duplicate-of">{"Possible duplicate of "}</T>
           <Link to={`/clients/${c.possibleDuplicateOf.id}`}>
             {c.possibleDuplicateOf.name}
           </Link>
-          , created by a salesperson who can't see that client.
+          <T id="clients.client-detail.created-by-a-salesperson-who">{", created by a salesperson who can't see that client."}</T>
         </p>
       )}
-      <Tabs
+      <Tabs copyKey="clients.client-detail"
         tabs={["Overview", "Contacts", "Events", "Proposal tracker", "Communications", "Files"]}
         value={tab}
         onChange={setTab}
@@ -573,27 +573,27 @@ export function ClientDetail() {
       <div role="tabpanel" id="record-panel" aria-labelledby={`tab-${tab}`}>
         {tab === "Overview" && (
           <div className="detail-grid">
-            <Section title="Client information">
+            <Section title={<T id="clients.client-detail.client-information">Client information</T>}>
               <div className="info-grid">
                 <div>
-                  <small>Tags</small>
-                  <strong>{c.tags.join(", ") || "None"}</strong>
+                  <small><T id="clients.client-detail.tags">Tags</T></small>
+                  <strong>{c.tags.join(", ") || <T id="clients.client-detail.none">None</T>}</strong>
                 </div>
                 <div>
-                  <small>Contacts</small>
+                  <small><T id="clients.client-detail.contacts">Contacts</T></small>
                   <strong>{c.contacts.length}</strong>
                 </div>
               </div>
-              <h3 className="form-subheading">Notes</h3>
-              <p>{c.notes || "No notes yet."}</p>
+              <h3 className="form-subheading"><T id="clients.client-detail.notes">Notes</T></h3>
+              <p>{c.notes || <T id="clients.client-detail.no-notes-yet">No notes yet.</T>}</p>
             </Section>
-            <Section title="Upcoming events">
+            <Section title={<T id="clients.client-detail.upcoming-events">Upcoming events</T>}>
               <EventTable events={events.data ?? []} error={events.error} />
             </Section>
           </div>
         )}
         {tab === "Contacts" && (
-          <Section title="Contacts">
+          <Section title={<T id="clients.client-detail.contacts">Contacts</T>}>
             {c.contacts.length ? (
               c.contacts.map((contact) => (
                 <div className="contact-profile" key={contact.id}>
@@ -609,8 +609,8 @@ export function ClientDetail() {
               ))
             ) : (
               <EmptyState
-                title="No contacts"
-                description="Add contacts from Edit."
+                title={<T id="clients.client-detail.no-contacts">No contacts</T>}
+                description={<T id="clients.client-detail.add-contacts-from-edit">Add contacts from Edit.</T>}
               />
             )}
           </Section>
@@ -641,15 +641,14 @@ export function ClientDetail() {
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this client?"
+        title={<T id="clients.client-detail.archive-this-client">Archive this client?</T>}
         onConfirm={async () => {
           await clientsApi.setArchived(c.id, true);
           setArchive(false);
           navigate("/clients");
         }}
       >
-        {c.name} will be hidden from the client list. You can restore it from
-        Show archived.
+        <T id="clients.client-detail.will-be-hidden-from-the" values={{ name: c.name }}>{"{name} will be hidden from the client list. You can restore it from Show archived."}</T>
       </ConfirmationDialog>
     </>
   );

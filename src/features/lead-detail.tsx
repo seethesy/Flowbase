@@ -33,6 +33,7 @@ import {
   leadTitle,
   money,
 } from "./lead-shared";
+import { T } from "../app/copy";
 
 const nextStep: Partial<
   Record<LeadStatus, { status: "contacted" | "qualified"; label: string }>
@@ -58,7 +59,7 @@ export function LeadDetail() {
     return (
       <>
         <Link to="/leads" className="back-link">
-          ← All leads
+          <T id="lead-detail.lead-detail.all-leads">← All leads</T>
         </Link>
         <LoadError message={lead.error} />
       </>
@@ -98,7 +99,7 @@ export function LeadDetail() {
   return (
     <>
       <Link to="/leads" className="back-link">
-        ← All leads
+        <T id="lead-detail.lead-detail.all-leads">← All leads</T>
       </Link>
       <div className="record-heading">
         <div>
@@ -106,9 +107,9 @@ export function LeadDetail() {
           <p>
             <LeadStatusBadge status={l.status} />
             {l.needsReview && (
-              <span className="badge warning">Needs review</span>
+              <span className="badge warning"><T id="lead-detail.lead-detail.needs-review">Needs review</T></span>
             )}
-            {l.purchased && <span className="badge neutral">Purchased</span>}
+            {l.purchased && <span className="badge neutral"><T id="lead-detail.lead-detail.purchased">Purchased</T></span>}
           </p>
         </div>
         <div className="page-actions">
@@ -126,7 +127,7 @@ export function LeadDetail() {
                 disabled={busy}
                 onClick={() => setLosing(true)}
               >
-                Mark lost
+                <T id="lead-detail.lead-detail.mark-lost">Mark lost</T>
               </Button>
             </Allowed>
           )}
@@ -134,7 +135,7 @@ export function LeadDetail() {
             <Allowed action="leads.convert">
               <Button onClick={() => setConvert(true)}>
                 <ArrowRightLeft size={14} />
-                Convert
+                <T id="lead-detail.lead-detail.convert">Convert</T>
               </Button>
             </Allowed>
           )}
@@ -146,7 +147,7 @@ export function LeadDetail() {
         </p>
       )}
       {losing && (
-        <Section title="Mark lost">
+        <Section title={<T id="lead-detail.lead-detail.mark-lost">Mark lost</T>}>
           <form
             noValidate
             onSubmit={(e) => {
@@ -158,7 +159,7 @@ export function LeadDetail() {
               void move("lost", reason.trim());
             }}
           >
-            <FormField label="Lost reason *">
+            <FormField label={<T id="lead-detail.lead-detail.lost-reason">Lost reason *</T>}>
               <textarea
                 rows={2}
                 value={reason}
@@ -171,10 +172,10 @@ export function LeadDetail() {
                 variant="outline"
                 onClick={() => setLosing(false)}
               >
-                Cancel
+                <T id="lead-detail.lead-detail.cancel">Cancel</T>
               </Button>
               <Button type="submit" disabled={busy}>
-                Confirm lost
+                <T id="lead-detail.lead-detail.confirm-lost">Confirm lost</T>
               </Button>
             </div>
           </form>
@@ -186,7 +187,7 @@ export function LeadDetail() {
         </p>
       )}
       {duplicates.length > 0 && (
-        <Section title="Possible duplicates">
+        <Section title={<T id="lead-detail.lead-detail.possible-duplicates">Possible duplicates</T>}>
           <ul className="duplicate-list">
             {duplicates.map((match) => (
               <li key={match.duplicateId} className="duplicate-pair">
@@ -196,14 +197,14 @@ export function LeadDetail() {
                 {match.lead ? (
                   <p>
                     <Link to={`/leads/${match.lead.id}`}>
-                      {match.lead.name || "Unnamed lead"}
+                      {match.lead.name || <T id="lead-detail.lead-detail.unnamed-lead">Unnamed lead</T>}
                     </Link>{" "}
                     <small>{summaryLine(match.lead)}</small>
                   </p>
                 ) : (
                   match.client && (
                     <p>
-                      Client{" "}
+                      <T id="lead-detail.lead-detail.client">{"Client "}</T>
                       <Link to={`/clients/${match.client.id}`}>
                         {match.client.name}
                       </Link>
@@ -222,7 +223,7 @@ export function LeadDetail() {
                           )
                         }
                       >
-                        Merge into this lead
+                        <T id="lead-detail.lead-detail.merge-into-this-lead">Merge into this lead</T>
                       </Button>
                     </Allowed>
                   )}
@@ -235,7 +236,7 @@ export function LeadDetail() {
                           setConvert(true);
                         }}
                       >
-                        Convert and link to {match.client.name}
+                        <T id="lead-detail.lead-detail.convert-and-link-to" values={{ name: match.client.name }}>{"Convert and link to {name}"}</T>
                       </Button>
                     </Allowed>
                   )}
@@ -247,7 +248,7 @@ export function LeadDetail() {
                         void resolve(() => leadsApi.dismiss(match.duplicateId))
                       }
                     >
-                      Not a duplicate
+                      <T id="lead-detail.lead-detail.not-a-duplicate">Not a duplicate</T>
                     </Button>
                   </Allowed>
                 </div>
@@ -258,86 +259,86 @@ export function LeadDetail() {
       )}
       {l.status === "converted" && (
         <p role="note" className="demo-callout">
-          Converted.{" "}
+          <T id="lead-detail.lead-detail.converted">{"Converted. "}</T>
           {l.convertedClientId && (
-            <Link to={`/clients/${l.convertedClientId}`}>View client</Link>
+            <Link to={`/clients/${l.convertedClientId}`}><T id="lead-detail.lead-detail.view-client">View client</T></Link>
           )}{" "}
           {l.convertedEventId && (
-            <Link to={`/events/${l.convertedEventId}`}>View event</Link>
+            <Link to={`/events/${l.convertedEventId}`}><T id="lead-detail.lead-detail.view-event">View event</T></Link>
           )}
         </p>
       )}
       <div className="detail-grid">
-        <Section title="Contact">
+        <Section title={<T id="lead-detail.lead-detail.contact">Contact</T>}>
           <div className="info-grid">
             <div>
-              <small>Name</small>
+              <small><T id="lead-detail.lead-detail.name">Name</T></small>
               <strong>{l.name || "—"}</strong>
             </div>
             <div>
-              <small>Email</small>
+              <small><T id="lead-detail.lead-detail.email">Email</T></small>
               <strong>{l.email || "—"}</strong>
             </div>
             <div>
-              <small>Phone</small>
+              <small><T id="lead-detail.lead-detail.phone">Phone</T></small>
               <strong>{l.phone || "—"}</strong>
             </div>
           </div>
         </Section>
-        <Section title="Event">
+        <Section title={<T id="lead-detail.lead-detail.event">Event</T>}>
           <div className="info-grid">
             <div>
-              <small>Event date</small>
+              <small><T id="lead-detail.lead-detail.event-date">Event date</T></small>
               <strong>{eventDay(l.eventDate)}</strong>
             </div>
             <div>
-              <small>Guests</small>
+              <small><T id="lead-detail.lead-detail.guests">Guests</T></small>
               <strong>{l.guestCount ?? "—"}</strong>
             </div>
             <div>
-              <small>Event type</small>
+              <small><T id="lead-detail.lead-detail.event-type">Event type</T></small>
               <strong>{l.eventType || "—"}</strong>
             </div>
             <div>
-              <small>Location</small>
+              <small><T id="lead-detail.lead-detail.location">Location</T></small>
               <strong>{l.location || "—"}</strong>
             </div>
             <div>
-              <small>Budget</small>
+              <small><T id="lead-detail.lead-detail.budget">Budget</T></small>
               <strong>{money(l.budgetCents)}</strong>
             </div>
           </div>
-          <h3 className="form-subheading">Message</h3>
-          <p>{l.message || "No message."}</p>
+          <h3 className="form-subheading"><T id="lead-detail.lead-detail.message">Message</T></h3>
+          <p>{l.message || <T id="lead-detail.lead-detail.no-message">No message.</T>}</p>
         </Section>
-        <Section title="Source">
+        <Section title={<T id="lead-detail.lead-detail.source">Source</T>}>
           <div className="info-grid">
             <div>
-              <small>Source</small>
+              <small><T id="lead-detail.lead-detail.source">Source</T></small>
               <strong>{l.source}</strong>
             </div>
             <div>
-              <small>Channel</small>
+              <small><T id="lead-detail.lead-detail.channel">Channel</T></small>
               <strong>{leadChannelLabels[l.channel]}</strong>
             </div>
             <div>
-              <small>Received</small>
+              <small><T id="lead-detail.lead-detail.received">Received</T></small>
               <strong>{businessDate(l.receivedAt)}</strong>
             </div>
             <div>
-              <small>First response</small>
+              <small><T id="lead-detail.lead-detail.first-response">First response</T></small>
               <strong>
                 {l.firstResponseSeconds === null
-                  ? "Not yet"
+                  ? <T id="lead-detail.lead-detail.not-yet">Not yet</T>
                   : duration(l.firstResponseSeconds)}
               </strong>
             </div>
             <div>
-              <small>Source lead</small>
+              <small><T id="lead-detail.lead-detail.source-lead">Source lead</T></small>
               <strong>
                 {l.sourceLeadUrl ? (
                   <a href={l.sourceLeadUrl} target="_blank" rel="noreferrer">
-                    {l.sourceLeadId || "Open on source"}
+                    {l.sourceLeadId || <T id="lead-detail.lead-detail.open-on-source">Open on source</T>}
                   </a>
                 ) : (
                   l.sourceLeadId || "—"
@@ -347,13 +348,13 @@ export function LeadDetail() {
           </div>
           {l.status === "lost" && (
             <>
-              <h3 className="form-subheading">Lost reason</h3>
+              <h3 className="form-subheading"><T id="lead-detail.lead-detail.lost-reason-2">Lost reason</T></h3>
               <p>{l.lostReason}</p>
             </>
           )}
         </Section>
         {(l.sourceLinks?.length ?? 0) > 1 && (
-          <Section title="Source links">
+          <Section title={<T id="lead-detail.lead-detail.source-links">Source links</T>}>
             <ul aria-label="Source links">
               {l.sourceLinks!.map((link) => (
                 <li key={link.leadId}>
@@ -364,30 +365,30 @@ export function LeadDetail() {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      {link.sourceLeadId || "Open on source"}
+                      {link.sourceLeadId || <T id="lead-detail.lead-detail.open-on-source">Open on source</T>}
                     </a>
                   ) : (
                     link.sourceLeadId || "—"
                   )}{" "}
                   <small>
                     {link.mergedAt
-                      ? `merged ${businessDate(link.mergedAt)} by ${link.mergedBy ?? "—"}`
-                      : `received ${businessDate(link.receivedAt)}`}
+                      ? <T id="lead-detail.lead-detail.merged-by" values={{ businessDate: businessDate(link.mergedAt), value: link.mergedBy ?? "—" }}>{"merged {businessDate} by {value}"}</T>
+                      : <T id="lead-detail.lead-detail.received-2" values={{ businessDate: businessDate(link.receivedAt) }}>{"received {businessDate}"}</T>}
                   </small>
                 </li>
               ))}
             </ul>
           </Section>
         )}
-        <Section title="Assignment">
+        <Section title={<T id="lead-detail.lead-detail.assignment">Assignment</T>}>
           <p>
-            Salesperson:{" "}
-            <strong>{l.assignedSalespersonId ?? "Unassigned"}</strong>
+            <T id="lead-detail.lead-detail.salesperson">{"Salesperson: "}</T>
+            <strong>{l.assignedSalespersonId ?? <T id="lead-detail.lead-detail.unassigned">Unassigned</T>}</strong>
           </p>
           <Allowed action="leads.assign">
             <AssignForm
-              label="Assign to (user ID)"
-              button={l.assignedSalespersonId ? "Reassign" : "Assign"}
+              label={<T id="lead-detail.lead-detail.assign-to-user-id">Assign to (user ID)</T>}
+              button={l.assignedSalespersonId ? <T id="lead-detail.lead-detail.reassign">Reassign</T> : <T id="lead-detail.lead-detail.assign">Assign</T>}
               onAssign={async (salespersonId) =>
                 lead.replace(await leadsApi.assign(l.id, salespersonId))
               }
@@ -397,7 +398,7 @@ export function LeadDetail() {
       </div>
       <CommunicationLog target={{ leadId: l.id }} />
       {l.rawPayload !== null && l.rawPayload !== undefined && (
-        <Section title="Raw payload">
+        <Section title={<T id="lead-detail.lead-detail.raw-payload">Raw payload</T>}>
           <pre className="muted">{JSON.stringify(l.rawPayload, null, 2)}</pre>
         </Section>
       )}

@@ -13,6 +13,7 @@ import { leadsApi } from "../services/leads";
 import { productionApi } from "../services/production";
 import { salesApi } from "../services/sales";
 import { tasksApi } from "../services/tasks";
+import { T } from "../app/copy";
 import "./dashboard.css";
 
 type Widget = { label: string; value: number | string; to: string };
@@ -98,11 +99,11 @@ export function Dashboard() {
   const role = useAuth()?.user.role;
   const dashboard = useResource(["home", role], () => role ? homeWidgets(role) : Promise.resolve([]));
   return <>
-    <PageHeader title="Home" subtitle={role ? `${roleLabel(role)} · what needs your attention` : "What needs your attention"} />
+    <PageHeader title={<T id="dashboard.dashboard.home">Home</T>} subtitle={role ? <T id="dashboard.dashboard.what-needs-your-attention" values={{ roleLabel: roleLabel(role) }}>{"{roleLabel} · what needs your attention"}</T> : <T id="dashboard.dashboard.what-needs-your-attention-2">What needs your attention</T>} />
     {dashboard.error ? <LoadError message={dashboard.error} /> : !dashboard.data ? <LoadingSkeleton /> :
       <div className="home-widget-grid">{dashboard.data.map((item) =>
         <Link className="home-widget" key={item.label} to={item.to}>
-          <span>{item.label}</span><strong>{item.value}</strong><small>View list →</small>
+          <span>{item.label}</span><strong>{item.value}</strong><small><T id="dashboard.dashboard.view-list">View list →</T></small>
         </Link>)}</div>}
   </>;
 }

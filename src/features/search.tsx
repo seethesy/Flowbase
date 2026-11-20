@@ -7,6 +7,7 @@ import {
 } from "../../shared/search";
 import { searchApi } from "../services/search";
 import { EmptyState, LoadingSkeleton, SearchInput } from "../components/shared";
+import { T, useCopy } from "../app/copy";
 import "./search.css";
 
 // Waits for typing to pause before asking the API.
@@ -16,6 +17,7 @@ const DEBOUNCE_MS = 250;
 // vendors (FLOW-84) and recipes (FLOW-217) from one box, fuzzy enough to forgive a typo, and limited to
 // what the user may see.
 export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
+  const searchClientsLeadsEventsVenuesPlaceholder = useCopy("search.global-search.search-clients-leads-events-venues.placeholder", "Search clients, leads, events, venues, items, vendors, recipes…");
   const [search, setSearch] = useState("");
   const [state, setState] = useState<{
     query: string;
@@ -50,7 +52,7 @@ export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
       <SearchInput
         value={search}
         onChange={setSearch}
-        placeholder="Search clients, leads, events, venues, items, vendors, recipes…"
+        placeholder={searchClientsLeadsEventsVenuesPlaceholder} copyId="search.global-search.search-clients-leads-events-venues.placeholder"
       />
       {state.error && ready && (
         <p role="alert" className="error-message">
@@ -80,11 +82,11 @@ export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
         ))}
       {(term.length < SEARCH_MIN_LENGTH || (ready && !state.error && !state.results.length)) && (
         <EmptyState
-          title={term.length < SEARCH_MIN_LENGTH ? "Everything, in one place" : "No matching records"}
+          title={term.length < SEARCH_MIN_LENGTH ? <T id="search.global-search.everything-in-one-place">Everything, in one place</T> : <T id="search.global-search.no-matching-records">No matching records</T>}
           description={
             term.length < SEARCH_MIN_LENGTH
-              ? "Type a name, email, phone number or item code to begin."
-              : "Try another spelling, or part of the name."
+              ? <T id="search.global-search.type-a-name-email-phone">Type a name, email, phone number or item code to begin.</T>
+              : <T id="search.global-search.try-another-spelling-or-part">Try another spelling, or part of the name.</T>
           }
         />
       )}

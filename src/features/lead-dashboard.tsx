@@ -30,6 +30,7 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { T } from "../app/copy";
 
 // Lead dashboard (FLOW-113): which lead sources are worth paying for. Dollar
 // figures are estimates until proposals exist (FLOW-122): each closed lead counts at
@@ -111,26 +112,26 @@ export function LeadDashboardPage() {
   return (
     <>
       <Link to="/leads" className="back-link">
-        ← All leads
+        <T id="lead-dashboard.lead-dashboard-page.all-leads">← All leads</T>
       </Link>
       <PageHeader
-        title="Lead dashboard"
+        title={<T id="lead-dashboard.lead-dashboard-page.lead-dashboard">Lead dashboard</T>}
         subtitle={
           data?.scope === "own"
-            ? "Your leads by source, channel and status."
-            : "Which lead sources are worth paying for."
+            ? <T id="lead-dashboard.lead-dashboard-page.your-leads-by-source-channel">Your leads by source, channel and status.</T>
+            : <T id="lead-dashboard.lead-dashboard-page.which-lead-sources-are-worth">Which lead sources are worth paying for.</T>
         }
-        eyebrow="Leads"
+        eyebrow={<T id="lead-dashboard.lead-dashboard-page.leads">Leads</T>}
       />
       <FilterBar>
-        <FormField label="From">
+        <FormField label={<T id="lead-dashboard.lead-dashboard-page.from">From</T>}>
           <input
             type="date"
             value={range.from ?? data?.from ?? ""}
             onChange={(e) => setRange((current) => ({ ...current, from: e.target.value || undefined }))}
           />
         </FormField>
-        <FormField label="To">
+        <FormField label={<T id="lead-dashboard.lead-dashboard-page.to">To</T>}>
           <input
             type="date"
             value={range.to ?? data?.to ?? ""}
@@ -146,43 +147,42 @@ export function LeadDashboardPage() {
         <>
           <div className="kpi-grid">
             <KpiCard
-              label="Leads"
+              label={<T id="lead-dashboard.lead-dashboard-page.leads">Leads</T>}
               value={data.totals.leads}
               icon={<Inbox size={19} />}
-              comparison={`${data.totals.awaitingAction} awaiting action`}
+              comparison={<T id="lead-dashboard.lead-dashboard-page.awaiting-action" values={{ awaitingAction: data.totals.awaitingAction }}>{"{awaitingAction} awaiting action"}</T>}
               onClick={() => navigate("/leads")}
             />
             <KpiCard
-              label="Conversion rate"
+              label={<T id="lead-dashboard.lead-dashboard-page.conversion-rate">Conversion rate</T>}
               value={percent(data.totals.conversionRate)}
               icon={<TrendingUp size={19} />}
-              comparison={`${data.totals.converted} converted · ${data.totals.closed} closed`}
+              comparison={<T id="lead-dashboard.lead-dashboard-page.converted-closed" values={{ converted: data.totals.converted, closed: data.totals.closed }}>{"{converted} converted · {closed} closed"}</T>}
               onClick={() => navigate("/leads")}
             />
             <KpiCard
-              label="Est. closed value"
+              label={<T id="lead-dashboard.lead-dashboard-page.est-closed-value">Est. closed value</T>}
               value={money(data.totals.estimatedClosedCents)}
               icon={<CircleDollarSign size={19} />}
               comparison={
                 data.averageBudgetCents === null
-                  ? "No budgets yet to estimate from"
-                  : `Average budget ${money(data.averageBudgetCents)} where none given`
+                  ? <T id="lead-dashboard.lead-dashboard-page.no-budgets-yet-to-estimate">No budgets yet to estimate from</T>
+                  : <T id="lead-dashboard.lead-dashboard-page.average-budget-where-none-given" values={{ averageBudgetCents: money(data.averageBudgetCents) }}>{"Average budget {averageBudgetCents} where none given"}</T>
               }
               onClick={() => navigate("/events")}
             />
             <KpiCard
-              label="Median first response"
+              label={<T id="lead-dashboard.lead-dashboard-page.median-first-response">Median first response</T>}
               value={responseTime(data.totals.medianFirstResponseSeconds)}
               icon={<Clock size={19} />}
-              comparison="Received to first contact"
+              comparison={<T id="lead-dashboard.lead-dashboard-page.received-to-first-contact">Received to first contact</T>}
               onClick={() => navigate("/leads")}
             />
           </div>
           <p role="note" className="muted">
-            Dollar figures are estimates: a closed lead counts at its stated budget, or
-            at the average budget when it gave none, until proposals carry real totals.
+            <T id="lead-dashboard.lead-dashboard-page.dollar-figures-are-estimates-a">Dollar figures are estimates: a closed lead counts at its stated budget, or at the average budget when it gave none, until proposals carry real totals.</T>
           </p>
-          <Section title="By source">
+          <Section title={<T id="lead-dashboard.lead-dashboard-page.by-source">By source</T>}>
             {data.bySource.length > 0 && (
               <div className="lead-source-chart" aria-hidden="true">
                 <ResponsiveContainer width="100%" height={220}>
@@ -198,18 +198,18 @@ export function LeadDashboardPage() {
                 </ResponsiveContainer>
               </div>
             )}
-            <DataTable
+            <DataTable copyKey="lead-dashboard.lead-dashboard-page"
               data={data.bySource}
               columns={sourceColumns}
-              label="sources"
+              label={<T id="lead-dashboard.lead-dashboard-page.sources">sources</T>}
               exportName="lead sources"
             />
           </Section>
           <div className="detail-grid">
-            <Section title="By channel">
-              <DataTable data={data.byChannel} columns={channelColumns} label="channels" />
+            <Section title={<T id="lead-dashboard.lead-dashboard-page.by-channel">By channel</T>}>
+              <DataTable copyKey="lead-dashboard.lead-dashboard-page" data={data.byChannel} columns={channelColumns} label={<T id="lead-dashboard.lead-dashboard-page.channels">channels</T>} />
             </Section>
-            <Section title="By status">
+            <Section title={<T id="lead-dashboard.lead-dashboard-page.by-status">By status</T>}>
               <ul aria-label="Leads by status">
                 {data.byStatus.map((row) => (
                   <li key={row.status}>
@@ -220,11 +220,11 @@ export function LeadDashboardPage() {
             </Section>
           </div>
           {data.scope === "all" && (
-            <Section title="By salesperson">
-              <DataTable
+            <Section title={<T id="lead-dashboard.lead-dashboard-page.by-salesperson">By salesperson</T>}>
+              <DataTable copyKey="lead-dashboard.lead-dashboard-page"
                 data={data.bySalesperson}
                 columns={salespersonColumns}
-                label="salespeople"
+                label={<T id="lead-dashboard.lead-dashboard-page.salespeople">salespeople</T>}
               />
             </Section>
           )}
