@@ -72,34 +72,40 @@ it("keeps lead assignment out of the salesperson's inbox", async () => {
   ).not.toBeInTheDocument();
 });
 it("applies item-specific permissions to stock controls", () => {
-  render(
-    <TestAuth role="kitchen_staff">
-      <Allowed
-        action="inventory.count"
-        item={{ kind: "consumable", subtype: "ingredient" }}
-      >
-        <button>Count ingredients</button>
-      </Allowed>
-      <Allowed
-        action="inventory.count"
-        item={{ kind: "consumable", subtype: "bar" }}
-      >
-        <button>Count bar</button>
-      </Allowed>
-      <Allowed action="users.manage">
-        <button>Manage users</button>
-      </Allowed>
-    </TestAuth>,
-  );
+  const controls = (role: "kitchen_staff" | "part_time_staff") =>
+    render(
+      <TestAuth role={role}>
+        <Allowed
+          action="inventory.count"
+          item={{ kind: "consumable", subtype: "ingredient" }}
+        >
+          <button>Count ingredients</button>
+        </Allowed>
+        <Allowed
+          action="inventory.count"
+          item={{ kind: "consumable", subtype: "bar" }}
+        >
+          <button>Count bar</button>
+        </Allowed>
+        <Allowed action="users.manage">
+          <button>Manage users</button>
+        </Allowed>
+      </TestAuth>,
+    );
+  // Kitchen Staff count every consumable but cannot manage users.
+  const kitchen = controls("kitchen_staff");
   expect(
     screen.getByRole("button", { name: "Count ingredients" }),
   ).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Count bar" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Count bar" })).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Manage users" }),
   ).not.toBeInTheDocument();
+  kitchen.unmount();
+  // Part-time Staff (FLOW-249) get none of these controls.
+  controls("part_time_staff");
+  for (const name of ["Count ingredients", "Count bar", "Manage users"])
+    expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
 });
 it("hides protected controls without a signed-in profile", () => {
   render(

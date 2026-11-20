@@ -110,7 +110,9 @@ it("lists leads, flags the ones that need review and filters by search", async (
   await waitFor(() =>
     expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument(),
   );
-  expect(screen.getByText("Noah Kim")).toBeInTheDocument();
+  // The filtered list reloads behind a skeleton, so wait for it.
+  expect(await screen.findByText("Noah Kim")).toBeInTheDocument();
+  expect(screen.queryByText("Maya Ortiz")).not.toBeInTheDocument();
 });
 
 it("asks for owner and status filters from the API", async () => {
