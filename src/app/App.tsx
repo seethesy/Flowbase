@@ -20,7 +20,7 @@ function Workspace() {
   // Admin live text editing (FLOW-240): saved wording for every screen.
   const permissions = usePermissions();
   return (
-    <CopyProvider canEdit={permissions.can("copy.edit")}>
+    <CopyProvider canEdit={permissions.can("copy.edit")} canEditLayout={permissions.can("layout.edit")}>
       <DemoProvider><RouterProvider router={getRouter()} /></DemoProvider>
     </CopyProvider>
   );

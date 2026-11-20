@@ -36,6 +36,8 @@ export type AuditEntity =
   // The vendor directory (FLOW-84).
   | "vendor"
   | "lead"
+  // Saved page layouts (FLOW-253): save and reset.
+  | "ui_layout"
   // Proposals and their stage changes and versions (FLOW-122/123).
   | "proposal"
   | "contract"
