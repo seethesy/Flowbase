@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { Hono } from "hono";
 import { readFileSync, readdirSync } from "node:fs";
 import {
