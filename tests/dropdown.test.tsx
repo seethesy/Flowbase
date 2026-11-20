@@ -153,6 +153,28 @@ describe("Dropdown", () => {
     expect(trigger).toHaveTextContent("Bo");
   });
 
+  it("shows <optgroup> labels as headings over their options", async () => {
+    const user = userEvent.setup();
+    render(
+      <Dropdown aria-label="Subcategory" defaultValue="">
+        <option value="">All subcategories</option>
+        <optgroup label="Liquor">
+          <option>Vodka</option>
+          <option>Gin</option>
+        </optgroup>
+        <optgroup label="Wine">
+          <option>White</option>
+        </optgroup>
+      </Dropdown>,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Subcategory" }));
+    const liquor = screen.getByRole("group", { name: "Liquor" });
+    expect(within(liquor).getAllByRole("option").map((o) => o.textContent)).toEqual(["Vodka", "Gin"]);
+    expect(within(screen.getByRole("group", { name: "Wine" })).getByRole("option", { name: "White" })).toBeInTheDocument();
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    expect(screen.getByRole("combobox", { name: "Subcategory" })).toHaveAttribute("data-value", "Gin");
+  });
+
   it("shows status options as their colored pills (AC2)", async () => {
     const user = userEvent.setup();
     render(<StatusSelect label="Lead status" value="pitching" onChange={() => {}} />);

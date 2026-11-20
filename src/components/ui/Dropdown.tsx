@@ -39,6 +39,8 @@ export type DropdownOption = {
   // Plain text for type-ahead; derived from label when it is text.
   text?: string;
   disabled?: boolean;
+  // The <optgroup> label it sits under; the list shows it as a heading.
+  group?: string;
 };
 
 export type DropdownChangeEvent = {
@@ -104,13 +106,17 @@ export function nodeText(node: ReactNode): string {
 }
 
 // <option> (and fragments or arrays of them) to options; other nodes are ignored.
-export function optionsFromChildren(children: ReactNode): DropdownOption[] {
+export function optionsFromChildren(children: ReactNode, group?: string): DropdownOption[] {
   const out: DropdownOption[] = [];
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
-    const element = child as ReactElement<{ value?: string | number; children?: ReactNode; disabled?: boolean }>;
+    const element = child as ReactElement<{ value?: string | number; children?: ReactNode; disabled?: boolean; label?: string }>;
     if (element.type === Fragment) {
-      out.push(...optionsFromChildren(element.props.children));
+      out.push(...optionsFromChildren(element.props.children, group));
+      return;
+    }
+    if (element.type === "optgroup") {
+      out.push(...optionsFromChildren(element.props.children, element.props.label ?? ""));
       return;
     }
     if (element.type !== "option") return;
@@ -121,6 +127,7 @@ export function optionsFromChildren(children: ReactNode): DropdownOption[] {
       label,
       text,
       disabled: element.props.disabled,
+      group,
     });
   });
   return out;
@@ -335,7 +342,7 @@ export function Dropdown(props: DropdownProps) {
   const pillOf = (option: DropdownOption | undefined) => {
     if (!option) return placeholder ?? "";
     const toneClass = tone(option.value);
-    return toneClass ? <span className={clsx("dropdown-pill", toneClass)}>{option.label}</span> : option.label;
+    return toneClass ? <span className={clsx("fb-select-pill", toneClass)}>{option.label}</span> : option.label;
   };
   const shown = multiple
     ? values.length
@@ -382,7 +389,7 @@ export function Dropdown(props: DropdownProps) {
         aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
         data-testid={props["data-testid"]}
         data-value={multiple ? values.join(",") : value}
-        className={clsx("dropdown", `dropdown--${variant}`, className)}
+        className={clsx("fb-select", `fb-select--${variant}`, className)}
         onClick={() => (open ? setOpen(false) : openAt())}
         onKeyDown={onKeyDown}
         onBlur={(event) => {
@@ -390,15 +397,15 @@ export function Dropdown(props: DropdownProps) {
           onBlur?.();
         }}
       >
-        <span className="dropdown__value">{shown}</span>
-        <ChevronDown aria-hidden="true" size={14} className="dropdown__chevron" />
+        <span className="fb-select__value">{shown}</span>
+        <ChevronDown aria-hidden="true" size={14} className="fb-select__chevron" />
       </button>
       {name && (multiple ? values : [value]).map((v, i) => <input key={i} type="hidden" name={name} value={v} />)}
       {open &&
         createPortal(
           <div
             ref={listRef}
-            className={clsx("dropdown-list", `dropdown-list--${variant}`, position?.up && "dropdown-list--up")}
+            className={clsx("fb-select-list", `fb-select-list--${variant}`, position?.up && "fb-select-list--up")}
             style={style}
           >
             <div
@@ -409,31 +416,43 @@ export function Dropdown(props: DropdownProps) {
               aria-multiselectable={multiple || undefined}
               tabIndex={-1}
             >
-              {options.map((option, index) => {
-                const isSelected = values.includes(option.value);
-                const toneClass = tone(option.value);
-                return (
-                  <div
-                    key={`${option.value}-${index}`}
-                    id={`${listId}-${index}`}
-                    data-value={option.value}
-                    role="option"
-                    aria-selected={isSelected}
-                    aria-disabled={option.disabled || undefined}
-                    className={clsx("dropdown-option", index === active && "is-active", isSelected && "is-selected")}
-                    onPointerMove={() => !option.disabled && setActive(index)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => choose(option)}
-                  >
-                    {toneClass ? <span className={clsx("dropdown-pill", toneClass)}>{option.label}</span> : <span>{option.label}</span>}
-                    {isSelected && <Check aria-hidden="true" size={14} className="dropdown-option__check" />}
+              {segments(options).map((segment) => {
+                const rows = segment.items.map(({ option, index }) => {
+                  const isSelected = values.includes(option.value);
+                  const toneClass = tone(option.value);
+                  return (
+                    <div
+                      key={`${option.value}-${index}`}
+                      id={`${listId}-${index}`}
+                      data-value={option.value}
+                      role="option"
+                      aria-selected={isSelected}
+                      aria-disabled={option.disabled || undefined}
+                      className={clsx("fb-select-option", index === active && "is-active", isSelected && "is-selected")}
+                      onPointerMove={() => !option.disabled && setActive(index)}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => choose(option)}
+                    >
+                      {toneClass ? <span className={clsx("fb-select-pill", toneClass)}>{option.label}</span> : <span>{option.label}</span>}
+                      {isSelected && <Check aria-hidden="true" size={14} className="fb-select-option__check" />}
+                    </div>
+                  );
+                });
+                return segment.group === undefined ? (
+                  <Fragment key={segment.key}>{rows}</Fragment>
+                ) : (
+                  <div key={segment.key} role="group" aria-label={segment.group}>
+                    <div aria-hidden="true" className="fb-select-group">
+                      {segment.group}
+                    </div>
+                    {rows}
                   </div>
                 );
               })}
             </div>
             {creatable && (
               <form
-                className="dropdown-create"
+                className="fb-select-create"
                 onSubmit={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -460,7 +479,7 @@ export function Dropdown(props: DropdownProps) {
                   {creatable.label ?? <T id="shared.dropdown.add">Add</T>}
                 </button>
                 {createError && (
-                  <p role="alert" className="dropdown-create__error">
+                  <p role="alert" className="fb-select-create__error">
                     {createError}
                   </p>
                 )}
@@ -477,6 +496,16 @@ export function Dropdown(props: DropdownProps) {
 // outside-click handling treat the list as part of it; elsewhere in <body>.
 function portalHost(trigger: HTMLElement | null): HTMLElement {
   return (trigger?.closest('[role="dialog"], [role="alertdialog"]') as HTMLElement | null) ?? document.body;
+}
+// Runs of options under the same <optgroup> (undefined: not in one).
+function segments(options: DropdownOption[]) {
+  const out: { key: string; group: string | undefined; items: { option: DropdownOption; index: number }[] }[] = [];
+  options.forEach((option, index) => {
+    const last = out[out.length - 1];
+    if (last && last.group === option.group) last.items.push({ option, index });
+    else out.push({ key: `segment-${index}`, group: option.group, items: [{ option, index }] });
+  });
+  return out;
 }
 function optionText(option: DropdownOption): string {
   return option.text ?? nodeText(option.label);
