@@ -128,8 +128,7 @@ it("leaves hidden field groups out of the file (AC2)", async () => {
   exported = [];
   const staff = await exportFile(rows, "part_time_staff", "full_time");
   expect(staff[0]).toBe("Item");
-  expect(staff.join("
-")).not.toMatch(/202-555|12\.99|Hidden/);
+  expect(staff.join("\n")).not.toMatch(/202-555|12\.99|Hidden/);
 });
 
 it("disables export for an empty list", () => {
