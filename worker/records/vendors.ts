@@ -39,6 +39,7 @@ import { setArchived } from "./archive";
 import { conflict } from "./inventory-common";
 import { keyset, type Page, type PageRequest } from "./paging";
 import { syncChildren } from "./sync";
+import { notDeleted } from "./deleted";
 
 // Vendor and distributor directory (FLOW-84). Every signed-in user reads it;
 // inventory.write edits it. Contacts and the account number are FT+ only: hidden
@@ -113,7 +114,7 @@ export async function listVendors(
     .where(
       and(
         filter.archived
-          ? isNotNull(vendors.archivedAt)
+          ? and(isNotNull(vendors.archivedAt), notDeleted("vendor", vendors.id))
           : isNull(vendors.archivedAt),
         filter.type ? eq(vendors.type, filter.type) : undefined,
         term

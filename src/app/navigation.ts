@@ -110,6 +110,7 @@ const subPages: Record<string, string> = {
   "/settings/collector": "Collector health",
   "/settings/usage": "Usage",
   "/settings/operations": "Operations",
+  "/settings/archived": "Archived",
 };
 
 // `<base>/<id>` is a record page. Named kinds are looked up for their name; the

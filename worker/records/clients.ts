@@ -34,6 +34,7 @@ import {
   type PageRequest,
 } from "./paging";
 import { phoneDigits, syncChildren } from "./sync";
+import { notDeleted } from "./deleted";
 
 type ClientRow = typeof clients.$inferSelect;
 type ContactRow = typeof clientContacts.$inferSelect;
@@ -138,7 +139,7 @@ export async function listClients(
       and(
         visibleClients(actor),
         filter.archived
-          ? isNotNull(clients.archivedAt)
+          ? and(isNotNull(clients.archivedAt), notDeleted("client", clients.id))
           : isNull(clients.archivedAt),
         term
           ? or(

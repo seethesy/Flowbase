@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
@@ -62,6 +63,7 @@ export function VendorList() {
         cursor,
       ),
   );
+  const deletable = useDeletable("vendor", () => vendors.reload());
   const data = vendors.data ?? [];
   const columns: ColumnDef<Vendor, unknown>[] = [
     { accessorKey: "name", header: "Vendor" },
@@ -137,7 +139,7 @@ export function VendorList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable copyKey="vendors.vendor-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="vendors.vendor-list"
             data={data}
             columns={columns}
             onRow={(vendor) => navigate(`/vendors/${vendor.id}`)}

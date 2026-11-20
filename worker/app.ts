@@ -57,6 +57,7 @@ import { salesRoutes } from "./routes/sales";
 import { operationalReportRoutes } from "./routes/operational-reports";
 import { homeRoutes } from "./routes/home";
 import { vendorRoutes } from "./routes/vendors";
+import { deletionRoutes } from "./routes/deletions";
 import { orderListRoutes } from "./routes/order-lists";
 import { announceChanges } from "./realtime";
 import * as fixtures from "../src/data/mock/fixtures";
@@ -321,6 +322,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/operational-reports", operationalReportRoutes(options));
   app.route("/api/home", homeRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));
+  app.route("/api/deletions", deletionRoutes(options));
   app.route("/api", planningRoutes(options));
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));

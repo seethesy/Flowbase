@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
@@ -48,6 +49,7 @@ export function VenueList() {
     ["venues", "list", archived, term],
     (cursor) => venuesApi.list({ archived, search: term || undefined }, cursor),
   );
+  const deletable = useDeletable("venue", () => venues.reload());
   const data = venues.data ?? [];
   const columns: ColumnDef<Venue, unknown>[] = [
     { accessorKey: "name", header: "Venue" },
@@ -100,7 +102,7 @@ export function VenueList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable copyKey="venues.venue-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="venues.venue-list"
             data={data}
             columns={columns}
             onRow={(venue) => navigate(`/venues/${venue.id}`)}

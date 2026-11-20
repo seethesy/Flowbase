@@ -49,6 +49,7 @@ import {
 import { getEvent, insertEvent, insertLeadEvent, updateLeadEventBasics } from "./events";
 import { insertProposal } from "./proposals";
 import { auditLead, leadSnapshot } from "./lead-audit";
+import { setArchived } from "./archive";
 import {
   leadMatchesFor,
   recordLeadDuplicates,
@@ -401,6 +402,28 @@ async function lockVisibleLead(tx: DbLike, actor: Actor, id: string) {
     .where(eq(leads.id, id))
     .for("update");
   return findVisibleLead(tx, actor, id);
+}
+
+// Archive and restore a lead (FLOW-260 bulk delete and its Undo). The lead is
+// locked and checked against the actor's visibility, archived or not; a lead at
+// Closing or Closed already has a client record and is never archived here.
+export async function setLeadArchived(db: Db, actor: Actor, id: string, archived: boolean) {
+  requireLeadAccess(actor);
+  await setArchived(db, actor, id, archived, {
+    lock: async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(leads)
+        .where(and(eq(leads.id, id), visibleLeads(actor)))
+        .for("update");
+      if (!row) throw notFound("Lead");
+      if (archived && (row.status === "closing" || row.status === "closed"))
+        throw new ApiError(409, "LEAD_CONVERTED", "already has a client record");
+    },
+    update: (tx, values) => tx.update(leads).set(values).where(eq(leads.id, id)),
+    audit: { entityType: "lead", snapshot: leadSnapshot },
+    event: "lead",
+  });
 }
 
 // The detail adds every source link and the possible duplicates the actor may see.

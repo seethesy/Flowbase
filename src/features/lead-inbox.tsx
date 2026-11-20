@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useEffect, useState, type MouseEvent } from "react";
@@ -94,7 +95,9 @@ export function LeadInbox() {
   };
   // FLOW-260 selection: drag, Shift+click and Ctrl/Cmd+click select rows instead
   // of opening them. Closing and Closed aren't offered in bulk (they need a client).
+  const deletable = useDeletable("lead", () => leads.reload());
   const selection = useTableSelection({
+    ...deletable,
     actions: (ids, clear) => <>
       <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
         onAssign={async (owner) => { await leadsApi.bulkAssign(ids, owner); clear(); leads.reload(); }} /></Allowed>

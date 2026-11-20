@@ -54,6 +54,7 @@ import {
   type Page,
   type PageRequest,
 } from "./paging";
+import { notDeleted } from "./deleted";
 
 // ---- Items ----
 
@@ -319,7 +320,7 @@ export async function listItems(
     .where(
       and(
         filter.archived
-          ? isNotNull(inventoryItems.archivedAt)
+          ? and(isNotNull(inventoryItems.archivedAt), notDeleted("inventory_item", inventoryItems.id))
           : isNull(inventoryItems.archivedAt),
         filter.kind ? eq(inventoryItems.kind, filter.kind) : undefined,
         filter.subtype ? eq(inventoryItems.subtype, filter.subtype) : undefined,

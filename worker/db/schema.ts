@@ -47,6 +47,7 @@ import { planningStepStatuses, planningSteps } from "../../shared/planning";
 import { pullGroups, pullStatuses } from "../../shared/pull-list";
 import type { RentalRequestSettings } from "../../shared/rental-requests";
 import { beoAreaKinds, beoStatuses, runOfShowModes } from "../../shared/beo";
+import { deletableEntities } from "../../shared/deletions";
 import { truckStatuses } from "../../shared/trucks";
 import { dayOfCheckpointKeys, dayOfStaffStatuses, dayOfUpdateKinds } from "../../shared/day-of";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
@@ -2273,3 +2274,27 @@ export const uiCopy = pgTable("ui_copy", {
   key: text("key").notNull().unique(),
   text: text("text").notNull(),
 }).enableRLS();
+
+// Bulk delete (FLOW-260, A1): a deleted record is archived and has an open row
+// here (restored_at null), which hides it from the Show archived lists. An Admin
+// restores it from Settings › Archived; Undo restores it at once. Rows are kept
+// after a restore as the record of what happened. name is the record's label at
+// deletion, for the Archived view.
+export const deletions = pgTable(
+  "deletions",
+  {
+    ...baseColumns(),
+    entityType: text("entity_type", { enum: deletableEntities }).notNull(),
+    entityId: uuid("entity_id").notNull(),
+    name: text("name").notNull().default(""),
+    deletedAt: timestamptz("deleted_at").notNull().defaultNow(),
+    deletedBy: uuid("deleted_by"),
+    restoredAt: timestamptz("restored_at"),
+    restoredBy: uuid("restored_by"),
+  },
+  (table) => [
+    index("deletions_entity_idx").on(table.entityType, table.entityId),
+    index("deletions_open_idx").on(table.deletedAt).where(sql`${table.restoredAt} is null`),
+    oneOf("deletions_entity_type_check", table.entityType, deletableEntities),
+  ],
+).enableRLS();
