@@ -262,6 +262,21 @@ export function Dropdown(props: DropdownProps) {
     return () => document.removeEventListener("pointerdown", close);
   }, [open, setOpen]);
 
+  // Esc closes only the list. A dialog around it listens for Esc in the capture
+  // phase on the document, so the list takes it first, on the window.
+  useEffect(() => {
+    if (!open) return;
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    window.addEventListener("keydown", escape, true);
+    return () => window.removeEventListener("keydown", escape, true);
+  }, [open, setOpen]);
+
   useEffect(() => {
     if (!open || active < 0) return;
     document.getElementById(`${listId}-${active}`)?.scrollIntoView?.({ block: "nearest" });

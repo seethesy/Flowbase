@@ -95,6 +95,19 @@ describe("Dropdown", () => {
     expect(trigger).toHaveTextContent("Banana");
   });
 
+  it("takes Esc before a surrounding dialog, so only the list closes", async () => {
+    const user = userEvent.setup();
+    const dialogEscape = vi.fn();
+    document.addEventListener("keydown", (event) => event.key === "Escape" && dialogEscape(), { capture: true });
+    render(<Fruit />);
+    await user.click(screen.getByRole("combobox", { name: "Fruit" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(dialogEscape).not.toHaveBeenCalled();
+    await user.keyboard("{Escape}");
+    expect(dialogEscape).toHaveBeenCalledTimes(1);
+  });
+
   it("closes on an outside click", async () => {
     const user = userEvent.setup();
     render(
