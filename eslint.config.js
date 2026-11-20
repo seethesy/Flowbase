@@ -23,4 +23,18 @@ export default ts.config(
     plugins: { "react-hooks": hooks },
     rules: { "react-hooks/rules-of-hooks": "error", "react-hooks/exhaustive-deps": "warn" },
   },
+  {
+    // Every checkbox is a RoundCheck (FLOW-245).
+    files: ["src/**/*.tsx"],
+    ignores: ["src/components/ui/round-check.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXOpeningElement[name.name='input'] > JSXAttribute[name.name='type'][value.value='checkbox']",
+          message: "Use RoundCheck from src/components/ui/round-check.tsx instead of a raw checkbox.",
+        },
+      ],
+    },
+  },
 );

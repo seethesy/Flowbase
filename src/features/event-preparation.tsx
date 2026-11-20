@@ -28,6 +28,7 @@ import { tasksApi } from "../services/tasks";
 import { utcToBusinessTime } from "../../shared/time";
 import { date, time } from "./event-format";
 import "./event-preparation.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137).
 
@@ -130,8 +131,7 @@ function RegenerateButton({
           <strong>{label}</strong>
           <ErrorLine message={error} />
           <label>
-            <input
-              type="checkbox"
+            <RoundCheck
               checked={discard}
               onChange={(e) => {
                 setDiscard(e.target.checked);

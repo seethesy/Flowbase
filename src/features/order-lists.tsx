@@ -9,6 +9,7 @@ import { isPlaced, outstanding, type OrderLine, type OrderList, type VendorOrder
 import { canSeeField } from "../../shared/visibility";
 import { utcToBusinessTime, addLocalDays } from "../../shared/time";
 import "./order-lists.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 export function OrderLists() {
   const navigate = useNavigate();
@@ -217,7 +218,7 @@ function ReceiveForm({ order, showCosts, onSubmit }: {
         placeholder="e.g. 1 case short, 2 bottles broken"
         onChange={(event) => setNotes({ ...notes, [line.itemId]: event.target.value })} /></label>
     </fieldset>)}
-    <label className="vendor-order-complete"><input type="checkbox" checked={complete}
+    <label className="vendor-order-complete"><RoundCheck checked={complete}
       onChange={(event) => setComplete(event.target.checked)} /> Nothing more is coming on this order</label>
     <Button type="submit">Record delivery</Button>
   </form>;

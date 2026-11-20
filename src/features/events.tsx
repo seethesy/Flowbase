@@ -55,6 +55,7 @@ import { EventTasksSection } from "./task-lists";
 import { EventHistorySection } from "./event-activity";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
+import { RoundCheck } from "../components/ui/round-check";
 
 const statusLabels = eventStatusLabels;
 
@@ -191,8 +192,7 @@ export function EventList() {
           />
         </label>
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />

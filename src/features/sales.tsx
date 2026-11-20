@@ -7,6 +7,7 @@ import { Button, LoadingSkeleton, PageHeader, Section } from "../components/shar
 import { LoadError } from "../components/record-display";
 import { salesApi } from "../services/sales";
 import "./sales.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 const dollars = (cents: number | null) => cents === null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 const day = (value: string | null) => value ? value.slice(0, 10) : "—";
@@ -46,7 +47,7 @@ export function SalesTracker() {
       <label>Sort <select value={filter.sort} onChange={(event) => patch({ sort: event.target.value as SalesFilter["sort"] })}>
         <option value="activity">Recent activity</option><option value="eventDate">Event date</option><option value="client">Client</option><option value="total">Total</option>
       </select></label>
-      <label><input type="checkbox" checked={filter.history} onChange={(event) => patch({ history: event.target.checked })} /> Include finished and lost events</label>
+      <label><RoundCheck checked={filter.history} onChange={(event) => patch({ history: event.target.checked })} /> Include finished and lost events</label>
     </div>
     <div className="sales-actions">
       <label>Saved views <select aria-label="Saved views" value="" onChange={(event) => { const view = views.data?.find((item) => item.id === event.target.value); if (view) setFilter(view.filter); }}>

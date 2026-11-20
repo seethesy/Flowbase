@@ -41,6 +41,7 @@ import {
   variantLabel,
 } from "./inventory-labels";
 import "./inventory.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Unit cost in a CSV file: dollars without formatting, blank when unknown.
 const costCsv = (item: InventoryItem) => {
@@ -200,8 +201,7 @@ export function InventoryList() {
         </select>
         <SectionFilter value={sectionId} onChange={setSectionId} />
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
@@ -390,8 +390,7 @@ export function IngredientList({
           label="Storage section"
         />
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={belowPar}
             onChange={(e) => setBelowPar(e.target.checked)}
           />
@@ -620,8 +619,7 @@ export function BarList() {
           onChange={(e) => setDistributor(e.target.value)}
         />
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={belowPar}
             onChange={(e) => setBelowPar(e.target.checked)}
           />

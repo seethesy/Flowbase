@@ -29,6 +29,7 @@ import {
 import { LoadError } from "../components/record-display";
 import { EventTable } from "./events";
 import { Attachments } from "./attachments";
+import { RoundCheck } from "../components/ui/round-check";
 
 const contactRoleLabels = { manager: "Manager", coordinator: "Coordinator" };
 
@@ -80,8 +81,7 @@ export function VenueList() {
           placeholder="Search venues…"
         />
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />

@@ -97,15 +97,12 @@
 .beo-photo-add input {
   display: none;
 }
+/* The whole 44px row is the tap target; the check itself is 16px (FLOW-245). */
 .beo-check {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   min-height: 44px;
-}
-.beo-check input {
-  width: 22px;
-  height: 22px;
 }
 .beo-layout-editor {
   position: fixed;

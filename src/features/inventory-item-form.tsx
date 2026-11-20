@@ -33,6 +33,7 @@ import { inventoryCategoryList } from "../../shared/settings";
 import { usePermissions } from "../app/permissions";
 import { canSeeRentalCosts } from "../../shared/visibility";
 import { CatalogIncludes } from "./inventory-includes";
+import { RoundCheck } from "../components/ui/round-check";
 
 const dollars = (cents: number | null | undefined) =>
   cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
@@ -564,8 +565,7 @@ function ItemFormFields({
                 label="House pick"
                 hint="Reordered when an event's tier runs short"
               >
-                <input
-                  type="checkbox"
+                <RoundCheck
                   aria-label="House pick for its tier"
                   checked={housePick}
                   onChange={(e) => setHousePick(e.target.checked)}
@@ -704,8 +704,7 @@ function ItemFormFields({
         {kind === "service" && (
           <>
             <label className="checkbox-filter">
-              <input
-                type="checkbox"
+              <RoundCheck
                 checked={quoted}
                 onChange={(e) => setQuoted(e.target.checked)}
               />
@@ -895,8 +894,7 @@ function ItemFormFields({
           </>
         )}
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
           />

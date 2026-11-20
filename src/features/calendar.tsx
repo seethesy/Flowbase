@@ -23,6 +23,7 @@ import { LoadError } from "../components/record-display";
 import { CalendarDetail } from "./calendar-detail";
 import { toCalendarEntries } from "./calendar-entries";
 import "./calendar.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Basic calendar (FLOW-63, ADR-19): FullCalendar's free standard views only
 // (month, week, day, list). The API sends New York wall-clock times, and the
@@ -183,8 +184,7 @@ export function CalendarPage() {
         <legend>Layers</legend>
         {calendarLayers.map((layer) => (
           <label key={layer} className={`calendar-layer-toggle calendar-layer-${layer}`}>
-            <input
-              type="checkbox"
+            <RoundCheck
               checked={layers.has(layer)}
               onChange={(e) => toggle(layer, e.target.checked)}
             />
@@ -193,8 +193,7 @@ export function CalendarPage() {
         ))}
       </fieldset>
       <label className="calendar-layer-toggle">
-        <input
-          type="checkbox"
+        <RoundCheck
           checked={detail}
           onChange={(e) => {
             setDetail(e.target.checked);

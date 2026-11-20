@@ -25,6 +25,7 @@ import { proposalsApi, uploadProposalVersion } from "../services/proposals";
 import { uploadAttachment } from "../services/attachments";
 import { ProposalReview } from "./proposal-review";
 import "./event-proposals.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // The event's proposals (FLOW-122) on the event hub: each one's stage, salesperson
 // and current version, and a drawer to move its stage, upload a new version
@@ -378,10 +379,10 @@ function ProposalDrawer({
                 <FormField label="Client signed date"><input type="date" required value={contractDate} onChange={(e) => setContractDate(e.target.value)} /></FormField>
                 <FormField label="Client signer"><input required value={clientSigner} onChange={(e) => setClientSigner(e.target.value)} /></FormField>
                 <FormField label="Salesperson signer"><input required value={salespersonSigner} onChange={(e) => setSalespersonSigner(e.target.value)} /></FormField>
-                <label><input type="checkbox" checked={cardOnFile} onChange={(e) => { setCardOnFile(e.target.checked); if (!e.target.checked) setCardLast4(""); }} /> Card on file</label>
+                <label><RoundCheck checked={cardOnFile} onChange={(e) => { setCardOnFile(e.target.checked); if (!e.target.checked) setCardLast4(""); }} /> Card on file</label>
                 {cardOnFile && <FormField label="Card last 4"><input inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={cardLast4} onChange={(e) => setCardLast4(e.target.value)} /></FormField>}
                 <FormField label="Signed contract PDF (optional)"><input type="file" accept=".pdf,application/pdf" onChange={(e) => setContractFile(e.target.files?.[0] ?? null)} /></FormField>
-                {contractFile && <label><input type="checkbox" checked={noFullCard} onChange={(e) => setNoFullCard(e.target.checked)} /> I confirm the PDF shows no full card number</label>}
+                {contractFile && <label><RoundCheck checked={noFullCard} onChange={(e) => setNoFullCard(e.target.checked)} /> I confirm the PDF shows no full card number</label>}
                 <Button type="submit" disabled={busy || Boolean(contractFile && !noFullCard)}>Record booking</Button>
               </form>}
               {canWrite && p.approval?.status === "approved" && (p.stage === "sent" || p.stage === "signed") && p.currentVersion && p.changeLog.some((change) => change.versionId === currentVersion?.id) && <section><h3>Addendum</h3>
@@ -392,7 +393,7 @@ function ProposalDrawer({
                   catch (cause) { setError((cause as Error).message); }
                   finally { setBusy(false); }
                 }}><FormField label="Sent date"><input type="date" required value={addendumDate} onChange={(e) => setAddendumDate(e.target.value)} /></FormField>
-                  {p.changeLog.filter((change) => change.versionId === currentVersion?.id).map((change) => <label key={change.id}><input type="checkbox" checked={addendumChanges.includes(change.id)} onChange={(e) => setAddendumChanges(e.target.checked ? [...addendumChanges, change.id] : addendumChanges.filter((id) => id !== change.id))} /> {change.path}: {JSON.stringify(change.oldValue)} → {JSON.stringify(change.newValue)}</label>)}
+                  {p.changeLog.filter((change) => change.versionId === currentVersion?.id).map((change) => <label key={change.id}><RoundCheck checked={addendumChanges.includes(change.id)} onChange={(e) => setAddendumChanges(e.target.checked ? [...addendumChanges, change.id] : addendumChanges.filter((id) => id !== change.id))} /> {change.path}: {JSON.stringify(change.oldValue)} → {JSON.stringify(change.newValue)}</label>)}
                   <Button type="submit" disabled={busy || !addendumChanges.length}>Save addendum</Button>
                 </form>}
               </section>}

@@ -18,6 +18,7 @@ import { sopsApi } from "../services/sops";
 import { Attachments } from "./attachments";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // One task (FLOW-58): where a task notification leads (FLOW-43). Anyone who can
 // see the task changes its status, claims it, works its checklist and comments.
@@ -229,8 +230,7 @@ export function TaskDetail() {
           {data.checklist.map((entry) => (
             <li key={entry.id}>
               <label>
-                <input
-                  type="checkbox"
+                <RoundCheck
                   checked={entry.done}
                   disabled={busy}
                   onChange={(e) =>

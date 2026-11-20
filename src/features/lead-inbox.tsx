@@ -40,6 +40,7 @@ import {
   leadTitle,
   valueOf,
 } from "./lead-shared";
+import { RoundCheck } from "../components/ui/round-check";
 
 const views = ["All leads", "Triage", "Needs review", "Duplicates"];
 
@@ -222,8 +223,7 @@ export function LeadInbox() {
       enableSorting: false,
       cell: (c) => (
         <Allowed action="leads.assign">
-          <input
-            type="checkbox"
+          <RoundCheck
             aria-label={`Select ${leadTitle(c.row.original)}`}
             checked={selected.includes(c.row.original.id)}
             onChange={() => toggle(c.row.original.id)}

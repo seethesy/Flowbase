@@ -6,6 +6,7 @@ import { queryClient } from "../app/queryClient";
 import { proposalsApi } from "../services/proposals";
 import { parseProposalDocx, type ProposalBlock } from "./proposal-docx";
 import { carryPreviousProposalReview, extractProposalTemplate } from "./proposal-template-rules";
+import { RoundCheck } from "../components/ui/round-check";
 
 const fieldLabels: Record<string, string> = {
   eventDate: "Event date", startTime: "Start time", endTime: "End time",
@@ -108,7 +109,7 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
               {suggested.map((item) => <option key={item.id} value={item.id}>Suggested: {item.name}</option>)}
               {choices.filter((item) => !suggested.some((match) => match.id === item.id)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            <label><input type="checkbox" checked={line.notTracked} disabled={!canWrite} onChange={(e) => patchLine(index, { notTracked: e.target.checked, catalogId: null })} /> Not tracked</label>
+            <label><RoundCheck checked={line.notTracked} disabled={!canWrite} onChange={(e) => patchLine(index, { notTracked: e.target.checked, catalogId: null })} /> Not tracked</label>
             {canWrite && <Button variant="outline" onClick={() => setDraft({ ...draft, lines: draft.lines.filter((_, at) => at !== index) })}>Remove line</Button>}
           </div>;
         })}

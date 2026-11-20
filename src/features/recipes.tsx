@@ -35,6 +35,7 @@ import { Attachments } from "./attachments";
 import { centsLabel, quantityLabel } from "./inventory-labels";
 import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./inventory.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // Recipe book (FLOW-93): one record per dish, with its cost (FLOW-94), allergens
 // and dietary tags (FLOW-95) and a scaling tool (FLOW-98). The API works costs out
@@ -160,8 +161,7 @@ export function RecipeList() {
           {dietaryTagLabels.map((tag) => <option key={tag} value={tag}>{markDietaryTag(tag)}</option>)}
         </select>
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
@@ -228,8 +228,7 @@ function TagChoices({
       <legend>{label}</legend>
       {options.map((option) => (
         <label className="checkbox-filter" key={option.label}>
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={value.includes(option.label)}
             onChange={(e) =>
               onChange(
@@ -593,8 +592,7 @@ export function RecipeForm({
           onChange={setDietaryTags}
         />
         <label className="checkbox-filter">
-          <input
-            type="checkbox"
+          <RoundCheck
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
           />

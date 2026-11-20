@@ -32,6 +32,7 @@ import { LoadError } from "../components/record-display";
 import { date, time } from "./event-format";
 import { ListSelect } from "./list-fields";
 import "./event-staff.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 // The event's staff roster and Production Leads (FLOW-140), shown on the event hub
 // like the BEO's Staff Roster section: one block per shift with its slots, open
@@ -599,8 +600,7 @@ function LeadsForm({
             .filter((member) => member.id !== primary)
             .map((member) => (
               <label key={member.id}>
-                <input
-                  type="checkbox"
+                <RoundCheck
                   checked={assistants.includes(member.id)}
                   onChange={(e) =>
                     setAssistants((current) =>

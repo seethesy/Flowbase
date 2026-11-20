@@ -17,6 +17,7 @@ import { Button, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { dayOfApi } from "../services/day-of";
 import { csvFileName, downloadCsv, toCsv } from "../services/csv";
+import { RoundCheck } from "../components/ui/round-check";
 
 const clock = (instant: string) => clockLabel(utcToBusinessTime(new Date(instant)).time);
 
@@ -65,7 +66,7 @@ export function DayOfPage() {
       {error && <p role="alert" className="error-message">{error}</p>}
       {board.data?.canUpdate && (
         <label>
-          <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgent: text the people affected
+          <RoundCheck checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgent: text the people affected
         </label>
       )}
       {board.data && !board.data.events.length && <p>No events on this date.</p>}

@@ -9,6 +9,7 @@ import { LoadError } from "../components/record-display";
 import { Button, FilterBar, LoadingSkeleton, PageHeader } from "../components/shared";
 import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./recipe-books.css";
+import { RoundCheck } from "../components/ui/round-check";
 
 function ClientDish({ dish }: { dish: ClientRecipe }) {
   const markAllergen = useArchivedMarks("allergen");
@@ -50,7 +51,7 @@ export function ClientRecipeBook() {
     {resource.error ? <LoadError message={resource.error} /> : resource.loading ? <LoadingSkeleton /> : <>
       {!dishes.length && <p>No dishes in this category.</p>}
       <div className="client-recipe-grid">{dishes.map((dish) => <div key={dish.id}>
-        <label className="checkbox-filter"><input type="checkbox" aria-label={`Select ${dish.name}`} checked={selected.includes(dish.id)} onChange={(e) => toggle(dish.id, e.target.checked)} />Select {dish.name}</label>
+        <label className="checkbox-filter"><RoundCheck aria-label={`Select ${dish.name}`} checked={selected.includes(dish.id)} onChange={(e) => toggle(dish.id, e.target.checked)} />Select {dish.name}</label>
         <ClientDish dish={dish} />
       </div>)}</div>
     </>}
