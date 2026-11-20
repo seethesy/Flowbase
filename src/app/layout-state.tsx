@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+// The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
+import { queryClient } from "./queryClient";
 import type { SourceKey } from "../../shared/fields";
 import { emptyLayout, GRID_COLUMNS, type LayoutBlock, type LayoutDoc, type SavedLayout } from "../../shared/layout";
 import { layoutApi } from "../services/layout";
@@ -78,7 +80,7 @@ export function usePageLayout(
     queryKey: layoutQueryKey(pageKey),
     queryFn: () => layoutApi.get(pageKey),
     staleTime: LAYOUT_STALE_MS,
-  });
+  }, queryClient);
   const saved: LayoutDoc | null = (query.data as SavedLayout | undefined)?.layout ?? null;
   const pending = live.layoutPending[pageKey];
   const doc = pending === undefined ? saved : pending;

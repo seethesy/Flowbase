@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+// The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
+import { queryClient } from "../app/queryClient";
 import { LabelT, T } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 import { fieldDef, type FieldDef, type SourceKey } from "../../shared/fields";
@@ -23,7 +25,7 @@ export function FieldLabel({ source, field }: { source: SourceKey; field: string
 
 // People are stored by id on some records; the staff directory names them.
 function PersonName({ id }: { id: string }) {
-  const staff = useQuery({ queryKey: ["staff", "directory"], queryFn: staffApi.list, staleTime: 5 * 60_000 });
+  const staff = useQuery({ queryKey: ["staff", "directory"], queryFn: staffApi.list, staleTime: 5 * 60_000 }, queryClient);
   return <>{staff.data?.find((person) => person.id === id)?.name ?? "—"}</>;
 }
 

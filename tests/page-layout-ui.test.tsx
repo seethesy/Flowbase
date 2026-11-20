@@ -204,7 +204,8 @@ describe("Columns (FLOW-254)", () => {
     };
     mount(<Table />);
     await screen.findByText("Harbor Hall");
-    expect(screen.queryByText("1 Pier Rd")).toBeNull();
+    // The saved column set arrives with the layout.
+    await waitFor(() => expect(screen.queryByText("1 Pier Rd")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Edit screen text" }));
     fireEvent.click(await screen.findByRole("button", { name: /Columns/ }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "Columns" })).getByRole("button", { name: "Reset columns" }));

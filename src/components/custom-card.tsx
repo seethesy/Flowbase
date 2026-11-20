@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+// The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
+import { queryClient } from "../app/queryClient";
 import { canReadField, fieldRegistry, type SourceKey } from "../../shared/fields";
 import type { CardConfig } from "../../shared/layout";
 import { T } from "../app/copy";
@@ -35,7 +37,7 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
     queryKey: ["layout-card", cardId, path],
     queryFn: () => cardsApi.rows(path!, card.source.type === "record"),
     enabled: path !== null,
-  });
+  }, queryClient);
   const source = target?.source;
   return (
     <section className="panel layout-card" data-card-id={cardId}>

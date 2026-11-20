@@ -1,5 +1,7 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+// The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
+import { queryClient } from "./queryClient";
 import { X } from "lucide-react";
 import { fieldDef, fieldRegistry, type SourceKey } from "../../shared/fields";
 import { GRID_COLUMNS, type LayoutBox, type SavedLayout } from "../../shared/layout";
@@ -44,7 +46,7 @@ export function useFieldBoxes(pageKey: string, cardKey: string): LayoutBox[] | n
     queryKey: layoutQueryKey(pageKey),
     queryFn: () => layoutApi.get(pageKey),
     staleTime: 30 * 60_000,
-  });
+  }, queryClient);
   const pending = live.layoutPending[pageKey];
   const doc = pending === undefined ? ((query.data as SavedLayout | undefined)?.layout ?? null) : pending;
   return doc?.fieldBoxes[cardKey]?.boxes ?? null;
