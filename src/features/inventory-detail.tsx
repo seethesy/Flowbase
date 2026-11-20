@@ -443,7 +443,7 @@ function IncludedItems({ item }: { item: InventoryItem }) {
               </Link>
               : {line.quantity}
               {"basis" in line
-                ? <> <LabelT id="labels.ratio-basis" value={line.basis}>{ratioBasisLabels[line.basis as "per_guest" | "per_event"]}</LabelT></>
+                ? <> <LabelT id="labels.ratio-basis" value={String(line.basis)}>{ratioBasisLabels[line.basis as "per_guest" | "per_event"]}</LabelT></>
                 : <T id="inventory-detail.included-items.per-kit">{" per kit"}</T>}
             </li>
           ))}
