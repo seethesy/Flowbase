@@ -80,6 +80,7 @@ const mount = (node: ReactNode) =>
 
 it("lists leads, flags the ones that need review and filters by search", async () => {
   mockApi({
+    "GET /api/leads/owners": () => Response.json([]),
     "GET /api/leads": (_init, url) => {
       // The search runs on the server (FLOW-179); stand in for it here.
       const search = (url?.searchParams.get("search") ?? "").toLowerCase();
@@ -125,6 +126,7 @@ it("asks for owner and status filters from the API", async () => {
   await user.selectOptions(screen.getByLabelText("Statuses"), "Pitching");
   // The inbox also loads business settings (lead sources, FLOW-45).
   expect(requested.filter((path) => path.startsWith("/api/leads"))).toEqual([
+    "/api/leads/owners",
     "/api/leads",
     "/api/leads?assigned=unassigned",
     "/api/leads?status=pitching&assigned=unassigned",

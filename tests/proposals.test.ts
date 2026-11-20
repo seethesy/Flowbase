@@ -14,8 +14,9 @@ import {
 
 describe("stage transitions", () => {
   it("offers open pipeline stages and Lost, but locks terminal stages", () => {
-    expect(manualProposalTargets("inquiry")).toContain("pitching");
-    expect(manualProposalTargets("p_sent")).toContain("negotiation");
+    expect(manualProposalTargets("inquiry")).toContain("p_creation");
+    expect(manualProposalTargets("inquiry")).not.toContain("pitching");
+    expect(manualProposalTargets("p_sent")).toEqual(["p_creation", "negotiation", "closing", "lost"]);
     expect(manualProposalTargets("closed")).toEqual([]);
     expect(manualProposalTargets("lost")).toEqual([]);
   });

@@ -121,14 +121,15 @@ it("exports every filtered row in the current sort, not just the page on screen 
 });
 
 it("leaves hidden field groups out of the file (AC2)", async () => {
-  // Kitchen Staff see costs but not client contacts when part-time; Staff see neither.
-  expect((await exportFile(rows, "kitchen_staff", "part_time"))[0]).toBe(
-    "Item,Unit cost",
+  // Full-time Kitchen Staff see costs and client contacts; Part-time Staff see neither.
+  expect((await exportFile(rows, "kitchen_staff", "full_time"))[0]).toBe(
+    "Item,Unit cost,Phone",
   );
   exported = [];
-  const staff = await exportFile(rows, "staff", "part_time");
+  const staff = await exportFile(rows, "part_time_staff", "full_time");
   expect(staff[0]).toBe("Item");
-  expect(staff.join("\n")).not.toMatch(/202-555|12\.99|Hidden/);
+  expect(staff.join("
+")).not.toMatch(/202-555|12\.99|Hidden/);
 });
 
 it("disables export for an empty list", () => {

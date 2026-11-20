@@ -36,7 +36,7 @@ it("does not request item details for inventory subpages", () => {
 
 it("loads the role home without requesting demo data", async () => {
   render(<TestAuth><MemoryRouter><Dashboard /></MemoryRouter></TestAuth>);
-  expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   await screen.findByRole("alert");
   expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/api/demo/"))).toBe(false);
 });
