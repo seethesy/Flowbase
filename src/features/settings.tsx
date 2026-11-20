@@ -28,6 +28,7 @@ import { TimeTrackingSettings } from "./time-tracking";
 import { dateTimeLabel } from "./inventory-labels";
 import "./settings.css";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
 
 // Settings (FLOW-45). Everyone sees how time tracking works; Admin also edits the
 // company profile, the defaults and the configurable lists. Every change is audited.
@@ -37,24 +38,24 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader
-        title="Settings"
+        title={<T id="settings.settings-page.settings">Settings</T>}
         subtitle={
           manage
-            ? "How Flowbase works for the business. Changes apply without a deploy."
-            : "How Flowbase works for you."
+            ? <T id="settings.settings-page.how-flowbase-works-for-the">How Flowbase works for the business. Changes apply without a deploy.</T>
+            : <T id="settings.settings-page.how-flowbase-works-for-you">How Flowbase works for you.</T>
         }
       />
       {permissions.can("users.manage") && (
-        <Section title="Staff access">
+        <Section title={<T id="settings.settings-page.staff-access">Staff access</T>}>
           <p>
-            <Link to="/settings/users">Manage users</Link> ·{" "}
-            <Link to="/staff">Staff directory</Link>
+            <Link to="/settings/users"><T id="settings.settings-page.manage-users">Manage users</T></Link> ·{" "}
+            <Link to="/staff"><T id="settings.settings-page.staff-directory">Staff directory</T></Link>
           </p>
         </Section>
       )}
       {manage && (
         <>
-          <Section title="Operations"><Link to="/settings/collector">Collector health and SMS outbox</Link> ·{" "}<Link to="/settings/usage">Free-tier usage</Link></Section>
+          <Section title={<T id="settings.settings-page.operations">Operations</T>}><Link to="/settings/collector"><T id="settings.settings-page.collector-health-and-sms-outbox">Collector health and SMS outbox</T></Link> ·{" "}<Link to="/settings/usage"><T id="settings.settings-page.free-tier-usage">Free-tier usage</T></Link></Section>
           <CompanySettings />
           <ListSettings />
           <DefaultSettings />
@@ -139,19 +140,19 @@ function CompanySettings() {
     await save.run(() => settingsApi.saveCompany(parsed.data), "Company profile saved.");
   };
   return (
-    <Section title="Company profile">
-      <p className="settings-hint">Shown at the top of printed documents.</p>
+    <Section title={<T id="settings.company-settings.company-profile">Company profile</T>}>
+      <p className="settings-hint"><T id="settings.company-settings.shown-at-the-top-of">Shown at the top of printed documents.</T></p>
       <form className="settings-form" noValidate onSubmit={(e) => void submit(e)}>
         <SaveMessages error={save.error} notice={save.notice} />
         <div className="form-grid">
-          <FormField label="Company name *">
+          <FormField label={<T id="settings.company-settings.company-name">Company name *</T>}>
             <input
               value={draft.name}
               maxLength={200}
               onChange={(e) => set("name", e.target.value)}
             />
           </FormField>
-          <FormField label="Website">
+          <FormField label={<T id="settings.company-settings.website">Website</T>}>
             <input
               value={draft.website}
               maxLength={200}
@@ -159,7 +160,7 @@ function CompanySettings() {
             />
           </FormField>
         </div>
-        <FormField label="Sales contact" hint="e.g. Sales · sales@… · phone">
+        <FormField label={<T id="settings.company-settings.sales-contact">Sales contact</T>} hint={<T id="settings.company-settings.e-g-sales-sales-phone">e.g. Sales · sales@… · phone</T>}>
           <textarea
             rows={2}
             value={draft.salesContact}
@@ -167,7 +168,7 @@ function CompanySettings() {
             onChange={(e) => set("salesContact", e.target.value)}
           />
         </FormField>
-        <FormField label="Logo" hint="PNG, JPEG or WebP; resized before saving.">
+        <FormField label={<T id="settings.company-settings.logo">Logo</T>} hint={<T id="settings.company-settings.png-jpeg-or-webp-resized">PNG, JPEG or WebP; resized before saving.</T>}>
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -185,13 +186,13 @@ function CompanySettings() {
           <div className="settings-logo">
             <img src={draft.logo} alt="Logo preview" />
             <Button type="button" variant="outline" onClick={() => set("logo", null)}>
-              Remove logo
+              <T id="settings.company-settings.remove-logo">Remove logo</T>
             </Button>
           </div>
         )}
         <div className="form-actions">
           <Button type="submit" disabled={save.busy}>
-            Save company profile
+            <T id="settings.company-settings.save-company-profile">Save company profile</T>
           </Button>
         </div>
       </form>
@@ -200,6 +201,7 @@ function CompanySettings() {
 }
 
 function ListSettings() {
+  const newValuePlaceholder = useCopy("settings.list-settings.new-value.placeholder", "New value");
   const settings = useBusinessSettings();
   const [key, setKey] = useState<ListKey>("staff_position");
   const [label, setLabel] = useState("");
@@ -220,15 +222,12 @@ function ListSettings() {
     );
   };
   return (
-    <Section title="Lists">
+    <Section title={<T id="settings.list-settings.lists">Lists</T>}>
       <p className="settings-hint">
-        The choices offered in forms. Archived values stay on records that
-        already use them but can't be picked for new ones. Inventory sections
-        are managed on <Link to="/inventory/sections">Inventory sections</Link>;
-        bar categories are built in.
+        <T id="settings.list-settings.the-choices-offered-in-forms">{"The choices offered in forms. Archived values stay on records that already use them but can't be picked for new ones. Inventory sections are managed on "}</T><Link to="/inventory/sections"><T id="settings.list-settings.inventory-sections">Inventory sections</T></Link><T id="settings.list-settings.bar-categories-are-built-in">; bar categories are built in.</T>
       </p>
       <SaveMessages error={save.error} notice={save.notice} />
-      <FormField label="List">
+      <FormField label={<T id="settings.list-settings.list">List</T>}>
         <select
           value={key}
           onChange={(e) => {
@@ -264,10 +263,10 @@ function ListSettings() {
                   onChange={(e) => setRenaming({ id: value.id, label: e.target.value })}
                 />
                 <Button type="submit" disabled={save.busy}>
-                  Save
+                  <T id="settings.list-settings.save">Save</T>
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setRenaming(null)}>
-                  Cancel
+                  <T id="settings.list-settings.cancel">Cancel</T>
                 </Button>
               </form>
             ) : (
@@ -297,7 +296,7 @@ function ListSettings() {
                     disabled={save.busy}
                     onClick={() => setRenaming({ id: value.id, label: value.label })}
                   >
-                    Rename
+                    <T id="settings.list-settings.rename">Rename</T>
                   </Button>
                   <Button
                     variant="outline"
@@ -309,14 +308,14 @@ function ListSettings() {
                       )
                     }
                   >
-                    Archive
+                    <T id="settings.list-settings.archive">Archive</T>
                   </Button>
                 </span>
               </>
             )}
           </li>
         ))}
-        {!active.length && <li className="settings-empty">No values yet.</li>}
+        {!active.length && <li className="settings-empty"><T id="settings.list-settings.no-values-yet">No values yet.</T></li>}
       </ul>
       <form
         className="settings-inline"
@@ -331,18 +330,18 @@ function ListSettings() {
       >
         <input
           aria-label={`Add to ${listLabels[key]}`}
-          placeholder="New value"
+          placeholder={newValuePlaceholder} data-copy-id="settings.list-settings.new-value.placeholder"
           value={label}
           maxLength={100}
           onChange={(e) => setLabel(e.target.value)}
         />
         <Button type="submit" disabled={save.busy}>
-          Add
+          <T id="settings.list-settings.add">Add</T>
         </Button>
       </form>
       {archived.length > 0 && (
         <details className="settings-archived">
-          <summary>Archived ({archived.length})</summary>
+          <summary><T id="settings.list-settings.archived" values={{ archivedCount: archived.length }}>{"Archived ({archivedCount})"}</T></summary>
           <ul className="settings-list">
             {archived.map((value) => (
               <li key={value.id}>
@@ -357,7 +356,7 @@ function ListSettings() {
                     )
                   }
                 >
-                  Restore
+                  <T id="settings.list-settings.restore">Restore</T>
                 </Button>
               </li>
             ))}
@@ -442,6 +441,8 @@ const draftOf = (defaults: BusinessDefaults): DefaultsDraft => ({
 const numberOf = (value: string) => (value.trim() === "" ? NaN : Number(value));
 
 function DefaultSettings() {
+  const categoryPlaceholder = useCopy("settings.default-settings.category.placeholder", "Category");
+  const quantityPlaceholder = useCopy("settings.default-settings.quantity.placeholder", "Quantity");
   const settings = useBusinessSettings();
   const [draft, setDraft] = useState(() => draftOf(settings.defaults));
   useEffect(() => setDraft(draftOf(settings.defaults)), [settings.defaults]);
@@ -513,7 +514,7 @@ function DefaultSettings() {
     </FormField>
   );
   return (
-    <Section title="Defaults">
+    <Section title={<T id="settings.default-settings.defaults">Defaults</T>}>
       <form className="settings-form" noValidate onSubmit={(e) => void submit(e)}>
         <SaveMessages error={save.error} notice={save.notice} />
         <div className="form-grid">
@@ -528,12 +529,12 @@ function DefaultSettings() {
           {number("balanceWarningDays", "Balance warning days")}
           {number("runOfShowGuestThreshold", "Run of show guest threshold", "Events at or above this guest count get a run of show on the BEO.", 1)}
         </div>
-        <fieldset className="settings-urgent"><legend>Readiness checks start (days before event)</legend>
+        <fieldset className="settings-urgent"><legend><T id="settings.default-settings.readiness-checks-start-days-before">Readiness checks start (days before event)</T></legend>
           {(Object.keys(draft.readinessStartDays) as (keyof BusinessDefaults["readinessStartDays"])[]).map((kind) =>
             <FormField key={kind} label={kind.replace("_", " ")}><input type="number" min="0" max="30" value={draft.readinessStartDays[kind]}
               onChange={(event) => set("readinessStartDays", { ...draft.readinessStartDays, [kind]: Number(event.target.value) })} /></FormField>)}
         </fieldset>
-        <FormField label="Default payment terms">
+        <FormField label={<T id="settings.default-settings.default-payment-terms">Default payment terms</T>}>
           <textarea
             rows={3}
             maxLength={2000}
@@ -543,8 +544,8 @@ function DefaultSettings() {
         </FormField>
         <div className="form-grid">
           <fieldset className="settings-urgent">
-            <legend>Urgent notification types (SMS)</legend>
-            <p className="settings-hint">Recorded in the SMS outbox for staff who opted in. No text is sent by the stub provider.</p>
+            <legend><T id="settings.default-settings.urgent-notification-types-sms">Urgent notification types (SMS)</T></legend>
+            <p className="settings-hint"><T id="settings.default-settings.recorded-in-the-sms-outbox">Recorded in the SMS outbox for staff who opted in. No text is sent by the stub provider.</T></p>
             {notificationTypes.map((type) => (
               <label key={type}>
                 <RoundCheck
@@ -562,7 +563,7 @@ function DefaultSettings() {
               </label>
             ))}
           </fieldset>
-          <FormField label="BEO key fields" hint="One field key per line (date_time, location, guest_count, menu, dress_code, staff_roster, timeline, equipment). A change to one sends an approved BEO back for approval.">
+          <FormField label={<T id="settings.default-settings.beo-key-fields">BEO key fields</T>} hint={<T id="settings.default-settings.one-field-key-per-line">One field key per line (date_time, location, guest_count, menu, dress_code, staff_roster, timeline, equipment). A change to one sends an approved BEO back for approval.</T>}>
             <textarea
               rows={3}
               value={draft.beoKeyFields}
@@ -570,7 +571,7 @@ function DefaultSettings() {
             />
           </FormField>
         </div>
-        <FormField label="BEO cleanup checklist template" hint="One section per line, items separated by semicolons (Kitchen: wipe counters; empty fridge). Copied into each new BEO.">
+        <FormField label={<T id="settings.default-settings.beo-cleanup-checklist-template">BEO cleanup checklist template</T>} hint={<T id="settings.default-settings.one-section-per-line-items">One section per line, items separated by semicolons (Kitchen: wipe counters; empty fridge). Copied into each new BEO.</T>}>
           <textarea
             rows={5}
             value={draft.cleanupTemplate}
@@ -578,8 +579,8 @@ function DefaultSettings() {
           />
         </FormField>
         <fieldset className="settings-ratios">
-          <legend>Per-guest ratio defaults by category</legend>
-          <p className="settings-hint">A new inventory item in the category starts with this ratio.</p>
+          <legend><T id="settings.default-settings.per-guest-ratio-defaults-by">Per-guest ratio defaults by category</T></legend>
+          <p className="settings-hint"><T id="settings.default-settings.a-new-inventory-item-in">A new inventory item in the category starts with this ratio.</T></p>
           <datalist id="ratio-categories">
             {categories.map((category) => (
               <option key={category} value={category} />
@@ -590,7 +591,7 @@ function DefaultSettings() {
               <input
                 aria-label={`Ratio ${index + 1} category`}
                 list="ratio-categories"
-                placeholder="Category"
+                placeholder={categoryPlaceholder} data-copy-id="settings.default-settings.category.placeholder"
                 value={row.category}
                 onChange={(e) => setRatio(index, "category", e.target.value)}
               />
@@ -599,7 +600,7 @@ function DefaultSettings() {
                 type="number"
                 min={0}
                 step="any"
-                placeholder="Quantity"
+                placeholder={quantityPlaceholder} data-copy-id="settings.default-settings.quantity.placeholder"
                 value={row.quantity}
                 onChange={(e) => setRatio(index, "quantity", e.target.value)}
               />
@@ -624,7 +625,7 @@ function DefaultSettings() {
                   )
                 }
               >
-                Remove
+                <T id="settings.default-settings.remove">Remove</T>
               </Button>
             </div>
           ))}
@@ -638,12 +639,12 @@ function DefaultSettings() {
               ])
             }
           >
-            Add ratio default
+            <T id="settings.default-settings.add-ratio-default">Add ratio default</T>
           </Button>
         </fieldset>
         <div className="form-actions">
           <Button type="submit" disabled={save.busy}>
-            Save defaults
+            <T id="settings.default-settings.save-defaults">Save defaults</T>
           </Button>
         </div>
       </form>
@@ -672,19 +673,19 @@ function SettingsHistory() {
     { keepPrevious: true },
   );
   return (
-    <Section title="Recent changes">
-      {history.error && <p role="alert">Unable to load the change history.</p>}
+    <Section title={<T id="settings.settings-history.recent-changes">Recent changes</T>}>
+      {history.error && <p role="alert"><T id="settings.settings-history.unable-to-load-the-change">Unable to load the change history.</T></p>}
       {history.data?.length === 0 && (
         <EmptyState
-          title="No changes yet"
-          description="Changes to settings and lists show here."
+          title={<T id="settings.settings-history.no-changes-yet">No changes yet</T>}
+          description={<T id="settings.settings-history.changes-to-settings-and-lists">Changes to settings and lists show here.</T>}
         />
       )}
       <ul className="settings-history">
         {history.data?.map((entry) => (
           <li key={entry.id}>
             <strong>{entry.subject}</strong> · {entry.action} ·{" "}
-            {entry.actorName ?? "System"} · {dateTimeLabel(entry.at)}
+            {entry.actorName ?? <T id="settings.settings-history.system">System</T>} · {dateTimeLabel(entry.at)}
             {entry.action !== "archive" && entry.action !== "restore" && (
               <ul>
                 {Object.entries(entry.changes)

@@ -23,6 +23,7 @@ import { tasksApi } from "../services/tasks";
 import { allPages, inventoryApi } from "../services/core";
 import { sopsApi } from "../services/sops";
 import { ListSelect } from "./list-fields";
+import { T, useCopy } from "../app/copy";
 import "./tasks.css";
 
 // Task templates (FLOW-62) at /tasks/templates: named sets of tasks due relative
@@ -70,6 +71,7 @@ function TemplateEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const httpsPlaceholder = useCopy("task-templates.template-editor.https.placeholder", "https://");
   const [name, setName] = useState(template?.name ?? "");
   const [sopUrl, setSopUrl] = useState(template?.sopUrl ?? "");
   const [sopId, setSopId] = useState(template?.sopId ?? "");
@@ -121,8 +123,8 @@ function TemplateEditor({
       open
       wide
       onClose={onClose}
-      title={template ? `Edit ${template.name}` : "New task template"}
-      description="Each task is due a number of days from the event, at its own time or the event's start time."
+      title={template ? <T id="task-templates.template-editor.edit" values={{ name: template.name }}>{"Edit {name}"}</T> : <T id="task-templates.template-editor.new-task-template">New task template</T>}
+      description={<T id="task-templates.template-editor.each-task-is-due-a">{"Each task is due a number of days from the event, at its own time or the event's start time."}</T>}
     >
       <form className="task-form" onSubmit={submit}>
         {error && (
@@ -130,43 +132,43 @@ function TemplateEditor({
             {error}
           </p>
         )}
-        <FormField label="Template name">
+        <FormField label={<T id="task-templates.template-editor.template-name">Template name</T>}>
           <input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
         </FormField>
-        <FormField label="SOP link" hint="Optional. Added to each task's description.">
+        <FormField label={<T id="task-templates.template-editor.sop-link">SOP link</T>} hint={<T id="task-templates.template-editor.optional-added-to-each-task">{"Optional. Added to each task's description."}</T>}>
           <input
             type="url"
             maxLength={2000}
-            placeholder="https://"
+            placeholder={httpsPlaceholder} data-copy-id="task-templates.template-editor.https.placeholder"
             value={sopUrl}
             onChange={(e) => setSopUrl(e.target.value)}
           />
         </FormField>
-        <FormField label="Library SOP" hint="Opens directly from each task created by this template.">
+        <FormField label={<T id="task-templates.template-editor.library-sop">Library SOP</T>} hint={<T id="task-templates.template-editor.opens-directly-from-each-task">Opens directly from each task created by this template.</T>}>
           <select value={sopId} onChange={(e) => setSopId(e.target.value)}>
             <option value="">No library SOP</option>
             {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
           </select>
         </FormField>
-        <FormField label="Service offering" hint="Automatically apply when a mapped proposal contains this offering.">
+        <FormField label={<T id="task-templates.template-editor.service-offering">Service offering</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped">Automatically apply when a mapped proposal contains this offering.</T>}>
           <select value={matchCatalogId} onChange={(e) => setMatchCatalogId(e.target.value)}>
             <option value="">Any offering</option>
             {(services.data ?? []).map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
           </select>
         </FormField>
-        <FormField label="Proposal line type" hint="Automatically apply when a mapped proposal contains this line type.">
+        <FormField label={<T id="task-templates.template-editor.proposal-line-type">Proposal line type</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped-2">Automatically apply when a mapped proposal contains this line type.</T>}>
           <select value={matchLineKind} onChange={(e) => setMatchLineKind(e.target.value)}>
             <option value="">Any type</option>
             {["menu", "rental", "decor", "service", "supply"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
           </select>
         </FormField>
-        <FormField label="Event type" hint="Automatically apply to events of this type. Leave all three matches blank for a manual template.">
+        <FormField label={<T id="task-templates.template-editor.event-type">Event type</T>} hint={<T id="task-templates.template-editor.automatically-apply-to-events-of">Automatically apply to events of this type. Leave all three matches blank for a manual template.</T>}>
           <input maxLength={100} value={matchEventType} onChange={(e) => setMatchEventType(e.target.value)} />
         </FormField>
         <ol className="template-items">
           {items.map((item, index) => (
             <li key={item.id ?? `new-${index}`} aria-label={`Task ${index + 1}`}>
-              <FormField label="Task">
+              <FormField label={<T id="task-templates.template-editor.task">Task</T>}>
                 <input
                   required
                   maxLength={200}
@@ -174,7 +176,7 @@ function TemplateEditor({
                   onChange={(e) => edit(index, { title: e.target.value })}
                 />
               </FormField>
-              <FormField label="Type">
+              <FormField label={<T id="task-templates.template-editor.type">Type</T>}>
                 <select
                   value={item.type}
                   onChange={(e) => edit(index, { type: e.target.value as TaskType })}
@@ -186,7 +188,7 @@ function TemplateEditor({
                   ))}
                 </select>
               </FormField>
-              <FormField label="When">
+              <FormField label={<T id="task-templates.template-editor.when">When</T>}>
                 <select
                   value={item.when}
                   onChange={(e) => edit(index, { when: e.target.value as Draft["when"] })}
@@ -197,7 +199,7 @@ function TemplateEditor({
                 </select>
               </FormField>
               {item.when !== "on" && (
-                <FormField label="Days">
+                <FormField label={<T id="task-templates.template-editor.days">Days</T>}>
                   <input
                     type="number"
                     min={1}
@@ -207,14 +209,14 @@ function TemplateEditor({
                   />
                 </FormField>
               )}
-              <FormField label="Time" hint="Blank = the event's start time.">
+              <FormField label={<T id="task-templates.template-editor.time">Time</T>} hint={<T id="task-templates.template-editor.blank-the-event-s-start">{"Blank = the event's start time."}</T>}>
                 <input
                   type="time"
                   value={item.time}
                   onChange={(e) => edit(index, { time: e.target.value })}
                 />
               </FormField>
-              <FormField label="Default position">
+              <FormField label={<T id="task-templates.template-editor.default-position">Default position</T>}>
                 <ListSelect
                   list="staff_position"
                   empty="Any position"
@@ -231,21 +233,21 @@ function TemplateEditor({
                   variant="ghost"
                   onClick={() => setItems(items.filter((_, i) => i !== index))}
                 >
-                  Remove task {index + 1}
+                  <T id="task-templates.template-editor.remove-task" values={{ value: index + 1 }}>{"Remove task {value}"}</T>
                 </Button>
               )}
             </li>
           ))}
         </ol>
         <Button type="button" variant="outline" onClick={() => setItems([...items, blankItem()])}>
-          Add another task
+          <T id="task-templates.template-editor.add-another-task">Add another task</T>
         </Button>
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="task-templates.template-editor.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={busy || !name.trim()}>
-            Save template
+            <T id="task-templates.template-editor.save-template">Save template</T>
           </Button>
         </div>
       </form>
@@ -264,13 +266,13 @@ export function TaskTemplates() {
   return (
     <>
       <Link className="back-link" to="/tasks">
-        ← Tasks
+        <T id="task-templates.task-templates.tasks">← Tasks</T>
       </Link>
       <PageHeader
-        title="Task templates"
-        subtitle="Reusable sets of tasks, due relative to the event. Apply one from an event's Tasks section."
+        title={<T id="task-templates.task-templates.task-templates">Task templates</T>}
+        subtitle={<T id="task-templates.task-templates.reusable-sets-of-tasks-due">{"Reusable sets of tasks, due relative to the event. Apply one from an event's Tasks section."}</T>}
       >
-        {manage && <Button onClick={() => setEditing("new")}>New template</Button>}
+        {manage && <Button onClick={() => setEditing("new")}><T id="task-templates.task-templates.new-template">New template</T></Button>}
       </PageHeader>
       {error && (
         <p role="alert" className="error-message">
@@ -286,7 +288,7 @@ export function TaskTemplates() {
               manage && (
                 <div className="page-actions">
                   <Button variant="outline" onClick={() => setEditing(template)}>
-                    Edit
+                    <T id="task-templates.task-templates.edit">Edit</T>
                   </Button>
                   <Button
                     variant="ghost"
@@ -300,7 +302,7 @@ export function TaskTemplates() {
                       }
                     }}
                   >
-                    Archive
+                    <T id="task-templates.task-templates.archive">Archive</T>
                   </Button>
                 </div>
               )
@@ -309,16 +311,16 @@ export function TaskTemplates() {
             {template.sopUrl && (
               <p>
                 <a href={template.sopUrl} target="_blank" rel="noreferrer">
-                  SOP
+                  <T id="task-templates.task-templates.sop">SOP</T>
                 </a>
               </p>
             )}
-            {template.sopId && <p><Link to={`/sops/${template.sopId}`}>Library SOP</Link></p>}
-            {(template.matchCatalogId || template.matchLineKind || template.matchEventType) && <p className="muted">Automatic match: {[
+            {template.sopId && <p><Link to={`/sops/${template.sopId}`}><T id="task-templates.task-templates.library-sop">Library SOP</T></Link></p>}
+            {(template.matchCatalogId || template.matchLineKind || template.matchEventType) && <p className="muted"><T id="task-templates.task-templates.automatic-match" values={{ join: [
               template.matchCatalogId && "service offering",
               template.matchLineKind && `${template.matchLineKind} line`,
               template.matchEventType && `${template.matchEventType} event`,
-            ].filter(Boolean).join(" · ")}</p>}
+            ].filter(Boolean).join(" · ") }}>{"Automatic match: {join}"}</T></p>}
             <ul className="task-lines">
               {template.items.map((item) => (
                 <li key={item.id} className="task-line">
@@ -336,7 +338,7 @@ export function TaskTemplates() {
           </Section>
         ))
       ) : (
-        <EmptyState title="No task templates" description="Templates you add appear here." />
+        <EmptyState title={<T id="task-templates.task-templates.no-task-templates">No task templates</T>} description={<T id="task-templates.task-templates.templates-you-add-appear-here">Templates you add appear here.</T>} />
       )}
       {editing && (
         <TemplateEditor

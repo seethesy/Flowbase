@@ -13,6 +13,7 @@ import { request } from "../services/core";
 import { Button, PageHeader, Section } from "../components/shared";
 
 import { roleLabel } from "../services/users";
+import { T } from "../app/copy";
 const actions: Record<User["status"], UserAction[]> = {
   pending: ["resend", "revoke"],
   active: ["deactivate"],
@@ -29,7 +30,7 @@ const labels: Record<UserAction, string> = {
 export function UserManagement() {
   const permissions = usePermissions();
   if (!permissions.can("users.manage"))
-    return <p role="alert">Only Admin can manage users.</p>;
+    return <p role="alert"><T id="users.user-management.only-admin-can-manage-users">Only Admin can manage users.</T></p>;
   return <UserList />;
 }
 
@@ -67,12 +68,12 @@ function UserList() {
   return (
     <>
       <PageHeader
-        title="Users"
-        subtitle="Invite staff and manage their access to Flowbase."
+        title={<T id="users.user-list.users">Users</T>}
+        subtitle={<T id="users.user-list.invite-staff-and-manage-their">Invite staff and manage their access to Flowbase.</T>}
       />
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
-      <Section title="Invite a user">
+      <Section title={<T id="users.user-list.invite-a-user">Invite a user</T>}>
         <form
           className="user-invite-form"
           onSubmit={async (event) => {
@@ -110,11 +111,11 @@ function UserList() {
           }}
         >
           <label>
-            Email
+            <T id="users.user-list.email">Email</T>
             <input name="email" type="email" required maxLength={254} />
           </label>
           <label>
-            Role
+            <T id="users.user-list.role">Role</T>
             <select name="role" defaultValue="staff">
               {roleSchema.options.map((r) => (
                 <option key={r} value={r}>
@@ -124,25 +125,25 @@ function UserList() {
             </select>
           </label>
           <label>
-            Employment type
+            <T id="users.user-list.employment-type">Employment type</T>
             <select name="employmentType">
               <option value="full_time">Full-time</option>
               <option value="part_time">Part-time</option>
             </select>
           </label>
           <label>
-            Mobile number
+            <T id="users.user-list.mobile-number">Mobile number</T>
             <input name="mobile" type="tel" required maxLength={40} />
           </label>
           <Button type="submit" disabled={busy}>
-            Send invite
+            <T id="users.user-list.send-invite">Send invite</T>
           </Button>
         </form>
       </Section>
-      <Section title="Staff access">
-        {resource.error && <p role="alert">Unable to load users.</p>}
+      <Section title={<T id="users.user-list.staff-access">Staff access</T>}>
+        {resource.error && <p role="alert"><T id="users.user-list.unable-to-load-users">Unable to load users.</T></p>}
         {!resource.data && !resource.error && (
-          <p role="status">Loading users…</p>
+          <p role="status"><T id="users.user-list.loading-users">Loading users…</T></p>
         )}
         {resource.data?.map((user) => (
           <article className="user-access-row" key={user.id}>
@@ -155,10 +156,7 @@ function UserList() {
                 )}
               </strong>
               <p>
-                {user.email} · {roleLabel(user.role)} ·{" "}
-                {user.employmentType === "full_time"
-                  ? "Full-time"
-                  : "Part-time"}
+                {user.employmentType === "full_time" ? <T id="users.user-list.full-time" values={{ email: user.email, roleLabel: roleLabel(user.role) }}>{"{email} · {roleLabel} · Full-time"}</T> : <T id="users.user-list.part-time" values={{ email: user.email, roleLabel: roleLabel(user.role) }}>{"{email} · {roleLabel} · Part-time"}</T>}
               </p>
               <p>
                 {user.mobile} · {roleLabel(user.status)}
@@ -178,7 +176,7 @@ function UserList() {
             </div>
           </article>
         ))}
-        {resource.data?.length === 0 && <p>No users yet.</p>}
+        {resource.data?.length === 0 && <p><T id="users.user-list.no-users-yet">No users yet.</T></p>}
       </Section>
     </>
   );

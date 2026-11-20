@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Printer, RefreshCw, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -29,6 +29,7 @@ import { utcToBusinessTime } from "../../shared/time";
 import { date, time } from "./event-format";
 import "./event-preparation.css";
 import { RoundCheck } from "../components/ui/round-check";
+import { Plural, T, useCopy } from "../app/copy";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137).
 
@@ -67,10 +68,10 @@ function RefreshPlanningOutput({ eventId, output, onChanged }: {
       try { setPreview(await preparationApi.previewPlanningOutput(eventId, kind)); }
       catch (cause) { setError((cause as Error).message); }
       finally { setBusy(false); }
-    }}>Preview {kind.replaceAll("_", " ")} regeneration</Button>
+    }}><T id="event-preparation.refresh-planning-output.preview-regeneration" values={{ replaceAll: kind.replaceAll("_", " ") }}>{"Preview {replaceAll} regeneration"}</T></Button>
     <ErrorLine message={error} />
     {preview && <div role="region" aria-label={`${kind} regeneration preview`}>
-      {preview.upToDate ? <p>No derived values changed. Manual entries will be kept.</p> : <ul>
+      {preview.upToDate ? <p><T id="event-preparation.refresh-planning-output.no-derived-values-changed-manual">No derived values changed. Manual entries will be kept.</T></p> : <ul>
         {preview.changes.map((change, index) => <li key={`${change.label}:${index}`}>
           {change.label}: {change.current ?? "—"} → {change.generated ?? "—"}
         </li>)}
@@ -82,8 +83,8 @@ function RefreshPlanningOutput({ eventId, output, onChanged }: {
           setPreview(null); onChanged();
         } catch (cause) { setError((cause as Error).message); }
         finally { setBusy(false); }
-      }}>Regenerate</Button>
-      <Button variant="outline" onClick={() => setPreview(null)}>Cancel</Button>
+      }}><T id="event-preparation.refresh-planning-output.regenerate">Regenerate</T></Button>
+      <Button variant="outline" onClick={() => setPreview(null)}><T id="event-preparation.refresh-planning-output.cancel">Cancel</T></Button>
     </div>}
   </div>;
 }
@@ -95,7 +96,7 @@ function RegenerateButton({
   preview,
   apply,
 }: {
-  label: string;
+  label: ReactNode;
   preview: (discardEdits: boolean) => Promise<RegeneratePreview>;
   apply: (discardEdits: boolean) => Promise<unknown>;
 }) {
@@ -137,23 +138,24 @@ function RegenerateButton({
                 setDiscard(e.target.checked);
                 void load(e.target.checked);
               }}
-            />{" "}
-            Discard manual edits and removals
+            /><T id="event-preparation.regenerate-button.discard-manual-edits-and-removals">{" Discard manual edits and removals"}</T>
           </label>
           {!result ? (
-            <p className="muted">Checking…</p>
+            <p className="muted"><T id="event-preparation.regenerate-button.checking">Checking…</T></p>
           ) : result.upToDate ? (
-            <p>Already up to date. Nothing would change.</p>
+            <p><T id="event-preparation.regenerate-button.already-up-to-date-nothing">Already up to date. Nothing would change.</T></p>
           ) : (
             <ul>
               {result.changes.map((change, index) => (
                 <li key={index} data-kind={change.kind}>
                   <strong>{kinds[change.kind]}</strong> {change.label}
                   <small>
-                    {change.current && ` now ${change.current}`}
+                    {change.current && <T id="event-preparation.regenerate-button.now" values={{ current: change.current }}>{" now {current}"}</T>}
                     {change.generated && ` → ${change.generated}`}
                     {change.kind === "kept" &&
-                      ` (${change.reason === "removed" ? "removed" : "edited"} by hand, kept)`}
+                      (change.reason === "removed"
+                        ? <T id="event-preparation.regenerate-button.removed-by-hand-kept">{" (removed by hand, kept)"}</T>
+                        : <T id="event-preparation.regenerate-button.edited-by-hand-kept">{" (edited by hand, kept)"}</T>)}
                   </small>
                 </li>
               ))}
@@ -171,10 +173,10 @@ function RegenerateButton({
                 }
               }}
             >
-              Regenerate
+              <T id="event-preparation.regenerate-button.regenerate">Regenerate</T>
             </Button>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              <T id="event-preparation.regenerate-button.cancel">Cancel</T>
             </Button>
           </span>
         </div>
@@ -199,7 +201,7 @@ export function EventPlanningProgressSection({
   const [confirm, setConfirm] = useState(false);
   if (progress.error)
     return (
-      <Section title="Planning">
+      <Section title={<T id="event-preparation.event-planning-progress-section.planning">Planning</T>}>
         <LoadError message={progress.error} />
       </Section>
     );
@@ -207,18 +209,17 @@ export function EventPlanningProgressSection({
   const data: PlanningProgress = progress.data;
   return (
     <Section
-      title="Planning"
+      title={<T id="event-preparation.event-planning-progress-section.planning">Planning</T>}
       action={
         data.canStart && (
-          <Button onClick={() => setConfirm(true)}>Start planning</Button>
+          <Button onClick={() => setConfirm(true)}><T id="event-preparation.event-planning-progress-section.start-planning">Start planning</T></Button>
         )
       }
     >
       <ErrorLine message={error} />
       {!data.started ? (
         <p className="muted">
-          Planning hasn't started. Starting moves the event to Preparation and builds the
-          pull list and kitchen menu from the mapped proposal.
+          <T id="event-preparation.event-planning-progress-section.planning-hasn-t-started-starting">{"Planning hasn't started. Starting moves the event to Preparation and builds the pull list and kitchen menu from the mapped proposal."}</T>
         </p>
       ) : (
         <>
@@ -232,20 +233,20 @@ export function EventPlanningProgressSection({
             ))}
           </ul>
           {data.staleOutputs.length > 0 && <div role="status" className="warning-message">
-            <strong>Planning outputs need review</strong>
+            <strong><T id="event-preparation.event-planning-progress-section.planning-outputs-need-review">Planning outputs need review</T></strong>
             <ul>{data.staleOutputs.map((output) => <li key={output.kind}>
               {output.kind.replaceAll("_", " ")}: {output.cause}.
-              {(output.kind === "pull_list" || output.kind === "kitchen_menu") && " Use the Regenerate button in that section to preview the diff and keep manual edits."}
+              {(output.kind === "pull_list" || output.kind === "kitchen_menu") && <T id="event-preparation.event-planning-progress-section.use-the-regenerate-button-in">{" Use the Regenerate button in that section to preview the diff and keep manual edits."}</T>}
             </li>)}</ul>
             {data.canRegenerate && data.staleOutputs.map((output) => <RefreshPlanningOutput
               key={output.kind} eventId={event.id} output={output} onChanged={progress.reload} />)}
           </div>}
           {data.complete ? (
-            <p>Planning is complete.</p>
+            <p><T id="event-preparation.event-planning-progress-section.planning-is-complete">Planning is complete.</T></p>
           ) : (
             <Button variant="outline" onClick={() => void run(async () => progress.replace(await preparationApi.progress(event.id)))}>
               <RefreshCw size={14} />
-              Refresh progress
+              <T id="event-preparation.event-planning-progress-section.refresh-progress">Refresh progress</T>
             </Button>
           )}
         </>
@@ -253,14 +254,14 @@ export function EventPlanningProgressSection({
       <ConfirmationDialog
         open={confirm}
         onClose={() => setConfirm(false)}
-        title="Start planning?"
+        title={<T id="event-preparation.event-planning-progress-section.start-planning-2">Start planning?</T>}
         onConfirm={async () => {
           progress.replace(await preparationApi.start(event.id));
           setConfirm(false);
           onStarted();
         }}
       >
-        {event.title} will move to Preparation and its planning steps will run in the background.
+        <T id="event-preparation.event-planning-progress-section.will-move-to-preparation-and" values={{ title: event.title }}>{"{title} will move to Preparation and its planning steps will run in the background."}</T>
       </ConfirmationDialog>
     </Section>
   );
@@ -269,6 +270,9 @@ export function EventPlanningProgressSection({
 // --- Pull list ------------------------------------------------------------------
 
 export function EventPullListSection({ event }: { event: FlowEvent }) {
+  const tbdPlaceholder = useCopy("event-preparation.event-pull-list-section.tbd.placeholder", "TBD");
+  const itemPlaceholder = useCopy("event-preparation.event-pull-list-section.item.placeholder", "Item");
+  const qtyPlaceholder = useCopy("event-preparation.event-pull-list-section.qty.placeholder", "Qty");
   const list = useResource(["event-pull-list", event.id], () => preparationApi.pullList(event.id));
   const sections = useResource(["inventory-sections"], () => sectionsApi.list());
   const staff = useResource(["staff"], () => staffApi.list());
@@ -276,7 +280,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
   const [draft, setDraft] = useState({ group: "kitchen_equipment" as PullGroup, name: "", quantity: "" });
   if (list.error)
     return (
-      <Section title="Pull list">
+      <Section title={<T id="event-preparation.event-pull-list-section.pull-list">Pull list</T>}>
         <LoadError message={list.error} />
       </Section>
     );
@@ -286,16 +290,16 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
   const lines = data.groups.flatMap((group) => group.lines);
   return (
     <Section
-      title="Pull list"
+      title={<T id="event-preparation.event-pull-list-section.pull-list">Pull list</T>}
       action={
         <span className="page-actions">
           <Button variant="outline" onClick={() => window.print()}>
             <Printer size={14} />
-            Print
+            <T id="event-preparation.event-pull-list-section.print">Print</T>
           </Button>
           {data.canEdit && (
             <RegenerateButton
-              label="Regenerate pull list"
+              label={<T id="event-preparation.event-pull-list-section.regenerate-pull-list">Regenerate pull list</T>}
               preview={(discard) => preparationApi.previewPull(event.id, discard)}
               apply={(discard) => change(() => preparationApi.regeneratePull(event.id, discard))}
             />
@@ -304,20 +308,20 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
       }
     >
       <ErrorLine message={error} />
-      {!data.exists && <p className="muted">No pull list yet. Start planning or add a line.</p>}
+      {!data.exists && <p className="muted"><T id="event-preparation.event-pull-list-section.no-pull-list-yet-start">No pull list yet. Start planning or add a line.</T></p>}
       {data.missingSchedule && (
         <p role="status" className="warning-message">
-          Readiness check: Missing schedule — set the pull date, time and puller.
+          <T id="event-preparation.event-pull-list-section.readiness-check-missing-schedule-set">Readiness check: Missing schedule — set the pull date, time and puller.</T>
         </p>
       )}
       {data.tbdCount > 0 && (
         <p role="status" className="warning-message">
-          {data.tbdCount} line{data.tbdCount === 1 ? " needs" : "s need"} a quantity.
+          <Plural id="event-preparation.event-pull-list-section.lines-need-a-quantity" count={data.tbdCount} one="{count} line needs a quantity." other="{count} lines need a quantity." />
         </p>
       )}
       {data.canEdit && (
         <div className="form-grid pull-schedule">
-          <FormField label="Start pulling (date)">
+          <FormField label={<T id="event-preparation.event-pull-list-section.start-pulling-date">Start pulling (date)</T>}>
             <input
               type="date"
               value={data.scheduledDate ?? ""}
@@ -332,7 +336,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
               }
             />
           </FormField>
-          <FormField label="Start pulling (time)">
+          <FormField label={<T id="event-preparation.event-pull-list-section.start-pulling-time">Start pulling (time)</T>}>
             <input
               type="time"
               value={data.scheduledTime ?? ""}
@@ -347,7 +351,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
               }
             />
           </FormField>
-          <FormField label="Puller">
+          <FormField label={<T id="event-preparation.event-pull-list-section.puller">Puller</T>}>
             <select
               value={data.pullerId ?? ""}
               onChange={(e) =>
@@ -374,15 +378,14 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
       )}
       {!data.canEdit && data.scheduledAt && (
         <p>
-          Pulling starts {date(data.scheduledDate!)} at {time(data.scheduledTime)}
-          {data.pullerName ? ` · ${data.pullerName}` : ""}
+          <T id="event-preparation.event-pull-list-section.pulling-starts-at" values={{ date: date(data.scheduledDate!), scheduledTime: time(data.scheduledTime), value: data.pullerName ? ` · ${data.pullerName}` : "" }}>{"Pulling starts {date} at {scheduledTime}{value}"}</T>
         </p>
       )}
       {data.groups.map((group) => (
         <div key={group.group} className="pull-group">
           <h3>{group.label}</h3>
           {group.lines.length === 0 ? (
-            <p className="muted">Nothing to pull.</p>
+            <p className="muted"><T id="event-preparation.event-pull-list-section.nothing-to-pull">Nothing to pull.</T></p>
           ) : (
             <ul className="pull-lines">
               {group.lines.map((line) => (
@@ -403,7 +406,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                     </small>
                     {line.shortfall !== null && (
                       <small className="warning-message">
-                        {line.shortfall} short. {line.suggestions.map((s) => pullSuggestionLabels[s]).join(" · ")}
+                        <T id="event-preparation.event-pull-list-section.short" values={{ shortfall: line.shortfall }}>{"{shortfall} short. "}</T>{line.suggestions.map((s) => pullSuggestionLabels[s]).join(" · ")}
                       </small>
                     )}
                   </span>
@@ -412,7 +415,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                       className="pull-quantity"
                       aria-label={`Quantity of ${line.name}`}
                       inputMode="decimal"
-                      placeholder="TBD"
+                      placeholder={tbdPlaceholder} data-copy-id="event-preparation.event-pull-list-section.tbd.placeholder"
                       defaultValue={line.quantity ?? ""}
                       onBlur={(e) => {
                         const text = e.target.value.trim();
@@ -425,7 +428,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                       }}
                     />
                   ) : (
-                    <span className="pull-quantity">{line.quantity ?? "TBD"}</span>
+                    <span className="pull-quantity">{line.quantity ?? <T id="event-preparation.event-pull-list-section.tbd">TBD</T>}</span>
                   )}
                   {data.canEdit && (
                     <select
@@ -501,27 +504,27 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
           </select>
           <input
             aria-label="New line name"
-            placeholder="Item"
+            placeholder={itemPlaceholder} data-copy-id="event-preparation.event-pull-list-section.item.placeholder"
             maxLength={200}
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
           <input
             aria-label="New line quantity"
-            placeholder="Qty"
+            placeholder={qtyPlaceholder} data-copy-id="event-preparation.event-pull-list-section.qty.placeholder"
             inputMode="decimal"
             value={draft.quantity}
             onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
           />
           <Button type="submit" variant="outline">
             <Plus size={14} />
-            Add line
+            <T id="event-preparation.event-pull-list-section.add-line">Add line</T>
           </Button>
         </form>
       )}
       {lines.length > 0 && (
         <small className="muted">
-          {lines.filter((line) => line.status !== "to_pull").length} of {lines.length} lines pulled or further along.
+          {lines.filter((line) => line.status !== "to_pull").length}<T id="event-preparation.event-pull-list-section.of-lines-pulled-or-further" values={{ linesCount: lines.length }}>{" of {linesCount} lines pulled or further along."}</T>
         </small>
       )}
     </Section>
@@ -531,6 +534,10 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
 // --- Kitchen menu ---------------------------------------------------------------
 
 export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
+  const tbdPlaceholder = useCopy("event-preparation.event-kitchen-menu-section.tbd.placeholder", "TBD");
+  const coursePlaceholder = useCopy("event-preparation.event-kitchen-menu-section.course.placeholder", "Course");
+  const qtyPlaceholder = useCopy("event-preparation.event-kitchen-menu-section.qty.placeholder", "Qty");
+  const prepTaskPlaceholder = useCopy("event-preparation.event-kitchen-menu-section.prep-task.placeholder", "Prep task");
   const menu = useResource(["event-kitchen-menu", event.id], () => preparationApi.kitchenMenu(event.id));
   const dishes = useResource(["recipes", "active"], () => recipesApi.list());
   const staff = useResource(["staff"], () => staffApi.list());
@@ -548,7 +555,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
   }, [printing]);
   if (menu.error)
     return (
-      <Section title="Kitchen menu">
+      <Section title={<T id="event-preparation.event-kitchen-menu-section.kitchen-menu">Kitchen menu</T>}>
         <LoadError message={menu.error} />
       </Section>
     );
@@ -557,16 +564,16 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
   const change = (action: () => Promise<KitchenMenu>) => run(async () => menu.replace(await action()));
   return (
     <Section
-      title="Kitchen menu"
+      title={<T id="event-preparation.event-kitchen-menu-section.kitchen-menu">Kitchen menu</T>}
       action={
         <span className="page-actions">
           <Button variant="outline" onClick={() => setPrinting(true)}>
             <Printer size={14} />
-            Print
+            <T id="event-preparation.event-kitchen-menu-section.print">Print</T>
           </Button>
           {data.canEdit && (
             <RegenerateButton
-              label="Regenerate kitchen menu"
+              label={<T id="event-preparation.event-kitchen-menu-section.regenerate-kitchen-menu">Regenerate kitchen menu</T>}
               preview={(discard) => preparationApi.previewKitchen(event.id, discard)}
               apply={(discard) => change(() => preparationApi.regenerateKitchen(event.id, discard))}
             />
@@ -576,27 +583,27 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
     >
       <ErrorLine message={error} />
       <article className="kitchen-print-sheet" aria-label="Kitchen sheet">
-        <h2>{event.title} — kitchen sheet</h2>
-        <p>{date(event.date)} · {data.servings === null ? "Servings TBD" : `${data.servings} servings`}</p>
-        <p>Food leaves kitchen: {data.leavesKitchenTime ? time(data.leavesKitchenTime) : "TBD"}</p>
-        <p>Venue arrival: {data.venueArrivalAt ? time(utcToBusinessTime(new Date(data.venueArrivalAt)).time) : "TBD"}</p>
+        <h2><T id="event-preparation.event-kitchen-menu-section.kitchen-sheet" values={{ title: event.title }}>{"{title} — kitchen sheet"}</T></h2>
+        <p>{date(event.date)} · {data.servings === null ? <T id="event-preparation.event-kitchen-menu-section.servings-tbd">Servings TBD</T> : <T id="event-preparation.event-kitchen-menu-section.servings" values={{ servings: data.servings }}>{"{servings} servings"}</T>}</p>
+        <p><T id="event-preparation.event-kitchen-menu-section.food-leaves-kitchen">{"Food leaves kitchen: "}</T>{data.leavesKitchenTime ? time(data.leavesKitchenTime) : <T id="event-preparation.event-kitchen-menu-section.tbd">TBD</T>}</p>
+        <p><T id="event-preparation.event-kitchen-menu-section.venue-arrival">{"Venue arrival: "}</T>{data.venueArrivalAt ? time(utcToBusinessTime(new Date(data.venueArrivalAt)).time) : <T id="event-preparation.event-kitchen-menu-section.tbd">TBD</T>}</p>
         {data.courses.map((course) => <section key={course.course}>
           <h3>{course.course}</h3>
           <ul>{course.lines.map((line) => <li key={line.id}>
-            <strong>{line.name}</strong> — {line.plannedQuantity ?? "TBD"}
+            <strong>{line.name}</strong> — {line.plannedQuantity ?? <T id="event-preparation.event-kitchen-menu-section.tbd">TBD</T>}
             {line.notes && ` · ${line.notes}`}
-            {line.allergens.length > 0 && ` · Allergens: ${line.allergens.join(", ")}`}
+            {line.allergens.length > 0 && <T id="event-preparation.event-kitchen-menu-section.allergens" values={{ join: line.allergens.join(", ") }}>{" · Allergens: {join}"}</T>}
           </li>)}</ul>
         </section>)}
-        <h3>Prep assignments</h3>
-        <ul>{data.tasks.map((task) => <li key={task.id}>{task.title} — {task.assignees.map((person) => person.name).join(", ") || "Unassigned"}</li>)}</ul>
+        <h3><T id="event-preparation.event-kitchen-menu-section.prep-assignments">Prep assignments</T></h3>
+        <ul>{data.tasks.map((task) => <li key={task.id}>{task.title} — {task.assignees.map((person) => person.name).join(", ") || <T id="event-preparation.event-kitchen-menu-section.unassigned">Unassigned</T>}</li>)}</ul>
       </article>
       <p>
-        {data.servings !== null ? `${data.servings} servings` : "Servings not set"}
-        {data.venueArrivalAt && ` · Crew arrives ${time(utcToBusinessTime(new Date(data.venueArrivalAt)).time)}`}
+        {data.servings !== null ? <T id="event-preparation.event-kitchen-menu-section.servings" values={{ servings: data.servings }}>{"{servings} servings"}</T> : <T id="event-preparation.event-kitchen-menu-section.servings-not-set">Servings not set</T>}
+        {data.venueArrivalAt && <T id="event-preparation.event-kitchen-menu-section.crew-arrives" values={{ time: time(utcToBusinessTime(new Date(data.venueArrivalAt)).time) }}>{" · Crew arrives {time}"}</T>}
       </p>
       {data.canEdit ? (
-        <FormField label="Food leaves the kitchen">
+        <FormField label={<T id="event-preparation.event-kitchen-menu-section.food-leaves-the-kitchen">Food leaves the kitchen</T>}>
           <input
             type="time"
             value={data.leavesKitchenTime ?? ""}
@@ -606,12 +613,12 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
           />
         </FormField>
       ) : (
-        data.leavesKitchenTime && <p>Food leaves the kitchen at {time(data.leavesKitchenTime)}.</p>
+        data.leavesKitchenTime && <p><T id="event-preparation.event-kitchen-menu-section.food-leaves-the-kitchen-at" values={{ leavesKitchenTime: time(data.leavesKitchenTime) }}>{"Food leaves the kitchen at {leavesKitchenTime}."}</T></p>
       )}
-      {!data.exists && <p className="muted">No kitchen menu yet. Start planning or add a dish.</p>}
+      {!data.exists && <p className="muted"><T id="event-preparation.event-kitchen-menu-section.no-kitchen-menu-yet-start">No kitchen menu yet. Start planning or add a dish.</T></p>}
       {data.courses.flatMap((course) => course.lines).some((line) => !line.scalable) && (
         <div role="status" className="planning-conflict warning">
-          <strong>Dishes without a yield — excluded from ingredient requirements:</strong>{" "}
+          <strong><T id="event-preparation.event-kitchen-menu-section.dishes-without-a-yield-excluded">Dishes without a yield — excluded from ingredient requirements:</T></strong>{" "}
           {data.courses.flatMap((course) => course.lines).filter((line) => !line.scalable)
             .map((line) => line.name).join(", ")}
         </div>
@@ -625,7 +632,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
                 <span className="pull-name">
                   <strong><Link to={`/recipes/${line.recipeId}`}>{line.name}</Link></strong>
                   {line.plannedQuantity !== null && line.scalable && (
-                    <small><Link to={`/recipes/${line.recipeId}?servings=${line.plannedQuantity}#scale`}>Method and ingredients for {line.plannedQuantity} servings</Link></small>
+                    <small><Link to={`/recipes/${line.recipeId}?servings=${line.plannedQuantity}#scale`}><T id="event-preparation.event-kitchen-menu-section.method-and-ingredients-for-servings" values={{ plannedQuantity: line.plannedQuantity }}>{"Method and ingredients for {plannedQuantity} servings"}</T></Link></small>
                   )}
                   <small>
                     {[
@@ -642,7 +649,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
                     className="pull-quantity"
                     aria-label={`Planned quantity of ${line.name}`}
                     inputMode="decimal"
-                    placeholder="TBD"
+                    placeholder={tbdPlaceholder} data-copy-id="event-preparation.event-kitchen-menu-section.tbd.placeholder"
                     defaultValue={line.plannedQuantity ?? ""}
                     onBlur={(e) => {
                       const text = e.target.value.trim();
@@ -655,7 +662,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
                     }}
                   />
                 ) : (
-                  <span className="pull-quantity">{line.plannedQuantity ?? "TBD"}</span>
+                  <span className="pull-quantity">{line.plannedQuantity ?? <T id="event-preparation.event-kitchen-menu-section.tbd">TBD</T>}</span>
                 )}
                 {data.canEdit && (
                   <Button
@@ -703,33 +710,33 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
           </select>
           <input
             aria-label="New dish course"
-            placeholder="Course"
+            placeholder={coursePlaceholder} data-copy-id="event-preparation.event-kitchen-menu-section.course.placeholder"
             maxLength={100}
             value={draft.course}
             onChange={(e) => setDraft({ ...draft, course: e.target.value })}
           />
           <input
             aria-label="New dish quantity"
-            placeholder="Qty"
+            placeholder={qtyPlaceholder} data-copy-id="event-preparation.event-kitchen-menu-section.qty.placeholder"
             inputMode="decimal"
             value={draft.quantity}
             onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
           />
           <Button type="submit" variant="outline">
             <Plus size={14} />
-            Add dish
+            <T id="event-preparation.event-kitchen-menu-section.add-dish">Add dish</T>
           </Button>
         </form>
       )}
       <div className="kitchen-tasks">
-        <h3>Kitchen tasks</h3>
+        <h3><T id="event-preparation.event-kitchen-menu-section.kitchen-tasks">Kitchen tasks</T></h3>
         {data.tasks.length === 0 ? (
-          <p className="muted">No kitchen tasks yet.</p>
+          <p className="muted"><T id="event-preparation.event-kitchen-menu-section.no-kitchen-tasks-yet">No kitchen tasks yet.</T></p>
         ) : (
           <ul>
             {data.tasks.map((t) => (
               <li key={t.id}>
-                {t.title} <small>{t.assignees.map((a) => a.name).join(", ") || "Unassigned"}</small>
+                {t.title} <small>{t.assignees.map((a) => a.name).join(", ") || <T id="event-preparation.event-kitchen-menu-section.unassigned">Unassigned</T>}</small>
               </li>
             ))}
           </ul>
@@ -754,7 +761,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
           >
             <input
               aria-label="Kitchen task title"
-              placeholder="Prep task"
+              placeholder={prepTaskPlaceholder} data-copy-id="event-preparation.event-kitchen-menu-section.prep-task.placeholder"
               maxLength={200}
               value={task.title}
               onChange={(e) => setTask({ ...task, title: e.target.value })}
@@ -775,7 +782,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
             </select>
             <Button type="submit" variant="outline">
               <Plus size={14} />
-              Assign prep
+              <T id="event-preparation.event-kitchen-menu-section.assign-prep">Assign prep</T>
             </Button>
           </form>
         )}

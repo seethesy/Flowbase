@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { BeoView } from "../../shared/beo";
 import { LoadError } from "../components/record-display";
 import { beoApi } from "../services/beo";
+import { T } from "../app/copy";
 
 // Detail mode (FLOW-65): the clicked event's BEO content, read only. The Worker
 // sends it already projected for the viewer's role (projectBeo), so a part-time
@@ -27,34 +28,33 @@ export function CalendarDetail({ eventId, onClose }: { eventId: string; onClose:
   return (
     <aside className="calendar-detail" aria-label="Event details">
       <div className="page-actions">
-        <strong>{content?.event.title ?? "Event details"}</strong>
-        <Link to={`/events/${eventId}`}>Open event</Link>
+        <strong>{content?.event.title ?? <T id="calendar-detail.calendar-detail.event-details">Event details</T>}</strong>
+        <Link to={`/events/${eventId}`}><T id="calendar-detail.calendar-detail.open-event">Open event</T></Link>
         <button type="button" className="button ghost" onClick={onClose}>
-          Close
+          <T id="calendar-detail.calendar-detail.close">Close</T>
         </button>
       </div>
       {error && <LoadError message={error} />}
-      {!content && !error && <p className="muted">Loading…</p>}
+      {!content && !error && <p className="muted"><T id="calendar-detail.calendar-detail.loading">Loading…</T></p>}
       {content && (
         <div className="calendar-detail-body">
           <p>
             {content.summary.date} · {content.summary.startTime}
             {content.summary.endTime ? `–${content.summary.endTime}` : ""}
-            {content.summary.guestCount != null && ` · ${content.summary.guestCount} guests`}
+            {content.summary.guestCount != null && <T id="calendar-detail.calendar-detail.guests" values={{ guestCount: content.summary.guestCount }}>{" · {guestCount} guests"}</T>}
           </p>
           <p>
-            {[content.event.venue, content.event.address].filter(Boolean).join(" · ") || "No venue yet."}
+            {[content.event.venue, content.event.address].filter(Boolean).join(" · ") || <T id="calendar-detail.calendar-detail.no-venue-yet">No venue yet.</T>}
           </p>
           {!content.event.contactHidden &&
             content.event.pointOfContact && (
               <p>
-                Contact: {content.event.pointOfContact.name}
-                {content.event.pointOfContact.phone && ` · ${content.event.pointOfContact.phone}`}
+                <T id="calendar-detail.calendar-detail.contact" values={{ name: content.event.pointOfContact.name, value: content.event.pointOfContact.phone && ` · ${content.event.pointOfContact.phone}` }}>{"Contact: {name}{value}"}</T>
               </p>
             )}
           {content.foodSetup.courses.length > 0 && (
             <>
-              <h4>Menu</h4>
+              <h4><T id="calendar-detail.calendar-detail.menu">Menu</T></h4>
               <ul className="beo-list">
                 {content.foodSetup.courses.map((course) => (
                   <li key={course.course}>
@@ -65,13 +65,13 @@ export function CalendarDetail({ eventId, onClose }: { eventId: string; onClose:
               </ul>
             </>
           )}
-          {content.foodSetup.allergens.length > 0 && <p>Allergens: {content.foodSetup.allergens.join(", ")}</p>}
+          {content.foodSetup.allergens.length > 0 && <p><T id="calendar-detail.calendar-detail.allergens" values={{ join: content.foodSetup.allergens.join(", ") }}>{"Allergens: {join}"}</T></p>}
           {content.staff.shifts.length > 0 && (
             <>
-              <h4>Staff</h4>
+              <h4><T id="calendar-detail.calendar-detail.staff">Staff</T></h4>
               <p>
-                {content.staff.productionLead && `Lead: ${content.staff.productionLead}. `}
-                {content.staff.openSlots > 0 && `${content.staff.openSlots} open.`}
+                {content.staff.productionLead && <T id="calendar-detail.calendar-detail.lead" values={{ productionLead: content.staff.productionLead }}>{"Lead: {productionLead}. "}</T>}
+                {content.staff.openSlots > 0 && <T id="calendar-detail.calendar-detail.open" values={{ openSlots: content.staff.openSlots }}>{"{openSlots} open."}</T>}
               </p>
             </>
           )}
@@ -94,8 +94,8 @@ export function CalendarDetail({ eventId, onClose }: { eventId: string; onClose:
               </ul>
             </div>
           ))}
-          {content.setupCleanup.setupDetails && <p>Setup: {content.setupCleanup.setupDetails}</p>}
-          {content.notes.additionalNotes && <p>Notes: {content.notes.additionalNotes}</p>}
+          {content.setupCleanup.setupDetails && <p><T id="calendar-detail.calendar-detail.setup" values={{ setupDetails: content.setupCleanup.setupDetails }}>{"Setup: {setupDetails}"}</T></p>}
+          {content.notes.additionalNotes && <p><T id="calendar-detail.calendar-detail.notes" values={{ additionalNotes: content.notes.additionalNotes }}>{"Notes: {additionalNotes}"}</T></p>}
         </div>
       )}
     </aside>

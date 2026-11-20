@@ -42,6 +42,8 @@ import { sopsApi } from "../services/sops";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
 import { RoundCheck } from "../components/ui/round-check";
+import { T, useCopy } from "../app/copy";
+import { copySlug } from "../../shared/copy";
 
 // Task lists (FLOW-59/60/61): the dashboard at /tasks (my tasks by when they're
 // due, the tasks I oversee, and "Needs delegation" for managers), the communal
@@ -133,7 +135,7 @@ function TaskActions({
           aria-label={`Claim ${task.title}`}
           onClick={() => void run(() => tasksApi.claim(task.id))}
         >
-          Claim
+          <T id="task-lists.task-actions.claim">Claim</T>
         </Button>
       )}
       <Button
@@ -143,7 +145,7 @@ function TaskActions({
         aria-label={`Complete ${task.title}`}
         onClick={() => void run(() => tasksApi.update(task.id, { status: "done" }))}
       >
-        Done
+        <T id="task-lists.task-actions.done">Done</T>
       </Button>
     </>
   );
@@ -217,8 +219,8 @@ export function NewTaskDrawer({
     <DetailDrawer
       open={open}
       onClose={onClose}
-      title="New task"
-      description="Add a task for yourself or the team."
+      title={<T id="task-lists.new-task-drawer.new-task">New task</T>}
+      description={<T id="task-lists.new-task-drawer.add-a-task-for-yourself">Add a task for yourself or the team.</T>}
     >
       <form className="task-form" onSubmit={submit}>
         {error && (
@@ -226,7 +228,7 @@ export function NewTaskDrawer({
             {error}
           </p>
         )}
-        <FormField label="Title">
+        <FormField label={<T id="task-lists.new-task-drawer.title">Title</T>}>
           <input
             required
             maxLength={200}
@@ -234,7 +236,7 @@ export function NewTaskDrawer({
             onChange={(e) => setTitle(e.target.value)}
           />
         </FormField>
-        <FormField label="Type">
+        <FormField label={<T id="task-lists.new-task-drawer.type">Type</T>}>
           <select value={type} onChange={(e) => setType(e.target.value as TaskType)}>
             {taskTypes.map((option) => (
               <option key={option} value={option}>
@@ -243,7 +245,7 @@ export function NewTaskDrawer({
             ))}
           </select>
         </FormField>
-        <FormField label="Priority">
+        <FormField label={<T id="task-lists.new-task-drawer.priority">Priority</T>}>
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as TaskPriority)}
@@ -255,20 +257,20 @@ export function NewTaskDrawer({
             ))}
           </select>
         </FormField>
-        <FormField label="SOP">
+        <FormField label={<T id="task-lists.new-task-drawer.sop">SOP</T>}>
           <select value={sopId} onChange={(e) => setSopId(e.target.value)}>
             <option value="">No SOP</option>
             {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
           </select>
         </FormField>
-        <FormField label="Due date">
+        <FormField label={<T id="task-lists.new-task-drawer.due-date">Due date</T>}>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </FormField>
-        <FormField label="Due time">
+        <FormField label={<T id="task-lists.new-task-drawer.due-time">Due time</T>}>
           <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} />
         </FormField>
         {!eventId && (
-          <FormField label="Event">
+          <FormField label={<T id="task-lists.new-task-drawer.event">Event</T>}>
             <select value={event} onChange={(e) => setEvent(e.target.value)}>
               <option value="">No event</option>
               {events.map((option) => (
@@ -281,7 +283,7 @@ export function NewTaskDrawer({
         )}
         {delegates ? (
           <>
-            <FormField label="Assign to" hint="Hold Ctrl or ⌘ to pick several people.">
+            <FormField label={<T id="task-lists.new-task-drawer.assign-to">Assign to</T>} hint={<T id="task-lists.new-task-drawer.hold-ctrl-or-to-pick">Hold Ctrl or ⌘ to pick several people.</T>}>
               <select
                 multiple
                 value={assignees}
@@ -297,8 +299,8 @@ export function NewTaskDrawer({
               </select>
             </FormField>
             <FormField
-              label="Overseer"
-              hint="When you assign someone else, you oversee it unless you pick someone."
+              label={<T id="task-lists.new-task-drawer.overseer">Overseer</T>}
+              hint={<T id="task-lists.new-task-drawer.when-you-assign-someone-else">When you assign someone else, you oversee it unless you pick someone.</T>}
             >
               <select value={overseer} onChange={(e) => setOverseer(e.target.value)}>
                 <option value="">{others ? "Me" : "No overseer"}</option>
@@ -316,15 +318,15 @@ export function NewTaskDrawer({
               checked={assignees.includes(actor.userId)}
               onChange={(e) => setAssignees(e.target.checked ? [actor.userId] : [])}
             />
-            Assign to me
+            <T id="task-lists.new-task-drawer.assign-to-me">Assign to me</T>
           </label>
         )}
         <div className="form-actions">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            <T id="task-lists.new-task-drawer.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={busy || !title.trim()}>
-            Add task
+            <T id="task-lists.new-task-drawer.add-task">Add task</T>
           </Button>
         </div>
       </form>
@@ -350,15 +352,19 @@ function DashboardGroup({
   title: string;
   section: TaskDashboardSection;
   filter: TaskFilter;
-  empty: string;
+  empty: ReactNode;
   children: (task: TaskSummary) => ReactNode;
 }) {
-  const label = `${title} (${section.count})`;
+
   return (
     <div className="task-group" role="region" aria-label={title}>
       <div className="task-group-head">
-        <h3>{label}</h3>
-        {section.count > 0 && <Link to={listLink(filter)}>View all</Link>}
+        <h3>
+          <T id={`task-lists.dashboard-group.${copySlug(title)}`} values={{ count: section.count }}>
+            {`${title} ({count})`}
+          </T>
+        </h3>
+        {section.count > 0 && <Link to={listLink(filter)}><T id="task-lists.dashboard-group.view-all">View all</T></Link>}
       </div>
       {section.tasks.length ? (
         <ul className="task-lines">
@@ -424,7 +430,7 @@ function QuickAssign({
         ))}
       </select>
       <Button type="submit" variant="outline" disabled={busy || !person}>
-        Assign
+        <T id="task-lists.quick-assign.assign">Assign</T>
       </Button>
     </form>
   );
@@ -451,30 +457,30 @@ export function TaskDashboardPage() {
   });
   return (
     <>
-      <PageHeader title="Tasks" subtitle="Your tasks and the ones you oversee.">
+      <PageHeader title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you oversee.</T>}>
         {taskScope(actor) === "all" && (
           <Button asChild variant="outline">
-            <Link to="/tasks/all">Team tasks</Link>
+            <Link to="/tasks/all"><T id="task-lists.task-dashboard-page.team-tasks">Team tasks</T></Link>
           </Button>
         )}
         {can("tasks.templates") && (
           <Button asChild variant="outline">
-            <Link to="/tasks/templates">Templates</Link>
+            <Link to="/tasks/templates"><T id="task-lists.task-dashboard-page.templates">Templates</T></Link>
           </Button>
         )}
-        <Button onClick={() => setAdding(true)}>New task</Button>
+        <Button onClick={() => setAdding(true)}><T id="task-lists.task-dashboard-page.new-task">New task</T></Button>
       </PageHeader>
       {error && (
         <p role="alert" className="error-message">
           {error}
         </p>
       )}
-      <Section title="My tasks">
+      <Section title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}>
         <DashboardGroup
           title="Overdue"
           section={data.overdue}
           filter={mine("overdue")}
-          empty="Nothing overdue."
+          empty={<T id="task-lists.task-dashboard-page.nothing-overdue">Nothing overdue.</T>}
         >
           {act}
         </DashboardGroup>
@@ -482,7 +488,7 @@ export function TaskDashboardPage() {
           title="Due today"
           section={data.today}
           filter={mine("today")}
-          empty="Nothing else due today."
+          empty={<T id="task-lists.task-dashboard-page.nothing-else-due-today">Nothing else due today.</T>}
         >
           {act}
         </DashboardGroup>
@@ -490,28 +496,28 @@ export function TaskDashboardPage() {
           title="Upcoming"
           section={data.upcoming}
           filter={mine("upcoming")}
-          empty="Nothing coming up."
+          empty={<T id="task-lists.task-dashboard-page.nothing-coming-up">Nothing coming up.</T>}
         >
           {act}
         </DashboardGroup>
       </Section>
-      <Section title="Overseeing">
+      <Section title={<T id="task-lists.task-dashboard-page.overseeing">Overseeing</T>}>
         <DashboardGroup
           title="Tasks I oversee"
           section={data.overseeing}
           filter={{ mine: "true", overseerId: actor.userId }}
-          empty="You don't oversee any open tasks."
+          empty={<T id="task-lists.task-dashboard-page.you-don-t-oversee-any">{"You don't oversee any open tasks."}</T>}
         >
           {() => null}
         </DashboardGroup>
       </Section>
       {data.needsDelegation && (
-        <Section title="Needs delegation">
+        <Section title={<T id="task-lists.task-dashboard-page.needs-delegation">Needs delegation</T>}>
           <DashboardGroup
             title="Unassigned in the next 14 days"
             section={data.needsDelegation}
             filter={{ unassigned: "true" }}
-            empty="Every task coming up has someone on it."
+            empty={<T id="task-lists.task-dashboard-page.every-task-coming-up-has">Every task coming up has someone on it.</T>}
           >
             {(task) => (
               <QuickAssign task={task} staff={staff} onChanged={reload} onError={setError} />
@@ -554,6 +560,7 @@ function filterFrom(params: URLSearchParams): TaskFilter {
 // /tasks/all: the communal list (FLOW-59). Part-time staff only see their own
 // tasks, so the list keeps mine=true for them.
 export function TaskList() {
+  const nameTheseFiltersToSavePlaceholder = useCopy("task-lists.task-list.name-these-filters-to-save.placeholder", "Name these filters to save them as a view");
   const { actor } = usePermissions();
   const [params, setParams] = useSearchParams();
   const staff = useActiveStaff();
@@ -598,17 +605,17 @@ export function TaskList() {
   return (
     <>
       <Link className="back-link" to="/tasks">
-        ← Tasks
+        <T id="task-lists.task-list.tasks">← Tasks</T>
       </Link>
       <PageHeader
-        title={communal ? "Team tasks" : "My tasks"}
+        title={communal ? <T id="task-lists.task-list.team-tasks">Team tasks</T> : <T id="task-lists.task-list.my-tasks">My tasks</T>}
         subtitle={
           communal
-            ? "Every open task on the team. Claim one to take it on."
-            : "The tasks you're assigned to, oversee or created."
+            ? <T id="task-lists.task-list.every-open-task-on-the">Every open task on the team. Claim one to take it on.</T>
+            : <T id="task-lists.task-list.the-tasks-you-re-assigned">{"The tasks you're assigned to, oversee or created."}</T>
         }
       >
-        <Button onClick={() => setAdding(true)}>New task</Button>
+        <Button onClick={() => setAdding(true)}><T id="task-lists.task-list.new-task">New task</T></Button>
       </PageHeader>
       {error && (
         <p role="alert" className="error-message">
@@ -723,13 +730,13 @@ export function TaskList() {
         <form className="task-inline-form" onSubmit={saveView}>
           <input
             aria-label="View name"
-            placeholder="Name these filters to save them as a view"
+            placeholder={nameTheseFiltersToSavePlaceholder} data-copy-id="task-lists.task-list.name-these-filters-to-save.placeholder"
             maxLength={80}
             value={viewName}
             onChange={(e) => setViewName(e.target.value)}
           />
           <Button type="submit" variant="outline" disabled={!viewName.trim()}>
-            Save view
+            <T id="task-lists.task-list.save-view">Save view</T>
           </Button>
         </form>
         {matchingView && (
@@ -745,7 +752,7 @@ export function TaskList() {
               }
             }}
           >
-            Delete view “{matchingView.name}”
+            <T id="task-lists.task-list.delete-view" values={{ name: matchingView.name }}>{"Delete view “{name}”"}</T>
           </Button>
         )}
       </div>
@@ -762,7 +769,7 @@ export function TaskList() {
           ))}
         </ul>
       ) : (
-        <EmptyState title="No tasks" description="No tasks match these filters." />
+        <EmptyState title={<T id="task-lists.task-list.no-tasks">No tasks</T>} description={<T id="task-lists.task-list.no-tasks-match-these-filters">No tasks match these filters.</T>} />
       )}
       <LoadMore list={list} />
       {adding && (
@@ -811,10 +818,10 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
   };
   return (
     <Section
-      title="Tasks"
+      title={<T id="task-lists.event-tasks-section.tasks">Tasks</T>}
       action={
         <Button variant="outline" onClick={() => setAdding(true)}>
-          Add task
+          <T id="task-lists.event-tasks-section.add-task">Add task</T>
         </Button>
       }
     >
@@ -833,7 +840,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
             ))}
           </select>
           <Button variant="outline" disabled={!template} onClick={() => void apply()}>
-            Apply template
+            <T id="task-lists.event-tasks-section.apply-template">Apply template</T>
           </Button>
         </div>
       )}
@@ -844,13 +851,13 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
         </p>
       )}
       {tbdPullLines.length > 0 && <p role="alert" className="warning-message">
-        Production list: pull quantity TBD for {tbdPullLines.map((line) => line.name).join(", ")}.
+        <T id="task-lists.event-tasks-section.production-list-pull-quantity-tbd">{"Production list: pull quantity TBD for "}</T>{tbdPullLines.map((line) => line.name).join(", ")}.
       </p>}
       {list.data?.filter((task) => task.type === "production" && task.status !== "done" && !task.assignees.length)
         .map((task) => <p key={task.id} role="alert" className="warning-message">
           {task.title.toLowerCase().includes("balloon arch")
-            ? "Who is building the balloon arch?"
-            : `Who is assigned to ${task.title}?`}
+            ? <T id="task-lists.event-tasks-section.who-is-building-the-balloon">Who is building the balloon arch?</T>
+            : <T id="task-lists.event-tasks-section.who-is-assigned-to" values={{ title: task.title }}>{"Who is assigned to {title}?"}</T>}
         </p>)}
       {list.error ? (
         <LoadError message={list.error} />
@@ -865,7 +872,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
           ))}
         </ul>
       ) : (
-        <p className="task-empty">No tasks on this event yet.</p>
+        <p className="task-empty"><T id="task-lists.event-tasks-section.no-tasks-on-this-event">No tasks on this event yet.</T></p>
       )}
       <LoadMore list={list} />
       {/* Mounted only when open: its staff and event pickers load nothing until then. */}

@@ -18,14 +18,15 @@ import { beoApi } from "../services/beo";
 import { eventsApi } from "../services/core";
 import { BeoAreaList, BeoCleanup } from "./beo-areas";
 import { BeoSchedule } from "./beo-schedule";
+import { T } from "../app/copy";
 import "./event-beo.css";
 
 // The banquet event order (FLOW-143, 144, 148): the ten sections in order, what is
 // still open or TBD marked, and what changed since approval marked until the next
 // approval. Contacts arrive already limited to what this role may see.
 
-const Tbd = () => <span className="beo-tbd">TBD</span>;
-const Open = () => <span className="beo-open">OPEN</span>;
+const Tbd = () => <span className="beo-tbd"><T id="event-beo.tbd.tbd">TBD</T></span>;
+const Open = () => <span className="beo-open"><T id="event-beo.open.open">OPEN</T></span>;
 const when = (iso: string) => new Date(iso).toLocaleString();
 
 // Says the BEO is saved on this device for reading offline, and when it was last
@@ -35,7 +36,7 @@ function OfflineStatus({ eventId }: { eventId: string }) {
   if (!saved.data) return null;
   return (
     <p className="muted" data-testid="offline-status">
-      Available offline · last synced {when(saved.data.syncedAt)}
+      <T id="event-beo.offline-status.available-offline-last-synced" values={{ when: when(saved.data.syncedAt) }}>{"Available offline · last synced {when}"}</T>
     </p>
   );
 }
@@ -65,7 +66,7 @@ export function EventBeoSection({
   const [notes, setNotes] = useState<{ setup: string; extra: string } | null>(null);
   if (beo.error)
     return (
-      <Section title="Banquet event order">
+      <Section title={<T id="event-beo.event-beo-section.banquet-event-order">Banquet event order</T>}>
         <LoadError message={beo.error} />
       </Section>
     );
@@ -85,7 +86,7 @@ export function EventBeoSection({
   const marks = (section: BeoSection) =>
     changed(section).length > 0 && (
       <p className="beo-changed" role="note">
-        Changed since approval: {changed(section).map((field) => field.label).join(", ")}
+        <T id="event-beo.marks.changed-since-approval">{"Changed since approval: "}</T>{changed(section).map((field) => field.label).join(", ")}
       </p>
     );
   const part = (section: BeoSection, body: ReactNode) => (
@@ -107,7 +108,7 @@ export function EventBeoSection({
     event: (
       <>
         <p>
-          Client: <strong>{content.event.client}</strong>
+          <T id="event-beo.event-beo-section.client">{"Client: "}</T><strong>{content.event.client}</strong>
         </p>
         {content.event.pointOfContact && (
           <ul className="beo-list">
@@ -115,10 +116,10 @@ export function EventBeoSection({
           </ul>
         )}
         <p>
-          Venue: {content.event.venue || "No venue"}
+          <T id="event-beo.event-beo-section.venue">{"Venue: "}</T>{content.event.venue || <T id="event-beo.event-beo-section.no-venue">No venue</T>}
           {content.event.address && ` · ${content.event.address}`}
         </p>
-        {hidden && <p className="muted">Phone numbers and emails are for full-time staff.</p>}
+        {hidden && <p className="muted"><T id="event-beo.event-beo-section.phone-numbers-and-emails-are">Phone numbers and emails are for full-time staff.</T></p>}
         {content.event.clientContacts.length > 0 && (
           <ul className="beo-list" aria-label="Client contacts">
             {content.event.clientContacts.map((c, i) => (
@@ -137,31 +138,31 @@ export function EventBeoSection({
     ),
     summary: (
       <dl className="beo-facts">
-        <dt>When</dt>
+        <dt><T id="event-beo.event-beo-section.when">When</T></dt>
         <dd>
           {content.summary.date} {content.summary.startTime}
           {content.summary.endTime && `–${content.summary.endTime}`}
         </dd>
-        <dt>Crew arrives</dt>
+        <dt><T id="event-beo.event-beo-section.crew-arrives">Crew arrives</T></dt>
         <dd>{content.summary.arrivalTime ?? <Tbd />}</dd>
-        <dt>Guests</dt>
+        <dt><T id="event-beo.event-beo-section.guests">Guests</T></dt>
         <dd>{content.summary.guestCount ?? <Tbd />}</dd>
-        <dt>Servings</dt>
+        <dt><T id="event-beo.event-beo-section.servings">Servings</T></dt>
         <dd>{content.summary.servings ?? <Tbd />}</dd>
-        <dt>Service</dt>
+        <dt><T id="event-beo.event-beo-section.service">Service</T></dt>
         <dd>
           {[content.summary.eventType, content.summary.serviceType, content.summary.foodServiceStyle]
             .filter(Boolean)
             .join(" · ") || "—"}
         </dd>
-        <dt>Dress code</dt>
+        <dt><T id="event-beo.event-beo-section.dress-code">Dress code</T></dt>
         <dd>{content.summary.dressCode || "—"}</dd>
       </dl>
     ),
     food_setup: (
       <>
-        {content.foodSetup.leavesKitchenTime && <p>Food leaves the kitchen at {content.foodSetup.leavesKitchenTime}.</p>}
-        {content.foodSetup.courses.length === 0 && <p className="muted">No dishes yet.</p>}
+        {content.foodSetup.leavesKitchenTime && <p><T id="event-beo.event-beo-section.food-leaves-the-kitchen-at" values={{ leavesKitchenTime: content.foodSetup.leavesKitchenTime }}>{"Food leaves the kitchen at {leavesKitchenTime}."}</T></p>}
+        {content.foodSetup.courses.length === 0 && <p className="muted"><T id="event-beo.event-beo-section.no-dishes-yet">No dishes yet.</T></p>}
         {content.foodSetup.courses.map((course) => (
           <div key={course.course}>
             <h4>{course.course}</h4>
@@ -181,12 +182,12 @@ export function EventBeoSection({
         ))}
         {content.foodSetup.allergens.length > 0 && (
           <p>
-            <strong>Allergens:</strong> {content.foodSetup.allergens.join(", ")}
+            <strong><T id="event-beo.event-beo-section.allergens">Allergens:</T></strong> {content.foodSetup.allergens.join(", ")}
           </p>
         )}
         {content.foodSetup.dietaryTags.length > 0 && (
           <p>
-            <strong>Dietary:</strong> {content.foodSetup.dietaryTags.join(", ")}
+            <strong><T id="event-beo.event-beo-section.dietary">Dietary:</T></strong> {content.foodSetup.dietaryTags.join(", ")}
           </p>
         )}
       </>
@@ -194,8 +195,8 @@ export function EventBeoSection({
     staff: (
       <>
         <p>
-          Production lead: {content.staff.productionLead ?? <Open />}
-          {content.staff.assistantLeads.length > 0 && ` · Assistants: ${content.staff.assistantLeads.join(", ")}`}
+          <T id="event-beo.event-beo-section.production-lead">{"Production lead: "}</T>{content.staff.productionLead ?? <Open />}
+          {content.staff.assistantLeads.length > 0 && <T id="event-beo.event-beo-section.assistants" values={{ join: content.staff.assistantLeads.join(", ") }}>{" · Assistants: {join}"}</T>}
         </p>
         {content.staff.shifts.map((shift, i) => (
           <div key={`${shift.kind}${i}`}>
@@ -212,13 +213,13 @@ export function EventBeoSection({
             </ul>
           </div>
         ))}
-        {content.staff.openSlots > 0 && <p className="beo-open">{content.staff.openSlots} open</p>}
+        {content.staff.openSlots > 0 && <p className="beo-open"><T id="event-beo.event-beo-section.open" values={{ openSlots: content.staff.openSlots }}>{"{openSlots} open"}</T></p>}
       </>
     ),
     timeline: <BeoSchedule eventId={event.id} data={data} onChange={beo.replace} />,
     equipment: (
       <>
-        {content.equipment.groups.length === 0 && <p className="muted">No equipment on the pull list yet.</p>}
+        {content.equipment.groups.length === 0 && <p className="muted"><T id="event-beo.event-beo-section.no-equipment-on-the-pull">No equipment on the pull list yet.</T></p>}
         {content.equipment.groups.map((group) => (
           <div key={group.label}>
             <h4>{group.label}</h4>
@@ -237,51 +238,51 @@ export function EventBeoSection({
     layout: (
       <>
         <BeoAreaList kind="layout" event={event} data={data} areas={content.layout.areas} onChange={beo.replace} />
-        {content.layout.loadInNotes && <p>Load-in: {content.layout.loadInNotes}</p>}
-        {content.layout.parkingNotes && <p>Parking: {content.layout.parkingNotes}</p>}
+        {content.layout.loadInNotes && <p><T id="event-beo.event-beo-section.load-in" values={{ loadInNotes: content.layout.loadInNotes }}>{"Load-in: {loadInNotes}"}</T></p>}
+        {content.layout.parkingNotes && <p><T id="event-beo.event-beo-section.parking" values={{ parkingNotes: content.layout.parkingNotes }}>{"Parking: {parkingNotes}"}</T></p>}
       </>
     ),
     setup_cleanup: (
       <>
-        {content.setupCleanup.transportationNotes && <p>Transportation: {content.setupCleanup.transportationNotes}</p>}
-        <p>{content.setupCleanup.setupDetails || <span className="muted">No setup details yet.</span>}</p>
+        {content.setupCleanup.transportationNotes && <p><T id="event-beo.event-beo-section.transportation" values={{ transportationNotes: content.setupCleanup.transportationNotes }}>{"Transportation: {transportationNotes}"}</T></p>}
+        <p>{content.setupCleanup.setupDetails || <span className="muted"><T id="event-beo.event-beo-section.no-setup-details-yet">No setup details yet.</T></span>}</p>
         <BeoAreaList kind="setup" event={event} data={data} areas={content.setupCleanup.areas} onChange={beo.replace} />
         <BeoCleanup eventId={event.id} data={data} onChange={beo.replace} />
       </>
     ),
-    notes: <p>{content.notes.additionalNotes || <span className="muted">None.</span>}</p>,
+    notes: <p>{content.notes.additionalNotes || <span className="muted"><T id="event-beo.event-beo-section.none">None.</T></span>}</p>,
   };
 
   return (
     <Section
-      title="Banquet event order"
+      title={<T id="event-beo.event-beo-section.banquet-event-order">Banquet event order</T>}
       action={
         <span className="page-actions">
           {data.status && <span className={`badge ${data.status === "approved" ? "success" : "neutral"}`}>{beoStatusLabels[data.status]}</span>}
           {!standalone && data.id && (
             <Button variant="outline" asChild>
-              <Link to={`/events/${event.id}/beo/${data.id}`}>Open BEO page</Link>
+              <Link to={`/events/${event.id}/beo/${data.id}`}><T id="event-beo.event-beo-section.open-beo-page">Open BEO page</T></Link>
             </Button>
           )}
           <Button variant="outline" asChild>
             <Link to={`/print/events/${event.id}/beo`}>
               <Printer size={14} />
-              Print
+              <T id="event-beo.event-beo-section.print">Print</T>
             </Link>
           </Button>
           {!data.exists && data.canEdit && (
-            <Button onClick={() => void run(() => beoApi.generate(event.id))}>Generate BEO</Button>
+            <Button onClick={() => void run(() => beoApi.generate(event.id))}><T id="event-beo.event-beo-section.generate-beo">Generate BEO</T></Button>
           )}
           {data.canRequestApproval && !data.canApprove && (
             <Button variant="outline" onClick={() => void run(() => beoApi.requestApproval(event.id))}>
               <Send size={14} />
-              Request approval
+              <T id="event-beo.event-beo-section.request-approval">Request approval</T>
             </Button>
           )}
           {data.exists && data.status !== "approved" && data.canApprove && (
             <Button onClick={() => void run(() => beoApi.approve(event.id))}>
               <Check size={14} />
-              Approve
+              <T id="event-beo.event-beo-section.approve">Approve</T>
             </Button>
           )}
         </span>
@@ -293,11 +294,11 @@ export function EventBeoSection({
         </p>
       )}
       <OfflineStatus eventId={event.id} />
-      {!data.exists && <p className="muted">This is a preview. Generate the BEO to start working on it.</p>}
+      {!data.exists && <p className="muted"><T id="event-beo.event-beo-section.this-is-a-preview-generate">This is a preview. Generate the BEO to start working on it.</T></p>}
       {data.approvedAt && (
         <p className="muted">
-          Approved {when(data.approvedAt)}
-          {data.approvedBy && ` by ${data.approvedBy.name}`}.
+          <T id="event-beo.event-beo-section.approved" values={{ when: when(data.approvedAt) }}>{"Approved {when}"}</T>
+          {data.approvedBy && <T id="event-beo.event-beo-section.by" values={{ name: data.approvedBy.name }}>{" by {name}"}</T>}.
         </p>
       )}
       {beoSections.map((section) => part(section, sectionBodies[section]))}
@@ -316,16 +317,16 @@ export function EventBeoSection({
               }}
             >
               <label className="form-field">
-                <span>Setup details</span>
+                <span><T id="event-beo.event-beo-section.setup-details">Setup details</T></span>
                 <textarea value={notes.setup} onChange={(e) => setNotes({ ...notes, setup: e.target.value })} />
               </label>
               <label className="form-field">
-                <span>Additional notes</span>
+                <span><T id="event-beo.event-beo-section.additional-notes">Additional notes</T></span>
                 <textarea value={notes.extra} onChange={(e) => setNotes({ ...notes, extra: e.target.value })} />
               </label>
-              <Button type="submit">Save</Button>
+              <Button type="submit"><T id="event-beo.event-beo-section.save">Save</T></Button>
               <Button type="button" variant="ghost" onClick={() => setNotes(null)}>
-                Cancel
+                <T id="event-beo.event-beo-section.cancel">Cancel</T>
               </Button>
             </form>
           ) : (
@@ -338,20 +339,20 @@ export function EventBeoSection({
                 })
               }
             >
-              Edit setup details and notes
+              <T id="event-beo.event-beo-section.edit-setup-details-and-notes">Edit setup details and notes</T>
             </Button>
           )}
         </div>
       )}
       {data.changes.length > 0 && (
         <div className="beo-log">
-          <h3>Changes after approval</h3>
+          <h3><T id="event-beo.event-beo-section.changes-after-approval">Changes after approval</T></h3>
           <ul className="beo-list">
             {data.changes.map((change) => (
               <li key={change.id} data-marked={change.marked || undefined}>
-                <strong>{change.fieldLabel}</strong>: {change.from || "(empty)"} → {change.to || "(empty)"}
+                <strong>{change.fieldLabel}</strong>: {change.from || <T id="event-beo.event-beo-section.empty">(empty)</T>} → {change.to || <T id="event-beo.event-beo-section.empty">(empty)</T>}
                 <small>
-                  {change.changedBy?.name ?? "Someone"} · {when(change.changedAt)}
+                  {change.changedBy?.name ?? <T id="event-beo.event-beo-section.someone">Someone</T>} · {when(change.changedAt)}
                 </small>
               </li>
             ))}
@@ -380,7 +381,7 @@ export function EventBeoPage() {
   const beo = useResource(["event-beo", id], () => beoApi.get(id));
   const back = (
     <Link to={`/events/${id}`} className="back-link">
-      ← Back to event
+      <T id="event-beo.event-beo-page.back-to-event">← Back to event</T>
     </Link>
   );
   if (event.error || beo.error)
