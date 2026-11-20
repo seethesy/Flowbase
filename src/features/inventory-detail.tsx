@@ -44,6 +44,7 @@ import "./inventory.css";
 import { effectiveRatio } from "../../shared/inventory-requirements";
 import { useBusinessSettings } from "../services/settings";
 import { canSeeRentalCosts } from "../../shared/visibility";
+import { Plural, T } from "../app/copy";
 
 export function InventoryDetail() {
   const { id = "" } = useParams();
@@ -69,7 +70,7 @@ export function InventoryDetail() {
   };
   const back = (
     <Link to="/inventory" className="back-link">
-      ← All inventory
+      <T id="inventory-detail.inventory-detail.all-inventory">← All inventory</T>
     </Link>
   );
   if (item.error)
@@ -96,17 +97,17 @@ export function InventoryDetail() {
                 .join(" · ")}
             </span>
             {i.code && <span className="sku">{i.code}</span>}
-            {!i.active && <span className="badge error">Inactive</span>}
-            {i.archivedAt && <span className="badge error">Archived</span>}
-            {i.belowPar && <span className="badge warning">Below par</span>}
-            {(pending.data?.length ?? 0) > 0 && <span className="badge warning">Pending changes</span>}
+            {!i.active && <span className="badge error"><T id="inventory-detail.inventory-detail.inactive">Inactive</T></span>}
+            {i.archivedAt && <span className="badge error"><T id="inventory-detail.inventory-detail.archived">Archived</T></span>}
+            {i.belowPar && <span className="badge warning"><T id="inventory-detail.inventory-detail.below-par">Below par</T></span>}
+            {(pending.data?.length ?? 0) > 0 && <span className="badge warning"><T id="inventory-detail.inventory-detail.pending-changes">Pending changes</T></span>}
           </p>
         </div>
         <div className="page-actions">
           {actor && (can("inventory.write") || isFtPlus(actor)) && (
             <Button variant="outline" onClick={() => setEdit(true)}>
               <Pencil size={14} />
-              Edit
+              <T id="inventory-detail.inventory-detail.edit">Edit</T>
             </Button>
           )}
           {i.archivedAt ? (
@@ -121,32 +122,32 @@ export function InventoryDetail() {
                 }}
               >
                 <RotateCcw size={14} />
-                Restore
+                <T id="inventory-detail.inventory-detail.restore">Restore</T>
               </Button>
             )
           ) : (
             actor && (can("inventory.write") || isFtPlus(actor)) && (
               <Button variant="outline" onClick={() => setArchive(true)}>
                 <Archive size={14} />
-                Archive
+                <T id="inventory-detail.inventory-detail.archive">Archive</T>
               </Button>
             )
           )}
         </div>
       </div>
       {changeNotice && <p role="status">{changeNotice}</p>}
-      {!!pending.data?.length && <Section title="Pending changes"><ul>{pending.data.map((change) => (
+      {!!pending.data?.length && <Section title={<T id="inventory-detail.inventory-detail.pending-changes">Pending changes</T>}><ul>{pending.data.map((change) => (
         <li key={`${change.approvalId}:${change.field}`}>
-          {change.field} proposed by {change.proposedBy} on {new Date(change.proposedAt).toLocaleString()}
+          <T id="inventory-detail.inventory-detail.proposed-by-on" values={{ field: change.field, proposedBy: change.proposedBy, toLocaleString: new Date(change.proposedAt).toLocaleString() }}>{"{field} proposed by {proposedBy} on {toLocaleString}"}</T>
         </li>
       ))}</ul></Section>}
       <div className="detail-grid">
-        <Section title="Item details">
-          <small>Category</small>
+        <Section title={<T id="inventory-detail.inventory-detail.item-details">Item details</T>}>
+          <small><T id="inventory-detail.inventory-detail.category">Category</T></small>
           <p>{i.category || "—"}</p>
-          <small>Group / variant</small>
+          <small><T id="inventory-detail.inventory-detail.group-variant">Group / variant</T></small>
           <p>{variantLabel(i) || "—"}</p>
-          <small>Ratio</small>
+          <small><T id="inventory-detail.inventory-detail.ratio">Ratio</T></small>
           <p>
             {ratio
               ? `${ratio.quantity} ${ratioBasisLabels[ratio.basis]}${!i.ratio ? " (category default)" : ""}`
@@ -154,52 +155,51 @@ export function InventoryDetail() {
           </p>
           {i.rental && (
             <>
-              <small>Price</small>
+              <small><T id="inventory-detail.inventory-detail.price">Price</T></small>
               <p>{centsLabel(i.rental.priceCents)}</p>
               {actor && canSeeRentalCosts(actor) && (
                 <>
-                  <small>Internal cost</small>
+                  <small><T id="inventory-detail.inventory-detail.internal-cost">Internal cost</T></small>
                   <p>{centsLabel(i.rental.internalCostCents ?? null)}</p>
-                  <small>Replacement cost</small>
+                  <small><T id="inventory-detail.inventory-detail.replacement-cost">Replacement cost</T></small>
                   <p>{centsLabel(i.rental.replacementCostCents ?? null)}</p>
                 </>
               )}
               {i.rental.vendorId && (
                 <>
-                  <small>Sub-rented from</small>
+                  <small><T id="inventory-detail.inventory-detail.sub-rented-from">Sub-rented from</T></small>
                   <p>
                     <Link to={`/vendors/${i.rental.vendorId}`}>
-                      {i.rental.vendorName ?? "Vendor"}
-                    </Link>{" "}
-                    · available on request
+                      {i.rental.vendorName ?? <T id="inventory-detail.inventory-detail.vendor">Vendor</T>}
+                    </Link><T id="inventory-detail.inventory-detail.available-on-request">{" · available on request"}</T>
                   </p>
                   {actor && canSeeRentalCosts(actor) && (
                     <>
-                      <small>Vendor cost</small>
+                      <small><T id="inventory-detail.inventory-detail.vendor-cost">Vendor cost</T></small>
                       <p>{centsLabel(i.rental.vendorCostCents ?? null)}</p>
                     </>
                   )}
-                  <small>Lead time</small>
+                  <small><T id="inventory-detail.inventory-detail.lead-time">Lead time</T></small>
                   <p>
                     {i.rental.leadTimeDays === null
                       ? "—"
-                      : `${i.rental.leadTimeDays} day${i.rental.leadTimeDays === 1 ? "" : "s"}`}
+                      : <Plural id="inventory-detail.inventory-detail.days" count={i.rental.leadTimeDays} one="{count} day" other="{count} days" />}
                   </p>
                 </>
               )}
-              <small>Dimensions</small>
+              <small><T id="inventory-detail.inventory-detail.dimensions">Dimensions</T></small>
               <p>{i.rental.dimensions || "—"}</p>
-              <small>Buffer days before / after</small>
+              <small><T id="inventory-detail.inventory-detail.buffer-days-before-after">Buffer days before / after</T></small>
               <p>
                 {i.rental.bufferDaysBefore} / {i.rental.bufferDaysAfter}
               </p>
-              <small>Assembly notes</small>
+              <small><T id="inventory-detail.inventory-detail.assembly-notes">Assembly notes</T></small>
               <p>{i.rental.assemblyNotes || "—"}</p>
-              <small>Notes</small>
+              <small><T id="inventory-detail.inventory-detail.notes">Notes</T></small>
               <p>{i.rental.notes || "—"}</p>
               {i.rental.colors.length > 0 && (
                 <>
-                  <small>Colors</small>
+                  <small><T id="inventory-detail.inventory-detail.colors">Colors</T></small>
                   <p>{i.rental.colors.join(", ")}</p>
                 </>
               )}
@@ -207,51 +207,51 @@ export function InventoryDetail() {
           )}
           {i.service && (
             <>
-              <small>Price</small>
+              <small><T id="inventory-detail.inventory-detail.price">Price</T></small>
               <p>
                 {i.service.pricedByQuote
-                  ? "Priced by quote"
+                  ? <T id="inventory-detail.inventory-detail.priced-by-quote">Priced by quote</T>
                   : `${centsLabel(i.service.priceCents)} ${ratioBasisLabels[i.service.priceBasis]}`}
               </p>
               {i.service.addons.map((addon, index) => (
                 <p key={index}>
-                  {addon.name}: {centsLabel(addon.priceCents)} per guest
+                  <T id="inventory-detail.inventory-detail.per-guest" values={{ name: addon.name, priceCents: centsLabel(addon.priceCents) }}>{"{name}: {priceCents} per guest"}</T>
                 </p>
               ))}
             </>
           )}
-          <small>Description</small>
+          <small><T id="inventory-detail.inventory-detail.description">Description</T></small>
           <p>{i.description || "—"}</p>
         </Section>
         {c && (
-          <Section title="Purchasing">
-            <small>Bought as</small>
+          <Section title={<T id="inventory-detail.inventory-detail.purchasing">Purchasing</T>}>
+            <small><T id="inventory-detail.inventory-detail.bought-as">Bought as</T></small>
             <p>{purchaseLabel(c)}</p>
-            <small>Recipe unit</small>
+            <small><T id="inventory-detail.inventory-detail.recipe-unit">Recipe unit</T></small>
             <p>{c.recipeUnit ? unitLabel(c.recipeUnit) : "—"}</p>
-            <small>Unit cost</small>
+            <small><T id="inventory-detail.inventory-detail.unit-cost">Unit cost</T></small>
             <p>
               {c.costHidden
-                ? "Cost hidden for your role and employment type."
+                ? <T id="inventory-detail.inventory-detail.cost-hidden-for-your-role">Cost hidden for your role and employment type.</T>
                 : c.unitCostCents === null
                   ? "—"
-                  : `${centsLabel(c.unitCostCents)} per ${unitLabel(c.purchaseUnit)}`}
+                  : <T id="inventory-detail.inventory-detail.per" values={{ unitCostCents: centsLabel(c.unitCostCents), unitLabel: unitLabel(c.purchaseUnit) }}>{"{unitCostCents} per {unitLabel}"}</T>}
             </p>
             {i.bar && (
               <>
-                <small>Brand / varietal</small>
+                <small><T id="inventory-detail.inventory-detail.brand-varietal">Brand / varietal</T></small>
                 <p>{i.bar.brand || "—"}</p>
-                <small>Subcategory</small>
+                <small><T id="inventory-detail.inventory-detail.subcategory">Subcategory</T></small>
                 <p>{i.bar.subcategory || "—"}</p>
-                <small>Container</small>
+                <small><T id="inventory-detail.inventory-detail.container">Container</T></small>
                 <p>
                   {i.bar.container ? barContainerLabels[i.bar.container] : "—"}
                 </p>
-                <small>House pick for its tier</small>
-                <p>{i.bar.housePick ? "Yes" : "No"}</p>
+                <small><T id="inventory-detail.inventory-detail.house-pick-for-its-tier">House pick for its tier</T></small>
+                <p>{i.bar.housePick ? <T id="inventory-detail.inventory-detail.yes">Yes</T> : <T id="inventory-detail.inventory-detail.no">No</T>}</p>
               </>
             )}
-            <small>{i.bar ? "Distributor" : "Preferred vendor"}</small>
+            <small>{i.bar ? <T id="inventory-detail.inventory-detail.distributor">Distributor</T> : <T id="inventory-detail.inventory-detail.preferred-vendor">Preferred vendor</T>}</small>
             <p>
               {c.preferredVendorId ? (
                 <Link to={`/vendors/${c.preferredVendorId}`}>
@@ -261,11 +261,11 @@ export function InventoryDetail() {
                 c.preferredVendor || "—"
               )}
             </p>
-            <small>Par level</small>
+            <small><T id="inventory-detail.inventory-detail.par-level">Par level</T></small>
             <p>
               {c.parLevel === null ? "—" : quantityLabel(c.parLevel, i.unit)}
             </p>
-            <small>Storage</small>
+            <small><T id="inventory-detail.inventory-detail.storage">Storage</T></small>
             <p>{c.storageSectionName ?? "—"}</p>
           </Section>
         )}
@@ -275,12 +275,12 @@ export function InventoryDetail() {
       ) : null}
       {i.kind === "service" && can("tasks.read") && <ServiceTaskTemplates itemId={i.id} />}
       {i.kind === "service" ? (
-        <Section title="Stock">
-          <p className="muted">Services aren't stocked.</p>
+        <Section title={<T id="inventory-detail.inventory-detail.stock">Stock</T>}>
+          <p className="muted"><T id="inventory-detail.inventory-detail.services-aren-t-stocked">{"Services aren't stocked."}</T></p>
         </Section>
       ) : (
         <Section
-          title="Stock by section"
+          title={<T id="inventory-detail.inventory-detail.stock-by-section">Stock by section</T>}
           action={
             !i.archivedAt && (
               <div className="page-actions">
@@ -290,7 +290,7 @@ export function InventoryDetail() {
                     onClick={() => setStockForm("movement")}
                   >
                     <PackagePlus size={14} />
-                    Record movement
+                    <T id="inventory-detail.inventory-detail.record-movement">Record movement</T>
                   </Button>
                 </Allowed>
                 <Allowed action="inventory.count" item={i}>
@@ -299,7 +299,7 @@ export function InventoryDetail() {
                     onClick={() => setStockForm("count")}
                   >
                     <ClipboardCheck size={14} />
-                    Count
+                    <T id="inventory-detail.inventory-detail.count">Count</T>
                   </Button>
                 </Allowed>
                 <Allowed action="inventory.move" item={i}>
@@ -308,7 +308,7 @@ export function InventoryDetail() {
                     onClick={() => setStockForm("transfer")}
                   >
                     <ArrowLeftRight size={14} />
-                    Transfer
+                    <T id="inventory-detail.inventory-detail.transfer">Transfer</T>
                   </Button>
                 </Allowed>
               </div>
@@ -318,8 +318,8 @@ export function InventoryDetail() {
           <table className="stock-table">
             <thead>
               <tr>
-                <th>Section</th>
-                <th>Quantity</th>
+                <th><T id="inventory-detail.inventory-detail.section">Section</T></th>
+                <th><T id="inventory-detail.inventory-detail.quantity">Quantity</T></th>
               </tr>
             </thead>
             <tbody>
@@ -330,14 +330,14 @@ export function InventoryDetail() {
                     {level.color
                       ? ` · ${level.color}`
                       : i.rental?.colors.length
-                        ? " · Unassigned color"
+                        ? <T id="inventory-detail.inventory-detail.unassigned-color">{" · Unassigned color"}</T>
                         : ""}
                   </td>
                   <td>{quantityLabel(level.quantity, i.unit)}</td>
                 </tr>
               ))}
               <tr>
-                <th scope="row">Total</th>
+                <th scope="row"><T id="inventory-detail.inventory-detail.total">Total</T></th>
                 <td>
                   <strong>{quantityLabel(i.totalQuantity, i.unit)}</strong>
                 </td>
@@ -380,7 +380,7 @@ export function InventoryDetail() {
       <ConfirmationDialog
         open={archive}
         onClose={() => setArchive(false)}
-        title="Archive this item?"
+        title={<T id="inventory-detail.inventory-detail.archive-this-item">Archive this item?</T>}
         onConfirm={async () => {
           if (i.kind !== "consumable" && !can("rentals.apply_directly")) {
             await inventoryChangesApi.submit([{ type: "archive", itemId: i.id, archived: true }]);
@@ -393,7 +393,7 @@ export function InventoryDetail() {
           navigate("/inventory");
         }}
       >
-        {i.name} will be hidden from inventory lists.
+        <T id="inventory-detail.inventory-detail.will-be-hidden-from-inventory" values={{ name: i.name }}>{"{name} will be hidden from inventory lists."}</T>
       </ConfirmationDialog>
     </>
   );
@@ -406,7 +406,7 @@ function ServiceTaskTemplates({ itemId }: { itemId: string }) {
   const templates = useResource(["tasks", "templates"], () => tasksApi.templates());
   const linked = templates.data?.filter((template) => template.matchCatalogId === itemId) ?? [];
   return (
-    <Section title="Task templates">
+    <Section title={<T id="inventory-detail.service-task-templates.task-templates">Task templates</T>}>
       {templates.error ? (
         <LoadError message={templates.error} />
       ) : !templates.data ? (
@@ -415,13 +415,13 @@ function ServiceTaskTemplates({ itemId }: { itemId: string }) {
         <ul>
           {linked.map((template) => (
             <li key={template.id}>
-              <Link to="/tasks/templates">{template.name}</Link>: applied when planning starts
+              <Link to="/tasks/templates">{template.name}</Link><T id="inventory-detail.service-task-templates.applied-when-planning-starts">: applied when planning starts</T>
             </li>
           ))}
         </ul>
       ) : (
         <p className="muted">
-          No task template is linked. Link one from <Link to="/tasks/templates">Task templates</Link>.
+          <T id="inventory-detail.service-task-templates.no-task-template-is-linked">{"No task template is linked. Link one from "}</T><Link to="/tasks/templates"><T id="inventory-detail.service-task-templates.task-templates">Task templates</T></Link>.
         </p>
       )}
     </Section>
@@ -432,7 +432,7 @@ function IncludedItems({ item }: { item: InventoryItem }) {
   const items = useResource(["inventory-items", "all"], () => allPages((cursor) => inventoryApi.list({}, cursor)));
   const lines = item.rental?.components ?? item.service?.includes ?? [];
   return (
-    <Section title={item.service ? "Includes" : "Kit components"}>
+    <Section title={item.service ? <T id="inventory-detail.included-items.includes">Includes</T> : <T id="inventory-detail.included-items.kit-components">Kit components</T>}>
       {items.error ? (
         <LoadError message={items.error} />
       ) : (
@@ -446,7 +446,7 @@ function IncludedItems({ item }: { item: InventoryItem }) {
               : {line.quantity}
               {"basis" in line
                 ? ` ${ratioBasisLabels[line.basis as "per_guest" | "per_event"]}`
-                : " per kit"}
+                : <T id="inventory-detail.included-items.per-kit">{" per kit"}</T>}
             </li>
           ))}
         </ul>

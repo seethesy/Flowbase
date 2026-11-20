@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { isFtPlus } from "../../shared/access";
 import { AlertTriangle } from "lucide-react";
 import {
@@ -34,6 +34,7 @@ import { usePermissions } from "../app/permissions";
 import { canSeeRentalCosts } from "../../shared/visibility";
 import { CatalogIncludes } from "./inventory-includes";
 import { RoundCheck } from "../components/ui/round-check";
+import { T } from "../app/copy";
 
 const dollars = (cents: number | null | undefined) =>
   cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
@@ -50,7 +51,7 @@ function UnitSelect({
   onChange,
   optional,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   onChange: (value: string) => void;
   optional?: string;
@@ -413,12 +414,12 @@ function ItemFormFields({
       onClose={onClose}
       title={
         item
-          ? "Edit item"
+          ? <T id="inventory-item-form.item-form-fields.edit-item">Edit item</T>
           : preset
             ? `New ${preset.subtype === "bar" ? "bar item" : preset.subtype}`
-            : "New item"
+            : <T id="inventory-item-form.item-form-fields.new-item">New item</T>
       }
-      description="Saved to Flowbase."
+      description={<T id="inventory-item-form.item-form-fields.saved-to-flowbase">Saved to Flowbase.</T>}
       wide
     >
       <form
@@ -440,16 +441,16 @@ function ItemFormFields({
         )}
         {notice && <p role="status" className="success-message">{notice}</p>}
         <div className="form-grid">
-          <FormField label="Name *">
+          <FormField label={<T id="inventory-item-form.item-form-fields.name">Name *</T>}>
             <input
               value={fields.name}
               onChange={(e) => set("name")(e.target.value)}
               autoFocus
             />
           </FormField>
-          <FormField label="Code / SKU">{input("code")}</FormField>
+          <FormField label={<T id="inventory-item-form.item-form-fields.code-sku">Code / SKU</T>}>{input("code")}</FormField>
           {!item && !preset && (
-            <FormField label="Kind">
+            <FormField label={<T id="inventory-item-form.item-form-fields.kind">Kind</T>}>
               <select
                 value={kind}
                 onChange={(e) => {
@@ -468,7 +469,7 @@ function ItemFormFields({
             </FormField>
           )}
           {subtypes.length > 0 && !preset && (
-            <FormField label="Subtype">
+            <FormField label={<T id="inventory-item-form.item-form-fields.subtype">Subtype</T>}>
               <select
                 value={subtype}
                 onChange={(e) => setSubtype(e.target.value)}
@@ -483,7 +484,7 @@ function ItemFormFields({
           )}
           {isBar ? (
             <>
-              <FormField label="Category">
+              <FormField label={<T id="inventory-item-form.item-form-fields.category">Category</T>}>
                 <select
                   value={fields.category}
                   onChange={(e) => pickCategory(e.target.value)}
@@ -495,7 +496,7 @@ function ItemFormFields({
                 </select>
               </FormField>
               {barSubcategories[fields.category] && (
-                <FormField label="Subcategory">
+                <FormField label={<T id="inventory-item-form.item-form-fields.subcategory">Subcategory</T>}>
                   <select
                     value={fields.subcategory}
                     onChange={(e) => set("subcategory")(e.target.value)}
@@ -507,12 +508,12 @@ function ItemFormFields({
                   </select>
                 </FormField>
               )}
-              <FormField label="Brand / varietal" hint="e.g. Pinot Grigio">
+              <FormField label={<T id="inventory-item-form.item-form-fields.brand-varietal">Brand / varietal</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-pinot-grigio">e.g. Pinot Grigio</T>}>
                 {input("brand")}
               </FormField>
             </>
           ) : (
-            <FormField label="Category">
+            <FormField label={<T id="inventory-item-form.item-form-fields.category">Category</T>}>
               <input
                 list="item-categories"
                 value={fields.category}
@@ -525,17 +526,17 @@ function ItemFormFields({
           )}
           {kind !== "service" && (
             <UnitSelect
-              label="Stock unit"
+              label={<T id="inventory-item-form.item-form-fields.stock-unit">Stock unit</T>}
               value={fields.unit}
               onChange={set("unit")}
             />
           )}
-          <FormField label="Group" hint="e.g. Table Linens">
+          <FormField label={<T id="inventory-item-form.item-form-fields.group">Group</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-table-linens">e.g. Table Linens</T>}>
             {input("group")}
           </FormField>
           {isBar ? (
             <>
-              <FormField label="Tier">
+              <FormField label={<T id="inventory-item-form.item-form-fields.tier">Tier</T>}>
                 <select
                   value={fields.tier}
                   onChange={(e) => set("tier")(e.target.value)}
@@ -548,7 +549,7 @@ function ItemFormFields({
                   ))}
                 </select>
               </FormField>
-              <FormField label="Container">
+              <FormField label={<T id="inventory-item-form.item-form-fields.container">Container</T>}>
                 <select
                   value={fields.container}
                   onChange={(e) => set("container")(e.target.value)}
@@ -562,8 +563,8 @@ function ItemFormFields({
                 </select>
               </FormField>
               <FormField
-                label="House pick"
-                hint="Reordered when an event's tier runs short"
+                label={<T id="inventory-item-form.item-form-fields.house-pick">House pick</T>}
+                hint={<T id="inventory-item-form.item-form-fields.reordered-when-an-event-s">{"Reordered when an event's tier runs short"}</T>}
               >
                 <RoundCheck
                   aria-label="House pick for its tier"
@@ -573,13 +574,13 @@ function ItemFormFields({
               </FormField>
             </>
           ) : (
-            <FormField label="Tier" hint="e.g. Standard, Premium">
+            <FormField label={<T id="inventory-item-form.item-form-fields.tier">Tier</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-standard-premium">e.g. Standard, Premium</T>}>
               {input("tier")}
             </FormField>
           )}
-          <FormField label="Color / finish">{input("color")}</FormField>
+          <FormField label={<T id="inventory-item-form.item-form-fields.color-finish">Color / finish</T>}>{input("color")}</FormField>
         </div>
-        <FormField label="Description">
+        <FormField label={<T id="inventory-item-form.item-form-fields.description">Description</T>}>
           <textarea
             rows={2}
             value={fields.description}
@@ -588,16 +589,16 @@ function ItemFormFields({
         </FormField>
         <div className="form-grid">
           <FormField
-            label="Ratio"
+            label={<T id="inventory-item-form.item-form-fields.ratio">Ratio</T>}
             hint={
               defaultRatio
-                ? `Leave empty to use category default: ${defaultRatio.quantity} ${ratioBasisLabels[defaultRatio.basis]}`
-                : "e.g. 2 per guest; leave empty for category default"
+                ? <T id="inventory-item-form.item-form-fields.leave-empty-to-use-category" values={{ quantity: defaultRatio.quantity, ratioBasisLabels: ratioBasisLabels[defaultRatio.basis] }}>{"Leave empty to use category default: {quantity} {ratioBasisLabels}"}</T>
+                : <T id="inventory-item-form.item-form-fields.e-g-2-per-guest">e.g. 2 per guest; leave empty for category default</T>
             }
           >
             {input("ratioQuantity", { type: "number" })}
           </FormField>
-          <FormField label="Ratio basis">
+          <FormField label={<T id="inventory-item-form.item-form-fields.ratio-basis">Ratio basis</T>}>
             <select
               value={fields.ratioBasis}
               onChange={(e) => set("ratioBasis")(e.target.value)}
@@ -613,10 +614,10 @@ function ItemFormFields({
         {kind === "rental" && (
           <>
             <FormField
-              label="Price ($ per unit)"
+              label={<T id="inventory-item-form.item-form-fields.price-per-unit">Price ($ per unit)</T>}
               hint={
                 priceNeedsApproval
-                  ? "Price changes will be submitted for Admin approval."
+                  ? <T id="inventory-item-form.item-form-fields.price-changes-will-be-submitted">Price changes will be submitted for Admin approval.</T>
                   : undefined
               }
             >
@@ -630,17 +631,17 @@ function ItemFormFields({
             <div className="form-grid">
               {rentalCostsVisible && (
                 <>
-                  <FormField label="Internal cost ($)">
+                  <FormField label={<T id="inventory-item-form.item-form-fields.internal-cost">Internal cost ($)</T>}>
                     {input("internalCost", { type: "number" })}
                   </FormField>
-                  <FormField label="Replacement cost ($)">
+                  <FormField label={<T id="inventory-item-form.item-form-fields.replacement-cost">Replacement cost ($)</T>}>
                     {input("replacementCost", { type: "number" })}
                   </FormField>
                 </>
               )}
               <FormField
-                label="Rented from"
-                hint="A sub-rented item is available on request, never owned stock."
+                label={<T id="inventory-item-form.item-form-fields.rented-from">Rented from</T>}
+                hint={<T id="inventory-item-form.item-form-fields.a-sub-rented-item-is">A sub-rented item is available on request, never owned stock.</T>}
               >
                 <select
                   value={fields.rentalVendorId}
@@ -668,29 +669,29 @@ function ItemFormFields({
               {fields.rentalVendorId && (
                 <>
                   {rentalCostsVisible && (
-                    <FormField label="Vendor cost ($ per unit)">
+                    <FormField label={<T id="inventory-item-form.item-form-fields.vendor-cost-per-unit">Vendor cost ($ per unit)</T>}>
                       {input("vendorCost", { type: "number" })}
                     </FormField>
                   )}
-                  <FormField label="Lead time (days)">
+                  <FormField label={<T id="inventory-item-form.item-form-fields.lead-time-days">Lead time (days)</T>}>
                     {input("leadTimeDays", { type: "number" })}
                   </FormField>
                 </>
               )}
-              <FormField label="Dimensions">{input("dimensions")}</FormField>
-              <FormField label="Buffer days before">
+              <FormField label={<T id="inventory-item-form.item-form-fields.dimensions">Dimensions</T>}>{input("dimensions")}</FormField>
+              <FormField label={<T id="inventory-item-form.item-form-fields.buffer-days-before">Buffer days before</T>}>
                 {input("bufferDaysBefore", { type: "number" })}
               </FormField>
-              <FormField label="Buffer days after">
+              <FormField label={<T id="inventory-item-form.item-form-fields.buffer-days-after">Buffer days after</T>}>
                 {input("bufferDaysAfter", { type: "number" })}
               </FormField>
-              <FormField label="Assembly notes">
+              <FormField label={<T id="inventory-item-form.item-form-fields.assembly-notes">Assembly notes</T>}>
                 {input("assemblyNotes")}
               </FormField>
-              <FormField label="Notes">{input("notes")}</FormField>
+              <FormField label={<T id="inventory-item-form.item-form-fields.notes">Notes</T>}>{input("notes")}</FormField>
               <FormField
-                label="Colors"
-                hint="One color per line. Stock is tracked separately for each color."
+                label={<T id="inventory-item-form.item-form-fields.colors">Colors</T>}
+                hint={<T id="inventory-item-form.item-form-fields.one-color-per-line-stock">One color per line. Stock is tracked separately for each color.</T>}
               >
                 <textarea
                   value={fields.colors}
@@ -708,14 +709,14 @@ function ItemFormFields({
                 checked={quoted}
                 onChange={(e) => setQuoted(e.target.checked)}
               />
-              Priced by quote
+              <T id="inventory-item-form.item-form-fields.priced-by-quote">Priced by quote</T>
             </label>
             {!quoted && (
               <div className="form-grid">
-                <FormField label="Price ($)">
+                <FormField label={<T id="inventory-item-form.item-form-fields.price">Price ($)</T>}>
                   {input("price", { type: "number" })}
                 </FormField>
-                <FormField label="Priced">
+                <FormField label={<T id="inventory-item-form.item-form-fields.priced">Priced</T>}>
                   <select
                     value={fields.priceBasis}
                     onChange={(e) => set("priceBasis")(e.target.value)}
@@ -729,10 +730,10 @@ function ItemFormFields({
                 </FormField>
               </div>
             )}
-            <h3 className="form-subheading">Per-person add-ons</h3>
+            <h3 className="form-subheading"><T id="inventory-item-form.item-form-fields.per-person-add-ons">Per-person add-ons</T></h3>
             {addons.map((addon, index) => (
               <div className="form-grid" key={index}>
-                <FormField label={`Add-on ${index + 1} name`}>
+                <FormField label={<T id="inventory-item-form.item-form-fields.add-on-name" values={{ value: index + 1 }}>{"Add-on {value} name"}</T>}>
                   <input
                     value={addon.name}
                     onChange={(e) =>
@@ -744,7 +745,7 @@ function ItemFormFields({
                     }
                   />
                 </FormField>
-                <FormField label={`Add-on ${index + 1} price ($ per guest)`}>
+                <FormField label={<T id="inventory-item-form.item-form-fields.add-on-price-per-guest" values={{ value: index + 1 }}>{"Add-on {value} price ($ per guest)"}</T>}>
                   <input
                     type="number"
                     step="0.01"
@@ -773,7 +774,7 @@ function ItemFormFields({
                     setAddons(addons.filter((_, i) => i !== index))
                   }
                 >
-                  Remove add-on {index + 1}
+                  <T id="inventory-item-form.item-form-fields.remove-add-on" values={{ value: index + 1 }}>{"Remove add-on {value}"}</T>
                 </Button>
               </div>
             ))}
@@ -784,7 +785,7 @@ function ItemFormFields({
                 setAddons([...addons, { name: "", priceCents: 0 }])
               }
             >
-              Add per-person add-on
+              <T id="inventory-item-form.item-form-fields.add-per-person-add-on">Add per-person add-on</T>
             </Button>
           </>
         )}
@@ -798,48 +799,48 @@ function ItemFormFields({
         )}
         {kind === "consumable" && (
           <>
-            <h3 className="form-subheading">Purchasing and units</h3>
+            <h3 className="form-subheading"><T id="inventory-item-form.item-form-fields.purchasing-and-units">Purchasing and units</T></h3>
             <div className="form-grid">
               <UnitSelect
-                label="Purchase unit"
+                label={<T id="inventory-item-form.item-form-fields.purchase-unit">Purchase unit</T>}
                 value={fields.purchaseUnit}
                 onChange={set("purchaseUnit")}
               />
               {fields.purchaseUnit === "case" && (
-                <FormField label="Items per case">
+                <FormField label={<T id="inventory-item-form.item-form-fields.items-per-case">Items per case</T>}>
                   {input("packCount", { type: "number" })}
                 </FormField>
               )}
               <FormField
-                label="One each is about"
-                hint="e.g. 750 ml a bottle, or 8 oz a chicken breast"
+                label={<T id="inventory-item-form.item-form-fields.one-each-is-about">One each is about</T>}
+                hint={<T id="inventory-item-form.item-form-fields.e-g-750-ml-a">e.g. 750 ml a bottle, or 8 oz a chicken breast</T>}
               >
                 {input("eachSizeQuantity", { type: "number" })}
               </FormField>
               <UnitSelect
-                label="Each size unit"
+                label={<T id="inventory-item-form.item-form-fields.each-size-unit">Each size unit</T>}
                 value={fields.eachSizeUnit}
                 onChange={set("eachSizeUnit")}
                 optional="Not set"
               />
               <UnitSelect
-                label="Recipe unit"
+                label={<T id="inventory-item-form.item-form-fields.recipe-unit">Recipe unit</T>}
                 value={fields.recipeUnit}
                 onChange={set("recipeUnit")}
                 optional="Not set"
               />
               {costHidden ? (
                 <p className="muted">
-                  Costs are visible to full-time staff only.
+                  <T id="inventory-item-form.item-form-fields.costs-are-visible-to-full">Costs are visible to full-time staff only.</T>
                 </p>
               ) : (
                 <FormField
-                  label={`Unit cost ($ per ${unitLabel(fields.purchaseUnit as Unit)})`}
+                  label={<T id="inventory-item-form.item-form-fields.unit-cost-per" values={{ unitLabel: unitLabel(fields.purchaseUnit as Unit) }}>{"Unit cost ($ per {unitLabel})"}</T>}
                 >
                   {input("unitCost", { type: "number" })}
                 </FormField>
               )}
-              <FormField label="Vendor directory">
+              <FormField label={<T id="inventory-item-form.item-form-fields.vendor-directory">Vendor directory</T>}>
                 <select
                   value={fields.preferredVendorId}
                   onChange={(e) => set("preferredVendorId")(e.target.value)}
@@ -853,16 +854,16 @@ function ItemFormFields({
                 </select>
               </FormField>
               {!fields.preferredVendorId && (
-                <FormField label={isBar ? "Distributor" : "Preferred vendor"}>
+                <FormField label={isBar ? <T id="inventory-item-form.item-form-fields.distributor">Distributor</T> : <T id="inventory-item-form.item-form-fields.preferred-vendor">Preferred vendor</T>}>
                   {input("preferredVendor")}
                 </FormField>
               )}
               <FormField
-                label={`Par level (${unitLabel(fields.unit as Unit)})`}
+                label={<T id="inventory-item-form.item-form-fields.par-level" values={{ unitLabel: unitLabel(fields.unit as Unit) }}>{"Par level ({unitLabel})"}</T>}
               >
                 {input("parLevel", { type: "number" })}
               </FormField>
-              <FormField label="Storage section">
+              <FormField label={<T id="inventory-item-form.item-form-fields.storage-section">Storage section</T>}>
                 <select
                   value={storageSectionId}
                   onChange={(e) => {
@@ -879,16 +880,15 @@ function ItemFormFields({
                 </select>
               </FormField>
               <FormField
-                label="Shelf order"
-                hint="Where it sits in the section; count mode follows this order"
+                label={<T id="inventory-item-form.item-form-fields.shelf-order">Shelf order</T>}
+                hint={<T id="inventory-item-form.item-form-fields.where-it-sits-in-the">Where it sits in the section; count mode follows this order</T>}
               >
                 {input("storageOrder", { type: "number" })}
               </FormField>
             </div>
             {conversionProblem && (
               <p role="status" className="error-message">
-                <AlertTriangle size={14} /> {conversionProblem} Add what one
-                each weighs or holds.
+                <AlertTriangle size={14} /><T id="inventory-item-form.item-form-fields.add-what-one-each-weighs" values={{ conversionProblem }}>{" {conversionProblem} Add what one each weighs or holds."}</T>
               </p>
             )}
           </>
@@ -898,14 +898,14 @@ function ItemFormFields({
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
           />
-          Active
+          <T id="inventory-item-form.item-form-fields.active">Active</T>
         </label>
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="inventory-item-form.item-form-fields.cancel">Cancel</T>
           </Button>
           <Button type="submit" disabled={saving}>
-            {kind !== "consumable" && !can("rentals.apply_directly") ? "Submit for approval" : "Save item"}
+            {kind !== "consumable" && !can("rentals.apply_directly") ? <T id="inventory-item-form.item-form-fields.submit-for-approval">Submit for approval</T> : <T id="inventory-item-form.item-form-fields.save-item">Save item</T>}
           </Button>
         </div>
       </form>
