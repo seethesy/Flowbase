@@ -203,7 +203,7 @@ it("warns about a matching client on convert and offers to link instead", async 
     within(dialog).getByRole("button", { name: "Link to Juniper & Co." }),
   );
   const picker = await within(dialog).findByLabelText("Existing client");
-  await vi.waitFor(() => expect(picker).toHaveValue(juniper.id));
+  await vi.waitFor(() => expect(picker).toHaveAttribute("data-value", juniper.id));
   await user.click(
     within(dialog).getByRole("button", { name: "Confirm Closing" }),
   );
