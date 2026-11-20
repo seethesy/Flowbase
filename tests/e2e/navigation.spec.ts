@@ -78,10 +78,11 @@ test("the right edge collapses and expands the sidebar, and it is remembered", a
   await expect(page.locator("aside.sidebar")).not.toHaveClass(/collapsed/);
 });
 
-test("breadcrumb segments link back up the path", async ({ page }) => {
+test("breadcrumb segments link back up the path", async ({ page, isMobile }) => {
   await page.goto("/#/approvals");
   const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumbs.getByRole("link")).toHaveText(["Workspace", "Dashboard"]);
+  // Phones hide the Workspace segment to save room.
+  await expect(crumbs.getByRole("link")).toHaveText(isMobile ? ["Dashboard"] : ["Workspace", "Dashboard"]);
   await crumbs.getByRole("link", { name: "Dashboard" }).click();
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.locator("header .global-search-trigger kbd")).toHaveCount(0);
