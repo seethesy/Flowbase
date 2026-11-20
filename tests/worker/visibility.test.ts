@@ -16,7 +16,7 @@ for (const role of roles)
     const privileged = ["admin", "technical", "sales_manager"].includes(role);
     // Role decides, not employment type (FLOW-249).
     const ft = role !== "part_time_staff";
-    const cost = ft || role === "kitchen_lead" || role === "kitchen_staff";
+    const cost = ft; // Every role but Part-time Staff, kitchen included.
     const expected = {
       client_contact: ft,
       venue_contact: ft,
