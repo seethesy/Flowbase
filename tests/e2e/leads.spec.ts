@@ -1,4 +1,5 @@
 import { test, expect } from "./auth-fixture";
+import { seedUsers } from "../../worker/db/seed";
 import { lead } from "./fixtures";
 import { seedLeads } from "./database";
 
@@ -32,15 +33,19 @@ test("bulk assigns selected unassigned leads", async ({ page }) => {
   await page.getByLabel("Select Maya Ortiz").check();
   await page.getByLabel("Select Noah Kim").check();
   await expect(page.getByText("2 selected")).toBeVisible();
-  await page.getByLabel("Assign selected to").selectOption("a0000000-0000-4000-8000-000000000004");
+  // Owners are active sales users (FLOW-250).
+  const owner = seedUsers.find((user) => user.role === "salesperson")!;
+  await page.getByLabel("Assign selected to").selectOption(owner.id);
   await page.getByRole("button", { name: "Assign selected" }).click();
   await expect(leadRow(page, "Maya Ortiz")).toHaveCount(0);
   await expect(leadRow(page, "Noah Kim")).toHaveCount(0);
 });
 
 test("edits lead details and requires a lost reason", async ({ page }) => {
-  await seedLeads([maya()]);
-  await page.goto(`/#/leads/${maya().id}`);
+  // Each fixture call takes a new id, so keep the seeded one.
+  const seeded = maya();
+  await seedLeads([seeded]);
+  await page.goto(`/#/leads/${seeded.id}`);
   await expect(page.getByRole("heading", { name: "Maya Ortiz", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("Phone").first().fill("2025550199");
@@ -88,7 +93,8 @@ test("logging a call with a follow-up shows it in the lead's log and creates a t
 }) => {
   await seedLeads([maya()]);
   await page.goto("/#/leads");
-  await leadRow(page, "Maya Ortiz").click();
+  // Rows select on click; the Open link opens the lead (FLOW-250).
+  await page.getByRole("link", { name: "Open Maya Ortiz" }).click();
   await expect(
     page.getByRole("heading", { name: "Maya Ortiz", level: 1 }),
   ).toBeVisible();

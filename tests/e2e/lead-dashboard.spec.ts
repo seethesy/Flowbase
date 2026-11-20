@@ -15,6 +15,8 @@ test("the lead dashboard shows real conversion, estimated value and response tim
       receivedAt,
       firstRespondedAt,
       status: "closing",
+      // Converted means the lead has a client (FLOW-250).
+      convertedClientId: juniper().id,
       convertedEventId: fallGala().id,
       budgetCents: 1_000_000,
       purchased: true,
@@ -23,6 +25,8 @@ test("the lead dashboard shows real conversion, estimated value and response tim
       receivedAt,
       firstRespondedAt,
       status: "closing",
+      // Converted means the lead has a client (FLOW-250).
+      convertedClientId: juniper().id,
       convertedEventId: fallGala().id,
     }),
     lead({ receivedAt }),
