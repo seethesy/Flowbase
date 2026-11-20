@@ -59,6 +59,7 @@ const expected: Record<Action, string> = {
   "approvals.read": "1111111",
   "approvals.write": "1111111",
   "settings.manage": "1000000",
+  "copy.edit": "1000000",
   "clients.read": "1111000",
   "clients.write": "1111000",
   "venues.write": "1111000",

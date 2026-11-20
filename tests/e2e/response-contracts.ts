@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { operationalReportSchema } from "../../shared/operational-reports";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
+import { copyOverridesSchema } from "../../shared/copy";
 import { authConfigSchema, userSchema } from "../../shared/users";
 import { recordSchemas } from "../../shared/records";
 import {
@@ -102,6 +103,8 @@ export function responseSchema(
   if (status >= 400) return apiErrorSchema;
   const [, , resource, id, action] = path.split("/");
   if (resource === "health") return healthSchema;
+  // Admin live text editing (FLOW-240): GET and PUT answer with every override.
+  if (resource === "copy") return copyOverridesSchema;
   if (resource === "home" && id === "my-shifts") return z.object({ count: z.number().int() });
   if (resource === "home" && id === "kitchen") return z.object({ menus: z.number().int(), openOrderLists: z.number().int() });
   if (resource === "home" && id === "kitchen-orders") return z.array(z.object({ id: z.string(), fromDate: z.string(), toDate: z.string(), status: z.string() }));

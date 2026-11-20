@@ -4,6 +4,7 @@ import { useDemo } from "../app/store";
 import { employees } from "../data/mock/fixtures";
 import type { Proposal } from "../types";
 import { today } from "../services/records";
+import { T } from "../app/copy";
 type FormKind = "proposal";
 export function RecordForm({
   kind,
@@ -71,19 +72,19 @@ export function RecordForm({
         }}
       >
         <p className="demo-callout">
-          Demo records are validated by the API. Changes reset on refresh.
+          <T id="forms.record-form.demo-records-are-validated-by">Demo records are validated by the API. Changes reset on refresh.</T>
         </p>
         {error && (
           <p role="alert" className="error-message">
             {error}
           </p>
         )}
-        <FormField label="Name *">
+        <FormField label={<T id="forms.record-form.name">Name *</T>}>
           <input name="name" defaultValue={value("name")} required autoFocus />
         </FormField>
         {kind === "proposal" && (
           <>
-            <FormField label="Client *">
+            <FormField label={<T id="forms.record-form.client">Client *</T>}>
               <select
                 name="clientId"
                 defaultValue={value("clientId", clientId ?? "")}
@@ -97,7 +98,7 @@ export function RecordForm({
                 ))}
               </select>
             </FormField>
-            <FormField label="Proposal value ($) *">
+            <FormField label={<T id="forms.record-form.proposal-value">Proposal value ($) *</T>}>
               <input
                 name="value"
                 type="number"
@@ -106,7 +107,7 @@ export function RecordForm({
                 required
               />
             </FormField>
-            <FormField label="Event date *">
+            <FormField label={<T id="forms.record-form.event-date">Event date *</T>}>
               <input
                 name="eventDate"
                 type="date"
@@ -117,7 +118,7 @@ export function RecordForm({
           </>
         )}
         {(
-          <FormField label="Account owner">
+          <FormField label={<T id="forms.record-form.account-owner">Account owner</T>}>
             <select
               name="owner"
               defaultValue={value("owner", employees[0].name)}
@@ -130,9 +131,9 @@ export function RecordForm({
         )}
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
-            Cancel
+            <T id="forms.record-form.cancel">Cancel</T>
           </Button>
-          <Button type="submit">Save {kind}</Button>
+          <Button type="submit"><T id="forms.record-form.save" values={{ kind }}>{"Save {kind}"}</T></Button>
         </div>
       </form>
     </DetailDrawer>

@@ -1,6 +1,8 @@
+import type { ReactNode } from "react";
 import { listOptions, type ListKey } from "../../shared/settings";
 import { useBusinessSettings } from "../services/settings";
 import { RoundCheck } from "../components/ui/round-check";
+import { T } from "../app/copy";
 
 // Form controls fed by the configurable lists (FLOW-45). Only active values can be
 // picked; a record's archived (or pre-list) value stays selected and is marked.
@@ -74,7 +76,7 @@ export function ListCheckboxes({
   list: ListKey;
   values: string[];
   onChange: (values: string[]) => void;
-  legend: string;
+  legend: ReactNode;
 }) {
   const settings = useBusinessSettings();
   return (
@@ -92,7 +94,7 @@ export function ListCheckboxes({
               )
             }
           />
-          {option.archived ? `${option.label} (archived)` : option.label}
+          {option.archived ? <T id="list-fields.list-checkboxes.archived" values={{ label: option.label }}>{"{label} (archived)"}</T> : option.label}
         </label>
       ))}
     </fieldset>

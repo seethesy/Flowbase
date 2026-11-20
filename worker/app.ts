@@ -32,6 +32,7 @@ import { searchRoutes } from "./routes/search";
 import { attachmentRoutes } from "./routes/attachments";
 import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
+import { copyRoutes } from "./routes/copy";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
@@ -299,6 +300,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/recipes", recipeRoutes(options));
   app.route("/api/search", searchRoutes(options));
   app.route("/api/settings", settingsRoutes(options));
+  app.route("/api/copy", copyRoutes(options));
   app.route("/api/staff", staffRoutes(options));
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/events", eventTimelineRoutes(options));
