@@ -129,10 +129,10 @@ it("refuses inventory writes to staff and section changes to non-admins", async 
       (await app.request("/api/inventory/items", post({}), env)).status,
     ).toBe(403);
   }
-  // Part-time general staff can't count or move anything.
+  // Part-time Staff (FLOW-249) can't count or move anything.
   const partTimeStaff = createApp({
     withDb,
-    resolveActor: async () => actor("staff", "part_time"),
+    resolveActor: async () => actor("part_time_staff"),
   });
   for (const path of [
     `/api/inventory/items/${id}/counts`,
@@ -171,10 +171,12 @@ it("lets managers and the kitchen lead manage inventory, and only Admin sections
     kitchen_lead: [true, false],
     kitchen_staff: [false, false],
     staff: [false, false],
+    part_time_staff: [false, false],
   });
 });
 
 it("lets the kitchen count ingredients and FT+ count bar stock and supplies (FLOW-82)", () => {
+  // Role decides, not employment type (FLOW-249): each pair is [full-time, part-time].
   const who = (item: { kind: string; subtype: string | null }) =>
     Object.fromEntries(
       roleSchema.options.map((role) => [
@@ -193,16 +195,18 @@ it("lets the kitchen count ingredients and FT+ count bar stock and supplies (FLO
     kitchen_lead: [true, true],
     kitchen_staff: [true, true],
     staff: [false, false],
+    part_time_staff: [false, false],
   });
   for (const subtype of ["bar", "supply"])
     expect(who({ kind: "consumable", subtype })).toEqual({
       admin: [true, true],
       technical: [true, true],
       sales_manager: [true, true],
-      salesperson: [true, false],
-      kitchen_lead: [true, false],
-      kitchen_staff: [true, false],
-      staff: [true, false],
+      salesperson: [true, true],
+      kitchen_lead: [true, true],
+      kitchen_staff: [true, true],
+      staff: [true, true],
+      part_time_staff: [false, false],
     });
   expect(
     Object.fromEntries(
@@ -218,7 +222,8 @@ it("lets the kitchen count ingredients and FT+ count bar stock and supplies (FLO
     salesperson: true,
     kitchen_lead: true,
     kitchen_staff: true,
-    staff: false,
+    staff: true,
+    part_time_staff: false,
   });
 });
 
@@ -243,7 +248,8 @@ it("lets Admin, sales, the kitchen and FT+ update rental stock", () => {
     salesperson: [true, true],
     kitchen_lead: [true, true],
     kitchen_staff: [true, true],
-    staff: [true, false],
+    staff: [true, true],
+    part_time_staff: [false, false],
   };
   const rental = { kind: "rental", subtype: "furniture" };
   expect(who(canCountItem, rental)).toEqual(rentalStock);
@@ -257,5 +263,6 @@ it("lets Admin, sales, the kitchen and FT+ update rental stock", () => {
     kitchen_lead: [true, true],
     kitchen_staff: [false, false],
     staff: [false, false],
+    part_time_staff: [false, false],
   });
 });

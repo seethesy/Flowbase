@@ -80,6 +80,7 @@ it("scopes leads by role", () => {
     kitchen_lead: ["none", false, false, false],
     kitchen_staff: ["none", false, false, false],
     staff: ["none", false, false, false],
+    part_time_staff: ["none", false, false, false],
   });
 });
 
@@ -132,12 +133,12 @@ it("requires a reason to mark a lead lost, before touching the database", async 
     expect(response.status).toBe(400);
     expect((await response.json()).error.message).toBe(lostReasonRequired);
   }
-  // Converted is reached only through convert.
+  // Statuses outside the shared pipeline (FLOW-251) are refused.
   expect(
     (
       await app.request(
         `/api/leads/${id}/status`,
-        post({ status: "closing" }),
+        post({ status: "converted" }),
         env,
       )
     ).status,
