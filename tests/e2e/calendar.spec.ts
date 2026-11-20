@@ -76,7 +76,8 @@ test("shows an event at its New York times in every view and opens its hub", asy
 test("the sidebar opens the calendar", async ({ page, isMobile }) => {
   await page.goto("/");
   if (isMobile) await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("link", { name: "Calendar", exact: true }).click();
+  // Events opens its first tab, Calendar (FLOW-246).
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Events", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Calendar", level: 1 })).toBeVisible();
   await expect(page.locator(".fc-dayGridMonth-view")).toBeVisible();
 });
