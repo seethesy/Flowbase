@@ -30,7 +30,7 @@ import {
   Section,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 // Lead dashboard (FLOW-113): which lead sources are worth paying for. Dollar
 // figures are estimates until proposals exist (FLOW-122): each closed lead counts at
@@ -96,7 +96,12 @@ const salespersonColumns: ColumnDef<SalespersonRow, unknown>[] = [
 ];
 type ChannelRow = LeadDashboard["byChannel"][number];
 const channelColumns: ColumnDef<ChannelRow, unknown>[] = [
-  { id: "channel", header: "Channel", accessorFn: (row) => leadChannelLabels[row.channel] },
+  {
+    id: "channel",
+    header: "Channel",
+    accessorFn: (row) => leadChannelLabels[row.channel],
+    cell: ({ row }) => <LabelT id="labels.lead-channel" value={row.original.channel}>{leadChannelLabels[row.original.channel]}</LabelT>,
+  },
   ...rowColumns<ChannelRow>(),
 ];
 
@@ -213,7 +218,7 @@ export function LeadDashboardPage() {
               <ul aria-label="Leads by status">
                 {data.byStatus.map((row) => (
                   <li key={row.status}>
-                    {leadStatusLabels[row.status]}: <strong>{row.leads}</strong>
+                    <LabelT id="labels.pipeline-status" value={row.status}>{leadStatusLabels[row.status]}</LabelT>: <strong>{row.leads}</strong>
                   </li>
                 ))}
               </ul>

@@ -42,7 +42,7 @@ import { sopsApi } from "../services/sops";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT, joined } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 
 // Task lists (FLOW-59/60/61): the dashboard at /tasks (my tasks by when they're
@@ -82,16 +82,16 @@ function TaskLine({
       <div>
         <Link to={`/tasks/${task.id}`}>{task.title}</Link>
         <small>
-          {[
-            taskTypeLabels[task.type],
-            taskStatusLabels[task.status],
-            task.dueAt ? `Due ${dateTimeLabel(task.dueAt)}` : "No due date",
-            names(task.assignees),
+          {joined([
+            <LabelT id="labels.task-type" value={task.type}>{taskTypeLabels[task.type]}</LabelT>,
+            <LabelT id="labels.task-status" value={task.status}>{taskStatusLabels[task.status]}</LabelT>,
+            task.dueAt
+              ? <T id="task-lists.task-line.due" values={{ date: dateTimeLabel(task.dueAt) }}>{"Due {date}"}</T>
+              : <T id="task-lists.task-line.no-due-date">No due date</T>,
+            task.assignees.length ? names(task.assignees) : <T id="task-lists.task-line.unassigned">Unassigned</T>,
             task.position,
             task.eventTitle,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          ])}
         </small>
       </div>
       {children && <div className="task-line-actions">{children}</div>}

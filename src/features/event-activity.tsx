@@ -5,7 +5,8 @@ import { LoadMore, usePagedList } from "../app/paging";
 import { LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { eventsApi } from "../services/core";
-import { T } from "../app/copy";
+import { LabelT, T } from "../app/copy";
+import type { ReactNode } from "react";
 import "./event-activity.css";
 
 // The event hub's history section (FLOW-166): the event's change history, for
@@ -54,14 +55,17 @@ const actionLabels: Record<HistoryEntry["action"], string> = {
 
 // A stored value as a person reads it. People and contacts are stored by id,
 // which means nothing on screen, so those only say that they changed.
-function shown(field: string, value: unknown): string {
+function shown(field: string, value: unknown): ReactNode {
   if (value === null || value === undefined || value === "") return "—";
-  if (field === "status" && typeof value === "string")
-    return eventStatusDetailLabels[value as EventStatus] ?? value;
-  if (Array.isArray(value)) return value.length ? value.map((v) => shown("", v)).join(", ") : "—";
+  if (field === "status" && typeof value === "string") {
+    const label = eventStatusDetailLabels[value as EventStatus];
+    return label ? <LabelT id="labels.pipeline-status" value={value}>{label}</LabelT> : value;
+  }
+  if (Array.isArray(value)) return value.length ? value.map((v) => (typeof v === "boolean" ? (v ? "Yes" : "No") : String(shown("", v)))).join(", ") : "—";
   if (typeof value === "object")
     return "name" in value ? String((value as { name: unknown }).name) : JSON.stringify(value);
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "boolean")
+    return value ? <T id="event-activity.event-history-section.yes">Yes</T> : <T id="event-activity.event-history-section.no">No</T>;
   return String(value);
 }
 const byId = (field: string) => field.endsWith("Id") || field.endsWith("Ids");
@@ -92,7 +96,7 @@ export function EventHistorySection({
             const changes = Object.entries(entry.changes);
             return (
               <li key={entry.id}>
-                <strong>{actionLabels[entry.action]}</strong>{" "}
+                <strong><LabelT id="event-activity.action" value={entry.action}>{actionLabels[entry.action]}</LabelT></strong>{" "}
                 <small>
                   {entry.actorName || (entry.actorId ? <T id="event-activity.event-history-section.someone">Someone</T> : <T id="event-activity.event-history-section.flowbase">Flowbase</T>)} ·{" "}
                   {stamp(entry.at)}
@@ -101,10 +105,10 @@ export function EventHistorySection({
                   <ul>
                     {changes.map(([field, change]) => (
                       <li key={field}>
-                        {fieldLabels[field] ?? field}
+                        {fieldLabels[field] ? <LabelT id="event-activity.field" value={field}>{fieldLabels[field]}</LabelT> : field}
                         {byId(field)
                           ? <T id="event-activity.event-history-section.changed">{" changed"}</T>
-                          : `: ${shown(field, change.before)} → ${shown(field, change.after)}`}
+                          : <>: {shown(field, change.before)} → {shown(field, change.after)}</>}
                       </li>
                     ))}
                   </ul>

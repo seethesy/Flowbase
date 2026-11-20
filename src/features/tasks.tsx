@@ -19,7 +19,7 @@ import { Attachments } from "./attachments";
 import { dateTimeLabel } from "./inventory-labels";
 import "./tasks.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 
 // One task (FLOW-58): where a task notification leads (FLOW-43). Anyone who can
 // see the task changes its status, claims it, works its checklist and comments.
@@ -133,7 +133,7 @@ export function TaskDetail() {
       <PageHeader
         eyebrow={<T id="tasks.task-detail.task">Task</T>}
         title={data.title}
-        subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: taskTypeLabels[data.type], taskPriorityLabels: taskPriorityLabels[data.priority] }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}
+        subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: <LabelT id="labels.task-type" value={data.type}>{taskTypeLabels[data.type]}</LabelT>, taskPriorityLabels: <LabelT id="labels.task-priority" value={data.priority}>{taskPriorityLabels[data.priority]}</LabelT> }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}
       />
       {error && (
         <p role="alert" className="error-message">

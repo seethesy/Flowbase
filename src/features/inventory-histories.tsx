@@ -13,7 +13,7 @@ import { Button, Section, LoadingSkeleton } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
 import { CorrectionForm } from "./inventory-stock-forms";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import "./inventory.css";
 
 // The item's stock ledger, newest first (FLOW-71).
@@ -67,7 +67,7 @@ export function MovementHistory({
                 <tr key={movement.id}>
                   <td>{dateTimeLabel(movement.createdAt)}</td>
                   <td>
-                    {movementTypeLabels[movement.type]}
+                    <LabelT id="labels.movement-type" value={movement.type}>{movementTypeLabels[movement.type]}</LabelT>
                     {movement.correctsId && (
                       <span className="badge neutral"><T id="inventory-histories.movement-history.correction">Correction</T></span>
                     )}
@@ -153,7 +153,7 @@ export function CostHistory({
                 <td>{dateTimeLabel(change.changedAt)}</td>
                 <td>{centsLabel(change.unitCostCents)}</td>
                 <td>{centsLabel(change.previousCents)}</td>
-                <td>{costSourceLabels[change.source]}</td>
+                <td><LabelT id="labels.cost-source" value={change.source}>{costSourceLabels[change.source]}</LabelT></td>
               </tr>
             ))}
           </tbody>

@@ -20,7 +20,7 @@ import {
 import { LoadError } from "../components/record-display";
 import "./inventory.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 // Sections (FLOW-70): Admin adds, renames and archives them.
 export function SectionList() {
@@ -109,7 +109,7 @@ export function SectionList() {
         <LoadingSkeleton />
       ) : (
         sectionKindSchema.options.map((group) => (
-          <Section title={sectionKindLabels[group]} key={group}>
+          <Section title={<LabelT id="labels.section-kind" value={group}>{sectionKindLabels[group]}</LabelT>} key={group}>
             <table className="stock-table">
               <tbody>
                 {sections.data

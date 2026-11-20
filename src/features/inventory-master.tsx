@@ -78,7 +78,8 @@ export function MasterInventory() {
       cell: ({ row }) => row.original.kind === "consumable" ? "" : edit(row.original, "priceCents") },
     { id: "ratio", header: "Ratio", accessorFn: (item) => item.ratio ? `${item.ratio.quantity} ${item.ratio.basis}` : "" },
     { accessorKey: "group", header: "Group", cell: ({ row }) => edit(row.original, "group") },
-    { id: "status", header: "Status", accessorFn: (item) => item.archivedAt ? "Archived" : pendingIds.has(item.id) ? "Pending" : item.active ? "Active" : "Inactive" },
+    { id: "status", header: "Status", accessorFn: (item) => item.archivedAt ? "Archived" : pendingIds.has(item.id) ? "Pending" : item.active ? "Active" : "Inactive",
+      cell: ({ row }) => row.original.archivedAt ? <T id="inventory-master.status.archived">Archived</T> : pendingIds.has(row.original.id) ? <T id="inventory-master.status.pending">Pending</T> : row.original.active ? <T id="inventory-master.status.active">Active</T> : <T id="inventory-master.status.inactive">Inactive</T> },
   ];
   const save = async () => {
     setError(""); setMessage("");

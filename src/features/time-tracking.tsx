@@ -27,7 +27,7 @@ import "./time-tracking.css";
 // Settings entry and the reports.
 
 import { trackingNoticeText } from "../components/TrackingNotice";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 // The time tracking section of the Settings screen.
 export function TimeTrackingSettings() {
@@ -125,6 +125,7 @@ export function TimeReports() {
       id: "activity",
       header: "Activity",
       accessorFn: (row) => activityLabels[row.activity],
+      cell: ({ row }) => <LabelT id="labels.time-activity" value={row.original.activity}>{activityLabels[row.original.activity]}</LabelT>,
     },
     {
       accessorKey: "seconds",

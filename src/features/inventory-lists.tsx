@@ -42,7 +42,7 @@ import {
 } from "./inventory-labels";
 import "./inventory.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT, joined } from "../app/copy";
 
 // Unit cost in a CSV file: dollars without formatting, blank when unknown.
 const costCsv = (item: InventoryItem) => {
@@ -123,6 +123,11 @@ export function InventoryList() {
         [kindLabels[item.kind], subtypeLabel(item.subtype)]
           .filter(Boolean)
           .join(" · "),
+      cell: ({ row }) =>
+        joined([
+          <LabelT id="labels.item-kind" value={row.original.kind}>{kindLabels[row.original.kind]}</LabelT>,
+          subtypeLabel(row.original.subtype),
+        ]),
     },
     { accessorKey: "category", header: "Category" },
     { id: "variant", header: "Group / variant", accessorFn: variantLabel },
@@ -504,6 +509,14 @@ export function BarList() {
         ]
           .filter(Boolean)
           .join(" ") || "—",
+      cell: ({ row }) => {
+        const item = row.original;
+        const size = item.consumable?.eachSize
+          ? `${Number(item.consumable.eachSize.quantity)} ${unitLabel(item.consumable.eachSize.unit)}`
+          : "";
+        if (!item.bar?.container) return size || "—";
+        return joined([<LabelT id="labels.bar-container" value={item.bar.container}>{barContainerLabels[item.bar.container]}</LabelT>, size], " ");
+      },
     },
     {
       id: "pack",
