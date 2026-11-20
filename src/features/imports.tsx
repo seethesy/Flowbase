@@ -26,6 +26,9 @@ import { T, LabelT } from "../app/copy";
 import "./inventory.css";
 import "./imports.css";
 
+// What the dry run will do with each row (FLOW-257: editable under imports.dry-run-report.action).
+const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "Updates", create: "Creates" };
+
 // Data import (FLOW-47): choose a CSV or XLSX file, map its columns, check the
 // rows (dry run), then import them in batches of 100. The browser parses the file
 // (ADR-09); the API checks and writes. Each module importer (inventory, recipes,
@@ -361,7 +364,7 @@ function DryRunReport({
             column="What the importer will do"
             rows={described.map((plan) => [
               plan.rowNumber,
-              <><LabelT id="imports.dry-run-report.action" value={plan.action}>{plan.action === "skip" ? "Unchanged" : plan.action === "update" ? "Updates" : "Creates"}</LabelT>: {plan.summary}</>,
+              <><LabelT id="imports.dry-run-report.action" value={plan.action}>{planActionLabels[plan.action]}</LabelT>: {plan.summary}</>,
             ])}
           />
         </>
