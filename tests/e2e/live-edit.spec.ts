@@ -37,12 +37,12 @@ test("saves a sidebar label and an empty state for everyone (AC2, AC8)", async (
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
 
   // Another user sees the new wording, as plain text (AC7), and no pencil (AC1).
-  // A new context has the desktop viewport, so its sidebar shows.
+  // The new context takes the project's viewport, so phones open the drawer.
   const context = await browser.newContext();
   const other = await context.newPage();
   await mockBrowserAuth(other, { userId: salesperson.id });
   await other.goto("/#/venues");
-  await expect(sidebar(other).getByText("Selling", { exact: true })).toBeVisible();
+  await expect((await openNav(other, isMobile)).getByText("Selling", { exact: true })).toBeVisible();
   await expect(other.getByText("<b>Nothing here yet</b>")).toBeVisible();
   await expect(other.getByRole("button", { name: "Edit screen text" })).toHaveCount(0);
   await context.close();
