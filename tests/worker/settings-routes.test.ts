@@ -169,6 +169,7 @@ const member: StaffMember = {
   id: userId,
   name: "Sam Server",
   email: "sam@gmail.com",
+  secondaryEmail: null,
   mobile: "2025550123",
   role: "staff",
   status: "active",
