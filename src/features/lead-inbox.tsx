@@ -1,5 +1,5 @@
 import { Allowed } from "../app/permissions";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -34,18 +34,24 @@ import {
   valueOf,
 } from "./lead-shared";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { emptyRichText } from "../components/rich-text/extensions";
 
-export const summaryLine = (lead: LeadSummary) =>
-  [
-    lead.source,
-    businessDate(lead.receivedAt),
-    leadStatusLabels[lead.status],
-    lead.assignedSalespersonId ?? "Unassigned",
-  ].join(" · ");
+// A lead's one-line summary, with its labels editable (FLOW-257).
+export function SummaryLine({ lead }: { lead: LeadSummary }) {
+  return (
+    <>
+      {[
+        lead.source,
+        businessDate(lead.receivedAt),
+        <LabelT id="labels.pipeline-status" value={lead.status}>{leadStatusLabels[lead.status]}</LabelT>,
+        lead.assignedSalespersonId ?? <T id="lead-inbox.summary-line.unassigned">Unassigned</T>,
+      ].map((part, index) => <Fragment key={index}>{index > 0 && " · "}{part}</Fragment>)}
+    </>
+  );
+}
 
 function InlineCell({ value, type = "text", label, onSave }: {
   value: string; type?: "text" | "email" | "datetime-local";

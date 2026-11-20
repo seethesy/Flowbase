@@ -44,7 +44,7 @@ import "./inventory.css";
 import { effectiveRatio } from "../../shared/inventory-requirements";
 import { useBusinessSettings } from "../services/settings";
 import { canSeeRentalCosts } from "../../shared/visibility";
-import { Plural, T } from "../app/copy";
+import { Plural, T, LabelT, joined } from "../app/copy";
 
 export function InventoryDetail() {
   const { id = "" } = useParams();
@@ -92,9 +92,7 @@ export function InventoryDetail() {
           <h1>{i.name}</h1>
           <p>
             <span className="badge neutral">
-              {[kindLabels[i.kind], subtypeLabel(i.subtype)]
-                .filter(Boolean)
-                .join(" · ")}
+              {joined([<LabelT id="labels.item-kind" value={i.kind}>{kindLabels[i.kind]}</LabelT>, subtypeLabel(i.subtype)])}
             </span>
             {i.code && <span className="sku">{i.code}</span>}
             {!i.active && <span className="badge error"><T id="inventory-detail.inventory-detail.inactive">Inactive</T></span>}
@@ -150,7 +148,7 @@ export function InventoryDetail() {
           <small><T id="inventory-detail.inventory-detail.ratio">Ratio</T></small>
           <p>
             {ratio
-              ? `${ratio.quantity} ${ratioBasisLabels[ratio.basis]}${!i.ratio ? " (category default)" : ""}`
+              ? <>{ratio.quantity} <LabelT id="labels.ratio-basis" value={ratio.basis}>{ratioBasisLabels[ratio.basis]}</LabelT>{!i.ratio && <T id="inventory-detail.inventory-detail.category-default">{" (category default)"}</T>}</>
               : "—"}
           </p>
           {i.rental && (
@@ -211,7 +209,7 @@ export function InventoryDetail() {
               <p>
                 {i.service.pricedByQuote
                   ? <T id="inventory-detail.inventory-detail.priced-by-quote">Priced by quote</T>
-                  : `${centsLabel(i.service.priceCents)} ${ratioBasisLabels[i.service.priceBasis]}`}
+                  : <>{centsLabel(i.service.priceCents)} <LabelT id="labels.ratio-basis" value={i.service.priceBasis}>{ratioBasisLabels[i.service.priceBasis]}</LabelT></>}
               </p>
               {i.service.addons.map((addon, index) => (
                 <p key={index}>
@@ -245,7 +243,7 @@ export function InventoryDetail() {
                 <p>{i.bar.subcategory || "—"}</p>
                 <small><T id="inventory-detail.inventory-detail.container">Container</T></small>
                 <p>
-                  {i.bar.container ? barContainerLabels[i.bar.container] : "—"}
+                  {i.bar.container ? <LabelT id="labels.bar-container" value={i.bar.container}>{barContainerLabels[i.bar.container]}</LabelT> : "—"}
                 </p>
                 <small><T id="inventory-detail.inventory-detail.house-pick-for-its-tier">House pick for its tier</T></small>
                 <p>{i.bar.housePick ? <T id="inventory-detail.inventory-detail.yes">Yes</T> : <T id="inventory-detail.inventory-detail.no">No</T>}</p>
@@ -445,7 +443,7 @@ function IncludedItems({ item }: { item: InventoryItem }) {
               </Link>
               : {line.quantity}
               {"basis" in line
-                ? ` ${ratioBasisLabels[line.basis as "per_guest" | "per_event"]}`
+                ? <> <LabelT id="labels.ratio-basis" value={line.basis}>{ratioBasisLabels[line.basis as "per_guest" | "per_event"]}</LabelT></>
                 : <T id="inventory-detail.included-items.per-kit">{" per kit"}</T>}
             </li>
           ))}

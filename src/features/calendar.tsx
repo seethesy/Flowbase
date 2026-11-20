@@ -24,7 +24,7 @@ import { CalendarDetail } from "./calendar-detail";
 import { toCalendarEntries } from "./calendar-entries";
 import "./calendar.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import { StatusPill } from "../components/ui/status-pill";
 import { eventStatusSchema } from "../../shared/core-records";
 
@@ -191,7 +191,7 @@ export function CalendarPage() {
               checked={layers.has(layer)}
               onChange={(e) => toggle(layer, e.target.checked)}
             />
-            {calendarLayerLabels[layer]}
+            <LabelT id="labels.calendar-layer" value={layer}>{calendarLayerLabels[layer]}</LabelT>
           </label>
         ))}
       </fieldset>

@@ -5,7 +5,7 @@ import type { Role } from "../../shared/access";
 import type { TaskSummary } from "../../shared/tasks";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
-import { PageHeader, LoadingSkeleton } from "../components/shared";
+import { PageHeader, LoadingSkeleton, RoleText } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { RoundCheck } from "../components/ui/round-check";
 import { StatusPill } from "../components/ui/status-pill";
@@ -48,7 +48,7 @@ export function Dashboard() {
   const data: HomeDashboard | undefined = dashboard.data;
   const all = data?.allTasks?.filter((row) => !selectedRole || row.assigneeRoles.includes(selectedRole as Role)) ?? [];
   return <>
-    <PageHeader title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? roleLabel(role) : ""} />
+    <PageHeader title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? <RoleText role={role} /> : ""} />
     {error && <p role="alert">{error}</p>}
     {dashboard.error ? <LoadError message={dashboard.error} /> : !data ? <LoadingSkeleton /> :
       <div className={`dashboard-cards ${data.myLeads === null ? "dashboard-cards--no-leads" : ""} ${data.allTasks === null ? "dashboard-cards--no-all" : ""}`}>

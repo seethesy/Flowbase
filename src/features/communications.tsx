@@ -9,7 +9,7 @@ import { communicationsApi, type CommunicationTarget } from "../services/communi
 import { LoadMore, usePagedList } from "../app/paging";
 import { Button, FormField, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import "./leads.css";
 
 const when = (iso: string) =>
@@ -119,7 +119,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
             {entries.data.map((entry) => (
               <li key={entry.id}>
                 <p>
-                  <strong>{communicationKindLabels[entry.kind]}</strong>{" "}
+                  <strong><LabelT id="labels.communication-kind" value={entry.kind}>{communicationKindLabels[entry.kind]}</LabelT></strong>{" "}
                   <small>
                     {when(entry.occurredAt)}
                     {entry.loggedByName ? ` · ${entry.loggedByName}` : ""}

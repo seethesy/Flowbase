@@ -23,7 +23,7 @@ import { planningApi } from "../services/planning";
 import { preparationApi } from "../services/preparation";
 import { rentalRequestStatuses, rentalRequestText, type RentalRequest } from "../../shared/rental-requests";
 import { date } from "./event-format";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 import "./event-planning.css";
 
 // What the event needs from the warehouse and the pantry (FLOW-76/77/85): the
@@ -488,7 +488,7 @@ function HoldRow({
     <li className="planning-row">
       <strong>{hold.itemName}</strong>
       <span className="muted">
-        {holdStatusLabels[hold.status]} · {date(hold.windowStart)}–{date(hold.windowEnd)}
+        <LabelT id="labels.hold-status" value={hold.status}>{holdStatusLabels[hold.status]}</LabelT> · {date(hold.windowStart)}–{date(hold.windowEnd)}
       </span>
       {hold.issue && (
         <span className={`planning-badge ${hold.issue}`}>

@@ -23,7 +23,7 @@ import {
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT, joined } from "../app/copy";
 import "./stock-counts.css";
 
 // Count mode (FLOW-82): count a storage section on a phone, item by item in shelf
@@ -164,9 +164,11 @@ function CountLineRow({
       <div className="count-line-heading">
         <strong>{line.name}</strong>
         <small>
-          {[subtypeLabels[line.subtype ?? ""], line.category, line.code]
-            .filter(Boolean)
-            .join(" · ")}
+          {joined([
+            subtypeLabels[line.subtype ?? ""] && <LabelT id="labels.item-subtype" value={line.subtype ?? ""}>{subtypeLabels[line.subtype ?? ""]}</LabelT>,
+            line.category,
+            line.code,
+          ])}
         </small>
         <small>
           <T id="stock-counts.count-line-row.in-system" values={{ quantityLabel: quantityLabel(line.systemQuantity, line.unit) }}>{"In system: {quantityLabel}"}</T>
@@ -326,6 +328,10 @@ export function LowStockList() {
       id: "subtype",
       header: "Type",
       accessorFn: (item) => subtypeLabels[item.subtype ?? ""] ?? "",
+      cell: ({ row }) => {
+        const label = subtypeLabels[row.original.subtype ?? ""];
+        return label ? <LabelT id="labels.item-subtype" value={row.original.subtype ?? ""}>{label}</LabelT> : "";
+      },
     },
     {
       id: "onHand",

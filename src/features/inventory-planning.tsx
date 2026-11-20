@@ -10,7 +10,7 @@ import { LoadingSkeleton, Section } from "../components/shared";
 import { planningApi } from "../services/planning";
 import { date } from "./event-format";
 import { quantityLabel } from "./inventory-labels";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import "./event-planning.css";
 
 // What an item is committed to (FLOW-76, FLOW-77, FLOW-85), on the item page: a
@@ -90,7 +90,7 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
                     hiddenEvent
                   )}
                   <span className="muted">
-                    {holdStatusLabels[hold.status]} · {date(hold.windowStart)}–{date(hold.windowEnd)}
+                    <LabelT id="labels.hold-status" value={hold.status}>{holdStatusLabels[hold.status]}</LabelT> · {date(hold.windowStart)}–{date(hold.windowEnd)}
                   </span>
                   {hold.issue && (
                     <span className={`planning-badge ${hold.issue}`}>
@@ -126,7 +126,7 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
                 <span>
                   <T id="inventory-planning.rental-planning.short-of" values={{ number: number(conflict.shortfall), number2: number(conflict.allocated), number3: number(conflict.quantity) }}>{"{number} short ({number2} of {number3})"}</T>
                 </span>
-                {conflict.state !== "open" && <span className="muted">{conflictStateLabels[conflict.state]}</span>}
+                {conflict.state !== "open" && <span className="muted"><LabelT id="labels.conflict-state" value={conflict.state}>{conflictStateLabels[conflict.state]}</LabelT></span>}
               </li>
             ))}
             {!conflicts.data.length && <li className="muted"><T id="inventory-planning.rental-planning.no-open-conflicts">No open conflicts.</T></li>}

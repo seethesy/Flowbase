@@ -10,7 +10,7 @@ import {
 import { roleSchema } from "../../shared/access";
 import { useResource } from "../app/useResource";
 import { request } from "../services/core";
-import { Button, PageHeader, Section } from "../components/shared";
+import { Button, PageHeader, RoleText, Section } from "../components/shared";
 
 import { roleLabel } from "../services/users";
 import { T } from "../app/copy";
@@ -151,10 +151,10 @@ function UserList() {
                 )}
               </strong>
               <p>
-                {user.email} · {roleLabel(user.role)}
+                {user.email} · <RoleText role={user.role} />
               </p>
               <p>
-                {user.mobile} · {roleLabel(user.status)}
+                {user.mobile} · <RoleText role={user.status} id="labels.user-status" />
               </p>
             </div>
             <div>

@@ -7,7 +7,7 @@ import {
 } from "../../shared/search";
 import { searchApi } from "../services/search";
 import { EmptyState, LoadingSkeleton, SearchInput } from "../components/shared";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 import "./search.css";
 
 // Waits for typing to pause before asking the API.
@@ -73,7 +73,7 @@ export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
             <div>
               <strong>{result.title}</strong>
               <small>
-                {searchResultTypeLabels[result.type]}
+                <LabelT id="labels.search-result-type" value={result.type}>{searchResultTypeLabels[result.type]}</LabelT>
                 {result.subtitle && ` · ${result.subtitle}`}
               </small>
             </div>
