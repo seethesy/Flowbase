@@ -1,4 +1,4 @@
-import { choose } from "./dropdown";
+import { choose, optionTexts } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { consumable, defaultSections } from "./fixtures";
 import { seedInventory } from "./database";
@@ -70,9 +70,9 @@ test("filters the bar screen by category, subcategory, tier and distributor", as
   await expect(shown("House Pinot Grigio")).toBeVisible();
   await expect(page.getByText("1 bar items", { exact: true })).toBeVisible();
   // Wine offers only its own subcategories.
-  await expect(
-    page.getByLabel("Subcategory", { exact: true }).getByRole("option"),
-  ).toHaveText(["All subcategories", "White", "Red"]);
+  await expect
+    .poll(() => optionTexts(page.getByLabel("Subcategory", { exact: true })))
+    .toEqual(["All subcategories", "White", "Red"]);
   await choose(page.getByLabel("Subcategory", { exact: true }), "White");
   await expect(shown("House Pinot Grigio")).toBeVisible();
 
