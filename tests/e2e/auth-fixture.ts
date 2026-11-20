@@ -9,6 +9,7 @@ import { responseSchema } from "./response-contracts";
 
 export const signedInUser = userSchema.parse({
   ...seedUsers[0],
+  secondaryEmail: null,
   name: "Test Admin",
   invitedAt: "2026-10-20T00:00:00.000Z",
   activatedAt: "2026-10-20T00:00:00.000Z",
