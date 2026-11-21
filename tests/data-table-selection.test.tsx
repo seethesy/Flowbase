@@ -96,6 +96,8 @@ it("deletes the selection, skips blocked rows with their reason, and Undo or Ctr
   expect(toast).toHaveTextContent("1 skipped: Bravo has a signed contract");
   expect(screen.queryByRole("cell", { name: "Alpha" })).not.toBeInTheDocument();
   expect(screen.getByRole("cell", { name: "Bravo" })).toBeInTheDocument();
+  // Focus is back on the table, so the keyboard keeps working.
+  expect(row("Bravo").closest(".table-card")).toHaveFocus();
 
   await user.keyboard("{Control>}z{/Control}");
   expect(onRestore).toHaveBeenCalledWith(["r0", "r2"]);

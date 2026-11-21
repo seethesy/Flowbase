@@ -80,10 +80,14 @@ export function useTableSelection(options: SelectionOptions | undefined, ids: st
       }
       setError("");
       setBusy(true);
+      // The bulk bar (and its Delete button) goes away: focus returns to the
+      // table, so Delete and Ctrl/Cmd+Z keep working from the keyboard.
+      const table = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>(".table-card");
       try {
         const result = await options.onDelete(targets);
         dispatch({ type: "clear" });
         setToast({ ids: result.deleted, skipped: result.skipped });
+        table?.focus();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
