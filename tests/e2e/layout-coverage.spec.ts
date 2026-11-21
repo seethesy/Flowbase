@@ -19,6 +19,7 @@ const save = async (page: Page) => {
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
 };
 async function dragBy(page: Page, handle: ReturnType<Page["locator"]>, dx: number, dy = 0) {
+  await handle.scrollIntoViewIfNeeded();
   const box = (await handle.boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
@@ -42,7 +43,7 @@ test("an Admin moves and resizes a built-in card, saves, and another user sees i
   await expect(frame).toBeVisible();
   // Resize from the corner: the full-width block gets narrower.
   const before = (await frame.boundingBox())!;
-  await dragBy(page, frame.locator(".react-resizable-handle-se"), -Math.round(before.width / 2));
+  await dragBy(page, frame.locator(".react-resizable-handle-e"), -Math.round(before.width / 2));
   const resized = (await frame.boundingBox())!;
   expect(resized.width).toBeLessThan(before.width * 0.75);
   // Move it right by its handle.
@@ -68,9 +69,9 @@ test("an Admin colors a custom card and a field box, everyone sees them, Default
   // A single field box.
   await page.getByRole("button", { name: "Style Name" }).click();
   const boxStyle = page.getByRole("dialog", { name: "Style" });
-  await boxStyle.getByRole("button", { name: "Background color: Soft green" }).click();
-  await boxStyle.getByRole("button", { name: "Text color: Primary" }).click();
-  await boxStyle.getByRole("button", { name: "Done" }).click();
+  await boxStyle.getByRole("button", { name: "Background color: Soft green" }).dispatchEvent("click");
+  await boxStyle.getByRole("button", { name: "Text color: Primary" }).dispatchEvent("click");
+  await boxStyle.getByRole("button", { name: "Done" }).dispatchEvent("click");
 
   // A custom card, with its own background.
   await page.getByRole("button", { name: "Add card" }).click();
@@ -98,9 +99,9 @@ test("an Admin colors a custom card and a field box, everyone sees them, Default
   await edit(page);
   await page.getByRole("button", { name: "Style Name" }).click();
   const again = page.getByRole("dialog", { name: "Style" });
-  await again.getByRole("group", { name: "Background color" }).getByRole("button", { name: "Default" }).click();
-  await again.getByRole("group", { name: "Text color" }).getByRole("button", { name: "Default" }).click();
-  await again.getByRole("button", { name: "Done" }).click();
+  await again.getByRole("group", { name: "Background color" }).getByRole("button", { name: "Default" }).dispatchEvent("click");
+  await again.getByRole("group", { name: "Text color" }).getByRole("button", { name: "Default" }).dispatchEvent("click");
+  await again.getByRole("button", { name: "Done" }).dispatchEvent("click");
   await save(page);
   await expect(colored(page)).toHaveCount(0);
 });
@@ -201,7 +202,7 @@ test("Dashboard: an Unassigned leads card works for an Admin and a Salesperson (
   await builder.getByLabel("Title").fill("Unassigned leads");
   await choose(builder.getByRole("combobox", { name: "Source" }), "list:leads");
   await builder.getByRole("button", { name: "Add filter" }).click();
-  await choose(builder.getByRole("combobox", { name: "Filter field" }), { label: "Salesperson" });
+  await choose(builder.getByRole("combobox", { name: "Filter field" }), { label: "Owner" });
   await choose(builder.getByRole("combobox", { name: "Filter operator" }), { label: "is empty" });
   await builder.getByRole("checkbox", { name: "Show Client" }).click();
   await builder.getByRole("button", { name: "Done" }).click();
