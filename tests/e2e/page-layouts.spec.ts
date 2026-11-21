@@ -1,5 +1,6 @@
 import { test, expect, mockBrowserAuth } from "./auth-fixture";
 import { seedUsers } from "../../worker/db/seed";
+import { choose } from "./dropdown";
 
 // Page layouts (FLOW-253/254), against the real Worker and database: an Admin
 // hides a column, adds a text block and colors it, saves for everyone, and
@@ -22,7 +23,7 @@ test("saves columns and a text block for everyone, then resets the page", async 
   await expect(page.getByRole("columnheader", { name: /Address/ })).toHaveCount(0);
 
   // A heading block, colored; a low-contrast pair blocks Save (FLOW-253 AC).
-  await toolbar.getByRole("combobox", { name: "Add text" }).selectOption("heading");
+  await choose(toolbar.getByRole("combobox", { name: "Add text" }), "heading");
   await page.getByRole("textbox", { name: "Heading text" }).fill("Partner venues");
   await page.getByRole("button", { name: "Style Heading" }).click();
   const style = page.getByRole("dialog", { name: "Style" });
