@@ -24,8 +24,29 @@ import { tasksApi } from "../services/tasks";
 import { allPages, inventoryApi } from "../services/core";
 import { sopsApi } from "../services/sops";
 import { ListSelect } from "./list-fields";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT, joined } from "../app/copy";
 import "./tasks.css";
+
+// offsetLabel's wording, editable live (FLOW-257). The clock part stays as
+// offsetLabel formats it.
+function OffsetText({ offsetDays, time }: { offsetDays: number; time: string | null }) {
+  const days = Math.abs(offsetDays);
+  const day =
+    offsetDays === 0 ? (
+      <T id="task-templates.offset.event-day">Event day</T>
+    ) : offsetDays === -1 ? (
+      <T id="task-templates.offset.day-before">Day before</T>
+    ) : offsetDays === 1 ? (
+      <T id="task-templates.offset.day-after">Day after</T>
+    ) : offsetDays < 0 ? (
+      <T id="task-templates.offset.days-before" values={{ days }}>{"T-{days} days"}</T>
+    ) : (
+      <T id="task-templates.offset.days-after" values={{ days }}>{"T+{days} days"}</T>
+    );
+  if (!time) return day;
+  const clock = offsetLabel({ offsetDays: 0, time }).replace(/^Event day /, "");
+  return <>{day} {clock}</>;
+}
 
 // Task templates (FLOW-62) at /tasks/templates: named sets of tasks due relative
 // to an event, applied from the event hub's Tasks section. Managers edit them
@@ -226,7 +247,7 @@ function TemplateEditor({
                 />
               </FormField>
               <p className="template-offset">
-                {offsetLabel({ offsetDays: offsetOf(item), time: item.time || null })}
+                <OffsetText offsetDays={offsetOf(item)} time={item.time || null} />
               </p>
               {items.length > 1 && (
                 <Button
@@ -328,9 +349,7 @@ export function TaskTemplates() {
                   <div>
                     <strong>{item.title}</strong>
                     <small>
-                      {[offsetLabel(item), taskTypeLabels[item.type], item.position]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {joined([<OffsetText offsetDays={item.offsetDays} time={item.time} />, <LabelT id="labels.task-type" value={item.type}>{taskTypeLabels[item.type]}</LabelT>, item.position])}
                     </small>
                   </div>
                 </li>

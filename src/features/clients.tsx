@@ -45,7 +45,7 @@ import "./clients.css";
 
 import { initials, hidden, LoadError } from "../components/record-display";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 
 const primaryContact = (client: Client) =>
   client.contacts.find((contact) => contact.role === "primary_poc") ??
@@ -88,6 +88,8 @@ export function ClientList() {
       header: "Type",
       accessorFn: (client) =>
         client.kind === "person" ? "Person" : "Organization",
+      cell: ({ row }) =>
+        row.original.kind === "person" ? <T id="clients.client-list.person">Person</T> : <T id="clients.client-list.organization">Organization</T>,
     },
     {
       id: "contact",
@@ -597,7 +599,7 @@ export function ClientDetail() {
                   <div>
                     <strong>{contact.name}</strong>
                     <small>
-                      {contactRoleLabels[contact.role]} ·{" "}
+                      <LabelT id="labels.contact-role" value={contact.role}>{contactRoleLabels[contact.role]}</LabelT> ·{" "}
                       {hidden(contact.email)} · {hidden(contact.phone)}
                     </small>
                   </div>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
-import { T } from "../app/copy";
+import { LabelT, T } from "../app/copy";
 import { Button, EmptyState, LoadingSkeleton, PageHeader, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { deletableLabels } from "../../shared/deletions";
@@ -48,7 +48,7 @@ export function ArchivedPage() {
             <tbody>{deleted.data.map((row) => (
               <tr key={row.id}>
                 <td>{row.name || "—"}</td>
-                <td>{deletableLabels[row.entityType]}</td>
+                <td><LabelT id="labels.deletable-entity" value={row.entityType}>{deletableLabels[row.entityType]}</LabelT></td>
                 <td>{deletedOn(row.deletedAt)}</td>
                 <td>{row.deletedBy?.name || "—"}</td>
                 <td>

@@ -36,7 +36,8 @@ import {
   toCsv,
   type CsvValue,
 } from "../../services/csv";
-import { Plural, T, useCopy } from "../../app/copy";
+import { LabelT, Plural, T, useCopy } from "../../app/copy";
+import { roleLabel } from "../../services/users";
 import { copySlug } from "../../../shared/copy";
 export { Button };
 
@@ -577,6 +578,11 @@ export function FileList() {
     </div>
   );
 }
+// A role (or user status) as screens show it, editable live (FLOW-257).
+export function RoleText({ role, id = "labels.role" }: { role: string; id?: string }) {
+  return <LabelT id={id} value={role}>{roleLabel(role)}</LabelT>;
+}
+
 export function Section({
   title,
   children,

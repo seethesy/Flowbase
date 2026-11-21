@@ -30,7 +30,7 @@ import { uploadAttachment } from "../services/attachments";
 import { ProposalReview } from "./proposal-review";
 import "./event-proposals.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 // The event's proposals (FLOW-122) on the event hub: each one's stage, salesperson
 // and current version, and a drawer to move its stage, upload a new version
@@ -45,6 +45,12 @@ const stamp = (value: string) =>
     timeStyle: "short",
   });
 const kilobytes = (size: number) => `${Math.max(1, Math.round(size / 1024))} KB`;
+
+// A stage in the history: its label when known, else the stored value (record data).
+function StageText({ stage }: { stage: string }) {
+  const label = proposalStageLabels[stage as ProposalStage];
+  return label ? <LabelT id="labels.proposal-stage" value={stage}>{label}</LabelT> : <>{stage}</>;
+}
 
 export function EventProposalsSection({
   event,
@@ -347,7 +353,7 @@ function ProposalDrawer({
               <div className="info-grid">
                 <div>
                   <small><T id="event-proposals.proposal-drawer.stage">Stage</T></small>
-                  <strong>{proposalStageLabels[p.stage]}</strong>
+                  <strong><LabelT id="labels.proposal-stage" value={p.stage}>{proposalStageLabels[p.stage]}</LabelT></strong>
                 </div>
                 <div>
                   <small><T id="event-proposals.proposal-drawer.salesperson">Salesperson</T></small>
@@ -550,8 +556,8 @@ function ProposalDrawer({
                   <li key={change.id}>
                     <strong>
                       {change.from
-                        ? `${proposalStageLabels[change.from as ProposalStage] ?? change.from} → ${proposalStageLabels[change.to as ProposalStage] ?? change.to}`
-                        : <T id="event-proposals.proposal-drawer.created-in" values={{ proposalStageLabels: proposalStageLabels[change.to as ProposalStage] ?? change.to }}>{"Created in {proposalStageLabels}"}</T>}
+                        ? <><StageText stage={change.from} /> → <StageText stage={change.to} /></>
+                        : <T id="event-proposals.proposal-drawer.created-in" values={{ proposalStageLabels: <StageText stage={change.to} /> }}>{"Created in {proposalStageLabels}"}</T>}
                     </strong>
                     <small>
                       {change.actor?.name || <T id="event-proposals.proposal-drawer.system">System</T>} · {stamp(change.at)}

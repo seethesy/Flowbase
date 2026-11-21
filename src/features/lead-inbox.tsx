@@ -1,7 +1,7 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
-import { useEffect, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useState, type MouseEvent } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -35,16 +35,23 @@ import {
   leadTitle,
   valueOf,
 } from "./lead-shared";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
+import { copySlug } from "../../shared/copy";
 import type { JSONContent } from "@tiptap/core";
 
-export const summaryLine = (lead: LeadSummary) =>
-  [
-    lead.source,
-    businessDate(lead.receivedAt),
-    leadStatusLabels[lead.status],
-    lead.assignedSalespersonId ?? "Unassigned",
-  ].join(" · ");
+// A lead's one-line summary, with its labels editable (FLOW-257).
+export function SummaryLine({ lead }: { lead: LeadSummary }) {
+  return (
+    <>
+      {[
+        lead.source,
+        businessDate(lead.receivedAt),
+        <LabelT id="labels.pipeline-status" value={lead.status}>{leadStatusLabels[lead.status]}</LabelT>,
+        lead.assignedSalespersonId ?? <T id="lead-inbox.summary-line.unassigned">Unassigned</T>,
+      ].map((part, index) => <Fragment key={index}>{index > 0 && " · "}{part}</Fragment>)}
+    </>
+  );
+}
 
 // Notes are edited on the lead page; the table shows the start of the text.
 function notesText(node: JSONContent | null | undefined): string {
@@ -137,7 +144,7 @@ export function LeadInbox() {
       {selection.bar}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
         <div className={["table-card", selection.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")} tabIndex={0} onKeyDown={selection.onKeyDown}><div className="table-scroll"><table className="lead-pipeline-table">
-          <thead><tr>{["Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal", "BEO"].map((heading) => <th key={heading}>{heading}</th>)}</tr></thead>
+          <thead><tr>{["Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal", "BEO"].map((heading) => <th key={heading}><T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T></th>)}</tr></thead>
           <tbody {...selection.bodyProps}>{shown.map((lead, index) => {
             const row = selection.rowProps(index);
             const startsAt = lead.latestEvent ? utcToBusinessTime(new Date(lead.latestEvent.startsAt)) : null;

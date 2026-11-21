@@ -2,13 +2,14 @@ import type { HTMLAttributes } from "react";
 import { Dropdown } from "./Dropdown";
 import { pipelineLabels, pipelineOptions, type PipelineStatus } from "../../../shared/pipeline";
 import type { EventStatus } from "../../../shared/core-records";
+import { LabelT } from "../../app/copy";
 
 type DisplayStatus = PipelineStatus | Extract<EventStatus, "preparation" | "finished">;
 const extraLabels = { preparation: "Preparation", finished: "Finished" } as const;
 
 export function StatusPill({ status, ...props }: HTMLAttributes<HTMLSpanElement> & { status: DisplayStatus }) {
   const label = statusLabel(status);
-  return <span {...props} className={["status-pill", `status-pill--${status}`, props.className].filter(Boolean).join(" ")}>{label}</span>;
+  return <span {...props} className={["status-pill", `status-pill--${status}`, props.className].filter(Boolean).join(" ")}><LabelT id="labels.pipeline-status" value={status}>{label}</LabelT></span>;
 }
 
 // The status pill dropdown (FLOW-251 colors) on the shared Dropdown (FLOW-259).
@@ -35,7 +36,7 @@ export function StatusSelect({ value, onChange, includeEventStages = false, opti
     disabled={disabled}
     value={value}
     pill={statusPillClass}
-    options={all.map((status) => ({ value: status, label: statusLabel(status), disabled: status === value && !choices.includes(value) }))}
+    options={all.map((status) => ({ value: status, label: <LabelT id="labels.pipeline-status" value={status}>{statusLabel(status)}</LabelT>, text: statusLabel(status), disabled: status === value && !choices.includes(value) }))}
     onValueChange={(next) => onChange(next as DisplayStatus)}
   />;
 }

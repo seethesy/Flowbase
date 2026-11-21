@@ -30,7 +30,7 @@ import { utcToBusinessTime } from "../../shared/time";
 import { date, time } from "./event-format";
 import "./event-preparation.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { Plural, T, useCopy } from "../app/copy";
+import { Plural, T, useCopy, LabelT, joined } from "../app/copy";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137).
 
@@ -69,7 +69,7 @@ function RefreshPlanningOutput({ eventId, output, onChanged }: {
       try { setPreview(await preparationApi.previewPlanningOutput(eventId, kind)); }
       catch (cause) { setError((cause as Error).message); }
       finally { setBusy(false); }
-    }}><T id="event-preparation.refresh-planning-output.preview-regeneration" values={{ replaceAll: kind.replaceAll("_", " ") }}>{"Preview {replaceAll} regeneration"}</T></Button>
+    }}><T id="event-preparation.refresh-planning-output.preview-regeneration" values={{ replaceAll: <LabelT id="labels.planning-output-kind" value={kind}>{kind.replaceAll("_", " ")}</LabelT> }}>{"Preview {replaceAll} regeneration"}</T></Button>
     <ErrorLine message={error} />
     {preview && <div role="region" aria-label={`${kind} regeneration preview`}>
       {preview.upToDate ? <p><T id="event-preparation.refresh-planning-output.no-derived-values-changed-manual">No derived values changed. Manual entries will be kept.</T></p> : <ul>
@@ -228,7 +228,7 @@ export function EventPlanningProgressSection({
             {data.steps.map((step) => (
               <li key={step.step} data-status={step.status}>
                 <span>{step.label}</span>
-                <span className="badge neutral">{planningStepStatusLabels[step.status]}</span>
+                <span className="badge neutral"><LabelT id="labels.planning-step-status" value={step.status}>{planningStepStatusLabels[step.status]}</LabelT></span>
                 {step.detail && <small>{step.detail}</small>}
               </li>
             ))}
@@ -236,7 +236,7 @@ export function EventPlanningProgressSection({
           {data.staleOutputs.length > 0 && <div role="status" className="warning-message">
             <strong><T id="event-preparation.event-planning-progress-section.planning-outputs-need-review">Planning outputs need review</T></strong>
             <ul>{data.staleOutputs.map((output) => <li key={output.kind}>
-              {output.kind.replaceAll("_", " ")}: {output.cause}.
+              <LabelT id="labels.planning-output-kind" value={output.kind}>{output.kind.replaceAll("_", " ")}</LabelT>: {output.cause}.
               {(output.kind === "pull_list" || output.kind === "kitchen_menu") && <T id="event-preparation.event-planning-progress-section.use-the-regenerate-button-in">{" Use the Regenerate button in that section to preview the diff and keep manual edits."}</T>}
             </li>)}</ul>
             {data.canRegenerate && data.staleOutputs.map((output) => <RefreshPlanningOutput
@@ -394,20 +394,18 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
                   <span className="pull-name">
                     <strong>{line.name}</strong>
                     <small>
-                      {[
+                      {joined([
                         line.sectionName,
-                        line.setupDay ? "Setup day" : null,
+                        line.setupDay ? <T id="event-preparation.event-pull-list-section.setup-day">Setup day</T> : null,
                         line.notes,
-                        line.statusBy && line.statusAt
-                          ? `${pullStatusLabels[line.status]} by ${line.statusBy}`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                        line.statusBy && line.statusAt ? (
+                          <T id="event-preparation.event-pull-list-section.status-by" values={{ status: <LabelT id="labels.pull-status" value={line.status}>{pullStatusLabels[line.status]}</LabelT>, statusBy: line.statusBy }}>{"{status} by {statusBy}"}</T>
+                        ) : null,
+                      ])}
                     </small>
                     {line.shortfall !== null && (
                       <small className="warning-message">
-                        <T id="event-preparation.event-pull-list-section.short" values={{ shortfall: line.shortfall }}>{"{shortfall} short. "}</T>{line.suggestions.map((s) => pullSuggestionLabels[s]).join(" · ")}
+                        <T id="event-preparation.event-pull-list-section.short" values={{ shortfall: line.shortfall }}>{"{shortfall} short. "}</T>{joined(line.suggestions.map((s) => <LabelT id="labels.pull-suggestion" value={s}>{pullSuggestionLabels[s]}</LabelT>))}
                       </small>
                     )}
                   </span>

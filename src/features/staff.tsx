@@ -14,6 +14,7 @@ import {
   FormField,
   LoadingSkeleton,
   PageHeader,
+  RoleText,
   SearchInput,
   Section,
 } from "../components/shared";
@@ -75,6 +76,7 @@ export function StaffDirectory() {
       id: "role",
       header: "Role",
       accessorFn: (member) => roleLabel(member.role),
+      cell: ({ row }) => <RoleText role={row.original.role} />,
     },
     {
       id: "mobile",
@@ -174,7 +176,7 @@ export function StaffProfile({
       {heading && (
         <PageHeader
           title={data.name}
-          subtitle={roleLabel(data.role)}
+          subtitle={<RoleText role={data.role} />}
         />
       )}
       {(manage || own) && editing ? (
@@ -205,7 +207,7 @@ function StaffSummary({ member, canEdit, onEdit }: { member: StaffMember; canEdi
         </dl>
       </Section>
       <Section title={<T id="staff.staff-profile.staff-profile">Staff profile</T>}>
-        <p className="staff-role">{roleLabel(member.role)}</p>
+        <p className="staff-role"><RoleText role={member.role} /></p>
         <div className="staff-positions-grid">{[...new Set([...positions, ...member.positions])].map((position) =>
           <label key={position}><RoundCheck checked={member.positions.includes(position)} disabled readOnly />{position}</label>)}</div>
       </Section>
@@ -290,7 +292,7 @@ function StaffForm({
         </div>
       </Section>
       <Section title={<T id="staff.staff-form.staff-profile">Staff profile</T>}>
-        <p className="staff-role">{roleLabel(draft.role)}</p>
+        <p className="staff-role"><RoleText role={draft.role} /></p>
         {manage && <FormField label="Role"><Dropdown value={draft.role} onChange={(event) => set("role", event.target.value as Role)}>
           {roleSchema.options.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
         </Dropdown></FormField>}

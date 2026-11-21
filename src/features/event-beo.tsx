@@ -18,7 +18,7 @@ import { beoApi } from "../services/beo";
 import { eventsApi } from "../services/core";
 import { BeoAreaList, BeoCleanup } from "./beo-areas";
 import { BeoSchedule } from "./beo-schedule";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import "./event-beo.css";
 
 // The banquet event order (FLOW-143, 144, 148): the ten sections in order, what is
@@ -92,7 +92,7 @@ export function EventBeoSection({
   const part = (section: BeoSection, body: ReactNode) => (
     <div className="beo-section" key={section} data-section={section}>
       <h3>
-        {beoSections.indexOf(section) + 1}. {beoSectionLabels[section]}
+        {beoSections.indexOf(section) + 1}. <LabelT id="labels.beo-section" value={section}>{beoSectionLabels[section]}</LabelT>
       </h3>
       {marks(section)}
       {body}
@@ -258,7 +258,7 @@ export function EventBeoSection({
       title={<T id="event-beo.event-beo-section.banquet-event-order">Banquet event order</T>}
       action={
         <span className="page-actions">
-          {data.status && <span className={`badge ${data.status === "approved" ? "success" : "neutral"}`}>{beoStatusLabels[data.status]}</span>}
+          {data.status && <span className={`badge ${data.status === "approved" ? "success" : "neutral"}`}><LabelT id="labels.beo-status" value={data.status}>{beoStatusLabels[data.status]}</LabelT></span>}
           {!standalone && data.id && (
             <Button variant="outline" asChild>
               <Link to={`/events/${event.id}/beo/${data.id}`}><T id="event-beo.event-beo-section.open-beo-page">Open BEO page</T></Link>

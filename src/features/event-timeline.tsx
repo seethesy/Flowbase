@@ -26,7 +26,7 @@ import { staffApi } from "../services/staff";
 import { vendorsApi } from "../services/vendors";
 import { date, time } from "./event-format";
 import { ListSelect } from "./list-fields";
-import { T } from "../app/copy";
+import { T, LabelT, joined } from "../app/copy";
 import "./event-timeline.css";
 
 // The event timeline and production schedule (FLOW-126): every day the event
@@ -153,13 +153,11 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
                   <span className="timeline-activity">
                     {entry.activity}
                     <small>
-                      {[
-                        timelineKindLabels[entry.kind],
+                      {joined([
+                        <LabelT id="labels.timeline-kind" value={entry.kind}>{timelineKindLabels[entry.kind]}</LabelT>,
                         timelineWhoLabel(entry.who),
                         entry.where,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      ])}
                     </small>
                   </span>
                   {data.canEdit && (

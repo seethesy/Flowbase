@@ -26,7 +26,7 @@ import {
 import { LoadError } from "../components/record-display";
 import { paymentsApi } from "../services/payments";
 import { date } from "./event-format";
-import { Plural, T } from "../app/copy";
+import { Plural, T, LabelT } from "../app/copy";
 import "./event-payments.css";
 
 // The event's payment schedule and payment log (FLOW-131), with the overdue flag
@@ -172,7 +172,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
               <tr key={item.id} className={item.overdue ? "overdue" : undefined}>
                 <td>{date(item.dueDate)}</td>
                 <td>
-                  {scheduleKindLabels[item.kind]}
+                  <LabelT id="labels.schedule-kind" value={item.kind}>{scheduleKindLabels[item.kind]}</LabelT>
                   {item.label && ` — ${item.label}`}
                 </td>
                 <td>{formatCents(item.amountCents)}</td>
@@ -240,7 +240,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
             {data.payments.map((p) => (
               <tr key={p.id}>
                 <td>{date(p.receivedOn)}</td>
-                <td>{paymentMethodLabels[p.method]}</td>
+                <td><LabelT id="labels.payment-method" value={p.method}>{paymentMethodLabels[p.method]}</LabelT></td>
                 <td>{formatCents(p.amountCents)}</td>
                 <td>{p.reference || "—"}</td>
                 <td>{p.recordedBy?.name ?? "—"}</td>

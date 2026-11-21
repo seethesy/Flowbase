@@ -34,7 +34,7 @@ import { date, time } from "./event-format";
 import { ListSelect } from "./list-fields";
 import "./event-staff.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T } from "../app/copy";
+import { T, LabelT, joined } from "../app/copy";
 
 // The event's staff roster and Production Leads (FLOW-140), shown on the event hub
 // like the BEO's Staff Roster section: one block per shift with its slots, open
@@ -47,6 +47,22 @@ const range = (startsAt: string, endsAt: string) => {
 };
 export const conflictText = (conflict: ShiftConflict) =>
   `${conflict.eventTitle ?? "another event"} (${shiftKindLabels[conflict.shiftKind]}, ${range(conflict.startsAt, conflict.endsAt)})`;
+
+// conflictText for the screen, with its wording editable (FLOW-257).
+function ConflictText({ conflict }: { conflict: ShiftConflict }) {
+  return (
+    <T
+      id="event-staff.conflict.event-shift-range"
+      values={{
+        event: conflict.eventTitle ?? <T id="event-staff.conflict.another-event">another event</T>,
+        shift: <LabelT id="labels.shift-kind" value={conflict.shiftKind}>{shiftKindLabels[conflict.shiftKind]}</LabelT>,
+        range: range(conflict.startsAt, conflict.endsAt),
+      }}
+    >
+      {"{event} ({shift}, {range})"}
+    </T>
+  );
+}
 
 export function EventStaffSection({
   event,
@@ -149,12 +165,14 @@ export function EventStaffSection({
       </div>
       <p className="staff-breakdown" aria-label="Staffing breakdown">
         {data.breakdown.length
-          ? data.breakdown
-              .map(
-                (row) =>
-                  `${departmentLabels[row.department]}: ${row.total} (${row.filled} filled)`,
-              )
-              .join(" · ") + ` · ${data.openSlots} open`
+          ? joined([
+              ...data.breakdown.map((row) => (
+                <T id="event-staff.event-staff-section.department-total-filled" values={{ department: <LabelT id="labels.department" value={row.department}>{departmentLabels[row.department]}</LabelT>, total: row.total, filled: row.filled }}>
+                  {"{department}: {total} ({filled} filled)"}
+                </T>
+              )),
+              <T id="event-staff.event-staff-section.open-count" values={{ count: data.openSlots }}>{"{count} open"}</T>,
+            ])
           : <T id="event-staff.event-staff-section.no-staffing-slots-yet">No staffing slots yet.</T>}
       </p>
       {data.shifts.map((shift) => (
@@ -248,7 +266,9 @@ function ShiftBlock({
   return (
     <section className="staff-shift" aria-label={title}>
       <div className="staff-shift-head">
-        <h3>{title}</h3>
+        <h3>
+          <LabelT id="labels.shift-kind" value={shift.kind}>{shiftKindLabels[shift.kind]}</LabelT> · {date(shift.date)} · {time(shift.startTime)}–{time(shift.endTime)}
+        </h3>
         {canEdit && (
           <div className="staff-shift-actions">
             <Button variant="ghost" onClick={onEdit}>
@@ -279,7 +299,7 @@ function ShiftBlock({
                 <strong>{label}</strong> – {slot.assignee?.name ?? <T id="event-staff.shift-block.open">open</T>}
               </span>
               <span className="badge neutral">
-                {departmentLabels[slot.department]}
+                <LabelT id="labels.department" value={slot.department}>{departmentLabels[slot.department]}</LabelT>
               </span>
               {canEdit && (
                 <span className="staff-slot-edit">
@@ -338,7 +358,7 @@ function ShiftBlock({
               )}
               {slot.conflicts.length > 0 && (
                 <p className="staff-conflict warning">
-                  <T id="event-staff.shift-block.double-booked-also-working" values={{ join: slot.conflicts.map(conflictText).join("; ") }}>{"Double-booked: also working {join}"}</T>
+                  <T id="event-staff.shift-block.double-booked-also-working" values={{ join: joined(slot.conflicts.map((conflict) => <ConflictText conflict={conflict} />), "; ") }}>{"Double-booked: also working {join}"}</T>
                 </p>
               )}
             </li>
