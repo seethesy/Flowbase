@@ -41,6 +41,8 @@ export default defineConfig({
           if (id.includes("recharts") || /node_modules\/d3-|node_modules\/(victory-vendor|internmap|decimal.js-light|react-smooth)\//.test(id)) return "charts";
           if (id.includes("@sentry")) return "observability";
           if (id.includes("@supabase")) return "auth";
+          // Table and query libraries, so the app chunk stays under the 500 kB budget.
+          if (id.includes("@tanstack")) return "tanstack";
         },
       },
     },

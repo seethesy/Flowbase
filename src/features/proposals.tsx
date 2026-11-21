@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, useEffect, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useResource } from "../app/useResource";
@@ -93,7 +94,7 @@ export function ProposalDrawer({
           </div>
         </div>
         <FormField label={<T id="proposals.proposal-drawer.proposal-stage">Proposal stage</T>}>
-          <select
+          <Dropdown
             aria-label="Proposal stage"
             value={c.stage}
             onChange={(e) => {
@@ -107,7 +108,7 @@ export function ProposalDrawer({
             {stages.map((s) => (
               <option key={s}>{s}</option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         {target === "Lost" && (
           <form

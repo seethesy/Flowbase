@@ -1,4 +1,5 @@
 import { TestAuth } from "./auth-provider";
+import { choose } from "./dropdown-helpers";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -25,13 +26,13 @@ it("updates a proposal and rejects an invalid stage", async () => {
   const user = userEvent.setup();
   await mount(<DemoScreen><ProposalDrawer id="FB-2026" onClose={() => {}} /></DemoScreen>);
   await screen.findByLabelText("Proposal stage");
-  await user.selectOptions(screen.getByLabelText("Proposal stage"), "Signed");
+  await choose(user, screen.getByLabelText("Proposal stage"), "Signed");
   expect(screen.getByRole("alert")).toHaveTextContent(
     "Cannot move Draft to Signed",
   );
-  await user.selectOptions(screen.getByLabelText("Proposal stage"), "Sent");
+  await choose(user, screen.getByLabelText("Proposal stage"), "Sent");
   await waitFor(() =>
-    expect(screen.getByLabelText("Proposal stage")).toHaveValue("Sent"),
+    expect(screen.getByLabelText("Proposal stage")).toHaveAttribute("data-value", "Sent"),
   );
 });
 it("navigates using the sidebar and exposes mobile navigation", async () => {

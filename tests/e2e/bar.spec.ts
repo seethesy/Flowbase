@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { consumable, defaultSections } from "./fixtures";
 import { seedInventory } from "./database";
@@ -65,33 +66,34 @@ test("filters the bar screen by category, subcategory, tier and distributor", as
   await expect(page.getByText("Liquor · Vodka").first()).toBeVisible();
   await expect(page.getByText("Bottle 750 ml").first()).toBeVisible();
 
-  await page.getByLabel("Category", { exact: true }).selectOption("Wine");
+  await choose(page.getByLabel("Category", { exact: true }), "Wine");
   await expect(shown("House Pinot Grigio")).toBeVisible();
   await expect(page.getByText("1 bar items", { exact: true })).toBeVisible();
   // Wine offers only its own subcategories.
-  await expect(
-    page.getByLabel("Subcategory", { exact: true }).getByRole("option"),
-  ).toHaveText(["All subcategories", "White", "Red"]);
-  await page.getByLabel("Subcategory", { exact: true }).selectOption("White");
+  await expect
+    .poll(() => optionTexts(page.getByLabel("Subcategory", { exact: true })))
+    .toEqual(["All subcategories", "White", "Red"]);
+  await choose(page.getByLabel("Subcategory", { exact: true }), "White");
   await expect(shown("House Pinot Grigio")).toBeVisible();
 
-  await page.getByLabel("Category", { exact: true }).selectOption("");
-  await expect(page.getByLabel("Subcategory", { exact: true })).toHaveValue("");
-  await page.getByLabel("Subcategory", { exact: true }).selectOption("Vodka");
-  await expect(page.getByLabel("Category", { exact: true })).toHaveValue(
+  await choose(page.getByLabel("Category", { exact: true }), "");
+  await expect(page.getByLabel("Subcategory", { exact: true })).toHaveAttribute("data-value", "");
+  await choose(page.getByLabel("Subcategory", { exact: true }), "Vodka");
+  await expect(page.getByLabel("Category", { exact: true })).toHaveAttribute(
+    "data-value",
     "Liquor",
   );
   await expect(shown("Tito's Vodka")).toBeVisible();
   await expect(shown("Rail Vodka")).toBeVisible();
   await expect(shown("Rail Gin")).toHaveCount(0);
 
-  await page.getByLabel("Tier", { exact: true }).selectOption("rail");
+  await choose(page.getByLabel("Tier", { exact: true }), "rail");
   await expect(shown("Rail Vodka")).toBeVisible();
   await expect(shown("Tito's Vodka")).toHaveCount(0);
 
-  await page.getByLabel("Subcategory", { exact: true }).selectOption("");
-  await page.getByLabel("Category", { exact: true }).selectOption("");
-  await page.getByLabel("Tier", { exact: true }).selectOption("");
+  await choose(page.getByLabel("Subcategory", { exact: true }), "");
+  await choose(page.getByLabel("Category", { exact: true }), "");
+  await choose(page.getByLabel("Tier", { exact: true }), "");
   await page.getByLabel("Distributor", { exact: true }).fill("imperio");
   await expect(shown("Tito's Vodka")).toBeVisible();
   await expect(shown("House Pinot Grigio")).toBeVisible();
@@ -103,19 +105,20 @@ test("creates a bar item kept in Bar Storage", async ({ page }) => {
   await page.goto("/#/inventory/bar");
   await page.getByRole("button", { name: "New Bar Item", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel(/^Storage section/)).toHaveValue(
+  await expect(dialog.getByLabel(/^Storage section/)).toHaveAttribute(
+    "data-value",
     barStorage.id,
   );
   await dialog.getByLabel("Name *", { exact: true }).fill("Tito's Vodka");
-  await dialog.getByLabel(/^Category/).selectOption("Liquor");
-  await dialog.getByLabel(/^Subcategory/).selectOption("Vodka");
+  await choose(dialog.getByLabel(/^Category/), "Liquor");
+  await choose(dialog.getByLabel(/^Subcategory/), "Vodka");
   await dialog.getByLabel(/^Brand \/ varietal/).fill("Tito's");
-  await dialog.getByLabel(/^Tier/).selectOption("mid");
-  await dialog.getByLabel(/^Container/).selectOption("bottle");
-  await dialog.getByLabel(/^Purchase unit/).selectOption("case");
+  await choose(dialog.getByLabel(/^Tier/), "mid");
+  await choose(dialog.getByLabel(/^Container/), "bottle");
+  await choose(dialog.getByLabel(/^Purchase unit/), "case");
   await dialog.getByLabel("Items per case", { exact: true }).fill("12");
   await dialog.getByLabel(/^One each is about/).fill("750");
-  await dialog.getByLabel(/^Each size unit/).selectOption("ml");
+  await choose(dialog.getByLabel(/^Each size unit/), "ml");
   await dialog.getByLabel("Distributor", { exact: true }).fill("Imperio");
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);

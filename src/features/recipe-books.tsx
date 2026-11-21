@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { ClientRecipe } from "../../shared/recipes";
@@ -43,10 +44,10 @@ export function ClientRecipeBook() {
       {selected.length > 0 && <Button asChild><Link to={printSelection}><T id="recipe-books.client-recipe-book.print-selected" values={{ selectedCount: selected.length }}>{"Print selected ({selectedCount})"}</T></Link></Button>}
     </PageHeader>
     <FilterBar>
-      <select aria-label="Category" value={category} onChange={(e) => { setCategory(e.target.value); setSelected([]); }}>
+      <Dropdown aria-label="Category" value={category} onChange={(e) => { setCategory(e.target.value); setSelected([]); }}>
         <option value="">All categories</option>
         {categories.map((value) => <option key={value} value={value}>{markCategory(value)}</option>)}
-      </select>
+      </Dropdown>
       <span className="result-count"><T id="recipe-books.client-recipe-book.dishes" values={{ dishesCount: dishes.length }}>{"{dishesCount} dishes"}</T></span>
     </FilterBar>
     {resource.error ? <LoadError message={resource.error} /> : resource.loading ? <LoadingSkeleton /> : <>

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -271,7 +272,7 @@ function EntryForm({
         )}
         <div className="form-grid">
           <FormField label={<T id="event-timeline.entry-form.kind">Kind</T>}>
-            <select
+            <Dropdown
               value={draft.kind}
               onChange={(e) =>
                 set("kind", e.target.value as Draft["kind"])
@@ -282,7 +283,7 @@ function EntryForm({
                   {timelineKindLabels[kind]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="event-timeline.entry-form.date">Date</T>}>
             <input
@@ -315,7 +316,7 @@ function EntryForm({
         </FormField>
         <div className="form-grid">
           <FormField label={<T id="event-timeline.entry-form.who">Who</T>}>
-            <select
+            <Dropdown
               value={draft.whoType}
               onChange={(e) => {
                 set("whoType", e.target.value as Draft["whoType"]);
@@ -326,11 +327,11 @@ function EntryForm({
               <option value="staff">Staff member</option>
               <option value="role">Role</option>
               <option value="vendor">Event partner</option>
-            </select>
+            </Dropdown>
           </FormField>
           {draft.whoType === "staff" && (
             <FormField label={<T id="event-timeline.entry-form.staff-member">Staff member</T>}>
-              <select
+              <Dropdown
                 value={draft.whoValue}
                 onChange={(e) => set("whoValue", e.target.value)}
               >
@@ -340,7 +341,7 @@ function EntryForm({
                     {m.name}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
           )}
           {draft.whoType === "role" && (
@@ -356,7 +357,7 @@ function EntryForm({
           )}
           {draft.whoType === "vendor" && (
             <FormField label={<T id="event-timeline.entry-form.event-partner">Event partner</T>}>
-              <select
+              <Dropdown
                 value={draft.whoValue}
                 onChange={(e) => set("whoValue", e.target.value)}
               >
@@ -366,11 +367,11 @@ function EntryForm({
                     {v.name}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
           )}
           <FormField label={<T id="event-timeline.entry-form.where">Where</T>}>
-            <select
+            <Dropdown
               value={draft.where}
               onChange={(e) => set("where", e.target.value)}
             >
@@ -382,7 +383,7 @@ function EntryForm({
                   </option>
                 ),
               )}
-            </select>
+            </Dropdown>
           </FormField>
         </div>
         <div className="form-actions">

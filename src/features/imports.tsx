@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -233,7 +234,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
                   {field.label}
                   {field.required && <T id="imports.import-flow.required">{" (required)"}</T>}
                 </span>
-                <select
+                <Dropdown
                   aria-label={field.label}
                   value={mapping[field.key] ?? ""}
                   onChange={(event) => remap(field.key, event.target.value)}
@@ -244,7 +245,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
                       {heading || `Column ${index + 1}`}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </label>
             ))}
           </div>

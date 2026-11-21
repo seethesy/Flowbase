@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -102,7 +103,7 @@ export function StaffDirectory() {
           onChange={setSearch}
           placeholder={searchNameOrEmailPlaceholder} copyId="staff.staff-directory.search-name-or-email.placeholder"
         />
-        <select
+        <Dropdown
           aria-label="Position"
           value={position}
           onChange={(e) => setPosition(e.target.value)}
@@ -111,7 +112,7 @@ export function StaffDirectory() {
           {positions.map((option) => (
             <option key={option}>{option}</option>
           ))}
-        </select>
+        </Dropdown>
         <label className="checkbox-filter">
           <RoundCheck
             checked={inactive}
@@ -292,9 +293,9 @@ function StaffForm({
       </Section>
       <Section title={<T id="staff.staff-form.staff-profile">Staff profile</T>}>
         <p className="staff-role"><RoleText role={draft.role} /></p>
-        {manage && <FormField label="Role"><select value={draft.role} onChange={(event) => set("role", event.target.value as Role)}>
+        {manage && <FormField label="Role"><Dropdown value={draft.role} onChange={(event) => set("role", event.target.value as Role)}>
           {roleSchema.options.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
-        </select></FormField>}
+        </Dropdown></FormField>}
         {manage ? <ListCheckboxes list="staff_position" legend="Positions" values={draft.positions} onChange={(positions) => set("positions", positions)} /> :
           <p><T id="staff.staff-form.positions">Positions: </T>{member.positions.join(", ") || "—"}</p>}
         <label className="staff-consent"><RoundCheck checked={draft.smsConsent} onChange={(event) => set("smsConsent", event.target.checked)} /><T id="staff.staff-form.sms-consent">Text me work updates (SMS)</T></label>

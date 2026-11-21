@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 
 test("creates, links, and opens an SOP from a task (FLOW-139)", async ({ page }) => {
@@ -13,7 +14,7 @@ test("creates, links, and opens an SOP from a task (FLOW-139)", async ({ page })
   await page.getByRole("button", { name: "New task" }).click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Title").fill("Load the truck");
-  await form.getByLabel("SOP").selectOption({ label: "Truck loading procedure (Production)" });
+  await choose(form.getByLabel("SOP"), { label: "Truck loading procedure (Production)" });
   await form.getByRole("button", { name: "Add task" }).click();
   await page.getByRole("link", { name: "Load the truck" }).click();
   await page.getByRole("link", { name: "Open SOP" }).click();

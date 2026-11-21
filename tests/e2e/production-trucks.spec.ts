@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
@@ -16,7 +17,7 @@ test("warns about an overlapping truck assignment and records acknowledgement", 
   });
   await page.goto(`/#/events/${second.id}`);
   await page.getByRole("heading", { name: "Truck log" }).scrollIntoViewIfNeeded();
-  await page.getByRole("combobox", { name: "Truck", exact: true }).selectOption(truck.id);
+  await choose(page.getByRole("combobox", { name: "Truck", exact: true }), truck.id);
   await page.getByLabel("Departure").fill("2026-11-14T15:00");
   await page.getByLabel("Back at warehouse").fill("2026-11-14T18:00");
   await page.getByRole("button", { name: "Assign truck" }).click();

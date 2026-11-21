@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Fragment, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -444,7 +445,7 @@ function EventFormFields({
             />
           </FormField>
           <FormField label={<T id="events.event-form-fields.client">Client *</T>}>
-            <select
+            <Dropdown
               value={draft.clientId}
               onChange={(e) => {
                 set("clientId", e.target.value);
@@ -457,12 +458,12 @@ function EventFormFields({
                   {client.name}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           {text("startTime", "Start time *", "time")}
           {text("endTime", "End time", "time")}
           <FormField label={<T id="events.event-form-fields.point-of-contact">Point of contact</T>}>
-            <select
+            <Dropdown
               value={draft.pocContactId ?? ""}
               onChange={(e) => set("pocContactId", e.target.value || null)}
             >
@@ -472,7 +473,7 @@ function EventFormFields({
                   {contact.name}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           {/* Any status on create; afterwards it changes on the event page. */}
           {!event && (
@@ -481,7 +482,7 @@ function EventFormFields({
             </FormField>
           )}
           <FormField label={<T id="events.event-form-fields.venue">Venue</T>}>
-            <select
+            <Dropdown
               value={draft.venueId ?? ""}
               onChange={(e) => set("venueId", e.target.value || null)}
             >
@@ -491,7 +492,7 @@ function EventFormFields({
                   {venue.name}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="events.event-form-fields.address">Address</T>} hint={<T id="events.event-form-fields.leave-empty-to-use-the">{"Leave empty to use the venue's."}</T>}>
             <input

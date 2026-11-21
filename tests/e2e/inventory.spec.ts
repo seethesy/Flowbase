@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { chairs } from "./fixtures";
 import { seedInventory } from "./database";
@@ -30,12 +31,10 @@ test("edits rental details and maintains separate color stock on one item", asyn
   ).toBeVisible();
   await expect(page.getByText("Attach cushion", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Record movement" }).click();
-  await dialog
-    .getByRole("combobox", { name: "Color", exact: true })
-    .selectOption("Silver");
-  await dialog
-    .getByRole("combobox", { name: "Section", exact: true })
-    .selectOption({ label: "Warehouse" });
+  await choose(dialog
+    .getByRole("combobox", { name: "Color", exact: true }), "Silver");
+  await choose(dialog
+    .getByRole("combobox", { name: "Section", exact: true }), { label: "Warehouse" });
   await dialog.getByLabel("Quantity in (each)").fill("6");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -66,23 +65,20 @@ test("creates and edits fixed, per-person and quoted services with includes and 
     await page.getByRole("button", { name: "New Item", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name *", { exact: true }).fill(name);
-    await dialog
-      .getByRole("combobox", { name: "Kind", exact: true })
-      .selectOption("service");
+    await choose(dialog
+      .getByRole("combobox", { name: "Kind", exact: true }), "service");
     if (basis === "quote")
       await dialog.getByLabel("Priced by quote", { exact: true }).check();
     else {
       await dialog.getByLabel("Price ($)", { exact: true }).fill("3.50");
-      await dialog
-        .getByRole("combobox", { name: "Priced", exact: true })
-        .selectOption(basis);
+      await choose(dialog
+        .getByRole("combobox", { name: "Priced", exact: true }), basis);
     }
     await dialog
       .getByRole("button", { name: "Add component", exact: true })
       .click();
-    await dialog
-      .getByRole("combobox", { name: "Component 1", exact: true })
-      .selectOption(chairs().id);
+    await choose(dialog
+      .getByRole("combobox", { name: "Component 1", exact: true }), chairs().id);
     await dialog.getByLabel("Component 1 quantity", { exact: true }).fill("2");
     await dialog
       .getByRole("button", { name: "Add per-person add-on", exact: true })
@@ -128,7 +124,7 @@ test("creates a decor kit and supply, filters low stock and reaches supply count
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Candles");
   await dialog.getByLabel(/^Par level/).fill("10");
-  await expect(dialog.getByLabel(/^Storage section/)).not.toHaveValue("");
+  await expect(dialog.getByLabel(/^Storage section/)).not.toHaveAttribute("data-value", "");
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
   await page.getByLabel("Below par only").check();
@@ -145,21 +141,18 @@ test("creates a decor kit and supply, filters low stock and reaches supply count
   await dialog
     .getByLabel("Name *", { exact: true })
     .fill("Centerpiece Candle Set");
-  await dialog
-    .getByRole("combobox", { name: "Subtype", exact: true })
-    .selectOption("decor");
-  await dialog
-    .getByRole("button", { name: "Add component", exact: true })
-    .click();
-  await dialog
-    .getByRole("combobox", { name: "Component 1", exact: true })
-    .selectOption(chairs().id);
+  await choose(dialog
+    .getByRole("combobox", { name: "Subtype", exact: true }), "decor");
   await dialog
     .getByRole("button", { name: "Add component", exact: true })
     .click();
+  await choose(dialog
+    .getByRole("combobox", { name: "Component 1", exact: true }), chairs().id);
   await dialog
-    .getByRole("combobox", { name: "Component 2", exact: true })
-    .selectOption({ label: "Candles" });
+    .getByRole("button", { name: "Add component", exact: true })
+    .click();
+  await choose(dialog
+    .getByRole("combobox", { name: "Component 2", exact: true }), { label: "Candles" });
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
@@ -175,9 +168,8 @@ test("transfers stock between sections from the item page", async ({
 }) => {
   await seedInventory({ items: [chairs()] });
   await page.goto("/#/inventory");
-  await page
-    .getByRole("combobox", { name: "Section", exact: true })
-    .selectOption({ label: "Cafe" });
+  await choose(page
+    .getByRole("combobox", { name: "Section", exact: true }), { label: "Cafe" });
   await page
     .getByRole("button", { name: "Chiavari Chair", exact: true })
     .click();
@@ -193,8 +185,8 @@ test("transfers stock between sections from the item page", async ({
 
   await page.getByRole("button", { name: "Transfer", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(/^From section/).selectOption({ label: "Warehouse" });
-  await dialog.getByLabel(/^To section/).selectOption({ label: "Jamie's" });
+  await choose(dialog.getByLabel(/^From section/), { label: "Warehouse" });
+  await choose(dialog.getByLabel(/^To section/), { label: "Jamie's" });
   await dialog.getByLabel("Quantity (each)").fill("10");
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -207,8 +199,8 @@ test("transfers stock between sections from the item page", async ({
   await expect(stock.getByRole("row", { name: "Total 50 each" })).toBeVisible();
 
   await page.getByRole("button", { name: "Transfer", exact: true }).click();
-  await dialog.getByLabel(/^From section/).selectOption({ label: "Cafe" });
-  await dialog.getByLabel(/^To section/).selectOption({ label: "Vendor" });
+  await choose(dialog.getByLabel(/^From section/), { label: "Cafe" });
+  await choose(dialog.getByLabel(/^To section/), { label: "Vendor" });
   await dialog.getByLabel("Quantity (each)").fill("11");
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("Cafe only has 10");
@@ -223,21 +215,21 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   let dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Heavy Cream");
   await dialog.getByLabel("Category", { exact: true }).fill("Dairy");
-  await dialog.getByLabel(/^Stock unit/).selectOption("qt");
-  await dialog.getByLabel(/^Purchase unit/).selectOption("case");
+  await choose(dialog.getByLabel(/^Stock unit/), "qt");
+  await choose(dialog.getByLabel(/^Purchase unit/), "case");
   await dialog.getByLabel("Items per case", { exact: true }).fill("6");
   await dialog.getByLabel(/^One each is about/).fill("1");
-  await dialog.getByLabel(/^Each size unit/).selectOption("qt");
+  await choose(dialog.getByLabel(/^Each size unit/), "qt");
   // A recipe unit the cream can't be converted to is flagged.
-  await dialog.getByLabel(/^Recipe unit/).selectOption("lb");
+  await choose(dialog.getByLabel(/^Recipe unit/), "lb");
   await expect(dialog.getByRole("status")).toContainText(
     "Can't convert lb to case for this item.",
   );
-  await dialog.getByLabel(/^Recipe unit/).selectOption("cup");
+  await choose(dialog.getByLabel(/^Recipe unit/), "cup");
   await expect(dialog.getByRole("status")).toHaveCount(0);
   await dialog.getByLabel(/^Unit cost/).fill("24");
   await dialog.getByLabel(/^Par level/).fill("6");
-  await dialog.getByLabel(/^Storage section/).selectOption({
+  await choose(dialog.getByLabel(/^Storage section/), {
     label: "Kitchen – Refrigerated",
   });
   // Allergens are set on dishes, not ingredients (FLOW-95).
@@ -253,15 +245,15 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Romaine");
   await dialog.getByLabel("Category", { exact: true }).fill("Produce");
-  await dialog.getByLabel(/^Purchase unit/).selectOption("lb");
+  await choose(dialog.getByLabel(/^Purchase unit/), "lb");
   await dialog.getByLabel("Preferred vendor", { exact: true }).fill("Farm Co");
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
 
-  await page.getByLabel("Category", { exact: true }).selectOption("Dairy");
+  await choose(page.getByLabel("Category", { exact: true }), "Dairy");
   await expect(page.getByRole("button", { name: "Heavy Cream" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Romaine" })).toHaveCount(0);
-  await page.getByLabel("Category", { exact: true }).selectOption("");
+  await choose(page.getByLabel("Category", { exact: true }), "");
   await page.getByLabel("Below par only").check();
   await expect(page.getByRole("button", { name: "Heavy Cream" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Romaine" })).toHaveCount(0);
@@ -300,8 +292,8 @@ test("records and corrects a stock movement from the item page", async ({
 
   await page.getByRole("button", { name: "Record movement" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(/^Type/).selectOption("damage_loss");
-  await dialog.getByLabel(/^Section/).selectOption({ label: "Warehouse" });
+  await choose(dialog.getByLabel(/^Type/), "damage_loss");
+  await choose(dialog.getByLabel(/^Section/), { label: "Warehouse" });
   await dialog.getByLabel("Quantity out (each)").fill("2");
   await dialog.getByLabel("Reason", { exact: true }).fill("Broken legs");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
@@ -345,15 +337,15 @@ test("explains that an item with stock history can't change its stock unit", asy
   await page.goto(`/#/inventory/${chairs().id}`);
   await page.getByRole("button", { name: "Record movement" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel(/^Type/).selectOption("damage_loss");
-  await dialog.getByLabel(/^Section/).selectOption({ label: "Warehouse" });
+  await choose(dialog.getByLabel(/^Type/), "damage_loss");
+  await choose(dialog.getByLabel(/^Section/), { label: "Warehouse" });
   await dialog.getByLabel("Quantity out (each)").fill("1");
   await dialog.getByLabel("Reason", { exact: true }).fill("Broken leg");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
   await expect(dialog).toHaveCount(0);
 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog.getByLabel(/^Stock unit/).selectOption("dozen");
+  await choose(dialog.getByLabel(/^Stock unit/), "dozen");
   // On the mobile project, Playwright's hit test after picking from the native
   // select reports the form over the Save button (the other item edits in this
   // file click it normally), so press it directly.
@@ -367,5 +359,5 @@ test("explains that an item with stock history can't change its stock unit", asy
   // tests/db/concurrency.test.ts.)
   await page.reload();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(dialog.getByLabel(/^Stock unit/)).toHaveValue("each");
+  await expect(dialog.getByLabel(/^Stock unit/)).toHaveAttribute("data-value", "each");
 });

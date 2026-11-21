@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -302,7 +303,7 @@ function ShiftBlock({
               </span>
               {canEdit && (
                 <span className="staff-slot-edit">
-                  <select
+                  <Dropdown
                     aria-label={`Assign ${label}`}
                     value={slot.assignee?.id ?? ""}
                     onChange={(e) => onAssign(slot, e.target.value || null)}
@@ -329,8 +330,8 @@ function ShiftBlock({
                         </option>
                       ))}
                     </optgroup>
-                  </select>
-                  <select
+                  </Dropdown>
+                  <Dropdown
                     aria-label={`Department for ${label}`}
                     value={slot.department}
                     onChange={(e) =>
@@ -344,7 +345,7 @@ function ShiftBlock({
                         {departmentLabels[department]}
                       </option>
                     ))}
-                  </select>
+                  </Dropdown>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -401,7 +402,7 @@ function AddSlots({
           setDepartment(defaultDepartment(value));
         }}
       />
-      <select
+      <Dropdown
         aria-label="Department"
         value={department}
         onChange={(e) => setDepartment(departmentSchema.parse(e.target.value))}
@@ -411,7 +412,7 @@ function AddSlots({
             {departmentLabels[option]}
           </option>
         ))}
-      </select>
+      </Dropdown>
       <input
         aria-label="How many"
         type="number"
@@ -491,7 +492,7 @@ function ShiftForm({
         )}
         <div className="form-grid">
           <FormField label={<T id="event-staff.shift-form.day">Day</T>}>
-            <select
+            <Dropdown
               value={draft.kind}
               onChange={(e) => {
                 const kind = shiftKindSchema.parse(e.target.value);
@@ -504,7 +505,7 @@ function ShiftForm({
                   {shiftKindLabels[kind]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="event-staff.shift-form.date">Date</T>}>
             <input
@@ -605,14 +606,14 @@ function LeadsForm({
           label={<T id="event-staff.leads-form.primary-production-lead">Primary Production Lead</T>}
           hint={<T id="event-staff.leads-form.full-time-staff-only">Full-time staff only.</T>}
         >
-          <select value={primary} onChange={(e) => setPrimary(e.target.value)}>
+          <Dropdown value={primary} onChange={(e) => setPrimary(e.target.value)}>
             <option value="">None</option>
             {fullTime.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <fieldset className="list-checkboxes">
           <legend><T id="event-staff.leads-form.assistant-production-leads">Assistant Production Leads</T></legend>

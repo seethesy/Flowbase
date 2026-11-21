@@ -1,4 +1,5 @@
 import { TestAuth } from "./auth-provider";
+import { choose, optionTexts } from "./dropdown-helpers";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -233,11 +234,7 @@ it("creates an event from just a title, date, time and client", async () => {
   await user.type(within(dialog).getByLabelText("Title *"), "Fall gala");
   await user.type(within(dialog).getByLabelText("Date *"), "2026-11-14");
   await user.type(within(dialog).getByLabelText("Start time *"), "18:00");
-  await within(dialog).findByRole("option", { name: "Juniper & Co." });
-  await user.selectOptions(
-    within(dialog).getByLabelText("Client *"),
-    client().id,
-  );
+  await choose(user, within(dialog).getByLabelText("Client *"), client().id);
   await user.click(within(dialog).getByRole("button", { name: "Save event" }));
   await waitFor(() => expect(sent).toBeDefined());
   expect(sent).toMatchObject({
@@ -266,7 +263,7 @@ it("offers every status when creating an event, and none when editing it", async
     <EventForm onClose={() => {}} onSaved={() => {}} />,
   );
   const dialog = screen.getByRole("dialog");
-  const status = within(dialog).getByRole("button", { name: "Status" });
+  const status = within(dialog).getByRole("combobox", { name: "Status" });
   expect(status).toHaveTextContent("Inquiry");
   await user.click(status);
   expect(
@@ -289,11 +286,7 @@ it("offers every status when creating an event, and none when editing it", async
   await user.type(within(dialog).getByLabelText("Title *"), "Fall gala");
   await user.type(within(dialog).getByLabelText("Date *"), "2026-11-14");
   await user.type(within(dialog).getByLabelText("Start time *"), "18:00");
-  await within(dialog).findByRole("option", { name: "Juniper & Co." });
-  await user.selectOptions(
-    within(dialog).getByLabelText("Client *"),
-    client().id,
-  );
+  await choose(user, within(dialog).getByLabelText("Client *"), client().id);
   await user.click(within(dialog).getByRole("button", { name: "Save event" }));
   await waitFor(() => expect(sent).toMatchObject({ status: "negotiation" }));
   unmount();
@@ -402,11 +395,9 @@ it("shows distinct pipeline statuses and filters one stage at a time (FLOW-251)"
   expect(within(table).getByText("Closing")).toBeInTheDocument();
   const filter = screen.getByLabelText("Statuses");
   expect(
-    within(filter)
-      .getAllByRole("option")
-      .filter((option) => option.textContent === "Negotiation"),
+    (await optionTexts(user, filter)).filter((text) => text === "Negotiation"),
   ).toHaveLength(1);
-  await user.selectOptions(filter, "Negotiation");
+  await choose(user, filter, "Negotiation");
   await waitFor(() =>
     expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument(),
   );

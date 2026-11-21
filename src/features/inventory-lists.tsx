@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { usePermissions } from "../app/permissions";
 import { isFtPlus } from "../../shared/access";
@@ -67,7 +68,7 @@ function SectionFilter({
     { reference: true },
   );
   return (
-    <select
+    <Dropdown
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -78,7 +79,7 @@ function SectionFilter({
           {section.name}
         </option>
       ))}
-    </select>
+    </Dropdown>
   );
 }
 
@@ -194,7 +195,7 @@ export function InventoryList() {
           onChange={setSearch}
           placeholder={searchItemNameOrCodePlaceholder} copyId="inventory-lists.inventory-list.search-item-name-or-code.placeholder"
         />
-        <select
+        <Dropdown
           aria-label="Kind"
           value={kind}
           onChange={(e) => setKind(e.target.value as ItemKind | "")}
@@ -205,7 +206,7 @@ export function InventoryList() {
               {kindLabels[option]}
             </option>
           ))}
-        </select>
+        </Dropdown>
         <SectionFilter value={sectionId} onChange={setSectionId} />
         <label className="checkbox-filter">
           <RoundCheck
@@ -377,7 +378,7 @@ export function IngredientList({
           placeholder={supplies ? searchSuppliesPlaceholder : searchIngredientsPlaceholder}
           copyId={supplies ? "inventory-lists.ingredient-list.search-supplies.placeholder" : "inventory-lists.ingredient-list.search-ingredients.placeholder"}
         />
-        <select
+        <Dropdown
           aria-label="Category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -386,7 +387,7 @@ export function IngredientList({
           {categories.map((option) => (
             <option key={option}>{option}</option>
           ))}
-        </select>
+        </Dropdown>
         <input
           aria-label="Vendor"
           placeholder={vendorPlaceholder} data-copy-id="inventory-lists.ingredient-list.vendor.placeholder"
@@ -583,7 +584,7 @@ export function BarList() {
           onChange={setSearch}
           placeholder={searchNameOrBrandPlaceholder} copyId="inventory-lists.bar-list.search-name-or-brand.placeholder"
         />
-        <select
+        <Dropdown
           aria-label="Category"
           value={category}
           onChange={(e) => {
@@ -596,8 +597,8 @@ export function BarList() {
           {barCategories.map((option) => (
             <option key={option}>{option}</option>
           ))}
-        </select>
-        <select
+        </Dropdown>
+        <Dropdown
           aria-label="Subcategory"
           value={subcategory}
           disabled={Boolean(category) && !barSubcategories[category]}
@@ -619,8 +620,8 @@ export function BarList() {
                 ))}
               </optgroup>
             ))}
-        </select>
-        <select
+        </Dropdown>
+        <Dropdown
           aria-label="Tier"
           value={tier}
           onChange={(e) => setTier(e.target.value)}
@@ -631,7 +632,7 @@ export function BarList() {
               {barTierLabels[option]}
             </option>
           ))}
-        </select>
+        </Dropdown>
         <input
           aria-label="Distributor"
           placeholder={distributorPlaceholder} data-copy-id="inventory-lists.bar-list.distributor.placeholder"

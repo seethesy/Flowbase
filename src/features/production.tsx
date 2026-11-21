@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ProductionItem } from "../../shared/production";
@@ -74,10 +75,10 @@ export function ProductionOverviewPage() {
   return <>
     <div className="record-heading"><div><h1><T id="production.production-overview-page.production-overview">Production overview</T></h1><p><T id="production.production-overview-page.upcoming-work-across-events">Upcoming work across events</T></p></div></div>
     <div className="production-filters">
-      <label><T id="production.production-overview-page.days">{"Days "}</T><select value={days} onChange={(e) => setDays(Number(e.target.value) as 7 | 14)}><option value="7">7</option><option value="14">14</option></select></label>
-      <label><T id="production.production-overview-page.event">{"Event "}</T><select value={eventId} onChange={(e) => setEventId(e.target.value)}><option value="">All events</option>{events.map(([id, title]) => <option key={id} value={id}>{title}</option>)}</select></label>
-      <label><T id="production.production-overview-page.team">{"Team "}</T><select value={team} onChange={(e) => setTeam(e.target.value)}><option value="">All teams</option>{teams.map((value) => <option key={value}>{value}</option>)}</select></label>
-      <label><T id="production.production-overview-page.type">{"Type "}</T><select value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{types.map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label><T id="production.production-overview-page.days">{"Days "}</T><Dropdown value={days} onChange={(e) => setDays(Number(e.target.value) as 7 | 14)}><option value="7">7</option><option value="14">14</option></Dropdown></label>
+      <label><T id="production.production-overview-page.event">{"Event "}</T><Dropdown value={eventId} onChange={(e) => setEventId(e.target.value)}><option value="">All events</option>{events.map(([id, title]) => <option key={id} value={id}>{title}</option>)}</Dropdown></label>
+      <label><T id="production.production-overview-page.team">{"Team "}</T><Dropdown value={team} onChange={(e) => setTeam(e.target.value)}><option value="">All teams</option>{teams.map((value) => <option key={value}>{value}</option>)}</Dropdown></label>
+      <label><T id="production.production-overview-page.type">{"Type "}</T><Dropdown value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{types.map((value) => <option key={value}>{value}</option>)}</Dropdown></label>
     </div>
     {overview.error && <LoadError message={overview.error} />}
     {!overview.data && !overview.error && <LoadingSkeleton />}

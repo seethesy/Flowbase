@@ -25,7 +25,7 @@ export default ts.config(
     rules: { "react-hooks/rules-of-hooks": "error", "react-hooks/exhaustive-deps": "warn" },
   },
   {
-    // Every checkbox is a RoundCheck (FLOW-245).
+    // Every checkbox is a RoundCheck (FLOW-245) and every dropdown a Dropdown (FLOW-259).
     files: ["src/**/*.tsx"],
     ignores: ["src/components/ui/round-check.tsx"],
     rules: {
@@ -34,6 +34,11 @@ export default ts.config(
         {
           selector: "JSXOpeningElement[name.name='input'] > JSXAttribute[name.name='type'][value.value='checkbox']",
           message: "Use RoundCheck from src/components/ui/round-check.tsx instead of a raw checkbox.",
+        },
+        {
+          // Every dropdown is the shared Dropdown (FLOW-259).
+          selector: "JSXOpeningElement[name.name='select']",
+          message: "Use Dropdown from src/components/ui/Dropdown.tsx instead of a native select.",
         },
       ],
     },

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -361,13 +362,13 @@ function ClientFormFields({
         </FormField>
         <div className="form-grid">
           <FormField label={<T id="clients.client-form-fields.type">Type</T>}>
-            <select
+            <Dropdown
               value={kind}
               onChange={(e) => setKind(e.target.value as Client["kind"])}
             >
               <option value="organization">Organization</option>
               <option value="person">Person</option>
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="clients.client-form-fields.tags">Tags</T>} hint={<T id="clients.client-form-fields.separate-tags-with-commas">Separate tags with commas.</T>}>
             <input value={tags} onChange={(e) => setTags(e.target.value)} />
@@ -395,7 +396,7 @@ function ClientFormFields({
                 />
               </FormField>
               <FormField label={<T id="clients.client-form-fields.role">Role</T>}>
-                <select
+                <Dropdown
                   value={contact.role}
                   onChange={(e) =>
                     update(contact.key, {
@@ -408,7 +409,7 @@ function ClientFormFields({
                       {contactRoleLabels[role]}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               {contact.hiddenDetails ? (
                 <p className="muted">

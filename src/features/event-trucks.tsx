@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import type { FlowEvent } from "../../shared/core-records";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
@@ -62,10 +63,10 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
     <ul className="planning-list">
       {data.trucks.map((truck) => <li key={truck.id} className="planning-row">
         <strong>{truck.name}</strong>
-        {data.canEdit ? <select aria-label={`${truck.name} status`} value={truck.status}
+        {data.canEdit ? <Dropdown aria-label={`${truck.name} status`} value={truck.status}
           onChange={(e) => void update(() => preparationApi.setTruckStatus(event.id, truck.id, e.target.value as typeof truck.status))}>
           {truckStatuses.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
-        </select> : <span>{truck.status.replaceAll("_", " ")}</span>}
+        </Dropdown> : <span>{truck.status.replaceAll("_", " ")}</span>}
       </li>)}
     </ul>
     {data.assignments.map((assignment) => <div key={assignment.id} className="planning-row">
@@ -78,19 +79,19 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
     </div>)}
     {data.canEdit && <>
       <div className="form-grid">
-        <FormField label={<T id="event-trucks.event-truck-section.truck">Truck</T>}><select value={truckId} onChange={(e) => { setTruckId(e.target.value); setConflict(""); }}>
+        <FormField label={<T id="event-trucks.event-truck-section.truck">Truck</T>}><Dropdown value={truckId} onChange={(e) => { setTruckId(e.target.value); setConflict(""); }}>
           <option value="">Choose a truck</option>
           {data.trucks.filter((truck) => !assigned.has(truck.id)).map((truck) => <option key={truck.id} value={truck.id}>{truck.name}</option>)}
-        </select></FormField>
+        </Dropdown></FormField>
         <FormField label={<T id="event-trucks.event-truck-section.departure">Departure</T>}><input type="datetime-local" value={departsAt} onChange={(e) => { setDepartsAt(e.target.value); setConflict(""); }} /></FormField>
         <FormField label={<T id="event-trucks.event-truck-section.back-at-warehouse">Back at warehouse</T>}><input type="datetime-local" value={returnsAt} onChange={(e) => { setReturnsAt(e.target.value); setConflict(""); }} /></FormField>
-        <FormField label={<T id="event-trucks.event-truck-section.driver-2">Driver</T>}><select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
+        <FormField label={<T id="event-trucks.event-truck-section.driver-2">Driver</T>}><Dropdown value={driverId} onChange={(e) => setDriverId(e.target.value)}>
           <option value="">Unassigned</option>
           {(staff.data ?? []).filter((person) => person.active).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-        </select></FormField>
-        <FormField label={<T id="event-trucks.event-truck-section.loaders">Loaders</T>}><select multiple value={loaderIds} onChange={(e) => setLoaderIds([...e.target.selectedOptions].map((option) => option.value))}>
+        </Dropdown></FormField>
+        <FormField label={<T id="event-trucks.event-truck-section.loaders">Loaders</T>}><Dropdown multiple value={loaderIds} onChange={(e) => setLoaderIds([...e.target.selectedOptions].map((option) => option.value))}>
           {(staff.data ?? []).filter((person) => person.active).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-        </select></FormField>
+        </Dropdown></FormField>
       </div>
       <Button disabled={busy || !truckId} onClick={() => void assign(false)}><T id="event-trucks.event-truck-section.assign-truck">Assign truck</T></Button>
       {conflict && <div role="alert" className="warning-message"><p>{conflict}</p>
@@ -106,12 +107,12 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
       <h3><T id="event-trucks.event-truck-section.pull-list-lines-by-truck">Pull-list lines by truck</T></h3>
       {pull.data.groups.flatMap((group) => group.lines).map((line) => <div key={line.id} className="planning-row">
         <span>{line.name}</span>
-        <select aria-label={`Truck for ${line.name}`} disabled={!data.canEdit || busy}
+        <Dropdown aria-label={`Truck for ${line.name}`} disabled={!data.canEdit || busy}
           value={line.truckId ?? ""}
           onChange={(e) => void update(() => preparationApi.movePullLineToTruck(event.id, line.id, e.target.value || null))}>
           <option value="">Unassigned</option>
           {data.assignments.map((assignment) => <option key={assignment.id} value={assignment.truckId}>{assignment.truckName}</option>)}
-        </select>
+        </Dropdown>
       </div>)}
     </div>}
   </Section>;

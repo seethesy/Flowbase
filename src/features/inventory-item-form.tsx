@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type ReactNode } from "react";
 import { isFtPlus } from "../../shared/access";
 import { AlertTriangle } from "lucide-react";
@@ -58,14 +59,14 @@ function UnitSelect({
 }) {
   return (
     <FormField label={label}>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <Dropdown value={value} onChange={(e) => onChange(e.target.value)}>
         {optional && <option value="">{optional}</option>}
         {unitSchema.options.map((unit) => (
           <option key={unit} value={unit}>
             {unitLabel(unit)}
           </option>
         ))}
-      </select>
+      </Dropdown>
     </FormField>
   );
 }
@@ -451,7 +452,7 @@ function ItemFormFields({
           <FormField label={<T id="inventory-item-form.item-form-fields.code-sku">Code / SKU</T>}>{input("code")}</FormField>
           {!item && !preset && (
             <FormField label={<T id="inventory-item-form.item-form-fields.kind">Kind</T>}>
-              <select
+              <Dropdown
                 value={kind}
                 onChange={(e) => {
                   const next = e.target.value as ItemKind;
@@ -465,12 +466,12 @@ function ItemFormFields({
                     {kindLabels[option]}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
           )}
           {subtypes.length > 0 && !preset && (
             <FormField label={<T id="inventory-item-form.item-form-fields.subtype">Subtype</T>}>
-              <select
+              <Dropdown
                 value={subtype}
                 onChange={(e) => setSubtype(e.target.value)}
               >
@@ -479,13 +480,13 @@ function ItemFormFields({
                     {subtypeLabel(option)}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
           )}
           {isBar ? (
             <>
               <FormField label={<T id="inventory-item-form.item-form-fields.category">Category</T>}>
-                <select
+                <Dropdown
                   value={fields.category}
                   onChange={(e) => pickCategory(e.target.value)}
                 >
@@ -493,11 +494,11 @@ function ItemFormFields({
                   {barCategories.map((option) => (
                     <option key={option}>{option}</option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               {barSubcategories[fields.category] && (
                 <FormField label={<T id="inventory-item-form.item-form-fields.subcategory">Subcategory</T>}>
-                  <select
+                  <Dropdown
                     value={fields.subcategory}
                     onChange={(e) => set("subcategory")(e.target.value)}
                   >
@@ -505,7 +506,7 @@ function ItemFormFields({
                     {barSubcategories[fields.category].map((option) => (
                       <option key={option}>{option}</option>
                     ))}
-                  </select>
+                  </Dropdown>
                 </FormField>
               )}
               <FormField label={<T id="inventory-item-form.item-form-fields.brand-varietal">Brand / varietal</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-pinot-grigio">e.g. Pinot Grigio</T>}>
@@ -537,7 +538,7 @@ function ItemFormFields({
           {isBar ? (
             <>
               <FormField label={<T id="inventory-item-form.item-form-fields.tier">Tier</T>}>
-                <select
+                <Dropdown
                   value={fields.tier}
                   onChange={(e) => set("tier")(e.target.value)}
                 >
@@ -547,10 +548,10 @@ function ItemFormFields({
                       {barTierLabels[option]}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               <FormField label={<T id="inventory-item-form.item-form-fields.container">Container</T>}>
-                <select
+                <Dropdown
                   value={fields.container}
                   onChange={(e) => set("container")(e.target.value)}
                 >
@@ -560,7 +561,7 @@ function ItemFormFields({
                       {barContainerLabels[option]}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               <FormField
                 label={<T id="inventory-item-form.item-form-fields.house-pick">House pick</T>}
@@ -599,7 +600,7 @@ function ItemFormFields({
             {input("ratioQuantity", { type: "number" })}
           </FormField>
           <FormField label={<T id="inventory-item-form.item-form-fields.ratio-basis">Ratio basis</T>}>
-            <select
+            <Dropdown
               value={fields.ratioBasis}
               onChange={(e) => set("ratioBasis")(e.target.value)}
             >
@@ -608,7 +609,7 @@ function ItemFormFields({
                   {ratioBasisLabels[basis]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
         </div>
         {kind === "rental" && (
@@ -643,7 +644,7 @@ function ItemFormFields({
                 label={<T id="inventory-item-form.item-form-fields.rented-from">Rented from</T>}
                 hint={<T id="inventory-item-form.item-form-fields.a-sub-rented-item-is">A sub-rented item is available on request, never owned stock.</T>}
               >
-                <select
+                <Dropdown
                   value={fields.rentalVendorId}
                   onChange={(e) => {
                     const vendor = vendorOptions.find(
@@ -664,7 +665,7 @@ function ItemFormFields({
                       {vendor.name}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               {fields.rentalVendorId && (
                 <>
@@ -717,7 +718,7 @@ function ItemFormFields({
                   {input("price", { type: "number" })}
                 </FormField>
                 <FormField label={<T id="inventory-item-form.item-form-fields.priced">Priced</T>}>
-                  <select
+                  <Dropdown
                     value={fields.priceBasis}
                     onChange={(e) => set("priceBasis")(e.target.value)}
                   >
@@ -726,7 +727,7 @@ function ItemFormFields({
                         {ratioBasisLabels[basis as RatioBasis]}
                       </option>
                     ))}
-                  </select>
+                  </Dropdown>
                 </FormField>
               </div>
             )}
@@ -841,7 +842,7 @@ function ItemFormFields({
                 </FormField>
               )}
               <FormField label={<T id="inventory-item-form.item-form-fields.vendor-directory">Vendor directory</T>}>
-                <select
+                <Dropdown
                   value={fields.preferredVendorId}
                   onChange={(e) => set("preferredVendorId")(e.target.value)}
                 >
@@ -851,7 +852,7 @@ function ItemFormFields({
                       {vendor.name}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               {!fields.preferredVendorId && (
                 <FormField label={isBar ? <T id="inventory-item-form.item-form-fields.distributor">Distributor</T> : <T id="inventory-item-form.item-form-fields.preferred-vendor">Preferred vendor</T>}>
@@ -864,7 +865,7 @@ function ItemFormFields({
                 {input("parLevel", { type: "number" })}
               </FormField>
               <FormField label={<T id="inventory-item-form.item-form-fields.storage-section">Storage section</T>}>
-                <select
+                <Dropdown
                   value={storageSectionId}
                   onChange={(e) => {
                     setStorageTouched(true);
@@ -877,7 +878,7 @@ function ItemFormFields({
                       {section.name}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               <FormField
                 label={<T id="inventory-item-form.item-form-fields.shelf-order">Shelf order</T>}

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -77,7 +78,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
         )}
         <div className="form-grid">
           <FormField label={<T id="communications.communication-log.type">Type</T>}>
-            <select
+            <Dropdown
               value={kind}
               onChange={(e) => setKind(e.target.value as CommunicationKind)}
             >
@@ -86,7 +87,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
                   {communicationKindLabels[option]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="communications.communication-log.next-follow-up">Next follow-up</T>}>
             <input

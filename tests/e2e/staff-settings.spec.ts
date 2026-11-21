@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { readFile } from "node:fs/promises";
 import { eq, inArray } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
@@ -30,7 +31,7 @@ test("filters the staff directory by position and exports the filtered list", as
   await expect(
     page.getByText(`${seedUsers.length - 1} staff`, { exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Position", { exact: true }).selectOption("Server");
+  await choose(page.getByLabel("Position", { exact: true }), "Server");
   await expect(page.getByText("1 staff", { exact: true })).toBeVisible();
   await page.getByLabel("Show inactive").check();
   await expect(page.getByText("2 staff", { exact: true })).toBeVisible();
@@ -56,7 +57,7 @@ test("a list value Admin adds in Settings is offered in the event form, and arch
   page,
 }) => {
   await page.goto("/#/settings");
-  await page.getByLabel(/^List/).selectOption({ label: "Event types" });
+  await choose(page.getByLabel(/^List/), { label: "Event types" });
   await page.getByLabel("Add to Event types").fill("Gala");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText("Gala added.", { exact: true })).toBeVisible();
@@ -66,13 +67,11 @@ test("a list value Admin adds in Settings is offered in the event form, and arch
 
   await page.goto("/#/events");
   await page.getByRole("button", { name: "New Event", exact: true }).click();
-  await expect(
-    page.getByRole("dialog").getByLabel(/^Event type/).locator("option"),
-  ).toHaveText(["—", "Corporate", "Wedding", "Gala"]);
+  await expect.poll(() => optionTexts(page.getByRole("dialog").getByLabel(/^Event type/))).toEqual(["—", "Corporate", "Wedding", "Gala"]);
   await page.getByRole("button", { name: "Cancel" }).click();
 
   await page.goto("/#/settings");
-  await page.getByLabel(/^List/).selectOption({ label: "Event types" });
+  await choose(page.getByLabel(/^List/), { label: "Event types" });
   await page
     .getByRole("list", { name: "Event types" })
     .getByRole("listitem")
@@ -82,7 +81,5 @@ test("a list value Admin adds in Settings is offered in the event form, and arch
   await expect(page.getByText("Gala archived.", { exact: true })).toBeVisible();
   await page.goto("/#/events");
   await page.getByRole("button", { name: "New Event", exact: true }).click();
-  await expect(
-    page.getByRole("dialog").getByLabel(/^Event type/).locator("option"),
-  ).toHaveText(["—", "Corporate", "Wedding"]);
+  await expect.poll(() => optionTexts(page.getByRole("dialog").getByLabel(/^Event type/))).toEqual(["—", "Corporate", "Wedding"]);
 });

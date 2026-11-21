@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { consumableDetailsInputSchema } from "../../shared/inventory";
 import { tuscanIngredients } from "../fixtures/tuscan-chicken";
@@ -47,9 +48,8 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
     const line = dialog.getByRole("group", {
       name: `Ingredient line ${index + 1}`,
     });
-    await line
-      .getByRole("combobox", { name: `Ingredient ${index + 1}`, exact: true })
-      .selectOption({ label: name });
+    await choose(line
+      .getByRole("combobox", { name: `Ingredient ${index + 1}`, exact: true }), { label: name });
     if (quantity) await line.getByLabel(/^Quantity/).fill(quantity);
     if (cost) await line.getByLabel(/^Entered cost/).fill(cost);
   }
@@ -58,7 +58,7 @@ test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => 
     dialog
       .getByRole("group", { name: "Ingredient line 2" })
       .getByRole("combobox", { name: "Unit", exact: true }),
-  ).toHaveValue("cup");
+  ).toHaveAttribute("data-value", "cup");
   await dialog
     .getByLabel(/^Steps/)
     .fill("1. Sear the chicken.\n2. Simmer the sauce.");
@@ -138,7 +138,7 @@ test("an allergen and a category added in Settings are used on a recipe", async 
     ["Allergens", "Coconut"],
     ["Recipe categories", "Brunch"],
   ]) {
-    await page.getByLabel(/^List/).selectOption({ label: list });
+    await choose(page.getByLabel(/^List/), { label: list });
     await page.getByLabel(`Add to ${list}`).fill(value);
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText(`${value} added.`, { exact: true })).toBeVisible();
@@ -148,7 +148,7 @@ test("an allergen and a category added in Settings are used on a recipe", async 
   await page.getByRole("button", { name: "New Recipe", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Coconut Pancakes");
-  await dialog.getByLabel("Category", { exact: true }).selectOption({ label: "Brunch" });
+  await choose(dialog.getByLabel("Category", { exact: true }), { label: "Brunch" });
   await dialog
     .getByRole("group", { name: "Allergens" })
     .getByLabel("Coconut", { exact: true })
@@ -166,13 +166,13 @@ test("an allergen and a category added in Settings are used on a recipe", async 
   await expect(tags.getByText("Coconut", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "← Recipe book" }).click();
-  await page.getByLabel("Category", { exact: true }).selectOption("Brunch");
+  await choose(page.getByLabel("Category", { exact: true }), "Brunch");
   await expect(page.getByRole("button", { name: "Coconut Pancakes" })).toBeVisible();
 });
 
 test("an archived dietary tag stays marked on a recipe but leaves the new recipe picker", async ({ page }) => {
   await page.goto("/#/settings");
-  await page.getByLabel(/^List/).selectOption({ label: "Dietary tags" });
+  await choose(page.getByLabel(/^List/), { label: "Dietary tags" });
   await page.getByLabel("Add to Dietary tags").fill("Nut-free");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText("Nut-free added.", { exact: true })).toBeVisible();
@@ -187,7 +187,7 @@ test("an archived dietary tag stays marked on a recipe but leaves the new recipe
   const recipeUrl = page.url();
 
   await page.goto("/#/settings");
-  await page.getByLabel(/^List/).selectOption({ label: "Dietary tags" });
+  await choose(page.getByLabel(/^List/), { label: "Dietary tags" });
   await page.getByRole("list", { name: "Dietary tags" })
     .getByRole("listitem").filter({ hasText: "Nut-free" })
     .getByRole("button", { name: "Archive" }).click();

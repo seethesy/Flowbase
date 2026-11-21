@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { consumable, fallGala, juniper } from "./fixtures";
 import { seedInventory, seedRecords } from "./database";
@@ -22,16 +23,16 @@ test("plans bar quantities on an event by item and by tier", async ({ page }) =>
   await page.getByRole("form", { name: "Add bar tier" }).scrollIntoViewIfNeeded();
 
   const tierForm = page.getByRole("form", { name: "Add bar tier" });
-  await tierForm.getByLabel("Tier", { exact: true }).selectOption("rail");
-  await tierForm.getByLabel("Bar category").selectOption("Liquor");
-  await tierForm.getByLabel("Subcategory").selectOption("Vodka");
+  await choose(tierForm.getByLabel("Tier", { exact: true }), "rail");
+  await choose(tierForm.getByLabel("Bar category"), "Liquor");
+  await choose(tierForm.getByLabel("Subcategory"), "Vodka");
   await tierForm.getByLabel("Tier quantity").fill("12");
   await tierForm.getByRole("button", { name: "Add bar tier" }).click();
   await expect(page.getByText("Rail vodka")).toBeVisible();
   await expect(page.getByText("from Smirnoff, Svedka")).toBeVisible();
 
   const itemForm = page.getByRole("form", { name: "Add bar item" });
-  await itemForm.getByLabel("Item").selectOption({ label: "Svedka" });
+  await choose(itemForm.getByLabel("Item"), { label: "Svedka" });
   await itemForm.getByLabel("Quantity").fill("2");
   await itemForm.getByRole("button", { name: "Add bar item" }).click();
   await expect(page.getByRole("button", { name: "Remove Svedka" })).toBeVisible();
