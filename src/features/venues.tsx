@@ -2,6 +2,7 @@ import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard } from "../app/field-card";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -507,6 +508,11 @@ export function VenueDetail() {
         </div>
       </div>
       <div className="detail-grid">
+        <PageGrid pageKey="venues.detail" record={{ source: "venues", id: v.id, row: v as unknown as Record<string, unknown> }}>
+        <Block id="venue-facts" name="Venue details" w={6} h={10}>
+        <FieldCard cardKey="venue-facts" source="venues" row={v as unknown as Record<string, unknown>}
+          title={<T id="venues.venue-detail.venue-details">Venue details</T>}
+          fields={["name", "address", "jurisdiction", "loadInNotes", "parkingNotes"]}>
         <Section title={<T id="venues.venue-detail.venue-details">Venue details</T>}>
           <small><T id="venues.venue-detail.areas">Areas</T></small>
           <p>{v.areas.map((area) => area.name).join(", ") || <T id="venues.venue-detail.no-areas-yet">No areas yet.</T>}</p>
@@ -515,6 +521,9 @@ export function VenueDetail() {
           <small><T id="venues.venue-detail.parking">Parking</T></small>
           <p>{v.parkingNotes || "—"}</p>
         </Section>
+        </FieldCard>
+        </Block>
+        <Block id="venue-contacts" name="Venue contacts" w={6} h={10}>
         <Section title={<T id="venues.venue-detail.venue-contacts">Venue contacts</T>}>
           {v.contacts === null ? (
             <p className="muted">
@@ -536,6 +545,8 @@ export function VenueDetail() {
             <p className="muted"><T id="venues.venue-detail.no-venue-contacts-yet">No venue contacts yet.</T></p>
           )}
         </Section>
+        </Block>
+        </PageGrid>
       </div>
       <div className="detail-grid">
         <Attachments

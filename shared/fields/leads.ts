@@ -26,7 +26,7 @@ export const leadFields: SourceDef = {
     { key: "status", label: "Status", type: "status", options: pipeline, sortable: true, filterable: true },
     { key: "eventName", label: "Event", type: "text", editable: true, sortable: true, filterable: true },
     { key: "eventDate", label: "Event date", type: "date", editable: true, sortable: true, filterable: true },
-    { key: "guestCount", label: "Guests", type: "number", sortable: true, filterable: true },
+    { key: "guestCount", label: "Guests", type: "number", editable: true, sortable: true, filterable: true },
     { key: "eventType", label: "Event type", type: "text", sortable: true, filterable: true },
     { key: "location", label: "Location", type: "text", sortable: true, filterable: true },
     {

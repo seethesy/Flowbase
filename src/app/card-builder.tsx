@@ -14,6 +14,7 @@ import { Button } from "../components/ui/button";
 import { ColumnPicker } from "./column-picker";
 import { BoxEditorList } from "./box-editor";
 import { usePermissions } from "./permissions";
+import { styleClass, styleVars, StylePopover } from "./layout-style";
 
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
 
@@ -54,6 +55,8 @@ export function CardBuilder({
 }) {
   const { actor } = usePermissions();
   const [card, setCard] = useState<CardConfig>(initial);
+  // The box whose Style popover is open (FLOW-273).
+  const [styling, setStyling] = useState<string | null>(null);
   const source = cardSourceKey(card, recordSource);
   const fields = source && actor ? readableFields(actor, source) : [];
   const set = (patch: Partial<CardConfig>) => setCard((current) => ({ ...current, ...patch }));
@@ -270,10 +273,26 @@ export function CardBuilder({
                     items={boxes}
                     render={(id) => {
                       const box = boxes.find((b) => b.id === id)!;
+                      const label = box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : box.text || box.kind;
                       return (
-                        <div className="layout-box-frame">
+                        <div className={`layout-box-frame ${styleClass(box.style)}`} style={styleVars(box.style)}>
                           <span className="layout-handle">⠿</span>
-                          {box.kind === "field" ? fieldDef(source, box.field!)?.label : box.text || box.kind}
+                          {label}
+                          <button
+                            type="button"
+                            className="layout-box-style"
+                            aria-label={`Style ${label}`}
+                            onClick={() => setStyling(box.id)}
+                          >
+                            ◐
+                          </button>
+                          {styling === box.id && (
+                            <StylePopover
+                              style={box.style}
+                              onChange={(style) => setBoxes(boxes.map((b) => (b.id === box.id ? { ...b, style } : b)))}
+                              onClose={() => setStyling(null)}
+                            />
+                          )}
                         </div>
                       );
                     }}
