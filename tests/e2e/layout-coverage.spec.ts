@@ -53,16 +53,16 @@ test("an Admin moves and resizes a built-in card, saves, and another user sees i
   await save(page);
 
   const saved = page.locator('[data-block-id="list"]');
-  await expect(saved).toHaveAttribute("style", /grid-column: (?!1 )\d+ \/ span (?!12)\d+/);
+  await expect(saved).toHaveAttribute("style", /grid-area: \d+ \/ (?!1 )\d+ \/ span \d+ \/ span (?!12)\d+/);
   const other = await asUser(browser, salesperson.id);
   await other.page.goto("/#/venues");
-  await expect(other.page.locator('[data-block-id="list"]')).toHaveAttribute("style", /grid-column: (?!1 )\d+ \/ span (?!12)\d+/);
+  await expect(other.page.locator('[data-block-id="list"]')).toHaveAttribute("style", /grid-area: \d+ \/ (?!1 )\d+ \/ span \d+ \/ span (?!12)\d+/);
   await other.close();
 });
 
 test("an Admin colors a custom card and a field box, everyone sees them, Default restores the look (AC2)", async ({ page, browser }) => {
-  await seedRecords({ clients: [juniper()] });
-  const url = `/#/clients/${juniper().id}`;
+  const member = seedUsers.find((user) => user.role === "staff")!;
+  const url = `/#/staff/${member.id}`;
   await page.goto(url);
   await edit(page);
 
@@ -87,7 +87,7 @@ test("an Admin colors a custom card and a field box, everyone sees them, Default
   await cardStyle.getByRole("button", { name: "Done" }).click();
   await save(page);
 
-  const colored = (p: Page) => p.locator('[data-field-card="client-facts"] .layout-styled-bg');
+  const colored = (p: Page) => p.locator('[data-field-card="staff-facts"] .layout-styled-bg');
   await expect(colored(page)).toHaveCount(1);
   const other = await asUser(browser, salesperson.id);
   await other.page.goto(url);

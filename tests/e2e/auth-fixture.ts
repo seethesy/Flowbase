@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { test as base, expect, type Page } from "@playwright/test";
 import { SignJWT } from "jose";
 import { seedUsers } from "../../worker/db/seed";
@@ -112,12 +113,17 @@ export const databaseTest = base.extend<{ database: void; contracts: void }>({
         const request = route.request();
         const checked = (async () => {
           const response = await route.fetch({ timeout: 10_000 });
-          if (response.status() !== 204)
-            responseSchema(
-              new URL(request.url()).pathname,
-              request.method(),
-              response.status(),
+          if (response.status() !== 204) {
+            const url = new URL(request.url());
+            // A card asks for some of a record's fields (fields=, FLOW-253): the
+            // answer is a row or rows holding only those fields.
+            const projected = response.status() < 400 && url.searchParams.has("fields");
+            const rows = z.object({ id: z.string() }).passthrough();
+            (projected
+              ? z.union([rows, rows.array()])
+              : responseSchema(url.pathname, request.method(), response.status())
             ).parse(await response.json());
+          }
           return response;
         })();
         validations.push(
