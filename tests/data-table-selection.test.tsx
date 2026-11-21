@@ -104,7 +104,7 @@ it("deletes the selection, skips blocked rows with their reason, and Undo or Ctr
 
   // The Delete key deletes when the table has focus; the toast goes after 10 seconds.
   await user.pointer([{ keys: "[MouseLeft>]", target: row("Delta") }, { target: row("Echo") }, { keys: "[/MouseLeft]" }]);
-  row("Delta").closest(".table-card")!.focus();
+  row("Delta").closest<HTMLElement>(".table-card")!.focus();
   await user.keyboard("{Delete}");
   expect(onDelete).toHaveBeenLastCalledWith(["r3", "r4"]);
   await user.click(within(screen.getByRole("status")).getByRole("button", { name: /Undo/ }));
