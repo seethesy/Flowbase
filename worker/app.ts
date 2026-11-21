@@ -33,6 +33,8 @@ import { attachmentRoutes } from "./routes/attachments";
 import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { copyRoutes } from "./routes/copy";
+import { layoutRoutes } from "./routes/layout";
+import { fieldProjection } from "./fields";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
@@ -184,6 +186,8 @@ export function createApp(options: Options = {}) {
     }
     return requireActor(resolveActor)(c, next);
   });
+  // fields= and card queries on list and detail endpoints (FLOW-253/256).
+  app.use("/api/*", fieldProjection(() => app));
   // BEO change tracking (FLOW-144) runs after every write under /api/events/<id>.
   app.use("/api/events/*", beoSync(options.withDb));
   app.use("/api/events/*", async (c, next) => {
@@ -302,6 +306,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/search", searchRoutes(options));
   app.route("/api/settings", settingsRoutes(options));
   app.route("/api/copy", copyRoutes(options));
+  app.route("/api/layout", layoutRoutes(options));
   app.route("/api/staff", staffRoutes(options));
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/events", eventTimelineRoutes(options));

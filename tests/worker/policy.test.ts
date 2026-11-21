@@ -55,6 +55,7 @@ const expected: Record<Action, string> = {
   "approvals.write": "1111111",
   "settings.manage": "1000000",
   "copy.edit": "1000000",
+  "layout.edit": "1000000",
   "clients.read": "1111000",
   "clients.write": "1111000",
   "venues.write": "1111000",
@@ -94,6 +95,11 @@ const expected: Record<Action, string> = {
   "attachments.write": "1111100",
   "sops.write": "1010100",
 };
+// Every Admin has live editing, wording and layout (FLOW-253 comment, FLOW-269).
+it("gives every Admin both live-edit permissions", () => {
+  expect(can(actor("admin"), "copy.edit")).toBe(true);
+  expect(can(actor("admin"), "layout.edit")).toBe(true);
+});
 it("accounts for every protected action in the role matrix", () => {
   expect(Object.keys(expected).sort()).toEqual([...actions].sort());
 });

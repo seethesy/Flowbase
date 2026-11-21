@@ -2489,3 +2489,368 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 .undo-toast { display: flex; align-items: center; gap: 14px; }
 .undo-toast__undo { display: inline-flex; align-items: center; gap: 5px; color: #b8e0c6; font-weight: 600; }
 .undo-toast__close { display: inline-flex; color: #c9d4cd; }
+
+/* Page layouts (FLOW-253 to 256). With no saved layout pages render as before. */
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(24px, auto);
+  gap: 12px;
+  align-items: start;
+}
+.detail-grid > .page-grid,
+.detail-grid > .page-grid-editing,
+.dashboard-cards > .page-grid,
+.dashboard-cards > .page-grid-editing {
+  grid-column: 1 / -1;
+  grid-area: auto;
+}
+.dashboard-cards:has(> .page-grid, > .page-grid-editing) {
+  display: block;
+}
+.page-grid-block {
+  min-width: 0;
+}
+.page-grid-block > .panel,
+.page-grid-block > .dashboard-card,
+.page-grid-block > section {
+  height: 100%;
+  margin: 0;
+}
+@media (max-width: 899px) {
+  .page-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Phones stack blocks in reading order (the DOM order). */
+  .page-grid > .page-grid-block,
+  .layout-boxes > .layout-box {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+  .layout-boxes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Colors: text color reaches headings, labels, values and free text; links,
+   status pills and buttons keep their own. */
+.layout-styled-text,
+.layout-styled-text :is(h1, h2, h3, h4, p, small, strong, span, td, th, li, label):not(.status-pill, .status-pill *, .badge) {
+  color: var(--layout-text);
+}
+.layout-styled-bg,
+.layout-styled-bg > .panel,
+.layout-styled-bg > .dashboard-card,
+.layout-styled-bg > section {
+  background: var(--layout-bg);
+}
+
+.layout-text-heading {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.layout-text-body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.layout-text-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  background: var(--soft);
+  border-radius: 6px;
+  white-space: pre-wrap;
+}
+
+/* Field boxes and text boxes on a card's inner grid. */
+.layout-boxes {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(28px, auto);
+  gap: 8px 12px;
+}
+.layout-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.layout-box small {
+  color: var(--muted);
+}
+.layout-box-heading {
+  margin: 0;
+  font-size: 1rem;
+}
+.layout-box-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.layout-box-note {
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--soft);
+  border-radius: 6px;
+  white-space: pre-wrap;
+}
+
+/* Edit mode. */
+.page-grid-editing {
+  display: grid;
+  gap: 12px;
+}
+.layout-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius);
+}
+.layout-tray {
+  position: relative;
+}
+.layout-tray-list,
+.layout-columns-popover,
+.layout-style-popover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 260px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0002;
+}
+.layout-tray-list ul,
+.layout-column-picker,
+.layout-box-editor ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.layout-tray-list li,
+.layout-box-editor li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.layout-grid-editor {
+  width: 100%;
+}
+.layout-grid-item {
+  overflow: visible;
+}
+/* A popover open inside a block sits above its neighbours. */
+.layout-grid-item:has(.layout-style-popover, .layout-columns-popover, .layout-confirm) {
+  z-index: 50;
+}
+.layout-block-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px dashed var(--border-dark);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.layout-block-bar,
+.layout-box-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px dashed var(--border);
+}
+.layout-box-bar {
+  padding: 0;
+  border: 0;
+}
+.layout-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: grab;
+  user-select: none;
+}
+.layout-block-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+.layout-block-actions button,
+.layout-box-bar button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+.layout-block-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+.layout-text-input {
+  width: 100%;
+  height: 100%;
+  min-height: 40px;
+  resize: none;
+  font: inherit;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.layout-text-input--heading {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.layout-field-card.editing .layout-box {
+  height: 100%;
+  border: 1px dashed var(--border-dark);
+  background: var(--surface);
+}
+.layout-field-card-actions,
+.layout-box-adds {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.layout-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.layout-columns-editor {
+  position: relative;
+  margin-right: auto;
+}
+.layout-column-picker li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.layout-column-picker li.dragging {
+  opacity: 0.5;
+}
+.layout-column-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.layout-column-moves button {
+  padding: 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.layout-drag {
+  width: 14px;
+  cursor: grab;
+}
+.layout-style-popover {
+  top: 32px;
+  right: 8px;
+  left: auto;
+  width: min(320px, calc(100vw - 32px));
+}
+.layout-color {
+  border: 0;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.layout-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.layout-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-dark);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.layout-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.layout-color-row {
+  display: flex;
+  gap: 6px;
+}
+.layout-style-preview {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.layout-card-builder {
+  position: fixed;
+  z-index: 900;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 100vw);
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--surface);
+  border-left: 1px solid var(--border-dark);
+  box-shadow: -8px 0 24px #0002;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.layout-card-builder fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 8px;
+}
+.layout-filter-row,
+.layout-card-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 6px;
+}
+.layout-card-scroll {
+  max-height: 420px;
+  overflow: auto;
+}
+.layout-card-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.layout-card-open {
+  font-size: 13px;
+}
+.layout-box-frame {
+  height: 100%;
+  padding: 4px 6px;
+  border: 1px dashed var(--border-dark);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.layout-field-card.editing .layout-box { position: relative; }

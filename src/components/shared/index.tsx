@@ -1,5 +1,6 @@
 import { Dropdown } from "../ui/Dropdown";
-import { useState, useRef, type ReactNode } from "react";
+import { lazy, Suspense, useState, useRef, type ReactNode } from "react";
+
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Search,
@@ -39,6 +40,7 @@ import {
 import { LabelT, Plural, T, useCopy } from "../../app/copy";
 import { roleLabel } from "../../services/users";
 import { copySlug } from "../../../shared/copy";
+import { usePageLayoutContext } from "../../app/layout-context";
 export { Button };
 
 // List export (FLOW-48). A column's CSV value is its accessor's value unless meta.csv
@@ -50,6 +52,8 @@ declare module "@tanstack/react-table" {
     csv?: (row: TData, value: TValue) => CsvValue;
     fieldGroup?: FieldGroup;
     exportable?: boolean;
+    // A saved column width in pixels (FLOW-254).
+    width?: number;
   }
 }
 // The header row and every filtered row in the current sort order, not just the
@@ -231,16 +235,11 @@ function headerText(header: unknown, copyKey: string): ReactNode | null {
   return <T id={`${copyKey}.column.${copySlug(header)}`}>{header}</T>;
 }
 export type TableSelection<Row> = SelectionOptions & { rowId: (row: Row) => string };
-export function DataTable<Row>({
-  data,
-  columns,
-  onRow,
-  selection,
-  label = <T id="shared.data-table.records">records</T>,
-  exportName,
-  exportAll,
-  copyKey = "shared.data-table",
-}: {
+// Saved columns and the Columns editor (FLOW-254) load only on a page that has
+// a saved column set for this table or is in edit mode.
+const LayoutColumns = lazy(() => import("../layout-table"));
+
+type DataTableProps<Row> = {
   data: Row[];
   columns: ColumnDef<Row, unknown>[];
   onRow?: (record: Row) => void;
@@ -256,7 +255,32 @@ export function DataTable<Row>({
   // table selects rows; Delete shows only when onDelete is given (the caller
   // passes it only to users who can edit the records).
   selection?: TableSelection<Row>;
-}) {
+};
+export function DataTable<Row>(props: DataTableProps<Row>) {
+  const layout = usePageLayoutContext();
+  const copyKey = props.copyKey ?? "shared.data-table";
+  if (!layout || !(layout.editing || layout.doc?.tables[copyKey])) return <DataTableView {...props} />;
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <LayoutColumns copyKey={copyKey} columns={props.columns as unknown as ColumnDef<unknown, unknown>[]}>
+        {(columns, editor) => (
+          <DataTableView {...props} columns={columns as unknown as ColumnDef<Row, unknown>[]} editor={editor} />
+        )}
+      </LayoutColumns>
+    </Suspense>
+  );
+}
+function DataTableView<Row>({
+  data,
+  columns,
+  onRow,
+  selection,
+  label = <T id="shared.data-table.records">records</T>,
+  exportName,
+  exportAll,
+  copyKey = "shared.data-table",
+  editor = null,
+}: DataTableProps<Row> & { editor?: ReactNode }) {
   const { actor } = usePermissions();
   const [sorting, setSorting] = useState<SortingState>([]);
   // Rows fetched so far while an export runs; null when none is running.
@@ -298,14 +322,15 @@ export function DataTable<Row>({
       onKeyDown={selecting.onKeyDown}
     >
       {selection && selecting.bar}
-      {exportName && (
+      {(exportName || editor) && (
         <div className="table-toolbar">
+          {editor}
           {exportError && (
             <p role="alert" className="error-message">
               {exportError}
             </p>
           )}
-          <Button
+          {exportName && <Button
             variant="outline"
             disabled={!data.length || exporting !== null}
             onClick={() => void exportCsv(exportName)}
@@ -314,7 +339,7 @@ export function DataTable<Row>({
             {exporting === null
               ? <T id="shared.data-table.export-csv">Export CSV</T>
               : <Plural id="shared.data-table.exporting-rows" count={exporting} one="Exporting… {count} row" other="Exporting… {count} rows" />}
-          </Button>
+          </Button>}
         </div>
       )}
       <div className="table-scroll">
@@ -322,7 +347,7 @@ export function DataTable<Row>({
           <thead>
             <tr>
               {table.getHeaderGroups()[0].headers.map((h) => (
-                <th key={h.id}>
+                <th key={h.id} style={h.column.columnDef.meta?.width ? { width: h.column.columnDef.meta.width } : undefined}>
                   {h.column.getCanSort() ? (
                     <button onClick={h.column.getToggleSortingHandler()}>
                       {headerText(h.column.columnDef.header, copyKey) ??

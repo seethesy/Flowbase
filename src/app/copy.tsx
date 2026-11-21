@@ -18,6 +18,8 @@ import {
   type CopyOverrides,
 } from "../../shared/copy";
 import { request } from "../services/core";
+import type { LayoutDoc } from "../../shared/layout";
+import { styleContrastOk } from "../../shared/contrast";
 
 // Admin live text editing (FLOW-240). Every built-in string on a screen is a
 // <T id="area.screen.element">Default text</T> (or useCopy for an input
@@ -26,6 +28,8 @@ import { request } from "../services/core";
 // Key convention: docs/live-text-editing.md.
 
 export const COPY_QUERY_KEY = ["ui-copy"] as const;
+// A page's saved layout (FLOW-253).
+export const layoutQueryKey = (pageKey: string) => ["ui-layout", pageKey] as const;
 const COPY_STALE_MS = 30 * 60_000;
 
 export const copyApi = {
@@ -48,6 +52,12 @@ export type EditorTarget = {
 type LiveEdit = {
   overrides: CopyOverrides;
   canEdit: boolean;
+  // Admin live layout editing (FLOW-253) shares the session: one pencil, one
+  // Save and Cancel, one leave-page guard.
+  canEditLayout: boolean;
+  // Unsaved page layouts by page key; null resets the page to its code default.
+  layoutPending: Record<string, LayoutDoc | null>;
+  stageLayout: (pageKey: string, layout: LayoutDoc | null | undefined) => void;
   editing: boolean;
   pending: Record<string, PendingEdit>;
   target: EditorTarget | null;
@@ -62,6 +72,9 @@ type LiveEdit = {
 const inert: LiveEdit = {
   overrides: {},
   canEdit: false,
+  canEditLayout: false,
+  layoutPending: {},
+  stageLayout: () => {},
   editing: false,
   pending: {},
   target: null,
@@ -83,7 +96,34 @@ export function pendingProblems(pending: Record<string, PendingEdit>) {
   });
 }
 
-export function CopyProvider({ canEdit, children }: { canEdit: boolean; children: ReactNode }) {
+// Blocks and boxes whose text and background colors are too close (FLOW-253 AC8).
+export function layoutStyleProblems(layouts: Record<string, LayoutDoc | null>) {
+  return Object.entries(layouts).flatMap(([pageKey, doc]) => {
+    if (!doc) return [];
+    const styles = [
+      ...doc.blocks.map((block) => block.style),
+      ...doc.blocks.flatMap((block) =>
+        block.kind === "card" && block.card.display.type === "boxes" ? block.card.display.boxes.map((box) => box.style) : [],
+      ),
+      ...Object.values(doc.fieldBoxes).flatMap((card) => card.boxes.map((box) => box.style)),
+    ];
+    return styles.some((style) => !styleContrastOk(style)) ? [{ pageKey }] : [];
+  });
+}
+
+// Everything the session would save: wording edits and page layouts.
+export const pendingCount = (live: Pick<LiveEdit, "pending" | "layoutPending">) =>
+  Object.keys(live.pending).length + Object.keys(live.layoutPending).length;
+
+export function CopyProvider({
+  canEdit,
+  canEditLayout = false,
+  children,
+}: {
+  canEdit: boolean;
+  canEditLayout?: boolean;
+  children: ReactNode;
+}) {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: COPY_QUERY_KEY,
@@ -95,6 +135,14 @@ export function CopyProvider({ canEdit, children }: { canEdit: boolean; children
   const [editing, setEditingState] = useState(false);
   const [pending, setPending] = useState<Record<string, PendingEdit>>({});
   const [target, setTarget] = useState<EditorTarget | null>(null);
+  const [layoutPending, setLayoutPending] = useState<Record<string, LayoutDoc | null>>({});
+  const stageLayout = useCallback((pageKey: string, layout: LayoutDoc | null | undefined) =>
+    setLayoutPending((current) => {
+      const next = { ...current };
+      if (layout === undefined) delete next[pageKey];
+      else next[pageKey] = layout;
+      return next;
+    }), []);
   const setEditing = useCallback(
     (on: boolean) => {
       setEditingState(on && canEdit);
@@ -117,19 +165,34 @@ export function CopyProvider({ canEdit, children }: { canEdit: boolean; children
   );
   const save = useCallback(async () => {
     const entries = Object.entries(pending);
-    if (!entries.length || pendingProblems(pending).length) return;
+    const layouts = Object.entries(layoutPending);
+    if ((!entries.length && !layouts.length) || pendingProblems(pending).length || layoutStyleProblems(layoutPending).length)
+      return;
     const edits = entries.flatMap(([key, edit]) =>
       edit.text === null ? [] : [{ key, text: edit.text, placeholders: edit.placeholders }],
     );
     // The PUT answers with every override: show them at once, then refetch.
     if (edits.length) client.setQueryData(COPY_QUERY_KEY, await copyApi.save(edits));
     for (const [key, edit] of entries) if (edit.text === null) await copyApi.reset(key);
-    await client.invalidateQueries({ queryKey: COPY_QUERY_KEY });
+    if (entries.length) await client.invalidateQueries({ queryKey: COPY_QUERY_KEY });
+    // The layout API loads with the layout schemas, only when there is a layout to save.
+    if (layouts.length) {
+      const { layoutApi } = await import("../services/layout");
+      for (const [pageKey, layout] of layouts) {
+        if (layout) client.setQueryData(layoutQueryKey(pageKey), await layoutApi.save(pageKey, layout));
+        else {
+          await layoutApi.reset(pageKey);
+          client.setQueryData(layoutQueryKey(pageKey), null);
+        }
+      }
+    }
     setPending({});
+    setLayoutPending({});
     setTarget(null);
-  }, [client, pending]);
+  }, [client, pending, layoutPending]);
   const cancel = useCallback(() => {
     setPending({});
+    setLayoutPending({});
     setTarget(null);
     setEditingState(false);
   }, []);
@@ -137,6 +200,9 @@ export function CopyProvider({ canEdit, children }: { canEdit: boolean; children
     () => ({
       overrides,
       canEdit,
+      canEditLayout: canEditLayout && canEdit,
+      layoutPending,
+      stageLayout,
       editing: editing && canEdit,
       pending,
       target,
@@ -147,7 +213,7 @@ export function CopyProvider({ canEdit, children }: { canEdit: boolean; children
       save,
       cancel,
     }),
-    [overrides, canEdit, editing, pending, target, setEditing, stage, save, cancel],
+    [overrides, canEdit, canEditLayout, layoutPending, stageLayout, editing, pending, target, setEditing, stage, save, cancel],
   );
   return <LiveEditContext.Provider value={value}>{children}</LiveEditContext.Provider>;
 }

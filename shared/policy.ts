@@ -75,6 +75,9 @@ const adminOnly = [
   "order_lists.approve",
   // Admin live text editing (FLOW-240): change the app's built-in wording.
   "copy.edit",
+  // Admin live layout editing (FLOW-253): change page layouts, columns, field
+  // boxes, custom cards and their colors. Every Admin has it (FLOW-269).
+  "layout.edit",
 ] as const;
 export const actions = [
   ...new Set([

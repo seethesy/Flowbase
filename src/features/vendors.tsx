@@ -1,6 +1,7 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, ExternalLink } from "lucide-react";
@@ -143,7 +144,8 @@ export function VendorList() {
       ) : vendors.loading && !vendors.data ? (
         <LoadingSkeleton />
       ) : (
-        <>
+        <PageGrid pageKey="vendors.list">
+          <Block id="list" name="List" h={24}>
           <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="vendors.vendor-list"
             data={data}
             columns={columns}
@@ -152,7 +154,8 @@ export function VendorList() {
             exportName="vendors"
           />
           <LoadMore list={vendors} label={<T id="vendors.vendor-list.load-more-vendors">Load more vendors</T>} />
-        </>
+        </Block>
+          </PageGrid>
       )}
       {create && (
         <VendorForm

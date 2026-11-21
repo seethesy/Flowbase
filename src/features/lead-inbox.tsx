@@ -1,7 +1,7 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
-import { Fragment, useEffect, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -37,6 +37,9 @@ import {
 } from "./lead-shared";
 import { T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
+import { Block, PageGrid } from "../app/page-grid";
+import { TableLayout } from "../app/table-layout";
+import { FieldLabel, FieldValue } from "../components/layout-fields";
 import type { JSONContent } from "@tiptap/core";
 
 // A lead's one-line summary, with its labels editable (FLOW-257).
@@ -124,12 +127,32 @@ export function LeadInbox() {
     if ((event.target as HTMLElement).closest("a, button, input, [role='combobox'], .lead-status-cell")) return;
     navigate(`/leads/${lead.id}`);
   };
+  // The table's code columns (FLOW-254) remain configurable while row
+  // selection and navigation use the same behavior for every visible column.
+  const leadColumns: { key: string; heading: string; cell: (lead: Lead) => ReactNode }[] = [
+    { key: "status", heading: "Status", cell: (lead) => <StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /> },
+    { key: "updatedAt", heading: "Last updated", cell: (lead) => businessDate(lead.updatedAt) },
+    { key: "name", heading: "Client", cell: (lead) => <><Link className="lead-client-link" draggable={false} to={`/leads/${lead.id}`}>{leadTitle(lead)}</Link>{(lead.needsReview || lead.possibleDuplicate) &&
+      <span className="badge warning" title={lead.possibleDuplicate ? "Possible duplicate" : "Needs review"}><T id="leads.inbox.needs-review">Needs review</T></span>}</> },
+    { key: "eventName", heading: "Event", cell: (lead) => lead.latestEvent?.title ?? lead.eventName ?? "—" },
+    { key: "phone", heading: "Phone", cell: (lead) => lead.phone || "—" },
+    { key: "email", heading: "Email", cell: (lead) => lead.email || "—" },
+    { key: "eventDate", heading: "Time & Date", cell: (lead) => {
+      const startsAt = lead.latestEvent ? utcToBusinessTime(new Date(lead.latestEvent.startsAt)) : null;
+      return startsAt ? `${startsAt.date} ${startsAt.time}` : lead.eventDate ?? "—";
+    } },
+    { key: "notes", heading: "Notes", cell: (lead) => notesText(lead.notes) || "—" },
+    { key: "source", heading: "Source", cell: (lead) => lead.source },
+    { key: "latestProposal", heading: "Proposal", cell: (lead) => lead.latestProposal ? <Link draggable={false} to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—" },
+    { key: "latestBeo", heading: "BEO", cell: (lead) => lead.latestBeo ? <Link draggable={false} to={`/events/${lead.latestBeo.eventId}/beo/${lead.latestBeo.id}`}><T id="leads.inbox.beo-version" values={{ version: lead.latestBeo.version }}>{"BEO v{version}"}</T></Link> : "—" },
+  ];
   return <>
     <PageHeader title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
       <Allowed action="leads.create"><Button onClick={() => setEntering(true)}><T id="leads.inbox.new-lead">New lead</T></Button></Allowed>
       <Button variant="outline" asChild><Link to="/leads/dashboard"><T id="leads.inbox.lead-dashboard">Lead dashboard</T></Link></Button>
     </PageHeader>
-    <>
+    <PageGrid pageKey="leads.inbox">
+    <Block id="lead-table" name="Leads table" h={24}>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="leads.inbox.search-placeholder" />
         <label><T id="leads.inbox.owners">Owners </T><Dropdown aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
@@ -143,31 +166,35 @@ export function LeadInbox() {
       {error && <p role="alert" className="error-message">{error}</p>}
       {selection.bar}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
-        <div className={["table-card", selection.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")} tabIndex={0} onKeyDown={selection.onKeyDown}><div className="table-scroll"><table className="lead-pipeline-table">
-          <thead><tr>{["Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal", "BEO"].map((heading) => <th key={heading}><T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T></th>)}</tr></thead>
-          <tbody {...selection.bodyProps}>{shown.map((lead, index) => {
-            const row = selection.rowProps(index);
-            const startsAt = lead.latestEvent ? utcToBusinessTime(new Date(lead.latestEvent.startsAt)) : null;
-            return <tr key={lead.id} {...row}
-            className={[row.className, "lead-row", lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""].filter(Boolean).join(" ")}
-            onClick={(event) => openRow(lead, event)}
-            onAuxClick={(event) => { if (event.button === 1 && !(event.target as HTMLElement).closest("a")) window.open(`#/leads/${lead.id}`, "_blank", "noopener"); }}>
-            <td className="lead-status-cell"><StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /></td>
-            <td>{businessDate(lead.updatedAt)}</td>
-            <td><Link className="lead-client-link" draggable={false} to={`/leads/${lead.id}`}>{leadTitle(lead)}</Link>{(lead.needsReview || lead.possibleDuplicate) &&
-              <span className="badge warning" title={lead.possibleDuplicate ? "Possible duplicate" : "Needs review"}><T id="leads.inbox.needs-review">Needs review</T></span>}</td>
-            <td>{lead.latestEvent?.title ?? lead.eventName ?? "—"}</td>
-            <td>{lead.phone || "—"}</td>
-            <td>{lead.email || "—"}</td>
-            <td>{startsAt ? `${startsAt.date} ${startsAt.time}` : lead.eventDate ?? "—"}</td>
-            <td className="lead-notes-cell">{notesText(lead.notes) || "—"}</td>
-            <td>{lead.source}</td>
-            <td>{lead.latestProposal ? <Link draggable={false} to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—"}</td>
-            <td>{lead.latestBeo ? <Link draggable={false} to={`/events/${lead.latestBeo.eventId}/beo/${lead.latestBeo.id}`}><T id="leads.inbox.beo-version" values={{ version: lead.latestBeo.version }}>{"BEO v{version}"}</T></Link> : "—"}</td>
-          </tr>;
-          })}</tbody>
-        </table></div></div>}
+        <TableLayout tableKey="leads.inbox.table" codeColumns={leadColumns.map((column) => ({ key: column.key, header: column.heading }))}>
+          {(layout) => {
+            const visible: { key: string; width?: number }[] = layout.custom ? layout.columns : leadColumns.map((column) => ({ key: column.key }));
+            const code = (key: string) => leadColumns.find((column) => column.key === key);
+            return <>
+              {layout.editor && <div className="table-toolbar">{layout.editor}</div>}
+              <div className={["table-card", selection.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")} tabIndex={0} onKeyDown={selection.onKeyDown}><div className="table-scroll"><table className="lead-pipeline-table">
+                <thead><tr>{visible.map((column) => {
+                  const heading = code(column.key)?.heading;
+                  return <th key={column.key} style={column.width ? { width: column.width } : undefined}>
+                    {heading ? <T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T> : <FieldLabel source="leads" field={column.key} />}</th>;
+                })}</tr></thead>
+                <tbody {...selection.bodyProps}>{shown.map((lead, index) => {
+                  const row = selection.rowProps(index);
+                  return <tr key={lead.id} {...row}
+                    className={[row.className, "lead-row", lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""].filter(Boolean).join(" ")}
+                    onClick={(event) => openRow(lead, event)}
+                    onAuxClick={(event) => { if (event.button === 1 && !(event.target as HTMLElement).closest("a")) window.open(`#/leads/${lead.id}`, "_blank", "noopener"); }}>
+                    {visible.map((column) => <td key={column.key} className={column.key === "status" ? "lead-status-cell" : column.key === "notes" ? "lead-notes-cell" : undefined}>
+                      {code(column.key)?.cell(lead) ?? <FieldValue source="leads" field={column.key} row={lead as unknown as Record<string, unknown>} />}
+                    </td>)}
+                  </tr>;
+                })}</tbody>
+              </table></div></div>
+            </>;
+          }}
+        </TableLayout>}
       <div className="lead-pager"><label><T id="leads.inbox.rows-per-page">Rows per page </T><Dropdown value={pageSize} onChange={(event) => {
+
         const size = Number(event.target.value); setPageSize(size); setPageNumber(1);
         localStorage.setItem(`flowbase.leads.page-size.${userId}`, String(size));
       }}>{[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}</Dropdown></label>
@@ -178,7 +205,8 @@ export function LeadInbox() {
             onClick={() => setPageNumber(number)}>{number}</button>)}
         <button type="button" disabled={pageNumber === pageCount} onClick={() => setPageNumber(pageNumber + 1)}><T id="leads.inbox.next">Next</T></button>
       </div>
-    </>
+    </Block>
+    </PageGrid>
     {entering && <NewLeadForm onClose={() => setEntering(false)} onCreated={() => leads.reload()} />}
     {closing && <ConvertLeadForm lead={closing} onClose={() => setClosing(null)} onConverted={(result) => navigate(`/events/${result.event.id}`)} />}
     {selection.toast}

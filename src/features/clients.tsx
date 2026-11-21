@@ -1,6 +1,7 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, TriangleAlert } from "lucide-react";
@@ -162,7 +163,8 @@ export function ClientList() {
       ) : clients.loading && !clients.data ? (
         <LoadingSkeleton />
       ) : (
-        <>
+        <PageGrid pageKey="clients.list">
+          <Block id="list" name="List" h={24}>
           <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="clients.client-list"
             data={data}
             columns={columns}
@@ -172,7 +174,8 @@ export function ClientList() {
             exportAll={clients.loadAll}
           />
           <LoadMore list={clients} label={<T id="clients.client-list.load-more-clients">Load more clients</T>} />
-        </>
+        </Block>
+          </PageGrid>
       )}
       {create && (
         <ClientForm

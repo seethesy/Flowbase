@@ -1,6 +1,7 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
+import { Block, PageGrid } from "../app/page-grid";
 import { usePermissions } from "../app/permissions";
 import { isFtPlus } from "../../shared/access";
 import { useState } from "react";
@@ -226,7 +227,8 @@ export function InventoryList() {
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <>
+        <PageGrid pageKey="inventory.list">
+          <Block id="list" name="List" h={24}>
           <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.inventory-list"
             data={data}
             columns={columns}
@@ -236,7 +238,8 @@ export function InventoryList() {
             exportAll={items.loadAll}
           />
           <LoadMore list={items} label={<T id="inventory-lists.inventory-list.load-more-items">Load more items</T>} />
-        </>
+        </Block>
+          </PageGrid>
       )}
       {create && (
         <ItemForm
