@@ -155,14 +155,17 @@ beforeEach(() => {
 });
 
 describe("FLOW-59 communal task list", () => {
-  it("AC1: keeps part-time staff off the communal list but shows their own tasks", async () => {
+  it("AC1: part-time staff see their own tasks and the open unassigned ones, not others' (FLOW-272)", async () => {
     const theirs = await newTask({ title: "Restock gloves", assigneeIds: [people.pat] });
     await newTask({ title: "Polish trays", assigneeIds: [people.casey] });
-    const refused = await pat.call("GET", "/api/tasks?type=general");
-    expect(refused.status).toBe(403);
-    expect((await refused.json()).error.message).toContain("full-time");
+    const open = await newTask({ title: "Sweep the dock" });
+    const finished = await newTask({ title: "Mop", status: "done" });
+    expect(ids(await list(pat, "?type=general"))).toEqual(ids([theirs, open]));
+    expect(ids(await list(pat, "?type=general&includeDone=true"))).toEqual(ids([theirs, open]));
     expect(ids(await list(pat, "?mine=true"))).toEqual([theirs.id]);
-    expect(await list(casey)).toHaveLength(2);
+    expect(ids(await list(pat, "?unassigned=true"))).toEqual([open.id]);
+    expect((await pat.call("GET", `/api/tasks/${finished.id}`)).status).toBe(404);
+    expect(await list(casey)).toHaveLength(3);
   });
 
   it("AC2: claiming makes the user an assignee and tells the overseer", async () => {
@@ -181,16 +184,52 @@ describe("FLOW-59 communal task list", () => {
       .from(schema.notifications)
       .where(eq(schema.notifications.userId, people.lead));
     expect(row).toMatchObject({ type: "task_claimed", body: "Casey took this task." });
-    // Others stay assigned when someone joins.
-    const joined = await admin.send<Task>("POST", `/api/tasks/${task.id}/claim`, {}, 200);
-    expect(ids(joined.assignees)).toEqual([people.admin, people.casey].sort());
+  });
+
+  it("FLOW-272 AC2: only managers take a task someone else holds; the previous assignee is told", async () => {
+    const task = await newTask({ title: "Hold the door", assigneeIds: [people.casey] });
+    await drain();
+    // Part-time staff can't even see it, and can't take it by id: 403.
+    expect((await pat.call("POST", `/api/tasks/${task.id}/claim`, {})).status).toBe(403);
+    const taken = await manager.send<Task>("POST", `/api/tasks/${task.id}/claim`, {}, 200);
+    expect(taken.assignees).toEqual([{ id: people.manager, name: "Manager" }]);
+    await drain();
+    expect(await titlesOf("casey")).toEqual(["Task reassigned: Hold the door"]);
+  });
+
+  it("FLOW-272 AC1: part-time staff pick up an unassigned task and it joins their My tasks", async () => {
+    const task = await newTask({ title: "Stack chairs", overseerId: people.lead });
+    const picked = await pat.send<Task>(
+      "POST",
+      `/api/tasks/${task.id}/claim`,
+      { unassignedOnly: true },
+      200,
+    );
+    expect(picked.assignees).toEqual([{ id: people.pat, name: "Pat" }]);
+    expect(ids(await list(pat, "?mine=true&assigneeId=" + people.pat))).toEqual([task.id]);
+    await drain();
+    expect(await titlesOf("lead")).toEqual(["Task claimed: Stack chairs"]);
+  });
+
+  it("FLOW-272 AC3: two people picking up at once, one wins and the other gets 409", async () => {
+    const task = await newTask({ title: "Carry ice" });
+    const results = await Promise.all([
+      pat.call("POST", `/api/tasks/${task.id}/claim`, { unassignedOnly: true }),
+      casey.call("POST", `/api/tasks/${task.id}/claim`, { unassignedOnly: true }),
+    ]);
+    expect(results.map((response) => response.status).sort()).toEqual([200, 409]);
+    const loser = results.find((response) => response.status === 409)!;
+    expect((await loser.json()).error.message).toMatch(/^Already picked up by (Pat|Casey)\.$/);
+    const [holder] = (await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees;
+    expect([people.pat, people.casey]).toContain(holder.id);
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees).toHaveLength(1);
   });
 
   it("AC2: refuses claims on done tasks and tasks the user can't see; no overseer, nobody told", async () => {
     const done = await newTask({ title: "Done already", status: "done" });
     expect((await casey.call("POST", `/api/tasks/${done.id}/claim`, {})).status).toBe(409);
     const other = await newTask({ title: "Casey's", assigneeIds: [people.casey] });
-    expect((await pat.call("POST", `/api/tasks/${other.id}/claim`, {})).status).toBe(404);
+    expect((await pat.call("POST", `/api/tasks/${other.id}/claim`, {})).status).toBe(403);
     const loose = await newTask({ title: "No overseer" });
     await casey.send<Task>("POST", `/api/tasks/${loose.id}/claim`, {}, 200);
     await drain();

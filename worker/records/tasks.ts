@@ -76,8 +76,15 @@ const unassigned = sql`not exists (select 1 from ${taskAssignees} where ${taskAs
 export const involving = (userId: string) =>
   or(eq(tasks.createdBy, userId), eq(tasks.overseerId, userId), assignedTo(userId));
 
+// Everyone also sees the open unassigned tasks, so any employee can pick one up
+// (FLOW-272). Assigned tasks stay limited by taskScope.
 export function visibleTasks(actor: Actor): SQL | undefined {
-  return taskScope(actor) === "all" ? undefined : involving(actor.userId);
+  return taskScope(actor) === "all"
+    ? undefined
+    : or(
+        involving(actor.userId),
+        and(unassigned, ne(tasks.status, "done")),
+      );
 }
 
 // Tasks in one due bucket (shared/tasks.ts dueBucket) as of now.
@@ -459,17 +466,55 @@ export async function updateTask(
     await emitCompleted(db, actor, id);
 }
 
-// Claim ("assign to me", FLOW-59 AC2): anyone who can see an open task adds
-// themselves to its assignees, without needing to manage it. Others assigned
-// stay. task.claimed tells the overseer, if there is one. Claiming a task you're
-// already on changes nothing.
-export async function claimTask(db: DbLike, actor: Actor, id: string) {
-  const row = await findTaskRow(db, actor, id, true);
+// Claim / pick up (FLOW-59 AC2, FLOW-272): an unassigned open task goes to whoever
+// has tasks.write, which is every employee. A task someone else already holds can
+// only be taken over by a manager (tasks.delegate): the taker becomes its assignee
+// and the previous assignees are told. unassignedOnly is what the Pick up button
+// sends: if the task has been taken meanwhile it fails with 409 instead of
+// taking over (AC3). task.claimed tells the overseer, if there is one. Claiming a
+// task you're already on changes nothing.
+export async function claimTask(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  options: { unassignedOnly?: boolean } = {},
+) {
+  // The row is locked, so two pickers run one after the other and the second
+  // sees the first one's assignee.
+  const row = await findTaskRow(db, null, id, true);
   if (row.status === "done")
     throw new ApiError(409, "TASK_DONE", "This task is already done.");
   const before = await taskSnapshot(db, id);
   if (before.assigneeIds.includes(actor.userId)) return;
+  const previous = before.assigneeIds;
+  if (previous.length) {
+    if (options.unassignedOnly) {
+      const holders = await peopleOf(db, previous);
+      throw new ApiError(
+        409,
+        "ALREADY_PICKED_UP",
+        `Already picked up by ${previous.map((userId) => holders(userId)?.name ?? "someone").join(", ")}.`,
+      );
+    }
+    if (!can(actor, "tasks.delegate"))
+      throw new ApiError(
+        403,
+        "FORBIDDEN",
+        "Only managers can take a task that is assigned to someone else.",
+      );
+  }
   await assertPeople(db, [actor.userId]);
+  if (previous.length)
+    await db
+      .update(taskAssignees)
+      .set({ archivedAt: new Date(), updatedBy: actor.userId })
+      .where(
+        and(
+          eq(taskAssignees.taskId, id),
+          inArray(taskAssignees.userId, previous),
+          isNull(taskAssignees.archivedAt),
+        ),
+      );
   await db.insert(taskAssignees).values({
     taskId: id,
     userId: actor.userId,
@@ -484,7 +529,7 @@ export async function claimTask(db: DbLike, actor: Actor, id: string) {
     before,
     after: await taskSnapshot(db, id),
   });
-  await emitAssigned(db, actor, id, [actor.userId], []);
+  await emitAssigned(db, actor, id, [actor.userId], previous);
   await emitDomainEvent(db, {
     name: "task.claimed",
     entityId: id,
@@ -777,8 +822,9 @@ export async function getTask(db: DbLike, actor: Actor, id: string): Promise<Tas
 }
 
 // Every task the actor can see, whichever module created it (AC1), newest first.
-// Without mine=true this is the communal list (FLOW-59), which only FT+ may open
-// (AC1); everyone else lists the tasks they're on with mine=true.
+// Without mine=true this is the communal list (FLOW-59): FT+ see every task;
+// everyone else sees the tasks they're on plus the open unassigned ones
+// (FLOW-272), which they can pick up.
 export async function listTasksPage(
   db: DbLike,
   actor: Actor,
@@ -786,12 +832,6 @@ export async function listTasksPage(
   page: PageRequest = {},
   now = new Date(),
 ): Promise<Page<TaskSummary>> {
-  if (!filter.mine && taskScope(actor) !== "all")
-    throw new ApiError(
-      403,
-      "FORBIDDEN",
-      "The team task list is for full-time staff. Your own tasks are under My tasks.",
-    );
   const paging = keyset<TaskRow>(
     [
       { column: tasks.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },

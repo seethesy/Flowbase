@@ -10,7 +10,7 @@ const expected: Record<Role, string[]> = {
   kitchen_lead: ["My Tasks", "All Tasks", "Upcoming Events", "Working Staff"],
   kitchen_staff: ["My Tasks", "All Tasks", "Upcoming Events", "Working Staff"],
   staff: ["My Tasks", "All Tasks", "Upcoming Events", "Working Staff"],
-  part_time_staff: ["My Tasks", "Upcoming Events", "Working Staff"],
+  part_time_staff: ["My Tasks", "All Tasks", "Upcoming Events", "Working Staff"],
 };
 
 for (const [role, labels] of Object.entries(expected) as [Role, string[]][]) {

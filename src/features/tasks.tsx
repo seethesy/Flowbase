@@ -94,7 +94,7 @@ export function TaskDetail() {
   const writeACommentPlaceholder = useCopy("tasks.task-detail.write-a-comment.placeholder", "Write a comment");
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { actor } = usePermissions();
+  const { actor, can } = usePermissions();
   const task = useResource(["tasks", id], () => tasksApi.get(id));
   const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const [error, setError] = useState("");
@@ -162,13 +162,25 @@ export function TaskDetail() {
           </FormField>
           {actor &&
             data.status !== "done" &&
-            !data.assignees.some((person) => person.id === actor.userId) && (
+            !data.assignees.some((person) => person.id === actor.userId) &&
+            (data.assignees.length === 0 || can("tasks.delegate")) && (
               <Button
                 variant="outline"
                 disabled={busy}
-                onClick={() => void act(() => tasksApi.claim(id))}
+                onClick={() =>
+                  void act(() =>
+                    tasksApi.claim(
+                      id,
+                      data.assignees.length === 0 ? { unassignedOnly: true } : {},
+                    ),
+                  )
+                }
               >
-                <T id="tasks.task-detail.assign-to-me">Assign to me</T>
+                {data.assignees.length === 0 ? (
+                  <T id="tasks.task-detail.pick-up">Pick up</T>
+                ) : (
+                  <T id="tasks.task-detail.assign-to-me">Assign to me</T>
+                )}
               </Button>
             )}
           <dl>

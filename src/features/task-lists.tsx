@@ -110,7 +110,7 @@ function TaskActions({
   onChanged: () => void;
   onError: (message: string) => void;
 }) {
-  const { actor } = usePermissions();
+  const { actor, can } = usePermissions();
   const [busy, setBusy] = useState(false);
   if (!actor || task.status === "done") return null;
   const run = async (change: () => Promise<unknown>) => {
@@ -126,12 +126,24 @@ function TaskActions({
     }
   };
   const mine = task.assignees.some((person) => person.id === actor.userId);
+  const open = task.assignees.length === 0;
   return (
     <>
-      {!mine && (
+      {!mine && open && (
         <Button
           variant="outline"
-         
+          disabled={busy}
+          aria-label={`Pick up ${task.title}`}
+          onClick={() =>
+            void run(() => tasksApi.claim(task.id, { unassignedOnly: true }))
+          }
+        >
+          <T id="task-lists.task-actions.pick-up">Pick up</T>
+        </Button>
+      )}
+      {!mine && !open && can("tasks.delegate") && (
+        <Button
+          variant="outline"
           disabled={busy}
           aria-label={`Claim ${task.title}`}
           onClick={() => void run(() => tasksApi.claim(task.id))}
@@ -459,11 +471,11 @@ export function TaskDashboardPage() {
   return (
     <>
       <PageHeader title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you oversee.</T>}>
-        {taskScope(actor) === "all" && (
-          <Button asChild variant="outline">
-            <Link to="/tasks/all"><T id="task-lists.task-dashboard-page.team-tasks">Team tasks</T></Link>
-          </Button>
-        )}
+        <Button asChild variant="outline">
+          <Link to="/tasks/all">
+            {taskScope(actor) === "all" ? <T id="task-lists.task-dashboard-page.team-tasks">Team tasks</T> : <T id="task-lists.task-dashboard-page.all-tasks">All tasks</T>}
+          </Link>
+        </Button>
         {can("tasks.templates") && (
           <Button asChild variant="outline">
             <Link to="/tasks/templates"><T id="task-lists.task-dashboard-page.templates">Templates</T></Link>
@@ -558,8 +570,8 @@ function filterFrom(params: URLSearchParams): TaskFilter {
   return parsed.success ? parsed.data : {};
 }
 
-// /tasks/all: the communal list (FLOW-59). Part-time staff only see their own
-// tasks, so the list keeps mine=true for them.
+// /tasks/all: the communal list (FLOW-59). Roles limited to their own tasks see
+// those plus the open unassigned tasks (FLOW-272).
 export function TaskList() {
   const nameTheseFiltersToSavePlaceholder = useCopy("task-lists.task-list.name-these-filters-to-save.placeholder", "Name these filters to save them as a view");
   const { actor } = usePermissions();
@@ -570,11 +582,10 @@ export function TaskList() {
   const [adding, setAdding] = useState(false);
   const [viewName, setViewName] = useState("");
   const [error, setError] = useState("");
+  // Everyone opens the list; roles limited to their own tasks also see the open
+  // unassigned ones, which they can pick up (FLOW-272).
   const communal = actor ? taskScope(actor) === "all" : false;
-  const filter: TaskFilter = {
-    ...filterFrom(params),
-    ...(communal ? {} : { mine: "true" as const }),
-  };
+  const filter: TaskFilter = filterFrom(params);
   const key = JSON.stringify(filter);
   const list = usePagedList(["tasks", "list", key], (cursor) =>
     tasksApi.list(filter, cursor),
@@ -609,11 +620,11 @@ export function TaskList() {
         <T id="task-lists.task-list.tasks">← Tasks</T>
       </Link>
       <PageHeader
-        title={communal ? <T id="task-lists.task-list.team-tasks">Team tasks</T> : <T id="task-lists.task-list.my-tasks">My tasks</T>}
+        title={communal ? <T id="task-lists.task-list.team-tasks">Team tasks</T> : <T id="task-lists.task-list.all-tasks">All tasks</T>}
         subtitle={
           communal
             ? <T id="task-lists.task-list.every-open-task-on-the">Every open task on the team. Claim one to take it on.</T>
-            : <T id="task-lists.task-list.the-tasks-you-re-assigned">{"The tasks you're assigned to, oversee or created."}</T>
+            : <T id="task-lists.task-list.your-tasks-and-the-open">{"Your tasks and the open unassigned ones. Pick one up to take it on."}</T>
         }
       >
         <Button onClick={() => setAdding(true)}><T id="task-lists.task-list.new-task">New task</T></Button>
@@ -639,16 +650,14 @@ export function TaskList() {
             </option>
           ))}
         </Dropdown>
-        {communal && (
-          <Dropdown
-            aria-label="Whose tasks"
-            value={filter.mine ?? ""}
-            onChange={(e) => change("mine", e.target.value)}
-          >
-            <option value="">Everyone's</option>
-            <option value="true">Mine</option>
-          </Dropdown>
-        )}
+        <Dropdown
+          aria-label="Whose tasks"
+          value={filter.mine ?? ""}
+          onChange={(e) => change("mine", e.target.value)}
+        >
+          <option value="">Everyone's</option>
+          <option value="true">Mine</option>
+        </Dropdown>
         <Dropdown
           aria-label="Type"
           value={filter.type ?? ""}
