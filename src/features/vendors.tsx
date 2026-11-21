@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
@@ -111,7 +112,7 @@ export function VendorList() {
           onChange={setSearch}
           placeholder={searchVendorsPlaceholder} copyId="vendors.vendor-list.search-vendors.placeholder"
         />
-        <select
+        <Dropdown
           aria-label="Vendor type"
           value={type}
           onChange={(e) =>
@@ -124,7 +125,7 @@ export function VendorList() {
               {vendorTypeLabels[option]}
             </option>
           ))}
-        </select>
+        </Dropdown>
         <label className="checkbox-filter">
           <RoundCheck
             checked={archived}
@@ -301,7 +302,7 @@ export function VendorForm({
           />
         </FormField>
         <FormField label={<T id="vendors.vendor-form.type">Type</T>}>
-          <select
+          <Dropdown
             value={type}
             onChange={(e) => setType(vendorTypeSchema.parse(e.target.value))}
           >
@@ -310,7 +311,7 @@ export function VendorForm({
                 {vendorTypeLabels[option]}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <div className="form-grid">
           <FormField label={<T id="vendors.vendor-form.vendor-portal-url">Vendor portal URL</T>}>

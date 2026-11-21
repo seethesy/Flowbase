@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import type { Lead, LeadConversion } from "../../shared/leads";
@@ -45,7 +46,7 @@ function ClientPicker({
         />
       </FormField>
       <FormField label={<T id="lead-convert.client-picker.existing-client">Existing client</T>}>
-        <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <Dropdown value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">Choose a client…</option>
           {[...(chosen ? [chosen] : []), ...(clients.data ?? [])].map(
             (client) => (
@@ -54,7 +55,7 @@ function ClientPicker({
               </option>
             ),
           )}
-        </select>
+        </Dropdown>
       </FormField>
     </>
   );
@@ -193,22 +194,22 @@ export function ConvertLeadForm({
               <input value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
             <FormField label={<T id="lead-convert.convert-lead-form.client-type">Client type</T>}>
-              <select
+              <Dropdown
                 value={kind}
                 onChange={(e) => setKind(e.target.value as typeof kind)}
               >
                 <option value="person">Person</option>
                 <option value="organization">Organization</option>
-              </select>
+              </Dropdown>
             </FormField>
           </div>
         ) : (
           <ClientPicker value={clientId} onChange={setClientId} />
         )}
         <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.event">Event</T></h3>
-        {Boolean(events.data?.length) && <FormField label={<T id="lead-convert.confirm.linked-event">Linked event</T>}><select value={existingEventId || events.data?.[0]?.id || ""} onChange={(event) => setExistingEventId(event.target.value)}>
+        {Boolean(events.data?.length) && <FormField label={<T id="lead-convert.confirm.linked-event">Linked event</T>}><Dropdown value={existingEventId || events.data?.[0]?.id || ""} onChange={(event) => setExistingEventId(event.target.value)}>
           <option value="new">Create another event</option>{events.data?.map((event) => <option value={event.id} key={event.id}>{event.title}</option>)}
-        </select></FormField>}
+        </Dropdown></FormField>}
         {!chosenEventId && <>
         <FormField
           label={<T id="lead-convert.convert-lead-form.event-title">Event title</T>}

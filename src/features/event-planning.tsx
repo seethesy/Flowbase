@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useEffect, useRef, useState } from "react";
 import { Copy, Plus, Printer, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -247,14 +248,14 @@ function RentalRequestsSection({ requests, canEdit, onSave }: {
           <p><strong><T id="event-planning.rental-requests-section.event">Event:</T></strong> {request.eventTitle} · {date(request.eventDate)}</p>
           {canEdit ? (
             <div className="rental-request-controls">
-              <label><T id="event-planning.rental-requests-section.status">{"Status "}</T><select aria-label={`${request.vendorName} request status`} value={request.status}
+              <label><T id="event-planning.rental-requests-section.status">{"Status "}</T><Dropdown aria-label={`${request.vendorName} request status`} value={request.status}
                 onChange={(event) => void save(request, { status: event.target.value as RentalRequest["status"] })}>
                 {rentalRequestStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
-              </select></label>
-              <label><T id="event-planning.rental-requests-section.fulfillment">{"Fulfillment "}</T><select aria-label={`${request.vendorName} fulfillment`} value={request.method}
+              </Dropdown></label>
+              <label><T id="event-planning.rental-requests-section.fulfillment">{"Fulfillment "}</T><Dropdown aria-label={`${request.vendorName} fulfillment`} value={request.method}
                 onChange={(event) => void save(request, { method: event.target.value as RentalRequest["method"] })}>
                 <option value="delivery">Delivery</option><option value="pickup">Pickup</option>
-              </select></label>
+              </Dropdown></label>
               <label><T id="event-planning.rental-requests-section.delivery-or-pickup-details">{"Delivery or pickup details "}</T><input aria-label={`${request.vendorName} delivery details`}
                 defaultValue={request.details} onBlur={(event) => {
                   if (event.target.value !== request.details) void save(request, { details: event.target.value });
@@ -414,14 +415,14 @@ function AddTierLine({
         setQuantity("1");
       }}
     >
-      <select aria-label="Tier" value={tier} onChange={(e) => setTier(barTierSchema.parse(e.target.value))}>
+      <Dropdown aria-label="Tier" value={tier} onChange={(e) => setTier(barTierSchema.parse(e.target.value))}>
         {barTierSchema.options.map((value) => (
           <option key={value} value={value}>
             {barTierLabels[value]}
           </option>
         ))}
-      </select>
-      <select
+      </Dropdown>
+      <Dropdown
         aria-label="Bar category"
         value={category}
         onChange={(e) => {
@@ -434,16 +435,16 @@ function AddTierLine({
             {value}
           </option>
         ))}
-      </select>
+      </Dropdown>
       {subcategories.length > 0 && (
-        <select aria-label="Subcategory" value={subcategory} onChange={(e) => setSubcategory(e.target.value)}>
+        <Dropdown aria-label="Subcategory" value={subcategory} onChange={(e) => setSubcategory(e.target.value)}>
           <option value="">Any</option>
           {subcategories.map((value) => (
             <option key={value} value={value}>
               {value}
             </option>
           ))}
-        </select>
+        </Dropdown>
       )}
       <input
         aria-label="Tier quantity"
@@ -453,7 +454,7 @@ function AddTierLine({
         value={quantity}
         onChange={(e) => setQuantity(e.target.value)}
       />
-      <select
+      <Dropdown
         aria-label="Tier basis"
         value={basis}
         onChange={(e) => setBasis(e.target.value === "per_guest" ? "per_guest" : "fixed")}
@@ -463,7 +464,7 @@ function AddTierLine({
             {requirementBasisLabels[value]}
           </option>
         ))}
-      </select>
+      </Dropdown>
       <Button type="submit" variant="outline">
         <Plus size={14} />
         <T id="event-planning.add-tier-line.add-bar-tier">Add bar tier</T>
@@ -581,14 +582,14 @@ function AddLine({
         setQuantity("1");
       }}
     >
-      <select aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
+      <Dropdown aria-label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
         <option value="">Choose an item</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.name}
           </option>
         ))}
-      </select>
+      </Dropdown>
       <input
         aria-label="Quantity"
         type="number"
@@ -598,7 +599,7 @@ function AddLine({
         onChange={(e) => setQuantity(e.target.value)}
       />
       {allowPerGuest && (
-        <select
+        <Dropdown
           aria-label="Basis"
           value={basis}
           onChange={(e) => setBasis(e.target.value === "per_guest" ? "per_guest" : "fixed")}
@@ -608,7 +609,7 @@ function AddLine({
               {requirementBasisLabels[value]}
             </option>
           ))}
-        </select>
+        </Dropdown>
       )}
       <Button type="submit" variant="outline" disabled={!itemId}>
         <Plus size={14} />
@@ -659,7 +660,7 @@ function ConflictCard({
             submit();
           }}
         >
-          <select
+          <Dropdown
             aria-label="Resolution"
             value={method}
             onChange={(e) => setMethod(e.target.value as ResolveInput["method"])}
@@ -669,9 +670,9 @@ function ConflictCard({
                 {resolutionMethodLabels[value]}
               </option>
             ))}
-          </select>
+          </Dropdown>
           {needsItem && (
-            <select aria-label="Replacement item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
+            <Dropdown aria-label="Replacement item" value={itemId} onChange={(e) => setItemId(e.target.value)}>
               <option value="">Choose an item</option>
               {rentals
                 .filter((rental) => rental.id !== conflict.itemId)
@@ -680,7 +681,7 @@ function ConflictCard({
                     {rental.name}
                   </option>
                 ))}
-            </select>
+            </Dropdown>
           )}
           {method === "adjust" && (
             <input

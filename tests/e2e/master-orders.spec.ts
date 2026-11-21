@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { eq } from "drizzle-orm";
@@ -11,8 +12,8 @@ test("filters and exports the Master sheet with its displayed columns", async ({
   await seedInventory({ items: [{ ...chairs(), group: "Seating" }] });
   await page.goto("/#/inventory/master");
   await expect(page.getByRole("heading", { name: "Master inventory" })).toBeVisible();
-  await page.getByRole("combobox", { name: "Kind" }).selectOption("rental");
-  await page.getByRole("combobox", { name: "Group" }).selectOption("Seating");
+  await choose(page.getByRole("combobox", { name: "Kind" }), "rental");
+  await choose(page.getByRole("combobox", { name: "Group" }), "Seating");
   await expect(page.getByRole("heading", { name: "Seating", level: 2 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open" }).first()).toBeVisible();
   const download = page.waitForEvent("download");

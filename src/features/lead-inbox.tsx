@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { utcToBusinessTime } from "../../shared/time";
@@ -163,9 +164,9 @@ export function LeadInbox() {
     <Block id="lead-table" name="Leads table" h={24}>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="leads.inbox.search-placeholder" />
-        <label><T id="leads.inbox.owners">Owners </T><select aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
+        <label><T id="leads.inbox.owners">Owners </T><Dropdown aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
           <option value="">All owners</option><option value="unassigned">Unassigned</option>{owners.data?.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-        </select></label>
+        </Dropdown></label>
         <Select label="Statuses" value={status ? leadStatusLabels[status as Lead["status"]] : ""} onChange={(label) => setStatus(valueOf(leadStatusLabels, label) ?? "")}
           options={leadStatusSchema.options.map((value) => leadStatusLabels[value])} />
         <Select label="Sources" value={source} onChange={setSource} options={sources} />
@@ -175,7 +176,7 @@ export function LeadInbox() {
       {selected.length > 0 && <Section title={<Plural id="leads.inbox.selected-count" count={selected.length} one="{count} selected" other="{count} selected" />}>
         <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
           onAssign={async (id) => { await leadsApi.bulkAssign(selected, id); setSelected([]); leads.reload(); }} /></Allowed>
-        <select aria-label="Change selected status" defaultValue="" onChange={async (event) => {
+        <Dropdown aria-label="Change selected status" defaultValue="" onChange={async (event) => {
           const next = event.target.value as Lead["status"];
           if (!next) return;
           const reason = next === "lost" ? window.prompt("Why were these leads lost?") : "";
@@ -183,7 +184,7 @@ export function LeadInbox() {
           try { await Promise.all(selected.map((id) => leadsApi.setStatus(id, { status: next, reason: reason ?? "" }))); setSelected([]); leads.reload(); }
           catch (cause) { setError((cause as Error).message); }
         }}><option value="">Change status</option>{leadStatusSchema.options.filter((value) => value !== "closing" && value !== "closed")
-          .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</select>
+          .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</Dropdown>
       </Section>}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
         <TableLayout tableKey="leads.inbox.table" codeColumns={leadColumns.map((column) => ({ key: column.key, header: column.heading }))}>
@@ -214,10 +215,11 @@ export function LeadInbox() {
             </>;
           }}
         </TableLayout>}
-      <div className="lead-pager"><label><T id="leads.inbox.rows-per-page">Rows per page </T><select value={pageSize} onChange={(event) => {
+      <div className="lead-pager"><label><T id="leads.inbox.rows-per-page">Rows per page </T><Dropdown value={pageSize} onChange={(event) => {
+
         const size = Number(event.target.value); setPageSize(size); setPageNumber(1);
         localStorage.setItem(`flowbase.leads.page-size.${userId}`, String(size));
-      }}>{[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
+      }}>{[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}</Dropdown></label>
         <span><T id="leads.inbox.page-range" values={{ start: data.length ? (pageNumber - 1) * pageSize + 1 : 0, end: Math.min(pageNumber * pageSize, data.length), total: data.length }}>{"{start}–{end} of {total}"}</T></span>
         <button type="button" disabled={pageNumber === 1} onClick={() => setPageNumber(pageNumber - 1)}><T id="leads.inbox.previous">Previous</T></button>
         {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) =>

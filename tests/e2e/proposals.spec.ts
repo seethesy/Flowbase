@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { seedRecords } from "./database";
@@ -30,11 +31,11 @@ test("tracks proposal stages independently of the event", async ({
 
   // Inquiry, Pitching, P Sent and Closed are never offered by hand.
   const stage = drawer.getByLabel("Move to stage");
-  for (const name of ["Inquiry", "Pitching", "P Sent", "Closed"])
-    await expect(stage.locator("option", { hasText: name })).toHaveCount(0);
-  await stage.selectOption({ label: "Negotiation" });
+  const stages = await optionTexts(stage);
+  for (const name of ["Inquiry", "Pitching", "P Sent", "Closed"]) expect(stages).not.toContain(name);
+  await choose(stage, { label: "Negotiation" });
   await expect(history).toContainText("P Creation → Negotiation");
-  await stage.selectOption({ label: "Closing" });
+  await choose(stage, { label: "Closing" });
   await expect(history).toContainText("Negotiation → Closing");
 
   // FLOW-123 AC3: a PDF alone is refused with the export hint; nothing uploads.
@@ -53,7 +54,7 @@ test("tracks proposal stages independently of the event", async ({
   await expect(drawer.getByText("No versions uploaded yet.")).toBeVisible();
 
   // Lost needs a reason and leaves the event in its existing stage.
-  await stage.selectOption({ label: "Lost" });
+  await choose(stage, { label: "Lost" });
   await drawer.getByRole("button", { name: "Mark lost" }).click();
   await expect(drawer.getByRole("alert")).toHaveText(
     "Enter why the proposal was lost.",

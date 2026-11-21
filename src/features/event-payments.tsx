@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -354,7 +355,7 @@ function ScheduleItemDrawer({
         )}
         <div className="form-grid">
           <FormField label={<T id="event-payments.schedule-item-drawer.type">Type</T>}>
-            <select
+            <Dropdown
               value={draft.kind}
               onChange={(e) => set("kind", e.target.value as ScheduleKind)}
             >
@@ -363,7 +364,7 @@ function ScheduleItemDrawer({
                   {scheduleKindLabels[kind]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="event-payments.schedule-item-drawer.amount">Amount ($)</T>}>
             <input
@@ -449,7 +450,7 @@ function PaymentDrawer({
         )}
         <div className="form-grid">
           <FormField label={<T id="event-payments.payment-drawer.method">Method</T>}>
-            <select
+            <Dropdown
               value={method}
               onChange={(e) => setMethod(e.target.value as PaymentMethod)}
             >
@@ -458,7 +459,7 @@ function PaymentDrawer({
                   {paymentMethodLabels[m]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="event-payments.payment-drawer.amount">Amount ($)</T>}>
             <input

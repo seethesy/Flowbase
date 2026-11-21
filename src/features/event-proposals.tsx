@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FileText, Plus, Upload } from "lucide-react";
@@ -374,7 +375,7 @@ function ProposalDrawer({
               {canWrite && !p.sentAt && p.approval?.status === "approved" && (
                 <form onSubmit={(e) => { e.preventDefault(); void run(() => proposalsApi.recordSent(id, { sentAt: new Date(`${sentAt}T12:00:00`).toISOString(), method: sentMethod })); }}>
                   <FormField label={<T id="event-proposals.proposal-drawer.sent-date">Sent date</T>}><input type="date" required value={sentAt} onChange={(e) => setSentAt(e.target.value)} /></FormField>
-                  <FormField label={<T id="event-proposals.proposal-drawer.method">Method</T>}><select value={sentMethod} onChange={(e) => setSentMethod(e.target.value as typeof sentMethod)}><option value="email">Email</option><option value="google_docs">Google Docs</option><option value="other">Other</option></select></FormField>
+                  <FormField label={<T id="event-proposals.proposal-drawer.method">Method</T>}><Dropdown value={sentMethod} onChange={(e) => setSentMethod(e.target.value as typeof sentMethod)}><option value="email">Email</option><option value="google_docs">Google Docs</option><option value="other">Other</option></Dropdown></FormField>
                   <Button type="submit" disabled={busy}><T id="event-proposals.proposal-drawer.record-as-sent">Record as sent</T></Button>
                 </form>
               )}
@@ -421,7 +422,7 @@ function ProposalDrawer({
                 <div className="proposal-actions">
                   {targets.length > 0 && (
                     <FormField label={<T id="event-proposals.proposal-drawer.move-to-stage">Move to stage</T>}>
-                      <select
+                      <Dropdown
                         value=""
                         disabled={busy}
                         onChange={(e) => {
@@ -443,7 +444,7 @@ function ProposalDrawer({
                             {proposalStageLabels[stage]}
                           </option>
                         ))}
-                      </select>
+                      </Dropdown>
                     </FormField>
                   )}
                   {mayUpload && (

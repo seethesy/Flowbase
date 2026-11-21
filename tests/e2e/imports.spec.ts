@@ -36,10 +36,10 @@ test("checks rows in a dry run, then imports them and skips the row with an erro
   ).toBeVisible();
   await chooseFile(page);
   // Columns map by alias; Category comes from the heading rows instead.
-  await expect(page.getByLabel("Code", { exact: true })).toHaveValue("0");
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("1");
-  await expect(page.getByLabel("Quantity", { exact: true })).toHaveValue("3");
-  await expect(page.getByLabel("Category", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Code", { exact: true })).toHaveAttribute("data-value", "0");
+  await expect(page.getByLabel("Name", { exact: true })).toHaveAttribute("data-value", "1");
+  await expect(page.getByLabel("Quantity", { exact: true })).toHaveAttribute("data-value", "3");
+  await expect(page.getByLabel("Category", { exact: true })).toHaveAttribute("data-value", "");
 
   await page.getByRole("button", { name: "Check rows" }).click();
   const summary = page.getByRole("list", { name: "Dry run summary" });

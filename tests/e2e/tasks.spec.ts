@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect, databaseTest, mockBrowserAuth } from "./auth-fixture";
 import { browserDb, seedRecords } from "./database";
 import { fallGala, juniper } from "./fixtures";
@@ -46,7 +47,7 @@ test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", as
   await page.getByRole("button", { name: "New task" }).click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Title").fill("Call the florist");
-  await form.getByLabel("Type").selectOption({ label: "General" });
+  await choose(form.getByLabel("Type"), { label: "General" });
   await form.getByRole("button", { name: "Add task" }).click();
   await expect(form).toBeHidden();
   await expect(tasks.getByRole("link", { name: "Call the florist" })).toBeVisible();
@@ -56,22 +57,22 @@ test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", as
   await expect(page.getByRole("button", { name: "Claim Polish chafing dishes" })).toHaveCount(0);
 
   // Filters combine, and a saved view brings them back.
-  await page.getByLabel("Type").selectOption({ label: "Kitchen" });
-  await page.getByLabel("Assignee").selectOption(admin.id);
+  await choose(page.getByLabel("Type"), { label: "Kitchen" });
+  await choose(page.getByLabel("Assignee"), admin.id);
   await expect(tasks.getByRole("link")).toHaveText(["Polish chafing dishes"]);
   await page.getByLabel("View name").fill("My kitchen work");
   await page.getByRole("button", { name: "Save view" }).click();
-  await expect(page.getByLabel("Saved view")).toHaveValue(/.+/);
-  await page.getByLabel("Type").selectOption({ label: "All types" });
-  await page.getByLabel("Assignee").selectOption({ label: "Anyone" });
+  await expect(page.getByLabel("Saved view")).toHaveAttribute("data-value", /.+/);
+  await choose(page.getByLabel("Type"), { label: "All types" });
+  await choose(page.getByLabel("Assignee"), { label: "Anyone" });
   await expect(tasks.getByRole("link")).toHaveCount(3);
-  await page.getByLabel("Saved view").selectOption({ label: "My kitchen work" });
+  await choose(page.getByLabel("Saved view"), { label: "My kitchen work" });
   await expect(tasks.getByRole("link")).toHaveText(["Polish chafing dishes"]);
 
   // Complete: done tasks leave the open list.
   await page.getByRole("button", { name: "Complete Polish chafing dishes" }).click();
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
-  await page.getByLabel("Status").selectOption({ label: "Done" });
+  await choose(page.getByLabel("Status"), { label: "Done" });
   await expect(tasks.getByRole("link")).toHaveText(["Polish chafing dishes"]);
 });
 
@@ -104,7 +105,7 @@ test("delegates from Needs delegation, then reassigns on the task (FLOW-60/61)",
   await expect(page.getByRole("region", { name: "Overdue" })).toContainText("Overdue (1)");
   const needs = page.getByRole("region", { name: "Unassigned in the next 14 days" });
   await expect(needs).toContainText("Build the bar");
-  await needs.getByLabel("Assign Build the bar to").selectOption(fullTimeStaff.id);
+  await choose(needs.getByLabel("Assign Build the bar to"), fullTimeStaff.id);
   await needs.getByRole("button", { name: "Assign" }).click();
   await expect(needs).toContainText("Every task coming up has someone on it.");
   // The Admin assigned it, so the Admin oversees it (AC1).
@@ -119,7 +120,7 @@ test("delegates from Needs delegation, then reassigns on the task (FLOW-60/61)",
   await page.goto("/#/tasks");
   await overseeing.getByRole("link", { name: "Build the bar" }).click();
   const reassign = page.getByRole("form", { name: "Reassign" });
-  await reassign.getByLabel("Assigned to").selectOption([kitchenLead.id]);
+  await choose(reassign.getByLabel("Assigned to"), [kitchenLead.id]);
   await reassign.getByRole("button", { name: "Save assignment" }).click();
   await expect(page.locator("dd").filter({ hasText: kitchenLead.name })).toBeVisible();
   await expect(page.locator("dd").filter({ hasText: fullTimeStaff.name })).toHaveCount(0);
@@ -146,7 +147,7 @@ test("builds a task template and applies it to an event once (FLOW-62)", async (
   await expect(page.getByText("T-14 days · Production")).toBeVisible();
 
   await page.goto(`/#/events/${event.id}`);
-  await page.getByLabel("Task template").selectOption({ label: "Balloon arch (Large)" });
+  await choose(page.getByLabel("Task template"), { label: "Balloon arch (Large)" });
   await page.getByRole("button", { name: "Apply template" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Added 2 tasks." })).toBeVisible();
   const tasks = page.getByRole("list", { name: "Event tasks" });

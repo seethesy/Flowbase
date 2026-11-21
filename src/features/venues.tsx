@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
@@ -260,7 +261,7 @@ function VenueFormFields({
           />
         </FormField>
         <FormField label={<T id="venues.venue-form-fields.jurisdiction">Jurisdiction</T>} hint={<T id="venues.venue-form-fields.stored-for-future-tax-use">Stored for future tax use.</T>}>
-          <select
+          <Dropdown
             value={jurisdiction}
             onChange={(e) => setJurisdiction(e.target.value)}
           >
@@ -268,7 +269,7 @@ function VenueFormFields({
             {jurisdictionSchema.options.map((option) => (
               <option key={option}>{option}</option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="venues.venue-form-fields.load-in-notes">Load-in notes</T>}>
           <textarea
@@ -361,7 +362,7 @@ function VenueFormFields({
                     </FormField>
                   ))}
                   <FormField label={<T id="venues.venue-form-fields.role">Role</T>}>
-                    <select
+                    <Dropdown
                       value={contact.role}
                       onChange={(e) =>
                         setContacts((current) =>
@@ -383,7 +384,7 @@ function VenueFormFields({
                           {contactRoleLabels[role]}
                         </option>
                       ))}
-                    </select>
+                    </Dropdown>
                   </FormField>
                 </div>
                 <Button

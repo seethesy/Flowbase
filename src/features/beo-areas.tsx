@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useRef, useState, lazy, Suspense } from "react";
 import { Camera, Plus, Trash2, Upload } from "lucide-react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -162,14 +163,14 @@ function CopyLayout({ event, onChange }: { event: FlowEvent; onChange: (view: Be
         <>
           <label className="form-field">
             <span><T id="beo-areas.copy-layout.past-event-at-this-venue">Past event at this venue</T></span>
-            <select value={from} onChange={(e) => setFrom(e.target.value)}>
+            <Dropdown value={from} onChange={(e) => setFrom(e.target.value)}>
               <option value="">Choose an event</option>
               {(others.data ?? []).map((row) => (
                 <option key={row.id} value={row.id}>
                   {row.title} · {row.date}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </label>
           <Button variant="outline" disabled={!from} onClick={() => void run({ from: "event", eventId: from })}>
             <T id="beo-areas.copy-layout.copy-its-layout">Copy its layout</T>

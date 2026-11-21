@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -237,16 +238,16 @@ export function NewTaskDrawer({
           />
         </FormField>
         <FormField label={<T id="task-lists.new-task-drawer.type">Type</T>}>
-          <select value={type} onChange={(e) => setType(e.target.value as TaskType)}>
+          <Dropdown value={type} onChange={(e) => setType(e.target.value as TaskType)}>
             {taskTypes.map((option) => (
               <option key={option} value={option}>
                 {taskTypeLabels[option]}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="task-lists.new-task-drawer.priority">Priority</T>}>
-          <select
+          <Dropdown
             value={priority}
             onChange={(e) => setPriority(e.target.value as TaskPriority)}
           >
@@ -255,13 +256,13 @@ export function NewTaskDrawer({
                 {taskPriorityLabels[option]}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="task-lists.new-task-drawer.sop">SOP</T>}>
-          <select value={sopId} onChange={(e) => setSopId(e.target.value)}>
+          <Dropdown value={sopId} onChange={(e) => setSopId(e.target.value)}>
             <option value="">No SOP</option>
             {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="task-lists.new-task-drawer.due-date">Due date</T>}>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -271,20 +272,20 @@ export function NewTaskDrawer({
         </FormField>
         {!eventId && (
           <FormField label={<T id="task-lists.new-task-drawer.event">Event</T>}>
-            <select value={event} onChange={(e) => setEvent(e.target.value)}>
+            <Dropdown value={event} onChange={(e) => setEvent(e.target.value)}>
               <option value="">No event</option>
               {events.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.title} ({option.date})
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
         )}
         {delegates ? (
           <>
-            <FormField label={<T id="task-lists.new-task-drawer.assign-to">Assign to</T>} hint={<T id="task-lists.new-task-drawer.hold-ctrl-or-to-pick">Hold Ctrl or ⌘ to pick several people.</T>}>
-              <select
+            <FormField label={<T id="task-lists.new-task-drawer.assign-to">Assign to</T>} hint={<T id="task-lists.new-task-drawer.pick-one-or-more-people">Pick one or more people.</T>}>
+              <Dropdown
                 multiple
                 value={assignees}
                 onChange={(e) =>
@@ -296,20 +297,20 @@ export function NewTaskDrawer({
                     {member.id === actor.userId ? `${member.name} (me)` : member.name}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
             <FormField
               label={<T id="task-lists.new-task-drawer.overseer">Overseer</T>}
               hint={<T id="task-lists.new-task-drawer.when-you-assign-someone-else">When you assign someone else, you oversee it unless you pick someone.</T>}
             >
-              <select value={overseer} onChange={(e) => setOverseer(e.target.value)}>
+              <Dropdown value={overseer} onChange={(e) => setOverseer(e.target.value)}>
                 <option value="">{others ? "Me" : "No overseer"}</option>
                 {staff.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
             </FormField>
           </>
         ) : (
@@ -417,7 +418,7 @@ function QuickAssign({
         }
       }}
     >
-      <select
+      <Dropdown
         aria-label={`Assign ${task.title} to`}
         value={person}
         onChange={(e) => setPerson(e.target.value)}
@@ -428,7 +429,7 @@ function QuickAssign({
             {member.name}
           </option>
         ))}
-      </select>
+      </Dropdown>
       <Button type="submit" variant="outline" disabled={busy || !person}>
         <T id="task-lists.quick-assign.assign">Assign</T>
       </Button>
@@ -623,7 +624,7 @@ export function TaskList() {
         </p>
       )}
       <FilterBar>
-        <select
+        <Dropdown
           aria-label="Saved view"
           value={matchingView?.id ?? ""}
           onChange={(e) => {
@@ -637,18 +638,18 @@ export function TaskList() {
               {view.name}
             </option>
           ))}
-        </select>
+        </Dropdown>
         {communal && (
-          <select
+          <Dropdown
             aria-label="Whose tasks"
             value={filter.mine ?? ""}
             onChange={(e) => change("mine", e.target.value)}
           >
             <option value="">Everyone's</option>
             <option value="true">Mine</option>
-          </select>
+          </Dropdown>
         )}
-        <select
+        <Dropdown
           aria-label="Type"
           value={filter.type ?? ""}
           onChange={(e) => change("type", e.target.value)}
@@ -659,8 +660,8 @@ export function TaskList() {
               {taskTypeLabels[option]}
             </option>
           ))}
-        </select>
-        <select
+        </Dropdown>
+        <Dropdown
           aria-label="Assignee"
           value={filter.unassigned ? "none" : (filter.assigneeId ?? "")}
           onChange={(e) =>
@@ -678,8 +679,8 @@ export function TaskList() {
               {member.name}
             </option>
           ))}
-        </select>
-        <select
+        </Dropdown>
+        <Dropdown
           aria-label="Event"
           value={filter.eventId ?? ""}
           onChange={(e) => change("eventId", e.target.value)}
@@ -690,8 +691,8 @@ export function TaskList() {
               {option.title} ({option.date})
             </option>
           ))}
-        </select>
-        <select
+        </Dropdown>
+        <Dropdown
           aria-label="Due"
           value={filter.due ?? ""}
           onChange={(e) => change("due", e.target.value)}
@@ -702,8 +703,8 @@ export function TaskList() {
               {taskDueBucketLabels[option]}
             </option>
           ))}
-        </select>
-        <select
+        </Dropdown>
+        <Dropdown
           aria-label="Status"
           value={filter.status ?? (filter.includeDone ? "any" : "")}
           onChange={(e) =>
@@ -724,7 +725,7 @@ export function TaskList() {
               {taskStatusLabels[option]}
             </option>
           ))}
-        </select>
+        </Dropdown>
       </FilterBar>
       <div className="task-views">
         <form className="task-inline-form" onSubmit={saveView}>
@@ -827,7 +828,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
     >
       {delegates && (templates.data?.length ?? 0) > 0 && (
         <div className="task-inline-form">
-          <select
+          <Dropdown
             aria-label="Task template"
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
@@ -838,7 +839,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
                 {option.name}
               </option>
             ))}
-          </select>
+          </Dropdown>
           <Button variant="outline" disabled={!template} onClick={() => void apply()}>
             <T id="task-lists.event-tasks-section.apply-template">Apply template</T>
           </Button>

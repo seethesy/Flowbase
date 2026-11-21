@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -56,8 +57,8 @@ function Reassign({
         onSave(assignees, overseer || null);
       }}
     >
-      <FormField label={<T id="tasks.reassign.assigned-to">Assigned to</T>} hint={<T id="tasks.reassign.hold-ctrl-or-to-pick">Hold Ctrl or ⌘ to pick several people.</T>}>
-        <select
+      <FormField label={<T id="tasks.reassign.assigned-to">Assigned to</T>} hint={<T id="tasks.reassign.pick-one-or-more-people">Pick one or more people.</T>}>
+        <Dropdown
           multiple
           value={assignees}
           onChange={(e) =>
@@ -69,17 +70,17 @@ function Reassign({
               {member.name}
             </option>
           ))}
-        </select>
+        </Dropdown>
       </FormField>
       <FormField label={<T id="tasks.reassign.overseer">Overseer</T>}>
-        <select value={overseer} onChange={(e) => setOverseer(e.target.value)}>
+        <Dropdown value={overseer} onChange={(e) => setOverseer(e.target.value)}>
           <option value="">No overseer</option>
           {active.map((member) => (
             <option key={member.id} value={member.id}>
               {member.name}
             </option>
           ))}
-        </select>
+        </Dropdown>
       </FormField>
       <Button type="submit" variant="outline" disabled={busy}>
         <T id="tasks.reassign.save-assignment">Save assignment</T>
@@ -143,7 +144,7 @@ export function TaskDetail() {
       <Section title={<T id="tasks.task-detail.details">Details</T>}>
         <div className="task-detail">
           <FormField label={<T id="tasks.task-detail.status">Status</T>}>
-            <select
+            <Dropdown
               value={data.status}
               disabled={busy}
               onChange={(e) =>
@@ -157,7 +158,7 @@ export function TaskDetail() {
                   {taskStatusLabels[status]}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           {actor &&
             data.status !== "done" &&
@@ -210,11 +211,11 @@ export function TaskDetail() {
           {data.description && <p className="task-description">{data.description}</p>}
           {data.sopId && <Button asChild variant="outline"><Link to={`/sops/${data.sopId}`}><T id="tasks.task-detail.open-sop">Open SOP</T></Link></Button>}
           {data.canManage && <FormField label={<T id="tasks.task-detail.linked-sop">Linked SOP</T>}>
-            <select value={data.sopId ?? ""} disabled={busy} onChange={(e) =>
+            <Dropdown value={data.sopId ?? ""} disabled={busy} onChange={(e) =>
               void act(() => tasksApi.update(id, { sopId: e.target.value || null }))}>
               <option value="">No SOP</option>
               {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
-            </select>
+            </Dropdown>
           </FormField>}
           {data.canManage && (
             <Reassign

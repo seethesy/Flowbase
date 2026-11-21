@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
@@ -133,7 +134,7 @@ export function BeoSchedule({
             >
               <label className="form-field">
                 <span><T id="beo-schedule.beo-schedule.run-of-show">Run of show</T></span>
-                <select
+                <Dropdown
                   value={draft.mode}
                   onChange={(e) => setDraft({ ...draft, mode: e.target.value as RunOfShowMode })}
                 >
@@ -142,7 +143,7 @@ export function BeoSchedule({
                       {runOfShowModeLabels[mode]}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </label>
               <p className="muted">
                 <T id="beo-schedule.beo-schedule.automatic-turns-it-on-at" values={{ threshold: runOfShow.threshold }}>{"Automatic turns it on at {threshold} guests or more (set in Settings)."}</T>

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import {
   movementDirection,
@@ -111,18 +112,18 @@ export function StockForm({
         )}
         {notice && <p role="status">{notice}</p>}
         <FormField label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.from-section">From section</T> : <T id="inventory-stock-forms.stock-form.section">Section</T>}>
-          <select value={from} onChange={(e) => setFrom(e.target.value)}>
+          <Dropdown value={from} onChange={(e) => setFrom(e.target.value)}>
             <option value="">Pick a section</option>
             {options}
-          </select>
+          </Dropdown>
         </FormField>
         <ColorSelect item={item} value={color} onChange={setColor} />
         {mode === "transfer" && (
           <FormField label={<T id="inventory-stock-forms.stock-form.to-section">To section</T>}>
-            <select value={to} onChange={(e) => setTo(e.target.value)}>
+            <Dropdown value={to} onChange={(e) => setTo(e.target.value)}>
               <option value="">Pick a section</option>
               {options}
-            </select>
+            </Dropdown>
           </FormField>
         )}
         <FormField
@@ -229,7 +230,7 @@ export function MovementForm({
           </p>
         )}
         <FormField label={<T id="inventory-stock-forms.movement-form.type">Type</T>}>
-          <select
+          <Dropdown
             value={type}
             onChange={(e) =>
               setType(e.target.value as (typeof handMovementTypes)[number])
@@ -240,11 +241,11 @@ export function MovementForm({
                 {movementTypeLabels[option]}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <ColorSelect item={item} value={color} onChange={setColor} />
         <FormField label={<T id="inventory-stock-forms.movement-form.section">Section</T>}>
-          <select
+          <Dropdown
             value={sectionId}
             onChange={(e) => setSectionId(e.target.value)}
           >
@@ -254,7 +255,7 @@ export function MovementForm({
                 {section.name}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField
           label={direction > 0 ? <T id="inventory-stock-forms.movement-form.quantity-in-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity in ({unit})"}</T> : direction < 0 ? <T id="inventory-stock-forms.movement-form.quantity-out-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity out ({unit})"}</T> : <T id="inventory-stock-forms.movement-form.change-unit" values={{ unit: unitLabel(item.unit) }}>{"Change ({unit})"}</T>}
@@ -297,12 +298,12 @@ function ColorSelect({
   if (!item.rental?.colors.length) return null;
   return (
     <FormField label={<T id="inventory-stock-forms.color-select.color">Color</T>}>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <Dropdown value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">Unassigned color</option>
         {item.rental.colors.map((color) => (
           <option key={color}>{color}</option>
         ))}
-      </select>
+      </Dropdown>
     </FormField>
   );
 }

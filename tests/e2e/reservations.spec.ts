@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { eq } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
 import { chairs, fallGala, juniper } from "./fixtures";
@@ -27,7 +28,7 @@ test("holding more chairs than are free shows a conflict, and lowering the hold 
   await page.goto(`/#/events/${wedding().id}`);
   await page.getByRole("heading", { name: "Equipment & stock" }).scrollIntoViewIfNeeded();
   const form = page.getByRole("form", { name: "Hold equipment" });
-  await form.getByLabel("Item").selectOption({ label: "Chiavari Chair" });
+  await choose(form.getByLabel("Item"), { label: "Chiavari Chair" });
   await form.getByLabel("Quantity").fill("30");
   await form.getByRole("button", { name: "Hold equipment" }).click();
 
@@ -35,7 +36,7 @@ test("holding more chairs than are free shows a conflict, and lowering the hold 
   await expect(conflict).toContainText("20 short");
   await expect(page.getByLabel("Quantity of Chiavari Chair")).toHaveValue("30");
 
-  await conflict.getByLabel("Resolution").selectOption("adjust");
+  await choose(conflict.getByLabel("Resolution"), "adjust");
   await conflict.getByLabel("New quantity").fill("10");
   await conflict.getByLabel("Note").fill("Rent the rest");
   await conflict.getByRole("button", { name: "Resolve" }).click();

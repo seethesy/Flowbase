@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { seedRecords } from "./database";
@@ -18,7 +19,7 @@ test("records a payment against the schedule and refuses a card number", async (
   const schedule = async (type: string, amount: string, due: string) => {
     await page.getByRole("button", { name: "Add scheduled payment" }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Type").selectOption({ label: type });
+    await choose(dialog.getByLabel("Type"), { label: type });
     await dialog.getByLabel("Amount ($)").fill(amount);
     await dialog.getByLabel("Due date").fill(due);
     await dialog.getByRole("button", { name: "Save" }).click();
@@ -30,7 +31,7 @@ test("records a payment against the schedule and refuses a card number", async (
 
   await page.getByRole("button", { name: "Record payment" }).first().click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Method").selectOption({ label: "Zelle" });
+  await choose(dialog.getByLabel("Method"), { label: "Zelle" });
   await dialog.getByLabel("Amount ($)").fill("1500");
   await dialog.getByLabel("Reference").fill("4242 4242 4242 4242");
   await dialog.getByRole("button", { name: "Record payment" }).click();

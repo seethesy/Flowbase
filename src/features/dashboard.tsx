@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { homeDashboardSchema, type HomeDashboard } from "../../shared/home-dashboard";
@@ -60,10 +61,11 @@ export function Dashboard() {
           </tr>)}</tbody></table></div></section></Block>}
         <Block id="my-tasks" name="My Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--my-tasks"><header><h2><T id="dashboard.home.my-tasks">My Tasks</T> <span>{data.myTasks.filter((task) => task.status !== "done").length}</span></h2><Link to={to("/tasks?mine=true")}><T id="dashboard.home.view-all-tasks">View all</T></Link></header>
           <div className="dashboard-card__scroll"><TaskRows rows={data.myTasks} showAssignee={false} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>
-        {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><select aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
+        {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><Dropdown aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
           <option value="">All roles</option>{data.roles.map((value) => <option key={value} value={value}>{roleLabel(value)}</option>)}
-        </select></header><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
+        </Dropdown></header><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
         <Block id="upcoming-events" name="Upcoming Events" w={6} h={12}><section className="dashboard-card dashboard-card--events"><header><h2><T id="dashboard.home.upcoming-events">Upcoming Events</T></h2><Link to={to("/events")}><T id="dashboard.home.view-all-events">View all</T></Link></header>
+
           <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.event-date">Date</T></th><th><T id="dashboard.home.event-name">Event</T></th><th><T id="dashboard.home.venue">Venue</T></th><th><T id="dashboard.home.guests">Guests</T></th></tr></thead><tbody>{data.upcomingEvents.map((event) => <tr key={event.id}>
             <td>{day(event.date)}</td><td><Link to={to(`/events/${event.id}`)}>{event.event}</Link></td><td>{event.venue ?? "—"}</td><td>{event.guests ?? "—"}</td>
           </tr>)}</tbody></table></div></section></Block>
