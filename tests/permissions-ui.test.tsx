@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { TestAuth } from "./auth-provider";
@@ -65,7 +66,10 @@ it("keeps lead assignment out of the salesperson's inbox", async () => {
   );
   expect(await screen.findByText("My Lead")).toBeInTheDocument();
   // Selecting a row offers bulk status changes but never bulk assignment.
-  fireEvent.click(screen.getByRole("checkbox", { name: "Select My Lead" }));
+  const user = userEvent.setup();
+  await user.keyboard("{Control>}");
+  await user.click(screen.getByText("My Lead").closest("tr")!.querySelectorAll("td")[1]);
+  await user.keyboard("{/Control}");
   expect(screen.getByLabelText("Change selected status")).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Assign selected" }),

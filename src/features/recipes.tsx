@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed, usePermissions } from "../app/permissions";
 import { useEffect, useState } from "react";
@@ -87,6 +88,7 @@ export function RecipeList() {
     () => recipesApi.list({ archived, category: category || undefined }),
     { keepPrevious: true },
   );
+  const deletable = useDeletable("recipe", () => recipes.reload());
   const data = (recipes.data ?? []).filter((recipe) =>
     [recipe.name, ...recipe.lines.map((line) => line.ingredientName)].some((name) => name.toLowerCase().includes(search.toLowerCase())) &&
     (!allergen || recipe.allergens.some((tag) => tag === allergen)) &&
@@ -178,7 +180,7 @@ export function RecipeList() {
       ) : recipes.loading && !recipes.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable copyKey="recipes.recipe-list"
+        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list"
           data={data}
           columns={columns}
           onRow={(recipe) => navigate(`/recipes/${recipe.id}`)}

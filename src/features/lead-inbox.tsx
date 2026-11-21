@@ -1,6 +1,7 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -19,9 +20,9 @@ import {
   Button,
   SearchInput,
   FilterBar,
-  Section,
   LoadingSkeleton,
   Select,
+  useTableSelection,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { useListLabels } from "./list-fields";
@@ -34,15 +35,12 @@ import {
   leadTitle,
   valueOf,
 } from "./lead-shared";
-import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy, LabelT, Plural } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 import { Block, PageGrid } from "../app/page-grid";
 import { TableLayout } from "../app/table-layout";
 import { FieldLabel, FieldValue } from "../components/layout-fields";
 import type { JSONContent } from "@tiptap/core";
-import { RichTextEditor } from "../components/rich-text/RichTextEditor";
-import { emptyRichText } from "../components/rich-text/extensions";
 
 // A lead's one-line summary, with its labels editable (FLOW-257).
 export function SummaryLine({ lead }: { lead: LeadSummary }) {
@@ -58,23 +56,10 @@ export function SummaryLine({ lead }: { lead: LeadSummary }) {
   );
 }
 
-function InlineCell({ value, type = "text", label, onSave }: {
-  value: string; type?: "text" | "email" | "datetime-local";
-  label: string; onSave: (value: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const cancelled = useRef(false);
-  const finish = () => {
-    setEditing(false);
-    if (!cancelled.current && draft !== value) onSave(draft);
-    cancelled.current = false;
-  };
-  return editing ? <input className="lead-inline-input" aria-label={label} autoFocus type={type}
-    value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={finish}
-    onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur();
-      if (event.key === "Escape") { cancelled.current = true; setDraft(value); event.currentTarget.blur(); } }} /> :
-    <button type="button" className="lead-inline-display" onClick={() => { setDraft(value); setEditing(true); }}>{value || "—"}</button>;
+// Notes are edited on the lead page; the table shows the start of the text.
+function notesText(node: JSONContent | null | undefined): string {
+  if (!node) return "";
+  return [node.text ?? "", ...(node.content ?? []).map(notesText)].join(node.type === "paragraph" ? " " : "").trim();
 }
 
 // The shared pipeline table. A lead can have several events; the detail lists all
@@ -86,18 +71,12 @@ export function LeadInbox() {
   const [source, setSource] = useState("");
   const [owner, setOwner] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [selecting, setSelecting] = useState(false);
-  const [anchor, setAnchor] = useState(-1);
   const userId = useAuth()?.user.id ?? "anonymous";
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem(`flowbase.leads.page-size.${userId}`)) || 25);
   const [pageNumber, setPageNumber] = useState(1);
   useEffect(() => { setPageSize(Number(localStorage.getItem(`flowbase.leads.page-size.${userId}`)) || 25); }, [userId]);
   useEffect(() => { setPageNumber(1); }, [status, source, owner, search]);
-  useEffect(() => { const end = () => setSelecting(false); window.addEventListener("pointerup", end); return () => window.removeEventListener("pointerup", end); }, []);
   const [closing, setClosing] = useState<Lead | null>(null);
-  const [editingNotes, setEditingNotes] = useState<Lead | null>(null);
-  const [notesDraft, setNotesDraft] = useState<JSONContent>(emptyRichText);
   const [entering, setEntering] = useState(false);
   const [error, setError] = useState("");
   const term = useDebounced(search.trim());
@@ -112,11 +91,6 @@ export function LeadInbox() {
   const shown = data.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
   const listedSources = useListLabels("lead_source");
   const sources = [...new Set([...listedSources, ...data.map((lead) => lead.source)])];
-  const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-  const save = async (lead: Lead, input: Parameters<typeof leadsApi.update>[1]) => {
-    try { setError(""); await leadsApi.update(lead.id, input); leads.reload(); return true; }
-    catch (cause) { setError((cause as Error).message); return false; }
-  };
   const changeStatus = async (lead: Lead, next: Lead["status"]) => {
     if (next === "closing") { setClosing(lead); return; }
     if (next === "lost") {
@@ -129,31 +103,48 @@ export function LeadInbox() {
     try { await leadsApi.setStatus(lead.id, { status: next }); leads.reload(); }
     catch (cause) { setError((cause as Error).message); }
   };
-  const editable = (lead: Lead, key: "name" | "eventName" | "phone" | "email", value: string) =>
-    <InlineCell key={`${lead.id}-${key}`} value={value} label={`${key} for ${lead.name}`}
-      type={key === "email" ? "email" : "text"} onSave={(next) => void save(lead, { [key]: next })} />;
-  // The table's code columns (FLOW-254): an Admin may hide, reorder or add
-  // registry fields; Open stays first.
+  // FLOW-260 selection: drag, Shift+click and Ctrl/Cmd+click select rows instead
+  // of opening them. Closing and Closed aren't offered in bulk (they need a client).
+  const deletable = useDeletable("lead", () => leads.reload());
+  const selection = useTableSelection({
+    ...deletable,
+    actions: (ids, clear) => <>
+      <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
+        onAssign={async (owner) => { await leadsApi.bulkAssign(ids, owner); clear(); leads.reload(); }} /></Allowed>
+      <Dropdown variant="dark" aria-label="Change selected status" value="" onChange={async (event) => {
+        const next = event.target.value as Lead["status"];
+        if (!next) return;
+        const reason = next === "lost" ? window.prompt("Why were these leads lost?") : "";
+        if (next === "lost" && !reason?.trim()) return;
+        try { await Promise.all(ids.map((id) => leadsApi.setStatus(id, { status: next, reason: reason ?? "" }))); clear(); leads.reload(); }
+        catch (cause) { setError((cause as Error).message); }
+      }}><option value="">Change status</option>{leadStatusSchema.options.filter((value) => value !== "closing" && value !== "closed")
+        .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</Dropdown>
+    </>,
+  }, shown.map((lead) => lead.id));
+  // A click anywhere on a row opens the lead, except on the Status cell and links.
+  const openRow = (lead: Lead, event: MouseEvent<HTMLTableRowElement>) => {
+    if ((event.target as HTMLElement).closest("a, button, input, [role='combobox'], .lead-status-cell")) return;
+    navigate(`/leads/${lead.id}`);
+  };
+  // The table's code columns (FLOW-254) remain configurable while row
+  // selection and navigation use the same behavior for every visible column.
   const leadColumns: { key: string; heading: string; cell: (lead: Lead) => ReactNode }[] = [
-    { key: "open", heading: "Open", cell: (lead) => <span className="lead-open-cell"><RoundCheck aria-label={`Select ${leadTitle(lead)}`} checked={selected.includes(lead.id)}
-      onPointerDown={() => setSelecting(true)} onChange={() => toggle(lead.id)} />
-      <Link to={`/leads/${lead.id}`} aria-label={`Open ${leadTitle(lead)}`}><T id="leads.inbox.open">Open</T></Link></span> },
     { key: "status", heading: "Status", cell: (lead) => <StatusSelect label={`Status for ${leadTitle(lead)}`} value={lead.status} onChange={(value) => void changeStatus(lead, value as Lead["status"])} /> },
     { key: "updatedAt", heading: "Last updated", cell: (lead) => businessDate(lead.updatedAt) },
-    { key: "name", heading: "Client", cell: (lead) => <>{editable(lead, "name", lead.name)}{(lead.needsReview || lead.possibleDuplicate) &&
+    { key: "name", heading: "Client", cell: (lead) => <><Link className="lead-client-link" draggable={false} to={`/leads/${lead.id}`}>{leadTitle(lead)}</Link>{(lead.needsReview || lead.possibleDuplicate) &&
       <span className="badge warning" title={lead.possibleDuplicate ? "Possible duplicate" : "Needs review"}><T id="leads.inbox.needs-review">Needs review</T></span>}</> },
-    { key: "eventName", heading: "Event", cell: (lead) => editable(lead, "eventName", lead.latestEvent?.title ?? lead.eventName ?? "") },
-    { key: "phone", heading: "Phone", cell: (lead) => editable(lead, "phone", lead.phone) },
-    { key: "email", heading: "Email", cell: (lead) => editable(lead, "email", lead.email) },
-    { key: "eventDate", heading: "Time & Date", cell: (lead) => lead.latestEvent ? <InlineCell key={`${lead.id}-date`} label={`Time and date for ${lead.name}`}
-      type="datetime-local" value={`${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).date}T${utcToBusinessTime(new Date(lead.latestEvent.startsAt)).time}`}
-      onSave={(next) => { if (next) void save(lead, { eventDate: next.slice(0, 10), eventTime: next.slice(11, 16) }); }} /> :
-      <InlineCell key={`${lead.id}-date`} label={`Date for ${lead.name}`} type="datetime-local"
-        value={lead.eventDate ? `${lead.eventDate}T00:00` : ""}
-        onSave={(next) => void save(lead, { eventDate: next ? next.slice(0, 10) : null })} /> },
-    { key: "notes", heading: "Notes", cell: (lead) => <button type="button" onClick={() => { setEditingNotes(lead); setNotesDraft(lead.notes ?? emptyRichText); }}>{lead.notes ? <T id="leads.inbox.view-notes">View notes</T> : <T id="leads.inbox.add-notes">Add notes</T>}</button> },
+    { key: "eventName", heading: "Event", cell: (lead) => lead.latestEvent?.title ?? lead.eventName ?? "—" },
+    { key: "phone", heading: "Phone", cell: (lead) => lead.phone || "—" },
+    { key: "email", heading: "Email", cell: (lead) => lead.email || "—" },
+    { key: "eventDate", heading: "Time & Date", cell: (lead) => {
+      const startsAt = lead.latestEvent ? utcToBusinessTime(new Date(lead.latestEvent.startsAt)) : null;
+      return startsAt ? `${startsAt.date} ${startsAt.time}` : lead.eventDate ?? "—";
+    } },
+    { key: "notes", heading: "Notes", cell: (lead) => notesText(lead.notes) || "—" },
     { key: "source", heading: "Source", cell: (lead) => lead.source },
-    { key: "latestProposal", heading: "Proposal", cell: (lead) => lead.latestProposal ? <Link to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—" },
+    { key: "latestProposal", heading: "Proposal", cell: (lead) => lead.latestProposal ? <Link draggable={false} to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—" },
+    { key: "latestBeo", heading: "BEO", cell: (lead) => lead.latestBeo ? <Link draggable={false} to={`/events/${lead.latestBeo.eventId}/beo/${lead.latestBeo.id}`}><T id="leads.inbox.beo-version" values={{ version: lead.latestBeo.version }}>{"BEO v{version}"}</T></Link> : "—" },
   ];
   return <>
     <PageHeader title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
@@ -173,19 +164,7 @@ export function LeadInbox() {
         <span className="result-count"><T id="leads.inbox.lead-count" values={{ count: data.length }}>{"{count} leads"}</T></span>
       </FilterBar>
       {error && <p role="alert" className="error-message">{error}</p>}
-      {selected.length > 0 && <Section title={<Plural id="leads.inbox.selected-count" count={selected.length} one="{count} selected" other="{count} selected" />}>
-        <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
-          onAssign={async (id) => { await leadsApi.bulkAssign(selected, id); setSelected([]); leads.reload(); }} /></Allowed>
-        <Dropdown aria-label="Change selected status" defaultValue="" onChange={async (event) => {
-          const next = event.target.value as Lead["status"];
-          if (!next) return;
-          const reason = next === "lost" ? window.prompt("Why were these leads lost?") : "";
-          if (next === "lost" && !reason?.trim()) return;
-          try { await Promise.all(selected.map((id) => leadsApi.setStatus(id, { status: next, reason: reason ?? "" }))); setSelected([]); leads.reload(); }
-          catch (cause) { setError((cause as Error).message); }
-        }}><option value="">Change status</option>{leadStatusSchema.options.filter((value) => value !== "closing" && value !== "closed")
-          .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</Dropdown>
-      </Section>}
+      {selection.bar}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
         <TableLayout tableKey="leads.inbox.table" codeColumns={leadColumns.map((column) => ({ key: column.key, header: column.heading }))}>
           {(layout) => {
@@ -193,24 +172,23 @@ export function LeadInbox() {
             const code = (key: string) => leadColumns.find((column) => column.key === key);
             return <>
               {layout.editor && <div className="table-toolbar">{layout.editor}</div>}
-              <div className="table-card"><div className="table-scroll"><table className="lead-pipeline-table">
+              <div className={["table-card", selection.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")} tabIndex={0} onKeyDown={selection.onKeyDown}><div className="table-scroll"><table className="lead-pipeline-table">
                 <thead><tr>{visible.map((column) => {
                   const heading = code(column.key)?.heading;
                   return <th key={column.key} style={column.width ? { width: column.width } : undefined}>
                     {heading ? <T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T> : <FieldLabel source="leads" field={column.key} />}</th>;
                 })}</tr></thead>
-                <tbody>{shown.map((lead, index) => <tr key={lead.id}
-                  className={lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""}
-                  onPointerDown={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
-                    setAnchor(index); setSelecting(true); }}
-                  onPointerEnter={() => { if (selecting && anchor >= 0 && anchor !== index)
-                    setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id)); }}
-                  onClick={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;
-                    if (event.shiftKey && anchor >= 0) setSelected(shown.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((row) => row.id));
-                    else if (event.ctrlKey || event.metaKey) { toggle(lead.id); setAnchor(index); } }}>
-                  {visible.map((column) => <td key={column.key}>{code(column.key)?.cell(lead) ??
-                    <FieldValue source="leads" field={column.key} row={lead as unknown as Record<string, unknown>} />}</td>)}
-                </tr>)}</tbody>
+                <tbody {...selection.bodyProps}>{shown.map((lead, index) => {
+                  const row = selection.rowProps(index);
+                  return <tr key={lead.id} {...row}
+                    className={[row.className, "lead-row", lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""].filter(Boolean).join(" ")}
+                    onClick={(event) => openRow(lead, event)}
+                    onAuxClick={(event) => { if (event.button === 1 && !(event.target as HTMLElement).closest("a")) window.open(`#/leads/${lead.id}`, "_blank", "noopener"); }}>
+                    {visible.map((column) => <td key={column.key} className={column.key === "status" ? "lead-status-cell" : column.key === "notes" ? "lead-notes-cell" : undefined}>
+                      {code(column.key)?.cell(lead) ?? <FieldValue source="leads" field={column.key} row={lead as unknown as Record<string, unknown>} />}
+                    </td>)}
+                  </tr>;
+                })}</tbody>
               </table></div></div>
             </>;
           }}
@@ -230,15 +208,8 @@ export function LeadInbox() {
     </Block>
     </PageGrid>
     {entering && <NewLeadForm onClose={() => setEntering(false)} onCreated={() => leads.reload()} />}
-    {editingNotes && <div className="lead-notes-overlay" role="dialog" aria-modal="true" aria-label={`Notes for ${editingNotes.name}`}>
-      <form className="lead-notes-dialog" onSubmit={async (event) => {
-        event.preventDefault(); if (await save(editingNotes, { notes: notesDraft })) setEditingNotes(null);
-      }}><h2><T id="leads.inbox.edit-notes">Edit notes</T></h2>
-        <RichTextEditor label="Lead notes" value={notesDraft} onChange={setNotesDraft} />
-        <Button type="submit"><T id="leads.inbox.save-notes">Save notes</T></Button>
-        <Button type="button" variant="outline" onClick={() => setEditingNotes(null)}><T id="leads.inbox.cancel-notes">Cancel</T></Button>
-      </form></div>}
     {closing && <ConvertLeadForm lead={closing} onClose={() => setClosing(null)} onConverted={(result) => navigate(`/events/${result.event.id}`)} />}
+    {selection.toast}
   </>;
 }
 

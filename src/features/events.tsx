@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Fragment, useState, type ReactNode } from "react";
@@ -32,6 +33,7 @@ import {
   FormField,
   LoadingSkeleton,
   Select,
+  type TableSelection,
 } from "../components/shared";
 import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
@@ -79,9 +81,12 @@ export function EventTable({
   error,
   exportName,
   exportAll,
+  selection,
 }: {
   events: FlowEvent[];
   error?: string;
+  // FLOW-260: selection and bulk delete, on the events list.
+  selection?: TableSelection<FlowEvent>;
   exportName?: string;
   // Every matching event when the list is paged (FLOW-216).
   exportAll?: (onProgress: (rows: number) => void) => Promise<FlowEvent[]>;
@@ -121,6 +126,7 @@ export function EventTable({
       label={<T id="events.event-table.events">events</T>}
       exportName={exportName}
       exportAll={exportAll}
+      selection={selection}
     />
   );
 }
@@ -156,6 +162,7 @@ export function EventList() {
         cursor,
       ),
   );
+  const deletable = useDeletable("event", () => events.reload());
   const data = events.data ?? [];
   return (
     <>
@@ -218,6 +225,7 @@ export function EventList() {
           <EventTable
             events={data}
             error={events.error}
+            selection={{ rowId: (row) => row.id, ...deletable }}
             exportName="events"
             exportAll={events.loadAll}
           />

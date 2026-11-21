@@ -52,7 +52,9 @@ import {
   leadDashboardSchema,
   leadDuplicateSchema,
   leadConversionSchema,
+  leadBeoSchema,
 } from "../../shared/leads";
+import { deletedRecordSchema, deleteResultSchema } from "../../shared/deletions";
 import { searchResultSchema } from "../../shared/search";
 import { vendorDetailSchema, vendorSchema } from "../../shared/vendors";
 import {
@@ -105,6 +107,9 @@ export function responseSchema(
   if (status >= 400) return apiErrorSchema;
   const [, , resource, id, action] = path.split("/");
   if (resource === "health") return healthSchema;
+  // Bulk delete and restore (FLOW-260).
+  if (resource === "deletions")
+    return !id ? deletedRecordSchema.array() : action === "restore" ? z.object({ restored: z.array(z.string()) }) : deleteResultSchema;
   // Admin live text editing (FLOW-240): GET and PUT answer with every override.
   if (resource === "copy") return copyOverridesSchema;
   // Page layouts (FLOW-253): GET and PUT answer with the saved layout, or null
@@ -158,6 +163,8 @@ export function responseSchema(
     if (id === "owners")
       return z.array(z.object({ id: z.string(), name: z.string(), role: z.enum(["salesperson", "sales_manager", "admin"]) }));
     if (action === "events") return method === "GET" ? eventSchema.array() : eventSchema;
+    // The BEO of each linked event (FLOW-264).
+    if (action === "beos") return leadBeoSchema.array();
     if (id === "duplicates")
       return action ? leadSchema : leadDuplicateSchema.array();
     if (id === "assign") return leadSchema.array();

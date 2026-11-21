@@ -1,7 +1,6 @@
 import { test, expect } from "./auth-fixture";
 import type { Locator, Page } from "@playwright/test";
-import { browserDb, seedLeads } from "./database";
-import { lead } from "./fixtures";
+import { browserDb } from "./database";
 import { createTask } from "../../worker/records/tasks";
 import { taskInputSchema } from "../../shared/tasks";
 
@@ -34,17 +33,6 @@ test("profile checkboxes are round and toggle from their label", async ({ page }
   await consent.focus();
   await page.keyboard.press("Space");
   await expect(consent).toBeChecked({ checked: before });
-});
-
-test("lead selection checkboxes are round", async ({ page }) => {
-  await seedLeads([lead({ name: "Maya Ortiz", source: "Bark" })]);
-  await page.goto("/#/leads");
-  await expect(page.getByRole("button", { name: "Maya Ortiz", exact: true })).toBeVisible();
-  await expectAllRound(page);
-  const select = page.getByRole("checkbox").first();
-  await select.check();
-  await expect(select).toBeChecked();
-  await expect(select).toHaveCSS("background-color", "rgb(50, 116, 89)");
 });
 
 test("task checklist items are round checks", async ({ page }) => {

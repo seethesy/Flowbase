@@ -32,6 +32,7 @@ import {
   leadHistory,
   listLeads,
   listLeadEvents,
+  listLeadBeos,
   listLeadOwners,
   updateLead,
 } from "../records/leads";
@@ -188,6 +189,10 @@ export function leadRoutes(options: {
   routes.get("/:id/events", requirePermission("leads.read"), async (c) => {
     const id = param(c);
     return c.json(await record(c, (db, actor) => listLeadEvents(db, actor, id)));
+  });
+  routes.get("/:id/beos", requirePermission("leads.read"), async (c) => {
+    const id = param(c);
+    return c.json(await record(c, (db, actor) => listLeadBeos(db, actor, id)));
   });
   routes.post("/:id/convert", requirePermission("leads.convert"), async (c) => {
     const id = param(c);

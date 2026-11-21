@@ -16,6 +16,7 @@ import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
 import { keyset, type Page, type PageRequest } from "./paging";
 import { syncChildren } from "./sync";
+import { notDeleted } from "./deleted";
 
 // Venues (FLOW-54) are shared reference data every signed-in user can read. Venue
 // contacts are FT+ only: hidden from part-time users, who also can't change them.
@@ -91,7 +92,7 @@ export async function listVenues(
     .where(
       and(
         filter.archived
-          ? isNotNull(venues.archivedAt)
+          ? and(isNotNull(venues.archivedAt), notDeleted("venue", venues.id))
           : isNull(venues.archivedAt),
         term
           ? or(ilike(venues.name, term), ilike(venues.address, term))

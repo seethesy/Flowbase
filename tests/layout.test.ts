@@ -156,10 +156,10 @@ describe("layout document (FLOW-253)", () => {
   it("keeps locked and required columns, and knows each table (FLOW-254)", () => {
     const tables = (columns: { key: string }[]) =>
       layoutProblems("leads.inbox", doc({ tables: { "leads.inbox.table": { columns } } })).map((problem) => problem.message);
-    expect(tables([{ key: "open" }, { key: "name" }, { key: "guestCount" }, { key: "notes" }])).toEqual([]);
-    expect(tables([{ key: "name" }])[0]).toMatch(/"open" column can't be hidden/);
-    expect(tables([{ key: "open" }])[0]).toMatch(/Client can't be hidden/);
-    expect(tables([{ key: "open" }, { key: "name" }, { key: "name" }])[0]).toMatch(/twice/);
+    expect(tables([{ key: "name" }, { key: "guestCount" }, { key: "notes" }, { key: "latestBeo" }])).toEqual([]);
+    expect(tables([{ key: "open" }, { key: "name" }])[0]).toMatch(/Unknown field "open"/);
+    expect(tables([{ key: "status" }])[0]).toMatch(/Client can't be hidden/);
+    expect(tables([{ key: "name" }, { key: "name" }])[0]).toMatch(/twice/);
     expect(layoutProblems("x.y", doc({ tables: { "nope.table": { columns: [] } } }))[0].message).toMatch(/Unknown table/);
   });
 

@@ -3,6 +3,7 @@ import {
   leadConversionSchema,
   leadDashboardSchema,
   leadDuplicateSchema,
+  leadBeoSchema,
   leadSchema,
   type LeadConvertInput,
   type LeadManualInput,
@@ -33,6 +34,8 @@ export const leadsApi = {
   update: (id: string, input: LeadUpdateInput) => request(leadSchema, at("leads", id), "PUT", input),
   createEvent: (id: string, input: LeadEventInput) => request(eventSchema, at("leads", id, "events"), "POST", input),
   events: (id: string) => request(eventSchema.array(), at("leads", id, "events")),
+  // The BEO of each of the lead's events, newest first (FLOW-264).
+  beos: (id: string) => request(leadBeoSchema.array(), at("leads", id, "beos")),
   assign: (id: string, assignedSalespersonId: string) =>
     request(leadSchema, at("leads", id, "assign"), "POST", {
       assignedSalespersonId,

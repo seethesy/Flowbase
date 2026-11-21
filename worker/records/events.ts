@@ -66,6 +66,7 @@ import {
 } from "./paging";
 import { findVisibleClient, getClient } from "./clients";
 import { findVenue, venueAreaNames } from "./venues";
+import { notDeleted } from "./deleted";
 
 // Events (FLOW-55), the record everything else attaches to. A salesperson sees the
 // events assigned to them; other staff see events they lead or assist (F-01-03) and
@@ -209,7 +210,7 @@ export async function listEvents(
     .where(
       and(
         visibleEvents(actor),
-        filter.archived ? isNotNull(events.archivedAt) : isNull(events.archivedAt),
+        filter.archived ? and(isNotNull(events.archivedAt), notDeleted("event", events.id)) : isNull(events.archivedAt),
         filter.clientId ? eq(events.clientId, filter.clientId) : undefined,
         filter.venueId ? eq(events.venueId, filter.venueId) : undefined,
         filter.statuses?.length

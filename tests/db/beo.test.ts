@@ -693,3 +693,34 @@ describe("FLOW-237: setup photos on the day", () => {
     await nora.send("POST", "/api/attachments", photo(area.id, "actual"), 404);
   });
 });
+
+describe("FLOW-264: a lead's BEO link", () => {
+  it("lists the BEO of the lead's event with its version and status, on the lead page and in the Leads table", async () => {
+    const event = await seed();
+    const lead = await admin.send<{ id: string }>("POST", "/api/leads", {
+      source: "Referral",
+      name: "Gala lead",
+      email: "gala@lead.example",
+      phone: "",
+      eventDate: null,
+    });
+    await db.update(schema.events).set({ leadId: lead.id }).where(eq(schema.events.id, event.id));
+    expect(await admin.send("GET", `/api/leads/${lead.id}/beos`)).toEqual([]);
+
+    const beo = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    expect(await admin.send("GET", `/api/leads/${lead.id}/beos`)).toEqual([
+      { id: beo.id!, eventId: event.id, version: 1, status: "working_on" },
+    ]);
+    await manager.send<BeoView>("POST", `/api/events/${event.id}/beo/approve`, {}, 200);
+    expect(await admin.send("GET", `/api/leads/${lead.id}/beos`)).toEqual([
+      { id: beo.id!, eventId: event.id, version: 1, status: "approved" },
+    ]);
+    const rows = await admin.send<{ id: string; latestBeo: unknown }[]>("GET", "/api/leads");
+    expect(rows.find((row) => row.id === lead.id)?.latestBeo).toEqual({
+      id: beo.id!,
+      eventId: event.id,
+      version: 1,
+      status: "approved",
+    });
+  });
+});

@@ -33,6 +33,7 @@ import { setArchived } from "./archive";
 import { assertListLabels } from "./settings";
 import { toItems } from "./inventory-items";
 import { syncChildren } from "./sync";
+import { notDeleted } from "./deleted";
 
 // Recipe book (FLOW-93). Every signed-in user can read recipes; recipes.write
 // changes them. Costs (FLOW-94) and scaled quantities (FLOW-98) are worked out
@@ -180,7 +181,7 @@ export async function listRecipes(
     .where(
       and(
         filter.archived
-          ? isNotNull(recipes.archivedAt)
+          ? and(isNotNull(recipes.archivedAt), notDeleted("recipe", recipes.id))
           : isNull(recipes.archivedAt),
         filter.category ? eq(recipes.category, filter.category) : undefined,
         filter.search ? or(

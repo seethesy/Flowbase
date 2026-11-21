@@ -55,6 +55,11 @@ export function SettingsPage() {
         </Section>
       )}
       {manage && (
+        <Section title={<T id="settings.settings-page.deleted-records">Deleted records</T>}>
+          <p><Link to="/settings/archived"><T id="settings.settings-page.archived">Archived: restore deleted records</T></Link></p>
+        </Section>
+      )}
+      {manage && (
         <>
           <CompanySettings />
           <ListSettings />

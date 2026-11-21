@@ -26,6 +26,8 @@ import {
   type Table,
 } from "@tanstack/react-table";
 import { Button } from "../ui/button";
+import { useTableSelection, type SelectionOptions } from "./table-selection-ui";
+export { useTableSelection, MAX_BULK_DELETE, type DeleteResult, type SelectionOptions } from "./table-selection-ui";
 import { canSeeField, type FieldGroup } from "../../../shared/visibility";
 import type { Actor } from "../../../shared/access";
 import { usePermissions } from "../../app/permissions";
@@ -232,6 +234,7 @@ function headerText(header: unknown, copyKey: string): ReactNode | null {
   if (typeof header !== "string" || !/[A-Za-z]/.test(header)) return null;
   return <T id={`${copyKey}.column.${copySlug(header)}`}>{header}</T>;
 }
+export type TableSelection<Row> = SelectionOptions & { rowId: (row: Row) => string };
 // Saved columns and the Columns editor (FLOW-254) load only on a page that has
 // a saved column set for this table or is in edit mode.
 const LayoutColumns = lazy(() => import("../layout-table"));
@@ -248,6 +251,10 @@ type DataTableProps<Row> = {
   // A paged list's every matching row (usePagedList's loadAll, FLOW-216); the
   // export fetches them instead of writing only the rows loaded so far.
   exportAll?: (onProgress: (rows: number) => void) => Promise<Row[]>;
+  // FLOW-260: Excel-style row selection with a bulk bar. Given only when the
+  // table selects rows; Delete shows only when onDelete is given (the caller
+  // passes it only to users who can edit the records).
+  selection?: TableSelection<Row>;
 };
 export function DataTable<Row>(props: DataTableProps<Row>) {
   const layout = usePageLayoutContext();
@@ -267,6 +274,7 @@ function DataTableView<Row>({
   data,
   columns,
   onRow,
+  selection,
   label = <T id="shared.data-table.records">records</T>,
   exportName,
   exportAll,
@@ -288,6 +296,9 @@ function DataTableView<Row>({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 8 } },
   });
+  const pageRows = table.getRowModel().rows;
+  const pageIds = selection ? pageRows.map((row) => selection.rowId(row.original)) : [];
+  const selecting = useTableSelection(selection, pageIds);
   const exportCsv = async (name: string) => {
     if (!exportAll) return downloadCsv(csvFileName(name), tableCsv(table, actor));
     setExportError("");
@@ -305,7 +316,12 @@ function DataTableView<Row>({
     }
   };
   return (
-    <div className="table-card">
+    <div
+      className={["table-card", selecting.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")}
+      tabIndex={selection ? 0 : undefined}
+      onKeyDown={selecting.onKeyDown}
+    >
+      {selection && selecting.bar}
       {(exportName || editor) && (
         <div className="table-toolbar">
           {editor}
@@ -351,9 +367,12 @@ function DataTableView<Row>({
               ))}
             </tr>
           </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>
+          <tbody {...selecting.bodyProps}>
+            {pageRows.map((row, index) => (
+              <tr
+                key={row.id}
+                {...selecting.rowProps(index)}
+              >
                 {row.getVisibleCells().map((cell, i) => (
                   <td key={cell.id}>
                     {i === 0 && onRow ? (
@@ -377,6 +396,7 @@ function DataTableView<Row>({
         </table>
       </div>
       {!data.length && <EmptyState />}
+      {selecting.toast}
       <div className="pagination">
         <span>
           <T id="shared.data-table.of" values={{ first: data.length ? table.getState().pagination.pageIndex * 8 + 1 : 0, last: Math.min(

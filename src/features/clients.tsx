@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
@@ -65,6 +66,7 @@ export function ClientList() {
     (cursor) =>
       clientsApi.list({ archived, search: term || undefined }, cursor),
   );
+  const deletable = useDeletable("client", () => clients.reload());
   const data = clients.data ?? [];
   const columns: ColumnDef<Client, unknown>[] = [
     {
@@ -163,7 +165,7 @@ export function ClientList() {
       ) : (
         <PageGrid pageKey="clients.list">
           <Block id="list" name="List" h={24}>
-          <DataTable copyKey="clients.client-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="clients.client-list"
             data={data}
             columns={columns}
             onRow={(client) => navigate(`/clients/${client.id}`)}

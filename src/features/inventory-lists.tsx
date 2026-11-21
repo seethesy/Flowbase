@@ -1,3 +1,4 @@
+import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
@@ -108,6 +109,7 @@ export function InventoryList() {
         cursor,
       ),
   );
+  const deletable = useDeletable("inventory_item", () => items.reload());
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item" },
@@ -227,7 +229,7 @@ export function InventoryList() {
       ) : (
         <PageGrid pageKey="inventory.list">
           <Block id="list" name="List" h={24}>
-          <DataTable copyKey="inventory-lists.inventory-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.inventory-list"
             data={data}
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
@@ -282,6 +284,7 @@ export function IngredientList({
       ),
 
   );
+  const deletable = useDeletable("inventory_item", () => items.reload());
   // Business settings' categories (FLOW-45), archived ones included so old items
   // can still be found.
   const listed = useListLabels(
@@ -421,7 +424,7 @@ export function IngredientList({
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable copyKey="inventory-lists.ingredient-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.ingredient-list"
             data={data}
             columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}
@@ -482,6 +485,7 @@ export function BarList() {
         cursor,
       ),
   );
+  const deletable = useDeletable("inventory_item", () => items.reload());
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item" },
@@ -659,7 +663,7 @@ export function BarList() {
         <LoadingSkeleton />
       ) : (
         <>
-          <DataTable copyKey="inventory-lists.bar-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.bar-list"
             data={data}
             columns={columns}
             onRow={(item) => navigate(`/inventory/${item.id}`)}

@@ -159,10 +159,10 @@ export type SavedLayout = z.infer<typeof savedLayoutSchema>;
 // ---- Where tables and field-box cards take their fields from ----------------
 
 // Each layout-aware table names its source, the columns that can't be hidden
-// or moved (row controls such as the Leads Open button), and the columns its
-// code renders that aren't registry fields (kept by key, e.g. Leads Notes).
+// or moved, and the columns its code renders that aren't registry fields
+// (kept by key, e.g. Leads Notes and BEO).
 export const layoutTables: Record<string, { source: SourceKey; locked: string[]; code: string[] }> = {
-  "leads.inbox.table": { source: "leads", locked: ["open"], code: ["notes"] },
+  "leads.inbox.table": { source: "leads", locked: [], code: ["notes", "latestBeo"] },
   "events.event-table": { source: "events", locked: [], code: ["when", "guests"] },
   "clients.client-list": { source: "clients", locked: [], code: ["contact", "email", "phone", "tags"] },
   "venues.venue-list": { source: "venues", locked: [], code: ["areas"] },
@@ -171,7 +171,7 @@ export const layoutTables: Record<string, { source: SourceKey; locked: string[];
   "inventory-lists.inventory-list": { source: "inventory", locked: [], code: ["variant", "quantity"] },
 };
 // Pseudo-columns a table renders that aren't registry fields (locked controls).
-export const controlColumns = new Set(["open", "actions"]);
+export const controlColumns = new Set(["actions"]);
 
 // Record pages: the page's record source ("This record" for cards) and its
 // field-box cards.
