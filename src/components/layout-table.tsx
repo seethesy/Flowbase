@@ -22,7 +22,11 @@ export default function LayoutColumns<Row>({
 }: {
   copyKey: string;
   columns: ColumnDef<Row, unknown>[];
-  children: (columns: ColumnDef<Row, unknown>[], editor: ReactNode) => ReactNode;
+  children: (
+    columns: ColumnDef<Row, unknown>[],
+    editor: ReactNode,
+    resize?: (key: string, width: number) => void,
+  ) => ReactNode;
 }) {
   const target = layoutTables[copyKey];
   const codeColumns = columns.map((column) => ({
@@ -53,5 +57,5 @@ export default function LayoutColumns<Row>({
     // configKey stands for layout.columns.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columns, configKey, target]);
-  return <>{children(shown, layout.editor)}</>;
+  return <>{children(shown, layout.editor, layout.resize)}</>;
 }

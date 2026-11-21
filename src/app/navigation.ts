@@ -21,7 +21,7 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { name: "Overview", to: "/" },
       { name: "Tasks", to: "/tasks", visible: "tasks.read" },
-      { name: "Day-of", to: "/day-of", visible: "events.read" },
+      { name: "Day-of", to: "/day-of", visible: "dayof.read" },
       { name: "Approvals", to: "/approvals", visible: "approvals.read" },
     ],
   },
@@ -38,8 +38,8 @@ export const navigationGroups: NavGroup[] = [
     name: "Events",
     tabs: [
       { name: "Calendar", to: "/calendar", also: ["/events"], visible: "events.read" },
-      { name: "Production", to: "/production", visible: "events.read" },
-      { name: "Day-of", to: "/day-of", visible: "events.read" },
+      { name: "Production", to: "/production", visible: "production.read" },
+      { name: "Day-of", to: "/day-of", visible: "dayof.read" },
     ],
   },
   {
@@ -55,7 +55,7 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { name: "Inventory", to: "/inventory", also: ["/kitchen/orders"], visible: "inventory.read" },
       { name: "Purchasing", to: "/purchasing", visible: "inventory.read" },
-      { name: "Vendors", to: "/vendors", visible: "inventory.read" },
+      { name: "Vendors", to: "/vendors", visible: "vendors.read" },
       // Each importer needs its own permission (FLOW-47): inventory or leads.
       {
         name: "Imports",
@@ -107,6 +107,7 @@ const subPages: Record<string, string> = {
   "/kitchen/orders": "Kitchen orders",
   "/recipes/client": "Client recipe book",
   "/settings/users": "Users",
+  "/settings/permissions": "Roles & permissions",
   "/settings/collector": "Collector health",
   "/settings/usage": "Usage",
   "/settings/operations": "Operations",

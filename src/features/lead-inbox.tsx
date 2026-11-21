@@ -13,6 +13,7 @@ import {
   type Lead,
   type LeadSummary,
 } from "../../shared/leads";
+import { fieldDef } from "../../shared/fields";
 import { leadsApi } from "../services/leads";
 import { loadEveryPage, useDebounced } from "../app/paging";
 import {
@@ -23,6 +24,7 @@ import {
   LoadingSkeleton,
   Select,
   useTableSelection,
+  ColumnResizeHandle,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { useListLabels } from "./list-fields";
@@ -175,8 +177,9 @@ export function LeadInbox() {
               <div className={["table-card", selection.dragging ? "is-selecting" : ""].filter(Boolean).join(" ")} tabIndex={0} onKeyDown={selection.onKeyDown}><div className="table-scroll"><table className="lead-pipeline-table">
                 <thead><tr>{visible.map((column) => {
                   const heading = code(column.key)?.heading;
-                  return <th key={column.key} style={column.width ? { width: column.width } : undefined}>
-                    {heading ? <T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T> : <FieldLabel source="leads" field={column.key} />}</th>;
+                  return <th key={column.key} style={column.width ? { width: column.width } : undefined} className={layout.resize ? "column-resizable" : undefined}>
+                    {heading ? <T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T> : <FieldLabel source="leads" field={column.key} />}
+                    {layout.resize && <ColumnResizeHandle label={heading ?? fieldDef("leads", column.key)?.label ?? column.key} onResize={(width) => layout.resize?.(column.key, width)} />}</th>;
                 })}</tr></thead>
                 <tbody {...selection.bodyProps}>{shown.map((lead, index) => {
                   const row = selection.rowProps(index);

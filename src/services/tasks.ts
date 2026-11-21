@@ -7,6 +7,7 @@ import {
   taskTemplateSchema,
   taskViewSchema,
   type ChecklistItemUpdate,
+  type ClaimInput,
   type TaskFilter,
   type TaskInput,
   type TaskTemplateInput,
@@ -36,7 +37,8 @@ export const tasksApi = {
   create: (input: TaskInput) => request(taskSchema, base, "POST", input),
   update: (id: string, input: TaskUpdate) =>
     request(taskSchema, task(id), "PATCH", input),
-  claim: (id: string) => request(taskSchema, task(id, "claim"), "POST", {}),
+  claim: (id: string, input: ClaimInput = {}) =>
+    request(taskSchema, task(id, "claim"), "POST", input),
   addChecklistItem: (id: string, label: string) =>
     request(taskSchema, task(id, "checklist"), "POST", { label }),
   updateChecklistItem: (id: string, itemId: string, input: ChecklistItemUpdate) =>

@@ -2,6 +2,7 @@ import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard } from "../app/field-card";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, ExternalLink } from "lucide-react";
@@ -503,6 +504,11 @@ export function VendorDetail() {
         </div>
       </div>
       <div className="detail-grid">
+        <PageGrid pageKey="vendors.detail" record={{ source: "vendors", id: v.id, row: v as unknown as Record<string, unknown> }}>
+        <Block id="vendor-facts" name="Ordering" w={6} h={16}>
+        <FieldCard cardKey="vendor-facts" source="vendors" row={v as unknown as Record<string, unknown>}
+          title={<T id="vendors.vendor-detail.ordering">Ordering</T>}
+          fields={["portalUrl", "accountNumber", "orderCutoff", "deliveryDays", "minimumOrderCents", "leadTimeDays", "orderingInstructions", "notes"]}>
         <Section title={<T id="vendors.vendor-detail.ordering">Ordering</T>}>
           <small><T id="vendors.vendor-detail.vendor-portal">Vendor portal</T></small>
           <p>
@@ -535,6 +541,9 @@ export function VendorDetail() {
           <small><T id="vendors.vendor-detail.notes">Notes</T></small>
           <p className="vendor-text">{v.notes || "—"}</p>
         </Section>
+        </FieldCard>
+        </Block>
+        <Block id="vendor-contacts" name="Contacts" w={6} h={10}>
         <Section title={<T id="vendors.vendor-detail.contacts">Contacts</T>}>
           {v.contacts === null ? (
             <p className="muted"><T id="vendors.vendor-detail.vendor-contacts-are" values={{ hiddenNote: hiddenNote.toLowerCase() }}>{"Vendor contacts are {hiddenNote}"}</T></p>
@@ -555,6 +564,8 @@ export function VendorDetail() {
             <p className="muted"><T id="vendors.vendor-detail.no-contacts-yet">No contacts yet.</T></p>
           )}
         </Section>
+        </Block>
+        </PageGrid>
       </div>
       <Section title={<T id="vendors.vendor-detail.items-they-supply">Items they supply</T>}>
         {v.items.length ? (

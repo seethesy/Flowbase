@@ -248,6 +248,8 @@ export const leadUpdateSchema = z.object({
   eventName: text(200).optional(),
   eventDate: localDate.nullable().optional(),
   eventTime: localTime.optional(),
+  // Added as a field box on the lead page (FLOW-273): its Edit mode shows an input.
+  guestCount: z.number().int().min(0).max(100_000).nullable().optional(),
   notes: sopContentSchema.nullable().optional(),
 }).strict();
 export type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;

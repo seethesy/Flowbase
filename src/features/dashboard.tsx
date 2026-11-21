@@ -6,7 +6,7 @@ import type { Role } from "../../shared/access";
 import type { TaskSummary } from "../../shared/tasks";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
-import { PageHeader, LoadingSkeleton, RoleText } from "../components/shared";
+import { Button, PageHeader, LoadingSkeleton, RoleText } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { RoundCheck } from "../components/ui/round-check";
 import { StatusPill } from "../components/ui/status-pill";
@@ -20,10 +20,11 @@ import "./dashboard.css";
 const day = (value: string | null) => value ? new Date(value).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }) : "—";
 const time = (value: string) => new Date(value).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
 
-function TaskRows({ rows, toggle, href, showAssignee = true }: { rows: TaskSummary[]; toggle: (task: TaskSummary) => void; href: (id: string) => string; showAssignee?: boolean }) {
+function TaskRows({ rows, toggle, href, pickUp, showAssignee = true }: { rows: TaskSummary[]; toggle: (task: TaskSummary) => void; href: (id: string) => string; pickUp?: (task: TaskSummary) => void; showAssignee?: boolean }) {
   return <ul className="dashboard-task-list">{rows.map((task) => <li key={task.id} className={task.status === "done" ? "completed" : ""}>
     <RoundCheck aria-label={`${task.status === "done" ? "Reopen" : "Complete"} ${task.title}`} checked={task.status === "done"} onChange={() => toggle(task)} />
     <span><Link to={href(task.id)}>{task.title}</Link><small>{showAssignee && <>{task.assignees.map((person) => person.name).join(", ") || <T id="dashboard.home.unassigned">Unassigned</T>} · </>}{task.eventTitle ?? <T id="dashboard.home.no-event">No event</T>}</small></span>
+    {pickUp && task.status !== "done" && task.assignees.length === 0 && <Button variant="outline" aria-label={`Pick up ${task.title}`} onClick={() => pickUp(task)}><T id="dashboard.home.pick-up">Pick up</T></Button>}
     <time>{day(task.dueAt)}</time>
   </li>)}</ul>;
 }
@@ -47,6 +48,13 @@ export function Dashboard() {
     try { await tasksApi.update(task.id, { status }); }
     catch (cause) { dashboard.replace(current); setError((cause as Error).message); }
   };
+  // Anyone can pick up an unassigned task (FLOW-272); it then shows under My Tasks.
+  const pickUp = async (task: TaskSummary) => {
+    setError("");
+    try { await tasksApi.claim(task.id, { unassignedOnly: true }); }
+    catch (cause) { setError((cause as Error).message); }
+    dashboard.reload();
+  };
   const data: HomeDashboard | undefined = dashboard.data;
   const all = data?.allTasks?.filter((row) => !selectedRole || row.assigneeRoles.includes(selectedRole as Role)) ?? [];
   return <>
@@ -63,7 +71,7 @@ export function Dashboard() {
           <div className="dashboard-card__scroll"><TaskRows rows={data.myTasks} showAssignee={false} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>
         {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><Dropdown aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
           <option value="">All roles</option>{data.roles.map((value) => <option key={value} value={value}>{roleLabel(value)}</option>)}
-        </Dropdown></header><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
+        </Dropdown></header><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} pickUp={(task) => void pickUp(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
         <Block id="upcoming-events" name="Upcoming Events" w={6} h={12}><section className="dashboard-card dashboard-card--events"><header><h2><T id="dashboard.home.upcoming-events">Upcoming Events</T></h2><Link to={to("/events")}><T id="dashboard.home.view-all-events">View all</T></Link></header>
 
           <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.event-date">Date</T></th><th><T id="dashboard.home.event-name">Event</T></th><th><T id="dashboard.home.venue">Venue</T></th><th><T id="dashboard.home.guests">Guests</T></th></tr></thead><tbody>{data.upcomingEvents.map((event) => <tr key={event.id}>

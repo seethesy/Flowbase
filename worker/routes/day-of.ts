@@ -22,7 +22,7 @@ import {
 export function dayOfRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const read = requirePermission("events.read");
+  const read = requirePermission("dayof.read");
   const param = (c: AppContext, name: string, what: string) => {
     const parsed = uuid.safeParse(c.req.param(name));
     if (!parsed.success) throw notFound(what);

@@ -4,6 +4,7 @@ import {
   applyTemplateInputSchema,
   checklistItemInputSchema,
   checklistItemUpdateSchema,
+  claimInputSchema,
   taskCommentInputSchema,
   taskFilterSchema,
   taskInputSchema,
@@ -176,9 +177,10 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
   });
   routes.post("/:id/claim", requirePermission("tasks.write"), async (c) => {
     const id = taskId(c);
+    const input = await parseBody(c, claimInputSchema);
     return c.json(
       await record(c, async (db, actor) => {
-        await db.transaction((tx) => claimTask(tx, actor, id));
+        await db.transaction((tx) => claimTask(tx, actor, id, input));
         return getTask(db, actor, id);
       }),
     );

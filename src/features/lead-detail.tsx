@@ -35,7 +35,7 @@ import {
 } from "./lead-shared";
 import { T, LabelT } from "../app/copy";
 import { Block, PageGrid } from "../app/page-grid";
-import { FieldCard, useShownFields } from "../app/field-card";
+import { FieldCard, useFieldBoxes, useShownFields } from "../app/field-card";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { RichTextView } from "../components/rich-text/RichTextView";
@@ -52,7 +52,7 @@ export function LeadDetail() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [newEvent, setNewEvent] = useState(false);
-  const [draft, setDraft] = useState({ name: "", email: "", phone: "", eventName: "", eventDate: "" });
+  const [draft, setDraft] = useState({ name: "", email: "", phone: "", eventName: "", eventDate: "", guestCount: "" });
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState<JSONContent>(emptyRichText);
   const [convert, setConvert] = useOpenFor(id);
@@ -64,6 +64,10 @@ export function LeadDetail() {
   const beos = useResource(["lead-beos", id], () => leadsApi.beos(id));
   // Edit shows the fields the page shows (FLOW-255).
   const shows = useShownFields("leads.detail", "lead-facts");
+  // Fields added as boxes get an Edit input too (FLOW-273); the code default
+  // adds none, so Edit there is as it was.
+  const factBoxes = useFieldBoxes("leads.detail", "lead-facts");
+  const adds = (field: string) => !!factBoxes?.some((box) => box.kind === "field" && box.field === field);
   if (lead.error)
     return (
       <>
@@ -128,13 +132,15 @@ export function LeadDetail() {
           <Allowed action="leads.update">{editing ? <>
             <Button variant="outline" onClick={() => {
               const original = { name: l.name, email: l.email, phone: l.phone,
-                eventName: l.eventName ?? "", eventDate: l.eventDate ?? "" };
+                eventName: l.eventName ?? "", eventDate: l.eventDate ?? "",
+                guestCount: l.guestCount === null ? "" : String(l.guestCount) };
               if (JSON.stringify(draft) !== JSON.stringify(original) && !window.confirm("Discard changes?")) return;
               setEditing(false);
             }}><T id="lead-detail.edit.cancel">Cancel</T></Button>
             <Button type="submit" form="lead-edit-form" disabled={busy}><T id="lead-detail.edit.save">Save</T></Button>
           </> : <Button variant="outline" onClick={() => { setDraft({ name: l.name,
-            email: l.email, phone: l.phone, eventName: l.eventName ?? "", eventDate: l.eventDate ?? "" });
+            email: l.email, phone: l.phone, eventName: l.eventName ?? "", eventDate: l.eventDate ?? "",
+            guestCount: l.guestCount === null ? "" : String(l.guestCount) });
             setEditing(true); }}><T id="lead-detail.edit.edit">Edit</T></Button>}</Allowed>
           <Allowed action="leads.update"><Button onClick={() => setNewEvent(true)}><T id="lead-detail.edit.new-event">New event</T></Button></Allowed>
         </div>
@@ -236,7 +242,9 @@ export function LeadDetail() {
           <form id="lead-edit-form" className="form-grid" onSubmit={async (event) => {
             event.preventDefault();
             setBusy(true); setError("");
-            try { lead.replace(await leadsApi.update(id, { ...draft, eventDate: draft.eventDate || null })); setEditing(false); }
+            const { guestCount, ...basics } = draft;
+            try { lead.replace(await leadsApi.update(id, { ...basics, eventDate: draft.eventDate || null,
+              ...(adds("guestCount") && { guestCount: guestCount === "" ? null : Number(guestCount) }) })); setEditing(false); }
             catch (cause) { setError((cause as Error).message); }
             finally { setBusy(false); }
           }}>
@@ -244,6 +252,7 @@ export function LeadDetail() {
             {shows("phone") && <FormField label="Phone"><input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></FormField>}
             {shows("email") && <FormField label="Email"><input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></FormField>}
             {shows("eventDate") && <FormField label="Time & Date"><input type="date" value={draft.eventDate} onChange={(event) => setDraft({ ...draft, eventDate: event.target.value })} /></FormField>}
+            {adds("guestCount") && <FormField label="Guests"><input type="number" min={0} value={draft.guestCount} onChange={(event) => setDraft({ ...draft, guestCount: event.target.value })} /></FormField>}
           </form>
         </Section>}
         <PageGrid pageKey="leads.detail" record={{ source: "leads", id: l.id, row: l as unknown as Record<string, unknown> }}>

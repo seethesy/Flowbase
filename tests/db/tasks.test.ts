@@ -299,8 +299,8 @@ describe("visibility and delegation", () => {
   it("shows part-time staff only the tasks they're on, and full-time staff every task", async () => {
     const theirs = await newTask({ title: "Pat's task", assigneeIds: [people.pat] });
     const other = await newTask({ title: "Casey's task", assigneeIds: [people.casey] });
-    // The communal list is for FT+ (FLOW-59 AC1); their own list still works.
-    expect((await pat.call("GET", "/api/tasks")).status).toBe(403);
+    // Part-time staff get their own tasks plus open unassigned ones (FLOW-272), none here.
+    expect((await pat.send<TaskSummary[]>("GET", "/api/tasks")).map((t) => t.id)).toEqual([theirs.id]);
     expect((await pat.send<TaskSummary[]>("GET", "/api/tasks?mine=true")).map((t) => t.id)).toEqual([theirs.id]);
     expect((await pat.call("GET", `/api/tasks/${other.id}`)).status).toBe(404);
     expect((await casey.send<TaskSummary[]>("GET", "/api/tasks")).map((t) => t.id)).toEqual([

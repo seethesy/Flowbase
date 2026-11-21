@@ -2,6 +2,7 @@ import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard } from "../app/field-card";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, TriangleAlert } from "lucide-react";
@@ -574,6 +575,11 @@ export function ClientDetail() {
       <div role="tabpanel" id="record-panel" aria-labelledby={`tab-${tab}`}>
         {tab === "Overview" && (
           <div className="detail-grid">
+            <PageGrid pageKey="clients.detail" record={{ source: "clients", id: c.id, row: c as unknown as Record<string, unknown> }}>
+            <Block id="client-facts" name="Client information" w={6} h={12}>
+            <FieldCard cardKey="client-facts" source="clients" row={c as unknown as Record<string, unknown>}
+              title={<T id="clients.client-detail.client-information">Client information</T>}
+              fields={["name", "kind", "assignedSalespersonId", "notes", "createdAt"]}>
             <Section title={<T id="clients.client-detail.client-information">Client information</T>}>
               <div className="info-grid">
                 <div>
@@ -588,9 +594,14 @@ export function ClientDetail() {
               <h3 className="form-subheading"><T id="clients.client-detail.notes">Notes</T></h3>
               <p>{c.notes || <T id="clients.client-detail.no-notes-yet">No notes yet.</T>}</p>
             </Section>
+            </FieldCard>
+            </Block>
+            <Block id="upcoming-events" name="Upcoming events" w={6} h={12}>
             <Section title={<T id="clients.client-detail.upcoming-events">Upcoming events</T>}>
               <EventTable events={events.data ?? []} error={events.error} />
             </Section>
+            </Block>
+            </PageGrid>
           </div>
         )}
         {tab === "Contacts" && (

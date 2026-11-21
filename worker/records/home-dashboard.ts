@@ -5,10 +5,10 @@ import { businessDefaultsSchema } from "../../shared/settings";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
 import { eventShifts, eventStaffSlots, events, leads, settings, taskAssignees, tasks, users, venues } from "../db/schema";
-import { leadScope, taskScope } from "../policy";
+import { leadScope } from "../policy";
 import { visibleEvents } from "./events";
 import { visibleLeads } from "./leads";
-import { getTaskSummaries } from "./tasks";
+import { getTaskSummaries, visibleTasks } from "./tasks";
 
 export async function homeDashboard(db: DbLike, actor: Actor, now = new Date()) {
   const [setting] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "defaults"));
@@ -21,8 +21,10 @@ export async function homeDashboard(db: DbLike, actor: Actor, now = new Date()) 
       .innerJoin(tasks, eq(tasks.id, taskAssignees.taskId))
       .where(and(eq(taskAssignees.userId, actor.userId), isNull(taskAssignees.archivedAt),
         isNull(tasks.archivedAt), keepTask)).orderBy(asc(tasks.dueAt)),
-    taskScope(actor) === "all" ? db.select({ id: tasks.id }).from(tasks)
-      .where(and(isNull(tasks.archivedAt), keepTask)).orderBy(asc(tasks.dueAt)) : Promise.resolve(null),
+    // Every role: FT+ see all tasks, the rest their own plus the open unassigned
+    // ones (visibleTasks, FLOW-272).
+    db.select({ id: tasks.id }).from(tasks)
+      .where(and(isNull(tasks.archivedAt), keepTask, visibleTasks(actor))).orderBy(asc(tasks.dueAt)),
   ]);
   const [myTasks, allSummaries] = await Promise.all([
     getTaskSummaries(db, actor, mineIds.map((row) => row.id)),
