@@ -188,7 +188,7 @@ it("lists only visible documents, keeps upload versions and blocks BEO deletion"
   const documents = await (await sue("GET", "/api/documents")).json() as { id: string; versions: { number: number }[] }[];
   const document = documents.find((row) => row.versions.some((version) => version.number === 1))!;
   expect(document).toBeDefined();
-  expect((await (await sam("GET", "/api/documents")).json() as unknown[]).toHaveLength(0);
+  expect((await (await sam("GET", "/api/documents")).json()) as unknown[]).toHaveLength(0);
   expect((await sam("GET", `/api/documents/${document.id}`)).status).toBe(404);
 
   const second = await sue("POST", "/api/documents", { ...input, documentId: document.id, fileName: "contract-v2.pdf" });
