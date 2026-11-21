@@ -31,7 +31,7 @@ import { LoadError } from "../components/record-display";
 import { EventTable } from "./events";
 import { Attachments } from "./attachments";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 
 const contactRoleLabels = { manager: "Manager", coordinator: "Coordinator" };
 
@@ -521,7 +521,7 @@ export function VenueDetail() {
                 <div>
                   <strong>{contact.name}</strong>
                   <small>
-                    {contactRoleLabels[contact.role]} · {contact.email || "—"} ·{" "}
+                    <LabelT id="labels.venue-contact-role" value={contact.role}>{contactRoleLabels[contact.role]}</LabelT> · {contact.email || "—"} ·{" "}
                     {contact.phone || "—"}
                   </small>
                 </div>

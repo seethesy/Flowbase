@@ -35,7 +35,7 @@ import { usePermissions } from "../app/permissions";
 import { canSeeRentalCosts } from "../../shared/visibility";
 import { CatalogIncludes } from "./inventory-includes";
 import { RoundCheck } from "../components/ui/round-check";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 const dollars = (cents: number | null | undefined) =>
   cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
@@ -593,7 +593,7 @@ function ItemFormFields({
             label={<T id="inventory-item-form.item-form-fields.ratio">Ratio</T>}
             hint={
               defaultRatio
-                ? <T id="inventory-item-form.item-form-fields.leave-empty-to-use-category" values={{ quantity: defaultRatio.quantity, ratioBasisLabels: ratioBasisLabels[defaultRatio.basis] }}>{"Leave empty to use category default: {quantity} {ratioBasisLabels}"}</T>
+                ? <T id="inventory-item-form.item-form-fields.leave-empty-to-use-category" values={{ quantity: defaultRatio.quantity, ratioBasisLabels: <LabelT id="labels.ratio-basis" value={defaultRatio.basis}>{ratioBasisLabels[defaultRatio.basis]}</LabelT> }}>{"Leave empty to use category default: {quantity} {ratioBasisLabels}"}</T>
                 : <T id="inventory-item-form.item-form-fields.e-g-2-per-guest">e.g. 2 per guest; leave empty for category default</T>
             }
           >

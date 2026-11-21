@@ -1,6 +1,6 @@
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { utcToBusinessTime } from "../../shared/time";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
@@ -35,18 +35,25 @@ import {
   valueOf,
 } from "./lead-shared";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT, Plural } from "../app/copy";
+import { copySlug } from "../../shared/copy";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { emptyRichText } from "../components/rich-text/extensions";
 
-export const summaryLine = (lead: LeadSummary) =>
-  [
-    lead.source,
-    businessDate(lead.receivedAt),
-    leadStatusLabels[lead.status],
-    lead.assignedSalespersonId ?? "Unassigned",
-  ].join(" · ");
+// A lead's one-line summary, with its labels editable (FLOW-257).
+export function SummaryLine({ lead }: { lead: LeadSummary }) {
+  return (
+    <>
+      {[
+        lead.source,
+        businessDate(lead.receivedAt),
+        <LabelT id="labels.pipeline-status" value={lead.status}>{leadStatusLabels[lead.status]}</LabelT>,
+        lead.assignedSalespersonId ?? <T id="lead-inbox.summary-line.unassigned">Unassigned</T>,
+      ].map((part, index) => <Fragment key={index}>{index > 0 && " · "}{part}</Fragment>)}
+    </>
+  );
+}
 
 function InlineCell({ value, type = "text", label, onSave }: {
   value: string; type?: "text" | "email" | "datetime-local";
@@ -139,7 +146,7 @@ export function LeadInbox() {
         <span className="result-count"><T id="leads.inbox.lead-count" values={{ count: data.length }}>{"{count} leads"}</T></span>
       </FilterBar>
       {error && <p role="alert" className="error-message">{error}</p>}
-      {selected.length > 0 && <Section title={`${selected.length} selected`}>
+      {selected.length > 0 && <Section title={<Plural id="leads.inbox.selected-count" count={selected.length} one="{count} selected" other="{count} selected" />}>
         <Allowed action="leads.assign"><AssignForm label={<T id="leads.inbox.assign-selected-to">Assign selected to</T>} button={<T id="leads.inbox.assign-selected">Assign selected</T>}
           onAssign={async (id) => { await leadsApi.bulkAssign(selected, id); setSelected([]); leads.reload(); }} /></Allowed>
         <Dropdown aria-label="Change selected status" defaultValue="" onChange={async (event) => {
@@ -154,7 +161,7 @@ export function LeadInbox() {
       </Section>}
       {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
         <div className="table-card"><div className="table-scroll"><table className="lead-pipeline-table">
-          <thead><tr>{["Open", "Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal"].map((heading) => <th key={heading}>{heading}</th>)}</tr></thead>
+          <thead><tr>{["Open", "Status", "Last updated", "Client", "Event", "Phone", "Email", "Time & Date", "Notes", "Source", "Proposal"].map((heading) => <th key={heading}><T id={`leads.inbox.column.${copySlug(heading)}`}>{heading}</T></th>)}</tr></thead>
           <tbody>{shown.map((lead, index) => <tr key={lead.id}
             className={lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""}
             onPointerDown={(event) => { if ((event.target as HTMLElement).closest("input,button,a,select")) return;

@@ -15,7 +15,7 @@ import { useResource } from "../app/useResource";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { toNumber } from "./inventory-item-form";
 import { changeLabel, dateTimeLabel } from "./inventory-labels";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 export function StockForm({
   item,
@@ -127,7 +127,7 @@ export function StockForm({
           </FormField>
         )}
         <FormField
-          label={`${mode === "transfer" ? "Quantity" : "Counted quantity"} (${unitLabel(item.unit)})`}
+          label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.quantity-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity ({unit})"}</T> : <T id="inventory-stock-forms.stock-form.counted-quantity-unit" values={{ unit: unitLabel(item.unit) }}>{"Counted quantity ({unit})"}</T>}
         >
           <input
             type="number"
@@ -258,7 +258,7 @@ export function MovementForm({
           </Dropdown>
         </FormField>
         <FormField
-          label={`${direction > 0 ? "Quantity in" : direction < 0 ? "Quantity out" : "Change"} (${unitLabel(item.unit)})`}
+          label={direction > 0 ? <T id="inventory-stock-forms.movement-form.quantity-in-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity in ({unit})"}</T> : direction < 0 ? <T id="inventory-stock-forms.movement-form.quantity-out-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity out ({unit})"}</T> : <T id="inventory-stock-forms.movement-form.change-unit" values={{ unit: unitLabel(item.unit) }}>{"Change ({unit})"}</T>}
           hint={
             direction === 0 ? <T id="inventory-stock-forms.movement-form.use-a-minus-sign-to">Use a minus sign to remove stock.</T> : undefined
           }
@@ -350,7 +350,7 @@ export function CorrectionForm({
       open
       onClose={onClose}
       title={<T id="inventory-stock-forms.correction-form.correct-movement">Correct movement</T>}
-      description={<T id="inventory-stock-forms.correction-form.of-in-on-the-difference" values={{ movementTypeLabels: movementTypeLabels[movement.type], changeLabel: changeLabel(current), unitLabel: unitLabel(item.unit), sectionName: movement.sectionName, createdAt: dateTimeLabel(movement.createdAt) }}>{"{movementTypeLabels} of {changeLabel} {unitLabel} in {sectionName} on {createdAt}. The difference is recorded as a new, linked movement."}</T>}
+      description={<T id="inventory-stock-forms.correction-form.of-in-on-the-difference" values={{ movementTypeLabels: <LabelT id="labels.movement-type" value={movement.type}>{movementTypeLabels[movement.type]}</LabelT>, changeLabel: changeLabel(current), unitLabel: unitLabel(item.unit), sectionName: movement.sectionName, createdAt: dateTimeLabel(movement.createdAt) }}>{"{movementTypeLabels} of {changeLabel} {unitLabel} in {sectionName} on {createdAt}. The difference is recorded as a new, linked movement."}</T>}
     >
       <form
         noValidate

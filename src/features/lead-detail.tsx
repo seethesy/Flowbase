@@ -23,7 +23,7 @@ import { StatusSelect } from "../components/ui/status-pill";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
 import { CommunicationLog } from "./communications";
-import { summaryLine } from "./lead-inbox";
+import { SummaryLine } from "./lead-inbox";
 import {
   AssignForm,
   businessDate,
@@ -32,7 +32,7 @@ import {
   leadTitle,
   money,
 } from "./lead-shared";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { RichTextView } from "../components/rich-text/RichTextView";
@@ -149,14 +149,14 @@ export function LeadDetail() {
             {duplicates.map((match) => (
               <li key={match.duplicateId} className="duplicate-pair">
                 <p>
-                  <strong>{leadDuplicateReasonLabels[match.reason]}</strong>
+                  <strong><LabelT id="labels.lead-duplicate-reason" value={match.reason}>{leadDuplicateReasonLabels[match.reason]}</LabelT></strong>
                 </p>
                 {match.lead ? (
                   <p>
                     <Link to={`/leads/${match.lead.id}`}>
                       {match.lead.name || <T id="lead-detail.lead-detail.unnamed-lead">Unnamed lead</T>}
                     </Link>{" "}
-                    <small>{summaryLine(match.lead)}</small>
+                    <small><SummaryLine lead={match.lead} /></small>
                   </p>
                 ) : (
                   match.client && (
@@ -315,7 +315,7 @@ export function LeadDetail() {
             </div>
             <div>
               <small><T id="lead-detail.lead-detail.channel">Channel</T></small>
-              <strong>{leadChannelLabels[l.channel]}</strong>
+              <strong><LabelT id="labels.lead-channel" value={l.channel}>{leadChannelLabels[l.channel]}</LabelT></strong>
             </div>
             <div>
               <small><T id="lead-detail.lead-detail.received">Received</T></small>
@@ -354,7 +354,7 @@ export function LeadDetail() {
             <ul aria-label="Source links">
               {l.sourceLinks!.map((link) => (
                 <li key={link.leadId}>
-                  {link.source} · {leadChannelLabels[link.channel]} ·{" "}
+                  {link.source} · <LabelT id="labels.lead-channel" value={link.channel}>{leadChannelLabels[link.channel]}</LabelT> ·{" "}
                   {link.sourceLeadUrl ? (
                     <a
                       href={link.sourceLeadUrl}

@@ -57,7 +57,7 @@ import { EventHistorySection } from "./event-activity";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 import { StatusPill, StatusSelect } from "../components/ui/status-pill";
 
@@ -628,8 +628,8 @@ function EventStatusPanel({
             <li key={entry.id}>
               <strong>
                 {entry.from
-                  ? `${eventStatusDetailLabels[entry.from]} → ${eventStatusDetailLabels[entry.to]}`
-                  : <T id="events.event-status-panel.created-as" values={{ eventStatusDetailLabels: eventStatusDetailLabels[entry.to] }}>{"Created as {eventStatusDetailLabels}"}</T>}
+                  ? <><LabelT id="labels.pipeline-status" value={entry.from}>{eventStatusDetailLabels[entry.from]}</LabelT> → <LabelT id="labels.pipeline-status" value={entry.to}>{eventStatusDetailLabels[entry.to]}</LabelT></>
+                  : <T id="events.event-status-panel.created-as" values={{ eventStatusDetailLabels: <LabelT id="labels.pipeline-status" value={entry.to}>{eventStatusDetailLabels[entry.to]}</LabelT> }}>{"Created as {eventStatusDetailLabels}"}</T>}
               </strong>{" "}
               <small>
                 {new Date(entry.at).toLocaleString("en-US")}
@@ -672,10 +672,10 @@ export function EventDetail() {
   if (!hub.data) return <LoadingSkeleton />;
   const { event: e, client, sections, canEdit, canChangeStatus } = hub.data;
   const setEvent = (event: FlowEvent) => hub.replace({ ...hub.data!, event });
-  const facts: [string, string][] = [
+  const facts: [string, ReactNode][] = [
     ["When", when(e)],
     ["Client", e.client?.name ?? "—"],
-    ["Venue", e.venue?.name ?? "No venue"],
+    ["Venue", e.venue?.name ?? <T id="events.event-detail.no-venue">No venue</T>],
     ["Address", e.address || "—"],
     ["Areas", e.areas.map((area) => area.name).join(", ") || "—"],
     ["Event type", e.eventType || "—"],
@@ -685,8 +685,8 @@ export function EventDetail() {
     ["Servings", e.servingsCount?.toString() ?? "—"],
     ["Dress code", e.dressCode || "—"],
     ["Arrival at venue", e.arrivalTime ? time(e.arrivalTime) : "—"],
-    ["Status", statusLabels[e.status]],
-    ...(e.planningStaleAt ? [["Planning outputs", `Needs refresh since ${new Date(e.planningStaleAt).toLocaleDateString()}`] as [string, string]] : []),
+    ["Status", <LabelT id="labels.pipeline-status" value={e.status}>{statusLabels[e.status]}</LabelT>],
+    ...(e.planningStaleAt ? [["Planning outputs", <T id="events.event-detail.needs-refresh-since" values={{ date: new Date(e.planningStaleAt).toLocaleDateString() }}>{"Needs refresh since {date}"}</T>] as [string, ReactNode]] : []),
   ];
   const render: Partial<Record<HubSection, () => ReactNode>> = {
     details: () => (
@@ -749,7 +749,7 @@ export function EventDetail() {
                   {contact.id === e.pocContactId && <T id="events.event-detail.point-of-contact">{" (point of contact)"}</T>}
                 </strong>
                 <small>
-                  {contactRoleLabels[contact.role]} · {hidden(contact.email)} ·{" "}
+                  <LabelT id="labels.contact-role" value={contact.role}>{contactRoleLabels[contact.role]}</LabelT> · {hidden(contact.email)} ·{" "}
                   {hidden(contact.phone)}
                 </small>
               </div>

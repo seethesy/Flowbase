@@ -23,9 +23,12 @@ import { readImportFile, type Sheet } from "../services/import-files";
 import { importsApi } from "../services/imports";
 import { LoadError } from "../components/record-display";
 import { dateTimeLabel } from "./inventory-labels";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 import "./inventory.css";
 import "./imports.css";
+
+// What the dry run will do with each row (FLOW-257: editable under imports.dry-run-report.action).
+const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "Updates", create: "Creates" };
 
 // Data import (FLOW-47): choose a CSV or XLSX file, map its columns, check the
 // rows (dry run), then import them in batches of 100. The browser parses the file
@@ -362,7 +365,7 @@ function DryRunReport({
             column="What the importer will do"
             rows={described.map((plan) => [
               plan.rowNumber,
-              `${plan.action === "skip" ? "Unchanged" : plan.action === "update" ? "Updates" : "Creates"}: ${plan.summary}`,
+              <><LabelT id="imports.dry-run-report.action" value={plan.action}>{planActionLabels[plan.action]}</LabelT>: {plan.summary}</>,
             ])}
           />
         </>
@@ -374,7 +377,7 @@ function DryRunReport({
             label="Possible duplicates"
             rows={duplicates.map((plan) => [
               plan.rowNumber,
-              `Looks like ${plan.duplicates.map((match) => match.label).join(", ")}`,
+              <T id="imports.dry-run-report.looks-like" values={{ matches: plan.duplicates.map((match) => match.label).join(", ") }}>{"Looks like {matches}"}</T>,
             ])}
           />
         </>
@@ -386,7 +389,7 @@ function DryRunReport({
             label="Repeated in this file"
             rows={repeated.map((row) => [
               row.rowNumber,
-              `Same key as row ${row.firstRow}; it updates that record.`,
+              <T id="imports.dry-run-report.same-key-as-row" values={{ row: row.firstRow }}>{"Same key as row {row}; it updates that record."}</T>,
             ])}
           />
         </>
@@ -427,8 +430,8 @@ function RowTable({
   column = "Problem",
 }: {
   label: string;
-  rows: [number, string][];
-  column?: ReactNode;
+  rows: [number, ReactNode][];
+  column?: string;
 }) {
   return (
     <div className="table-scroll">
@@ -436,7 +439,7 @@ function RowTable({
         <thead>
           <tr>
             <th><T id="imports.row-table.row">Row</T></th>
-            <th>{column}</th>
+            <th><LabelT id="imports.row-table.column" value={column}>{column}</LabelT></th>
           </tr>
         </thead>
         <tbody>

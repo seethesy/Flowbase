@@ -11,6 +11,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   copyOverridesSchema,
+  copySlug,
   placeholderError,
   placeholderNames,
   splitPlaceholders,
@@ -247,4 +248,23 @@ export function useCopy(id: string, defaultText: string, values?: Record<string,
   return splitPlaceholders(text)
     .map((part) => ("text" in part ? part.text : part.name in values ? String(values[part.name]) : `{${part.name}}`))
     .join("");
+}
+
+// A display label a screen takes from a constant map (FLOW-257), e.g. a status
+// label. The key is `<id>.<value slug>`, so one map shares its keys on every
+// screen: <LabelT id="labels.task-status" value={task.status}>{taskStatusLabels[task.status]}</LabelT>.
+export function LabelT({ id, value, children }: { id: string; value: string; children: string }) {
+  return <T id={`${id}.${copySlug(value)}`}>{children}</T>;
+}
+
+// Parts of one line joined with a separator, e.g. "Rental · Linen", where some
+// parts are <T> or <LabelT> elements. Falsy parts are left out, like .filter(Boolean).
+export function joined(parts: ReactNode[], separator = " · "): ReactNode {
+  const shown = parts.filter(Boolean);
+  return shown.map((part, index) => (
+    <Fragment key={index}>
+      {index > 0 && separator}
+      {part}
+    </Fragment>
+  ));
 }

@@ -19,7 +19,7 @@ import { LoadError } from "../components/record-display";
 import { dayOfApi } from "../services/day-of";
 import { csvFileName, downloadCsv, toCsv } from "../services/csv";
 import { RoundCheck } from "../components/ui/round-check";
-import { T } from "../app/copy";
+import { T, LabelT } from "../app/copy";
 
 const clock = (instant: string) => clockLabel(utcToBusinessTime(new Date(instant)).time);
 
@@ -212,7 +212,7 @@ function TruckRow({
           </Button>
         </>
       ) : (
-        <span>{dayOfTruckStatusLabels[truck.status]}{truck.location ? ` · ${truck.location}` : ""}</span>
+        <span><LabelT id="labels.day-of-truck-status" value={truck.status}>{dayOfTruckStatusLabels[truck.status]}</LabelT>{truck.location ? ` · ${truck.location}` : ""}</span>
       )}
     </li>
   );
@@ -262,7 +262,7 @@ function StaffRow({
           </Button>
         </>
       ) : (
-        <span>{dayOfStaffStatusLabels[member.status]}{member.location ? ` · ${member.location}` : ""}</span>
+        <span><LabelT id="labels.day-of-staff-status" value={member.status}>{dayOfStaffStatusLabels[member.status]}</LabelT>{member.location ? ` · ${member.location}` : ""}</span>
       )}
     </li>
   );

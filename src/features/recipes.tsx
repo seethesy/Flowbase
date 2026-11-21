@@ -37,7 +37,7 @@ import { centsLabel, quantityLabel } from "./inventory-labels";
 import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./inventory.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { Plural, T, useCopy } from "../app/copy";
+import { Plural, T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 
 // Recipe book (FLOW-93): one record per dish, with its cost (FLOW-94), allergens
@@ -672,7 +672,7 @@ function IngredientsSection({ recipe }: { recipe: Recipe }) {
                         className={`badge ${line.cost.source === "none" ? "warning" : line.cost.source === "entered" ? "neutral" : "success"}`}
                         title={line.cost.problem ?? undefined}
                       >
-                        {lineCostSourceLabels[line.cost.source]}
+                        <LabelT id="labels.line-cost-source" value={line.cost.source}>{lineCostSourceLabels[line.cost.source]}</LabelT>
                       </span>
                     </td>
                   </>

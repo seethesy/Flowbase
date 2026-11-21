@@ -32,7 +32,7 @@ import {
   Megaphone,
   type LucideIcon,
 } from "lucide-react";
-import { DetailDrawer } from "../shared";
+import { DetailDrawer, RoleText } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
 import { GlobalSearch } from "../../features/search";
 import { NotificationBell } from "../../features/notifications";
@@ -41,7 +41,6 @@ import { LiveEditControls, LiveEditLayer } from "../../app/live-edit";
 import { T } from "../../app/copy";
 import { copySlug } from "../../../shared/copy";
 import { useAuth } from "../../app/auth";
-import { roleLabel } from "../../services/users";
 import {
   breadcrumbTrail,
   matchNavigation,
@@ -243,7 +242,7 @@ function Sidebar({
             </span>
             <span className="sidebar-text">
               <strong>{displayName}</strong>
-              <small>{auth ? roleLabel(auth.user.role) : ""}</small>
+              <small>{auth ? <RoleText role={auth.user.role} /> : ""}</small>
             </span>
             <ChevronDown size={15} />
           </Link>
@@ -350,7 +349,7 @@ function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
             {profile && (
               <div className="dropdown profile-dropdown">
                 <strong>{displayName}</strong>
-                <small>{auth ? roleLabel(auth.user.role) : ""}</small>
+                <small>{auth ? <RoleText role={auth.user.role} /> : ""}</small>
                 <Link to="/profile" onClick={() => setProfile(false)}>
                   <T id="app-shell.top-header.employee-profile">Employee profile</T>
                 </Link>

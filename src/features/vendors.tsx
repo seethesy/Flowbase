@@ -36,10 +36,13 @@ import { LoadError } from "../components/record-display";
 import { centsLabel, kindLabels, subtypeLabel } from "./inventory-labels";
 import "./vendors.css";
 import { RoundCheck } from "../components/ui/round-check";
-import { T, useCopy } from "../app/copy";
+import { T, useCopy, LabelT, joined } from "../app/copy";
 
 const daysLabel = (days: Weekday[]) =>
   days.map((day) => weekdayLabels[day]).join(", ") || "—";
+// daysLabel on screen, with the weekday names editable (FLOW-257).
+const DaysText = ({ days }: { days: Weekday[] }) =>
+  days.length ? <>{joined(days.map((day) => <LabelT id="labels.weekday" value={day}>{weekdayLabels[day]}</LabelT>), ", ")}</> : <>—</>;
 const leadTimeLabel = (days: number | null) =>
   days === null ? "—" : `${days} day${days === 1 ? "" : "s"}`;
 const hiddenNote = "Visible to full-time staff only.";
@@ -69,11 +72,13 @@ export function VendorList() {
       id: "type",
       header: "Type",
       accessorFn: (vendor) => vendorTypeLabels[vendor.type],
+      cell: ({ row }) => <LabelT id="labels.vendor-type" value={row.original.type}>{vendorTypeLabels[row.original.type]}</LabelT>,
     },
     {
       id: "deliveryDays",
       header: "Delivery days",
       accessorFn: (vendor) => daysLabel(vendor.deliveryDays),
+      cell: ({ row }) => <DaysText days={row.original.deliveryDays} />,
     },
     {
       id: "orderCutoff",
@@ -341,7 +346,7 @@ export function VendorForm({
                   )
                 }
               />
-              {weekdayLabels[day]}
+              <LabelT id="labels.weekday" value={day}>{weekdayLabels[day]}</LabelT>
             </label>
           ))}
         </fieldset>
@@ -461,7 +466,7 @@ export function VendorDetail() {
         <div>
           <h1>{v.name}</h1>
           <p>
-            <span className="badge neutral">{vendorTypeLabels[v.type]}</span>
+            <span className="badge neutral"><LabelT id="labels.vendor-type" value={v.type}>{vendorTypeLabels[v.type]}</LabelT></span>
             {v.archivedAt && <span className="badge error"><T id="vendors.vendor-detail.archived">Archived</T></span>}
           </p>
         </div>
@@ -515,7 +520,7 @@ export function VendorDetail() {
           <small><T id="vendors.vendor-detail.order-cutoff">Order cutoff</T></small>
           <p>{v.orderCutoff || "—"}</p>
           <small><T id="vendors.vendor-detail.delivery-days">Delivery days</T></small>
-          <p>{daysLabel(v.deliveryDays)}</p>
+          <p><DaysText days={v.deliveryDays} /></p>
           <small><T id="vendors.vendor-detail.minimum-order">Minimum order</T></small>
           <p>{centsLabel(v.minimumOrderCents)}</p>
           <small><T id="vendors.vendor-detail.lead-time">Lead time</T></small>
@@ -557,7 +562,7 @@ export function VendorDetail() {
                     ? <T id="vendors.vendor-detail.sub-rental">Sub-rental</T>
                     : item.subtype
                       ? subtypeLabel(item.subtype)
-                      : kindLabels[item.kind]}
+                      : <LabelT id="labels.item-kind" value={item.kind}>{kindLabels[item.kind]}</LabelT>}
                   {item.code && ` · ${item.code}`}
                 </small>
               </li>

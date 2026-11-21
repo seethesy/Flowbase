@@ -84,4 +84,17 @@ exception, disable it for the line with a reason:
 
 The lint rule sees only literals in JSX. Labels a screen renders from a constant
 map or array (e.g. a status label map) are wrapped at the render site with a
-dynamic key; the rule can't check those.
+dynamic key; the rule can't check those. Use `LabelT` (FLOW-257), which keys the
+label by its map value, so one map shares its keys on every screen:
+
+```tsx
+<LabelT id="labels.task-status" value={task.status}>{taskStatusLabels[task.status]}</LabelT>
+```
+
+Shared maps use the `labels` area (`labels.pipeline-status`, `labels.role`,
+`labels.item-kind`, …); a map local to one file uses that file's area
+(`event-activity.field`). A line built by joining parts with ` · ` uses
+`joined([...])` so its parts can be elements. A table column keeps its string
+`accessorFn` (sorting, filtering, export) and adds a `cell` that renders the
+`LabelT`. Strings chosen in plain code (`x ? "Supply" : "Ingredient"`) become one
+`<T>` per branch.
