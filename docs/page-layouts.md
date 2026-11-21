@@ -34,6 +34,17 @@ wording. With no saved layout a page renders exactly as its code does.
   box only hides it; stored data is never changed.
 - The Style popover also styles each box in a custom card's Boxes display.
 
+## Added in FLOW-274
+
+- Every section of the client (each tab), venue, vendor, staff and inventory item
+  pages is a `Block`; a tab's block keeps its saved place while another tab shows.
+- Proposals have a field card (`proposals.detail`, `proposal-facts`) around the
+  facts at the top of a proposal's drawer.
+- The record's Edit form hides an optional field whose box was hidden (client
+  notes; venue address, jurisdiction and notes; vendor ordering fields; item code,
+  group and description; staff phone). Creating a record always shows every field.
+- Playwright coverage: `tests/e2e/layout-coverage.spec.ts`.
+
 ## Making a page arrangeable
 
 Wrap the page's sections in a `PageGrid` and each section in a `Block` with a

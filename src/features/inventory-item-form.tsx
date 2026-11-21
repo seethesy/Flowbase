@@ -27,6 +27,7 @@ import { StaleReload, isStale } from "../components/stale-reload";
 import { vendorsApi } from "../services/vendors";
 import { useResource } from "../app/useResource";
 import { Button, DetailDrawer, FormField } from "../components/shared";
+import { useShownFields } from "../app/field-card";
 import { kindLabels, subtypeLabel } from "./inventory-labels";
 import { ListSuggestions } from "./list-fields";
 import { useBusinessSettings } from "../services/settings";
@@ -147,6 +148,8 @@ function ItemFormFields({
   conflict,
   onStale,
 }: ItemFormProps & { conflict: string; onStale: () => Promise<void> }) {
+  const shownFacts = useShownFields("inventory.detail", "item-facts");
+  const shows = (field: string) => !item || shownFacts(field);
   const [kind, setKind] = useState<ItemKind>(
     item?.kind ?? preset?.kind ?? "rental",
   );
@@ -449,7 +452,7 @@ function ItemFormFields({
               autoFocus
             />
           </FormField>
-          <FormField label={<T id="inventory-item-form.item-form-fields.code-sku">Code / SKU</T>}>{input("code")}</FormField>
+          {shows("code") && (<FormField label={<T id="inventory-item-form.item-form-fields.code-sku">Code / SKU</T>}>{input("code")}</FormField>)}
           {!item && !preset && (
             <FormField label={<T id="inventory-item-form.item-form-fields.kind">Kind</T>}>
               <Dropdown
@@ -532,9 +535,9 @@ function ItemFormFields({
               onChange={set("unit")}
             />
           )}
-          <FormField label={<T id="inventory-item-form.item-form-fields.group">Group</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-table-linens">e.g. Table Linens</T>}>
+          {shows("group") && (<FormField label={<T id="inventory-item-form.item-form-fields.group">Group</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-table-linens">e.g. Table Linens</T>}>
             {input("group")}
-          </FormField>
+          </FormField>)}
           {isBar ? (
             <>
               <FormField label={<T id="inventory-item-form.item-form-fields.tier">Tier</T>}>
@@ -581,13 +584,13 @@ function ItemFormFields({
           )}
           <FormField label={<T id="inventory-item-form.item-form-fields.color-finish">Color / finish</T>}>{input("color")}</FormField>
         </div>
-        <FormField label={<T id="inventory-item-form.item-form-fields.description">Description</T>}>
+        {shows("description") && (<FormField label={<T id="inventory-item-form.item-form-fields.description">Description</T>}>
           <textarea
             rows={2}
             value={fields.description}
             onChange={(e) => set("description")(e.target.value)}
           />
-        </FormField>
+        </FormField>)}
         <div className="form-grid">
           <FormField
             label={<T id="inventory-item-form.item-form-fields.ratio">Ratio</T>}

@@ -188,6 +188,7 @@ export const recordPages: Record<string, { source: SourceKey; fieldCards: string
   "vendors.detail": { source: "vendors", fieldCards: ["vendor-facts"] },
   "staff.detail": { source: "staff", fieldCards: ["staff-facts"] },
   "inventory.detail": { source: "inventory", fieldCards: ["item-facts"] },
+  "proposals.detail": { source: "proposals", fieldCards: ["proposal-facts"] },
 };
 
 // ---- Contrast: shared/contrast.ts -------------------------------------------
