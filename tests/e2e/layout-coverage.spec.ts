@@ -118,7 +118,7 @@ test("a role that can't read a column never gets it, and Export CSV matches the 
   await expect(page.getByRole("columnheader", { name: "Notes" })).toBeVisible();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
-  const header = (await (await download).createReadStream()!.toArray()).join("").split("\n")[0];
+  const header = await csvHeader(await download);
   expect(header).toContain("Notes");
 
   const other = await asUser(browser, partTime.id);
@@ -127,7 +127,7 @@ test("a role that can't read a column never gets it, and Export CSV matches the 
   await expect(other.page.getByRole("columnheader", { name: "Notes" })).toHaveCount(0);
   const otherDownload = other.page.waitForEvent("download");
   await other.page.getByRole("button", { name: "Export CSV" }).click();
-  const otherHeader = (await (await otherDownload).createReadStream()!.toArray()).join("").split("\n")[0];
+  const otherHeader = await csvHeader(await otherDownload);
   expect(otherHeader).not.toContain("Notes");
   await other.close();
 });
