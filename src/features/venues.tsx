@@ -2,7 +2,7 @@ import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
-import { FieldCard } from "../app/field-card";
+import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -166,6 +166,8 @@ function VenueFormFields({
   conflict,
   onStale,
 }: VenueFormProps & { conflict: string; onStale: () => Promise<void> }) {
+  const shownFacts = useShownFields("venues.detail", "venue-facts");
+  const shows = (field: string) => !venue || shownFacts(field);
   const [name, setName] = useState(venue?.name ?? "");
   const [address, setAddress] = useState(venue?.address ?? "");
   const [jurisdiction, setJurisdiction] = useState<string>(
@@ -256,14 +258,15 @@ function VenueFormFields({
             autoFocus
           />
         </FormField>
-        <FormField label={<T id="venues.venue-form-fields.address">Address</T>}>
+        {shows("address") && (<FormField label={<T id="venues.venue-form-fields.address">Address</T>}>
           <textarea
             rows={2}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />
         </FormField>
-        <FormField label={<T id="venues.venue-form-fields.jurisdiction">Jurisdiction</T>} hint={<T id="venues.venue-form-fields.stored-for-future-tax-use">Stored for future tax use.</T>}>
+        )}
+        {shows("jurisdiction") && (<FormField label={<T id="venues.venue-form-fields.jurisdiction">Jurisdiction</T>} hint={<T id="venues.venue-form-fields.stored-for-future-tax-use">Stored for future tax use.</T>}>
           <Dropdown
             value={jurisdiction}
             onChange={(e) => setJurisdiction(e.target.value)}
@@ -274,20 +277,23 @@ function VenueFormFields({
             ))}
           </Dropdown>
         </FormField>
-        <FormField label={<T id="venues.venue-form-fields.load-in-notes">Load-in notes</T>}>
+        )}
+        {shows("loadInNotes") && (<FormField label={<T id="venues.venue-form-fields.load-in-notes">Load-in notes</T>}>
           <textarea
             rows={2}
             value={loadInNotes}
             onChange={(e) => setLoadInNotes(e.target.value)}
           />
         </FormField>
-        <FormField label={<T id="venues.venue-form-fields.parking-notes">Parking notes</T>}>
+        )}
+        {shows("parkingNotes") && (<FormField label={<T id="venues.venue-form-fields.parking-notes">Parking notes</T>}>
           <textarea
             rows={2}
             value={parkingNotes}
             onChange={(e) => setParkingNotes(e.target.value)}
           />
         </FormField>
+        )}
         <h3 className="form-subheading"><T id="venues.venue-form-fields.areas">Areas</T></h3>
         {areas.map((area, index) => (
           <div className="inline-row" key={area.key}>
@@ -546,25 +552,29 @@ export function VenueDetail() {
           )}
         </Section>
         </Block>
-        </PageGrid>
-      </div>
-      <div className="detail-grid">
+        <Block id="floor-plans" name="Floor plans" w={6} h={10}>
         <Attachments
           recordType="venue"
           recordId={v.id}
           group="floor_plan"
           title="Floor plans"
         />
+        </Block>
+        <Block id="aerial-images" name="Aerial images" w={6} h={10}>
         <Attachments
           recordType="venue"
           recordId={v.id}
           group="aerial"
           title="Aerial images"
         />
+        </Block>
+        <Block id="event-history" name="Event history" w={12} h={12}>
+        <Section title={<T id="venues.venue-detail.event-history">Event history</T>}>
+          <EventTable events={events.data ?? []} error={events.error} />
+        </Section>
+        </Block>
+        </PageGrid>
       </div>
-      <Section title={<T id="venues.venue-detail.event-history">Event history</T>}>
-        <EventTable events={events.data ?? []} error={events.error} />
-      </Section>
       {edit && (
         <VenueForm
           venue={v}

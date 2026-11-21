@@ -1,5 +1,5 @@
 import { Block, PageGrid } from "../app/page-grid";
-import { FieldCard } from "../app/field-card";
+import { FieldCard, useShownFields } from "../app/field-card";
 import { Dropdown } from "../components/ui/Dropdown";
 
 import { useEffect, useState } from "react";
@@ -251,6 +251,8 @@ function StaffForm({
   onSaved: (member: StaffMember) => void;
   onCancel: () => void;
 }) {
+  const shownFacts = useShownFields("staff.detail", "staff-facts");
+  const shows = (field: string) => shownFacts(field);
   const [draft, setDraft] = useState(() => draftOf(member));
   useEffect(() => setDraft(draftOf(member)), [member]);
   const [error, setError] = useState("");
@@ -302,7 +304,7 @@ function StaffForm({
             <Button type="button" variant="outline" onClick={() => setEditingEmail(false)}><T id="staff.staff-form.cancel-email">Cancel</T></Button>
           </span> : <span className="email-edit-row"><input type="email" value={member.email} readOnly />
             {manage && <Button type="button" variant="outline" onClick={() => setEditingEmail(true)}><T id="staff.staff-form.change-email">Change</T></Button>}</span>}</FormField>
-          <FormField label="Phone number"><input type="tel" value={draft.mobile} maxLength={40} onChange={(event) => set("mobile", event.target.value)} /></FormField>
+          {shows("mobile") && (<FormField label="Phone number"><input type="tel" value={draft.mobile} maxLength={40} onChange={(event) => set("mobile", event.target.value)} /></FormField>)}
           <FormField label="Secondary email (optional)"><input type="email" value={draft.secondaryEmail ?? ""} maxLength={254} onChange={(event) => set("secondaryEmail", event.target.value)} /></FormField>
         </div>
       </Section>

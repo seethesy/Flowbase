@@ -2,7 +2,7 @@ import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
-import { FieldCard } from "../app/field-card";
+import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, ExternalLink } from "lucide-react";
@@ -185,6 +185,8 @@ export function VendorForm({
   onClose: () => void;
   onSaved: (vendor: VendorRecord) => void;
 }) {
+  const shownFacts = useShownFields("vendors.detail", "vendor-facts");
+  const shows = (field: string) => !vendor || shownFacts(field);
   const [fields, setFields] = useState({
     name: vendor?.name ?? "",
     portalUrl: vendor?.portalUrl ?? "",
@@ -317,10 +319,11 @@ export function VendorForm({
           </Dropdown>
         </FormField>
         <div className="form-grid">
-          <FormField label={<T id="vendors.vendor-form.vendor-portal-url">Vendor portal URL</T>}>
+          {shows("portalUrl") && (<FormField label={<T id="vendors.vendor-form.vendor-portal-url">Vendor portal URL</T>}>
             {field("portalUrl", "url")}
           </FormField>
-          <FormField label={<T id="vendors.vendor-form.account-number">Account number</T>}>
+          )}
+          {shows("accountNumber") && (<FormField label={<T id="vendors.vendor-form.account-number">Account number</T>}>
             {accountNumber === null ? (
               <p className="muted">{hiddenNote}</p>
             ) : (
@@ -330,13 +333,16 @@ export function VendorForm({
               />
             )}
           </FormField>
-          <FormField label={<T id="vendors.vendor-form.order-cutoff">Order cutoff</T>}>{field("orderCutoff")}</FormField>
-          <FormField label={<T id="vendors.vendor-form.minimum-order">Minimum order ($)</T>}>
+          )}
+          {shows("orderCutoff") && <FormField label={<T id="vendors.vendor-form.order-cutoff">Order cutoff</T>}>{field("orderCutoff")}</FormField>}
+          {shows("minimumOrderCents") && (<FormField label={<T id="vendors.vendor-form.minimum-order">Minimum order ($)</T>}>
             {field("minimumOrder", "number")}
           </FormField>
-          <FormField label={<T id="vendors.vendor-form.lead-time-days">Lead time (days)</T>}>
+          )}
+          {shows("leadTimeDays") && (<FormField label={<T id="vendors.vendor-form.lead-time-days">Lead time (days)</T>}>
             {field("leadTimeDays", "number")}
           </FormField>
+          )}
         </div>
         <fieldset className="form-group">
           <legend><T id="vendors.vendor-form.delivery-days">Delivery days</T></legend>
@@ -356,20 +362,22 @@ export function VendorForm({
             </label>
           ))}
         </fieldset>
-        <FormField label={<T id="vendors.vendor-form.ordering-instructions">Ordering instructions</T>}>
+        {shows("orderingInstructions") && (<FormField label={<T id="vendors.vendor-form.ordering-instructions">Ordering instructions</T>}>
           <textarea
             rows={3}
             value={fields.orderingInstructions}
             onChange={(e) => set("orderingInstructions")(e.target.value)}
           />
         </FormField>
-        <FormField label={<T id="vendors.vendor-form.notes">Notes</T>}>
+        )}
+        {shows("notes") && (<FormField label={<T id="vendors.vendor-form.notes">Notes</T>}>
           <textarea
             rows={2}
             value={fields.notes}
             onChange={(e) => set("notes")(e.target.value)}
           />
         </FormField>
+        )}
         <h3 className="form-subheading"><T id="vendors.vendor-form.contacts">Contacts</T></h3>
         {contacts === null ? (
           <p className="muted"><T id="vendors.vendor-form.vendor-contacts-are" values={{ hiddenNote: hiddenNote.toLowerCase() }}>{"Vendor contacts are {hiddenNote}"}</T></p>
@@ -565,8 +573,7 @@ export function VendorDetail() {
           )}
         </Section>
         </Block>
-        </PageGrid>
-      </div>
+        <Block id="vendor-items" name="Items they supply" w={12} h={10}>
       <Section title={<T id="vendors.vendor-detail.items-they-supply">Items they supply</T>}>
         {v.items.length ? (
           <ul className="vendor-items">
@@ -590,6 +597,9 @@ export function VendorDetail() {
           </p>
         )}
       </Section>
+        </Block>
+        </PageGrid>
+      </div>
       {edit && (
         <VendorForm
           vendor={v}

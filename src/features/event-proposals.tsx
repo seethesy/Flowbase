@@ -31,6 +31,8 @@ import { ProposalReview } from "./proposal-review";
 import "./event-proposals.css";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, LabelT } from "../app/copy";
+import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard } from "../app/field-card";
 
 // The event's proposals (FLOW-122) on the event hub: each one's stage, salesperson
 // and current version, and a drawer to move its stage, upload a new version
@@ -350,6 +352,11 @@ function ProposalDrawer({
                   {error}
                 </p>
               )}
+              <PageGrid pageKey="proposals.detail" record={{ source: "proposals", id: p.id, row: p as unknown as Record<string, unknown> }}>
+                <Block id="proposal-facts" name="Proposal details" w={12} h={6}>
+                  <FieldCard cardKey="proposal-facts" source="proposals" row={p as unknown as Record<string, unknown>}
+                    title={<T id="event-proposals.proposal-drawer.proposal-details">Proposal details</T>}
+                    fields={["title", "stage", "assignedSalesperson", "currentVersion"]}>
               <div className="info-grid">
                 <div>
                   <small><T id="event-proposals.proposal-drawer.stage">Stage</T></small>
@@ -366,6 +373,9 @@ function ProposalDrawer({
                   </strong>
                 </div>
               </div>
+                  </FieldCard>
+                </Block>
+              </PageGrid>
               {p.stage === "lost" && (
                 <p className="demo-callout"><T id="event-proposals.proposal-drawer.lost" values={{ lostReason: p.lostReason }}>{"Lost: {lostReason}"}</T></p>
               )}
