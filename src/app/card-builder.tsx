@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { lazy, Suspense, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { fieldDef, fieldRegistry, readableFields, sourceKeys, type SourceKey } from "../../shared/fields";
@@ -86,7 +87,7 @@ export function CardBuilder({
       </label>
       <label className="form-field">
         <span>Source</span>
-        <select value={sourceValue} onChange={(event) => changeSource(event.target.value)} aria-label="Source">
+        <Dropdown value={sourceValue} onChange={(event) => changeSource(event.target.value)} aria-label="Source">
           {recordSource && <option value="record">This record</option>}
           {recordSource &&
             fieldRegistry[recordSource].relations?.map((relation) => (
@@ -99,7 +100,7 @@ export function CardBuilder({
               {`Main list: ${fieldRegistry[key].label}`}
             </option>
           ))}
-        </select>
+        </Dropdown>
       </label>
       {isList && source && (
         <fieldset className="layout-card-filters">
@@ -109,7 +110,7 @@ export function CardBuilder({
             const operators = def ? operatorsFor(def.type) : [];
             return (
               <div key={index} className="layout-filter-row">
-                <select
+                <Dropdown
                   aria-label="Filter field"
                   value={filter.field}
                   onChange={(event) => {
@@ -124,8 +125,8 @@ export function CardBuilder({
                         {field.label}
                       </option>
                     ))}
-                </select>
-                <select
+                </Dropdown>
+                <Dropdown
                   aria-label="Filter operator"
                   value={filter.op}
                   onChange={(event) => setFilter(index, { ...filter, op: event.target.value as CardFilter["op"] })}
@@ -135,10 +136,10 @@ export function CardBuilder({
                       {operatorNames[op]}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
                 {filter.op !== "is_me" && filter.op !== "is_empty" && (
                   def?.options && (filter.op === "is" || filter.op === "is_not") ? (
-                    <select
+                    <Dropdown
                       aria-label="Filter value"
                       value={String(filter.value ?? "")}
                       onChange={(event) => setFilter(index, { ...filter, value: event.target.value })}
@@ -149,7 +150,7 @@ export function CardBuilder({
                           {label}
                         </option>
                       ))}
-                    </select>
+                    </Dropdown>
                   ) : (
                     <input
                       aria-label="Filter value"
@@ -191,7 +192,7 @@ export function CardBuilder({
         <div className="layout-card-sort">
           <label className="form-field">
             <span>Sort by</span>
-            <select
+            <Dropdown
               aria-label="Sort by"
               value={card.sort?.field ?? ""}
               onChange={(event) =>
@@ -206,17 +207,17 @@ export function CardBuilder({
                     {field.label}
                   </option>
                 ))}
-            </select>
+            </Dropdown>
           </label>
           {card.sort && (
-            <select
+            <Dropdown
               aria-label="Sort direction"
               value={card.sort.dir}
               onChange={(event) => set({ sort: { ...card.sort!, dir: event.target.value as "asc" | "desc" } })}
             >
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
-            </select>
+            </Dropdown>
           )}
           <label className="form-field">
             <span>Rows</span>

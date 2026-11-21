@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Children, isValidElement, lazy, Suspense, useState, type ReactElement, type ReactNode } from "react";
 import { EyeOff, GripHorizontal, Palette, Pencil, Trash2 } from "lucide-react";
 import {
@@ -204,7 +205,7 @@ function PageGridEditor({
         >
           Add card
         </Button>
-        <select
+        <Dropdown
           aria-label="Add text"
           className="layout-add-text"
           value=""
@@ -219,7 +220,7 @@ function PageGridEditor({
               {variantNames[variant]}
             </option>
           ))}
-        </select>
+        </Dropdown>
         <div className="layout-tray">
           <Button variant="outline" aria-expanded={tray} onClick={() => setTray(!tray)}>
             {`Hidden items (${hidden.length})`}

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { fieldDef, readableFields, type SourceKey } from "../../shared/fields";
@@ -58,7 +59,7 @@ export function AddFieldMenu({
   const options = actor ? readableFields(actor, source).filter((field) => !placed.has(field.key)) : [];
   if (!options.length) return null;
   return (
-    <select
+    <Dropdown
       className="layout-add-field"
       aria-label="Add field"
       value=""
@@ -72,13 +73,13 @@ export function AddFieldMenu({
           {field.label}
         </option>
       ))}
-    </select>
+    </Dropdown>
   );
 }
 
 export function AddTextMenu({ onAdd }: { onAdd: (kind: (typeof textVariants)[number]) => void }) {
   return (
-    <select
+    <Dropdown
       className="layout-add-text"
       aria-label="Add text"
       value=""
@@ -92,7 +93,7 @@ export function AddTextMenu({ onAdd }: { onAdd: (kind: (typeof textVariants)[num
           {variantNames[kind]}
         </option>
       ))}
-    </select>
+    </Dropdown>
   );
 }
 
