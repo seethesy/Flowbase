@@ -150,7 +150,7 @@ export const matrixSchema = z
         role,
         z.object(Object.fromEntries(areaKeys.map((key) => [key, levelSchema]))).strict(),
       ]),
-    ) as Record<Role, z.ZodType<Record<AreaKey, Level>>>,
+    ) as unknown as Record<Role, z.ZodType<Record<AreaKey, Level>>>,
   )
   .strict() as unknown as z.ZodType<Matrix>;
 
