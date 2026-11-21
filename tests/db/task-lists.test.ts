@@ -194,7 +194,7 @@ describe("FLOW-59 communal task list", () => {
     const taken = await manager.send<Task>("POST", `/api/tasks/${task.id}/claim`, {}, 200);
     expect(taken.assignees).toEqual([{ id: people.manager, name: "Manager" }]);
     await drain();
-    expect(await titlesOf("casey")).toEqual(["Task reassigned: Hold the door"]);
+    expect(await titlesOf("casey")).toEqual(["Task assigned: Hold the door", "Task reassigned: Hold the door"]);
   });
 
   it("FLOW-272 AC1: part-time staff pick up an unassigned task and it joins their My tasks", async () => {
