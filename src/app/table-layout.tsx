@@ -29,6 +29,14 @@ export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
   );
   const setColumns = (next: ColumnConfig[]) =>
     layout?.update((doc) => ({ ...doc, tables: { ...doc.tables, [tableKey]: { columns: next } } }));
+  // Column width drag in edit mode (FLOW-273): sets one column's width, saving
+  // the table's column set the first time.
+  const resizeColumn = (key: string, width: number) =>
+    setColumns(
+      columns.map((column) =>
+        column.key === key ? { ...column, width: Math.max(40, Math.min(1200, Math.round(width))) } : column,
+      ),
+    );
   const resetColumns = () =>
     layout?.update((doc) => {
       const tables = { ...doc.tables };
@@ -41,6 +49,8 @@ export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
     custom: saved !== undefined,
     columns,
     editable: Boolean(target && layout?.editing),
+    // Only in edit mode, where a header's drag handle calls it.
+    resize: target && layout?.editing ? resizeColumn : undefined,
     editor:
       target && layout?.editing ? (
         <ColumnsEditor

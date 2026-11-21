@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { roleSchema, roles } from "./access";
 import { fieldDef, fieldRegistry, isSourceKey, sourceKeys, type SourceKey } from "./fields";
 import { styleContrastOk } from "./contrast";
 
@@ -33,6 +34,10 @@ export const styleSchema = z
   .object({ text: hexColorSchema.optional(), background: hexColorSchema.optional() })
   .strict();
 export type BlockStyle = z.infer<typeof styleSchema>;
+
+// The roles a dashboard or custom card is limited to (FLOW-269); absent means
+// every role. A card still hides from a role that can't read its source area.
+export const visibleToSchema = roleSchema.array().max(roles.length);
 
 // Admin-entered text is plain text: rendered as text, never as HTML.
 const plainText = (max: number) => z.string().max(max);
@@ -121,8 +126,8 @@ export type CardConfig = z.infer<typeof cardConfigSchema>;
 // free-text box. Built-in blocks can be moved, resized and hidden, never deleted.
 export const blockSchema = z
   .discriminatedUnion("kind", [
-    z.object({ kind: z.literal("builtin"), id: blockId, ...position, hidden: z.boolean().optional(), style: styleSchema.optional() }).strict(),
-    z.object({ kind: z.literal("card"), id: blockId, ...position, style: styleSchema.optional(), card: cardConfigSchema }).strict(),
+    z.object({ kind: z.literal("builtin"), id: blockId, ...position, hidden: z.boolean().optional(), style: styleSchema.optional(), visibleTo: visibleToSchema.optional() }).strict(),
+    z.object({ kind: z.literal("card"), id: blockId, ...position, style: styleSchema.optional(), visibleTo: visibleToSchema.optional(), card: cardConfigSchema }).strict(),
     z
       .object({
         kind: z.literal("text"),
@@ -183,6 +188,7 @@ export const recordPages: Record<string, { source: SourceKey; fieldCards: string
   "vendors.detail": { source: "vendors", fieldCards: ["vendor-facts"] },
   "staff.detail": { source: "staff", fieldCards: ["staff-facts"] },
   "inventory.detail": { source: "inventory", fieldCards: ["item-facts"] },
+  "proposals.detail": { source: "proposals", fieldCards: ["proposal-facts"] },
 };
 
 // ---- Contrast: shared/contrast.ts -------------------------------------------

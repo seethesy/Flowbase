@@ -1,6 +1,6 @@
 {
-  "id": "1cfc59cb-7a4f-4a9e-82e3-1e5fb7313a13",
-  "prevId": "4ea4f5eb-ab19-4ba1-899a-a6ae031cff83",
+  "id": "f9caec46-98bf-4d7e-a0a2-df1e98c9408d",
+  "prevId": "df2a7d2c-5cb5-4b7f-bea9-4761687152a2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -11061,6 +11061,111 @@
         "reservations_window_check": {
           "name": "reservations_window_check",
           "value": "\"reservations\".\"window_end\" >= \"reservations\".\"window_start\""
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.role_permissions": {
+      "name": "role_permissions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "area": {
+          "name": "area",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "role_permissions_role_area_idx": {
+          "name": "role_permissions_role_area_idx",
+          "columns": [
+            {
+              "expression": "role",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "area",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "role_permissions_role_check": {
+          "name": "role_permissions_role_check",
+          "value": "\"role_permissions\".\"role\" in ('admin', 'technical', 'sales_manager', 'salesperson', 'kitchen_lead', 'kitchen_staff', 'staff', 'part_time_staff')"
+        },
+        "role_permissions_area_check": {
+          "name": "role_permissions_area_check",
+          "value": "\"role_permissions\".\"area\" in ('leads', 'clients', 'proposals', 'events', 'beos', 'production', 'day_of', 'tasks', 'staff_directory', 'staff_pay', 'inventory_bar', 'purchasing', 'vendors', 'recipes_menus', 'documents', 'marketing_photos', 'reports', 'settings_users', 'live_editing')"
+        },
+        "role_permissions_level_check": {
+          "name": "role_permissions_level_check",
+          "value": "\"role_permissions\".\"level\" in ('none', 'read', 'own', 'write')"
         }
       },
       "isRLSEnabled": true

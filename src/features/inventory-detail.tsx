@@ -1,4 +1,6 @@
 import { Allowed, usePermissions } from "../app/permissions";
+import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard } from "../app/field-card";
 import { isFtPlus } from "../../shared/access";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -140,6 +142,11 @@ export function InventoryDetail() {
         </li>
       ))}</ul></Section>}
       <div className="detail-grid">
+        <PageGrid pageKey="inventory.detail" record={{ source: "inventory", id: i.id, row: i as unknown as Record<string, unknown> }}>
+        <Block id="item-facts" name="Item details" w={6} h={16}>
+        <FieldCard cardKey="item-facts" source="inventory" row={i as unknown as Record<string, unknown>}
+          title={<T id="inventory-detail.inventory-detail.item-details">Item details</T>}
+          fields={["name", "code", "category", "group", "unit", "description"]}>
         <Section title={<T id="inventory-detail.inventory-detail.item-details">Item details</T>}>
           <small><T id="inventory-detail.inventory-detail.category">Category</T></small>
           <p>{i.category || "—"}</p>
@@ -221,7 +228,10 @@ export function InventoryDetail() {
           <small><T id="inventory-detail.inventory-detail.description">Description</T></small>
           <p>{i.description || "—"}</p>
         </Section>
+        </FieldCard>
+        </Block>
         {c && (
+          <Block id="purchasing" name="Purchasing" w={6} h={14}>
           <Section title={<T id="inventory-detail.inventory-detail.purchasing">Purchasing</T>}>
             <small><T id="inventory-detail.inventory-detail.bought-as">Bought as</T></small>
             <p>{purchaseLabel(c)}</p>
@@ -266,12 +276,19 @@ export function InventoryDetail() {
             <small><T id="inventory-detail.inventory-detail.storage">Storage</T></small>
             <p>{c.storageSectionName ?? "—"}</p>
           </Section>
+          </Block>
         )}
-      </div>
-      {i.rental?.components.length || i.service?.includes.length ? (
-        <IncludedItems item={i} />
-      ) : null}
-      {i.kind === "service" && can("tasks.read") && <ServiceTaskTemplates itemId={i.id} />}
+        {(i.rental?.components.length || i.service?.includes.length) ? (
+          <Block id="included-items" name="Included items" w={12} h={10}>
+            <IncludedItems item={i} />
+          </Block>
+        ) : null}
+        {i.kind === "service" && can("tasks.read") && (
+          <Block id="task-templates" name="Task templates" w={12} h={10}>
+            <ServiceTaskTemplates itemId={i.id} />
+          </Block>
+        )}
+        <Block id="stock" name="Stock" w={12} h={12}>
       {i.kind === "service" ? (
         <Section title={<T id="inventory-detail.inventory-detail.stock">Stock</T>}>
           <p className="muted"><T id="inventory-detail.inventory-detail.services-aren-t-stocked">{"Services aren't stocked."}</T></p>
@@ -344,19 +361,32 @@ export function InventoryDetail() {
           </table>
         </Section>
       )}
-      <ItemPlanning item={i} />
-      {i.kind !== "service" && (
-        <MovementHistory
-          item={i}
-          version={version}
-          onCorrected={() => {
-            item.reload();
-            setVersion((current) => current + 1);
-          }}
-        />
-      )}
-      {c && !c.costHidden && <CostHistory item={i} version={version} />}
-      <Attachments recordType="inventory_item" recordId={i.id} title="Photos" />
+        </Block>
+        <Block id="planning" name="Planning" w={12} h={12}>
+          <ItemPlanning item={i} />
+        </Block>
+        {i.kind !== "service" && (
+          <Block id="movement-history" name="Movement history" w={12} h={12}>
+            <MovementHistory
+              item={i}
+              version={version}
+              onCorrected={() => {
+                item.reload();
+                setVersion((current) => current + 1);
+              }}
+            />
+          </Block>
+        )}
+        {c && !c.costHidden && (
+          <Block id="cost-history" name="Cost history" w={12} h={10}>
+            <CostHistory item={i} version={version} />
+          </Block>
+        )}
+        <Block id="photos" name="Photos" w={12} h={10}>
+          <Attachments recordType="inventory_item" recordId={i.id} title="Photos" />
+        </Block>
+        </PageGrid>
+      </div>
       {edit && (
         <ItemForm item={i} onClose={() => setEdit(false)} onSaved={saved} />
       )}

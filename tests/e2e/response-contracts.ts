@@ -4,6 +4,7 @@ import { homeDashboardSchema } from "../../shared/home-dashboard";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 import { copyOverridesSchema } from "../../shared/copy";
 import { savedLayoutSchema } from "../../shared/layout";
+import { permissionsSchema } from "../../shared/role-permissions";
 import { authConfigSchema, userSchema } from "../../shared/users";
 import { recordSchemas } from "../../shared/records";
 import {
@@ -118,6 +119,8 @@ export function responseSchema(
   // Page layouts (FLOW-253): GET and PUT answer with the saved layout, or null
   // with none saved. DELETE answers 204.
   if (resource === "layout") return savedLayoutSchema;
+  // Roles and permissions (FLOW-269): GET and PUT answer with the matrix.
+  if (resource === "permissions") return permissionsSchema;
   if (resource === "home" && id === "dashboard") return homeDashboardSchema;
   if (resource === "home" && id === "my-shifts") return z.object({ count: z.number().int() });
   if (resource === "home" && id === "kitchen") return z.object({ menus: z.number().int(), openOrderLists: z.number().int() });

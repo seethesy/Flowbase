@@ -38,6 +38,8 @@ export type AuditEntity =
   | "lead"
   // Saved page layouts (FLOW-253): save and reset.
   | "ui_layout"
+  // The roles and permissions matrix (FLOW-269): one row per save, before and after.
+  | "role_permissions"
   // Proposals and their stage changes and versions (FLOW-122/123).
   | "proposal"
   | "contract"

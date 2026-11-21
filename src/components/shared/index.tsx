@@ -333,11 +333,44 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
   return (
     <Suspense fallback={<LoadingSkeleton />}>
       <LayoutColumns copyKey={copyKey} columns={props.columns as unknown as ColumnDef<unknown, unknown>[]}>
-        {(columns, editor) => (
-          <DataTableView {...props} columns={columns as unknown as ColumnDef<Row, unknown>[]} editor={editor} />
+        {(columns, editor, resize) => (
+          <DataTableView {...props} columns={columns as unknown as ColumnDef<Row, unknown>[]} editor={editor} onResize={resize} />
         )}
       </LayoutColumns>
     </Suspense>
+  );
+}
+// The drag handle on a column header in layout edit mode (FLOW-273): drag it, or
+// focus it and press the arrow keys, to set the column's width in pixels.
+export function ColumnResizeHandle({ label, onResize }: { label: string; onResize: (width: number) => void }) {
+  const widthOf = (element: HTMLElement) => element.parentElement!.getBoundingClientRect().width;
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${label}`}
+      tabIndex={0}
+      className="column-resize-handle"
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const startX = event.clientX;
+        const startWidth = widthOf(event.currentTarget);
+        const move = (next: PointerEvent) => onResize(startWidth + next.clientX - startX);
+        const stop = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", stop);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", stop);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        onResize(widthOf(event.currentTarget) + (event.key === "ArrowRight" ? 10 : -10));
+      }}
+    />
   );
 }
 function DataTableView<Row>({
@@ -351,7 +384,12 @@ function DataTableView<Row>({
   exportAll,
   copyKey = "shared.data-table",
   editor = null,
-}: DataTableProps<Row> & { editor?: ReactNode }) {
+  onResize,
+}: DataTableProps<Row> & {
+  editor?: ReactNode;
+  // Edit mode only (FLOW-273): a drag handle on each header sets that column's width.
+  onResize?: (key: string, width: number) => void;
+}) {
   const { actor } = usePermissions();
   const [sorting, setSorting] = useState<SortingState>([]);
   // Rows fetched so far while an export runs; null when none is running.
@@ -423,7 +461,11 @@ function DataTableView<Row>({
           <thead>
             <tr>
               {table.getHeaderGroups()[0].headers.map((h) => (
-                <th key={h.id} style={h.column.columnDef.meta?.width ? { width: h.column.columnDef.meta.width } : undefined}>
+                <th
+                  key={h.id}
+                  style={h.column.columnDef.meta?.width ? { width: h.column.columnDef.meta.width } : undefined}
+                  className={onResize ? "column-resizable" : undefined}
+                >
                   {h.column.getCanSort() ? (
                     <button onClick={h.column.getToggleSortingHandler()}>
                       {headerText(h.column.columnDef.header, copyKey) ??
@@ -439,6 +481,10 @@ function DataTableView<Row>({
                     (headerText(h.column.columnDef.header, copyKey) ??
                     flexRender(h.column.columnDef.header, h.getContext()))
                   )}
+                  {onResize && <ColumnResizeHandle
+                    label={typeof h.column.columnDef.header === "string" ? h.column.columnDef.header : h.column.id}
+                    onResize={(width) => onResize(h.column.id, width)}
+                  />}
                 </th>
               ))}
             </tr>

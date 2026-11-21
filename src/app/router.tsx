@@ -12,6 +12,7 @@ const Dashboard = lazy(() =>
 );
 const OperationalReports = lazy(() => import("../features/operational-reports").then((module) => ({ default: module.OperationalReports })));
 const ArchivedPage = lazy(() => import("../features/archived").then((module) => ({ default: module.ArchivedPage })));
+const RolesPermissionsPage = lazy(() => import("./roles-permissions").then((module) => ({ default: module.RolesPermissionsPage })));
 const OperationsPage = lazy(() => import("../features/operations").then((module) => ({ default: module.OperationsPage })));
 const KitchenOrderStatus = lazy(() => import("../features/kitchen-orders").then((module) => ({ default: module.KitchenOrderStatus })));
 const ClientList = lazy(() =>
@@ -292,6 +293,7 @@ export const getRouter = () =>
         { path: "/settings/usage", element: <UsagePage /> },
         { path: "/settings/operations", element: <OperationsPage /> },
         { path: "/settings/users", element: <UserManagement /> },
+        { path: "/settings/permissions", element: <RolesPermissionsPage /> },
         { path: "/settings/archived", element: <ArchivedPage /> },
         ...["purchasing", "help", "*"].map((path) => ({
           path,

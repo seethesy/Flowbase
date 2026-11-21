@@ -1,4 +1,5 @@
 import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard, useShownFields } from "../app/field-card";
 import { Dropdown } from "../components/ui/Dropdown";
 
 import { useEffect, useState } from "react";
@@ -213,7 +214,11 @@ export function StaffProfile({
 function StaffSummary({ member, canEdit, onEdit }: { member: StaffMember; canEdit: boolean; onEdit: () => void }) {
   const positions = useListLabels("staff_position");
   return (
-    <>
+    <PageGrid pageKey="staff.detail" record={{ source: "staff", id: member.id, row: member as unknown as Record<string, unknown> }}>
+      <Block id="staff-facts" name="Employee profile" w={6} h={12}>
+      <FieldCard cardKey="staff-facts" source="staff" row={member as unknown as Record<string, unknown>}
+        title={<T id="staff.staff-summary.employee-profile">Employee profile</T>}
+        fields={["name", "email", "mobile", "role"]}>
       <Section title={<T id="staff.staff-summary.employee-profile">Employee profile</T>}>
         {canEdit && <Button variant="outline" onClick={onEdit}><T id="staff.staff-summary.edit">Edit</T></Button>}
         <dl className="employee-profile-grid staff-profile-readonly">
@@ -223,12 +228,16 @@ function StaffSummary({ member, canEdit, onEdit }: { member: StaffMember; canEdi
           <div><dt><T id="staff.staff-summary.secondary-email">Secondary email (optional)</T></dt><dd>{member.secondaryEmail || "—"}</dd></div>
         </dl>
       </Section>
+      </FieldCard>
+      </Block>
+      <Block id="staff-positions" name="Staff profile" w={6} h={12}>
       <Section title={<T id="staff.staff-profile.staff-profile">Staff profile</T>}>
         <p className="staff-role"><RoleText role={member.role} /></p>
         <div className="staff-positions-grid">{[...new Set([...positions, ...member.positions])].map((position) =>
           <label key={position}><RoundCheck checked={member.positions.includes(position)} disabled readOnly />{position}</label>)}</div>
       </Section>
-    </>
+      </Block>
+    </PageGrid>
   );
 }
 
@@ -253,6 +262,8 @@ function StaffForm({
   onSaved: (member: StaffMember) => void;
   onCancel: () => void;
 }) {
+  const shownFacts = useShownFields("staff.detail", "staff-facts");
+  const shows = (field: string) => shownFacts(field);
   const [draft, setDraft] = useState(() => draftOf(member));
   useEffect(() => setDraft(draftOf(member)), [member]);
   const [error, setError] = useState("");
@@ -304,7 +315,7 @@ function StaffForm({
             <Button type="button" variant="outline" onClick={() => setEditingEmail(false)}><T id="staff.staff-form.cancel-email">Cancel</T></Button>
           </span> : <span className="email-edit-row"><input type="email" value={member.email} readOnly />
             {manage && <Button type="button" variant="outline" onClick={() => setEditingEmail(true)}><T id="staff.staff-form.change-email">Change</T></Button>}</span>}</FormField>
-          <FormField label="Phone number"><input type="tel" value={draft.mobile} maxLength={40} onChange={(event) => set("mobile", event.target.value)} /></FormField>
+          {shows("mobile") && (<FormField label="Phone number"><input type="tel" value={draft.mobile} maxLength={40} onChange={(event) => set("mobile", event.target.value)} /></FormField>)}
           <FormField label="Secondary email (optional)"><input type="email" value={draft.secondaryEmail ?? ""} maxLength={254} onChange={(event) => set("secondaryEmail", event.target.value)} /></FormField>
         </div>
       </Section>

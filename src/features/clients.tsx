@@ -2,6 +2,7 @@ import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed, usePermissions } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw, TriangleAlert } from "lucide-react";
@@ -266,6 +267,8 @@ function ClientFormFields({
   conflict,
   onStale,
 }: ClientFormProps & { conflict: string; onStale: () => Promise<void> }) {
+  const shownFacts = useShownFields("clients.detail", "client-facts");
+  const shows = (field: string) => !client || shownFacts(field);
   const [name, setName] = useState(client?.name ?? "");
   const [kind, setKind] = useState<Client["kind"]>(
     client?.kind ?? "organization",
@@ -410,13 +413,14 @@ function ClientFormFields({
             <input value={tags} onChange={(e) => setTags(e.target.value)} />
           </FormField>
         </div>
-        <FormField label={<T id="clients.client-form-fields.notes">Notes</T>}>
+        {shows("notes") && (<FormField label={<T id="clients.client-form-fields.notes">Notes</T>}>
           <textarea
             rows={3}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </FormField>
+        )}
         <h3 className="form-subheading"><T id="clients.client-form-fields.contacts">Contacts</T></h3>
         {contacts.map((contact, index) => (
           <fieldset
@@ -603,58 +607,86 @@ export function ClientDetail() {
         onChange={setTab}
       />
       <div role="tabpanel" id="record-panel" aria-labelledby={`tab-${tab}`}>
-        {tab === "Overview" && (
-          <div className="detail-grid">
-            <Section title={<T id="clients.client-detail.client-information">Client information</T>}>
-              <div className="info-grid">
-                <div>
-                  <small><T id="clients.client-detail.tags">Tags</T></small>
-                  <strong>{c.tags.join(", ") || <T id="clients.client-detail.none">None</T>}</strong>
-                </div>
-                <div>
-                  <small><T id="clients.client-detail.contacts">Contacts</T></small>
-                  <strong>{c.contacts.length}</strong>
-                </div>
-              </div>
-              <h3 className="form-subheading"><T id="clients.client-detail.notes">Notes</T></h3>
-              <p>{c.notes || <T id="clients.client-detail.no-notes-yet">No notes yet.</T>}</p>
-            </Section>
-            <Section title={<T id="clients.client-detail.upcoming-events">Upcoming events</T>}>
-              <EventTable events={events.data ?? []} error={events.error} onSaved={() => events.reload()} />
-            </Section>
-          </div>
-        )}
-        {tab === "Contacts" && (
-          <Section title={<T id="clients.client-detail.contacts">Contacts</T>}>
-            {c.contacts.length ? (
-              c.contacts.map((contact) => (
-                <div className="contact-profile" key={contact.id}>
-                  <span className="avatar">{initials(contact.name)}</span>
-                  <div>
-                    <strong>{contact.name}</strong>
-                    <small>
-                      <LabelT id="labels.contact-role" value={contact.role}>{contactRoleLabels[contact.role]}</LabelT> ·{" "}
-                      {hidden(contact.email)} · {hidden(contact.phone)}
-                    </small>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                title={<T id="clients.client-detail.no-contacts">No contacts</T>}
-                description={<T id="clients.client-detail.add-contacts-from-edit">Add contacts from Edit.</T>}
-              />
+
+        <div className="detail-grid">
+          <PageGrid pageKey="clients.detail" record={{ source: "clients", id: c.id, row: c as unknown as Record<string, unknown> }}>
+            {tab === "Overview" && (
+              <Block id="client-facts" name="Client information" w={6} h={12}>
+                <FieldCard cardKey="client-facts" source="clients" row={c as unknown as Record<string, unknown>}
+                  title={<T id="clients.client-detail.client-information">Client information</T>}
+                  fields={["name", "kind", "assignedSalespersonId", "notes", "createdAt"]}>
+                  <Section title={<T id="clients.client-detail.client-information">Client information</T>}>
+                    <div className="info-grid">
+                      <div>
+                        <small><T id="clients.client-detail.tags">Tags</T></small>
+                        <strong>{c.tags.join(", ") || <T id="clients.client-detail.none">None</T>}</strong>
+                      </div>
+                      <div>
+                        <small><T id="clients.client-detail.contacts">Contacts</T></small>
+                        <strong>{c.contacts.length}</strong>
+                      </div>
+                    </div>
+                    <h3 className="form-subheading"><T id="clients.client-detail.notes">Notes</T></h3>
+                    <p>{c.notes || <T id="clients.client-detail.no-notes-yet">No notes yet.</T>}</p>
+                  </Section>
+                </FieldCard>
+              </Block>
             )}
-          </Section>
-        )}
-        {tab === "Events" && (
-          <EventTable events={events.data ?? []} error={events.error} onSaved={() => events.reload()} />
-        )}
-        {tab === "Proposal tracker" && <ClientSalesTracker clientId={c.id} />}
-        {tab === "Communications" && <CommunicationLog target={{ clientId: c.id }} />}
-        {tab === "Files" && (
-          <Attachments recordType="client" recordId={c.id} title="Client files" />
-        )}
+            {tab === "Overview" && (
+              <Block id="upcoming-events" name="Upcoming events" w={6} h={12}>
+                <Section title={<T id="clients.client-detail.upcoming-events">Upcoming events</T>}>
+                  <EventTable events={events.data ?? []} error={events.error} onSaved={() => events.reload()} />
+                </Section>
+              </Block>
+            )}
+            {tab === "Contacts" && (
+              <Block id="contacts" name="Contacts" w={12} h={12}>
+                <Section title={<T id="clients.client-detail.contacts">Contacts</T>}>
+                  {c.contacts.length ? (
+                    c.contacts.map((contact) => (
+                      <div className="contact-profile" key={contact.id}>
+                        <span className="avatar">{initials(contact.name)}</span>
+                        <div>
+                          <strong>{contact.name}</strong>
+                          <small>
+                            <LabelT id="labels.contact-role" value={contact.role}>{contactRoleLabels[contact.role]}</LabelT> ·{" "}
+                            {hidden(contact.email)} · {hidden(contact.phone)}
+                          </small>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyState
+                      title={<T id="clients.client-detail.no-contacts">No contacts</T>}
+                      description={<T id="clients.client-detail.add-contacts-from-edit">Add contacts from Edit.</T>}
+                    />
+                  )}
+                </Section>
+              </Block>
+            )}
+            {tab === "Events" && (
+              <Block id="events" name="Events" w={12} h={12}>
+                <EventTable events={events.data ?? []} error={events.error} onSaved={() => events.reload()} />
+              </Block>
+            )}
+            {tab === "Proposal tracker" && (
+              <Block id="proposal-tracker" name="Proposal tracker" w={12} h={14}>
+                <ClientSalesTracker clientId={c.id} />
+              </Block>
+            )}
+            {tab === "Communications" && (
+              <Block id="communications" name="Communications" w={12} h={14}>
+                <CommunicationLog target={{ clientId: c.id }} />
+              </Block>
+            )}
+            {tab === "Files" && (
+              <Block id="files" name="Files" w={12} h={12}>
+                <Attachments recordType="client" recordId={c.id} title="Client files" />
+              </Block>
+            )}
+          </PageGrid>
+        </div>
+
       </div>
       {edit && (
         <ClientForm

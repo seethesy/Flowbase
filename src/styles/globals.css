@@ -2764,6 +2764,23 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   gap: 6px;
   font-size: 13px;
 }
+.column-resizable {
+  position: relative;
+}
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  border-right: 2px solid var(--border, #d9e0db);
+}
+.column-resize-handle:hover,
+.column-resize-handle:focus-visible {
+  border-right-color: var(--primary, #327459);
+}
 .layout-columns-editor {
   position: relative;
   margin-right: auto;

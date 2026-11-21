@@ -52,9 +52,9 @@ test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", as
   await expect(form).toBeHidden();
   await expect(tasks.getByRole("link", { name: "Call the florist" })).toBeVisible();
 
-  // Claim: the Admin is now on it, so Claim goes away.
-  await page.getByRole("button", { name: "Claim Polish chafing dishes" }).click();
-  await expect(page.getByRole("button", { name: "Claim Polish chafing dishes" })).toHaveCount(0);
+  // Pick up: the Admin is now on it, so Pick up goes away.
+  await page.getByRole("button", { name: "Pick up Polish chafing dishes" }).click();
+  await expect(page.getByRole("button", { name: "Pick up Polish chafing dishes" })).toHaveCount(0);
 
   // Filters combine, and a saved view brings them back.
   await choose(page.getByLabel("Type"), { label: "Kitchen" });
@@ -76,20 +76,40 @@ test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", as
   await expect(tasks.getByRole("link")).toHaveText(["Polish chafing dishes"]);
 });
 
-databaseTest("part-time staff see only their own tasks (FLOW-59 AC1)", async ({ page }) => {
+databaseTest("part-time staff see their own and unassigned tasks, and pick one up (FLOW-59 AC1, FLOW-272)", async ({ page }) => {
   await mockBrowserAuth(page, { userId: partTimeStaff.id });
   await seedTasks([
     { title: "Fold napkins", assigneeIds: [partTimeStaff.id], dueAt: inDays(1) },
     { title: "Someone else's task", assigneeIds: [fullTimeStaff.id] },
+    { title: "Sweep the loading dock" },
   ]);
   await page.goto("/#/tasks");
   await expect(page.getByRole("heading", { name: "Tasks", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Team tasks" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Upcoming" })).toContainText("Fold napkins");
-  await page.goto("/#/tasks/all");
-  await expect(page.getByRole("heading", { name: "My tasks" })).toBeVisible();
+  await page.getByRole("link", { name: "All tasks" }).click();
+  await expect(page.getByRole("heading", { name: "All tasks" })).toBeVisible();
   const tasks = page.getByRole("list", { name: "Tasks" });
-  await expect(tasks.getByRole("link")).toHaveText(["Fold napkins"]);
+  await expect(tasks.getByRole("link")).toHaveText(["Sweep the loading dock", "Fold napkins"]);
+  // Nothing on someone else's task offers a way to take it.
+  await expect(page.getByRole("button", { name: /^(Pick up|Claim) Someone else's task/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Claim Fold napkins" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Pick up Sweep the loading dock" }).click();
+  await expect(page.getByRole("button", { name: "Pick up Sweep the loading dock" })).toHaveCount(0);
+  await page.goto("/#/tasks");
+  await expect(page.getByRole("region", { name: "Upcoming" })).toContainText("Sweep the loading dock");
+});
+
+databaseTest("a Sales Manager can take a task someone else holds (FLOW-272 AC2)", async ({ page }) => {
+  const manager = seedUsers.find((u) => u.role === "sales_manager")!;
+  await mockBrowserAuth(page, { userId: manager.id });
+  const [taskId] = await seedTasks([{ title: "Hold the door", assigneeIds: [fullTimeStaff.id] }]);
+  await page.goto("/#/tasks/all");
+  await page.getByRole("button", { name: "Claim Hold the door" }).click();
+  await expect(page.getByRole("button", { name: "Claim Hold the door" })).toHaveCount(0);
+  await page.goto(`/#/tasks/${taskId}`);
+  await expect(page.locator("dd").filter({ hasText: manager.name })).toBeVisible();
+  await expect(page.locator("dd").filter({ hasText: fullTimeStaff.name })).toHaveCount(0);
 });
 
 test("delegates from Needs delegation, then reassigns on the task (FLOW-60/61)", async ({

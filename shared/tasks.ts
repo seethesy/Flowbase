@@ -143,7 +143,8 @@ export function dueBucket(dueAt: string | null, now: Date): TaskDueBucket {
 }
 
 // GET /api/tasks filters. Every given filter applies. Without mine=true this is
-// the communal list (FLOW-59), which part-time staff can't open (403).
+// the communal list (FLOW-59); roles limited to their own tasks also see the open
+// unassigned ones (FLOW-272).
 export const taskFilterSchema = z.object({
   type: taskTypeSchema.optional(),
   status: taskStatusSchema.optional(),
@@ -159,6 +160,13 @@ export const taskFilterSchema = z.object({
   includeDone: z.enum(["true"]).optional(),
 });
 export type TaskFilter = z.infer<typeof taskFilterSchema>;
+
+// POST /api/tasks/:id/claim. unassignedOnly is what Pick up sends: fail with 409
+// if someone holds the task by then, instead of taking it over (FLOW-272).
+export const claimInputSchema = z.object({
+  unassignedOnly: z.boolean().optional(),
+});
+export type ClaimInput = z.infer<typeof claimInputSchema>;
 
 // Saved views (FLOW-59 AC3): a name and a set of filters, kept per user.
 export const taskViewFilterSchema = taskFilterSchema.strict();

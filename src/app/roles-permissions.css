@@ -1,0 +1,64 @@
+.perm-grid {
+  border-collapse: collapse;
+  width: 100%;
+}
+.perm-grid th,
+.perm-grid td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.perm-grid thead th {
+  font-size: 11px;
+  color: var(--muted);
+}
+.perm-grid tbody th {
+  font-weight: 500;
+}
+.perm-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.perm-pill--none {
+  color: #3f3f3f;
+  background: #e8e7e7;
+}
+.perm-pill--read {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+.perm-pill--own {
+  color: #92400e;
+  background: #fef3c7;
+}
+.perm-pill--write {
+  color: #166534;
+  background: #dcfce7;
+}
+.perm-save-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  margin-top: 16px;
+  background: var(--surface, #fff);
+  border-top: 1px solid var(--border, #d9e0db);
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 8%);
+}
+.perm-save-bar span {
+  margin-right: auto;
+  font-weight: 500;
+}
+.layout-visible-to {
+  display: block;
+  font-size: 12px;
+  padding: 2px 0;
+}

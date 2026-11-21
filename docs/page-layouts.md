@@ -20,6 +20,31 @@ wording. With no saved layout a page renders exactly as its code does.
 | Field boxes on record pages | `src/app/field-card.tsx` |
 | Custom cards and their builder | `src/components/custom-card.tsx`, `src/app/card-builder.tsx` |
 
+## Added in FLOW-273
+
+- Record pages on the grid: client (Overview tab), venue, vendor, staff and
+  inventory item, each with a field card (`client-facts`, `venue-facts`,
+  `vendor-facts`, `staff-facts`, `item-facts`). Other sections of those pages are
+  not blocks yet.
+- Column width: in edit mode every layout-aware table header has a drag handle
+  (`role=separator`, also the left and right arrow keys, 10px a step); the width
+  is saved with the table's columns (`columns[].width`, 40 to 1200).
+- Edit mode matches added boxes: a field added as a box on the lead page gets an
+  Edit input (Guests, `guestCount`, which `PUT /api/leads/:id` now accepts). Hiding a
+  box only hides it; stored data is never changed.
+- The Style popover also styles each box in a custom card's Boxes display.
+
+## Added in FLOW-274
+
+- Every section of the client (each tab), venue, vendor, staff and inventory item
+  pages is a `Block`; a tab's block keeps its saved place while another tab shows.
+- Proposals have a field card (`proposals.detail`, `proposal-facts`) around the
+  facts at the top of a proposal's drawer.
+- The record's Edit form hides an optional field whose box was hidden (client
+  notes; venue address, jurisdiction and notes; vendor ordering fields; item code,
+  group and description; staff phone). Creating a record always shows every field.
+- Playwright coverage: `tests/e2e/layout-coverage.spec.ts`.
+
 ## Making a page arrangeable
 
 Wrap the page's sections in a `PageGrid` and each section in a `Block` with a
@@ -53,6 +78,9 @@ optional fields to show.
   drops the value.
 - Admin-entered text is plain text; colors are 6-digit hex only, checked for
   4.5:1 contrast on the client and the server.
+- A dashboard or custom card can limit itself to some roles with `visibleTo`
+  (FLOW-269): set from its Style popover or Settings › Roles & permissions. It
+  also hides from a role that can't read the card's source area.
 - At most 20 blocks and 12 custom cards per page; a card shows at most 100 rows.
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.

@@ -20,6 +20,7 @@ import { departments, shiftKinds } from "../../shared/event-staff";
 import { timelineKinds, timelineWhoKinds } from "../../shared/event-timeline";
 import { paymentMethods, scheduleKinds } from "../../shared/payments";
 import { roles } from "../../shared/access";
+import { areaKeys, levels } from "../../shared/role-permissions";
 import { userStatuses } from "../../shared/users";
 import { proposalStages } from "../../shared/proposals";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
@@ -2336,3 +2337,23 @@ export const uiLayout = pgTable("ui_layout", {
   pageKey: text("page_key").notNull().unique(),
   layout: jsonb("layout").$type<LayoutDoc>().notNull(),
 }).enableRLS();
+
+// Roles and permissions (FLOW-269): the level (none, read, own, write) each role
+// has in each area. The Worker loads it per request (cached, invalidated on
+// save) and shared/policy.ts reads it; rows are seeded from the built-in rules,
+// so day-one behavior is unchanged. Admin's rows are locked to write.
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    ...baseColumns(),
+    role: text("role", { enum: roles }).notNull(),
+    area: text("area", { enum: areaKeys as [string, ...string[]] }).notNull(),
+    level: text("level", { enum: levels }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("role_permissions_role_area_idx").on(table.role, table.area),
+    oneOf("role_permissions_role_check", table.role, roles),
+    oneOf("role_permissions_area_check", table.area, areaKeys),
+    oneOf("role_permissions_level_check", table.level, levels),
+  ],
+).enableRLS();

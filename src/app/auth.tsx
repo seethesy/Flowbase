@@ -8,12 +8,33 @@ import {
 } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { userSchema, type User } from "../../shared/users";
+import {
+  permissionsSchema,
+  policyMatrix,
+  setPolicyMatrix,
+} from "../../shared/role-permissions";
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
 import { onDataChanged, useLiveUpdates } from "./liveUpdates";
 import { cachedProfile, clearOfflineData, isNetworkError, rememberProfile } from "../offline/db";
 import { syncOfflineBeos } from "../offline/sync";
+
+// Loads the roles and permissions matrix (FLOW-269) so `can` in the browser
+// answers like the API does. Resolves true when it changed. A failed load keeps
+// the matrix in force (the built-in rules until the first load succeeds).
+async function refreshPolicy(): Promise<boolean> {
+  try {
+    const response = await authFetch("/api/permissions");
+    if (!response.ok) return false;
+    const { matrix } = permissionsSchema.parse(await response.json());
+    const before = JSON.stringify(policyMatrix());
+    setPolicyMatrix(matrix);
+    return JSON.stringify(matrix) !== before;
+  } catch {
+    return false;
+  }
+}
 
 export const AuthContext = createContext<{
   user: User;
@@ -101,6 +122,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             return;
           }
           const profile = userSchema.parse(await response.json());
+          await refreshPolicy();
           if (active && current === revision) {
             setUser(profile);
             setLoading(false);
@@ -179,6 +201,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
         // the current profile until the next check.
         const stopWatching = onDataChanged(() => {
           const current = revision;
+          // An Admin may have changed what roles can do: show it without a reload.
+          void refreshPolicy().then((changed) => {
+            if (changed && active && current === revision) {
+              setUser((shown) => (shown ? { ...shown } : shown));
+              void queryClient.resetQueries();
+            }
+          });
           void authFetch("/api/auth/me")
             .then(async (response) => {
               if (!response.ok) return;
@@ -192,9 +221,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
             })
             .catch(() => undefined);
         });
+        // The Admin just saved the matrix in this browser (Settings › Roles &
+        // permissions): re-render everything that asks `can`.
+        const onPolicyChanged = () => {
+          if (!active) return;
+          setUser((shown) => (shown ? { ...shown } : shown));
+          void queryClient.resetQueries();
+        };
+        window.addEventListener("flowbase:policy-changed", onPolicyChanged);
         unsubscribe = () => {
           subscription.data.subscription.unsubscribe();
           stopWatching();
+          window.removeEventListener("flowbase:policy-changed", onPolicyChanged);
         };
         await loadUser();
       })
