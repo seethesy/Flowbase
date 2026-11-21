@@ -148,8 +148,8 @@ export function StylePopover({
             const shown = !visibleTo || visibleTo.includes(role);
             return (
               <label key={role} className="layout-visible-to">
-                <input
-                  type="checkbox"
+                <RoundCheck
+                  checked={shown}
                   onChange={(event) => {
                     const current = visibleTo ?? [...roles];
                     const next = event.target.checked
