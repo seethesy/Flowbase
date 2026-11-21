@@ -1,4 +1,4 @@
-import { test, expect, mockBrowserAuth } from "./auth-fixture";
+import { test, databaseTest, expect, mockBrowserAuth } from "./auth-fixture";
 import { choose } from "./dropdown";
 import { seedUsers } from "../../worker/db/seed";
 
@@ -67,7 +67,7 @@ test("hiding a dashboard card for a role hides it on their dashboard (AC4)", asy
   await expect(page.getByRole("status").filter({ hasText: "Permissions saved" })).toBeVisible();
 });
 
-test("only Admin reaches the editor", async ({ page }) => {
+databaseTest("only Admin reaches the editor", async ({ page }) => {
   await mockBrowserAuth(page, { userId: salesManager.id });
   await page.goto("/#/settings/permissions");
   await expect(page.getByText("Only Admin can change roles and permissions.")).toBeVisible();
