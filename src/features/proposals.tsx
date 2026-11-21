@@ -298,8 +298,8 @@ export function Proposals() {
     }
   };
   const columns: ColumnDef<Proposal, unknown>[] = [
-    { accessorKey: "id", header: "Proposal number" },
-    { accessorKey: "name", header: "Proposal name" },
+    { accessorKey: "id", header: "Proposal number", meta: { edit: "none" } },
+    { accessorKey: "name", header: "Proposal name", meta: { edit: "text", onEdit: (row, value) => store.proposals.save({ ...row, name: value }) } },
     {
       id: "client",
       header: "Client",
@@ -309,6 +309,7 @@ export function Proposals() {
       accessorKey: "value",
       header: "Value",
       cell: (c) => money(c.getValue() as number),
+      meta: { edit: "number", onEdit: (row, value) => store.proposals.save({ ...row, value: Number(value) }) },
     },
     {
       accessorKey: "stage",
@@ -324,9 +325,12 @@ export function Proposals() {
       accessorKey: "eventDate",
       header: "Event date",
       cell: (c) => date(c.getValue() as string),
+      meta: { edit: "date", onEdit: (row, value) => store.proposals.save({ ...row, eventDate: value }) },
     },
-    { accessorKey: "owner", header: "Owner" },
-    { accessorKey: "updated", header: "Last updated" },
+    { accessorKey: "owner", header: "Owner", meta: { edit: "select", editValue: (row) => row.owner,
+      editOptions: employees.map((person) => ({ value: person.name, label: person.name })),
+      onEdit: (row, value) => store.proposals.save({ ...row, owner: value }) } },
+    { accessorKey: "updated", header: "Last updated", meta: { edit: "none" } },
   ];
   return (
     <>
@@ -414,7 +418,7 @@ export function Proposals() {
         </div>
       </FilterBar>
       {view === "table" ? (
-        <DataTable copyKey="proposals.proposals"
+        <DataTable copyKey="proposals.proposals" openColumn
           data={rows}
           columns={columns}
           onRow={(c) => setSelected(c.id)}

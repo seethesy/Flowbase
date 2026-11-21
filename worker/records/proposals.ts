@@ -23,6 +23,7 @@ import { writeAudit } from "../audit/log";
 import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import {
+  attachments,
   events,
   leads,
   approvalRequests,
@@ -599,6 +600,15 @@ export async function completeProposalUpload(
       .update(proposals)
       .set({ currentVersionId: versionId, sentAt: null, sentMethod: null, updatedBy: actor.userId })
       .where(eq(proposals.id, id));
+    const [lastDocumentVersion] = await tx.select({ versionNumber: attachments.versionNumber }).from(attachments)
+      .where(eq(attachments.documentId, id)).orderBy(desc(attachments.versionNumber)).limit(1);
+    await tx.insert(attachments).values({
+      recordType: "event", recordId: current.eventId, group: "generated",
+      fileName: version.docx.fileName, documentId: id, displayName: current.title,
+      docType: "proposal", versionNumber: (lastDocumentVersion?.versionNumber ?? 0) + 1, status: "ready",
+      variants: [{ name: "original", key: version.docx.key, contentType: version.docx.contentType, size: version.docx.size }],
+      createdBy: actor.userId, updatedBy: actor.userId,
+    });
     if (number > 1) {
       const [event] = await tx.select({ status: events.status }).from(events).where(eq(events.id, current.eventId));
       if (["closed", "preparation", "finished"].includes(event.status))

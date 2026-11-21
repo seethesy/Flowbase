@@ -1,0 +1,15 @@
+.document-type-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0; }
+.document-preview { display: block; width: 100%; height: min(55vh, 520px); border: 1px solid var(--border); border-radius: 9px; object-fit: contain; }
+.document-drop-zone { display: block; border: 2px dashed var(--border); border-radius: 12px; padding: 24px; margin-bottom: 18px; }
+.document-drop-zone input { display: block; margin-top: 10px; }
+.document-picker { margin: 18px 0; }
+.document-picker-results { max-height: 180px; overflow: auto; padding: 0; list-style: none; }
+.document-picker-results button { width: 100%; text-align: left; padding: 7px; border-radius: 6px; }
+.document-picker-results button:hover { background: #f1f6ef; }
+.document-linked-cell { position: relative; }
+.document-linked-editor { position: absolute; z-index: 30; min-width: 320px; padding: 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface, white);
+  box-shadow: 0 8px 25px #0002; }
+.table-scroll:has(.document-linked-editor) { overflow: visible; }
+.document-type-beo { background: #e4e9fc; color: #35459d; }
+.document-type-photo { background: #fcece0; color: #93501f; }

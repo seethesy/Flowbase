@@ -979,6 +979,30 @@ tbody tr:last-child td {
   color: var(--primary);
   text-decoration: underline;
 }
+.table-edit-trigger {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 8px;
+  text-align: left;
+  min-width: 44px;
+}
+.table-edit-trigger:hover, .table-edit-trigger:focus-visible {
+  border-color: var(--border);
+  background: #f4f8f2;
+}
+.table-edit-input {
+  width: min(220px, 100%);
+  min-width: 80px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font: inherit;
+}
+.table-edit-error { position: fixed; right: 24px; bottom: 24px; z-index: 1000; display: block;
+  max-width: 360px; padding: 12px 16px; border-radius: 10px; background: #8f2525; color: #fff;
+  box-shadow: 0 8px 30px #0003; white-space: normal; }
+.table-edit-multiple { display: flex; align-items: center; gap: 6px; min-width: 220px; }
+.table-edit-multiple > button { border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
 .company-avatar {
   display: inline-flex;
   align-items: center;

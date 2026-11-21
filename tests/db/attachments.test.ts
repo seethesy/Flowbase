@@ -175,3 +175,37 @@ it("updates captions and archives files", async () => {
     ).json(),
   ).toEqual([]);
 });
+
+it("lists only visible documents, keeps upload versions and blocks BEO deletion", async () => {
+  const owned = (await (await sue("POST", "/api/clients", { name: "Synthetic client", kind: "person" })).json()) as Client;
+  const input = { name: "Synthetic contract", docType: "contract", recordType: "client", recordId: owned.id,
+    fileName: "contract.pdf", contentType: "application/pdf", size: 500 };
+  const started = await sue("POST", "/api/documents", input);
+  expect(started.status).toBe(201);
+  const ticket = await started.json() as { id: string; url: string };
+  stored.set(decodeURIComponent(new URL(ticket.url).pathname.replace("/flowbase-files/", "")), 500);
+  expect((await sue("POST", `/api/documents/${ticket.id}/complete`)).status).toBe(200);
+  const documents = await (await sue("GET", "/api/documents")).json() as { id: string; versions: { number: number }[] }[];
+  const document = documents.find((row) => row.versions.some((version) => version.number === 1))!;
+  expect(document).toBeDefined();
+  expect((await (await sam("GET", "/api/documents")).json() as unknown[]).toHaveLength(0);
+  expect((await sam("GET", `/api/documents/${document.id}`)).status).toBe(404);
+
+  const second = await sue("POST", "/api/documents", { ...input, documentId: document.id, fileName: "contract-v2.pdf" });
+  const next = await second.json() as { id: string; url: string };
+  stored.set(decodeURIComponent(new URL(next.url).pathname.replace("/flowbase-files/", "")), 500);
+  await sue("POST", `/api/documents/${next.id}/complete`);
+  const renamed = await sue("PATCH", `/api/documents/${document.id}`, { name: "Revised contract", docType: "template" });
+  expect((await renamed.json() as { name: string; docType: string; versions: unknown[] })).toMatchObject({ name: "Revised contract", docType: "template", versions: [{ number: 2 }, { number: 1 }] });
+
+  const venue = await newVenue();
+  const relinked = await admin("PATCH", `/api/documents/${document.id}`, { recordType: "venue", recordId: venue.id });
+  expect((await relinked.json() as { recordType: string; recordId: string })).toMatchObject({ recordType: "venue", recordId: venue.id });
+  const protectedId = crypto.randomUUID();
+  await db.insert(schema.attachments).values({ id: protectedId, documentId: protectedId,
+    recordType: "venue", recordId: venue.id, group: "generated", fileName: "beo.pdf", displayName: "BEO",
+    docType: "beo", protected: true, status: "ready", variants: [{ name: "original", key: "synthetic/beo.pdf", contentType: "application/pdf", size: 100 }] });
+  expect((await admin("POST", `/api/documents/${protectedId}/archive`)).status).toBe(409);
+  expect((await sam("PATCH", `/api/documents/${protectedId}`, { docType: "template" })).status).toBe(403);
+  expect((await admin("GET", `/api/documents/${protectedId}`)).status).toBe(200);
+});

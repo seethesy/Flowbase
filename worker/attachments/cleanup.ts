@@ -41,7 +41,7 @@ export async function cleanupAttachments(
     .where(
       or(
         and(eq(attachments.status, "pending"), lt(attachments.createdAt, abandonedBefore)),
-        and(isNotNull(attachments.archivedAt), lt(attachments.archivedAt, archivedBefore)),
+        and(isNotNull(attachments.archivedAt), lt(attachments.archivedAt, archivedBefore), eq(attachments.protected, false)),
       ),
     )
     .orderBy(asc(attachments.createdAt))

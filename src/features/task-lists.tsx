@@ -1,5 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   taskDueBucketLabels,
@@ -19,7 +19,7 @@ import {
   type TaskType,
 } from "../../shared/tasks";
 import type { FlowEvent } from "../../shared/core-records";
-import { taskScope } from "../../shared/policy";
+import { can, taskScope } from "../../shared/policy";
 import { businessTimeToUtc, isBusinessTime } from "../../shared/time";
 import { LoadMore, usePagedList } from "../app/paging";
 import { usePermissions } from "../app/permissions";
@@ -74,14 +74,41 @@ function useUpcomingEvents() {
 function TaskLine({
   task,
   children,
+  onChanged,
 }: {
   task: TaskSummary;
   children?: ReactNode;
+  onChanged?: () => void;
 }) {
+  const { actor } = usePermissions();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(task.title);
+  const [display, setDisplay] = useState(task.title);
+  useEffect(() => setDisplay(task.title), [task.title]);
+  const [error, setError] = useState("");
+  const cancelled = useRef(false);
+  const editable = Boolean(onChanged && actor && (can(actor, "tasks.delegate") ||
+    task.creator?.id === actor.userId || task.overseer?.id === actor.userId));
+  const save = async () => {
+    if (cancelled.current || draft === display) { setEditing(false); return; }
+    const before = display;
+    setDisplay(draft); setEditing(false); setError("");
+    try { await tasksApi.update(task.id, { title: draft }); onChanged?.(); }
+    catch (cause) { setDisplay(before); setError(cause instanceof Error ? cause.message : String(cause)); }
+  };
   return (
     <li className="task-line">
       <div>
-        <Link to={`/tasks/${task.id}`}>{task.title}</Link>
+        <Link to={`/tasks/${task.id}`}>{display}</Link>
+        {editable && (editing ? <input aria-label={`Edit ${task.title}`} autoFocus value={draft}
+          onChange={(event) => setDraft(event.target.value)} onBlur={() => void save()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+            if (event.key === "Escape") { cancelled.current = true; setDraft(display); setEditing(false); }
+          }} /> : <button type="button" className="task-inline-edit" onClick={() => {
+            cancelled.current = false; setDraft(display); setEditing(true);
+          }}><T id="task-lists.task-line.edit">Edit</T></button>)}
+        {error && <span className="table-edit-error" role="alert">{error}</span>}
         <small>
           {joined([
             <LabelT id="labels.task-type" value={task.type}>{taskTypeLabels[task.type]}</LabelT>,
@@ -370,7 +397,7 @@ function DashboardGroup({
       {section.tasks.length ? (
         <ul className="task-lines">
           {section.tasks.map((task) => (
-            <TaskLine key={task.id} task={task}>
+            <TaskLine key={task.id} task={task} onChanged={list.reload}>
               {children(task)}
             </TaskLine>
           ))}

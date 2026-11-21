@@ -66,6 +66,10 @@ const TimeReports = lazy(() =>
 const SettingsPage = lazy(() =>
   import("../features/settings").then((module) => ({ default: module.SettingsPage })),
 );
+const InventoryCategoriesPage = lazy(() => import("../features/inventory-categories")
+  .then((module) => ({ default: module.InventoryCategoriesPage })));
+const DocumentsPage = lazy(() => import("../features/documents")
+  .then((module) => ({ default: module.DocumentsPage })));
 const CollectorHealthPage = lazy(() => import("../features/collector-health")
   .then((module) => ({ default: module.CollectorHealthPage })));
 const UsagePage = lazy(() => import("../features/usage")
@@ -270,7 +274,7 @@ export const getRouter = () =>
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/staffing/schedule", element: <ComingSoon title="Schedule" /> },
         { path: "/marketing", element: <ComingSoon title="Marketing" /> },
-        { path: "/documents", element: <ComingSoon title="Documents" /> },
+        { path: "/documents", element: <DocumentsPage /> },
         { path: "/profile", element: <Profile /> },
         { path: "/tasks", element: <TaskDashboardPage /> },
         { path: "/tasks/all", element: <TaskList /> },
@@ -283,6 +287,7 @@ export const getRouter = () =>
         { path: "/imports", element: <ImportList /> },
         { path: "/imports/:module", element: <ImportPage /> },
         { path: "/settings", element: <SettingsPage /> },
+        { path: "/settings/inventory-categories", element: <InventoryCategoriesPage /> },
         { path: "/settings/collector", element: <CollectorHealthPage /> },
         { path: "/settings/usage", element: <UsagePage /> },
         { path: "/settings/operations", element: <OperationsPage /> },

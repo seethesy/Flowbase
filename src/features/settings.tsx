@@ -57,6 +57,7 @@ export function SettingsPage() {
       {manage && (
         <Section title={<T id="settings.settings-page.deleted-records">Deleted records</T>}>
           <p><Link to="/settings/archived"><T id="settings.settings-page.archived">Archived: restore deleted records</T></Link></p>
+          <p><Link to="/settings/inventory-categories"><T id="settings.settings-page.inventory-categories">Inventory categories</T></Link></p>
         </Section>
       )}
       {manage && (

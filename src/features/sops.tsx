@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import type { SopSummary } from "../../shared/sops";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { JSONContent } from "@tiptap/core";
 import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
-import { Button, FormField, LoadingSkeleton, PageHeader, Section } from "../components/shared";
+import { Button, DataTable, FormField, LoadingSkeleton, PageHeader, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { RichTextView } from "../components/rich-text/RichTextView";
@@ -15,9 +17,23 @@ import { T, useCopy } from "../app/copy";
 export function SopLibrary() {
   const allCategoriesPlaceholder = useCopy("sops.sop-library.all-categories.placeholder", "All categories");
   const { can } = usePermissions();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const sops = useResource(["sops", search, category], () => sopsApi.list(search, category));
+  const edit = async (row: SopSummary, change: { title?: string; category?: string }) => {
+    const current = await sopsApi.get(row.id);
+    await sopsApi.update(row.id, { title: change.title ?? current.title,
+      category: change.category ?? current.category, content: current.content, version: current.version });
+    sops.reload();
+  };
+  const columns: ColumnDef<SopSummary, unknown>[] = [
+    { accessorKey: "title", header: "Title", meta: { edit: "text", canEdit: () => can("sops.write"),
+      onEdit: (row, value) => edit(row, { title: value }) } },
+    { accessorKey: "category", header: "Category", meta: { edit: "text", canEdit: () => can("sops.write"),
+      onEdit: (row, value) => edit(row, { category: value }) } },
+    { accessorKey: "version", header: "Version", meta: { edit: "none" } },
+  ];
   if (sops.error) return <LoadError message={sops.error} />;
   return <>
     <PageHeader title={<T id="sops.sop-library.sop-library">SOP library</T>} subtitle={<T id="sops.sop-library.standard-procedures-for-production-and">Standard procedures for production and kitchen work.</T>}>
@@ -28,11 +44,10 @@ export function SopLibrary() {
       <FormField label={<T id="sops.sop-library.category">Category</T>}><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={allCategoriesPlaceholder} data-copy-id="sops.sop-library.all-categories.placeholder" /></FormField>
     </Section>
     <Section title={<T id="sops.sop-library.procedures">Procedures</T>}>
-      {!sops.data ? <LoadingSkeleton /> : sops.data.length ? <ul>
-        {sops.data.map((sop) => <li key={sop.id}>
-          <Link to={`/sops/${sop.id}`}>{sop.title}</Link><T id="sops.sop-library.version" values={{ category: sop.category, version: sop.version }}>{" · {category} · Version {version}"}</T>
-        </li>)}
-      </ul> : <p><T id="sops.sop-library.no-sops-found">No SOPs found.</T></p>}
+      {!sops.data ? <LoadingSkeleton /> : sops.data.length ?
+        <DataTable copyKey="sops.library" data={sops.data} columns={columns}
+          onRow={(row) => navigate(`/sops/${row.id}`)} openColumn />
+        : <p><T id="sops.sop-library.no-sops-found">No SOPs found.</T></p>}
     </Section>
   </>;
 }

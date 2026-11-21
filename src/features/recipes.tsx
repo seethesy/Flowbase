@@ -94,21 +94,50 @@ export function RecipeList() {
     (!allergen || recipe.allergens.some((tag) => tag === allergen)) &&
     (!dietaryTag || recipe.dietaryTags.some((tag) => tag === dietaryTag)),
   );
-  const { actor } = usePermissions();
+  const { actor, can } = usePermissions();
   const costHidden = !actor || !canSeeField(actor, "internal_cost", { view: "internal_recipe" });
+  const edit = async (recipe: Recipe, change: Partial<Pick<RecipeInput, "name" | "category" | "yield" | "allergens" | "dietaryTags">>) => {
+    const current = await recipesApi.get(recipe.id);
+    await recipesApi.update(recipe.id, {
+      name: current.name, category: current.category, description: current.description,
+      lines: current.lines.map((line) => ({ id: line.id, itemId: line.itemId,
+        quantity: line.quantity, unit: line.unit, prepNote: line.prepNote,
+        ...(!current.costHidden && { enteredCostCents: line.enteredCostCents }) })),
+      steps: current.steps, finishingNote: current.finishingNote, yield: current.yield,
+      allergens: current.allergens, dietaryTags: current.dietaryTags, active: current.active,
+      ...change,
+    });
+    recipes.reload();
+  };
   const columns: ColumnDef<Recipe, unknown>[] = [
-    { accessorKey: "name", header: "Dish" },
+    { accessorKey: "name", header: "Dish", meta: { edit: "text", canEdit: () => can("recipes.write"), onEdit: (row, value) => edit(row, { name: value }) } },
     {
       id: "category",
       header: "Category",
       accessorFn: (recipe) => markCategory(recipe.category),
+      meta: { edit: "select", canEdit: () => can("recipes.write"),
+        editValue: (row) => row.category,
+        editOptions: categoryLabels.map((value) => ({ value, label: markCategory(value) })),
+        onEdit: (row, value) => edit(row, { category: value }) },
     },
-    { id: "yield", header: "Yield", accessorFn: yieldLabel },
+    { id: "yield", header: "Yield", accessorFn: yieldLabel,
+      meta: { edit: "number", editValue: (row) => row.yield?.servings.toString() ?? "",
+        canEdit: () => can("recipes.write"),
+        onEdit: (row, value) => edit(row, { yield: value ? { servings: Number(value), portionSize: row.yield?.portionSize ?? "" } : null }) } },
     {
       id: "allergens",
       header: "Allergens",
       accessorFn: (recipe) => markedList(recipe.allergens, markAllergen) || "—",
+      meta: { edit: "select", editMultiple: true, editValue: (row) => row.allergens.join(","),
+        canEdit: () => can("recipes.write"),
+        editOptions: allergenLabels.map((value) => ({ value, label: markAllergen(value) })),
+        onEdit: (row, value) => edit(row, { allergens: value ? value.split(",") : [] }) },
     },
+    { id: "dietary", header: "Dietary tags", accessorFn: (recipe) => markedList(recipe.dietaryTags, markDietaryTag) || "—",
+      meta: { edit: "select", editMultiple: true, editValue: (row) => row.dietaryTags.join(","),
+        canEdit: () => can("recipes.write"),
+        editOptions: dietaryTagLabels.map((value) => ({ value, label: markDietaryTag(value) })),
+        onEdit: (row, value) => edit(row, { dietaryTags: value ? value.split(",") : [] }) } },
     ...(costHidden
       ? []
       : [
@@ -180,7 +209,7 @@ export function RecipeList() {
       ) : recipes.loading && !recipes.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list"
+        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list" openColumn
           data={data}
           columns={columns}
           onRow={(recipe) => navigate(`/recipes/${recipe.id}`)}

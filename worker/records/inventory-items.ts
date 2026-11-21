@@ -24,6 +24,7 @@ import type {
   ItemFlag,
   ItemInputParsed,
 } from "../../shared/inventory";
+import { classificationKind } from "../../shared/inventory";
 import { units, type Unit } from "../../shared/units";
 import type { Version } from "../../shared/schema-primitives";
 import { fullView, listHistoryPage, writeAudit } from "../audit/log";
@@ -32,6 +33,8 @@ import {
   inventoryBarDetails,
   inventoryConsumableDetails,
   inventoryItems,
+  inventoryCategories,
+  inventoryTypes,
   inventoryRentalDetails,
   inventorySections,
   inventoryServiceDetails,
@@ -39,7 +42,7 @@ import {
   stockMovements,
   vendors,
 } from "../db/schema";
-import { forbidden, notFound, requireVersion } from "../hono";
+import { ApiError, forbidden, notFound, requireVersion } from "../hono";
 import { can } from "../policy";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
@@ -198,6 +201,8 @@ export async function toItems(
       code: row.code,
       name: row.name,
       category: row.category,
+      categoryId: row.categoryId,
+      typeId: row.typeId,
       description: row.description,
       unit: row.unit as Unit,
       group: row.group,
@@ -286,6 +291,8 @@ export type ItemFilter = {
   kind?: InventoryItem["kind"];
   subtype?: string;
   category?: string;
+  categoryId?: string;
+  typeId?: string;
   sectionId?: string;
   vendor?: string;
   belowPar?: boolean;
@@ -327,6 +334,8 @@ export async function listItems(
         filter.category
           ? eq(inventoryItems.category, filter.category)
           : undefined,
+        filter.categoryId ? eq(inventoryItems.categoryId, filter.categoryId) : undefined,
+        filter.typeId ? eq(inventoryItems.typeId, filter.typeId) : undefined,
         filter.tier ? eq(inventoryItems.tier, filter.tier) : undefined,
         term
           ? or(
@@ -431,6 +440,8 @@ const itemValues = (input: ItemInputParsed, actor: Actor) => ({
   code: input.code,
   name: input.name,
   category: input.category,
+  ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
+  ...(input.typeId !== undefined && { typeId: input.typeId }),
   description: input.description,
   unit: input.unit,
   group: input.group,
@@ -445,6 +456,23 @@ const itemValues = (input: ItemInputParsed, actor: Actor) => ({
   active: input.active,
   updatedBy: actor.userId,
 });
+
+async function validateClassification(tx: DbLike, input: ItemInputParsed) {
+  if (!input.categoryId) {
+    if (input.typeId) throw new ApiError(400, "INVALID_TYPE", "Select a category before a type.");
+    return;
+  }
+  const [category] = await tx.select().from(inventoryCategories)
+    .where(and(eq(inventoryCategories.id, input.categoryId), isNull(inventoryCategories.archivedAt)));
+  if (!category || category.kind !== classificationKind(input))
+    throw new ApiError(400, "INVALID_CATEGORY", "Category does not belong to this kind.");
+  if (input.typeId) {
+    const [type] = await tx.select().from(inventoryTypes)
+      .where(and(eq(inventoryTypes.id, input.typeId), isNull(inventoryTypes.archivedAt)));
+    if (!type || type.categoryId !== input.categoryId)
+      throw new ApiError(400, "INVALID_TYPE", "Type does not belong to this category.");
+  }
+}
 
 async function validateComponents(
   tx: DbLike,
@@ -662,6 +690,7 @@ export async function createItem(
 ): Promise<InventoryItem> {
   await requireUniqueCode(db, input.code);
   const id = await db.transaction(async (tx) => {
+    await validateClassification(tx, input);
     await validateComponents(tx, input);
     const [row] = await tx
       .insert(inventoryItems)
@@ -691,6 +720,11 @@ export async function updateItem(
   input: ItemInputParsed & Partial<Version>,
 ): Promise<InventoryItem> {
   const current = await findItem(db, id);
+  const categoryId = input.categoryId === undefined ? current.categoryId : input.categoryId;
+  const typeId = input.typeId === undefined
+    ? categoryId === current.categoryId ? current.typeId : null
+    : input.typeId;
+  input = { ...input, categoryId, typeId };
   if (current.kind !== input.kind)
     throw conflict(
       "KIND_CHANGE",
@@ -708,6 +742,7 @@ export async function updateItem(
     requireVersion(locked.updatedAt, input.updatedAt, "item");
     if (input.unit !== locked.unit) await requireNoStockHistory(tx, locked);
     const before = await itemSnapshot(tx, id);
+    await validateClassification(tx, input);
     await validateComponents(tx, input, id);
     if (input.kind === "rental") {
       const [stored] = await tx

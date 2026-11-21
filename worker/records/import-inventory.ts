@@ -26,6 +26,8 @@ import { fullView } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   inventoryItems,
+  inventoryCategories,
+  inventoryTypes,
   inventorySections,
   inventoryStock,
   vendors,
@@ -50,7 +52,7 @@ import { ensureVendor } from "./vendors";
 // not carry (price, colors, kit components…) is kept from the stored item.
 
 type SectionKind = "rental" | "consumable";
-type Targets = { vendorId: string | null; sectionId: string | null };
+type Targets = { vendorId: string | null; sectionId: string | null; categoryId: string | null; typeId: string | null; typeError?: string };
 type StockTarget = { name: string; kind: SectionKind };
 type Draft = Record<string, unknown>;
 
@@ -121,6 +123,8 @@ const carry = (stored: InventoryItem): Draft => ({
   code: stored.code,
   name: stored.name,
   category: stored.category,
+  categoryId: stored.categoryId,
+  typeId: stored.typeId,
   description: stored.description,
   unit: stored.unit,
   group: stored.group,
@@ -194,7 +198,7 @@ function parseInput(draft: Draft): ItemInputParsed {
   }
 }
 
-type Config<Row extends { name: string; quantity: number; distributor: string }> = {
+type Config<Row extends { name: string; quantity: number; distributor: string; typeName: string }> = {
   key: string;
   label: string;
   fields: ImportField[];
@@ -205,14 +209,19 @@ type Config<Row extends { name: string; quantity: number; distributor: string }>
   vendorType: VendorType;
   // The section the imported quantity lands in; null for rows with no stock.
   stock: (row: Row) => StockTarget | null;
+  classification: (row: Row) => { kind: string; category: string };
   draft: (row: Row, targets: Targets) => Drafted;
   costError?: (actor: Actor, row: Row) => string | null;
   duplicateFilter?: (row: Row) => SQL | undefined;
 };
 
 function inventoryImporter<
-  Row extends { name: string; quantity: number; distributor: string },
+  Row extends { name: string; quantity: number; distributor: string; typeName: string },
 >(config: Config<Row>) {
+  const draft = (row: Row, found: Targets): Drafted => {
+    const original = config.draft(row, found);
+    return { ...original, item: { ...original.item, categoryId: found.categoryId, typeId: found.typeId } };
+  };
   // Reads only (dry run and comparison) or also creates the vendor and section
   // the row names (commit).
   const targets = async (
@@ -222,7 +231,15 @@ function inventoryImporter<
     write: boolean,
   ): Promise<Targets> => {
     const stock = config.stock(row);
+    const classKey = config.classification(row);
+    const [category] = await db.select({ id: inventoryCategories.id }).from(inventoryCategories)
+      .where(and(eq(inventoryCategories.kind, classKey.kind), sql`lower(${inventoryCategories.name}) = lower(${classKey.category})`, isNull(inventoryCategories.archivedAt))).limit(1);
+    const [type] = row.typeName && category ? await db.select({ id: inventoryTypes.id }).from(inventoryTypes)
+      .where(and(eq(inventoryTypes.categoryId, category.id), sql`lower(${inventoryTypes.name}) = lower(${row.typeName})`, isNull(inventoryTypes.archivedAt))).limit(1) : [];
     return {
+      categoryId: category?.id ?? null,
+      typeId: type?.id ?? null,
+      typeError: row.typeName && !type ? `Unknown Type "${row.typeName}" for ${classKey.category}.` : undefined,
       vendorId: row.distributor
         ? write
           ? await ensureVendor(db, actor, { name: row.distributor, type: config.vendorType })
@@ -260,12 +277,15 @@ function inventoryImporter<
     parse: config.parse,
     externalKey: config.externalKey,
     describe: config.describe,
-    check: async (_db, actor, row) => {
+    check: async (db, actor, row) => {
       const errors: string[] = [];
+      const found = await targets(db, actor, row, false);
+      if (!found.categoryId) errors.push("Inventory category is missing; ask an Admin to create it.");
+      if (found.typeError) errors.push(found.typeError);
       const cost = config.costError?.(actor, row);
       if (cost) errors.push(cost);
       const checked = itemInputSchema.safeParse(
-        compose(null, config.draft(row, { vendorId: null, sectionId: null }), "save"),
+        compose(null, draft(row, found), "save"),
       );
       if (!checked.success) errors.push(...checked.error.issues.map((issue) => issue.message));
       return errors;
@@ -290,7 +310,7 @@ function inventoryImporter<
       const stored = await getItem(db, fullView, recordId);
       const unchanged =
         JSON.stringify(parseInput(compose(stored, null, "compare"))) ===
-        JSON.stringify(parseInput(compose(stored, config.draft(row, found), "compare")));
+        JSON.stringify(parseInput(compose(stored, draft(row, found), "compare")));
       if (!unchanged) return true;
       return found.sectionId
         ? (await stockAt(db, recordId, found.sectionId)) !== row.quantity
@@ -298,22 +318,24 @@ function inventoryImporter<
     },
     create: async (tx, actor, row, context) => {
       const found = await targets(tx, actor, row, true);
+      if (!found.categoryId || found.typeError) throw new ApiError(400, "INVALID_TYPE", found.typeError ?? "Inventory category is missing.");
       const item = await createItem(
         tx as unknown as Db,
         actor,
-        parseInput(compose(null, config.draft(row, found), "save")),
+        parseInput(compose(null, draft(row, found), "save")),
       );
       await importStock(tx, actor, item.id, row, found.sectionId, context);
       return item.id;
     },
     update: async (tx, actor, recordId, row, context) => {
       const found = await targets(tx, actor, row, true);
+      if (!found.categoryId || found.typeError) throw new ApiError(400, "INVALID_TYPE", found.typeError ?? "Inventory category is missing.");
       const stored = await getItem(tx, fullView, recordId);
       await updateItem(
         tx as unknown as Db,
         actor,
         recordId,
-        parseInput(compose(stored, config.draft(row, found), "save")),
+        parseInput(compose(stored, draft(row, found), "save")),
       );
       await importStock(tx, actor, recordId, row, found.sectionId, context);
     },
@@ -341,6 +363,7 @@ export const masterInventoryImporter = inventoryImporter<MasterRow>({
       : row.kind === "rental"
         ? { name: row.location, kind: "rental" }
         : { name: "Supplies", kind: "consumable" },
+  classification: (row) => ({ kind: row.kind === "consumable" ? "supply" : row.kind, category: row.kind === "service" ? "Services" : row.subtype ?? "Supply" }),
   costError: (actor, row) =>
     row.costCents === null
       ? null
@@ -388,6 +411,7 @@ export const barInventoryImporter = inventoryImporter<BarRow>({
   describe: describeBarRow,
   vendorType: "beverage_distributor",
   stock: () => ({ name: "Bar Storage", kind: "consumable" }),
+  classification: () => ({ kind: "bar", category: "Bar" }),
   duplicateFilter: (row) => eq(inventoryItems.category, row.category),
   draft: (row, targets) => ({
     costCents: null,

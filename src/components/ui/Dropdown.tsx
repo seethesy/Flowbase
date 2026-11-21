@@ -63,6 +63,7 @@ type Common = {
   className?: string;
   title?: string;
   autoFocus?: boolean;
+  openOnMount?: boolean;
   placeholder?: ReactNode;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -173,6 +174,7 @@ export function Dropdown(props: DropdownProps) {
     className,
     title,
     autoFocus,
+    openOnMount,
     placeholder,
     creatable,
     onBlur,
@@ -184,7 +186,7 @@ export function Dropdown(props: DropdownProps) {
   const triggerId = id ?? `${listId}-trigger`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [open, setOpenState] = useState(false);
+  const [open, setOpenState] = useState(Boolean(openOnMount));
   const [active, setActive] = useState(-1);
   const [position, setPosition] = useState<Position | null>(null);
   const [draft, setDraft] = useState("");

@@ -46,6 +46,8 @@ import {
   costChangeSchema,
   stockCountSchema,
   stockCountSummarySchema,
+  inventoryCategorySchema,
+  inventoryTypeSchema,
 } from "../../shared/inventory";
 import {
   leadSchema,
@@ -62,6 +64,7 @@ import {
   activityRecordedSchema,
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
+import { documentSchema, documentUploadTicketSchema } from "../../shared/documents";
 import { communicationSchema } from "../../shared/communications";
 import { sopSchema, sopSummarySchema } from "../../shared/sops";
 import { historyEntrySchema } from "../../shared/audit";
@@ -155,6 +158,11 @@ export function responseSchema(
       : !id && method === "POST"
         ? uploadTicketSchema
         : attachmentSchema;
+  if (resource === "documents")
+    return !id && method === "GET" ? documentSchema.array()
+      : !id && method === "POST" ? documentUploadTicketSchema
+        : action === "archive" || action === "restore"
+          ? z.object({ id: z.string(), restored: z.boolean() }) : documentSchema;
   if (resource === "communications")
     return method === "GET" ? communicationSchema.array() : communicationSchema;
   if (resource === "leads") {
@@ -174,6 +182,10 @@ export function responseSchema(
   }
   if (resource === "inventory") {
     const tail = path.split("/")[5];
+    if (id === "categories") return !action && method === "GET"
+      ? z.object({ categories: inventoryCategorySchema.array(), types: inventoryTypeSchema.array() })
+      : inventoryCategorySchema;
+    if (id === "types") return inventoryTypeSchema;
     if (id === "items" && action === "changes") return inventoryChangeResultSchema;
     if (id === "items" && action === "pending") return pendingInventoryChangeSchema.array();
     if (id === "sections")

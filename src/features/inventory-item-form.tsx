@@ -13,6 +13,7 @@ import {
   ratioBasisLabels,
   ratioBasisSchema,
   recipeUnitProblem,
+  classificationKind,
   subtypesByKind,
   type BarContainer,
   type InventoryItem,
@@ -23,6 +24,7 @@ import {
 } from "../../shared/inventory";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { allPages, inventoryApi, inventoryChangesApi, sectionsApi } from "../services/core";
+import { inventoryCategoriesApi } from "../services/inventory-categories";
 import { StaleReload, isStale } from "../components/stale-reload";
 import { vendorsApi } from "../services/vendors";
 import { useResource } from "../app/useResource";
@@ -153,6 +155,8 @@ function ItemFormFields({
   const [subtype, setSubtype] = useState(
     item?.subtype ?? preset?.subtype ?? "equipment",
   );
+  const [categoryId, setCategoryId] = useState(item?.categoryId ?? "");
+  const [typeId, setTypeId] = useState(item?.typeId ?? "");
   const [fields, setFields] = useState<Record<FieldName, string>>(() => ({
     code: item?.code ?? "",
     name: item?.name ?? "",
@@ -220,6 +224,10 @@ function ItemFormFields({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const classification = useResource(["inventory-categories"], inventoryCategoriesApi.list, { reference: true });
+  const catalogKind = classificationKind({ kind, subtype: kind === "service" ? null : subtype });
+  const categories = (classification.data?.categories ?? []).filter((entry) => entry.kind === catalogKind);
+  const types = (classification.data?.types ?? []).filter((entry) => entry.categoryId === categoryId);
   const storage = useResource(
     ["sections", kind === "consumable" ? { kind: "consumable" } : "none"],
     () =>
@@ -302,6 +310,8 @@ function ItemFormFields({
       code: fields.code,
       name: fields.name,
       category: fields.category,
+      categoryId: categoryId || null,
+      typeId: typeId || null,
       description: fields.description,
       unit: fields.unit as Unit,
       group: fields.group,
@@ -459,6 +469,8 @@ function ItemFormFields({
                   setKind(next);
                   const options: readonly string[] = subtypesByKind[next];
                   setSubtype(options[0] ?? "");
+                  setCategoryId("");
+                  setTypeId("");
                 }}
               >
                 {itemKindSchema.options.map((option) => (
@@ -473,7 +485,7 @@ function ItemFormFields({
             <FormField label={<T id="inventory-item-form.item-form-fields.subtype">Subtype</T>}>
               <Dropdown
                 value={subtype}
-                onChange={(e) => setSubtype(e.target.value)}
+                onChange={(e) => { setSubtype(e.target.value); setCategoryId(""); setTypeId(""); }}
               >
                 {subtypes.map((option) => (
                   <option key={option} value={option}>
@@ -483,9 +495,40 @@ function ItemFormFields({
               </Dropdown>
             </FormField>
           )}
+          <FormField label={<T id="inventory-item-form.item-form-fields.classification-category">Category</T>}>
+            <Dropdown value={categoryId} onValueChange={(next) => { setCategoryId(next); setTypeId(""); }}
+              creatable={can("inventory.sections") ? {
+                label: <T id="inventory-item-form.item-form-fields.new-category">New category</T>,
+                onCreate: async (name) => {
+                  const created = await inventoryCategoriesApi.createCategory(catalogKind, name);
+                  await classification.refresh();
+                  setCategoryId(created.id);
+                  setTypeId("");
+                  return created.id;
+                },
+              } : undefined}>
+              <option value="">None</option>
+              {categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </Dropdown>
+          </FormField>
+          <FormField label={<T id="inventory-item-form.item-form-fields.classification-type">Type</T>}>
+            <Dropdown value={typeId} disabled={!categoryId} onValueChange={setTypeId}
+              creatable={categoryId && can("inventory.sections") ? {
+                label: <T id="inventory-item-form.item-form-fields.new-type">New type</T>,
+                onCreate: async (name) => {
+                  const created = await inventoryCategoriesApi.createType(categoryId, name);
+                  await classification.refresh();
+                  setTypeId(created.id);
+                  return created.id;
+                },
+              } : undefined}>
+              <option value="">None</option>
+              {types.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </Dropdown>
+          </FormField>
           {isBar ? (
             <>
-              <FormField label={<T id="inventory-item-form.item-form-fields.category">Category</T>}>
+              <FormField label={<T id="inventory-item-form.item-form-fields.bar-category">Bar category</T>}>
                 <Dropdown
                   value={fields.category}
                   onChange={(e) => pickCategory(e.target.value)}
@@ -514,7 +557,7 @@ function ItemFormFields({
               </FormField>
             </>
           ) : (
-            <FormField label={<T id="inventory-item-form.item-form-fields.category">Category</T>}>
+            <FormField label={<T id="inventory-item-form.item-form-fields.legacy-category">Legacy category</T>}>
               <input
                 list="item-categories"
                 value={fields.category}

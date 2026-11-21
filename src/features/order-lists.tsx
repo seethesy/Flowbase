@@ -99,7 +99,12 @@ export function OrderListDetail() {
             onChange={(event) => update(index, { quantity: Number(event.target.value) })} /> : line.quantity} {line.purchaseUnit}</td>
           <td>{line.orderBy ?? "—"}</td><td>{line.eventTitles.join(", ") || <T id="order-lists.order-list-detail.par-level">Par level</T>}</td>
           <td>{editing ? <input aria-label={`Note for ${line.itemName}`} value={line.note}
-            onChange={(event) => update(index, { note: event.target.value })} /> : line.note}</td>
+            onChange={(event) => update(index, { note: event.target.value })}
+            onBlur={() => { if (draft && line.note !== data.lines[index]?.note) void save(); }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+              if (event.key === "Escape") update(index, { note: data.lines[index]?.note ?? "" });
+            }} /> : line.note}</td>
           <td className="order-screen-only">{editing && <Button variant="outline" onClick={() => setDraft(lines.filter((_, at) => at !== index))}><T id="order-lists.order-list-detail.remove">Remove</T></Button>}</td>
         </tr>)}</tbody></table></div>
       {placed && !draft && <VendorOrderPanel list={data} vendor={vendor} showCosts={showCosts}

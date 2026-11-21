@@ -1,6 +1,6 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Allowed } from "../app/permissions";
+import { Allowed, usePermissions } from "../app/permissions";
 import { Fragment, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -82,6 +82,7 @@ export function EventTable({
   exportName,
   exportAll,
   selection,
+  onSaved,
 }: {
   events: FlowEvent[];
   error?: string;
@@ -90,26 +91,58 @@ export function EventTable({
   exportName?: string;
   // Every matching event when the list is paged (FLOW-216).
   exportAll?: (onProgress: (rows: number) => void) => Promise<FlowEvent[]>;
+  onSaved?: () => void;
 }) {
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const clientOptions = useResource(["clients", "event-table-options"], () => allPages((cursor) => clientsApi.list({}, cursor)), { reference: true });
+  const venueOptions = useResource(["venues", "event-table-options"], () => allPages((cursor) => venuesApi.list({}, cursor)), { reference: true });
+  const edit = async (event: FlowEvent, change: Partial<Pick<EventInput, "title" | "date" | "startTime" | "endTime" | "guestCount" | "clientId" | "venueId">>) => {
+    const current = await eventsApi.get(event.id);
+    if (!current.client) throw new Error("The event needs a client before editing its fields.");
+    await eventsApi.update(event.id, {
+      title: current.title, date: current.date, startTime: current.startTime,
+      endTime: current.endTime, clientId: current.client.id, pocContactId: current.pocContactId,
+      venueId: current.venue?.id ?? null, address: current.address,
+      eventType: current.eventType, serviceType: current.serviceType,
+      foodServiceStyle: current.foodServiceStyle, guestCount: current.guestCount,
+      servingsCount: current.servingsCount, assignedSalespersonId: current.assignedSalespersonId,
+      dressCode: current.dressCode, arrivalTime: current.arrivalTime,
+      transportationNotes: current.transportationNotes, internalNotes: current.internalNotes,
+      status: current.status, updatedAt: current.updatedAt,
+      ...(change.clientId && change.clientId !== current.client.id && { pocContactId: null }),
+      ...(change.venueId && change.venueId !== current.venue?.id && { address: "" }),
+      ...change,
+    });
+    onSaved?.();
+  };
   if (error) return <LoadError message={error} />;
   const columns: ColumnDef<FlowEvent, unknown>[] = [
-    { accessorKey: "title", header: "Event" },
-    { id: "when", header: "When", accessorFn: when },
+    { accessorKey: "title", header: "Event", meta: { edit: "text", canEdit: () => can("events.write"), onEdit: (row, value) => edit(row, { title: value }) } },
+    { accessorKey: "date", header: "Date", meta: { edit: "date", canEdit: () => can("events.write"), onEdit: (row, value) => edit(row, { date: value }) } },
+    { accessorKey: "startTime", header: "Start", meta: { edit: "time", canEdit: () => can("events.write"), onEdit: (row, value) => edit(row, { startTime: value }) } },
+    { accessorKey: "endTime", header: "End", meta: { edit: "time", canEdit: () => can("events.write"), onEdit: (row, value) => edit(row, { endTime: value || null }) } },
     {
       id: "client",
       header: "Client",
       accessorFn: (event) => event.client?.name ?? "—",
+      meta: { edit: "select", canEdit: () => can("events.write"), editValue: (row) => row.client?.id ?? "",
+        editOptions: (clientOptions.data ?? []).map((row) => ({ value: row.id, label: row.name })),
+        onEdit: (row, value) => edit(row, { clientId: value }) },
     },
     {
       id: "venue",
       header: "Venue",
       accessorFn: (event) => event.venue?.name ?? event.address,
+      meta: { edit: "select", canEdit: () => can("events.write"), editValue: (row) => row.venue?.id ?? "",
+        editOptions: [{ value: "", label: "None" }, ...(venueOptions.data ?? []).map((row) => ({ value: row.id, label: row.name }))],
+        onEdit: (row, value) => edit(row, { venueId: value || null }) },
     },
     {
       id: "guests",
       header: "Guests",
-      accessorFn: (event) => event.guestCount ?? "—",
+      accessorFn: (event) => event.guestCount ?? "",
+      meta: { edit: "number", canEdit: () => can("events.write"), onEdit: (row, value) => edit(row, { guestCount: value ? Number(value) : null }) },
     },
     {
       id: "status",
@@ -119,7 +152,7 @@ export function EventTable({
     },
   ];
   return (
-    <DataTable copyKey="events.event-table"
+    <DataTable copyKey="events.event-table" openColumn
       data={events}
       columns={columns}
       onRow={(event) => navigate(`/events/${event.id}`)}
@@ -228,6 +261,7 @@ export function EventList() {
             selection={{ rowId: (row) => row.id, ...deletable }}
             exportName="events"
             exportAll={events.loadAll}
+            onSaved={() => events.reload()}
           />
           <LoadMore list={events} label={<T id="events.event-list.load-more-events">Load more events</T>} />
         </Block>

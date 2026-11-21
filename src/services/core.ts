@@ -240,6 +240,8 @@ export const inventoryApi = {
       kind?: ItemKind;
       subtype?: string;
       category?: string;
+      categoryId?: string;
+      typeId?: string;
       sectionId?: string;
       vendor?: string;
       belowPar?: boolean;
@@ -255,6 +257,8 @@ export const inventoryApi = {
     request(itemSchema, "/api/inventory/items", "POST", input),
   update: (id: string, input: ItemInput & Version) =>
     request(itemSchema, at("inventory/items", id), "PUT", input),
+  inline: (id: string, field: string, value: string, updatedAt: string) =>
+    request(itemSchema, at("inventory/items", id, "inline"), "PATCH", { field, value, updatedAt }),
   setArchived: (id: string, archived: boolean) =>
     request(
       itemSchema,

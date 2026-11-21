@@ -1,5 +1,5 @@
 import { Dropdown } from "../ui/Dropdown";
-import { lazy, Suspense, useState, useRef, type ReactNode } from "react";
+import { lazy, Suspense, useState, useRef, useEffect, type ReactNode } from "react";
 
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -54,7 +54,76 @@ declare module "@tanstack/react-table" {
     exportable?: boolean;
     // A saved column width in pixels (FLOW-254).
     width?: number;
+    // FLOW-261: only explicitly declared, persisted fields can be edited.
+    edit?: "text" | "number" | "date" | "time" | "select" | "none";
+    editOptions?: { value: string; label: string }[] | ((row: TData) => { value: string; label: string }[]);
+    editValue?: (row: TData) => string;
+    editCreate?: (row: TData, name: string) => Promise<string | void>;
+    editMultiple?: boolean;
+    canEdit?: (row: TData) => boolean;
+    onEdit?: (row: TData, value: string) => Promise<void>;
   }
+}
+
+function EditableCell<Row>({
+  value, row, edit, options, save, create, multiple,
+}: {
+  value: unknown;
+  row: Row;
+  edit: "text" | "number" | "date" | "time" | "select";
+  options?: { value: string; label: string }[];
+  save: (row: Row, value: string) => Promise<void>;
+  create?: (row: Row, name: string) => Promise<string | void>;
+  multiple?: boolean;
+}) {
+  const shown = value == null ? "" : String(value);
+  const [display, setDisplay] = useState(shown);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(shown);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const cancelled = useRef(false);
+  useEffect(() => { setDisplay(shown); setDraft(shown); }, [shown]);
+  const commit = async (next = draft) => {
+    if (cancelled.current || busy) return;
+    setEditing(false);
+    if (next === display) return;
+    setBusy(true);
+    setError("");
+    setDisplay(next);
+    try { await save(row, next); }
+    catch (cause) { setDisplay(shown); setDraft(shown); setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  };
+  if (!editing) return <>
+    <button className="table-edit-trigger" type="button" disabled={busy} onClick={() => { cancelled.current = false; setEditing(true); }}>
+      {(edit === "select" ? multiple
+        ? display.split(",").filter(Boolean).map((part) => options?.find((option) => option.value === part)?.label ?? part).join(", ")
+        : options?.find((option) => option.value === display)?.label : display) || "—"}
+    </button>
+    {error && <span className="table-edit-error" role="alert">{error}</span>}
+  </>;
+  if (edit === "select" && multiple) return <div className="table-edit-multiple">
+    <Dropdown multiple autoFocus openOnMount value={draft ? draft.split(",") : []} variant="field"
+      options={options ?? []} onValueChange={(next) => setDraft(next.join(","))} />
+    <button type="button" onClick={() => void commit()}><T id="shared.data-table.save">Save</T></button>
+    <button type="button" onClick={() => { setEditing(false); setDraft(shown); }}><T id="shared.data-table.cancel">Cancel</T></button>
+  </div>;
+  if (edit === "select") return <Dropdown
+    autoFocus openOnMount value={draft} variant="field" options={options ?? []}
+    creatable={create ? { onCreate: (name) => create(row, name) } : undefined}
+    onValueChange={(next) => { setDraft(next); void commit(next); }}
+    onOpenChange={(open) => { if (!open) setEditing(false); }}
+  />;
+  return <input
+    className="table-edit-input" autoFocus type={edit} value={draft}
+    onChange={(event) => setDraft(event.target.value)}
+    onBlur={() => void commit()}
+    onKeyDown={(event) => {
+      if (event.key === "Escape") { cancelled.current = true; setEditing(false); setDraft(shown); }
+      if (event.key === "Enter") { event.currentTarget.blur(); }
+    }}
+  />;
 }
 // The header row and every filtered row in the current sort order, not just the
 // page on screen.
@@ -255,6 +324,7 @@ type DataTableProps<Row> = {
   // table selects rows; Delete shows only when onDelete is given (the caller
   // passes it only to users who can edit the records).
   selection?: TableSelection<Row>;
+  openColumn?: boolean;
 };
 export function DataTable<Row>(props: DataTableProps<Row>) {
   const layout = usePageLayoutContext();
@@ -274,6 +344,7 @@ function DataTableView<Row>({
   data,
   columns,
   onRow,
+  openColumn,
   selection,
   label = <T id="shared.data-table.records">records</T>,
   exportName,
@@ -286,9 +357,14 @@ function DataTableView<Row>({
   // Rows fetched so far while an export runs; null when none is running.
   const [exporting, setExporting] = useState<number | null>(null);
   const [exportError, setExportError] = useState("");
+  const renderedColumns: ColumnDef<Row, unknown>[] = (openColumn && onRow ? [
+    { id: "open", header: "Open", enableSorting: false, meta: { exportable: false },
+      cell: ({ row }) => <button className="table-link" onClick={() => onRow(row.original)}><T id="shared.data-table.open">Open</T></button> },
+    ...columns,
+  ] : columns).map((column) => ({ ...column, meta: { ...column.meta, edit: column.meta?.edit ?? "none" } }));
   const table = useReactTable({
     data,
-    columns,
+    columns: renderedColumns,
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -375,7 +451,19 @@ function DataTableView<Row>({
               >
                 {row.getVisibleCells().map((cell, i) => (
                   <td key={cell.id}>
-                    {i === 0 && onRow ? (
+                    {cell.column.columnDef.meta?.edit && cell.column.columnDef.meta.edit !== "none" && cell.column.columnDef.meta.onEdit &&
+                      (cell.column.columnDef.meta.canEdit?.(row.original) ?? true) ? (
+                      <EditableCell
+                        value={cell.column.columnDef.meta.editValue?.(row.original) ?? cell.getValue()} row={row.original}
+                        edit={cell.column.columnDef.meta.edit}
+                        options={typeof cell.column.columnDef.meta.editOptions === "function"
+                          ? cell.column.columnDef.meta.editOptions(row.original)
+                          : cell.column.columnDef.meta.editOptions}
+                        save={cell.column.columnDef.meta.onEdit}
+                        create={cell.column.columnDef.meta.editCreate}
+                        multiple={cell.column.columnDef.meta.editMultiple}
+                      />
+                    ) : i === 0 && onRow && !openColumn ? (
                       <button
                         className="table-link"
                         onClick={() => onRow(row.original)}
