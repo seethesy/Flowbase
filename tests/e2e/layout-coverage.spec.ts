@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { test, expect, mockBrowserAuth, type Page } from "./auth-fixture";
 import { seedUsers } from "../../worker/db/seed";
 import { choose } from "./dropdown";
@@ -10,6 +11,9 @@ import { seedLeads, seedRecords } from "./database";
 const salesperson = seedUsers.find((user) => user.role === "salesperson")!;
 const partTime = seedUsers.find((user) => user.role === "part_time_staff")!;
 
+const csvHeader = async (download: import("@playwright/test").Download) =>
+  (await readFile((await download.path())!, "utf8")).split("
+")[0];
 const edit = (page: Page) => page.getByRole("button", { name: "Edit screen text" }).click();
 const save = async (page: Page) => {
   await page.getByRole("button", { name: "Save", exact: true }).click();
