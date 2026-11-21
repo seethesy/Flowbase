@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { eq } from "drizzle-orm";
 import { test, expect, mockBrowserAuth } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
@@ -37,14 +38,14 @@ test("a truck status update appears on another open board (AC1)", async ({ page,
     await watcher.clock.install();
     await watcher.goto(board);
     const watched = watcher.getByLabel(`${truck.name} status`);
-    await expect(watched).toHaveValue("available");
+    await expect(watched).toHaveAttribute("data-value", "available");
 
     await page.goto(board);
-    await page.getByLabel(`${truck.name} status`).selectOption("en_route");
-    await expect(page.getByLabel(`${truck.name} status`)).toHaveValue("en_route");
+    await choose(page.getByLabel(`${truck.name} status`), "en_route");
+    await expect(page.getByLabel(`${truck.name} status`)).toHaveAttribute("data-value", "en_route");
 
     await watcher.clock.runFor(31_000);
-    await expect(watched).toHaveValue("en_route");
+    await expect(watched).toHaveAttribute("data-value", "en_route");
   } finally {
     await other.close();
   }
@@ -73,8 +74,8 @@ test("marking food left kitchen records the time against the timeline (AC2)", as
 test("the update log shows on the event hub (FLOW-156 AC2)", async ({ page }) => {
   const { truck } = await seedBoard();
   await page.goto(board);
-  await page.getByLabel(`${truck.name} status`).selectOption("loading");
-  await expect(page.getByLabel(`${truck.name} status`)).toHaveValue("loading");
+  await choose(page.getByLabel(`${truck.name} status`), "loading");
+  await expect(page.getByLabel(`${truck.name} status`)).toHaveAttribute("data-value", "loading");
   await page.goto(`/#/events/${fallGala().id}`);
   await page.getByRole("heading", { name: "Day-of log" }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("list", { name: "Day-of log" })).toContainText(`${truck.name}: status: Available → Loading`);

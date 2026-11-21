@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import type { z } from "zod";
 import type { includedItemSchema } from "../../shared/inventory";
 import { allPages, inventoryApi } from "../services/core";
@@ -32,7 +33,7 @@ export function CatalogIncludes({
       {value.map((line, index) => (
         <div className="form-grid" key={index}>
           <FormField label={<T id="inventory-includes.catalog-includes.component" values={{ value: index + 1 }}>{"Component {value}"}</T>}>
-            <select
+            <Dropdown
               value={line.itemId}
               onChange={(e) => change(index, { itemId: e.target.value })}
             >
@@ -48,7 +49,7 @@ export function CatalogIncludes({
                   {item.name}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </FormField>
           <FormField label={<T id="inventory-includes.catalog-includes.component-quantity" values={{ value: index + 1 }}>{"Component {value} quantity"}</T>}>
             <input
@@ -63,7 +64,7 @@ export function CatalogIncludes({
           </FormField>
           {service && (
             <FormField label={<T id="inventory-includes.catalog-includes.component-basis" values={{ value: index + 1 }}>{"Component {value} basis"}</T>}>
-              <select
+              <Dropdown
                 value={line.basis}
                 onChange={(e) =>
                   change(index, { basis: e.target.value as Line["basis"] })
@@ -71,7 +72,7 @@ export function CatalogIncludes({
               >
                 <option value="per_event">per event</option>
                 <option value="per_guest">per guest</option>
-              </select>
+              </Dropdown>
             </FormField>
           )}
           <Button

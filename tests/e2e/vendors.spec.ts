@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 
 // Vendor and distributor directory (FLOW-84): create a vendor, then find it from
@@ -12,9 +13,8 @@ test("creates a vendor and finds it in the global search", async ({ page }) => {
   await dialog.getByLabel("Name *", { exact: true }).fill("Imperio");
   // A select's accessible name includes its selected option ("Type Food
   // distributor"), so match the start.
-  await dialog
-    .getByRole("combobox", { name: /^Type\b/ })
-    .selectOption({ label: "Beverage distributor" });
+  await choose(dialog
+    .getByRole("combobox", { name: /^Type\b/ }), { label: "Beverage distributor" });
   await dialog
     .getByLabel("Vendor portal URL", { exact: true })
     .fill("https://portal.imperio.example");

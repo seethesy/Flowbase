@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { seedUsers } from "../../worker/db/seed";
 import { lead } from "./fixtures";
@@ -14,14 +15,14 @@ test("pipeline inbox filters by source, owner and status", async ({ page }) => {
   await page.goto("/#/leads");
   await expect(leadRow(page, "Maya Ortiz")).toBeVisible();
   await expect(leadRow(page, "Noah Kim")).toBeVisible();
-  await page.getByLabel("Sources", { exact: true }).selectOption("Thumbtack");
+  await choose(page.getByLabel("Sources", { exact: true }), "Thumbtack");
   await expect(leadRow(page, "Noah Kim")).toBeVisible();
   await expect(leadRow(page, "Maya Ortiz")).toHaveCount(0);
-  await page.getByLabel("Sources", { exact: true }).selectOption("");
-  await page.getByLabel("Owners", { exact: true }).selectOption("unassigned");
+  await choose(page.getByLabel("Sources", { exact: true }), "");
+  await choose(page.getByLabel("Owners", { exact: true }), "unassigned");
   await expect(leadRow(page, "Priya Shah")).toHaveCount(0);
-  await page.getByLabel("Owners", { exact: true }).selectOption("");
-  await page.getByLabel("Statuses", { exact: true }).selectOption("Pitching");
+  await choose(page.getByLabel("Owners", { exact: true }), "");
+  await choose(page.getByLabel("Statuses", { exact: true }), "Pitching");
   await expect(leadRow(page, "Priya Shah")).toBeVisible();
   await expect(leadRow(page, "Maya Ortiz")).toHaveCount(0);
 });
@@ -29,13 +30,13 @@ test("pipeline inbox filters by source, owner and status", async ({ page }) => {
 test("bulk assigns selected unassigned leads", async ({ page }) => {
   await seedLeads([maya(), noah(), priya()]);
   await page.goto("/#/leads");
-  await page.getByLabel("Owners", { exact: true }).selectOption("unassigned");
+  await choose(page.getByLabel("Owners", { exact: true }), "unassigned");
   await page.getByLabel("Select Maya Ortiz").check();
   await page.getByLabel("Select Noah Kim").check();
   await expect(page.getByText("2 selected")).toBeVisible();
   // Owners are active sales users (FLOW-250).
   const owner = seedUsers.find((user) => user.role === "salesperson")!;
-  await page.getByLabel("Assign selected to").selectOption(owner.id);
+  await choose(page.getByLabel("Assign selected to"), owner.id);
   await page.getByRole("button", { name: "Assign selected" }).click();
   await expect(leadRow(page, "Maya Ortiz")).toHaveCount(0);
   await expect(leadRow(page, "Noah Kim")).toHaveCount(0);
@@ -51,11 +52,11 @@ test("edits lead details and requires a lost reason", async ({ page }) => {
   await page.getByLabel("Phone").first().fill("2025550199");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("2025550199")).toBeVisible();
-  await page.getByRole("button", { name: "Lead status" }).click();
+  await page.getByRole("combobox", { name: "Lead status" }).click();
   await page.getByRole("option", { name: "Pitching" }).click();
   await expect(page.getByText("Pitching", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept("Booked another caterer"));
-  await page.getByRole("button", { name: "Lead status" }).click();
+  await page.getByRole("combobox", { name: "Lead status" }).click();
   await page.getByRole("option", { name: "Lost" }).click();
   await expect(page.getByText("Booked another caterer")).toBeVisible();
 });
@@ -64,7 +65,7 @@ test("Closing requires a start time when no event exists", async ({ page }) => {
   const target = lead({ name: "Maya Ortiz", status: "p_creation", eventType: "Wedding" });
   await seedLeads([target]);
   await page.goto(`/#/leads/${target.id}`);
-  await page.getByRole("button", { name: "Lead status" }).click();
+  await page.getByRole("combobox", { name: "Lead status" }).click();
   await page.getByRole("option", { name: "Closing" }).click();
   const dialog = page.getByRole("dialog", { name: "Move to Closing" });
   await dialog.getByRole("button", { name: "Confirm Closing" }).click();

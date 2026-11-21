@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/ui/status-pill";
@@ -42,24 +43,24 @@ export function SalesTracker() {
     <div className="sales-actions"><Link to="/sales/reports"><T id="sales.sales-tracker.sales-reports">Sales reports</T></Link><Button onClick={() => download("sales-tracker.csv", salesCsv(rows))}><T id="sales.sales-tracker.export-csv">Export CSV</T></Button></div>
     <div className="sales-filters" aria-label="Sales tracker filters">
       <label><T id="sales.sales-tracker.search">{"Search "}</T><input value={filter.search} onChange={(event) => patch({ search: event.target.value })} /></label>
-      <label><T id="sales.sales-tracker.type">{"Type "}</T><select value={filter.kind} onChange={(event) => patch({ kind: event.target.value as SalesFilter["kind"] })}>
+      <label><T id="sales.sales-tracker.type">{"Type "}</T><Dropdown value={filter.kind} onChange={(event) => patch({ kind: event.target.value as SalesFilter["kind"] })}>
         {["all", "lead", "client", "event", "proposal"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
-      </select></label>
-      <label><T id="sales.sales-tracker.stage">{"Stage "}</T><select value={filter.stage} onChange={(event) => patch({ stage: event.target.value })}>
+      </Dropdown></label>
+      <label><T id="sales.sales-tracker.stage">{"Stage "}</T><Dropdown value={filter.stage} onChange={(event) => patch({ stage: event.target.value })}>
         <option value="">All stages</option>{[...new Set(data.data.rows.map((row) => row.stage))].sort().map((stage) => <option key={stage} value={stage}>{stageLabel(stage)}</option>)}
-      </select></label>
-      <label><T id="sales.sales-tracker.salesperson">{"Salesperson "}</T><select value={filter.owner ?? ""} onChange={(event) => patch({ owner: event.target.value || undefined })}>
+      </Dropdown></label>
+      <label><T id="sales.sales-tracker.salesperson">{"Salesperson "}</T><Dropdown value={filter.owner ?? ""} onChange={(event) => patch({ owner: event.target.value || undefined })}>
         <option value="">All salespeople</option>{owners.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-      </select></label>
-      <label><T id="sales.sales-tracker.sort">{"Sort "}</T><select value={filter.sort} onChange={(event) => patch({ sort: event.target.value as SalesFilter["sort"] })}>
+      </Dropdown></label>
+      <label><T id="sales.sales-tracker.sort">{"Sort "}</T><Dropdown value={filter.sort} onChange={(event) => patch({ sort: event.target.value as SalesFilter["sort"] })}>
         <option value="activity">Recent activity</option><option value="eventDate">Event date</option><option value="client">Client</option><option value="total">Total</option>
-      </select></label>
+      </Dropdown></label>
       <label><RoundCheck checked={filter.history} onChange={(event) => patch({ history: event.target.checked })} /><T id="sales.sales-tracker.include-finished-and-lost-events">{" Include finished and lost events"}</T></label>
     </div>
     <div className="sales-actions">
-      <label><T id="sales.sales-tracker.saved-views">{"Saved views "}</T><select aria-label="Saved views" value="" onChange={(event) => { const view = views.data?.find((item) => item.id === event.target.value); if (view) setFilter(view.filter); }}>
+      <label><T id="sales.sales-tracker.saved-views">{"Saved views "}</T><Dropdown aria-label="Saved views" value="" onChange={(event) => { const view = views.data?.find((item) => item.id === event.target.value); if (view) setFilter(view.filter); }}>
         <option value="">Choose a view</option>{views.data?.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}
-      </select></label>
+      </Dropdown></label>
       <input aria-label="New view name" placeholder={viewNamePlaceholder} data-copy-id="sales.sales-tracker.view-name.placeholder" maxLength={80} value={viewName} onChange={(event) => setViewName(event.target.value)} />
       <Button disabled={!viewName.trim()} onClick={async () => { try { await salesApi.saveView(viewName.trim(), filter); setViewName(""); views.reload(); } catch (cause) { setError((cause as Error).message); } }}><T id="sales.sales-tracker.save-view">Save view</T></Button>
       {views.data?.map((view) => <Button key={view.id} variant="outline" onClick={async () => { try { await salesApi.deleteView(view.id); views.reload(); } catch (cause) { setError((cause as Error).message); } }}><T id="sales.sales-tracker.delete" values={{ name: view.name }}>{"Delete {name}"}</T></Button>)}

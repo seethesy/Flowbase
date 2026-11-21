@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "./auth-fixture";
 import { chairs, consumable, defaultSections, fallGala, juniper } from "./fixtures";
@@ -41,7 +42,7 @@ test("holds a decor kit and names the short part in its conflict", async ({ page
   await page.getByRole("heading", { name: "Equipment & stock" }).scrollIntoViewIfNeeded();
   const form = page.getByRole("form", { name: "Hold equipment" });
   await form.scrollIntoViewIfNeeded();
-  await form.getByLabel("Item").selectOption({ label: "Centerpiece Candle Set" });
+  await choose(form.getByLabel("Item"), { label: "Centerpiece Candle Set" });
   await form.getByLabel("Quantity").fill("10");
   await form.getByRole("button", { name: "Hold equipment" }).click();
 
@@ -49,7 +50,7 @@ test("holds a decor kit and names the short part in its conflict", async ({ page
   const card = page.getByRole("group", { name: "Glass hurricane conflict" });
   await expect(card).toContainText("Glass hurricane (in Centerpiece Candle Set) is 4 short (6 of 10");
   // A part follows its kit: the risk can be accepted here, the quantity changes on the kit.
-  await expect(card.getByLabel("Resolution").locator("option")).toHaveText(["Accepted the risk"]);
+  await expect.poll(() => optionTexts(card.getByLabel("Resolution"))).toEqual(["Accepted the risk"]);
   await expect(page.getByText("Conflict: 4 short", { exact: true })).toBeVisible();
 
   await page.reload();

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { usePermissions } from "../app/permissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -118,13 +119,13 @@ function UserList() {
           </label>
           <label>
             <T id="users.user-list.role">Role</T>
-            <select name="role" defaultValue="staff">
+            <Dropdown name="role" defaultValue="staff">
               {roleSchema.options.map((r) => (
                 <option key={r} value={r}>
                   {roleLabel(r)}
                 </option>
               ))}
-            </select>
+            </Dropdown>
           </label>
           <label>
             <T id="users.user-list.mobile-number">Mobile number</T>

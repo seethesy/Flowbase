@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { databaseTest as test, expect, mockBrowserAuth } from "./auth-fixture";
 import { browserDb, seedInventory } from "./database";
 import { consumable } from "./fixtures";
@@ -29,11 +30,11 @@ test("browses by category, ingredient, allergen and dietary tag and prints a kit
   await page.getByPlaceholder("Search recipes…").fill("chicken");
   await expect(page.getByRole("button", { name: "Tuscan Chicken", exact: true })).toBeVisible();
   await page.getByPlaceholder("Search recipes…").fill("breast");
-  await page.getByLabel("Category", { exact: true }).selectOption("Mains");
-  await page.getByLabel("Allergen", { exact: true }).selectOption("Milk");
-  await page.getByLabel("Dietary tag", { exact: true }).selectOption("Vegan");
+  await choose(page.getByLabel("Category", { exact: true }), "Mains");
+  await choose(page.getByLabel("Allergen", { exact: true }), "Milk");
+  await choose(page.getByLabel("Dietary tag", { exact: true }), "Vegan");
   await expect(page.getByText("0 recipes", { exact: true })).toBeVisible();
-  await page.getByLabel("Dietary tag", { exact: true }).selectOption("Gluten-free");
+  await choose(page.getByLabel("Dietary tag", { exact: true }), "Gluten-free");
   await page.getByRole("button", { name: "Tuscan Chicken", exact: true }).click();
   await page.getByRole("link", { name: "Kitchen card" }).click();
   await expect(page).toHaveURL(new RegExp(`/print/recipes/${dish.id}`));
@@ -85,7 +86,7 @@ test("a salesperson selects ten dishes and prints a branded client PDF or catego
     await testInfo.attach("client-recipe-book.pdf", { body: pdf, contentType: "application/pdf" });
   }
   await page.goto("/#/recipes/client");
-  await page.getByLabel("Category", { exact: true }).selectOption("Sides");
+  await choose(page.getByLabel("Category", { exact: true }), "Sides");
   await expect(page.getByRole("checkbox")).toHaveCount(1);
   await page.getByRole("link", { name: "Print category" }).click();
   await expect(page.locator(".print-document article")).toHaveCount(1);

@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed, usePermissions } from "../app/permissions";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -143,7 +144,7 @@ export function RecipeList() {
           onChange={setSearch}
           placeholder={searchRecipesPlaceholder} copyId="recipes.recipe-list.search-recipes.placeholder"
         />
-        <select
+        <Dropdown
           aria-label="Category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -154,15 +155,15 @@ export function RecipeList() {
               {markCategory(option)}
             </option>
           ))}
-        </select>
-        <select aria-label="Allergen" value={allergen} onChange={(e) => setAllergen(e.target.value)}>
+        </Dropdown>
+        <Dropdown aria-label="Allergen" value={allergen} onChange={(e) => setAllergen(e.target.value)}>
           <option value="">All allergens</option>
           {allergenLabels.map((tag) => <option key={tag} value={tag}>{markAllergen(tag)}</option>)}
-        </select>
-        <select aria-label="Dietary tag" value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>
+        </Dropdown>
+        <Dropdown aria-label="Dietary tag" value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>
           <option value="">All dietary tags</option>
           {dietaryTagLabels.map((tag) => <option key={tag} value={tag}>{markDietaryTag(tag)}</option>)}
-        </select>
+        </Dropdown>
         <label className="checkbox-filter">
           <RoundCheck
             checked={archived}
@@ -422,7 +423,7 @@ export function RecipeForm({
           />
         </FormField>
         <FormField label={<T id="recipes.recipe-form.category">Category</T>}>
-          <select
+          <Dropdown
             aria-label="Category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -432,7 +433,7 @@ export function RecipeForm({
                 {option.archived ? `${option.label} (archived)` : option.label}
               </option>
             ))}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="recipes.recipe-form.description">Description</T>}>
           <textarea
@@ -470,7 +471,7 @@ export function RecipeForm({
           >
             <div className="form-grid">
               <FormField label={<T id="recipes.recipe-form.ingredient" values={{ value: index + 1 }}>{"Ingredient {value}"}</T>}>
-                <select
+                <Dropdown
                   value={line.itemId}
                   onChange={(e) =>
                     pickIngredient(
@@ -485,7 +486,7 @@ export function RecipeForm({
                       {option.name}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               <FormField label={<T id="recipes.recipe-form.quantity">Quantity</T>} hint={<T id="recipes.recipe-form.empty-for-as-needed">Empty for “as needed”</T>}>
                 <input
@@ -499,7 +500,7 @@ export function RecipeForm({
                 />
               </FormField>
               <FormField label={<T id="recipes.recipe-form.unit">Unit</T>}>
-                <select
+                <Dropdown
                   value={line.unit}
                   onChange={(e) =>
                     update(line.key, { unit: e.target.value as Unit | "" })
@@ -511,7 +512,7 @@ export function RecipeForm({
                       {unitLabel(unit)}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               <FormField label={<T id="recipes.recipe-form.prep-note">Prep note</T>}>
                 <input

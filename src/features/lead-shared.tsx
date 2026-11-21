@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { type Lead, type LeadStatus } from "../../shared/leads";
 import { StatusPill } from "../components/ui/status-pill";
@@ -77,10 +78,10 @@ export function AssignForm({
       )}
       <div className="filter-bar">
         <FormField label={label}>
-          <select value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)}>
+          <Dropdown value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)}>
             <option value="">Choose an owner</option>
             {owners.data?.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
-          </select>
+          </Dropdown>
         </FormField>
         <Button type="submit" variant="outline" disabled={saving}>
           {button}

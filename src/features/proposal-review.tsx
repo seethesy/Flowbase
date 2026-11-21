@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useEffect, useRef, useState } from "react";
 import type { ProposalVersion } from "../../shared/proposals";
 import { proposalLineKinds, suggestCatalog, type ProposalLine, type ProposalMapping } from "../../shared/proposal-mapping";
@@ -52,10 +53,10 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
   const patchLine = (index: number, patch: Partial<ProposalLine>) =>
     setDraft({ ...draft, lines: draft.lines.map((line, at) => at === index ? { ...line, ...patch } : line) });
   const sourceSelect = (value: string | null, onChange: (next: string | null) => void) => (
-    <span className="proposal-source-picker"><select aria-label="Source paragraph" value={value ?? ""} disabled={!canWrite} onChange={(e) => onChange(e.target.value || null)}>
+    <span className="proposal-source-picker"><Dropdown aria-label="Source paragraph" value={value ?? ""} disabled={!canWrite} onChange={(e) => onChange(e.target.value || null)}>
       <option value="">Manual entry</option>
       {blocks.map((block) => <option key={block.id} value={block.id}>{block.id}: {block.text.slice(0, 70)}</option>)}
-    </select>{value && <button type="button" onClick={() => document.getElementById(value)?.scrollIntoView({ behavior: "smooth" })}><T id="proposal-review.source-select.view-source">View source</T></button>}</span>
+    </Dropdown>{value && <button type="button" onClick={() => document.getElementById(value)?.scrollIntoView({ behavior: "smooth" })}><T id="proposal-review.source-select.view-source">View source</T></button>}</span>
   );
   const pointed = new Set([
     ...Object.values(draft.fields).map((field) => field.sourceBlockId),
@@ -103,17 +104,17 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
           );
           const suggested = suggestCatalog(line.name, choices);
           return <div className="proposal-mapping-line" key={line.id}>
-            <select aria-label="Line kind" value={line.kind} disabled={!canWrite} onChange={(e) => patchLine(index, { kind: e.target.value as ProposalLine["kind"], catalogId: null })}>{proposalLineKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select>
+            <Dropdown aria-label="Line kind" value={line.kind} disabled={!canWrite} onChange={(e) => patchLine(index, { kind: e.target.value as ProposalLine["kind"], catalogId: null })}>{proposalLineKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</Dropdown>
             <input aria-label="Section" placeholder={sectionForExampleMainsPlaceholder} data-copy-id="proposal-review.proposal-review.section-for-example-mains.placeholder" value={line.section} disabled={!canWrite} onChange={(e) => patchLine(index, { section: e.target.value })} />
             <input aria-label="Line name" placeholder={itemNamePlaceholder} data-copy-id="proposal-review.proposal-review.item-name.placeholder" value={line.name} disabled={!canWrite} onChange={(e) => patchLine(index, { name: e.target.value })} />
             <input aria-label="Notes" placeholder={notesPlaceholder} data-copy-id="proposal-review.proposal-review.notes.placeholder" value={line.notes} disabled={!canWrite} onChange={(e) => patchLine(index, { notes: e.target.value })} />
             <input aria-label="Planned quantity" type="number" min="0" value={line.quantity ?? ""} disabled={!canWrite} onChange={(e) => patchLine(index, { quantity: e.target.value ? Number(e.target.value) : null })} />
             {sourceSelect(line.sourceBlockId, (sourceBlockId) => patchLine(index, { sourceBlockId }))}
-            <select aria-label={`Catalog match for ${line.name || "new line"}`} value={line.catalogId ?? ""} disabled={!canWrite || line.notTracked} onChange={(e) => patchLine(index, { catalogId: e.target.value || null })}>
+            <Dropdown aria-label={`Catalog match for ${line.name || "new line"}`} value={line.catalogId ?? ""} disabled={!canWrite || line.notTracked} onChange={(e) => patchLine(index, { catalogId: e.target.value || null })}>
               <option value="">Choose a match…</option>
               {suggested.map((item) => <option key={item.id} value={item.id}>Suggested: {item.name}</option>)}
               {choices.filter((item) => !suggested.some((match) => match.id === item.id)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            </Dropdown>
             <label><RoundCheck checked={line.notTracked} disabled={!canWrite} onChange={(e) => patchLine(index, { notTracked: e.target.checked, catalogId: null })} /><T id="proposal-review.proposal-review.not-tracked">{" Not tracked"}</T></label>
             {canWrite && <Button variant="outline" onClick={() => setDraft({ ...draft, lines: draft.lines.filter((_, at) => at !== index) })}><T id="proposal-review.proposal-review.remove-line">Remove line</T></Button>}
           </div>;

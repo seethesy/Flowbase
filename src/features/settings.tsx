@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -227,7 +228,7 @@ function ListSettings() {
       </p>
       <SaveMessages error={save.error} notice={save.notice} />
       <FormField label={<T id="settings.list-settings.list">List</T>}>
-        <select
+        <Dropdown
           value={key}
           onChange={(e) => {
             setKey(e.target.value as ListKey);
@@ -239,7 +240,7 @@ function ListSettings() {
               {listLabels[option]}
             </option>
           ))}
-        </select>
+        </Dropdown>
       </FormField>
       <ul className="settings-list" aria-label={listLabels[key]}>
         {active.map((value, index) => (
@@ -608,7 +609,7 @@ function DefaultSettings() {
                 value={row.quantity}
                 onChange={(e) => setRatio(index, "quantity", e.target.value)}
               />
-              <select
+              <Dropdown
                 aria-label={`Ratio ${index + 1} basis`}
                 value={row.basis}
                 onChange={(e) => setRatio(index, "basis", e.target.value)}
@@ -618,7 +619,7 @@ function DefaultSettings() {
                     {ratioBasisLabels[basis]}
                   </option>
                 ))}
-              </select>
+              </Dropdown>
               <Button
                 type="button"
                 variant="outline"

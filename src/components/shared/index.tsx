@@ -1,3 +1,4 @@
+import { Dropdown } from "../ui/Dropdown";
 import { useState, useRef, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -166,7 +167,8 @@ export function Select({
   label: string;
 }) {
   return (
-    <select
+    <Dropdown
+      variant="filter"
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -175,7 +177,7 @@ export function Select({
       {options.map((o) => (
         <option key={o}>{o}</option>
       ))}
-    </select>
+    </Dropdown>
   );
 }
 export function PageHeader({

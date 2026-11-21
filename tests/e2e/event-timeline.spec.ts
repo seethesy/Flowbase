@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { seedRecords } from "./database";
@@ -23,7 +24,7 @@ test("adds timeline entries on two days, shows them in order and edits one", asy
   ) => {
     await page.getByRole("button", { name: "Add entry" }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Kind").selectOption({ label: kind });
+    await choose(dialog.getByLabel("Kind"), { label: kind });
     await dialog.getByLabel("Date").fill(day);
     await dialog.getByLabel("Start time").fill(start);
     await dialog.getByLabel("End time").fill(end);
@@ -48,8 +49,8 @@ test("adds timeline entries on two days, shows them in order and edits one", asy
   await page.getByRole("button", { name: "Edit Guest arrival" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Activity").fill("Guest arrival and welcome drink");
-  await dialog.getByLabel("Who").selectOption({ label: "Role" });
-  await dialog.getByLabel("Role", { exact: true }).selectOption("Server");
+  await choose(dialog.getByLabel("Who"), { label: "Role" });
+  await choose(dialog.getByLabel("Role", { exact: true }), "Server");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
   await expect(days.nth(1)).toContainText("Guest arrival and welcome drink");

@@ -176,7 +176,7 @@ it("offers Change status only when the API allows it (FLOW-56)", async () => {
   expect(
     await screen.findByRole("button", { name: "Change status" }),
   ).toBeInTheDocument();
-  expect(screen.getByLabelText("New status")).not.toHaveValue("closed");
+  expect(screen.getByLabelText("New status")).not.toHaveAttribute("data-value", "closed");
   expect(screen.getByRole("heading", { name: "Status history" })).toBeInTheDocument();
 });
 

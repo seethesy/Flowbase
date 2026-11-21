@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -145,22 +146,22 @@ function TemplateEditor({
           />
         </FormField>
         <FormField label={<T id="task-templates.template-editor.library-sop">Library SOP</T>} hint={<T id="task-templates.template-editor.opens-directly-from-each-task">Opens directly from each task created by this template.</T>}>
-          <select value={sopId} onChange={(e) => setSopId(e.target.value)}>
+          <Dropdown value={sopId} onChange={(e) => setSopId(e.target.value)}>
             <option value="">No library SOP</option>
             {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="task-templates.template-editor.service-offering">Service offering</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped">Automatically apply when a mapped proposal contains this offering.</T>}>
-          <select value={matchCatalogId} onChange={(e) => setMatchCatalogId(e.target.value)}>
+          <Dropdown value={matchCatalogId} onChange={(e) => setMatchCatalogId(e.target.value)}>
             <option value="">Any offering</option>
             {(services.data ?? []).map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="task-templates.template-editor.proposal-line-type">Proposal line type</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped-2">Automatically apply when a mapped proposal contains this line type.</T>}>
-          <select value={matchLineKind} onChange={(e) => setMatchLineKind(e.target.value)}>
+          <Dropdown value={matchLineKind} onChange={(e) => setMatchLineKind(e.target.value)}>
             <option value="">Any type</option>
             {["menu", "rental", "decor", "service", "supply"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
-          </select>
+          </Dropdown>
         </FormField>
         <FormField label={<T id="task-templates.template-editor.event-type">Event type</T>} hint={<T id="task-templates.template-editor.automatically-apply-to-events-of">Automatically apply to events of this type. Leave all three matches blank for a manual template.</T>}>
           <input maxLength={100} value={matchEventType} onChange={(e) => setMatchEventType(e.target.value)} />
@@ -177,7 +178,7 @@ function TemplateEditor({
                 />
               </FormField>
               <FormField label={<T id="task-templates.template-editor.type">Type</T>}>
-                <select
+                <Dropdown
                   value={item.type}
                   onChange={(e) => edit(index, { type: e.target.value as TaskType })}
                 >
@@ -186,17 +187,17 @@ function TemplateEditor({
                       {taskTypeLabels[option]}
                     </option>
                   ))}
-                </select>
+                </Dropdown>
               </FormField>
               <FormField label={<T id="task-templates.template-editor.when">When</T>}>
-                <select
+                <Dropdown
                   value={item.when}
                   onChange={(e) => edit(index, { when: e.target.value as Draft["when"] })}
                 >
                   <option value="before">Days before the event</option>
                   <option value="on">On the event day</option>
                   <option value="after">Days after the event</option>
-                </select>
+                </Dropdown>
               </FormField>
               {item.when !== "on" && (
                 <FormField label={<T id="task-templates.template-editor.days">Days</T>}>

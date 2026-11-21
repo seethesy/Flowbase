@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { databaseTest as test, expect } from "./auth-fixture";
 import { apiErrorSchema } from "../../shared/api";
 import { userSchema } from "../../shared/users";
@@ -127,7 +128,7 @@ test("Admin can invite staff, resend/revoke pending invites, and deactivate/reac
   });
   await page.goto("/#/settings/users");
   await page.getByLabel("Email", { exact: true }).fill(staff.email);
-  await page.locator('select[name="role"]').selectOption("part_time_staff");
+  await choose(page.getByRole("combobox", { name: "Role" }), "part_time_staff");
   await page.getByLabel("Mobile number").fill("2025550102");
   await page.getByRole("button", { name: "Send invite", exact: true }).click();
   await expect(

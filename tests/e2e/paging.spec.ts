@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { readFile } from "node:fs/promises";
 import { sql } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
@@ -30,11 +31,11 @@ test("a client beyond the first page is found by searching", async ({ page }) =>
   await page.getByRole("button", { name: "New Event", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const picker = dialog.getByLabel(/^Client \*/);
-  await expect(picker.locator("option", { hasText: "Zinnia Hall" })).toHaveCount(0);
+  await expect.poll(() => optionTexts(picker)).not.toContain("Zinnia Hall");
   await dialog.getByLabel("Find client", { exact: true }).fill("Zinnia");
-  await expect(picker.locator("option", { hasText: "Zinnia Hall" })).toHaveCount(1);
-  await picker.selectOption({ label: "Zinnia Hall" });
-  await expect(picker).not.toHaveValue("");
+  await expect.poll(() => optionTexts(picker)).toContain("Zinnia Hall");
+  await choose(picker, { label: "Zinnia Hall" });
+  await expect(picker).not.toHaveAttribute("data-value", "");
 });
 
 test("the clients list loads further pages on request", async ({ page }) => {

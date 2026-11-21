@@ -1,3 +1,4 @@
+import { choose, optionTexts } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { seedRecords } from "./database";
@@ -27,7 +28,7 @@ test("builds a multi-day roster with open slots, a double-booking warning and Pr
   const addShift = async (day: string, start: string, end: string) => {
     await page.getByRole("button", { name: "Add shift" }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Day").selectOption({ label: day });
+    await choose(dialog.getByLabel("Day"), { label: day });
     await dialog.getByLabel("Start time").fill(start);
     await dialog.getByLabel("End time").fill(end);
     await dialog.getByRole("button", { name: "Save shift" }).click();
@@ -47,21 +48,21 @@ test("builds a multi-day roster with open slots, a double-booking warning and Pr
     name: /^Event day · Sat, Nov 14, 2026/,
   });
 
-  await eventDay.getByLabel("Position").selectOption("Server");
+  await choose(eventDay.getByLabel("Position"), "Server");
   await eventDay.getByLabel("How many").fill("5");
   await eventDay.getByRole("button", { name: "Add slots" }).click();
   await expect(eventDay.getByText("Server #5 – open")).toBeVisible();
   const setup = page.getByRole("region", { name: /^Setup day/ });
-  await setup.getByLabel("Position").selectOption("Sous Chef");
-  await expect(setup.getByLabel("Department")).toHaveValue("kitchen");
+  await choose(setup.getByLabel("Position"), "Sous Chef");
+  await expect(setup.getByLabel("Department")).toHaveAttribute("data-value", "kitchen");
   await setup.getByRole("button", { name: "Add slots" }).click();
   await expect(setup.getByText("Sous Chef – open")).toBeVisible();
 
-  await eventDay.getByLabel("Assign Server #1").selectOption({ label: server.name });
+  await choose(eventDay.getByLabel("Assign Server #1"), { label: server.name });
   await expect(
     eventDay.getByText(`Server #1 – ${server.name}`),
   ).toBeVisible();
-  await eventDay.getByLabel("Assign Server #2").selectOption({ label: server.name });
+  await choose(eventDay.getByLabel("Assign Server #2"), { label: server.name });
   await expect(
     page.getByRole("alert").filter({ hasText: `${server.name} is double-booked` }),
   ).toBeVisible();
@@ -73,14 +74,9 @@ test("builds a multi-day roster with open slots, a double-booking warning and Pr
   await page.getByRole("button", { name: "Production Leads" }).click();
   const leads = page.getByRole("dialog");
   // Part-time staff can't be the primary (AC4).
-  await expect(
-    leads.getByLabel("Primary Production Lead").locator("option", {
-      hasText: server.name,
-    }),
-  ).toHaveCount(0);
-  await leads
-    .getByLabel("Primary Production Lead")
-    .selectOption({ label: lead.name });
+  await expect.poll(() => optionTexts(leads.getByLabel("Primary Production Lead"))).not.toContain(server.name);
+  await choose(leads
+    .getByLabel("Primary Production Lead"), { label: lead.name });
   await leads.getByLabel(server.name, { exact: true }).check();
   await leads.getByRole("button", { name: "Save leads" }).click();
   await expect(leads).toBeHidden();

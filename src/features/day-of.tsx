@@ -1,3 +1,4 @@
+import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -185,7 +186,7 @@ function TruckRow({
       <span><T id="day-of.truck-row.driver">{"Driver: "}</T>{truck.driverName ?? <T id="day-of.truck-row.unassigned">Unassigned</T>}</span>
       {canUpdate ? (
         <>
-          <select
+          <Dropdown
             aria-label={`${truck.name} status`}
             value={truck.status}
             disabled={busy}
@@ -194,7 +195,7 @@ function TruckRow({
             {truckStatuses.map((status) => (
               <option key={status} value={status}>{dayOfTruckStatusLabels[status]}</option>
             ))}
-          </select>
+          </Dropdown>
           <input
             aria-label={`${truck.name} location`}
             value={location}
@@ -235,7 +236,7 @@ function StaffRow({
       <span>{member.position}</span>
       {canUpdate ? (
         <>
-          <select
+          <Dropdown
             aria-label={`${member.name} status`}
             value={member.status}
             disabled={busy}
@@ -244,7 +245,7 @@ function StaffRow({
             {dayOfStaffStatuses.map((status) => (
               <option key={status} value={status}>{dayOfStaffStatusLabels[status]}</option>
             ))}
-          </select>
+          </Dropdown>
           <input
             aria-label={`${member.name} location`}
             value={location}
