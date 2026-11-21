@@ -48,7 +48,7 @@ it.each([
   ["an oversized document", {
     ...photo(),
     variants: [
-      { name: "original", contentType: "application/pdf", size: 21 * 1024 * 1024 },
+      { name: "original", contentType: "application/pdf", size: 26 * 1024 * 1024 },
     ],
   }],
   ["an unknown record type", { ...photo(), recordType: "invoice" }],

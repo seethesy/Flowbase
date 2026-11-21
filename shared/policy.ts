@@ -332,6 +332,8 @@ export const attachmentWriteActions = {
   beo_area: "events.write",
 } as const satisfies Record<string, Action>;
 
+export const canChangeProtectedDocumentType = (actor: Actor) => actor.role === "admin";
+
 // The BEO as one reader may see it (FLOW-148). The single projection every BEO
 // surface uses: the calendar detail, print and offline copies must call this and
 // never re-derive what a role sees. Client and venue phones and emails are for

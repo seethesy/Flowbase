@@ -7,7 +7,7 @@ import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import { attachments, users, type AttachmentVariant } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
-import { can } from "../policy";
+import { can, canChangeProtectedDocumentType } from "../policy";
 import { requireParent } from "../attachments/records";
 import { fileStorage } from "../attachments/storage";
 
@@ -138,7 +138,7 @@ export async function changeDocument(db: Db, actor: Actor, env: Partial<Bindings
   const rows = await rowsFor(db, id);
   const current = rows[0];
   await authorize(db, actor, current, true);
-  if (current.protected && change.docType && actor.role !== "admin") throw forbidden();
+  if (current.protected && change.docType && !canChangeProtectedDocumentType(actor)) throw forbidden();
   const recordType = change.recordType ?? current.recordType;
   const recordId = change.recordId ?? current.recordId;
   if (recordType !== current.recordType || recordId !== current.recordId)
