@@ -23,6 +23,7 @@ import { roles } from "../../shared/access";
 import { userStatuses } from "../../shared/users";
 import { proposalStages } from "../../shared/proposals";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
+import type { LayoutDoc } from "../../shared/layout";
 import { proposalLineKinds } from "../../shared/proposal-mapping";
 import { listKeys, settingKeys } from "../../shared/settings";
 import type { z } from "zod";
@@ -2272,4 +2273,13 @@ export const uiCopy = pgTable("ui_copy", {
   ...baseColumns(),
   key: text("key").notNull().unique(),
   text: text("text").notNull(),
+}).enableRLS();
+
+// Admin live layout editing (FLOW-253): one saved layout per page, shared by
+// everyone. `layout` is a LayoutDoc (shared/layout.ts); no row means the code
+// default. Base columns keep who saved it and when.
+export const uiLayout = pgTable("ui_layout", {
+  ...baseColumns(),
+  pageKey: text("page_key").notNull().unique(),
+  layout: jsonb("layout").$type<LayoutDoc>().notNull(),
 }).enableRLS();

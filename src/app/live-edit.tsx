@@ -5,7 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Pencil, RotateCcw } from "lucide-react";
 import { placeholderError, placeholderNames } from "../../shared/copy";
 import { Button } from "../components/ui/button";
-import { copyDefaults, pendingProblems, useLiveEdit, type EditorTarget } from "./copy";
+import { copyDefaults, layoutStyleProblems, pendingCount, pendingProblems, useLiveEdit, type EditorTarget } from "./copy";
 
 // The admin's live text editing chrome (FLOW-240): the header pencil, Save and
 // Cancel, the inline editor and the leave-page guard. Its own wording is not
@@ -30,8 +30,8 @@ export function LiveEditControls() {
         <Pencil size={17} />
       </button>
     );
-  const count = Object.keys(live.pending).length;
-  const invalid = pendingProblems(live.pending).length > 0;
+  const count = pendingCount(live);
+  const invalid = pendingProblems(live.pending).length > 0 || layoutStyleProblems(live.layoutPending).length > 0;
   return (
     <div className="live-edit-controls" role="group" aria-label="Editing screen text">
       {error && (
@@ -194,7 +194,7 @@ function CopyEditor({ target }: { target: EditorTarget }) {
 // Leaving a page (or the app) with unsaved edits: Save, Discard or Stay.
 function LeaveGuard() {
   const live = useLiveEdit();
-  const dirty = Object.keys(live.pending).length > 0;
+  const dirty = pendingCount(live) > 0;
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
@@ -211,7 +211,7 @@ function LeaveGuard() {
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
   const blocked = blocker.state === "blocked";
-  const invalid = pendingProblems(live.pending).length > 0;
+  const invalid = pendingProblems(live.pending).length > 0 || layoutStyleProblems(live.layoutPending).length > 0;
   return (
     <Dialog.Root open={blocked} onOpenChange={(open) => !open && blocked && blocker.reset()}>
       <Dialog.Portal>
@@ -221,7 +221,7 @@ function LeaveGuard() {
           <p id="live-edit-leave-text">
             You have unsaved text changes on this page. Save them before you leave, or discard them.
           </p>
-          {invalid && <p className="live-copy-error">Fix the highlighted placeholder before saving.</p>}
+          {invalid && <p className="live-copy-error">Fix the highlighted placeholder or color before saving.</p>}
           {error && (
             <p role="alert" className="error-message">
               {error}

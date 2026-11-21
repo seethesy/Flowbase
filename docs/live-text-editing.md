@@ -98,3 +98,5 @@ Shared maps use the `labels` area (`labels.pipeline-status`, `labels.role`,
 `accessorFn` (sorting, filtering, export) and adds a `cell` that renders the
 `LabelT`. Strings chosen in plain code (`x ? "Supply" : "Ingredient"`) become one
 `<T>` per branch.
+
+Page layout editing (blocks, columns, field boxes, custom cards) uses the same session: see `docs/page-layouts.md`.

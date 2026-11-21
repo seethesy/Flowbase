@@ -57,6 +57,8 @@ import { EventHistorySection } from "./event-activity";
 import { ListSelect, ListSuggestions } from "./list-fields";
 import type { ListKey } from "../../shared/settings";
 import { RoundCheck } from "../components/ui/round-check";
+import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard, useShownFields } from "../app/field-card";
 import { T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 import { StatusPill, StatusSelect } from "../components/ui/status-pill";
@@ -211,7 +213,8 @@ export function EventList() {
       {events.loading && !events.data && !events.error ? (
         <LoadingSkeleton />
       ) : (
-        <>
+        <PageGrid pageKey="events.list">
+          <Block id="list" name="List" h={24}>
           <EventTable
             events={data}
             error={events.error}
@@ -219,7 +222,8 @@ export function EventList() {
             exportAll={events.loadAll}
           />
           <LoadMore list={events} label={<T id="events.event-list.load-more-events">Load more events</T>} />
-        </>
+        </Block>
+          </PageGrid>
       )}
       {create && (
         <EventForm
@@ -261,6 +265,8 @@ const countOf = (value: string) =>
 type EventFormProps = {
   event?: FlowEvent;
   clientId?: string;
+  // Which optional fields to show: the event page's visible field boxes (FLOW-255).
+  shows?: (field: string) => boolean;
   onClose: () => void;
   onSaved: (event: FlowEvent) => void;
 };
@@ -290,6 +296,7 @@ export function EventForm(props: EventFormProps) {
 function EventFormFields({
   event,
   clientId,
+  shows = () => true,
   onClose,
   onSaved,
   conflict,
@@ -494,26 +501,26 @@ function EventFormFields({
               ))}
             </Dropdown>
           </FormField>
-          <FormField label={<T id="events.event-form-fields.address">Address</T>} hint={<T id="events.event-form-fields.leave-empty-to-use-the">{"Leave empty to use the venue's."}</T>}>
+          {shows("address") && <FormField label={<T id="events.event-form-fields.address">Address</T>} hint={<T id="events.event-form-fields.leave-empty-to-use-the">{"Leave empty to use the venue's."}</T>}>
             <input
               value={draft.address}
               onChange={(e) => set("address", e.target.value)}
             />
-          </FormField>
-          {list("eventType", "Event type", "event_type")}
-          {list("serviceType", "Service type", "service_type")}
-          {list("foodServiceStyle", "Food service style", "food_service_style")}
-          <FormField label={<T id="events.event-form-fields.dress-code">Dress code</T>} hint={<T id="events.event-form-fields.pick-a-preset-or-type">Pick a preset or type your own.</T>}>
+          </FormField>}
+          {shows("eventType") && list("eventType", "Event type", "event_type")}
+          {shows("serviceType") && list("serviceType", "Service type", "service_type")}
+          {shows("foodServiceStyle") && list("foodServiceStyle", "Food service style", "food_service_style")}
+          {shows("dressCode") && <FormField label={<T id="events.event-form-fields.dress-code">Dress code</T>} hint={<T id="events.event-form-fields.pick-a-preset-or-type">Pick a preset or type your own.</T>}>
             <input
               list="dress-code-presets"
               value={draft.dressCode ?? ""}
               onChange={(e) => set("dressCode", e.target.value)}
             />
             <ListSuggestions id="dress-code-presets" list="dress_code" />
-          </FormField>
-          {text("arrivalTime", "Arrival time at venue", "time")}
-          {text("guestCount", "Guest count", "number")}
-          {text("servingsCount", "Servings count", "number")}
+          </FormField>}
+          {shows("arrivalTime") && text("arrivalTime", "Arrival time at venue", "time")}
+          {shows("guestCount") && text("guestCount", "Guest count", "number")}
+          {shows("servingsCount") && text("servingsCount", "Servings count", "number")}
         </div>
         <FormField
           label={<T id="events.event-form-fields.areas">Areas</T>}
@@ -525,20 +532,20 @@ function EventFormFields({
             onChange={(e) => setAreas(e.target.value)}
           />
         </FormField>
-        <FormField label={<T id="events.event-form-fields.transportation-notes">Transportation notes</T>}>
+        {shows("transportationNotes") && <FormField label={<T id="events.event-form-fields.transportation-notes">Transportation notes</T>}>
           <textarea
             rows={2}
             value={draft.transportationNotes}
             onChange={(e) => set("transportationNotes", e.target.value)}
           />
-        </FormField>
-        <FormField label={<T id="events.event-form-fields.internal-notes">Internal notes</T>}>
+        </FormField>}
+        {shows("internalNotes") && <FormField label={<T id="events.event-form-fields.internal-notes">Internal notes</T>}>
           <textarea
             rows={3}
             value={draft.internalNotes}
             onChange={(e) => set("internalNotes", e.target.value)}
           />
-        </FormField>
+        </FormField>}
         <div className="form-actions">
           <Button variant="outline" type="button" onClick={onClose}>
             <T id="events.event-form-fields.cancel">Cancel</T>
@@ -646,6 +653,29 @@ function EventStatusPanel({
 }
 
 // The event hub (FLOW-57): one page per event with a section for each part of it.
+// Hub sections as page blocks (FLOW-253), named for the edit chrome.
+const hubSectionNames: Record<HubSection, string> = {
+  details: "Details",
+  client: "Client",
+  proposal: "Proposals",
+  booking: "Booking",
+  payments: "Payments",
+  beo: "BEO",
+  planning: "Planning progress",
+  pull_list: "Pull list",
+  kitchen_menu: "Kitchen menu",
+  inventory: "Inventory",
+  tasks: "Tasks",
+  production: "Production",
+  timeline: "Timeline",
+  staff: "Staff",
+  trucks: "Trucks",
+  day_of: "Day of",
+  closeout: "Closeout",
+  files: "Files",
+  history: "History",
+};
+
 // The API decides which sections the user may see; a section whose module doesn't
 // exist yet is never listed.
 export function EventDetail() {
@@ -657,6 +687,10 @@ export function EventDetail() {
   );
   const [edit, setEdit] = useOpenFor(id);
   const [archive, setArchive] = useOpenFor(id);
+  // Edit shows the fields the page shows (FLOW-255). Notes live in their own
+  // block, so they stay in Edit.
+  const shownFacts = useShownFields("events.detail", "event-facts");
+  const shows = (field: string) => field === "transportationNotes" || field === "internalNotes" || shownFacts(field);
   const back = (
     <Link to="/events" className="back-link">
       <T id="events.event-detail.all-events">← All events</T>
@@ -692,6 +726,9 @@ export function EventDetail() {
     details: () => (
       <Fragment key="details">
         <div className="detail-grid">
+          <FieldCard cardKey="event-facts" source="events" row={e as unknown as Record<string, unknown>}
+            title={<T id="events.event-detail.event-details">Event details</T>}
+            fields={["title", "date", "client", "venue", "address", "eventType", "serviceType", "foodServiceStyle", "guestCount", "servingsCount", "dressCode", "arrivalTime", "status"]}>
           <Section title={<T id="events.event-detail.event-details">Event details</T>}>
             <div className="info-grid">
               {facts.map(([label, value]) => (
@@ -707,6 +744,7 @@ export function EventDetail() {
               </p>
             )}
           </Section>
+          </FieldCard>
           <Section title={<T id="events.event-detail.notes">Notes</T>}>
             <small><T id="events.event-detail.transportation">Transportation</T></small>
             <p>{e.transportationNotes || "—"}</p>
@@ -852,10 +890,17 @@ export function EventDetail() {
           </div>
         )}
       </div>
-      {sections.map((section) => render[section]?.())}
+      <PageGrid pageKey="events.detail" record={{ source: "events", id: e.id, row: e as unknown as Record<string, unknown> }}>
+        {sections.filter((section) => render[section]).map((section) => (
+          <Block key={section} id={section.replace(/_/g, "-")} name={hubSectionNames[section]} h={section === "details" ? 18 : 12}>
+            {render[section]!()}
+          </Block>
+        ))}
+      </PageGrid>
       {edit && (
         <EventForm
           event={e}
+          shows={shows}
           onClose={() => setEdit(false)}
           // The client may have changed, so reload the whole hub.
           onSaved={() => hub.reload()}

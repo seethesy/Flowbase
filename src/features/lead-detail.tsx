@@ -33,6 +33,8 @@ import {
   money,
 } from "./lead-shared";
 import { T, LabelT } from "../app/copy";
+import { Block, PageGrid } from "../app/page-grid";
+import { FieldCard, useShownFields } from "../app/field-card";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../components/rich-text/RichTextEditor";
 import { RichTextView } from "../components/rich-text/RichTextView";
@@ -58,6 +60,8 @@ export function LeadDetail() {
   const [eventDate, setEventDate] = useStateFor(`${id}-event-date`, "");
   const [eventTime, setEventTime] = useStateFor(`${id}-event-time`, "");
   const events = useResource(["lead-events", id], () => leadsApi.events(id));
+  // Edit shows the fields the page shows (FLOW-255).
+  const shows = useShownFields("leads.detail", "lead-facts");
   if (lead.error)
     return (
       <>
@@ -234,12 +238,14 @@ export function LeadDetail() {
             catch (cause) { setError((cause as Error).message); }
             finally { setBusy(false); }
           }}>
-            <FormField label="Event"><input value={draft.eventName} onChange={(event) => setDraft({ ...draft, eventName: event.target.value })} /></FormField>
-            <FormField label="Phone"><input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></FormField>
-            <FormField label="Email"><input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></FormField>
-            <FormField label="Time & Date"><input type="date" value={draft.eventDate} onChange={(event) => setDraft({ ...draft, eventDate: event.target.value })} /></FormField>
+            {shows("eventName") && <FormField label="Event"><input value={draft.eventName} onChange={(event) => setDraft({ ...draft, eventName: event.target.value })} /></FormField>}
+            {shows("phone") && <FormField label="Phone"><input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></FormField>}
+            {shows("email") && <FormField label="Email"><input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></FormField>}
+            {shows("eventDate") && <FormField label="Time & Date"><input type="date" value={draft.eventDate} onChange={(event) => setDraft({ ...draft, eventDate: event.target.value })} /></FormField>}
           </form>
         </Section>}
+        <PageGrid pageKey="leads.detail" record={{ source: "leads", id: l.id, row: l as unknown as Record<string, unknown> }}>
+        <Block id="linked-events" name="Linked events" w={6} h={8}>
         <Section title={<T id="lead-detail.events.title">Linked events</T>}>
           <ul>{events.data?.map((event) => <li key={event.id}><Link to={`/events/${event.id}`}>{event.title}</Link> · {eventDay(event.date)}</li>)}</ul>
           {newEvent && l.status !== "lost" && <form onSubmit={async (event) => {
@@ -253,6 +259,8 @@ export function LeadDetail() {
             <FormField label="Start time"><input required type="time" value={eventTime} onChange={(event) => setEventTime(event.target.value)} /></FormField>
             <Button disabled={busy}><T id="lead-detail.events.add">Add event</T></Button><Button variant="outline" type="button" onClick={() => setNewEvent(false)}><T id="lead-detail.events.cancel">Cancel</T></Button></form>}
         </Section>
+        </Block>
+        <Block id="notes" name="Notes" w={6} h={10}>
         <section id="notes"><Section title={<T id="lead-detail.notes.title">Notes</T>}>
           {editingNotes ? <form onSubmit={async (event) => {
             event.preventDefault(); setBusy(true); setError("");
@@ -265,6 +273,11 @@ export function LeadDetail() {
           </form> : <>{l.notes ? <RichTextView doc={l.notes} /> : <p><T id="lead-detail.notes.empty">No notes yet.</T></p>}
             <Button variant="outline" onClick={() => { setNotes(l.notes ?? emptyRichText); setEditingNotes(true); }}><T id="lead-detail.notes.edit">Edit notes</T></Button></>}
         </Section></section>
+        </Block>
+        <Block id="lead-facts" name="Contact and event" h={14}>
+        <FieldCard cardKey="lead-facts" source="leads" row={l as unknown as Record<string, unknown>}
+          title={<T id="lead-detail.lead-facts.title">Lead details</T>}
+          fields={["name", "email", "phone", "eventDate", "guestCount", "eventType", "location", "budgetCents", "source", "message"]}>
         <Section title={<T id="lead-detail.lead-detail.contact">Contact</T>}>
           <div className="info-grid">
             <div>
@@ -307,6 +320,9 @@ export function LeadDetail() {
           <h3 className="form-subheading"><T id="lead-detail.lead-detail.message">Message</T></h3>
           <p>{l.message || <T id="lead-detail.lead-detail.no-message">No message.</T>}</p>
         </Section>
+        </FieldCard>
+        </Block>
+        <Block id="source" name="Source" w={6} h={10}>
         <Section title={<T id="lead-detail.lead-detail.source">Source</T>}>
           <div className="info-grid">
             <div>
@@ -349,7 +365,9 @@ export function LeadDetail() {
             </>
           )}
         </Section>
+        </Block>
         {(l.sourceLinks?.length ?? 0) > 1 && (
+          <Block id="source-links" name="Source links" w={6} h={8}>
           <Section title={<T id="lead-detail.lead-detail.source-links">Source links</T>}>
             <ul aria-label="Source links">
               {l.sourceLinks!.map((link) => (
@@ -375,7 +393,9 @@ export function LeadDetail() {
               ))}
             </ul>
           </Section>
+          </Block>
         )}
+        <Block id="assignment" name="Assignment" w={6} h={8}>
         <Section title={<T id="lead-detail.lead-detail.assignment">Assignment</T>}>
           <p>
             <T id="lead-detail.lead-detail.salesperson">{"Salesperson: "}</T>
@@ -391,6 +411,8 @@ export function LeadDetail() {
             />
           </Allowed>
         </Section>
+        </Block>
+        </PageGrid>
       </div>
       <CommunicationLog target={{ leadId: l.id }} />
       {l.rawPayload !== null && l.rawPayload !== undefined && (

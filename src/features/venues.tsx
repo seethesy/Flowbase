@@ -1,5 +1,6 @@
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Archive, RotateCcw } from "lucide-react";
@@ -99,7 +100,8 @@ export function VenueList() {
       ) : venues.loading && !venues.data ? (
         <LoadingSkeleton />
       ) : (
-        <>
+        <PageGrid pageKey="venues.list">
+          <Block id="list" name="List" h={24}>
           <DataTable copyKey="venues.venue-list"
             data={data}
             columns={columns}
@@ -109,7 +111,8 @@ export function VenueList() {
             exportAll={venues.loadAll}
           />
           <LoadMore list={venues} label={<T id="venues.venue-list.load-more-venues">Load more venues</T>} />
-        </>
+        </Block>
+          </PageGrid>
       )}
       {create && (
         <VenueForm
