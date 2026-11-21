@@ -3,7 +3,6 @@ import { Dropdown } from "./Dropdown";
 import { pipelineLabels, pipelineOptions, type PipelineStatus } from "../../../shared/pipeline";
 import type { EventStatus } from "../../../shared/core-records";
 import { LabelT } from "../../app/copy";
-import { LabelT } from "../../app/copy";
 
 type DisplayStatus = PipelineStatus | Extract<EventStatus, "preparation" | "finished">;
 const extraLabels = { preparation: "Preparation", finished: "Finished" } as const;
