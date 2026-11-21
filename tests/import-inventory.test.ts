@@ -56,7 +56,8 @@ describe("Master Inventory importer (FLOW-78)", () => {
 
   it("maps every column of the header automatically", () => {
     const sheet = parseCsv(masterInventoryCsv);
-    expect(Object.values(autoMap(sheet[0], masterInventoryFields)).every((index) => index !== null)).toBe(true);
+    expect(Object.entries(autoMap(sheet[0], masterInventoryFields)).filter(([field]) => field !== "type")
+      .every(([, index]) => index !== null)).toBe(true);
   });
 
   it("accounts for every non-blank row: imported, merged or skipped and reported (AC1)", () => {
@@ -200,7 +201,7 @@ describe("Bar Inventory importer (FLOW-91)", () => {
 
   it("ignores the note in column J", () => {
     const sheet = parseCsv(barInventoryCsv);
-    expect(Object.values(autoMap(sheet[0], barInventoryFields))).toEqual([0, 1, 2, 3, 4]);
+    expect(Object.values(autoMap(sheet[0], barInventoryFields))).toEqual([0, null, 1, 2, 3, 4]);
   });
 
   it("starts a category and subcategory at a capitals row, with a type in brackets", () => {

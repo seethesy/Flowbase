@@ -127,7 +127,7 @@ export function checkFile(file: { type: string; size: number }) {
       : undefined;
   if (DOCUMENT_TYPES.includes(file.type))
     return file.size > MAX_DOCUMENT_BYTES
-      ? "Documents can be at most 20 MB."
+      ? "Documents can be at most 25 MB."
       : undefined;
-  return "Only photos (JPEG, PNG, WebP, HEIC), PDFs and Word documents can be attached.";
+  return "Only photos (JPEG, PNG, WebP, HEIC), PDFs, Word and Excel documents can be attached.";
 }
