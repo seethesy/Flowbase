@@ -161,7 +161,7 @@ export function matrixProblem(matrix: Matrix): string | null {
     if (matrix.admin[area.key] !== "write")
       return `Admin always has Write on ${area.label}.`;
     for (const role of roles)
-      if (!levelsFor(area).includes(matrix[role][area.key]))
+      if (role !== "admin" && !levelsFor(area).includes(matrix[role][area.key]))
         return `${area.label} has no ${levelLabels[matrix[role][area.key]]} level.`;
   }
   return null;
