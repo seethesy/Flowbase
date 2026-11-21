@@ -53,6 +53,9 @@ optional fields to show.
   drops the value.
 - Admin-entered text is plain text; colors are 6-digit hex only, checked for
   4.5:1 contrast on the client and the server.
+- A dashboard or custom card can limit itself to some roles with `visibleTo`
+  (FLOW-269): set from its Style popover or Settings › Roles & permissions. It
+  also hides from a role that can't read the card's source area.
 - At most 20 blocks and 12 custom cards per page; a card shows at most 100 rows.
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.

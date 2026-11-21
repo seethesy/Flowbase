@@ -30,6 +30,13 @@ const common = [
   // the engine checks who may see, decide or withdraw each request.
   "approvals.read",
   "approvals.write",
+  // Production, Day-of, BEOs and Vendors are their own areas in the roles and
+  // permissions editor (FLOW-269). Everyone reads them today, as they did when
+  // these screens were guarded by events.read and inventory.read.
+  "production.read",
+  "dayof.read",
+  "beos.read",
+  "vendors.read",
 ] as const;
 const sales = [
   "clients.read",
@@ -54,6 +61,7 @@ const sales = [
 ] as const;
 const inventory = [
   "inventory.write",
+  "vendors.write",
   "inventory.count",
   "inventory.move",
 ] as const;
@@ -78,6 +86,12 @@ const adminOnly = [
   // Admin live layout editing (FLOW-253): change page layouts, columns, field
   // boxes, custom cards and their colors. Every Admin has it (FLOW-269).
   "layout.edit",
+  // Staff pay and Marketing photos (FLOW-269): areas of the roles editor. Admin
+  // only until an Admin grants them; nothing reads them yet.
+  "staff.pay.read",
+  "staff.pay.write",
+  "marketing.read",
+  "marketing.write",
 ] as const;
 export const actions = [
   ...new Set([
@@ -193,8 +207,25 @@ export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
   },
   part_time_staff: grants(common),
 };
-export const can = (actor: Actor, action: Action): boolean =>
+const defaultCan = (actor: Actor, action: Action): boolean =>
   permissionMap[actor.role]?.[action]?.(actor) ?? false;
+
+// The Admin-edited roles and permissions matrix (FLOW-269) plugs in here
+// (shared/role-permissions.ts). It answers null for an action the matrix leaves
+// at the role's built-in rule, so with no matrix loaded, or one equal to the
+// seeded defaults, every answer is the built-in rule below.
+export type PolicyHooks = {
+  can: (actor: Actor, action: Action) => boolean | null;
+  scope: (actor: Actor, record: "client" | "lead" | "event") => Scope | null;
+};
+let hooks: PolicyHooks | null = null;
+export const setPolicyHooks = (next: PolicyHooks | null) => {
+  hooks = next;
+};
+export const can = (actor: Actor, action: Action): boolean =>
+  hooks?.can(actor, action) ?? defaultCan(actor, action);
+// Built-in answers, for deriving the seeded matrix (never reads the stored one).
+export const builtInCan = defaultCan;
 
 type StockItem = { kind: string; subtype: string | null };
 export function canCountItem(actor: Actor, item: StockItem) {
@@ -215,7 +246,7 @@ export const canMoveItem = (actor: Actor, item: StockItem) =>
   );
 
 export type Scope = "all" | "own" | "staffed" | "none";
-const recordScopes: Record<Role, { client: Scope; lead: Scope; event: Scope }> =
+export const recordScopes: Record<Role, { client: Scope; lead: Scope; event: Scope }> =
   {
     admin: { client: "all", lead: "all", event: "all" },
     technical: { client: "all", lead: "all", event: "all" },
@@ -227,11 +258,12 @@ const recordScopes: Record<Role, { client: Scope; lead: Scope; event: Scope }> =
     part_time_staff: { client: "none", lead: "none", event: "staffed" },
   };
 export const clientScope = (actor: Actor): Scope =>
-  recordScopes[actor.role].client;
+  hooks?.scope(actor, "client") ?? recordScopes[actor.role].client;
 // Admin, Technical and Sales Manager see all leads; salespeople see their own.
-export const leadScope = (actor: Actor): Scope => recordScopes[actor.role].lead;
+export const leadScope = (actor: Actor): Scope =>
+  hooks?.scope(actor, "lead") ?? recordScopes[actor.role].lead;
 export const eventScope = (actor: Actor): Scope =>
-  recordScopes[actor.role].event;
+  hooks?.scope(actor, "event") ?? recordScopes[actor.role].event;
 export const timeReportScope = (actor: Actor): "all" | "own" =>
   actor.role === "admin" || actor.role === "sales_manager" ? "all" : "own";
 // Tasks (FLOW-58): FT+ see every task (the communal list, FLOW-59); everyone

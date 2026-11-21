@@ -24,6 +24,16 @@ import {
   type PageLayout,
 } from "./layout-state";
 import { styleClass, styleVars, StylePopover } from "./layout-style";
+import { usePermissions } from "./permissions";
+import {
+  cardShown,
+  dashboardCards,
+  DASHBOARD_PAGE_KEY,
+  levelOf,
+  policyMatrix,
+  sourceArea,
+} from "../../shared/role-permissions";
+import type { Role } from "../../shared/access";
 
 // Both load only in edit mode, keeping react-grid-layout out of the first load.
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
@@ -69,6 +79,24 @@ const blockName = (block: LayoutBlock, builtins: BuiltinBlock[]) =>
       ? block.card.title
       : variantNames[block.variant];
 
+// Whether a block shows to this role (FLOW-269): the card's visibleTo roles, and
+// the role must be able to read the card's source area. Edit mode shows every
+// block so an Admin can always reach them.
+export function blockVisible(pageKey: string, block: LayoutBlock, role: Role | undefined): boolean {
+  if (!role || block.kind === "text") return true;
+  if (!cardShown(block.visibleTo, role)) return false;
+  const matrix = policyMatrix();
+  if (pageKey === DASHBOARD_PAGE_KEY && block.kind === "builtin") {
+    const card = dashboardCards.find((c) => c.key === block.id);
+    return !card || levelOf(matrix, role, card.area) !== "none";
+  }
+  if (block.kind === "card" && block.card.source.type === "list") {
+    const area = sourceArea[block.card.source.list];
+    return !area || levelOf(matrix, role, area) !== "none";
+  }
+  return true;
+}
+
 function TextBlock({ block }: { block: Extract<LayoutBlock, { kind: "text" }> }) {
   if (block.variant === "heading") return <h2 className="layout-text-heading">{block.text}</h2>;
   if (block.variant === "note") return <p className="layout-text-note">{block.text}</p>;
@@ -95,7 +123,20 @@ export function PageGrid({
   }));
   const content = new Map(elements.map((element) => [element.props.id, element.props.children]));
   const layout = usePageLayout(pageKey, builtins, record);
-  if (!layout.doc && !layout.editing) return <PageLayoutProvider value={layout}>{children}</PageLayoutProvider>;
+  const { actor } = usePermissions();
+  // No saved layout: the page as its code lays it out, minus the cards this role
+  // can't read (FLOW-269).
+  if (!layout.doc && !layout.editing)
+    return (
+      <PageLayoutProvider value={layout}>
+        {Children.toArray(children).filter(
+          (child) =>
+            !isValidElement<BlockProps>(child) ||
+            child.type !== Block ||
+            blockVisible(pageKey, { kind: "builtin", id: child.props.id, x: 0, y: 0, w: 1, h: 1 }, actor?.role),
+        )}
+      </PageLayoutProvider>
+    );
   const blocks = layout.doc ? withBuiltins(layout.doc, builtins) : defaultBlocks(builtins);
   return (
     <PageLayoutProvider value={layout}>
@@ -103,7 +144,7 @@ export function PageGrid({
         <PageGridEditor layout={layout} blocks={blocks} builtins={builtins} content={content} />
       ) : (
         <div className="page-grid" data-page-layout={pageKey}>
-          {readingOrder(blocks.filter((block) => !(block.kind === "builtin" && block.hidden))).map((block) => (
+          {readingOrder(blocks.filter((block) => !(block.kind === "builtin" && block.hidden) && blockVisible(pageKey, block, actor?.role))).map((block) => (
             <div
               key={block.id}
               className={`page-grid-block ${styleClass(block.style)}`}
@@ -325,6 +366,12 @@ function PageGridEditor({
                   <StylePopover
                     style={block.style}
                     onChange={(style) => patch(block.id, { style })}
+                    visibleTo={block.kind === "text" ? undefined : block.visibleTo}
+                    onVisibleToChange={
+                      block.kind === "text"
+                        ? undefined
+                        : (visibleTo) => patch(block.id, { visibleTo })
+                    }
                     onClose={() => setStyling(null)}
                   />
                 )}

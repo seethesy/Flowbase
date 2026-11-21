@@ -34,6 +34,9 @@ import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { copyRoutes } from "./routes/copy";
 import { layoutRoutes } from "./routes/layout";
+import { permissionRoutes } from "./routes/permissions";
+import { lastMatrix, loadMatrix } from "./records/permissions";
+import { setPolicyMatrix } from "../shared/role-permissions";
 import { fieldProjection } from "./fields";
 import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
@@ -80,6 +83,10 @@ type Options = {
   importModules?: ImportModule[];
   // Sends the "changed" ping after a write (FLOW-206); Supabase Realtime by default.
   publishChanged?: (env: Bindings | undefined) => Promise<void>;
+  // Loads the Admin-edited roles and permissions matrix (FLOW-269) before each
+  // request. On by default wherever the database is bound (Hyperdrive); the
+  // database tests turn it on for the real API.
+  loadPolicy?: boolean;
 };
 export function createApp(options: Options = {}) {
   const app = new Hono<AppEnv>();
@@ -185,6 +192,20 @@ export function createApp(options: Options = {}) {
       return;
     }
     return requireActor(resolveActor)(c, next);
+  });
+  // The matrix is cached in memory and re-read when it ages out or after a save.
+  // If it can't be read, the last one stands, else the built-in rules.
+  app.use("/api/*", async (c, next) => {
+    const withDb = options.withDb;
+    if (withDb && c.get("actor") && (options.loadPolicy ?? Boolean(c.env?.HYPERDRIVE))) {
+      try {
+        setPolicyMatrix(await withDb(c.env, (db) => loadMatrix(db)));
+      } catch (error) {
+        console.error("policy_load_failed", error);
+        setPolicyMatrix(lastMatrix());
+      }
+    }
+    await next();
   });
   // fields= and card queries on list and detail endpoints (FLOW-253/256).
   app.use("/api/*", fieldProjection(() => app));
@@ -307,6 +328,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/settings", settingsRoutes(options));
   app.route("/api/copy", copyRoutes(options));
   app.route("/api/layout", layoutRoutes(options));
+  app.route("/api/permissions", permissionRoutes(options));
   app.route("/api/staff", staffRoutes(options));
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/events", eventTimelineRoutes(options));

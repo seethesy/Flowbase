@@ -94,6 +94,16 @@ const expected: Record<Action, string> = {
   "inventory.consumables.count": "111FFFF",
   "attachments.write": "1111100",
   "sops.write": "1010100",
+  // Areas of the roles editor (FLOW-269) that were guarded by other actions.
+  "production.read": "1111111",
+  "dayof.read": "1111111",
+  "beos.read": "1111111",
+  "vendors.read": "1111111",
+  "vendors.write": "1110100",
+  "staff.pay.read": "1000000",
+  "staff.pay.write": "1000000",
+  "marketing.read": "1000000",
+  "marketing.write": "1000000",
 };
 // Every Admin has live editing, wording and layout (FLOW-253 comment, FLOW-269).
 it("gives every Admin both live-edit permissions", () => {

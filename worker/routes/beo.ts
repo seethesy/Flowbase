@@ -39,7 +39,7 @@ export function beoRoutes(options: { withDb?: RunWithDb }) {
     return parsed.data;
   };
   const eventId = (c: AppContext) => param(c, "id", "Event");
-  const read = requirePermission("events.read");
+  const read = requirePermission("beos.read");
 
   routes.get("/:id/beo", read, async (c) => {
     const id = eventId(c);
@@ -124,7 +124,7 @@ export function beoRoutes(options: { withDb?: RunWithDb }) {
 export function offlineBeoRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  routes.get("/", requirePermission("events.read"), async (c) =>
+  routes.get("/", requirePermission("beos.read"), async (c) =>
     c.json(await record(c, (db, actor) => offlineBeos(db, actor))),
   );
   return routes;

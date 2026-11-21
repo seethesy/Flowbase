@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from "react";
 import { contrastRatio, DEFAULT_BACKGROUND, DEFAULT_TEXT, MIN_CONTRAST, styleContrastOk, type BlockStyle } from "../../shared/layout";
 import { Button } from "../components/ui/button";
+import { roles, type Role } from "../../shared/access";
+import { roleLabel } from "../services/users";
 
 // Text and background colors of a block or box (FLOW-253): a swatch palette of
 // Flowbase tokens and the eight pipeline colors (FLOW-251), a custom hex, and
@@ -99,10 +101,16 @@ function ColorControl({
 export function StylePopover({
   style,
   onChange,
+  visibleTo,
+  onVisibleToChange,
   onClose,
 }: {
   style: BlockStyle | undefined;
   onChange: (style: BlockStyle | undefined) => void;
+  // Dashboard and custom cards only (FLOW-269): the roles the card is shown to;
+  // undefined means every role.
+  visibleTo?: Role[];
+  onVisibleToChange?: (visibleTo: Role[] | undefined) => void;
   onClose: () => void;
 }) {
   const set = (key: keyof BlockStyle, value: string | undefined) => {
@@ -131,6 +139,31 @@ export function StylePopover({
         <p role="alert" className="live-copy-error">
           {`These colors are hard to read (${ratio.toFixed(1)}:1; needs ${MIN_CONTRAST}:1). Pick colors further apart to save.`}
         </p>
+      )}
+      {onVisibleToChange && (
+        <fieldset className="layout-color">
+          <legend>Visible to</legend>
+          {roles.map((role) => {
+            const shown = !visibleTo || visibleTo.includes(role);
+            return (
+              <label key={role} className="layout-visible-to">
+                <input
+                  type="checkbox"
+                  checked={shown}
+                  onChange={(event) => {
+                    const current = visibleTo ?? [...roles];
+                    const next = event.target.checked
+                      ? roles.filter((r) => r === role || current.includes(r))
+                      : current.filter((r) => r !== role);
+                    // Every role again is the same as no limit.
+                    onVisibleToChange(next.length === roles.length ? undefined : next);
+                  }}
+                />{" "}
+                {roleLabel(role)}
+              </label>
+            );
+          })}
+        </fieldset>
       )}
       <div className="form-actions">
         <Button variant="outline" onClick={onClose}>

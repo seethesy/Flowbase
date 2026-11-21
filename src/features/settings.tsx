@@ -50,6 +50,7 @@ export function SettingsPage() {
         <Section title={<T id="settings.settings-page.staff-access">Staff access</T>}>
           <p>
             <Link to="/settings/users"><T id="settings.settings-page.manage-users">Manage users</T></Link> ·{" "}
+            <Link to="/settings/permissions"><T id="settings.settings-page.roles-permissions">Roles & permissions</T></Link> ·{" "}
             <Link to="/staff"><T id="settings.settings-page.staff-directory">Staff directory</T></Link>
           </p>
         </Section>
