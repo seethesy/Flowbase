@@ -98,8 +98,8 @@ test("logging a call with a follow-up shows it in the lead's log and creates a t
 }) => {
   await seedLeads([maya()]);
   await page.goto("/#/leads");
-  // Rows select on click; the Open link opens the lead (FLOW-250).
-  await page.getByRole("link", { name: "Open Maya Ortiz" }).click();
+  // The client name links to the lead after the Open column was removed (FLOW-264).
+  await page.getByRole("link", { name: "Maya Ortiz" }).click();
   await expect(
     page.getByRole("heading", { name: "Maya Ortiz", level: 1 }),
   ).toBeVisible();
