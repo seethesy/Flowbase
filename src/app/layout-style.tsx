@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import { contrastRatio, DEFAULT_BACKGROUND, DEFAULT_TEXT, MIN_CONTRAST, styleContrastOk, type BlockStyle } from "../../shared/layout";
 import { Button } from "../components/ui/button";
+import { RoundCheck } from "../components/ui/round-check";
 import { roles, type Role } from "../../shared/access";
 import { roleLabel } from "../services/users";
 
@@ -149,7 +150,6 @@ export function StylePopover({
               <label key={role} className="layout-visible-to">
                 <input
                   type="checkbox"
-                  checked={shown}
                   onChange={(event) => {
                     const current = visibleTo ?? [...roles];
                     const next = event.target.checked
