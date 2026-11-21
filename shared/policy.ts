@@ -319,8 +319,11 @@ export const mayRespondToReadiness = (actor: Actor, productionLeadId: string | n
 
 // Files inherit their parent resource's write permission in both the API and UI.
 export const attachmentWriteActions = {
+  lead: "leads.update",
   client: "clients.write",
   venue: "venues.write",
+  vendor: "vendors.write",
+  document: "attachments.write",
   event: "events.write",
   inventory_item: "inventory.write",
   recipe: "recipes.write",

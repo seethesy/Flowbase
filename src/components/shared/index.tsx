@@ -397,7 +397,7 @@ function DataTableView<Row>({
   const [exportError, setExportError] = useState("");
   const renderedColumns: ColumnDef<Row, unknown>[] = (openColumn && onRow ? [
     { id: "open", header: "Open", enableSorting: false, meta: { exportable: false },
-      cell: ({ row }) => <button className="table-link" onClick={() => onRow(row.original)}><T id="shared.data-table.open">Open</T></button> },
+      cell: ({ row }: { row: { original: Row } }) => <button className="table-link" onClick={() => onRow(row.original)}><T id="shared.data-table.open">Open</T></button> },
     ...columns,
   ] : columns).map((column) => ({ ...column, meta: { ...column.meta, edit: column.meta?.edit ?? "none" } }));
   const table = useReactTable({

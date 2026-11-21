@@ -45,7 +45,7 @@ function RecordPicker({ value, onChange }: {
     {value.type !== "document" && <>
       <input aria-label="Find a record" placeholder={searchPlaceholder} data-copy-id="documents.picker.search.placeholder"
         value={term} onChange={(event) => setTerm(event.target.value)} />
-      {value.id && <p><T id="documents.picker.selected" values={{ name: value.name }}>Linked to {"{name}"}</T></p>}
+      {value.id && <p><T id="documents.picker.selected" values={{ name: value.name }}>{"Linked to {name}"}</T></p>}
       {term.trim().length >= 2 && <ul className="document-picker-results">
         {options.filter((row) => row.type === value.type).map((row) =>
           <li key={`${row.type}:${row.id}`}><button type="button" onClick={() => { onChange(row); setTerm(""); }}>{row.name}</button></li>)}
@@ -187,7 +187,7 @@ export function DocumentsPage() {
       <h3><T id="documents.preview.versions">Versions</T></h3>
       <ul>{selected.versions.map((version) => <li key={version.id}>
         <a href={version.url ?? undefined} target="_blank" rel="noreferrer" download={version.fileName}>
-          <T id="documents.preview.version" values={{ number: version.number, name: version.fileName }}>Version {"{number}"}: {"{name}"}</T>
+          <T id="documents.preview.version" values={{ number: version.number, name: version.fileName }}>{"Version {number}: {name}"}</T>
         </a> · {sizeText(version.size)}
       </li>)}</ul>
       {can("attachments.write") && <>

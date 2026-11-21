@@ -409,7 +409,7 @@ function DashboardGroup({
       {section.tasks.length ? (
         <ul className="task-lines">
           {section.tasks.map((task) => (
-            <TaskLine key={task.id} task={task} onChanged={list.reload}>
+            <TaskLine key={task.id} task={task}>
               {children(task)}
             </TaskLine>
           ))}

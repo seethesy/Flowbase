@@ -92,6 +92,8 @@ export const chairs = (): InventoryItem => ({
   code: "CH-001",
   name: "Chiavari Chair",
   category: "Chairs",
+  categoryId: null,
+  typeId: null,
   description: "",
   unit: "each",
   group: "",
@@ -134,7 +136,7 @@ export const consumable = (
     onHand?: number;
   } = {},
 ): InventoryItem => {
-  const { details, onHand = 0, ...item } = overrides;
+  const { details, onHand = 0, categoryId = null, typeId = null, ...item } = overrides;
   const storage =
     defaultSections.find(
       (section) => section.id === details?.storageSectionId,
@@ -169,6 +171,8 @@ export const consumable = (
     createdAt: "2026-10-22T09:00:00.000Z",
     updatedAt: "2026-10-22T09:00:00.000Z",
     ...item,
+    categoryId,
+    typeId,
     consumable: {
       purchaseUnit: "each",
       packCount: null,
