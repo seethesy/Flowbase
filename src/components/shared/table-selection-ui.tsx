@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -110,8 +111,9 @@ export function useTableSelection(options: SelectionOptions | undefined, ids: st
   }, [toast, options]);
 
   // The toast stays 10 seconds; Ctrl/Cmd+Z undoes while it shows (outside text
-  // fields, which keep their own undo).
-  useEffect(() => {
+  // fields, which keep their own undo). A layout effect, so the key works as
+  // soon as the toast is on screen.
+  useLayoutEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), UNDO_MS);
     const key = (event: globalThis.KeyboardEvent) => {
