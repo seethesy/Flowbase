@@ -50,6 +50,16 @@ it.each([
   expect(mock).not.toHaveBeenCalled();
 });
 
+it("lets every inventory reader list categories but reserves category and type writes for Admin", async () => {
+  const { mock, withDb } = mockDb();
+  const app = createApp({ withDb, resolveActor: async () => actor("kitchen_staff") });
+  const body = JSON.stringify({ kind: "ingredient", name: "Produce" });
+  expect((await app.request("/api/inventory/categories", { method: "POST", body }, env)).status).toBe(403);
+  expect((await app.request("/api/inventory/types", { method: "POST", body: JSON.stringify({ categoryId: id, name: "Leafy" }) }, env)).status).toBe(403);
+  expect((await app.request(`/api/inventory/categories/${id}`, { method: "PATCH", body: JSON.stringify({ name: "Other" }) }, env)).status).toBe(403);
+  expect(mock).not.toHaveBeenCalled();
+});
+
 it("answers 404 for a malformed item or section id", async () => {
   const { mock, withDb } = mockDb();
   const app = createApp({ withDb, resolveActor: async () => actor("admin") });

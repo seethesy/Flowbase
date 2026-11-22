@@ -9,6 +9,7 @@ import {
 import { registerInventoryPlanning } from "../records/allocations";
 import { registerPlanning } from "../records/planning";
 import { registerRecipeCostChanges } from "../records/recipes";
+import { registerBeoDocuments } from "../records/beo-documents";
 import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
 import { emitPaymentReminders } from "../records/payments";
 import { scanCollectorHealth } from "../records/collector-health";
@@ -24,6 +25,7 @@ export function createJobRegistry(options: NotificationOptions = {}) {
   const registry = new JobRegistry();
   registerIngestProcessing(registry);
   registerRecipeCostChanges(registry);
+  registerBeoDocuments(registry);
   // Reservation conflicts and consumable allocations follow stock (FLOW-77, FLOW-85).
   registerInventoryPlanning(registry);
   // Start planning: one job per step (FLOW-133).

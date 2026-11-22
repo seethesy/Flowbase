@@ -1,6 +1,6 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Allowed } from "../app/permissions";
+import { Allowed, usePermissions } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
 import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
@@ -40,6 +40,7 @@ const contactRoleLabels = { manager: "Manager", coordinator: "Coordinator" };
 
 // Venues (FLOW-54): reused across events, with the areas used for layouts.
 export function VenueList() {
+  const { can } = usePermissions();
   const searchVenuesPlaceholder = useCopy("venues.venue-list.search-venues.placeholder", "Search venues…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -53,18 +54,35 @@ export function VenueList() {
   );
   const deletable = useDeletable("venue", () => venues.reload());
   const data = venues.data ?? [];
+  const edit = async (venue: Venue, change: { name?: string; address?: string; jurisdiction?: Venue["jurisdiction"]; areas?: VenueInput["areas"] }) => {
+    const current = await venuesApi.get(venue.id);
+    await venuesApi.update(venue.id, {
+      name: change.name ?? current.name, address: change.address ?? current.address,
+      jurisdiction: change.jurisdiction !== undefined ? change.jurisdiction : current.jurisdiction,
+      loadInNotes: current.loadInNotes, parkingNotes: current.parkingNotes,
+      areas: change.areas ?? current.areas, updatedAt: current.updatedAt,
+    });
+    venues.reload();
+  };
   const columns: ColumnDef<Venue, unknown>[] = [
-    { accessorKey: "name", header: "Venue" },
-    { accessorKey: "address", header: "Address" },
+    { accessorKey: "name", header: "Venue", meta: { edit: "text", canEdit: () => can("venues.write"), onEdit: (row, value) => edit(row, { name: value }) } },
+    { accessorKey: "address", header: "Address", meta: { edit: "text", canEdit: () => can("venues.write"), onEdit: (row, value) => edit(row, { address: value }) } },
     {
       id: "jurisdiction",
       header: "Jurisdiction",
       accessorFn: (venue) => venue.jurisdiction ?? "—",
+      meta: { edit: "select", canEdit: () => can("venues.write"),
+        editValue: (row) => row.jurisdiction ?? "",
+        editOptions: [{ value: "", label: "None" }, ...jurisdictionSchema.options.map((value) => ({ value, label: value }))],
+        onEdit: (row, value) => edit(row, { jurisdiction: value ? jurisdictionSchema.parse(value) : null }) },
     },
     {
       id: "areas",
       header: "Areas",
       accessorFn: (venue) => venue.areas.map((area) => area.name).join(", "),
+      meta: { edit: "text", canEdit: () => can("venues.write"),
+        onEdit: (row, value) => edit(row, { areas: value.split(",").map((part, index) => ({
+          id: row.areas[index]?.id, name: part.trim() })).filter((area) => area.name) }) },
     },
   ];
   return (
@@ -105,7 +123,7 @@ export function VenueList() {
       ) : (
         <PageGrid pageKey="venues.list">
           <Block id="list" name="List" h={24}>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="venues.venue-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="venues.venue-list" openColumn
             data={data}
             columns={columns}
             onRow={(venue) => navigate(`/venues/${venue.id}`)}
@@ -575,6 +593,8 @@ export function VenueDetail() {
         </Block>
         </PageGrid>
       </div>
+
+
       {edit && (
         <VenueForm
           venue={v}

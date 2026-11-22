@@ -39,9 +39,8 @@ test("client create, edit, archive and restore", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("Orchard Events Co.")).toHaveCount(0);
   await page.getByLabel("Show archived").check();
-  await page
-    .getByRole("button", { name: "OE Orchard Events Co.", exact: true })
-    .click();
+  await page.getByRole("row", { name: /Orchard Events Co\./ })
+    .getByRole("button", { name: "Open" }).click();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page.getByText("Archived", { exact: true })).toHaveCount(0);
 });

@@ -884,6 +884,12 @@ export const attachments = pgTable(
     recordId: uuid("record_id").notNull(),
     group: text("group").notNull().default(""),
     fileName: text("file_name").notNull(),
+    // FLOW-263: one document may have several immutable file versions.
+    documentId: uuid("document_id"),
+    displayName: text("display_name"),
+    docType: text("doc_type").notNull().default("other"),
+    versionNumber: integer("version_number").notNull().default(1),
+    protected: boolean("protected").notNull().default(false),
     caption: text("caption").notNull().default(""),
     sortOrder: integer("sort_order").notNull().default(0),
     status: text("status", { enum: attachmentStatuses })
@@ -893,6 +899,7 @@ export const attachments = pgTable(
   },
   (table) => [
     index("attachments_record_idx").on(table.recordType, table.recordId),
+    index("attachments_document_idx").on(table.documentId, table.versionNumber),
     oneOf("attachments_status_check", table.status, attachmentStatuses),
   ],
 ).enableRLS();
@@ -959,6 +966,26 @@ export const inventorySections = pgTable(
   (table) => [oneOf("inventory_sections_kind_check", table.kind, sectionKinds)],
 ).enableRLS();
 
+// FLOW-262: configurable classification, separate from the legacy free-text
+// category used by imported Bar sheets and ratio defaults.
+export const inventoryCategories = pgTable("inventory_categories", {
+  ...baseColumns(),
+  kind: text("kind").notNull(),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+}, (table) => [
+  uniqueIndex("inventory_categories_kind_name_idx").on(table.kind, sql`lower(${table.name})`).where(sql`${table.archivedAt} is null`),
+]).enableRLS();
+
+export const inventoryTypes = pgTable("inventory_types", {
+  ...baseColumns(),
+  categoryId: uuid("category_id").notNull().references(() => inventoryCategories.id),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+}, (table) => [
+  uniqueIndex("inventory_types_category_name_idx").on(table.categoryId, sql`lower(${table.name})`).where(sql`${table.archivedAt} is null`),
+]).enableRLS();
+
 // One row per thing Flowbase tracks or sells (FLOW-69). Kind-specific fields live
 // in the *_details tables below, one row per item of that kind.
 export const inventoryItems = pgTable(
@@ -972,6 +999,8 @@ export const inventoryItems = pgTable(
     code: text("code").notNull().default(""),
     name: text("name").notNull(),
     category: text("category").notNull().default(""),
+    categoryId: uuid("category_id").references(() => inventoryCategories.id),
+    typeId: uuid("type_id").references(() => inventoryTypes.id),
     description: text("description").notNull().default(""),
     unit: text("unit").notNull().default("each"),
     group: text("group").notNull().default(""),

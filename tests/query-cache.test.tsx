@@ -25,6 +25,8 @@ const item: InventoryItem = {
   code: "",
   name: "Chafing dish",
   category: "",
+  categoryId: null,
+  typeId: null,
   description: "",
   unit: "each",
   group: "",

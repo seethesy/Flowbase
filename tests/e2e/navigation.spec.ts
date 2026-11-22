@@ -34,8 +34,9 @@ test("a heading opens its first tab; placeholders say Coming soon", async ({ pag
   await expect(tabs(page, "Staffing")).toHaveText(["Schedule", "Staff directory", "SOPs"]);
   await page.goto("/#/marketing");
   await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
+  // Documents is a live library since FLOW-263, no longer a placeholder.
   await page.goto("/#/documents");
-  await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
 });
 
 databaseTest("a salesperson sees Sales but not operational reports", async ({ page, isMobile }) => {

@@ -171,7 +171,8 @@ test("transfers stock between sections from the item page", async ({
   await choose(page
     .getByRole("combobox", { name: "Section", exact: true }), { label: "Cafe" });
   await page
-    .getByRole("button", { name: "Chiavari Chair", exact: true })
+    .getByRole("row", { name: /Chiavari Chair/ })
+    .getByRole("button", { name: "Open", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Chiavari Chair", level: 1 }),
@@ -214,7 +215,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
     .click();
   let dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Heavy Cream");
-  await dialog.getByLabel("Category", { exact: true }).fill("Dairy");
+  await dialog.getByLabel("Legacy category", { exact: true }).fill("Dairy");
   await choose(dialog.getByLabel(/^Stock unit/), "qt");
   await choose(dialog.getByLabel(/^Purchase unit/), "case");
   await dialog.getByLabel("Items per case", { exact: true }).fill("6");
@@ -244,7 +245,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
     .click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Romaine");
-  await dialog.getByLabel("Category", { exact: true }).fill("Produce");
+  await dialog.getByLabel("Legacy category", { exact: true }).fill("Produce");
   await choose(dialog.getByLabel(/^Purchase unit/), "lb");
   await dialog.getByLabel("Preferred vendor", { exact: true }).fill("Farm Co");
   await dialog.getByRole("button", { name: "Save item" }).click();
@@ -265,7 +266,10 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   );
   await page.getByLabel("Vendor", { exact: true }).fill("");
 
-  await page.getByRole("button", { name: "Heavy Cream" }).click();
+  await page
+    .getByRole("row", { name: /Heavy Cream/ })
+    .getByRole("button", { name: "Open", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Heavy Cream", level: 1 }),
   ).toBeVisible();

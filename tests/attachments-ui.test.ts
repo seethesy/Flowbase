@@ -10,7 +10,8 @@ it("rejects unsupported and oversized files before upload", () => {
   const mb = 1024 * 1024;
   expect(checkFile({ type: "image/jpeg", size: 10 * mb })).toBeUndefined();
   expect(checkFile({ type: "image/jpeg", size: 26 * mb })).toMatch("25 MB");
-  expect(checkFile({ type: "application/pdf", size: 21 * mb })).toMatch("20 MB");
+  expect(checkFile({ type: "application/pdf", size: 21 * mb })).toBeUndefined();
+  expect(checkFile({ type: "application/pdf", size: 26 * mb })).toMatch("25 MB");
   expect(checkFile({ type: "text/plain", size: 10 })).toMatch(
     "Only photos",
   );

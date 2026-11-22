@@ -319,8 +319,11 @@ export const mayRespondToReadiness = (actor: Actor, productionLeadId: string | n
 
 // Files inherit their parent resource's write permission in both the API and UI.
 export const attachmentWriteActions = {
+  lead: "leads.update",
   client: "clients.write",
   venue: "venues.write",
+  vendor: "vendors.write",
+  document: "attachments.write",
   event: "events.write",
   inventory_item: "inventory.write",
   recipe: "recipes.write",
@@ -328,6 +331,8 @@ export const attachmentWriteActions = {
   sop: "sops.write",
   beo_area: "events.write",
 } as const satisfies Record<string, Action>;
+
+export const canChangeProtectedDocumentType = (actor: Actor) => actor.role === "admin";
 
 // The BEO as one reader may see it (FLOW-148). The single projection every BEO
 // surface uses: the calendar detail, print and offline copies must call this and

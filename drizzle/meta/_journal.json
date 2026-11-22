@@ -463,6 +463,13 @@
       "when": 1795243949488,
       "tag": "0065_flow_269_role_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1795304409538,
+      "tag": "0066_flow_262_263_inventory_documents",
+      "breakpoints": true
     }
   ]
 }

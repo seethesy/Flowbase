@@ -43,6 +43,14 @@ export async function resetBrowserDatabase(sections: Section[]) {
         })),
       );
     await db.insert(s.trucks).values(["Truck A", "Truck B", "Truck C"].map((name) => ({ name })));
+    await db.insert(s.inventoryCategories).values([
+      ...["Equipment", "Furniture", "Linen", "Tableware", "Glassware", "Bar", "Decor"]
+        .map((name, sortOrder) => ({ kind: "rental", name, sortOrder })),
+      { kind: "ingredient", name: "Ingredient", sortOrder: 0 },
+      { kind: "bar", name: "Bar", sortOrder: 0 },
+      { kind: "supply", name: "Supply", sortOrder: 0 },
+      { kind: "service", name: "Services", sortOrder: 0 },
+    ]);
     // The truncate also clears the lists migration 0021 seeds (FLOW-45).
     await db.insert(s.listValues).values(
       listKeys.flatMap((listKey) =>

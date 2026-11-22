@@ -29,6 +29,29 @@ export const subtypesByKind = {
   service: [],
 } as const satisfies Record<ItemKind, readonly string[]>;
 
+// The classification kind shown in the Category picker. Bar stock keeps its
+// imported free-text category (e.g. Liquor) independently of this hierarchy.
+export const classificationKind = (item: { kind: ItemKind; subtype: string | null }) =>
+  item.kind === "consumable" ? (item.subtype ?? "supply") : item.kind;
+export const inventoryCategorySchema = z.object({
+  id,
+  kind: z.string(),
+  name: z.string(),
+  sortOrder: z.number().int(),
+  archivedAt: timestamp.nullable(),
+});
+export const inventoryTypeSchema = z.object({
+  id,
+  categoryId: id,
+  name: z.string(),
+  sortOrder: z.number().int(),
+  archivedAt: timestamp.nullable(),
+});
+export const classificationInputSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
 // Who pulls an item for an event by default (FLOW-78 Q5); pull lists (F-14-02) use
 // it. Imported sheets carry it per item.
 export const pullOwners = ["pull_lead", "production_lead", "sales_manager"] as const;
@@ -261,6 +284,8 @@ export const itemInputSchema = z
     code: text(60).default(""),
     name: z.string().trim().min(1, "Name is required.").max(200),
     category: text(100).default(""),
+    categoryId: id.nullable().optional(),
+    typeId: id.nullable().optional(),
     description: text(5000).default(""),
     // The unit stock is counted in.
     unit: unitSchema.default("each"),
@@ -389,6 +414,8 @@ export const itemSchema = z.object({
   code: z.string(),
   name: z.string(),
   category: z.string(),
+  categoryId: id.nullable().default(null),
+  typeId: id.nullable().default(null),
   description: z.string(),
   unit: unitSchema,
   group: z.string(),

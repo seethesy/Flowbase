@@ -22,7 +22,7 @@ test("a client beyond the first page is found by searching", async ({ page }) =>
   await expect(page.getByText("Zinnia Hall", { exact: true })).toHaveCount(0);
   await page.getByPlaceholder("Search clients or contacts…").fill("Zinnia");
   await expect(page.getByText("1 clients", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Zinnia Hall/ }).click();
+  await page.getByRole("row", { name: /Zinnia Hall/ }).getByRole("button", { name: "Open", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Zinnia Hall", level: 1 }),
   ).toBeVisible();

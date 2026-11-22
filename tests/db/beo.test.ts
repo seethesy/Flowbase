@@ -129,7 +129,7 @@ afterAll(async () => {
 const drain = async () => {
   const registry = createJobRegistry({ emailProvider: () => undefined });
   for (let i = 0; i < 20; i += 1)
-    if (!(await runDueJobs(db, registry, { maxAttempts: 1 })).claimed) return;
+    if (!(await runDueJobs(db, registry, { maxAttempts: 1, env })).claimed) return;
 };
 const notificationsOf = (who: keyof typeof people) =>
   db
@@ -330,6 +330,16 @@ describe("FLOW-144: approval and changes after approval", () => {
     expect(beo.status).toBe("approved");
     expect(beo.changedFields).toEqual([]);
     expect(beo.changes.map((change) => change.fieldKey)).toContain("guest_count");
+    await drain();
+    const versions = await db.select().from(schema.attachments)
+      .where(and(eq(schema.attachments.documentId, event.id), eq(schema.attachments.docType, "beo")));
+    expect(versions.map((row) => row.versionNumber).sort()).toEqual([1, 2]);
+    expect(versions.every((row) => row.protected && row.status === "ready")).toBe(true);
+    for (const version of versions) {
+      const object = bucket.get(version.variants[0].key);
+      expect(object?.contentType).toBe("application/pdf");
+      expect(new TextDecoder().decode(object?.body.slice(0, 5))).toBe("%PDF-");
+    }
   });
 
   it("does not log edits made before the first approval", async () => {

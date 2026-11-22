@@ -30,6 +30,7 @@ const isNumber = (value: string) => /^\d+(\.\d+)?$/.test(value);
 
 export const masterInventoryFields: ImportField[] = [
   { key: "category", label: "Category", required: false, aliases: [] },
+  { key: "type", label: "Type", required: false, aliases: [] },
   { key: "subcategory", label: "Subcategory", required: false, aliases: [] },
   { key: "item", label: "Item", required: true, aliases: ["Name"] },
   { key: "qty", label: "Qty", required: false, aliases: ["Quantity"] },
@@ -88,6 +89,7 @@ export function masterInventoryRows(rows: Cells[]): TransformResult {
 export const masterLocations = ["Warehouse", "Jamie's", "Storage Box"] as const;
 export type MasterRow = {
   name: string;
+  typeName: string;
   category: string;
   subcategory: string;
   kind: ItemKind;
@@ -196,6 +198,7 @@ export function parseMasterRow(values: Record<string, string>): ParseResult<Mast
   return {
     row: {
       name,
+      typeName: clean(values.type),
       category,
       subcategory,
       kind,
@@ -229,6 +232,7 @@ export const masterExternalKey = (row: MasterRow) => `master:${key(row.name)}`;
 
 export const barInventoryFields: ImportField[] = [
   { key: "item", label: "Item", required: true, aliases: [] },
+  { key: "type", label: "Type", required: false, aliases: [] },
   { key: "qty", label: "Qty", required: false, aliases: ["Quantity"] },
   { key: "unit", label: "Unit", required: false, aliases: [] },
   { key: "details", label: "Details", required: false, aliases: ["Tier"] },
@@ -262,7 +266,7 @@ export function barInventoryRows(rows: Cells[]): TransformResult {
   let subcategory = "";
   for (const row of rows) {
     const item = clean(row.values.item);
-    const alone = ["qty", "unit", "details", "distributor"].every(
+    const alone = ["qty", "unit", "details", "distributor", "type"].every(
       (field) => clean(row.values[field]) === "",
     );
     const heading = item && alone ? barHeadingOf(item) : null;
@@ -281,6 +285,7 @@ export function barInventoryRows(rows: Cells[]): TransformResult {
 
 export type BarRow = {
   name: string;
+  typeName: string;
   category: string;
   subcategory: string;
   tier: BarTier | "";
@@ -401,6 +406,7 @@ export function parseBarRow(values: Record<string, string>): ParseResult<BarRow>
   return {
     row: {
       name,
+      typeName: clean(values.type),
       category,
       subcategory,
       tier: tier.tier,

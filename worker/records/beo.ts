@@ -410,7 +410,11 @@ registerApprovalSubject("beo", {
   onApproved: async (tx, actor, request) => {
     const [beo] = await tx.select().from(beos).where(eq(beos.id, request.subjectId)).for("update");
     if (!beo) return;
-    const fields = beoFields(await assembleBeo(tx, actor, beo.eventId, beo));
+    const assembled = await assembleBeo(tx, actor, beo.eventId, beo);
+    const fields = beoFields(assembled);
+    // A permanent file is readable by everyone who may open this event. Use
+    // the least-privileged BEO projection so its bytes reveal no contact data.
+    const documentContent = projectBeo({ ...actor, role: "part_time_staff" }, assembled);
     const now = new Date();
     await tx
       .update(beos)
@@ -432,7 +436,7 @@ registerApprovalSubject("beo", {
       name: "beo.approved",
       entityId: beo.eventId,
       idempotencyKey: `beo.approved:${request.id}`,
-      data: { beoId: beo.id, approvedBy: actor.userId },
+      data: { beoId: beo.id, approvedBy: actor.userId, approvalId: request.id, content: documentContent },
     });
   },
   onRejected: async (tx, actor, request) => {

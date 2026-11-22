@@ -1,6 +1,6 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Allowed } from "../app/permissions";
+import { Allowed, usePermissions } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
 import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
@@ -53,6 +53,7 @@ const hiddenNote = "Visible to full-time staff only.";
 // Vendor and distributor directory (FLOW-84): distributors, rental vendors and
 // event partners, with how to order from each.
 export function VendorList() {
+  const { can } = usePermissions();
   const searchVendorsPlaceholder = useCopy("vendors.vendor-list.search-vendors.placeholder", "Search vendors…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -70,12 +71,27 @@ export function VendorList() {
   );
   const deletable = useDeletable("vendor", () => vendors.reload());
   const data = vendors.data ?? [];
+  const edit = async (vendor: Vendor, change: Partial<Pick<VendorInput, "name" | "type" | "deliveryDays" | "orderCutoff" | "leadTimeDays">>) => {
+    const current = await vendorsApi.get(vendor.id);
+    await vendorsApi.update(vendor.id, {
+      name: current.name, type: current.type, portalUrl: current.portalUrl,
+      orderCutoff: current.orderCutoff, deliveryDays: current.deliveryDays,
+      minimumOrderCents: current.minimumOrderCents, leadTimeDays: current.leadTimeDays,
+      orderingInstructions: current.orderingInstructions, notes: current.notes,
+      ...change,
+    });
+    vendors.reload();
+  };
   const columns: ColumnDef<Vendor, unknown>[] = [
-    { accessorKey: "name", header: "Vendor" },
+    { accessorKey: "name", header: "Vendor", meta: { edit: "text", canEdit: () => can("inventory.write"), onEdit: (row, value) => edit(row, { name: value }) } },
     {
       id: "type",
       header: "Type",
       accessorFn: (vendor) => vendorTypeLabels[vendor.type],
+      meta: { edit: "select", canEdit: () => can("inventory.write"),
+        editValue: (row) => row.type,
+        editOptions: vendorTypeSchema.options.map((value) => ({ value, label: vendorTypeLabels[value] })),
+        onEdit: (row, value) => edit(row, { type: vendorTypeSchema.parse(value) }) },
       cell: ({ row }) => <LabelT id="labels.vendor-type" value={row.original.type}>{vendorTypeLabels[row.original.type]}</LabelT>,
     },
     {
@@ -83,16 +99,23 @@ export function VendorList() {
       header: "Delivery days",
       accessorFn: (vendor) => daysLabel(vendor.deliveryDays),
       cell: ({ row }) => <DaysText days={row.original.deliveryDays} />,
+      meta: { edit: "select", editMultiple: true, editValue: (row) => row.deliveryDays.join(","),
+        canEdit: () => can("inventory.write"),
+        editOptions: weekdaySchema.options.map((value) => ({ value, label: weekdayLabels[value] })),
+        onEdit: (row, value) => edit(row, { deliveryDays: value ? value.split(",") as Weekday[] : [] }) },
     },
     {
       id: "orderCutoff",
       header: "Order cutoff",
       accessorFn: (vendor) => vendor.orderCutoff || "—",
+      meta: { edit: "text", editValue: (row) => row.orderCutoff, canEdit: () => can("inventory.write"), onEdit: (row, value) => edit(row, { orderCutoff: value }) },
     },
     {
       id: "leadTime",
       header: "Lead time",
       accessorFn: (vendor) => leadTimeLabel(vendor.leadTimeDays),
+      meta: { edit: "number", editValue: (row) => row.leadTimeDays?.toString() ?? "", canEdit: () => can("inventory.write"),
+        onEdit: (row, value) => edit(row, { leadTimeDays: value === "" ? null : Number(value) }) },
     },
   ];
   return (
@@ -147,7 +170,7 @@ export function VendorList() {
       ) : (
         <PageGrid pageKey="vendors.list">
           <Block id="list" name="List" h={24}>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="vendors.vendor-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="vendors.vendor-list" openColumn
             data={data}
             columns={columns}
             onRow={(vendor) => navigate(`/vendors/${vendor.id}`)}

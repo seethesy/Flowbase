@@ -1,6 +1,6 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Allowed } from "../app/permissions";
+import { Allowed, usePermissions } from "../app/permissions";
 import { Block, PageGrid } from "../app/page-grid";
 import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
@@ -55,6 +55,7 @@ const primaryContact = (client: Client) =>
 
 // Real client records (FLOW-53), replacing the prototype's mock clients.
 export function ClientList() {
+  const { can } = usePermissions();
   const searchClientsOrContactsPlaceholder = useCopy("clients.client-list.search-clients-or-contacts.placeholder", "Search clients or contacts…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -69,10 +70,27 @@ export function ClientList() {
   );
   const deletable = useDeletable("client", () => clients.reload());
   const data = clients.data ?? [];
+  const editClient = async (client: Client, change: { name?: string; kind?: Client["kind"]; tags?: string[];
+    contactName?: string; contactEmail?: string; contactPhone?: string }) => {
+    const current = await clientsApi.get(client.id);
+    await clientsApi.update(client.id, {
+      name: change.name ?? current.name, kind: change.kind ?? current.kind,
+      assignedSalespersonId: current.assignedSalespersonId,
+      notes: current.notes, tags: change.tags ?? current.tags,
+      contacts: current.contacts.map((contact) => ({ id: contact.id,
+        name: contact.id === primaryContact(current)?.id ? change.contactName ?? contact.name : contact.name,
+        role: contact.role, notes: contact.notes,
+        ...(contact.email !== null && { email: change.contactEmail !== undefined && contact.id === primaryContact(current)?.id ? change.contactEmail : contact.email }),
+        ...(contact.phone !== null && { phone: change.contactPhone !== undefined && contact.id === primaryContact(current)?.id ? change.contactPhone : contact.phone }) })),
+      updatedAt: current.updatedAt,
+    });
+    clients.reload();
+  };
   const columns: ColumnDef<Client, unknown>[] = [
     {
       accessorKey: "name",
       header: "Client",
+      meta: { edit: "text", canEdit: () => can("clients.write"), onEdit: (row, value) => editClient(row, { name: value }) },
       cell: (c) => (
         <span className="company-cell">
           <span className="company-avatar">
@@ -90,6 +108,9 @@ export function ClientList() {
       header: "Type",
       accessorFn: (client) =>
         client.kind === "person" ? "Person" : "Organization",
+      meta: { edit: "select", canEdit: () => can("clients.write"), editValue: (row) => row.kind,
+        editOptions: [{ value: "person", label: "Person" }, { value: "organization", label: "Organization" }],
+        onEdit: (row, value) => editClient(row, { kind: value === "person" ? "person" : "organization" }) },
       cell: ({ row }) =>
         row.original.kind === "person" ? <T id="clients.client-list.person">Person</T> : <T id="clients.client-list.organization">Organization</T>,
     },
@@ -97,6 +118,8 @@ export function ClientList() {
       id: "contact",
       header: "Primary contact",
       accessorFn: (client) => primaryContact(client)?.name ?? "—",
+      meta: { edit: "text", canEdit: (row) => can("clients.write") && Boolean(primaryContact(row)),
+        onEdit: (row, value) => editClient(row, { contactName: value }) },
     },
     {
       id: "email",
@@ -108,6 +131,9 @@ export function ClientList() {
       meta: {
         fieldGroup: "client_contact",
         csv: (client) => primaryContact(client)?.email ?? "",
+        editValue: (row) => primaryContact(row)?.email ?? "",
+        edit: "text", canEdit: (row) => can("clients.write") && primaryContact(row)?.email != null,
+        onEdit: (row, value) => editClient(row, { contactEmail: value }),
       },
     },
     {
@@ -120,12 +146,17 @@ export function ClientList() {
       meta: {
         fieldGroup: "client_contact",
         csv: (client) => primaryContact(client)?.phone ?? "",
+        editValue: (row) => primaryContact(row)?.phone ?? "",
+        edit: "text", canEdit: (row) => can("clients.write") && primaryContact(row)?.phone != null,
+        onEdit: (row, value) => editClient(row, { contactPhone: value }),
       },
     },
     {
       id: "tags",
       header: "Tags",
       accessorFn: (client) => client.tags.join(", "),
+      meta: { edit: "text", canEdit: () => can("clients.write"),
+        onEdit: (row, value) => editClient(row, { tags: value.split(",").map((tag) => tag.trim()).filter(Boolean) }) },
     },
   ];
   return (
@@ -166,7 +197,7 @@ export function ClientList() {
       ) : (
         <PageGrid pageKey="clients.list">
           <Block id="list" name="List" h={24}>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="clients.client-list"
+          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="clients.client-list" openColumn
             data={data}
             columns={columns}
             onRow={(client) => navigate(`/clients/${client.id}`)}
@@ -576,6 +607,7 @@ export function ClientDetail() {
         onChange={setTab}
       />
       <div role="tabpanel" id="record-panel" aria-labelledby={`tab-${tab}`}>
+
         <div className="detail-grid">
           <PageGrid pageKey="clients.detail" record={{ source: "clients", id: c.id, row: c as unknown as Record<string, unknown> }}>
             {tab === "Overview" && (
@@ -603,7 +635,7 @@ export function ClientDetail() {
             {tab === "Overview" && (
               <Block id="upcoming-events" name="Upcoming events" w={6} h={12}>
                 <Section title={<T id="clients.client-detail.upcoming-events">Upcoming events</T>}>
-                  <EventTable events={events.data ?? []} error={events.error} />
+                  <EventTable events={events.data ?? []} error={events.error} onSaved={() => events.reload()} />
                 </Section>
               </Block>
             )}
@@ -634,7 +666,7 @@ export function ClientDetail() {
             )}
             {tab === "Events" && (
               <Block id="events" name="Events" w={12} h={12}>
-                <EventTable events={events.data ?? []} error={events.error} />
+                <EventTable events={events.data ?? []} error={events.error} onSaved={() => events.reload()} />
               </Block>
             )}
             {tab === "Proposal tracker" && (
@@ -654,6 +686,7 @@ export function ClientDetail() {
             )}
           </PageGrid>
         </div>
+
       </div>
       {edit && (
         <ClientForm

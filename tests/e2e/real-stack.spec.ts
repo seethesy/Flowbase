@@ -62,7 +62,8 @@ for (const role of ["admin", "salesperson"] as const) {
       page.getByText("Other salesperson client", { exact: true }),
     ).toHaveCount(role === "admin" ? 1 : 0);
     await page.getByPlaceholder("Search clients or contacts…").fill("Juniper");
-    await page.getByRole("button", { name: /Juniper & Co\./ }).click();
+    await page.getByRole("row", { name: /Juniper & Co\./ })
+      .getByRole("button", { name: "Open", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Juniper & Co.", level: 1 }),
     ).toBeVisible();

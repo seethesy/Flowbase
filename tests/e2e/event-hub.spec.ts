@@ -1,16 +1,18 @@
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { seedRecords } from "./database";
+import { utcToBusinessTime } from "../../shared/time";
 
 // The event hub (FLOW-57), reached from the client page and the event list. The
 // calendar's way in is in calendar.spec.ts (FLOW-166).
 test("the event hub opens from the client page and the event list", async ({
   page,
 }) => {
-  await seedRecords({ clients: [juniper()], events: [fallGala()] });
+  const event = { ...fallGala(), date: utcToBusinessTime(new Date()).date };
+  await seedRecords({ clients: [juniper()], events: [event] });
   await page.goto(`/#/clients/${juniper().id}`);
-  await page.getByRole("button", { name: "Fall gala", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`#/events/${fallGala().id}$`));
+  await page.getByRole("row", { name: /Fall gala/ }).getByRole("button", { name: "Open" }).click();
+  await expect(page).toHaveURL(new RegExp(`#/events/${event.id}$`));
   await expect(
     page.getByRole("heading", { name: "Fall gala", level: 1 }),
   ).toBeVisible();
@@ -28,7 +30,7 @@ test("the event hub opens from the client page and the event list", async ({
   ).toBeVisible();
 
   await page.goto("/#/events");
-  await page.getByRole("button", { name: "Fall gala", exact: true }).click();
+  await page.getByRole("row", { name: /Fall gala/ }).getByRole("button", { name: "Open" }).click();
   await expect(
     page.getByRole("heading", { name: "Event files", exact: true }),
   ).toBeVisible();

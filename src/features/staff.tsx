@@ -44,6 +44,7 @@ const mobileLabel = (mobile: string | null) =>
   mobile === null ? "Hidden" : mobile || "—";
 
 export function StaffDirectory() {
+  const { actor, can } = usePermissions();
   const searchNameOrEmailPlaceholder = useCopy("staff.staff-directory.search-name-or-email.placeholder", "Search name or email…");
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -68,18 +69,24 @@ export function StaffDirectory() {
       `${member.name} ${member.email}`.toLowerCase().includes(term),
   );
   const columns: ColumnDef<StaffMember, unknown>[] = [
-    { accessorKey: "name", header: "Name" },
+    { accessorKey: "name", header: "Name", meta: { edit: "text", canEdit: () => can("users.manage"),
+      onEdit: async (row, value) => { await staffApi.update(row.id, { name: value }); staff.reload(); } } },
     {
       id: "positions",
       header: "Positions",
       accessorFn: (member) => member.positions.join(", ") || "—",
-      meta: { csv: (member) => member.positions.join("; ") },
+      meta: { csv: (member) => member.positions.join("; "), edit: "text",
+        editValue: (row) => row.positions.join(", "), canEdit: () => can("users.manage"),
+        onEdit: async (row, value) => { await staffApi.update(row.id, { positions: value.split(",").map((part) => part.trim()).filter(Boolean) }); staff.reload(); } },
     },
     {
       id: "role",
       header: "Role",
       accessorFn: (member) => roleLabel(member.role),
       cell: ({ row }) => <RoleText role={row.original.role} />,
+      meta: { edit: "select", editValue: (row) => row.role, canEdit: () => can("users.manage"),
+        editOptions: roleSchema.options.map((value) => ({ value, label: roleLabel(value) })),
+        onEdit: async (row, value) => { await staffApi.update(row.id, { role: roleSchema.parse(value) }); staff.reload(); } },
     },
     {
       id: "mobile",
@@ -88,9 +95,13 @@ export function StaffDirectory() {
       meta: {
         fieldGroup: "staff_contact",
         csv: (member) => member.mobile ?? "",
+        edit: "text", editValue: (row) => row.mobile ?? "",
+        canEdit: (row) => row.mobile !== null && (can("users.manage") || row.id === actor?.userId),
+        onEdit: async (row, value) => { await staffApi.update(row.id, { mobile: value }); staff.reload(); },
       },
     },
-    { accessorKey: "email", header: "Email" },
+    { accessorKey: "email", header: "Email", meta: { edit: "text", canEdit: () => can("users.manage"),
+      onEdit: async (row, value) => { await request(userSchema, `/api/admin/users/${row.id}/email`, "PUT", { email: value }); staff.reload(); } } },
     { id: "status", header: "Status", accessorFn: statusLabel },
   ];
   return (
@@ -132,7 +143,7 @@ export function StaffDirectory() {
       ) : (
 <PageGrid pageKey="staff.list">
         <Block id="list" name="List" h={24}>
-        <DataTable copyKey="staff.staff-directory"
+        <DataTable copyKey="staff.staff-directory" openColumn
           data={data}
           columns={columns}
           onRow={(member) => navigate(`/staff/${member.id}`)}

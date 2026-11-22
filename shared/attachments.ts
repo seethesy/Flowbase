@@ -6,10 +6,13 @@ export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic
 export const DOCUMENT_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
 ];
 // What the user may pick, checked before anything is uploaded.
 export const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
-export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 // What may be stored for each resized photo variant.
 export const MAX_VARIANT_BYTES = 5 * 1024 * 1024;
 export const PHOTO_SIZES = { thumb: 320, display: 1600 } as const;
@@ -18,6 +21,8 @@ export const DOWNLOAD_URL_SECONDS = 300;
 
 export const recordTypeSchema = z.enum([
   "client",
+  "lead",
+  "vendor",
   "venue",
   "event",
   "inventory_item",
@@ -27,6 +32,8 @@ export const recordTypeSchema = z.enum([
   "sop",
   // A setup or layout area of a BEO (FLOW-146, 147): its photos and plans.
   "beo_area",
+  // A file without a linked record follows the Documents area permission.
+  "document",
 ]);
 export type AttachmentRecordType = z.infer<typeof recordTypeSchema>;
 export const variantNameSchema = z.enum(["thumb", "display", "original"]);
@@ -120,7 +127,7 @@ export function checkFile(file: { type: string; size: number }) {
       : undefined;
   if (DOCUMENT_TYPES.includes(file.type))
     return file.size > MAX_DOCUMENT_BYTES
-      ? "Documents can be at most 20 MB."
+      ? "Documents can be at most 25 MB."
       : undefined;
-  return "Only photos (JPEG, PNG, WebP, HEIC), PDFs and Word documents can be attached.";
+  return "Only photos (JPEG, PNG, WebP, HEIC), PDFs, Word and Excel documents can be attached.";
 }

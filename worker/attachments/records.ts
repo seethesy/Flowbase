@@ -22,6 +22,8 @@ import { findVisibleTask } from "../records/tasks";
 import { findSop } from "../records/sops";
 import { findBeoArea } from "../records/beo-edit";
 import { findVenue } from "../records/venues";
+import { findVisibleLead } from "../records/leads";
+import { findVendor } from "../records/vendors";
 import { fileStorage } from "./storage";
 
 type AttachmentRow = typeof attachments.$inferSelect;
@@ -37,6 +39,9 @@ const parents: Record<
   }
 > = {
   client: { find: findVisibleClient, write: attachmentWriteActions.client },
+  lead: { find: findVisibleLead, write: "leads.update" },
+  vendor: { find: (db, _actor, id) => findVendor(db, id), write: "inventory.write" },
+  document: { find: async () => true, write: "attachments.write" },
   venue: { find: (db, _actor, id) => findVenue(db, id), write: attachmentWriteActions.venue },
   event: { find: findVisibleEvent, write: attachmentWriteActions.event },
   // Item photos (FLOW-69).
@@ -62,7 +67,7 @@ const parents: Record<
 const isActualSetupPhoto = (recordType: string, group: string) =>
   recordType === "beo_area" && group === "actual";
 
-async function requireParent(
+export async function requireParent(
   db: DbLike,
   actor: Actor,
   recordType: AttachmentRecordType,
@@ -116,6 +121,9 @@ const extensions: Record<string, string> = {
   "application/pdf": "pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
     "docx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/msword": "doc",
+  "application/vnd.ms-excel": "xls",
 };
 
 // Records the attachment as pending and returns signed PUT URLs for each variant.
@@ -140,6 +148,9 @@ export async function startUpload(
     .insert(attachments)
     .values({
       id,
+      documentId: id,
+      displayName: input.fileName,
+      docType: input.recordType === "sop" ? "sop" : input.group === "menu" ? "menu" : input.variants.some((variant) => variant.name === "thumb") ? "photo" : "other",
       recordType: input.recordType,
       recordId: input.recordId,
       group: input.group,
@@ -247,7 +258,9 @@ export async function updateAttachment(
   change: { caption?: string; sortOrder?: number; archived?: boolean },
   now = new Date(),
 ): Promise<Attachment> {
-  await findAttachment(db, actor, id, true);
+  const current = await findAttachment(db, actor, id, true);
+  if (change.archived && current.protected)
+    throw new ApiError(409, "PROTECTED_DOCUMENT", "Approved BEO documents are kept permanently.");
   const [row] = await db
     .update(attachments)
     .set({

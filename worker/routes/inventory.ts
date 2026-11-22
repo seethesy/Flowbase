@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { z } from "zod";
+import { fullView } from "../audit/log";
 import { inventoryChangesSchema } from "../../shared/inventory-changes";
 import {
   correctionInputSchema,
@@ -7,6 +9,7 @@ import {
   countStatusSchema,
   itemInputSchema,
   itemKindSchema,
+  classificationInputSchema,
   movementInputSchema,
   sectionInputSchema,
   sectionKindSchema,
@@ -53,6 +56,19 @@ import {
   transferStock,
   updateItem,
 } from "../records/inventory";
+import {
+  createInventoryCategory, createInventoryType, listInventoryCategories,
+  updateInventoryCategory, updateInventoryType,
+} from "../records/inventory-categories";
+
+const categoryCreateSchema = classificationInputSchema.extend({ kind: z.enum(["rental", "service", "ingredient", "bar", "supply"]) });
+const classificationChangeSchema = classificationInputSchema.partial().extend({ archived: z.boolean().optional() });
+const typeCreateSchema = classificationInputSchema.extend({ categoryId: uuid });
+const inlineSchema = z.object({
+  field: z.enum(["name", "code", "description", "group", "color", "tier", "categoryId", "typeId", "legacyCategory", "bar.brand", "bar.subcategory", "consumable.preferredVendor", "consumable.parLevel"]),
+  value: z.string().max(5000),
+  updatedAt: z.string().datetime(),
+});
 
 // Inventory API (FLOW-69/70/71/81/82/83/90), mounted at /api/inventory. Every route
 // needs a signed-in user; item writes need inventory.write, section changes
@@ -75,6 +91,27 @@ export function inventoryRoutes(options: {
   const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
+  routes.get("/categories", requirePermission("inventory.read"), async (c) =>
+    c.json(await record(c, (db) => listInventoryCategories(db))));
+  routes.post("/categories", requirePermission("inventory.sections"), async (c) => {
+    const input = await parseBody(c, categoryCreateSchema);
+    return c.json(await record(c, (db, actor) => createInventoryCategory(db, actor, input.kind, input.name)), 201);
+  });
+  routes.patch("/categories/:id", requirePermission("inventory.sections"), async (c) => {
+    const id = param(c, "Category");
+    const input = await parseBody(c, classificationChangeSchema);
+    return c.json(await record(c, (db, actor) => updateInventoryCategory(db, actor, id, input)));
+  });
+  routes.post("/types", requirePermission("inventory.sections"), async (c) => {
+    const input = await parseBody(c, typeCreateSchema);
+    return c.json(await record(c, (db, actor) => createInventoryType(db, actor, input.categoryId, input.name)), 201);
+  });
+  routes.patch("/types/:id", requirePermission("inventory.sections"), async (c) => {
+    const id = param(c, "Type");
+    const input = await parseBody(c, classificationChangeSchema);
+    return c.json(await record(c, (db, actor) => updateInventoryType(db, actor, id, input)));
+  });
+
   routes.get("/items", requirePermission("inventory.read"), async (c) => {
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
@@ -88,6 +125,8 @@ export function inventoryRoutes(options: {
           kind: kind.success ? kind.data : undefined,
           subtype: query(c, "subtype"),
           category: query(c, "category"),
+          categoryId: query(c, "categoryId"),
+          typeId: query(c, "typeId"),
           sectionId: sectionId.success ? sectionId.data : undefined,
           vendor: query(c, "vendor"),
           belowPar: flag(c, "belowPar"),
@@ -130,6 +169,39 @@ export function inventoryRoutes(options: {
     return c.json(
       await record(c, (db, actor) => updateItem(db, actor, id, input)),
     );
+  });
+  routes.patch("/items/:id/inline", requirePermission("inventory.write"), async (c) => {
+    const id = param(c, "Item");
+    const { field, value, updatedAt } = await parseBody(c, inlineSchema);
+    return c.json(await record(c, async (db, actor) => {
+      const stored = await getItem(db, fullView, id);
+      if (stored.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
+        throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
+      const input = itemInputSchema.parse({
+        ...stored,
+        rental: stored.rental ?? undefined,
+        service: stored.service ?? undefined,
+        consumable: stored.consumable ?? undefined,
+        bar: stored.bar ?? undefined,
+      });
+      if (field === "categoryId" || field === "typeId") {
+        if (value && !uuid.safeParse(value).success) throw new ApiError(400, "INVALID_REQUEST", "Invalid classification id.");
+        if (field === "categoryId") { input.categoryId = value || null; input.typeId = null; }
+        else input.typeId = value || null;
+      } else if (field === "legacyCategory") {
+        input.category = value;
+      }
+      else if (field === "bar.brand" || field === "bar.subcategory") {
+        if (!input.bar) throw new ApiError(400, "INVALID_FIELD", "This is not a Bar item.");
+        if (field === "bar.brand") input.bar.brand = value;
+        else input.bar.subcategory = value;
+      } else if (field === "consumable.preferredVendor" || field === "consumable.parLevel") {
+        if (!input.consumable) throw new ApiError(400, "INVALID_FIELD", "This is not a consumable item.");
+        if (field === "consumable.preferredVendor") input.consumable.preferredVendor = value;
+        else input.consumable.parLevel = value === "" ? null : Number(value);
+      } else input[field] = value;
+      return updateItem(db, actor, id, { ...input, updatedAt });
+    }));
   });
   routes.post(
     "/items/:id/transfers",
