@@ -800,7 +800,7 @@ export function TaskList() {
       ) : list.data.length ? (
         <ul className="task-lines" aria-label="Tasks">
           {list.data.map((task) => (
-            <TaskLine key={task.id} task={task}>
+            <TaskLine key={task.id} task={task} onChanged={list.reload}>
               <TaskActions task={task} onChanged={list.reload} onError={setError} />
             </TaskLine>
           ))}

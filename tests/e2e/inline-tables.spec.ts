@@ -44,6 +44,7 @@ test("venue table saves an inline address", async ({ page }) => {
   const drawer = page.getByRole("dialog");
   await drawer.getByLabel("Name *", { exact: true }).fill("Synthetic venue");
   await drawer.getByRole("button", { name: "Save venue" }).click();
+  await expect(page).toHaveURL(/#\/venues\/[^/]+$/);
   await page.goto("/#/venues");
   const row = page.getByRole("row", { name: /Synthetic venue/ });
   await row.getByRole("button", { name: "—" }).click();
@@ -109,6 +110,7 @@ test("SOP library saves an inline title", async ({ page }) => {
   await page.getByLabel("Category").fill("Production");
   await page.getByRole("textbox", { name: "SOP content" }).fill("Inspect each table.");
   await page.getByRole("button", { name: "Save SOP" }).click();
+  await expect(page).toHaveURL(/#\/sops\/[^/]+$/);
   await page.goto("/#/sops");
   const row = page.getByRole("row", { name: /Set up tables/ });
   await row.getByRole("button", { name: "Set up tables" }).click();
@@ -124,6 +126,7 @@ test("vendor table saves an inline name", async ({ page }) => {
   const drawer = page.getByRole("dialog");
   await drawer.getByLabel("Name *", { exact: true }).fill("Synthetic distributor");
   await drawer.getByRole("button", { name: "Save vendor" }).click();
+  await expect(page).toHaveURL(/#\/vendors\/[^/]+$/);
   await page.goto("/#/vendors");
   const row = page.getByRole("row", { name: /Synthetic distributor/ });
   await row.getByRole("button", { name: "Synthetic distributor" }).click();
@@ -139,6 +142,7 @@ test("recipe table saves an inline dish name", async ({ page }) => {
   const drawer = page.getByRole("dialog");
   await drawer.getByLabel("Name *", { exact: true }).fill("Synthetic dish");
   await drawer.getByRole("button", { name: "Save recipe" }).click();
+  await expect(page).toHaveURL(/#\/recipes\/[^/]+$/);
   await page.goto("/#/recipes");
   const row = page.getByRole("row", { name: /Synthetic dish/ });
   await row.getByRole("button", { name: "Synthetic dish" }).click();
