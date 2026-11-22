@@ -68,7 +68,7 @@ test("uploads, previews, deletes and restores a document", async ({ page }) => {
   await uploadedRow.getByRole("textbox").press("Enter");
   await expect(page.getByRole("row", { name: /Synthetic contract/ })).toBeVisible();
   await page.getByRole("row", { name: /Synthetic contract/ }).getByRole("button", { name: "Open" }).click();
-  await expect(page.getByRole("dialog").getByText("Versions")).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Versions" })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();

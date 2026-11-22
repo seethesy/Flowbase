@@ -2,6 +2,15 @@ import { test, expect } from "./auth-fixture";
 import { juniper, fallGala, chairs, consumable } from "./fixtures";
 import { seedInventory, seedRecords } from "./database";
 import { utcToBusinessTime } from "../../shared/time";
+import type { Page } from "@playwright/test";
+
+async function saveInline(page: Page, path: string, method = "PUT") {
+  const saved = page.waitForResponse((response) =>
+    response.url().includes(path) && response.request().method() === method,
+  );
+  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  expect((await saved).ok()).toBeTruthy();
+}
 
 test("client table saves an inline name and keeps Open", async ({ page }) => {
   await seedRecords({ clients: [juniper()] });
@@ -10,7 +19,7 @@ test("client table saves an inline name and keeps Open", async ({ page }) => {
   await expect(row.getByRole("button", { name: "Open" })).toBeVisible();
   await row.getByRole("button", { name: "Juniper & Co." }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Juniper Events");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, `/api/clients/${juniper().id}`);
   await expect(page.getByRole("row", { name: /Juniper Events/ })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("row", { name: /Juniper Events/ })).toBeVisible();
@@ -23,7 +32,7 @@ test("event table saves an inline title", async ({ page }) => {
   const row = page.getByRole("row", { name: /Fall gala/ });
   await row.getByRole("button", { name: "Fall gala" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Winter gala");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, `/api/events/${event.id}`);
   await expect(page.getByRole("row", { name: /Winter gala/ })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("row", { name: /Winter gala/ })).toBeVisible();
@@ -39,7 +48,7 @@ test("venue table saves an inline address", async ({ page }) => {
   const row = page.getByRole("row", { name: /Synthetic venue/ });
   await row.getByRole("button", { name: "—" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("100 Test Lane");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, "/api/venues/");
   await page.reload();
   await expect(page.getByRole("row", { name: /100 Test Lane/ })).toBeVisible();
 });
@@ -59,7 +68,7 @@ test("Inventory, Ingredient and Bar tables save inline item names", async ({ pag
     const row = page.getByRole("row", { name: new RegExp(before) });
     await row.getByRole("button", { name: before }).click();
     await page.locator("tbody tr input.table-edit-input").fill(after);
-    await page.locator("tbody tr input.table-edit-input").press("Enter");
+    await saveInline(page, "/api/inventory/items/", "PATCH");
     await page.reload();
     await expect(page.getByRole("row", { name: new RegExp(after) })).toBeVisible();
   }
@@ -74,7 +83,11 @@ test("task list edits a title inline and keeps its record link", async ({ page }
   const row = page.getByRole("list", { name: "Tasks" }).getByRole("listitem", { name: /Pack crates/ });
   await row.getByRole("button", { name: "Edit" }).click();
   await row.getByRole("textbox", { name: "Edit Pack crates" }).fill("Pack checked crates");
+  const saved = page.waitForResponse((response) =>
+    response.url().includes("/api/tasks/") && response.request().method() === "PATCH",
+  );
   await row.getByRole("textbox", { name: "Edit Pack crates" }).press("Enter");
+  expect((await saved).ok()).toBeTruthy();
   await expect(page.getByRole("link", { name: "Pack checked crates" })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("link", { name: "Pack checked crates" })).toBeVisible();
@@ -85,7 +98,7 @@ test("staff directory saves an inline name", async ({ page }) => {
   const row = page.getByRole("row", { name: /Test Admin/ });
   await row.getByRole("button", { name: "Test Admin" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Admin Tester");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, "/api/staff/", "PATCH");
   await page.reload();
   await expect(page.getByRole("row", { name: /Admin Tester/ })).toBeVisible();
 });
@@ -100,7 +113,7 @@ test("SOP library saves an inline title", async ({ page }) => {
   const row = page.getByRole("row", { name: /Set up tables/ });
   await row.getByRole("button", { name: "Set up tables" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Set up guest tables");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, "/api/sops/");
   await page.reload();
   await expect(page.getByRole("row", { name: /Set up guest tables/ })).toBeVisible();
 });
@@ -115,7 +128,7 @@ test("vendor table saves an inline name", async ({ page }) => {
   const row = page.getByRole("row", { name: /Synthetic distributor/ });
   await row.getByRole("button", { name: "Synthetic distributor" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Synthetic supplier");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, "/api/vendors/");
   await page.reload();
   await expect(page.getByRole("row", { name: /Synthetic supplier/ })).toBeVisible();
 });
@@ -130,7 +143,7 @@ test("recipe table saves an inline dish name", async ({ page }) => {
   const row = page.getByRole("row", { name: /Synthetic dish/ });
   await row.getByRole("button", { name: "Synthetic dish" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Synthetic entrée");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
+  await saveInline(page, "/api/recipes/");
   await page.reload();
   await expect(page.getByRole("row", { name: /Synthetic entrée/ })).toBeVisible();
 });

@@ -9,7 +9,7 @@ test("the event hub opens from the client page and the event list", async ({
 }) => {
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await page.goto(`/#/clients/${juniper().id}`);
-  await page.getByRole("button", { name: "Fall gala", exact: true }).click();
+  await page.getByRole("row", { name: /Fall gala/ }).getByRole("button", { name: "Open" }).click();
   await expect(page).toHaveURL(new RegExp(`#/events/${fallGala().id}$`));
   await expect(
     page.getByRole("heading", { name: "Fall gala", level: 1 }),
@@ -28,7 +28,7 @@ test("the event hub opens from the client page and the event list", async ({
   ).toBeVisible();
 
   await page.goto("/#/events");
-  await page.getByRole("button", { name: "Fall gala", exact: true }).click();
+  await page.getByRole("row", { name: /Fall gala/ }).getByRole("button", { name: "Open" }).click();
   await expect(
     page.getByRole("heading", { name: "Event files", exact: true }),
   ).toBeVisible();
