@@ -23,7 +23,8 @@ test("sales tracker filters, saved views, export and live proposal stages", asyn
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   expect((await download).suggestedFilename()).toBe("sales-tracker.csv");
-  await page.getByRole("link", { name: /Gala proposal/ }).click();
+  // A proposal's title is edited in place (FLOW-275); its client links to it.
+  await page.getByRole("row", { name: /Gala proposal/ }).getByRole("link").click();
   const drawer = page.getByRole("dialog", { name: "Gala proposal" });
   await expect(drawer).toBeVisible();
   await choose(drawer.getByLabel("Move to stage"), { label: "Negotiation" });

@@ -276,3 +276,25 @@ it("lets Admin, sales, the kitchen and FT+ update rental stock", () => {
     part_time_staff: [false, false],
   });
 });
+
+// Inline table edits (FLOW-261/275) need inventory.write, like the item's own
+// save, and only the listed fields can be sent.
+it("checks inline item edits before reaching the database", async () => {
+  const { mock, withDb } = mockDb();
+  const updatedAt = new Date().toISOString();
+  const patch = (field: string, value: string) => ({
+    method: "PATCH",
+    body: JSON.stringify({ field, value, updatedAt }),
+    headers: { "Content-Type": "application/json" },
+  });
+  const path = `/api/inventory/items/${id}/inline`;
+  for (const role of ["salesperson", "kitchen_staff", "staff", "part_time_staff"] as const) {
+    const app = createApp({ withDb, resolveActor: async () => actor(role) });
+    for (const field of ["tier", "bar.container", "consumable.recipeUnit", "consumable.storageSectionId", "group", "color"])
+      expect((await app.request(path, patch(field, "x"), env)).status).toBe(403);
+  }
+  const admin = createApp({ withDb, resolveActor: async () => actor("admin") });
+  for (const field of ["consumable.unitCostCents", "stock", "kind"])
+    expect((await admin.request(path, patch(field, "1"), env)).status).toBe(400);
+  expect(mock).not.toHaveBeenCalled();
+});

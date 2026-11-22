@@ -5,9 +5,13 @@ import { StatusPill } from "../components/ui/status-pill";
 import { pipelineLabels, pipelineStatusSchema } from "../../shared/pipeline";
 import { filterSalesRows, salesCsv, salesFilterSchema, type SalesFilter, type SalesRow } from "../../shared/sales";
 import { useResource } from "../app/useResource";
-import { Button, LoadingSkeleton, PageHeader, Section } from "../components/shared";
+import { Button, EditableCell, LoadingSkeleton, PageHeader, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { salesApi } from "../services/sales";
+import { proposalsApi } from "../services/proposals";
+import { staffApi } from "../services/staff";
+import { usePermissions } from "../app/permissions";
+import { eventScope } from "../../shared/policy";
 import "./sales.css";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy } from "../app/copy";
@@ -26,9 +30,33 @@ const stageLabel = (stage: string) => {
   return parsed.success ? pipelineLabels[parsed.data] : stage;
 };
 
+// A proposal row's title and salesperson are edited in place (FLOW-261/275) and
+// saved to the proposal itself, keeping its notes. Only managers whose scope is
+// every event pick another salesperson; the API enforces both rules.
+function useProposalEdits(reload: () => unknown) {
+  const { actor, can } = usePermissions();
+  const staff = useResource(["staff"], () => staffApi.list(), { reference: true });
+  const canEdit = can("proposals.write");
+  const canAssign = canEdit && actor !== null && eventScope(actor) === "all";
+  const save = async (id: string, change: { title?: string; assignedSalespersonId?: string | null }) => {
+    const current = await proposalsApi.get(id);
+    await proposalsApi.update(id, {
+      title: change.title ?? current.title,
+      notes: current.notes,
+      assignedSalespersonId: change.assignedSalespersonId !== undefined
+        ? change.assignedSalespersonId : current.assignedSalesperson?.id ?? null,
+    });
+    reload();
+  };
+  const people = (staff.data ?? []).filter((member) => member.active)
+    .map((member) => ({ value: member.id, label: member.name }));
+  return { canEdit, canAssign, save, people };
+}
+
 export function SalesTracker() {
   const viewNamePlaceholder = useCopy("sales.sales-tracker.view-name.placeholder", "View name");
   const data = useResource(["sales", "rows"], salesApi.list);
+  const edits = useProposalEdits(() => data.reload());
   const views = useResource(["sales", "views"], salesApi.views);
   const [filter, setFilter] = useState<SalesFilter>(salesFilterSchema.parse({}));
   const [viewName, setViewName] = useState("");
@@ -67,7 +95,15 @@ export function SalesTracker() {
     </div>
     {error && <p role="alert">{error}</p>}
     <Section title={<T id="sales.sales-tracker.rows" values={{ rowsCount: rows.length }}>{"{rowsCount} rows"}</T>}><div className="sales-table-wrap"><table className="sales-table"><thead><tr><th><T id="sales.sales-tracker.type-2">Type</T></th><th><T id="sales.sales-tracker.client-record">Client / record</T></th><th><T id="sales.sales-tracker.event-date">Event date</T></th><th><T id="sales.sales-tracker.event-type">Event type</T></th><th><T id="sales.sales-tracker.stage-2">Stage</T></th><th><T id="sales.sales-tracker.salesperson-2">Salesperson</T></th><th><T id="sales.sales-tracker.source">Source</T></th><th><T id="sales.sales-tracker.total">Total</T></th><th><T id="sales.sales-tracker.balance-due">Balance due</T></th><th><T id="sales.sales-tracker.last-activity">Last activity</T></th><th><T id="sales.sales-tracker.next-follow-up">Next follow-up</T></th></tr></thead>
-      <tbody>{rows.map((row) => <tr key={`${row.kind}:${row.id}`}><td>{row.kind}</td><td><Link to={path(row)}>{row.client} · {row.title}</Link></td><td>{day(row.eventDate)}</td><td>{row.eventType || "—"}</td><td>{row.proposalStage ? <StatusPill status={row.proposalStage} /> : row.eventStatus ? <StatusPill status={row.eventStatus} /> : row.leadStatus ? <StatusPill status={row.leadStatus} /> : row.stage}{row.approvalStatus && <span className={`badge ${row.approvalStatus === "approved" ? "success" : "neutral"}`}>{row.approvalStatus}</span>}</td><td>{row.owner ?? "—"}</td><td>{row.source ?? "—"}</td><td>{dollars(row.totalCents)}</td><td>{dollars(row.balanceCents)}</td><td>{day(row.lastActivity)}</td><td>{day(row.nextFollowUp)}</td></tr>)}</tbody>
+      <tbody>{rows.map((row) => <tr key={`${row.kind}:${row.id}`}><td>{row.kind}</td><td>{row.kind === "proposal" && edits.canEdit
+        ? <><Link to={path(row)}>{row.client}</Link>{" · "}<EditableCell label="Proposal title" row={row} edit="text" value={row.title}
+          save={(_row, value) => edits.save(row.id, { title: value })} /></>
+        : <Link to={path(row)}>{row.client} · {row.title}</Link>}</td><td>{day(row.eventDate)}</td><td>{row.eventType || "—"}</td><td>{row.proposalStage ? <StatusPill status={row.proposalStage} /> : row.eventStatus ? <StatusPill status={row.eventStatus} /> : row.leadStatus ? <StatusPill status={row.leadStatus} /> : row.stage}{row.approvalStatus && <span className={`badge ${row.approvalStatus === "approved" ? "success" : "neutral"}`}>{row.approvalStatus}</span>}</td><td>{row.kind === "proposal" && edits.canAssign
+        ? <EditableCell label="Salesperson" row={row} edit="select" value={row.ownerId ?? ""}
+          options={[{ value: "", label: "Unassigned" }, ...edits.people,
+            ...(row.ownerId && !edits.people.some((person) => person.value === row.ownerId) ? [{ value: row.ownerId, label: row.owner ?? "" }] : [])]}
+          save={(_row, value) => edits.save(row.id, { assignedSalespersonId: value || null })} />
+        : row.owner ?? "—"}</td><td>{row.source ?? "—"}</td><td>{dollars(row.totalCents)}</td><td>{dollars(row.balanceCents)}</td><td>{day(row.lastActivity)}</td><td>{day(row.nextFollowUp)}</td></tr>)}</tbody>
     </table></div></Section>
   </>;
 }

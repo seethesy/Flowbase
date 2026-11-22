@@ -85,6 +85,15 @@ button.back-link {
   flex-direction: column;
   min-width: 0;
 }
+/* All tasks edits each field in place (FLOW-275). */
+.task-line-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
 .task-line small {
   color: var(--muted);
   overflow-wrap: anywhere;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { fullView } from "../audit/log";
 import { inventoryChangesSchema } from "../../shared/inventory-changes";
 import {
+  barContainerSchema,
   correctionInputSchema,
   countInputSchema,
   countLineInputSchema,
@@ -18,6 +19,7 @@ import {
   transferInputSchema,
 } from "../../shared/inventory";
 import { id as uuid, withVersion } from "../../shared/schema-primitives";
+import { unitSchema } from "../../shared/units";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import { can } from "../policy";
 import {
@@ -65,7 +67,8 @@ const categoryCreateSchema = classificationInputSchema.extend({ kind: z.enum(["r
 const classificationChangeSchema = classificationInputSchema.partial().extend({ archived: z.boolean().optional() });
 const typeCreateSchema = classificationInputSchema.extend({ categoryId: uuid });
 const inlineSchema = z.object({
-  field: z.enum(["name", "code", "description", "group", "color", "tier", "categoryId", "typeId", "legacyCategory", "bar.brand", "bar.subcategory", "consumable.preferredVendor", "consumable.parLevel"]),
+  field: z.enum(["name", "code", "description", "group", "color", "tier", "categoryId", "typeId", "legacyCategory", "bar.brand", "bar.subcategory", "consumable.preferredVendor", "consumable.parLevel",
+    "consumable.recipeUnit", "consumable.storageSectionId", "bar.container"]),
   value: z.string().max(5000),
   updatedAt: z.string().datetime(),
 });
@@ -191,16 +194,35 @@ export function inventoryRoutes(options: {
       } else if (field === "legacyCategory") {
         input.category = value;
       }
-      else if (field === "bar.brand" || field === "bar.subcategory") {
+      else if (field === "bar.brand" || field === "bar.subcategory" || field === "bar.container") {
         if (!input.bar) throw new ApiError(400, "INVALID_FIELD", "This is not a Bar item.");
         if (field === "bar.brand") input.bar.brand = value;
-        else input.bar.subcategory = value;
-      } else if (field === "consumable.preferredVendor" || field === "consumable.parLevel") {
+        else if (field === "bar.subcategory") input.bar.subcategory = value;
+        else {
+          // FLOW-275: Bottle, Can, Keg or none.
+          const container = barContainerSchema.safeParse(value);
+          if (value && !container.success) throw new ApiError(400, "INVALID_REQUEST", "Pick bottle, can or keg.");
+          input.bar.container = value ? container.data! : null;
+        }
+      } else if (field.startsWith("consumable.")) {
         if (!input.consumable) throw new ApiError(400, "INVALID_FIELD", "This is not a consumable item.");
         if (field === "consumable.preferredVendor") input.consumable.preferredVendor = value;
-        else input.consumable.parLevel = value === "" ? null : Number(value);
-      } else input[field] = value;
-      return updateItem(db, actor, id, { ...input, updatedAt });
+        else if (field === "consumable.parLevel") input.consumable.parLevel = value === "" ? null : Number(value);
+        else if (field === "consumable.recipeUnit") {
+          const unit = unitSchema.safeParse(value);
+          if (value && !unit.success) throw new ApiError(400, "INVALID_REQUEST", "Pick a recipe unit.");
+          input.consumable.recipeUnit = value ? unit.data! : null;
+        } else {
+          if (value && !uuid.safeParse(value).success) throw new ApiError(400, "INVALID_REQUEST", "Invalid storage section id.");
+          input.consumable.storageSectionId = value || null;
+        }
+      } else input[field as "name" | "code" | "description" | "group" | "color" | "tier"] = value;
+      // FLOW-275: the changed item is checked like a full save (a Bar tier must be
+      // rail, mid, high or premium; a name can't be blank).
+      const checked = itemInputSchema.safeParse(input);
+      if (!checked.success)
+        throw new ApiError(400, "INVALID_REQUEST", checked.error.issues[0]?.message ?? "Invalid value.");
+      return updateItem(db, actor, id, { ...checked.data, updatedAt });
     }));
   });
   routes.post(

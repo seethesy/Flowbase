@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import type { ColumnDef } from "@tanstack/react-table";
 import { TestAuth } from "./auth-provider";
-import { DataTable } from "../src/components/shared";
+import { DataTable, EditableCell } from "../src/components/shared";
 
 type Row = { id: string; name: string; stock: number };
 const row: Row = { id: "one", name: "Old", stock: 7 };
@@ -30,4 +30,16 @@ it("edits a declared field, saves on Enter, cancels on Escape, and rolls back a 
   expect(await screen.findByRole("alert")).toHaveTextContent("Save refused");
   expect(screen.getByRole("button", { name: "Old" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "7" })).not.toBeInTheDocument();
+});
+
+// FLOW-275: outside a table (All tasks, the Proposals tracker) the field name is
+// the button's title and the open editor's accessible name.
+it("names a labelled inline field and saves it like a table cell", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn<(_row: Row, _value: string) => Promise<void>>().mockResolvedValue(undefined);
+  render(<TestAuth><EditableCell label="Position" row={row} edit="text" value="" save={save} /></TestAuth>);
+  await user.click(screen.getByTitle("Position"));
+  await user.type(screen.getByRole("textbox", { name: "Position" }), "Server{Enter}");
+  expect(save).toHaveBeenCalledWith(row, "Server");
+  expect(screen.getByTitle("Position")).toHaveTextContent("Server");
 });
