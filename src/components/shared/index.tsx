@@ -58,6 +58,9 @@ declare module "@tanstack/react-table" {
     edit?: "text" | "number" | "date" | "time" | "select" | "none";
     editOptions?: { value: string; label: string }[] | ((row: TData) => { value: string; label: string }[]);
     editValue?: (row: TData) => string;
+    // FLOW-275: what the cell shows until it is edited, when that differs from
+    // the option label (Bar container shows its size too).
+    editDisplay?: (row: TData) => string;
     editCreate?: (row: TData, name: string) => Promise<string | void>;
     editMultiple?: boolean;
     canEdit?: (row: TData) => boolean;
@@ -70,7 +73,7 @@ declare module "@tanstack/react-table" {
 // label names the field: the button's title, and the open editor's accessible
 // name (kept off the button so it doesn't clash with a filter of the same name).
 export function EditableCell<Row>({
-  value, row, edit, options, save, create, multiple, label,
+  value, row, edit, options, save, create, multiple, label, displayText,
 }: {
   value: unknown;
   row: Row;
@@ -80,6 +83,7 @@ export function EditableCell<Row>({
   create?: (row: Row, name: string) => Promise<string | void>;
   multiple?: boolean;
   label?: string;
+  displayText?: string;
 }) {
   const shown = value == null ? "" : String(value);
   const [display, setDisplay] = useState(shown);
@@ -100,7 +104,7 @@ export function EditableCell<Row>({
     catch (cause) { setDisplay(shown); setDraft(shown); setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   };
-  const shownText = edit === "select" ? multiple
+  const shownText = displayText !== undefined && display === shown ? displayText : edit === "select" ? multiple
     ? display.split(",").filter(Boolean).map((part) => options?.find((option) => option.value === part)?.label ?? part).join(", ")
     : options?.find((option) => option.value === display)?.label : display;
   if (!editing) return <>
@@ -515,6 +519,7 @@ function DataTableView<Row>({
                         save={cell.column.columnDef.meta.onEdit}
                         create={cell.column.columnDef.meta.editCreate}
                         multiple={cell.column.columnDef.meta.editMultiple}
+                        displayText={cell.column.columnDef.meta.editDisplay?.(row.original)}
                       />
                     ) : i === 0 && onRow && !openColumn ? (
                       <button

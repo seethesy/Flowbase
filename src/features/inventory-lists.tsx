@@ -643,6 +643,10 @@ export function BarList() {
           .join(" ") || "—",
       // The container is edited here; its size is part of "Bought as" on the item page.
       meta: { edit: "select", canEdit, editValue: (item) => item.bar?.container ?? "",
+        editDisplay: (item) => [
+          item.bar?.container ? barContainerLabels[item.bar.container] : "",
+          item.consumable?.eachSize ? `${Number(item.consumable.eachSize.quantity)} ${unitLabel(item.consumable.eachSize.unit)}` : "",
+        ].filter(Boolean).join(" "),
         editOptions: [{ value: "", label: "None" }, ...(Object.keys(barContainerLabels) as (keyof typeof barContainerLabels)[])
           .map((container) => ({ value: container, label: barContainerLabels[container] }))],
         onEdit: (item, value) => save(item, "bar.container", value) },

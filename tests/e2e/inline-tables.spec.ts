@@ -15,6 +15,7 @@ async function saveInline(page: Page, path: string, method = "PUT") {
 
 // The cell under a column header in the row whose name matches (FLOW-275).
 async function cellOf(page: Page, row: RegExp, header: string) {
+  await expect(page.getByRole("row", { name: row })).toBeVisible();
   const headers = (await page.locator("thead th").allTextContents())
     .map((text) => text.replace(/[↑↓]/g, "").trim());
   const index = headers.indexOf(header);
