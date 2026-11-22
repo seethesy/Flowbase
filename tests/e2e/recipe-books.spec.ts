@@ -35,7 +35,7 @@ test("browses by category, ingredient, allergen and dietary tag and prints a kit
   await choose(page.getByLabel("Dietary tag", { exact: true }), "Vegan");
   await expect(page.getByText("0 recipes", { exact: true })).toBeVisible();
   await choose(page.getByLabel("Dietary tag", { exact: true }), "Gluten-free");
-  await page.getByRole("button", { name: "Tuscan Chicken", exact: true }).click();
+  await page.getByRole("row", { name: /Tuscan Chicken/ }).getByRole("button", { name: "Open", exact: true }).click();
   await page.getByRole("link", { name: "Kitchen card" }).click();
   await expect(page).toHaveURL(new RegExp(`/print/recipes/${dish.id}`));
   await expect(page.locator(".print-document")).toContainText("Sear until golden.");

@@ -171,7 +171,8 @@ test("transfers stock between sections from the item page", async ({
   await choose(page
     .getByRole("combobox", { name: "Section", exact: true }), { label: "Cafe" });
   await page
-    .getByRole("button", { name: "Chiavari Chair", exact: true })
+    .getByRole("row", { name: /Chiavari Chair/ })
+    .getByRole("button", { name: "Open", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Chiavari Chair", level: 1 }),
@@ -265,7 +266,10 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   );
   await page.getByLabel("Vendor", { exact: true }).fill("");
 
-  await page.getByRole("button", { name: "Heavy Cream" }).click();
+  await page
+    .getByRole("row", { name: /Heavy Cream/ })
+    .getByRole("button", { name: "Open", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Heavy Cream", level: 1 }),
   ).toBeVisible();

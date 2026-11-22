@@ -16,7 +16,7 @@ test("sidebar, client search, detail tabs, and browser history", async ({
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true }).click();
   await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Clients", exact: true }).click();
   await page.getByPlaceholder("Search clients or contacts…").fill("Juniper");
-  await page.getByRole("button", { name: "JC Juniper & Co." }).click();
+  await page.getByRole("row", { name: /Juniper & Co\./ }).getByRole("button", { name: "Open", exact: true }).click();
   await page.getByRole("tab", { name: "Contacts", exact: true }).click();
   await expect(page.getByText("Olivia Bennett", { exact: true })).toBeVisible();
   await page.goBack();

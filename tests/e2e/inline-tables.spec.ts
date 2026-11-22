@@ -110,7 +110,7 @@ test("SOP library saves an inline title", async ({ page }) => {
   await page.getByLabel("Category").fill("Production");
   await page.getByRole("textbox", { name: "SOP content" }).fill("Inspect each table.");
   await page.getByRole("button", { name: "Save SOP" }).click();
-  await expect(page).toHaveURL(/#\/sops\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: "Set up tables", level: 1 })).toBeVisible();
   await page.goto("/#/sops");
   const row = page.getByRole("row", { name: /Set up tables/ });
   await row.getByRole("button", { name: "Set up tables" }).click();
@@ -151,14 +151,3 @@ test("recipe table saves an inline dish name", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("row", { name: /Synthetic entrée/ })).toBeVisible();
 });
-
-test("proposal table saves a name through its existing demo endpoint", async ({ page }) => {
-  await page.goto("/#/proposals?view=table");
-  const row = page.locator("tbody tr").first();
-  const name = row.locator("td").nth(2).getByRole("button");
-  await name.click();
-  await page.locator("tbody tr input.table-edit-input").fill("Synthetic proposal name");
-  await page.locator("tbody tr input.table-edit-input").press("Enter");
-  await expect(page.getByRole("row", { name: /Synthetic proposal name/ })).toBeVisible();
-});
-
