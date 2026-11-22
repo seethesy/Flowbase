@@ -47,7 +47,7 @@ test("venue table saves an inline address", async ({ page }) => {
   await expect(page).toHaveURL(/#\/venues\/[^/]+$/);
   await page.goto("/#/venues");
   const row = page.getByRole("row", { name: /Synthetic venue/ });
-  await row.getByRole("button", { name: "—" }).click();
+  await row.getByRole("cell").nth(2).getByRole("button").click();
   await page.locator("tbody tr input.table-edit-input").fill("100 Test Lane");
   await saveInline(page, "/api/venues/");
   await page.reload();
@@ -81,7 +81,7 @@ test("task list edits a title inline and keeps its record link", async ({ page }
   const drawer = page.getByRole("dialog");
   await drawer.getByLabel("Title").fill("Pack crates");
   await drawer.getByRole("button", { name: "Add task" }).click();
-  const row = page.getByRole("list", { name: "Tasks" }).getByRole("listitem", { name: /Pack crates/ });
+  const row = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Pack crates" });
   await row.getByRole("button", { name: "Edit" }).click();
   await row.getByRole("textbox", { name: "Edit Pack crates" }).fill("Pack checked crates");
   const saved = page.waitForResponse((response) =>
@@ -96,12 +96,12 @@ test("task list edits a title inline and keeps its record link", async ({ page }
 
 test("staff directory saves an inline name", async ({ page }) => {
   await page.goto("/#/staff");
-  const row = page.getByRole("row", { name: /Test Admin/ });
-  await row.getByRole("button", { name: "Test Admin" }).click();
-  await page.locator("tbody tr input.table-edit-input").fill("Admin Tester");
+  const row = page.getByRole("row", { name: /Jamie Park/ });
+  await row.getByRole("button", { name: "Jamie Park (staff)" }).click();
+  await page.locator("tbody tr input.table-edit-input").fill("Jamie Tester");
   await saveInline(page, "/api/staff/", "PATCH");
   await page.reload();
-  await expect(page.getByRole("row", { name: /Admin Tester/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Jamie Tester/ })).toBeVisible();
 });
 
 test("SOP library saves an inline title", async ({ page }) => {
