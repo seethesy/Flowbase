@@ -215,7 +215,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
     .click();
   let dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Heavy Cream");
-  await dialog.getByLabel("Category", { exact: true }).fill("Dairy");
+  await dialog.getByLabel("Legacy category", { exact: true }).fill("Dairy");
   await choose(dialog.getByLabel(/^Stock unit/), "qt");
   await choose(dialog.getByLabel(/^Purchase unit/), "case");
   await dialog.getByLabel("Items per case", { exact: true }).fill("6");
@@ -245,7 +245,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
     .click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Romaine");
-  await dialog.getByLabel("Category", { exact: true }).fill("Produce");
+  await dialog.getByLabel("Legacy category", { exact: true }).fill("Produce");
   await choose(dialog.getByLabel(/^Purchase unit/), "lb");
   await dialog.getByLabel("Preferred vendor", { exact: true }).fill("Farm Co");
   await dialog.getByRole("button", { name: "Save item" }).click();
