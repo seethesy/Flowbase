@@ -177,7 +177,13 @@ export function inventoryRoutes(options: {
       const stored = await getItem(db, fullView, id);
       if (stored.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
         throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
-      const input = itemInputSchema.parse(stored);
+      const input = itemInputSchema.parse({
+        ...stored,
+        rental: stored.rental ?? undefined,
+        service: stored.service ?? undefined,
+        consumable: stored.consumable ?? undefined,
+        bar: stored.bar ?? undefined,
+      });
       if (field === "categoryId" || field === "typeId") {
         if (value && !uuid.safeParse(value).success) throw new ApiError(400, "INVALID_REQUEST", "Invalid classification id.");
         if (field === "categoryId") { input.categoryId = value || null; input.typeId = null; }
