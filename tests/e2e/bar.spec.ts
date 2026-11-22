@@ -63,7 +63,9 @@ test("filters the bar screen by category, subcategory, tier and distributor", as
   const shown = (name: string) =>
     page.getByRole("button", { name, exact: true });
   await expect(page.getByText("4 bar items", { exact: true })).toBeVisible();
-  await expect(page.getByText("Liquor · Vodka").first()).toBeVisible();
+  const vodkaRow = page.getByRole("row", { name: /Tito's Vodka/ });
+  await expect(vodkaRow.getByRole("button", { name: "Liquor", exact: true })).toBeVisible();
+  await expect(vodkaRow.getByRole("button", { name: "Vodka", exact: true })).toBeVisible();
   await expect(page.getByText("Bottle 750 ml").first()).toBeVisible();
 
   await choose(page.getByLabel("Category", { exact: true }), "Wine");
@@ -110,7 +112,7 @@ test("creates a bar item kept in Bar Storage", async ({ page }) => {
     barStorage.id,
   );
   await dialog.getByLabel("Name *", { exact: true }).fill("Tito's Vodka");
-  await choose(dialog.getByLabel(/^Category/), "Liquor");
+  await choose(dialog.getByLabel("Bar category", { exact: true }), "Liquor");
   await choose(dialog.getByLabel(/^Subcategory/), "Vodka");
   await dialog.getByLabel(/^Brand \/ varietal/).fill("Tito's");
   await choose(dialog.getByLabel(/^Tier/), "mid");
@@ -125,7 +127,9 @@ test("creates a bar item kept in Bar Storage", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Tito's Vodka", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Liquor · Vodka")).toBeVisible();
+  const createdRow = page.getByRole("row", { name: /Tito's Vodka/ });
+  await expect(createdRow.getByRole("button", { name: "Liquor", exact: true })).toBeVisible();
+  await expect(createdRow.getByRole("button", { name: "Vodka", exact: true })).toBeVisible();
   await expect(
     page.getByRole("cell", { name: "Mid", exact: true }),
   ).toBeVisible();
