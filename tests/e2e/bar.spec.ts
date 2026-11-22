@@ -112,7 +112,7 @@ test("creates a bar item kept in Bar Storage", async ({ page }) => {
     barStorage.id,
   );
   await dialog.getByLabel("Name *", { exact: true }).fill("Tito's Vodka");
-  await choose(dialog.getByLabel("Bar category", { exact: true }), "Liquor");
+  await choose(dialog.getByRole("combobox", { name: "Bar category", exact: true }), "Liquor");
   await choose(dialog.getByLabel(/^Subcategory/), "Vodka");
   await dialog.getByLabel(/^Brand \/ varietal/).fill("Tito's");
   await choose(dialog.getByLabel(/^Tier/), "mid");

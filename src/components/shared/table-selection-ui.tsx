@@ -37,7 +37,7 @@ export const MAX_BULK_DELETE = 100;
 const UNDO_MS = 10_000;
 
 // Pointer-downs on these keep their own behavior (typing, opening a dropdown).
-const OWN_POINTER = "input, textarea, [contenteditable='true'], [role='combobox'], [role='listbox']";
+const OWN_POINTER = "button, a, input, textarea, [contenteditable='true'], [role='combobox'], [role='listbox']";
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && !!target.closest("input, textarea, [contenteditable='true'], [role='combobox'], [role='listbox']");
 
