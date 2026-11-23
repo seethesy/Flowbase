@@ -2732,6 +2732,19 @@
     "venues.venue-list."
   ],
   "layout": {
+    "approvals.queue": {
+      "blocks": [
+        "queue"
+      ],
+      "fieldCards": []
+    },
+    "calendar.page": {
+      "blocks": [
+        "calendar",
+        "layers"
+      ],
+      "fieldCards": []
+    },
     "clients.detail": {
       "blocks": [
         "client-facts",
@@ -2759,6 +2772,21 @@
         "my-tasks",
         "upcoming-events",
         "working-staff"
+      ],
+      "fieldCards": []
+    },
+    "day-of.board": {
+      "blocks": [
+        "events",
+        "urgent"
+      ],
+      "fieldCards": []
+    },
+    "events.closeout": {
+      "blocks": [
+        "finish",
+        "pull-list",
+        "sub-rentals"
       ],
       "fieldCards": []
     },
@@ -2794,6 +2822,19 @@
       ],
       "fieldCards": []
     },
+    "imports.list": {
+      "blocks": [
+        "importers",
+        "log"
+      ],
+      "fieldCards": []
+    },
+    "inventory.counts": {
+      "blocks": [
+        "sections"
+      ],
+      "fieldCards": []
+    },
     "inventory.detail": {
       "blocks": [
         "cost-history",
@@ -2816,6 +2857,36 @@
       ],
       "fieldCards": []
     },
+    "inventory.master": {
+      "blocks": [
+        "filters",
+        "groups"
+      ],
+      "fieldCards": []
+    },
+    "inventory.order-lists": {
+      "blocks": [
+        "builder",
+        "lists"
+      ],
+      "fieldCards": []
+    },
+    "kitchen.orders": {
+      "blocks": [
+        "order-lists"
+      ],
+      "fieldCards": []
+    },
+    "leads.dashboard": {
+      "blocks": [
+        "by-channel-status",
+        "by-salesperson",
+        "by-source",
+        "filters",
+        "totals"
+      ],
+      "fieldCards": []
+    },
     "leads.detail": {
       "blocks": [
         "assignment",
@@ -2835,6 +2906,13 @@
       ],
       "fieldCards": []
     },
+    "production.overview": {
+      "blocks": [
+        "days",
+        "filters"
+      ],
+      "fieldCards": []
+    },
     "proposals.detail": {
       "blocks": [
         "proposal-facts"
@@ -2842,6 +2920,98 @@
       "fieldCards": [
         "proposal-facts"
       ]
+    },
+    "recipes.client-book": {
+      "blocks": [
+        "dishes",
+        "filters"
+      ],
+      "fieldCards": []
+    },
+    "recipes.list": {
+      "blocks": [
+        "filters",
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "reports.operations": {
+      "blocks": [
+        "dates",
+        "leads",
+        "orders",
+        "rentals",
+        "time",
+        "workload"
+      ],
+      "fieldCards": []
+    },
+    "reports.time": {
+      "blocks": [
+        "effort",
+        "filters",
+        "proposals",
+        "workload"
+      ],
+      "fieldCards": []
+    },
+    "sales.reports": {
+      "blocks": [
+        "actions",
+        "booked-by-month",
+        "pipeline",
+        "win-rates"
+      ],
+      "fieldCards": []
+    },
+    "sales.tracker": {
+      "blocks": [
+        "actions",
+        "filters",
+        "table",
+        "views"
+      ],
+      "fieldCards": []
+    },
+    "settings.operations": {
+      "blocks": [
+        "jobs",
+        "receipts"
+      ],
+      "fieldCards": []
+    },
+    "settings.page": {
+      "blocks": [
+        "company",
+        "defaults",
+        "deleted-records",
+        "history",
+        "lists",
+        "staff-access",
+        "time-tracking"
+      ],
+      "fieldCards": []
+    },
+    "settings.usage": {
+      "blocks": [
+        "current-usage",
+        "limits"
+      ],
+      "fieldCards": []
+    },
+    "settings.users": {
+      "blocks": [
+        "invite",
+        "staff-access"
+      ],
+      "fieldCards": []
+    },
+    "sops.library": {
+      "blocks": [
+        "procedures",
+        "search"
+      ],
+      "fieldCards": []
     },
     "staff.detail": {
       "blocks": [
@@ -2855,6 +3025,27 @@
     "staff.list": {
       "blocks": [
         "list"
+      ],
+      "fieldCards": []
+    },
+    "tasks.all": {
+      "blocks": [
+        "filters",
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "tasks.dashboard": {
+      "blocks": [
+        "my-tasks",
+        "needs-delegation",
+        "overseeing"
+      ],
+      "fieldCards": []
+    },
+    "tasks.templates": {
+      "blocks": [
+        "templates"
       ],
       "fieldCards": []
     },

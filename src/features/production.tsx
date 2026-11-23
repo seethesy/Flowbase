@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ProductionItem } from "../../shared/production";
@@ -74,12 +75,16 @@ export function ProductionOverviewPage() {
   const types = [...new Set(items.map((item) => item.type))];
   return <>
     <div className="record-heading"><div><h1><T id="production.production-overview-page.production-overview">Production overview</T></h1><p><T id="production.production-overview-page.upcoming-work-across-events">Upcoming work across events</T></p></div></div>
+    <PageGrid pageKey="production.overview">
+    <Block id="filters" name="Filters" h={3}>
     <div className="production-filters">
       <label><T id="production.production-overview-page.days">{"Days "}</T><Dropdown value={days} onChange={(e) => setDays(Number(e.target.value) as 7 | 14)}><option value="7">7</option><option value="14">14</option></Dropdown></label>
       <label><T id="production.production-overview-page.event">{"Event "}</T><Dropdown value={eventId} onChange={(e) => setEventId(e.target.value)}><option value="">All events</option>{events.map(([id, title]) => <option key={id} value={id}>{title}</option>)}</Dropdown></label>
       <label><T id="production.production-overview-page.team">{"Team "}</T><Dropdown value={team} onChange={(e) => setTeam(e.target.value)}><option value="">All teams</option>{teams.map((value) => <option key={value}>{value}</option>)}</Dropdown></label>
       <label><T id="production.production-overview-page.type">{"Type "}</T><Dropdown value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{types.map((value) => <option key={value}>{value}</option>)}</Dropdown></label>
     </div>
+    </Block>
+    <Block id="days" name="Days" h={30}>
     {overview.error && <LoadError message={overview.error} />}
     {!overview.data && !overview.error && <LoadingSkeleton />}
     {overview.data?.days.map((day) => {
@@ -91,5 +96,7 @@ export function ProductionOverviewPage() {
         {shown.length ? <ul className="production-items">{shown.map((item) => <Item key={`${item.eventId}:${item.id}`} item={item} />)}</ul> : <p className="muted"><T id="production.production-overview-page.no-matching-work">No matching work.</T></p>}
       </Section>;
     })}
+    </Block>
+    </PageGrid>
   </>;
 }

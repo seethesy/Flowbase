@@ -271,6 +271,10 @@ export function CardBuilder({
                     label="Box layout"
                     rowHeight={28}
                     items={boxes}
+                    itemLabel={(id) => {
+                      const box = boxes.find((b) => b.id === id)!;
+                      return box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : box.text || box.kind;
+                    }}
                     render={(id) => {
                       const box = boxes.find((b) => b.id === id)!;
                       const label = box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : box.text || box.kind;

@@ -24,6 +24,8 @@ import {
   type PageLayout,
 } from "./layout-state";
 import { styleClass, styleVars, StylePopover } from "./layout-style";
+import { widthPresets, withWidth } from "./layout-sizes";
+import { fieldRegistry } from "../../shared/fields";
 import { usePermissions } from "./permissions";
 import {
   cardShown,
@@ -97,6 +99,17 @@ export function blockVisible(pageKey: string, block: LayoutBlock, role: Role | u
   return true;
 }
 
+// A block's wrapper classes and grid place as everyone sees it (FLOW-278):
+// "Fit content" spans one auto-height row from its saved row, "Hide on phone"
+// hides it below 900px.
+export function blockClass(block: LayoutBlock) {
+  return [styleClass(block.style), block.fit && "layout-fit", block.hidePhone && "layout-hide-phone"].filter(Boolean).join(" ");
+}
+export function blockPlace(block: LayoutBlock) {
+  const place = boxPosition(block);
+  return block.fit ? { ...place, gridRow: `${block.y + 1} / span 1` } : place;
+}
+
 function TextBlock({ block }: { block: Extract<LayoutBlock, { kind: "text" }> }) {
   if (block.variant === "heading") return <h2 className="layout-text-heading">{block.text}</h2>;
   if (block.variant === "note") return <p className="layout-text-note">{block.text}</p>;
@@ -155,8 +168,8 @@ export function PageGrid({
           {readingOrder(blocks.filter((block) => !(block.kind === "builtin" && block.hidden) && blockVisible(pageKey, block, actor?.role))).map((block) => (
             <div
               key={block.id}
-              className={`page-grid-block ${styleClass(block.style)}`}
-              style={{ ...boxPosition(block), ...styleVars(block.style) }}
+              className={`page-grid-block ${blockClass(block)}`}
+              style={{ ...blockPlace(block), ...styleVars(block.style) }}
               data-block-id={block.id}
             >
               <BlockContent block={block} content={content} record={layout.record} />
@@ -246,6 +259,11 @@ function PageGridEditor({
   return (
     <div className="page-grid-editing" data-page-layout={layout.pageKey}>
       <div className="layout-toolbar" role="toolbar" aria-label="Page layout">
+        {recordSource && (
+          <span className="layout-scope-note">
+            {`One layout for every record in ${fieldRegistry[recordSource].label}: changes here show on all of them.`}
+          </span>
+        )}
         <Button
           variant="outline"
           disabled={full || cards >= MAX_CARDS}
@@ -320,6 +338,7 @@ function PageGridEditor({
           label="Page blocks"
           rowHeight={ROW_HEIGHT}
           items={shown}
+          itemLabel={(id) => blockName(shown.find((block) => block.id === id)!, builtins)}
           onChange={(items) =>
             change((current) =>
               current.map((block) => {
@@ -334,6 +353,8 @@ function PageGridEditor({
             return (
               <div
                 className={`layout-block-frame ${styleClass(block.style)}`}
+                data-fit={block.fit ? "true" : undefined}
+                data-hide-phone={block.hidePhone ? "true" : undefined}
                 style={styleVars(block.style)}
                 data-block-id={block.id}
               >
@@ -343,6 +364,38 @@ function PageGridEditor({
                     {name}
                   </span>
                   <span className="layout-block-actions">
+                    <span className="layout-size-presets" role="group" aria-label={`Width of ${name}`}>
+                      {widthPresets.map((preset) => (
+                        <button
+                          type="button"
+                          key={preset.w}
+                          aria-label={`${preset.name}: ${name}`}
+                          title={preset.name}
+                          aria-pressed={block.w === preset.w}
+                          onClick={() => patch(block.id, withWidth(block, preset.w))}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        aria-label={`Fit content: ${name}`}
+                        title="Fit content: the height follows what the card shows"
+                        aria-pressed={Boolean(block.fit)}
+                        onClick={() => patch(block.id, { fit: block.fit ? undefined : true })}
+                      >
+                        Fit
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Hide on phone: ${name}`}
+                        title="Hide on phone"
+                        aria-pressed={Boolean(block.hidePhone)}
+                        onClick={() => patch(block.id, { hidePhone: block.hidePhone ? undefined : true })}
+                      >
+                        No phone
+                      </button>
+                    </span>
                     <button type="button" aria-label={`Style ${name}`} title="Style" onClick={() => setStyling(block.id)}>
                       <Palette size={14} />
                     </button>

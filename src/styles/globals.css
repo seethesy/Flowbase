@@ -2641,6 +2641,78 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   background: var(--layout-bg);
 }
 
+/* More looks (FLOW-278): border, corners, padding, title bar, accent stripe.
+   A block's class sits on its wrapper; the look reaches the card inside. */
+:is(.layout-styled-border, .layout-border-none, .layout-radius-none, .layout-radius-small, .layout-radius-large,
+  .layout-padding-compact, .layout-padding-normal, .layout-padding-roomy, .layout-styled-accent)
+  > :is(.panel, .dashboard-card, section) {
+  height: 100%;
+}
+.layout-styled-border,
+.layout-styled-border > :is(.panel, .dashboard-card, section) {
+  border: 1px solid var(--layout-border);
+}
+.layout-border-none,
+.layout-border-none > :is(.panel, .dashboard-card, section) {
+  border: 0;
+  box-shadow: none;
+}
+.layout-radius-none,
+.layout-radius-none > :is(.panel, .dashboard-card, section) {
+  border-radius: 0;
+}
+.layout-radius-small,
+.layout-radius-small > :is(.panel, .dashboard-card, section) {
+  border-radius: 4px;
+}
+.layout-radius-large,
+.layout-radius-large > :is(.panel, .dashboard-card, section) {
+  border-radius: 16px;
+}
+.layout-padding-compact > :is(.panel, .dashboard-card, section),
+.layout-box.layout-padding-compact {
+  padding: 8px;
+}
+.layout-padding-normal > :is(.panel, .dashboard-card, section),
+.layout-box.layout-padding-normal {
+  padding: 16px;
+}
+.layout-padding-roomy > :is(.panel, .dashboard-card, section),
+.layout-box.layout-padding-roomy {
+  padding: 28px;
+}
+.layout-styled-accent,
+.layout-styled-accent > :is(.panel, .dashboard-card, section) {
+  border-left: 4px solid var(--layout-accent);
+}
+.page-grid-block.layout-styled-accent,
+.page-grid-block.layout-styled-border,
+.page-grid-block.layout-border-none {
+  border: 0;
+}
+.layout-title-hidden > :is(.panel, .dashboard-card, section) > :is(.section-heading, .panel-heading, h2:first-child, h3:first-child),
+.layout-title-hidden > .layout-card > .section-heading {
+  display: none;
+}
+.layout-title-small :is(.section-heading, .panel-heading) :is(h2, h3),
+.layout-title-small > :is(.panel, .dashboard-card, section) > :is(h2, h3):first-child {
+  font-size: 0.95rem;
+}
+.layout-title-large :is(.section-heading, .panel-heading) :is(h2, h3),
+.layout-title-large > :is(.panel, .dashboard-card, section) > :is(h2, h3):first-child {
+  font-size: 1.5rem;
+}
+/* "Fit content" (FLOW-278): the block's height follows what it shows. */
+.page-grid-block.layout-fit > :is(.panel, .dashboard-card, section) {
+  height: auto;
+}
+/* "Hide on phone" (FLOW-278). */
+@media (max-width: 899px) {
+  .page-grid > .layout-hide-phone {
+    display: none !important;
+  }
+}
+
 .layout-text-heading {
   margin: 0;
   font-size: 1.25rem;
@@ -2788,7 +2860,52 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 }
 .layout-block-actions {
   display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
+}
+/* Width presets and Fit content in a block's bar (FLOW-278). */
+.layout-size-presets {
+  display: inline-flex;
+  gap: 2px;
+}
+.layout-size-presets button,
+.layout-style-choice button {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 11px;
+  color: inherit;
+  cursor: pointer;
+}
+.layout-size-presets button[aria-pressed="true"],
+.layout-style-choice button[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft, rgba(50, 116, 89, 0.12));
+}
+.layout-style-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+}
+.layout-style-choice legend {
+  width: 100%;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.layout-grid-item:focus-visible,
+.layout-block-frame:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.layout-scope-note {
+  font-size: 12px;
+  color: var(--muted);
 }
 .layout-block-actions button,
 .layout-box-bar button {

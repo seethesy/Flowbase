@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -43,6 +44,8 @@ export function ImportList() {
         title={<T id="imports.import-list.imports">Imports</T>}
         subtitle={<T id="imports.import-list.bring-records-in-from-a">Bring records in from a spreadsheet. Re-running a file updates what it imported before.</T>}
       />
+      <PageGrid pageKey="imports.list">
+      <Block id="importers" name="Importers" h={8}>
       <Section title={<T id="imports.import-list.importers">Importers</T>}>
         {modules.error ? (
           <LoadError message={modules.error} />
@@ -62,7 +65,11 @@ export function ImportList() {
           </ul>
         )}
       </Section>
+      </Block>
+      <Block id="log" name="Import log" h={16}>
       <ImportLogTable />
+      </Block>
+      </PageGrid>
     </>
   );
 }

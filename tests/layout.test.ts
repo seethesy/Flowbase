@@ -187,11 +187,17 @@ describe("block placement (FLOW-253)", () => {
     ]);
   });
 
-  it("drops built-ins the code no longer has and adds new ones at the bottom", () => {
+  it("drops built-ins the code no longer has and adds a new one where its code order puts it (FLOW-278)", () => {
+    // "a" comes before "b" in code: it goes above the saved "b", which moves down.
     const saved = doc({ blocks: [{ kind: "builtin", id: "old", x: 0, y: 0, w: 12, h: 9 }, { kind: "builtin", id: "b", x: 6, y: 0, w: 6, h: 3 }] });
     expect(withBuiltins(saved, builtins)).toEqual([
-      { kind: "builtin", id: "b", x: 6, y: 0, w: 6, h: 3 },
-      { kind: "builtin", id: "a", x: 0, y: 3, w: 12, h: 4 },
+      { kind: "builtin", id: "b", x: 6, y: 4, w: 6, h: 3 },
+      { kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 },
+    ]);
+    // A new block last in code goes to the bottom.
+    expect(withBuiltins(doc({ blocks: [{ kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 }] }), builtins)).toEqual([
+      { kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 },
+      { kind: "builtin", id: "b", x: 0, y: 4, w: 6, h: 3 },
     ]);
   });
 

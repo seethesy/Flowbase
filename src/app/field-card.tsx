@@ -13,6 +13,7 @@ import { addFieldBox, addTextBox, AddFieldMenu, AddTextMenu, DeleteTextButton, v
 import { layoutQueryKey, useLiveEdit } from "./copy";
 import { usePageLayoutContext } from "./layout-state";
 import { styleClass, styleVars, StylePopover } from "./layout-style";
+import { widthPresets, withWidth } from "./layout-sizes";
 
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
 
@@ -154,6 +155,7 @@ function FieldCardEditor({
             label={`Fields of ${cardKey}`}
             rowHeight={BOX_ROW_HEIGHT}
             items={visible}
+            itemLabel={(id) => name(visible.find((box) => box.id === id)!)}
             onChange={(items) =>
               set(visible.map((box) => {
                 const moved = items.find((item) => item.id === box.id);
@@ -168,6 +170,20 @@ function FieldCardEditor({
                   <div className="layout-box-bar">
                     <span className="layout-handle" title="Drag to move" aria-hidden="true">
                       ⠿
+                    </span>
+                    <span className="layout-size-presets" role="group" aria-label={`Width of ${label}`}>
+                      {widthPresets.map((preset) => (
+                        <button
+                          type="button"
+                          key={preset.w}
+                          aria-label={`${preset.name}: ${label}`}
+                          title={preset.name}
+                          aria-pressed={box.w === preset.w}
+                          onClick={() => patch(box.id, withWidth(box, preset.w))}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
                     </span>
                     <button type="button" className="layout-box-style" aria-label={`Style ${label}`} onClick={() => setStyling(box.id)}>
                       ◐

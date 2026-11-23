@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -183,6 +184,8 @@ export function CalendarPage() {
         </div>
       </div>
       {error && <LoadError message={error} />}
+      <PageGrid pageKey="calendar.page">
+      <Block id="layers" name="Layers" h={3}>
       <fieldset className="calendar-layers">
         <legend><T id="calendar.calendar-page.layers">Layers</T></legend>
         {calendarLayers.map((layer) => (
@@ -206,6 +209,8 @@ export function CalendarPage() {
         <T id="calendar.calendar-page.detail-mode">Detail mode</T>
       </label>
       {detail && selected && <CalendarDetail eventId={selected} onClose={() => setSelected(null)} />}
+      </Block>
+      <Block id="calendar" name="Calendar" h={30}>
       <div className="calendar-panel">
         <FullCalendar
           ref={calendarRef}
@@ -226,6 +231,8 @@ export function CalendarPage() {
           datesSet={remember}
         />
       </div>
+      </Block>
+      </PageGrid>
     </>
   );
 }

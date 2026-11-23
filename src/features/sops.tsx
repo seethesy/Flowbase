@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SopSummary } from "../../shared/sops";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -39,16 +40,22 @@ export function SopLibrary() {
     <PageHeader title={<T id="sops.sop-library.sop-library">SOP library</T>} subtitle={<T id="sops.sop-library.standard-procedures-for-production-and">Standard procedures for production and kitchen work.</T>}>
       {can("sops.write") && <Button asChild><Link to="/sops/new"><T id="sops.sop-library.new-sop">New SOP</T></Link></Button>}
     </PageHeader>
+    <PageGrid pageKey="sops.library">
+    <Block id="search" name="Find a procedure" h={6}>
     <Section title={<T id="sops.sop-library.find-a-procedure">Find a procedure</T>}>
       <FormField label={<T id="sops.sop-library.search-sops">Search SOPs</T>}><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} /></FormField>
       <FormField label={<T id="sops.sop-library.category">Category</T>}><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder={allCategoriesPlaceholder} data-copy-id="sops.sop-library.all-categories.placeholder" /></FormField>
     </Section>
+    </Block>
+    <Block id="procedures" name="Procedures" h={20}>
     <Section title={<T id="sops.sop-library.procedures">Procedures</T>}>
       {!sops.data ? <LoadingSkeleton /> : sops.data.length ?
         <DataTable copyKey="sops.library" data={sops.data} columns={columns}
           onRow={(row) => navigate(`/sops/${row.id}`)} openColumn />
         : <p><T id="sops.sop-library.no-sops-found">No SOPs found.</T></p>}
     </Section>
+    </Block>
+    </PageGrid>
   </>;
 }
 

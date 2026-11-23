@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { usePermissions } from "../app/permissions";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -76,6 +77,8 @@ function UserList() {
       />
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
+      <PageGrid pageKey="settings.users">
+      <Block id="invite" name="Invite a user" h={8}>
       <Section title={<T id="users.user-list.invite-a-user">Invite a user</T>}>
         <form
           className="user-invite-form"
@@ -136,6 +139,8 @@ function UserList() {
           </Button>
         </form>
       </Section>
+      </Block>
+      <Block id="staff-access" name="Staff access" h={24}>
       <Section title={<T id="users.user-list.staff-access">Staff access</T>}>
         {resource.error && <p role="alert"><T id="users.user-list.unable-to-load-users">Unable to load users.</T></p>}
         {!resource.data && !resource.error && (
@@ -184,6 +189,8 @@ function UserList() {
         ))}
         {resource.data?.length === 0 && <p><T id="users.user-list.no-users-yet">No users yet.</T></p>}
       </Section>
+      </Block>
+      </PageGrid>
     </>
   );
 }

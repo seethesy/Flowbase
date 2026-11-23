@@ -11,7 +11,8 @@ import { styleContrastOk } from "./contrast";
 
 export const LAYOUT_VERSION = 1;
 export const GRID_COLUMNS = 12;
-export const MAX_BLOCKS = 20;
+// Raised from 20 for pages with many sections (FLOW-278).
+export const MAX_BLOCKS = 40;
 export const MAX_CARDS = 12;
 export const MAX_CARD_ROWS = 100;
 
@@ -30,8 +31,25 @@ export const hexColorSchema = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/, "Use a color such as #327459.")
   .transform((value) => value.toLowerCase());
+// A block's or box's look (FLOW-253, more options in FLOW-278). Every option is
+// optional; absent means the page's default look.
+export const radiusOptions = ["none", "small", "large"] as const;
+export const paddingOptions = ["compact", "normal", "roomy"] as const;
+export const titleSizeOptions = ["small", "normal", "large"] as const;
 export const styleSchema = z
-  .object({ text: hexColorSchema.optional(), background: hexColorSchema.optional() })
+  .object({
+    text: hexColorSchema.optional(),
+    background: hexColorSchema.optional(),
+    // A border color, or "none" to drop the card's border.
+    border: z.union([hexColorSchema, z.literal("none")]).optional(),
+    radius: z.enum(radiusOptions).optional(),
+    padding: z.enum(paddingOptions).optional(),
+    // The card's own title bar (its heading) shown or hidden.
+    titleHidden: z.boolean().optional(),
+    titleSize: z.enum(titleSizeOptions).optional(),
+    // A colored stripe along the card's left edge.
+    accent: hexColorSchema.optional(),
+  })
   .strict();
 export type BlockStyle = z.infer<typeof styleSchema>;
 
@@ -122,18 +140,50 @@ export const cardConfigSchema = z
   .strict();
 export type CardConfig = z.infer<typeof cardConfigSchema>;
 
+// Options every block has (FLOW-278): its look, "Fit content" (its height
+// follows its content instead of its row count) and "Hide on phone".
+const blockOptions = {
+  style: styleSchema.optional(),
+  fit: z.boolean().optional(),
+  hidePhone: z.boolean().optional(),
+};
+
+// A built-in card's data override (FLOW-279): the card builder's settings
+// without title or source, which stay the card's own.
+export const builtinDataSchema = z
+  .object({
+    filters: cardFilterSchema.array().max(10).default([]),
+    sort: z.object({ field: z.string().max(60), dir: z.enum(["asc", "desc"]) }).strict().optional(),
+    limit: z.number().int().min(1).max(MAX_CARD_ROWS).default(10),
+    display: cardDisplaySchema,
+  })
+  .strict();
+export type BuiltinData = z.infer<typeof builtinDataSchema>;
+
 // A page block: one of the page's built-in sections, a custom card or a
 // free-text box. Built-in blocks can be moved, resized and hidden, never deleted.
 export const blockSchema = z
   .discriminatedUnion("kind", [
-    z.object({ kind: z.literal("builtin"), id: blockId, ...position, hidden: z.boolean().optional(), style: styleSchema.optional(), visibleTo: visibleToSchema.optional() }).strict(),
-    z.object({ kind: z.literal("card"), id: blockId, ...position, style: styleSchema.optional(), visibleTo: visibleToSchema.optional(), card: cardConfigSchema }).strict(),
+    z
+      .object({
+        kind: z.literal("builtin"),
+        id: blockId,
+        ...position,
+        ...blockOptions,
+        hidden: z.boolean().optional(),
+        visibleTo: visibleToSchema.optional(),
+        // What a built-in card shows (FLOW-279): its fields, filters, sort and
+        // rows, over its code default. Absent: the card as its code renders it.
+        data: builtinDataSchema.optional(),
+      })
+      .strict(),
+    z.object({ kind: z.literal("card"), id: blockId, ...position, ...blockOptions, visibleTo: visibleToSchema.optional(), card: cardConfigSchema }).strict(),
     z
       .object({
         kind: z.literal("text"),
         id: blockId,
         ...position,
-        style: styleSchema.optional(),
+        ...blockOptions,
         variant: z.enum(textVariants),
         text: plainText(2000),
       })

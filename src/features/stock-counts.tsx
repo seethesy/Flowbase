@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2, ClipboardCheck } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -73,6 +74,8 @@ export function CountList() {
           {error}
         </p>
       )}
+      <PageGrid pageKey="inventory.counts">
+      <Block id="sections" name="Storage sections" h={20}>
       {failed ? (
         <LoadError message={failed} />
       ) : !sections.data || !open.data ? (
@@ -108,6 +111,8 @@ export function CountList() {
           </ul>
         </Section>
       )}
+      </Block>
+      </PageGrid>
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -301,6 +302,8 @@ export function TaskTemplates() {
           {error}
         </p>
       )}
+      <PageGrid pageKey="tasks.templates">
+      <Block id="templates" name="Templates" h={24}>
       {templates.data.length ? (
         templates.data.map((template) => (
           <Section
@@ -360,6 +363,8 @@ export function TaskTemplates() {
       ) : (
         <EmptyState title={<T id="task-templates.task-templates.no-task-templates">No task templates</T>} description={<T id="task-templates.task-templates.templates-you-add-appear-here">Templates you add appear here.</T>} />
       )}
+      </Block>
+      </PageGrid>
       {editing && (
         <TemplateEditor
           template={editing === "new" ? null : editing}
