@@ -45,10 +45,41 @@ wording. With no saved layout a page renders exactly as its code does.
   group and description; staff phone). Creating a record always shows every field.
 - Playwright coverage: `tests/e2e/layout-coverage.spec.ts`.
 
+## Added in FLOW-278
+
+- Every main screen is on the grid: Calendar, Day-of, Tasks (dashboard, all
+  tasks, templates), Recipes and recipe books, SOPs, Sales (Proposals list and
+  reports), Approval queue, Lead dashboard, Production, Master inventory, Order
+  lists, Kitchen orders, Stock counts, Time tracking, Operational reports,
+  Imports, Settings, Usage, Operations and Users. Search (a dialog) and
+  Notifications (a section of the profile page) are not pages.
+- The event closeout tab has its own grid (`events.closeout`) inside the event's
+  Closeout section: its blocks keep their saved place whatever the event page's
+  layout is. A drag that starts in a nested grid (a tab's blocks, a card's
+  boxes) moves only the nested item.
+- Size without dragging: each block's bar has width presets (¼, ⅓, ½, ⅔, Full),
+  "Fit content" (`fit`: the height follows what the card shows) and "Hide on
+  phone" (`hidePhone`). A focused block or box moves with the arrow keys and
+  resizes with Shift and the arrow keys (`src/app/layout-sizes.ts`).
+- Style popover: presets (Plain, Card, Highlight, Warning), "Default look",
+  text and background colors, no border or a border color, an accent stripe,
+  corners, padding, title size and "Hide title bar". The 4.5:1 text/background
+  check applies to every combination, presets included.
+- Phones (under 900px) stack blocks in saved reading order, one column, and
+  drop blocks set to hide on phone.
+- A record page's toolbar says the layout applies to every record of that type.
+- A page holds up to 40 blocks.
+- Playwright coverage: `tests/e2e/layout-every-screen.spec.ts`.
+
 ## Making a page arrangeable
 
 Wrap the page's sections in a `PageGrid` and each section in a `Block` with a
-stable id (lowercase, hyphenated). Ids are saved: never rename one.
+stable id (lowercase, hyphenated). Ids are saved: renaming one needs an entry
+in `shared/live-edit-renames.ts` (FLOW-277, see `docs/live-text-editing.md`),
+and `npm run live-edit:keys` must be run after adding a block. A block whose id
+isn't a literal (built from a list) needs the full list in the PageGrid's
+`blockIds` prop. Error and loading messages go outside the `PageGrid` or inside
+a `Block`: with a saved layout only blocks render.
 
 ```tsx
 <PageGrid pageKey="leads.detail" record={{ source: "leads", id: lead.id, row: lead }}>
@@ -81,6 +112,6 @@ optional fields to show.
 - A dashboard or custom card can limit itself to some roles with `visibleTo`
   (FLOW-269): set from its Style popover or Settings › Roles & permissions. It
   also hides from a role that can't read the card's source area.
-- At most 20 blocks and 12 custom cards per page; a card shows at most 100 rows.
+- At most 40 blocks and 12 custom cards per page; a card shows at most 100 rows.
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.
