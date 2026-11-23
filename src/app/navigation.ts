@@ -74,7 +74,7 @@ export const navigationGroups: NavGroup[] = [
       { copyId: "purchasing", name: "Purchasing", to: "/purchasing", visible: "inventory.read" },
       { copyId: "vendors", name: "Vendors", to: "/vendors", visible: "vendors.read" },
       // Inventory photos (FLOW-298).
-      { copyId: "inventory-photos", name: "Photos", to: "/inventory/photos", visible: "inventory.read" },
+      { copyId: "photos", name: "Photos", to: "/inventory/photos", visible: "inventory.read" },
       // Each importer needs its own permission (FLOW-47): inventory or leads.
       {
         copyId: "imports",
@@ -91,14 +91,14 @@ export const navigationGroups: NavGroup[] = [
       { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
       { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
       // Kitchen photos (FLOW-298).
-      { copyId: "kitchen-photos", name: "Photos", to: "/kitchen/photos", visible: "recipes.read" },
+      { copyId: "photos", name: "Photos", to: "/kitchen/photos", visible: "recipes.read" },
     ],
   },
   // Marketing › Photos (FLOW-271).
   {
     copyId: "marketing",
     name: "Marketing",
-    tabs: [{ copyId: "marketing-photos", name: "Photos", to: "/marketing", visible: "marketing.read" }],
+    tabs: [{ copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" }],
   },
   { copyId: "documents", name: "Documents", tabs: [{ copyId: "documents", name: "Documents", to: "/documents" }] },
   {

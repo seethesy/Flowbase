@@ -45,6 +45,14 @@ const kim = signedIn(ids.kim, "kitchen_staff");
 const pat = signedIn(ids.pat, "part_time_staff");
 type Caller = typeof admin;
 
+// Only this file's uploads: other files keep their attachments (and contracts
+// reference them), so each gallery below is read as this file's rows alone.
+const ownIds = Object.values(ids);
+const clearOwnPhotos = () =>
+  db.execute(sql`delete from attachments where created_by in ${sql.raw(`(${ownIds.map((id) => `'${id}'`).join(", ")})`)}`);
+const own = <T extends { uploadedBy: string | null }>(rows: T[]) =>
+  rows.filter((row) => row.uploadedBy !== null && ownIds.includes(row.uploadedBy));
+
 let eventA: string;
 let eventB: string;
 
@@ -53,7 +61,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   stored.clear();
-  await db.execute(sql`truncate table attachments`);
+  await clearOwnPhotos();
   await db.execute(sql`delete from events where title like 'Synthetic photo event%'`);
   // The tags migration 0070 seeds, in case another file cleared the lists.
   await db
@@ -69,7 +77,7 @@ beforeEach(async () => {
     .returning({ id: schema.events.id });
 });
 afterAll(async () => {
-  await db.execute(sql`truncate table attachments`);
+  await clearOwnPhotos();
   await db.execute(sql`delete from events where title like 'Synthetic photo event%'`);
   await client.end();
 });
@@ -102,7 +110,7 @@ async function upload(
 const gallery = async (caller: Caller, area: string) => {
   const response = await caller("GET", `/api/photos?area=${area}`);
   expect(response.status).toBe(200);
-  return (await response.json()) as Photo[];
+  return own((await response.json()) as Photo[]);
 };
 const loose = () => ({ recordType: "document", recordId: crypto.randomUUID() });
 
@@ -132,7 +140,7 @@ it("shows every photo the viewer can see in Marketing, with approval and tags th
   expect(reloaded.find((photo) => photo.id === photoA.id)?.tags).toEqual(["Food", "Team"]);
   // A photo is one Document of type Photo, not a copy.
   const documents = (await (await admin("GET", "/api/documents?docType=photo")).json()) as { id: string }[];
-  expect(documents.map((document) => document.id).sort()).toEqual(all.map((photo) => photo.id).sort());
+  expect(documents.map((document) => document.id)).toEqual(expect.arrayContaining(all.map((photo) => photo.id)));
 });
 
 it("deletes with Undo and checks who may delete (FLOW-271 AC3)", async () => {
