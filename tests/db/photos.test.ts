@@ -130,7 +130,10 @@ it("shows every photo the viewer can see in Marketing, with approval and tags th
   expect(await gallery(stan, "marketing")).toHaveLength(1);
 
   const photoA = all.find((photo) => photo.eventId === eventA)!;
-  expect((await stan("PATCH", `/api/photos/${photoA.id}`, { approvedForMarketing: true })).status).toBe(403);
+  // Staff can't change a photo they see, and an event photo they can't see is hidden.
+  const loosePhoto = all.find((photo) => photo.eventId === null)!;
+  expect((await stan("PATCH", `/api/photos/${loosePhoto.id}`, { approvedForMarketing: true })).status).toBe(403);
+  expect((await stan("PATCH", `/api/photos/${photoA.id}`, { approvedForMarketing: true })).status).toBe(404);
   const approved = await sam("PATCH", `/api/photos/${photoA.id}`, { approvedForMarketing: true, tags: ["Food", "Food", "Team"] });
   expect(approved.status).toBe(200);
   expect(await approved.json()).toMatchObject({ approvedForMarketing: true, tags: ["Food", "Team"] });
