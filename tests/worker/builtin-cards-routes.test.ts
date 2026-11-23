@@ -112,3 +112,14 @@ it("FLOW-281: related client proposals retain the client endpoint instead of que
   expect(result.status).toBe(200);
   expect(await result.json()).toEqual([{ id: userId, eventId: userId, title: "Sample proposal", stage: "inquiry" }]);
 });
+
+it("FLOW-282: validates lifecycle metadata and refuses layout deletion by non-Admins", async () => {
+  const doc = { version: 1, blocks: [{ kind: "builtin", id: "my-leads", x: 0, y: 0, w: 6, h: 8,
+    deleted: { at: "2026-11-23T20:00:00.000Z", by: userId, name: "My Leads" } }] };
+  expect((await put("dashboard.home", doc)).status).toBe(200);
+  expect((await put("dashboard.home", { ...doc, blocks: [{ ...doc.blocks[0], removed: true }] })).status).toBe(400);
+  expect((await put("dashboard.home", { ...doc, blocks: [{ ...doc.blocks[0], deleted: { ...doc.blocks[0].deleted, at: "bad" } }] })).status).toBe(400);
+  actor = { userId, role: "sales_manager" };
+  expect((await put("dashboard.home", doc)).status).toBe(403);
+  expect(saveLayout).toHaveBeenCalledTimes(1);
+});

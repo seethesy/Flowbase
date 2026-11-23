@@ -1,4 +1,4 @@
-import { DeleteLayoutButton, DeletedItemsTray, LayoutBlockContext, useDeletion } from "./layout-deletion";
+import { DeleteLayoutButton, LayoutBlockContext, useDeletion } from "./layout-deletion";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Children, isValidElement, lazy, Suspense, useState, type ReactElement, type ReactNode } from "react";
 import { EyeOff, GripHorizontal, Palette, Pencil } from "lucide-react";
@@ -41,6 +41,7 @@ import {
 import type { Role } from "../../shared/access";
 
 // Both load only in edit mode, keeping react-grid-layout out of the first load.
+const DeletedItemsTray = lazy(() => import("./layout-deleted-tray").then((module) => ({ default: module.DeletedItemsTray })));
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
 const CardBuilder = lazy(() => import("./card-builder").then((module) => ({ default: module.CardBuilder })));
 
@@ -304,7 +305,7 @@ function PageGridEditor({
             </div>
           )}
         </div>
-        <DeletedItemsTray />
+        <Suspense fallback={null}><DeletedItemsTray /></Suspense>
         {resetting ? (
           <span className="layout-confirm" role="alertdialog" aria-label="Reset page layout?">
             <span>Reset this page to its default layout? Custom cards, text and colors go too. Permanently removed built-in items return.</span>
