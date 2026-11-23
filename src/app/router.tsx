@@ -64,6 +64,10 @@ const SalesTracker = lazy(() =>
   import("../features/sales").then((module) => ({ default: module.SalesTracker })),
 );
 const SalesReports = lazy(() => import("../features/sales").then((module) => ({ default: module.SalesReports })));
+const SalesOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.SalesOverview })));
+const MarketingOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.MarketingOverview })));
+const DocumentsOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
+const ReportsOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.ReportsOverview })));
 const TimeReports = lazy(() =>
   import("../features/time-tracking").then((module) => ({ default: module.TimeReports })),
 );
@@ -253,6 +257,11 @@ export const getRouter = () =>
         { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
         { path: "/contracts", element: <LegacyRoute to="/sales" /> },
         { path: "/proposals", element: <ProposalLibrary /> },
+        // The headings' Overview tabs (FLOW-295).
+        { path: "/sales/overview", element: <SalesOverview /> },
+        { path: "/marketing/overview", element: <MarketingOverview /> },
+        { path: "/documents/overview", element: <DocumentsOverview /> },
+        { path: "/reports/overview", element: <ReportsOverview /> },
         { path: "/sales", element: <SalesTracker /> },
         { path: "/sales/reports", element: <SalesReports /> },
         { path: "/inventory", element: <InventoryList /> },

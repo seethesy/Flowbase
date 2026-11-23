@@ -976,6 +976,17 @@
     "forms.record-form.save": [
       "kind"
     ],
+    "heading-overview.documents.eyebrow": [],
+    "heading-overview.documents.title": [],
+    "heading-overview.empty.admin": [],
+    "heading-overview.empty.description": [],
+    "heading-overview.empty.title": [],
+    "heading-overview.marketing.eyebrow": [],
+    "heading-overview.marketing.title": [],
+    "heading-overview.reports.eyebrow": [],
+    "heading-overview.reports.title": [],
+    "heading-overview.sales.eyebrow": [],
+    "heading-overview.sales.title": [],
     "imports.commit-summary.imported": [],
     "imports.commit-summary.imported-created-updated-unchanged-failed": [
       "created",
