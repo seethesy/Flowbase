@@ -18,14 +18,16 @@ import { beoApi } from "../services/beo";
 import { LoadError } from "../components/record-display";
 import { Button, DataTable, DateTimeCell, DetailDrawer, FilterBar, LoadingSkeleton } from "../components/shared";
 import { Dropdown } from "../components/ui/Dropdown";
+import { useDeletable } from "../app/deletable";
 import { calendarWhenParts, weekday } from "./calendar-entries";
 import { EventsHeading } from "./events-heading";
 import "./beo-list.css";
 
 // The Events screen's BEOs tab (FLOW-265): every event's BEO the viewer may open,
 // with its version, status (Final = approved on a Finished event, A1), owner,
-// last editor and the approved PDF saved in Documents (FLOW-263). Read only:
-// BEO content is edited on the BEO page. Open shows a side preview.
+// last editor and the approved PDF saved in Documents (FLOW-263). BEO content is
+// edited on the BEO page. Open shows a side preview. Rows select for bulk Delete
+// with Undo (FLOW-288); approved and Final BEOs are skipped with the reason.
 
 const tone: Record<BeoListStatus, string> = {
   draft: "neutral",
@@ -65,6 +67,10 @@ export function BeoListPage() {
     ),
   ].sort((a, b) => a[1].localeCompare(b[1]));
   const [selected, setSelected] = useState<BeoListRow | null>(null);
+  const deletable = useDeletable("beo", () => {
+    beos.reload();
+    ownerList.reload();
+  });
 
   const columns: ColumnDef<BeoListRow, unknown>[] = [
     { id: "event", header: "Event", accessorFn: (row) => row.eventTitle },
@@ -153,6 +159,7 @@ export function BeoListPage() {
           data={beos.data}
           columns={columns}
           onRow={setSelected}
+          selection={{ rowId: (row) => row.id, ...deletable }}
           label={<T id="beo-list.table.beos">BEOs</T>}
           exportName="beos"
         />

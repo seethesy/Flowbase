@@ -331,6 +331,15 @@ export async function withdrawApproval(tx: DbLike, actor: Actor, id: string) {
   return close(tx, actor, row, "withdrawn", "");
 }
 
+// The subject was deleted (FLOW-288): a pending request is closed as withdrawn,
+// whoever asked for it, so it leaves the approvers' queue.
+export async function closeForDeletedSubject(tx: DbLike, actor: Actor, id: string) {
+  const [row] = await tx.select().from(approvalRequests).where(eq(approvalRequests.id, id)).for("update");
+  if (!row || row.status !== "pending") return;
+  await subjectOf(row.subjectType).onWithdrawn?.(tx, actor, row);
+  await close(tx, actor, row, "withdrawn", "");
+}
+
 async function toApprovals(
   db: DbLike,
   actor: Actor,

@@ -43,3 +43,39 @@ test("lists BEOs with working filters, and Saved PDF opens the file in Documents
   await expect(page).toHaveURL(new RegExp(`#/documents\\?document=${event.id}$`));
   await expect(page.getByRole("dialog", { name: "BEO - Fall gala" })).toBeVisible();
 });
+
+// FLOW-288: select BEOs, Delete skips the approved one with its reason, and
+// Ctrl+Z brings the deleted one back.
+test("deletes BEOs that aren't approved, and Ctrl+Z restores them", async ({ page }) => {
+  const date = addLocalDays(utcToBusinessTime(new Date()).date, 10);
+  const draft = { ...fallGala(), date };
+  const signed = { ...fallGala(), id: "e0000000-0000-4000-8000-000000002881", title: "Winter dinner", date };
+  await seedRecords({ clients: [juniper()], events: [draft, signed] });
+  await browserDb(async (db) => {
+    await db.insert(s.beos).values([
+      { eventId: draft.id, status: "working_on", snapshot: {} },
+      { eventId: signed.id, status: "approved", approvedAt: new Date(), snapshot: {} },
+    ]);
+  });
+  await page.goto("/#/beos");
+  const draftRow = page.getByRole("row", { name: /Fall gala/ });
+  const signedRow = page.getByRole("row", { name: /Winter dinner/ });
+  await expect(draftRow).toBeVisible();
+  await expect(signedRow).toBeVisible();
+
+  await draftRow.getByRole("cell").nth(1).click({ modifiers: ["ControlOrMeta"] });
+  await signedRow.getByRole("cell").nth(1).click({ modifiers: ["ControlOrMeta"] });
+  const bar = page.getByRole("region", { name: "Selected rows" });
+  await expect(bar).toContainText("2 selected");
+  await bar.getByRole("button", { name: "Delete" }).click();
+
+  const toast = page.getByRole("status").filter({ hasText: "deleted." });
+  await expect(toast).toContainText("1 deleted.");
+  await expect(toast).toContainText("BEO: Winter dinner has an approved BEO");
+  await expect(draftRow).toHaveCount(0);
+  await expect(signedRow).toBeVisible();
+
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(draftRow).toBeVisible();
+  await expect(draftRow).toContainText("Draft");
+});

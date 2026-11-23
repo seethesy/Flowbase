@@ -16,6 +16,8 @@ export const deletableEntities = [
   // The staff directory and SOPs tabs (FLOW-270).
   "staff_member",
   "sop",
+  // The Events screen's BEOs tab (FLOW-288): approved BEOs are skipped.
+  "beo",
 ] as const;
 export const deletableEntitySchema = z.enum(deletableEntities);
 export type DeletableEntity = z.infer<typeof deletableEntitySchema>;
@@ -30,6 +32,7 @@ export const deletableLabels: Record<DeletableEntity, string> = {
   recipe: "Recipe",
   staff_member: "Staff member",
   sop: "SOP",
+  beo: "BEO",
 };
 
 // Anyone who can edit a record can delete it (Art, 2026-11-20).
@@ -43,6 +46,8 @@ export const deletePermission: Record<DeletableEntity, Action> = {
   recipe: "recipes.write",
   staff_member: "users.manage",
   sop: "sops.write",
+  // Editing a BEO needs events.write, as on the BEO page.
+  beo: "events.write",
 };
 
 export const MAX_BULK_DELETE = 100;
