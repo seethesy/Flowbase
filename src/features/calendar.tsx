@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Block, PageGrid } from "../app/page-grid";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
 import {
   calendarEventStatuses,
@@ -26,27 +27,30 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { RoundCheck } from "../components/ui/round-check";
 import { StatusPill, statusLabel } from "../components/ui/status-pill";
 import { T, LabelT } from "../app/copy";
-import { CalendarEventPanel } from "./calendar-detail";
+import { CalendarEventPanel } from "./calendar-panel";
 import { toCalendarEntries } from "./calendar-entries";
 import { EventTable, saveEventFields } from "./events";
 import { EventsHeading } from "./events-heading";
 import "./calendar.css";
 
-// The Events screen's Calendar tab (FLOW-265; FLOW-63, ADR-19). Only events at
-// Negotiation or later (the API leaves out the rest), drawn as status-colored
-// chips with their time and name. Month view on FullCalendar's free day grid;
-// List view is the events table for the same month, with inline edits (FLOW-261)
-// and selection (FLOW-260). The API sends New York wall-clock times and the
-// calendar runs in UTC, so they draw unchanged in any browser time zone.
+// The Events screen's Overview tab (FLOW-294; FLOW-265, FLOW-63, ADR-19). Only
+// events at Negotiation or later (the API leaves out the rest). Confirmed events
+// (Closed, Preparation, Finished) are filled chips in the status color; pending
+// ones (Negotiation, Closing) are a colored dot before the time and name. Month,
+// Week and Day on FullCalendar's free day and time grids. Below the calendar,
+// the events table lists the events in the range it shows, with inline edits
+// (FLOW-261) and selection (FLOW-260). The API sends New York wall-clock times
+// and the calendar runs in UTC, so they draw unchanged in any browser time zone.
 //
 // Filters (owner, status), layers (FLOW-67; all off until checked), the view and
-// the month are kept in the address, so a reload or a shared link keeps them.
+// the date are kept in the address, so a reload or a shared link keeps them.
 // Clicking an event opens its side panel.
 
-type View = "month" | "list";
-// Older links used FullCalendar's view names.
-const viewOf = (value: string | null): View =>
-  value === "list" || value === "listMonth" ? "list" : "month";
+export type CalendarView = "month" | "week" | "day";
+const fullCalendarViews: Record<CalendarView, string> = { month: "dayGridMonth", week: "timeGridWeek", day: "timeGridDay" };
+// Older links used FullCalendar's view names, or the removed List view.
+const viewOf = (value: string | null): CalendarView =>
+  value === "week" || value === "timeGridWeek" ? "week" : value === "day" || value === "timeGridDay" ? "day" : "month";
 const isStatus = (value: string | null): value is CalendarEventStatus =>
   calendarEventStatuses.includes(value as CalendarEventStatus);
 const parseLayers = (value: string | null) =>
@@ -56,7 +60,7 @@ const parseLayers = (value: string | null) =>
       .filter((layer): layer is CalendarLayer => calendarLayers.includes(layer as CalendarLayer)),
   );
 
-const plugins = [dayGridPlugin];
+const plugins = [dayGridPlugin, timeGridPlugin];
 const eventTimeFormat = { hour: "numeric", minute: "2-digit", meridiem: "short" } as const;
 const nowInNewYork = () => {
   const { date, time } = utcToBusinessTime(new Date());
@@ -73,12 +77,50 @@ const shiftMonth = (month: string, by: number) => {
   const next = new Date(Date.UTC(year, number - 1 + by, 1));
   return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
 };
+const sundayOf = (date: string) => addLocalDays(date, -new Date(`${date}T12:00:00Z`).getUTCDay());
 // The six weeks the month grid shows, Sunday first.
 const gridOf = (month: string) => {
-  const first = `${month}-01`;
-  const from = addLocalDays(first, -new Date(`${first}T12:00:00Z`).getUTCDay());
+  const from = sundayOf(`${month}-01`);
   return { from, to: addLocalDays(from, 41) };
 };
+const shortDay = (date: string, withYear = false) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", ...(withYear && { year: "numeric" }), timeZone: "UTC",
+  });
+// What a view shows (FLOW-294): the days fetched for the calendar, the days the
+// events table lists (a month view lists its month), its title, and the dates
+// the previous and next buttons go to.
+export function calendarRange(view: CalendarView, date: string) {
+  if (view === "day")
+    return {
+      fetch: { from: date, to: date },
+      table: { from: date, to: date },
+      title: new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+        weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
+      }),
+      previous: addLocalDays(date, -1),
+      next: addLocalDays(date, 1),
+    };
+  if (view === "week") {
+    const from = sundayOf(date);
+    const to = addLocalDays(from, 6);
+    return {
+      fetch: { from, to },
+      table: { from, to },
+      title: `${shortDay(from)} – ${shortDay(to, true)}`,
+      previous: addLocalDays(date, -7),
+      next: addLocalDays(date, 7),
+    };
+  }
+  const month = date.slice(0, 7);
+  return {
+    fetch: gridOf(month),
+    table: { from: `${month}-01`, to: lastOfMonth(month) },
+    title: monthTitle(month),
+    previous: `${shiftMonth(month, -1)}-01`,
+    next: `${shiftMonth(month, 1)}-01`,
+  };
+}
 
 // The viewer's own Google events (FLOW-268), outlined in blue. Clicking one
 // opens it in Google Calendar.
@@ -164,12 +206,14 @@ const googleResults: Record<string, string> = {
   failed: "Google Calendar couldn't be connected. Try again.",
 };
 
-// An event chip: time and name, in the status color (FLOW-251). Layer entries
-// draw as FullCalendar does.
+// An event chip: time and name, in the status color (FLOW-251). A pending event
+// has no fill and a dot in its status color first (FLOW-294). Layer entries draw
+// as FullCalendar does.
 function renderEntry(arg: EventContentArg) {
   if (!arg.event.extendedProps.eventId) return true;
   return (
     <div className="calendar-chip">
+      {arg.event.extendedProps.pending && <span className="calendar-dot" aria-hidden="true" />}
       {arg.timeText && <span className="fc-event-time">{arg.timeText}</span>}
       <span className="fc-event-title">{arg.event.title}</span>
     </div>
@@ -181,8 +225,8 @@ export function CalendarPage() {
   const navigate = useNavigate();
   const today = utcToBusinessTime(new Date()).date;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : today;
-  const month = date.slice(0, 7);
   const view = viewOf(params.get("view"));
+  const range = calendarRange(view, date);
   const owner = params.get("owner") ?? "";
   const status = isStatus(params.get("status")) ? (params.get("status") as CalendarEventStatus) : "";
   // Layers live in state, so a check shows at once; the address follows (a URL
@@ -217,7 +261,7 @@ export function CalendarPage() {
   };
 
   const { can } = usePermissions();
-  const grid = gridOf(month);
+  const grid = range.fetch;
   const calendar = useResource(["calendar", grid.from, grid.to], () => calendarApi.get(grid.from, grid.to), {
     keepPrevious: true,
   });
@@ -248,11 +292,14 @@ export function CalendarPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const panelEvent = shown.find((event) => event.id === selected);
 
-  // The month grid follows the address.
+  // The calendar follows the address.
   const calendarRef = useRef<FullCalendar>(null);
   useEffect(() => {
-    calendarRef.current?.getApi().gotoDate(`${month}-01`);
-  }, [month, view]);
+    const api = calendarRef.current?.getApi();
+    if (!api) return;
+    if (api.view.type !== fullCalendarViews[view]) api.changeView(fullCalendarViews[view], date);
+    else api.gotoDate(date);
+  }, [date, view]);
   const open = (click: EventClickArg) => {
     click.jsEvent.preventDefault();
     const eventId = click.event.extendedProps.eventId as string | undefined;
@@ -265,7 +312,7 @@ export function CalendarPage() {
 
   return (
     <>
-      <EventsHeading tab="calendar" />
+      <EventsHeading tab="overview" />
       <PageGrid pageKey="calendar.page">
       <Block id="layers" name="Filters and layers" h={3}>
       <FilterBar>
@@ -312,55 +359,54 @@ export function CalendarPage() {
       <Block id="calendar" name="Calendar" h={30}>
       <div className="calendar-toolbar">
         <div className="calendar-toolbar-nav">
-          <Button variant="outline" size="icon" aria-label="Previous month" onClick={() => set({ date: `${shiftMonth(month, -1)}-01` })}>‹</Button>
+          <Button variant="outline" size="icon" aria-label={`Previous ${view}`} onClick={() => set({ date: range.previous })}>‹</Button>
           <Button variant="outline" onClick={() => set({ date: "" })}><T id="calendar.calendar-page.today">Today</T></Button>
-          <Button variant="outline" size="icon" aria-label="Next month" onClick={() => set({ date: `${shiftMonth(month, 1)}-01` })}>›</Button>
-          <h2>{monthTitle(month)}</h2>
+          <Button variant="outline" size="icon" aria-label={`Next ${view}`} onClick={() => set({ date: range.next })}>›</Button>
+          <h2>{range.title}</h2>
         </div>
         <div className="calendar-view-switch" role="group" aria-label="View">
           <button type="button" aria-pressed={view === "month"} onClick={() => set({ view: "" })}>
             <T id="calendar.calendar-page.month">Month</T>
           </button>
-          <button type="button" aria-pressed={view === "list"} onClick={() => set({ view: "list" })}>
-            <T id="calendar.calendar-page.list">List</T>
+          <button type="button" aria-pressed={view === "week"} onClick={() => set({ view: "week" })}>
+            <T id="calendar.calendar-page.week">Week</T>
+          </button>
+          <button type="button" aria-pressed={view === "day"} onClick={() => set({ view: "day" })}>
+            <T id="calendar.calendar-page.day">Day</T>
           </button>
         </div>
       </div>
-      {view === "month" && (
-        <>
-          <p className="calendar-legend">
-            <T id="calendar.calendar-page.status">Status:</T>
-            {calendarEventStatuses.map((value) => <StatusPill key={value} status={value} />)}
-          </p>
-          {calendar.error && <LoadError message={calendar.error} />}
-          <div className="calendar-panel">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={plugins}
-              initialView="dayGridMonth"
-              initialDate={`${month}-01`}
-              timeZone="UTC"
-              now={nowInNewYork}
-              headerToolbar={false}
-              eventTimeFormat={eventTimeFormat}
-              height="auto"
-              dayMaxEvents={false}
-              events={entries}
-              eventContent={renderEntry}
-              eventClick={open}
-            />
-          </div>
-        </>
-      )}
-      {view === "list" && (
-        <CalendarList
-          from={`${month}-01`}
-          to={lastOfMonth(month)}
-          owner={owner}
-          status={status}
-          owners={owners}
+      <p className="calendar-legend">
+        <T id="calendar.calendar-page.status">Status:</T>
+        {calendarEventStatuses.map((value) => <StatusPill key={value} status={value} />)}
+      </p>
+      {calendar.error && <LoadError message={calendar.error} />}
+      <div className="calendar-panel">
+        <FullCalendar
+          ref={calendarRef}
+          plugins={plugins}
+          initialView={fullCalendarViews[view]}
+          initialDate={date}
+          timeZone="UTC"
+          now={nowInNewYork}
+          headerToolbar={false}
+          eventTimeFormat={eventTimeFormat}
+          height="auto"
+          dayMaxEvents={false}
+          events={entries}
+          eventContent={renderEntry}
+          eventClick={open}
         />
-      )}
+      </div>
+      </Block>
+      <Block id="events" name="Events" h={20}>
+      <CalendarList
+        from={range.table.from}
+        to={range.table.to}
+        owner={owner}
+        status={status}
+        owners={owners}
+      />
       </Block>
       </PageGrid>
       {panelEvent && <CalendarEventPanel event={panelEvent} onClose={() => setSelected(null)} />}
@@ -368,9 +414,10 @@ export function CalendarPage() {
   );
 }
 
-// List view: the month's events as the events table (FLOW-265). Deleting skips
-// events with a signed contract or an approved BEO (the API says why). Bulk:
-// change owner, change status.
+// The events table below the calendar (FLOW-294): the events in the range the
+// calendar shows, as FLOW-265's List view had them, in a fixed-height scroll with
+// a sticky header. Deleting skips events with a signed contract or an approved
+// BEO (the API says why). Bulk: change owner, change status.
 function CalendarList({
   from,
   to,
@@ -404,7 +451,7 @@ function CalendarList({
     list.reload();
   };
   return (
-    <>
+    <div className="calendar-events-table">
       {error && <p role="alert" className="error-message">{error}</p>}
       <EventTable
         variant="calendar"
@@ -456,6 +503,6 @@ function CalendarList({
       <p className="muted calendar-list-hint">
         <T id="calendar.calendar-list.click-a-cell-to-edit">Click a cell to edit it. Drag across rows to select, Shift+click to extend, Ctrl/Cmd+click or drag to add more rows. Delete key or the Delete button removes them; Ctrl+Z undoes.</T>
       </p>
-    </>
+    </div>
   );
 }

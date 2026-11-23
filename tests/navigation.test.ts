@@ -32,12 +32,12 @@ describe("navigation groups", () => {
       "Dashboard", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
     ]);
     expect(headings(admin)).toHaveLength(9);
-    expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Day-of", "Approvals"]);
+    expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Approvals"]);
     expect(tabs(admin, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
-    expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
+    expect(tabs(admin, "Events")).toEqual(["Overview", "BEOs", "Production"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
-    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Menus", "Photos"]);
+    expect(tabs(admin, "Kitchen")).toEqual(["Overview", "Recipes", "Ingredients", "Menus", "Photos"]);
     expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
     expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents"]);
     expect(tabs(admin, "Reports")).toEqual(["Overview", "Time tracking", "Operational reports"]);
@@ -72,7 +72,10 @@ describe("navigation groups", () => {
     expect(at("/clients/cli-1")).toBe("Sales › Clients");
     expect(at("/proposals")).toBe("Sales › Proposals");
     expect(at("/sales/reports")).toBe("Sales › Sales tracker");
-    expect(at("/events/e-1/beo/b-1")).toBe("Events › Calendar");
+    expect(at("/events/e-1/beo/b-1")).toBe("Events › Overview");
+    // FLOW-294: the calendar is Events › Overview; FLOW-293: Kitchen › Overview.
+    expect(at("/events/overview")).toBe("Events › Overview");
+    expect(at("/kitchen/overview")).toBe("Kitchen › Overview");
     expect(at("/beos")).toBe("Events › BEOs");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
     // FLOW-266: Bar is its own tab; order lists sit under Purchasing.
@@ -94,9 +97,9 @@ describe("navigation groups", () => {
     expect(at("/reports/overview")).toBe("Reports › Overview");
     expect(at("/reports")).toBe("Reports › Time tracking");
     expect(at("/settings")).toBeNull();
-    // Day-of: one page, two entry points.
-    expect(at("/day-of")).toBe("Dashboard › Day-of");
-    expect(at("/day-of", "Events")).toBe("Events › Day-of");
+    // The Day-of board is gone (FLOW-294); /day-of only redirects.
+    expect(at("/day-of")).toBeNull();
+    expect(at("/calendar")).toBeNull();
   });
 });
 
@@ -105,10 +108,10 @@ describe("breadcrumb trail", () => {
     expect(trail("/approvals")).toEqual(["Workspace>/", "Dashboard>/", "Approvals"]);
     expect(trail("/")).toEqual(["Workspace>/", "Dashboard>/", "Overview"]);
     expect(trail("/leads")).toEqual(["Workspace>/", "Sales>/sales/overview", "Leads"]);
-    expect(trail("/inventory/ingredients")).toEqual(["Workspace>/", "Kitchen>/recipes", "Ingredients"]);
+    expect(trail("/inventory/ingredients")).toEqual(["Workspace>/", "Kitchen>/kitchen/overview", "Ingredients"]);
     expect(trail("/marketing")).toEqual(["Workspace>/", "Marketing>/marketing/overview", "Photos"]);
     expect(trail("/reports/overview")).toEqual(["Workspace>/", "Reports>/reports/overview", "Overview"]);
-    expect(trail("/day-of", admin, "Events")).toEqual(["Workspace>/", "Events>/calendar", "Day-of"]);
+    expect(trail("/events/overview")).toEqual(["Workspace>/", "Events>/events/overview", "Overview"]);
   });
 
   it("ends with the record, which the header names once it loads", () => {
@@ -131,7 +134,7 @@ describe("breadcrumb trail", () => {
 
   it("shows an event's BEO below the event", () => {
     const crumbs = breadcrumbTrail("/events/e-1/beo/b-1", admin);
-    expect(crumbs.map((crumb) => crumb.label)).toEqual(["Workspace", "Events", "Calendar", "Event", "BEO"]);
+    expect(crumbs.map((crumb) => crumb.label)).toEqual(["Workspace", "Events", "Overview", "Event", "BEO"]);
     expect(crumbs[3]).toEqual({ copyId: "event", label: "Event", to: "/events/e-1", record: { kind: "events", id: "e-1" } });
     expect(crumbs[4].to).toBeUndefined();
   });
@@ -142,7 +145,7 @@ describe("breadcrumb trail", () => {
       "Workspace>/", "Inventory>/inventory", "Inventory>/inventory", "Stock counts>/inventory/counts", "Stock count",
     ]);
     expect(trail("/sops/new").at(-1)).toBe("New SOP");
-    expect(trail("/events")).toEqual(["Workspace>/", "Events>/calendar", "Calendar>/calendar", "All events"]);
+    expect(trail("/events")).toEqual(["Workspace>/", "Events>/events/overview", "Overview>/events/overview", "All events"]);
     expect(trail("/settings/users")).toEqual(["Workspace>/", "Settings>/settings", "Users"]);
     expect(breadcrumbTrail("/inventory/bar", admin).some((crumb) => crumb.record)).toBe(false);
   });
@@ -159,7 +162,7 @@ describe("breadcrumb trail", () => {
 describe("nav wording keys", () => {
   it("keeps the keys the Admin's saved nav wording already uses", () => {
     // Every copyId was the slug of its name when keys moved to fixed ids, so
-    // the saved nav.* rows (e.g. the "Today" label on nav.day-of) still match.
+    // the saved nav.* rows (e.g. a "Today" label on nav.day-of) still match.
     for (const group of navigationGroups) {
       expect(group.copyId).toBe(copySlug(group.name));
       for (const tab of group.tabs) expect(tab.copyId).toBe(copySlug(tab.name));
@@ -180,6 +183,6 @@ describe("nav wording keys", () => {
   });
 
   it("keys a crumb by its id, so renaming its name keeps the key", () => {
-    expect(breadcrumbTrail("/day-of", admin).map((crumb) => crumb.copyId)).toEqual(["workspace", "dashboard", "day-of"]);
+    expect(breadcrumbTrail("/approvals", admin).map((crumb) => crumb.copyId)).toEqual(["workspace", "dashboard", "approvals"]);
   });
 });

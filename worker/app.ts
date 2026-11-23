@@ -57,6 +57,7 @@ import { approvalRoutes } from "./routes/approvals";
 import { calendarRoutes } from "./routes/calendar";
 import { dayOfRoutes } from "./routes/day-of";
 import { productionRoutes } from "./routes/production";
+import { kitchenRoutes } from "./routes/kitchen";
 import { enqueueJob } from "./jobs/queue";
 import { tasks } from "./db/schema";
 import { eq } from "drizzle-orm";
@@ -350,6 +351,8 @@ export function createApp(options: Options = {}) {
   app.route("/api/google-calendar", googleCalendarRoutes(options));
   app.route("/api/day-of", dayOfRoutes(options));
   app.route("/api/production", productionRoutes(options));
+  // Kitchen › Overview (FLOW-293).
+  app.route("/api/kitchen", kitchenRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
   app.route("/api/sales", salesRoutes(options));

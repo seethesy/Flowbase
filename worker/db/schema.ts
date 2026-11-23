@@ -2172,6 +2172,9 @@ export const kitchenMenuLines = pgTable(
     notes: text("notes").notNull().default(""),
     sourceKey: text("source_key"),
     edited: boolean("edited").notNull().default(false),
+    // Who in the kitchen is in charge of this item (FLOW-293), from Kitchen ›
+    // Overview. A user id; no foreign key, as with other staff links (FLOW-270).
+    inChargeStaffId: uuid("in_charge_staff_id"),
   },
   (table) => [
     index("kitchen_menu_lines_menu_idx").on(table.menuId),

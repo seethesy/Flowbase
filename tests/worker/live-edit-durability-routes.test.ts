@@ -61,7 +61,7 @@ beforeEach(() => {
   actor = admin;
   vi.mocked(listCopy).mockResolvedValue({
     "staff.staff-form.save-profile": "Save staff",
-    "nav.day-of": "Today",
+    "nav.approvals": "Today",
     "retired.screen.title": "Old title",
   });
   vi.mocked(listLayouts).mockResolvedValue([
@@ -84,7 +84,7 @@ it("shows an override saved under a renamed key for everyone (AC1)", async () =>
   const body = (await (await send("/api/copy")).json()) as Record<string, string>;
   expect(body["nav.staff-directory"]).toBe("Save staff");
   expect(body["staff.staff-form.save-profile"]).toBeUndefined();
-  expect(body["nav.day-of"]).toBe("Today");
+  expect(body["nav.approvals"]).toBe("Today");
 });
 
 it("reads a renamed block under its new id", async () => {
@@ -113,8 +113,8 @@ it("deletes an orphaned wording row", async () => {
 });
 
 it("moves an orphaned row to a key a screen renders, keeping placeholders right", async () => {
-  expect((await send("/api/copy/orphans", "POST", { action: "move", type: "copy", key: "retired.screen.title", to: "nav.day-of" })).status).toBe(204);
-  expect(moveCopy).toHaveBeenCalledWith(expect.anything(), admin, "retired.screen.title", "nav.day-of");
+  expect((await send("/api/copy/orphans", "POST", { action: "move", type: "copy", key: "retired.screen.title", to: "nav.approvals" })).status).toBe(204);
+  expect(moveCopy).toHaveBeenCalledWith(expect.anything(), admin, "retired.screen.title", "nav.approvals");
   // Not a key any screen renders.
   const unknown = await send("/api/copy/orphans", "POST", { action: "move", type: "copy", key: "retired.screen.title", to: "no.such.key" });
   expect(unknown.status).toBe(400);
