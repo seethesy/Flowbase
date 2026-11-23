@@ -226,6 +226,8 @@ describe("Master Inventory importer (FLOW-78)", () => {
     const [box] = await db.select().from(inventoryLocations).where(eq(inventoryLocations.name, "Storage Box"));
     expect(box.kind).toBe("location");
     expect(await stockOf("Sample Padded Chair")).toEqual([{ section: "Warehouse", quantity: 3 }]);
+    // The sheet's "Jamie's" is Jamie's - Main Floor, never a new location (Ash, 2026-11-23).
+    expect(await db.select().from(inventoryLocations).where(eq(inventoryLocations.name, "Jamie's"))).toEqual([]);
   });
 
   it("changes nothing when the file is imported again (AC4)", async () => {

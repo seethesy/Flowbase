@@ -29,7 +29,7 @@ const titles: Record<InventoryList, ReactNode> = {
   kitchen: <T id="inventory-order.reorder.kitchen-ingredients">Kitchen ingredients</T>,
 };
 
-// One list's reorder table (FLOW-292 AC3): its items below par (the shared rule,
+// One list's reorder table (FLOW-292 AC3): its items at or below par (the shared rule,
 // FLOW-82), never services. Row and bulk "Add to order list" put items on the
 // newest draft order list with what they need.
 function ReorderTable({ list }: { list: InventoryList }) {

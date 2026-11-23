@@ -38,7 +38,7 @@ registerApprovalSubject("order_list", {
 
 // Lines for the events and low stock from `from` to `to`; with itemIds, only
 // those items' lines (the Order tab's Add to order list, FLOW-292).
-export async function suggestOrderList(db: DbLike, from: string, to: string, itemIds?: string[]): Promise<OrderLine[]> {
+export async function suggestOrderList(db: DbLike, from: string, to: string, itemIds?: string[], options: { atPar?: boolean } = {}): Promise<OrderLine[]> {
   const [items, stock, allocations] = await Promise.all([
     db.select({ item: allInventoryItemFields, detail: inventoryConsumableDetails, vendor: vendors })
       .from(allInventoryItems)
@@ -73,7 +73,7 @@ export async function suggestOrderList(db: DbLike, from: string, to: string, ite
     orderingInstructions: vendor?.orderingInstructions ?? "",
     onHand: onHand.get(item.id) ?? 0, parLevel: detail.parLevel,
     shortages: shortages.get(item.id) ?? [],
-  })));
+  })), options);
 }
 
 export async function createOrderList(db: Db, actor: Actor, from: string, to: string) {
@@ -84,7 +84,8 @@ export async function createOrderList(db: Db, actor: Actor, from: string, to: st
   return toList(row);
 }
 // The Order tab's Add to order list (FLOW-292 AC4): puts each item on the newest
-// draft order list, with what it needs to get back to par in purchase units,
+// draft order list, with what it needs to get back to par in purchase units
+// (one purchase unit for an item exactly at par),
 // replacing a line the item already has there. With no draft list, a new one
 // starts today. Items that need nothing are left off; the list is returned.
 export async function addToDraftOrderList(db: Db, actor: Actor, itemIds: string[]) {
@@ -94,7 +95,7 @@ export async function addToDraftOrderList(db: Db, actor: Actor, itemIds: string[
     const [draft] = await tx.select().from(orderLists)
       .where(and(eq(orderLists.status, "draft"), isNull(orderLists.archivedAt)))
       .orderBy(sql`${orderLists.createdAt} desc`).limit(1).for("update");
-    const added = await suggestOrderList(tx, today, today, itemIds);
+    const added = await suggestOrderList(tx, today, today, itemIds, { atPar: true });
     if (!added.length && !draft)
       throw new ApiError(409, "NOTHING_TO_ORDER", "Nothing selected needs reordering.");
     if (!draft) {

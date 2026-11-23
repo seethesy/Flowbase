@@ -52,6 +52,12 @@ import { ensureVendor } from "./vendors";
 // not carry (price, colors, kit components…) is kept from the stored item.
 
 type SectionKind = "location" | "storage";
+// The Master sheet's Location column, as the default locations name them.
+const sheetLocations: Record<string, string> = {
+  Warehouse: "Warehouse",
+  "Jamie's": "Jamie's - Main Floor",
+  "Storage Box": "Storage Box",
+};
 type Targets = { vendorId: string | null; sectionId: string | null; categoryId: string | null; typeId: string | null; typeError?: string };
 type StockTarget = { name: string; kind: SectionKind };
 type Draft = Record<string, unknown>;
@@ -355,9 +361,10 @@ export const masterInventoryImporter = inventoryImporter<MasterRow>({
   // The sheet lists gear bought from a store or distributor, not food or drink.
   vendorType: "food_distributor",
   // Rentals and supplies are Master items (FLOW-289) and count in their sheet
-  // location; a location the list lacks is added.
+  // location; a location the list lacks is added. The sheet's "Jamie's" is
+  // Jamie's - Main Floor (Ash, 2026-11-23).
   stock: (row) =>
-    row.kind === "service" ? null : { name: row.location, kind: "location" },
+    row.kind === "service" ? null : { name: sheetLocations[row.location], kind: "location" },
   classification: (row) => ({ kind: row.kind === "consumable" ? "supply" : row.kind, category: row.kind === "service" ? "Services" : row.subtype ?? "Supply" }),
   costError: (actor, row) =>
     row.costCents === null

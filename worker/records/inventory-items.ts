@@ -311,7 +311,8 @@ export async function toItems(
           : null,
       stock: levels,
       totalQuantity,
-      belowPar: par === null ? null : totalQuantity < par,
+      // At or below par counts (Ash, 2026-11-23); a par of 0 means nothing to keep.
+      belowPar: par === null ? null : par > 0 && totalQuantity <= par,
       lastCountedAt: lastCount?.at.toISOString() ?? null,
       lastCountedBy: lastCount?.by ?? null,
       archivedAt: row.archivedAt?.toISOString() ?? null,
@@ -400,7 +401,7 @@ export async function listItems(
           ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.preferredVendor} ilike ${`%${filter.vendor}%`})`
           : undefined,
         filter.belowPar
-          ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.parLevel} is not null and coalesce((select sum(${inventoryStock.quantity}) from ${inventoryStock} where ${inventoryStock.itemId} = ${item}), 0) < ${inventoryConsumableDetails.parLevel})`
+          ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.parLevel} > 0 and coalesce((select sum(${inventoryStock.quantity}) from ${inventoryStock} where ${inventoryStock.itemId} = ${item}), 0) <= ${inventoryConsumableDetails.parLevel})`
           : undefined,
         filter.subcategory
           ? and(
