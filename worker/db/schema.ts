@@ -1,4 +1,4 @@
-import { sql, type SQL } from "drizzle-orm";
+import { getViewSelectedFields, sql, type SQL } from "drizzle-orm";
 import {
   boolean,
   check,
@@ -1084,6 +1084,8 @@ export const allInventoryItems = pgView("all_inventory_items", itemColumns())
   .as(
     sql`select * from ${masterInventoryItems} union all select * from ${barInventoryItems} union all select * from ${kitchenIngredients}`,
   );
+// The view's columns, for a select that nests an item: `{ item: allInventoryItemFields }`.
+export const allInventoryItemFields = getViewSelectedFields(allInventoryItems);
 
 const itemReference = (table: () => AnyPgColumn) =>
   uuid("item_id").notNull().unique().references(table);

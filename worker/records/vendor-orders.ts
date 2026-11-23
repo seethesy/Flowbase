@@ -17,7 +17,7 @@ import { writeAudit } from "../audit/log";
 import type { DbLike } from "../db/client";
 import {
   inventoryConsumableDetails,
-  allInventoryItems,
+  allInventoryItems, allInventoryItemFields,
   orderLists,
   vendorOrders,
 } from "../db/schema";
@@ -281,7 +281,7 @@ export async function receiveVendorOrder(
 
   const itemIds = rows.map((row) => row.itemId);
   const items = await tx
-    .select({ item: allInventoryItems, detail: inventoryConsumableDetails })
+    .select({ item: allInventoryItemFields, detail: inventoryConsumableDetails })
     .from(allInventoryItems)
     .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
     .where(inArray(allInventoryItems.id, itemIds));

@@ -5,7 +5,7 @@ import { isPlaced, suggestOrderLines, type OrderCandidate, type OrderLine, type 
 import type { Unit } from "../../shared/units";
 import { utcToBusinessTime } from "../../shared/time";
 import type { Db, DbLike } from "../db/client";
-import { consumableAllocations, events, inventoryConsumableDetails, allInventoryItems,
+import { consumableAllocations, events, inventoryConsumableDetails, allInventoryItems, allInventoryItemFields,
   inventoryStock, orderLists, vendors } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { can } from "../policy";
@@ -40,7 +40,7 @@ registerApprovalSubject("order_list", {
 // those items' lines (the Order tab's Add to order list, FLOW-292).
 export async function suggestOrderList(db: DbLike, from: string, to: string, itemIds?: string[]): Promise<OrderLine[]> {
   const [items, stock, allocations] = await Promise.all([
-    db.select({ item: allInventoryItems, detail: inventoryConsumableDetails, vendor: vendors })
+    db.select({ item: allInventoryItemFields, detail: inventoryConsumableDetails, vendor: vendors })
       .from(allInventoryItems)
       .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
       .leftJoin(vendors, eq(vendors.id, inventoryConsumableDetails.preferredVendorId))
