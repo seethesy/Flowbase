@@ -3,6 +3,7 @@ import { operationalReportSchema } from "../../shared/operational-reports";
 import { homeDashboardSchema } from "../../shared/home-dashboard";
 import { apiErrorSchema, healthSchema } from "../../shared/api";
 import { copyOverridesSchema } from "../../shared/copy";
+import { orphansSchema } from "../../shared/live-edit-orphans";
 import { savedLayoutSchema } from "../../shared/layout";
 import { permissionsSchema } from "../../shared/role-permissions";
 import { authConfigSchema, userSchema } from "../../shared/users";
@@ -115,6 +116,8 @@ export function responseSchema(
   if (resource === "deletions")
     return !id ? deletedRecordSchema.array() : action === "restore" ? z.object({ restored: z.array(z.string()) }) : deleteResultSchema;
   // Admin live text editing (FLOW-240): GET and PUT answer with every override.
+  // Saved edits no screen matches (FLOW-277); POST answers 204.
+  if (resource === "copy" && id === "orphans") return orphansSchema;
   if (resource === "copy") return copyOverridesSchema;
   // Page layouts (FLOW-253): GET and PUT answer with the saved layout, or null
   // with none saved. DELETE answers 204.
