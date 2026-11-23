@@ -91,7 +91,7 @@ const InventoryList = lazy(() =>
   import("../features/inventory").then((module) => ({ default: module.InventoryList })),
 );
 const MasterInventory = lazy(() => import("../features/inventory-master").then((module) => ({ default: module.MasterInventory })));
-const OrderLists = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderLists })));
+const PurchasingPage = lazy(() => import("../features/purchasing").then((module) => ({ default: module.PurchasingPage })));
 const OrderListDetail = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderListDetail })));
 const ApprovalQueue = lazy(() => import("../features/approval-queue").then((module) => ({ default: module.ApprovalQueue })));
 const InventoryDetail = lazy(() =>
@@ -250,7 +250,8 @@ export const getRouter = () =>
         { path: "/sales/reports", element: <SalesReports /> },
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/master", element: <MasterInventory /> },
-        { path: "/inventory/orders", element: <OrderLists /> },
+        // FLOW-266: the order lists are Inventory › Purchasing.
+        { path: "/inventory/orders", element: <Navigate to="/purchasing" replace /> },
         { path: "/kitchen/orders", element: <KitchenOrderStatus /> },
         { path: "/inventory/orders/:id", element: <OrderListDetail /> },
         { path: "/approvals", element: <ApprovalQueue /> },
@@ -299,7 +300,8 @@ export const getRouter = () =>
         { path: "/settings/users", element: <UserManagement /> },
         { path: "/settings/permissions", element: <RolesPermissionsPage /> },
         { path: "/settings/archived", element: <ArchivedPage /> },
-        ...["purchasing", "help", "*"].map((path) => ({
+        { path: "/purchasing", element: <PurchasingPage /> },
+        ...["help", "*"].map((path) => ({
           path,
           element: <Placeholder />,
         })),

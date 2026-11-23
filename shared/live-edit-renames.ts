@@ -21,9 +21,43 @@ export type LiveEditRenames = {
 };
 
 export const liveEditRenames: LiveEditRenames = {
-  copy: {},
+  copy: {
+    // FLOW-266: the Inventory screen's shared heading, lines and shortcut cards.
+    "imports.import-list.bring-records-in-from-a": "inventory-screen.imports.bring-records-in-from",
+    "vendors.vendor-list.distributors-rental-vendors-and-event": "inventory-screen.vendors.distributors-rental-vendors-and",
+    "inventory-lists.inventory-list.inventory": "inventory-screen.inventory-heading.inventory",
+    "inventory-lists.inventory-list.low-stock": "inventory-screen.shortcuts.low-stock",
+  },
   blocks: {},
-  removed: { copy: [], blocks: [] },
+  removed: {
+    // FLOW-266: the separate page titles, header links and search box the
+    // Inventory screen's tabs, shortcut cards and filters replace.
+    copy: [
+      "imports.import-list.importers",
+      "imports.import-list.imports",
+      "inventory-lists.bar-list.all-inventory",
+      "inventory-lists.bar-list.bar",
+      "inventory-lists.bar-list.bar-2",
+      "inventory-lists.bar-list.beer-wine-and-liquor-what",
+      "inventory-lists.bar-list.count",
+      "inventory-lists.inventory-list.approvals",
+      "inventory-lists.inventory-list.bar",
+      "inventory-lists.inventory-list.counts",
+      "inventory-lists.inventory-list.ingredients",
+      "inventory-lists.inventory-list.items",
+      "inventory-lists.inventory-list.items-2",
+      "inventory-lists.inventory-list.master-sheet",
+      "inventory-lists.inventory-list.order-lists",
+      "inventory-lists.inventory-list.rentals-decor-kitchen-bar-and",
+      "inventory-lists.inventory-list.search-item-name-or-code.placeholder",
+      "inventory-lists.inventory-list.sections",
+      "inventory-lists.inventory-list.stock-supplies",
+      "inventory-lists.inventory-list.supplies",
+      "vendors.vendor-list.inventory",
+      "vendors.vendor-list.vendors",
+    ],
+    blocks: [],
+  },
 };
 
 // A rename's final key: follows a chain (a -> b -> c), stops on a loop.
