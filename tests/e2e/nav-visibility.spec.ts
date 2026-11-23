@@ -15,8 +15,8 @@ test("Admin hides Sales › Venues and Reports from Part-time Staff (AC1, AC2)",
   await page.goto("/#/settings/permissions");
   const grid = page.getByRole("table", { name: "Navigation by role" });
   // Admin's column is locked on (AC4).
-  await expect(grid.getByLabel("Reports for Admin: always shown")).toBeChecked();
-  await expect(grid.getByLabel("Reports for Admin: always shown")).toBeDisabled();
+  await expect(grid.getByLabel("Reports for Admin: always shown", { exact: true })).toBeChecked();
+  await expect(grid.getByLabel("Reports for Admin: always shown", { exact: true })).toBeDisabled();
   // A tab the role can't open anyway is disabled with the reason (AC3).
   await expect(grid.getByLabel("Sales › Leads for Part Time Staff", { exact: true })).toBeDisabled();
   await expect(grid.getByRole("row", { name: /^Leads/ })).toContainText("No access to Leads");

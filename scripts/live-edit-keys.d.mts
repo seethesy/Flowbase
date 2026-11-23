@@ -9,6 +9,8 @@ export type LiveEditManifest = {
   layout: Record<string, { blocks: string[]; fieldCards: string[] }>;
   // Layout-aware table keys (layoutTables).
   tables: string[];
+  // Every sidebar heading and tab key (FLOW-284), e.g. "sales" and "sales.venues".
+  nav?: string[];
 };
 export type CopyUsage = { key: string; text: string; where: string };
 export type Renames = {
@@ -24,6 +26,7 @@ export function scanSource(
   text: string,
 ): { copy: CopyUsage[]; prefixes: string[]; blocks: { pageKey: string; id: string; where: string }[]; problems: string[] };
 export function copyUsages(root?: string): CopyUsage[];
+export function scanNavigation(text: string): string[];
 export function buildManifest(root?: string): { manifest: LiveEditManifest; problems: string[] };
 export function manifestText(manifest: LiveEditManifest): string;
 export function lostKeys(base: LiveEditManifest, head: LiveEditManifest, renames: Renames): string[];
