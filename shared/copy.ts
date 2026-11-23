@@ -16,10 +16,16 @@ export const copyKeySchema = z
     "Use a dotted key such as leads.inbox.title.",
   );
 
-// Kept as typed: a default can start or end with a space (" · automatic").
+// Leading and trailing line breaks go (FLOW-277): pressing Enter in the editor
+// must not save "Save Changes\n\n". Spaces are kept as typed, since a default
+// can start or end with one (" · automatic").
+export function trimLineBreaks(text: string): string {
+  return text.replace(/^(?:[ \t]*[\r\n])+/, "").replace(/(?:[\r\n][ \t]*)+$/, "");
+}
 export const copyTextSchema = z
   .string()
   .max(COPY_MAX_LENGTH)
+  .transform(trimLineBreaks)
   .refine((text) => text.trim().length > 0, "The text can't be empty.");
 
 // GET /api/copy: every override, { key: text }.
@@ -41,6 +47,15 @@ const placeholderPattern = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 // The distinct {name} placeholders in a text, sorted.
 export function placeholderNames(text: string): string[] {
   return [...new Set([...text.matchAll(placeholderPattern)].map((match) => match[1]))].sort();
+}
+
+// Whether a saved text still fits its default's placeholders (FLOW-277). A later
+// release can rename or drop a {placeholder}; an override written for the old
+// default would then show "{oldname}" or leave the new value out.
+export function placeholdersMatch(defaultText: string, text: string): boolean {
+  const expected = placeholderNames(defaultText);
+  const found = placeholderNames(text);
+  return expected.length === found.length && expected.every((name, index) => name === found[index]);
 }
 
 // Names the edit is missing and names it added that the default doesn't have.

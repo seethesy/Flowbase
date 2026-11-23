@@ -14,10 +14,14 @@ import {
   copySlug,
   placeholderError,
   placeholderNames,
+  placeholdersMatch,
   splitPlaceholders,
+  trimLineBreaks,
   type CopyOverrides,
 } from "../../shared/copy";
 import { request } from "../services/core";
+import { z } from "zod";
+import { orphansSchema, type OrphanAction } from "../../shared/live-edit-orphans";
 import type { LayoutDoc } from "../../shared/layout";
 import { styleContrastOk } from "../../shared/contrast";
 
@@ -32,8 +36,13 @@ export const COPY_QUERY_KEY = ["ui-copy"] as const;
 export const layoutQueryKey = (pageKey: string) => ["ui-layout", pageKey] as const;
 const COPY_STALE_MS = 30 * 60_000;
 
+export const COPY_ORPHANS_QUERY_KEY = ["ui-copy-orphans"] as const;
+
 export const copyApi = {
   list: () => request(copyOverridesSchema, "/api/copy"),
+  // Saved edits that no longer match a screen (FLOW-277).
+  orphans: () => request(orphansSchema, "/api/copy/orphans"),
+  resolveOrphan: (action: OrphanAction) => request(z.null(), "/api/copy/orphans", "POST", action),
   save: (edits: { key: string; text: string; placeholders: string[] }[]) =>
     request(copyOverridesSchema, "/api/copy", "PUT", edits),
   reset: (key: string) =>
@@ -169,7 +178,7 @@ export function CopyProvider({
     if ((!entries.length && !layouts.length) || pendingProblems(pending).length || layoutStyleProblems(layoutPending).length)
       return;
     const edits = entries.flatMap(([key, edit]) =>
-      edit.text === null ? [] : [{ key, text: edit.text, placeholders: edit.placeholders }],
+      edit.text === null ? [] : [{ key, text: trimLineBreaks(edit.text), placeholders: edit.placeholders }],
     );
     // The PUT answers with every override: show them at once, then refetch.
     if (edits.length) client.setQueryData(COPY_QUERY_KEY, await copyApi.save(edits));
@@ -218,10 +227,20 @@ export function CopyProvider({
   return <LiveEditContext.Provider value={value}>{children}</LiveEditContext.Provider>;
 }
 
-// The text a key shows now: a pending edit, else the saved override, else the default.
+// A saved override written for an older default whose {placeholders} have
+// since changed (FLOW-277): it would show "{oldname}" or leave a value out, so
+// the default shows until the Admin updates it.
+export function staleOverride(overrides: CopyOverrides, id: string, defaultText: string): boolean {
+  const saved = overrides[id];
+  return saved !== undefined && !placeholdersMatch(defaultText, saved);
+}
+
+// The text a key shows now: a pending edit, else the saved override (when it
+// still fits the default's placeholders), else the default.
 function currentText(live: LiveEdit, id: string, defaultText: string) {
   const edit = live.pending[id];
   if (edit) return edit.text ?? defaultText;
+  if (staleOverride(live.overrides, id, defaultText)) return defaultText;
   return live.overrides[id] ?? defaultText;
 }
 
@@ -252,6 +271,8 @@ export function T({
   const content = interpolate(text, values);
   if (!live.editing) return <>{content}</>;
   const edited = text !== children;
+  const stale = !live.pending[id] && staleOverride(live.overrides, id, children);
+  const names = placeholderNames(children);
   const onClick = (event: MouseEvent<HTMLSpanElement>) => {
     // Text inside a button or link is edited; the button or link does nothing.
     event.preventDefault();
@@ -265,8 +286,9 @@ export function T({
   };
   return (
     <span
-      className={`live-copy${edited ? " live-copy-edited" : ""}${live.target?.id === id ? " live-copy-active" : ""}`}
+      className={`live-copy${edited ? " live-copy-edited" : ""}${stale ? " live-copy-stale" : ""}${live.target?.id === id ? " live-copy-active" : ""}`}
       data-copy-id={id}
+      title={stale ? `Update for new ${names.length ? names.map((name) => `{${name}}`).join(", ") : "plain text"}` : undefined}
       onClick={onClick}
     >
       {content}

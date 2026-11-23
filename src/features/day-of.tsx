@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -66,11 +67,15 @@ export function DayOfPage() {
       {board.error && <LoadError message={board.error} />}
       {!board.data && !board.error && <LoadingSkeleton />}
       {error && <p role="alert" className="error-message">{error}</p>}
+      <PageGrid pageKey="day-of.board">
+      <Block id="urgent" name="Urgent texts" h={2}>
       {board.data?.canUpdate && (
         <label>
           <RoundCheck checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /><T id="day-of.day-of-page.urgent-text-the-people-affected">{" Urgent: text the people affected"}</T>
         </label>
       )}
+      </Block>
+      <Block id="events" name="Events" h={30}>
       {board.data && !board.data.events.length && <p><T id="day-of.day-of-page.no-events-on-this-date">No events on this date.</T></p>}
       {board.data?.events.map((event) => (
         <Section key={event.id} title={event.title}>
@@ -127,6 +132,8 @@ export function DayOfPage() {
           </ul>
         </Section>
       ))}
+      </Block>
+      </PageGrid>
     </>
   );
 }

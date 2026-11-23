@@ -1,4 +1,5 @@
 import { useDeletable } from "../app/deletable";
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed, usePermissions } from "../app/permissions";
 import { useEffect, useState } from "react";
@@ -169,6 +170,8 @@ export function RecipeList() {
           </Button>
         </Allowed>
       </PageHeader>
+      <PageGrid pageKey="recipes.list">
+      <Block id="filters" name="Filters" h={4}>
       <FilterBar>
         <SearchInput
           value={search}
@@ -204,6 +207,8 @@ export function RecipeList() {
         </label>
         <span className="result-count"><T id="recipes.recipe-list.recipes" values={{ dataCount: data.length }}>{"{dataCount} recipes"}</T></span>
       </FilterBar>
+      </Block>
+      <Block id="list" name="List" h={24}>
       {recipes.error ? (
         <LoadError message={recipes.error} />
       ) : recipes.loading && !recipes.data ? (
@@ -216,6 +221,8 @@ export function RecipeList() {
           label={<T id="recipes.recipe-list.recipes-2">recipes</T>}
         />
       )}
+      </Block>
+      </PageGrid>
       {create && (
         <RecipeForm
           onClose={() => setCreate(false)}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { Link, useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { CircleDollarSign, Clock, Inbox, TrendingUp } from "lucide-react";
@@ -128,6 +129,8 @@ export function LeadDashboardPage() {
         }
         eyebrow={<T id="lead-dashboard.lead-dashboard-page.leads">Leads</T>}
       />
+      <PageGrid pageKey="leads.dashboard">
+      <Block id="filters" name="Dates" h={4}>
       <FilterBar>
         <FormField label={<T id="lead-dashboard.lead-dashboard-page.from">From</T>}>
           <input
@@ -144,6 +147,8 @@ export function LeadDashboardPage() {
           />
         </FormField>
       </FilterBar>
+      </Block>
+      <Block id="totals" name="Totals" h={8}>
       {dashboard.error ? (
         <LoadError message={dashboard.error} />
       ) : !data ? (
@@ -187,6 +192,11 @@ export function LeadDashboardPage() {
           <p role="note" className="muted">
             <T id="lead-dashboard.lead-dashboard-page.dollar-figures-are-estimates-a">Dollar figures are estimates: a closed lead counts at its stated budget, or at the average budget when it gave none, until proposals carry real totals.</T>
           </p>
+        </>
+      )}
+      </Block>
+      {data && (
+        <Block id="by-source" name="By source" h={18}>
           <Section title={<T id="lead-dashboard.lead-dashboard-page.by-source">By source</T>}>
             {data.bySource.length > 0 && (
               <div className="lead-source-chart" aria-hidden="true">
@@ -210,6 +220,10 @@ export function LeadDashboardPage() {
               exportName="lead sources"
             />
           </Section>
+        </Block>
+      )}
+      {data && (
+        <Block id="by-channel-status" name="By channel and status" h={12}>
           <div className="detail-grid">
             <Section title={<T id="lead-dashboard.lead-dashboard-page.by-channel">By channel</T>}>
               <DataTable copyKey="lead-dashboard.lead-dashboard-page" data={data.byChannel} columns={channelColumns} label={<T id="lead-dashboard.lead-dashboard-page.channels">channels</T>} />
@@ -224,7 +238,10 @@ export function LeadDashboardPage() {
               </ul>
             </Section>
           </div>
-          {data.scope === "all" && (
+        </Block>
+      )}
+          {data?.scope === "all" && (
+            <Block id="by-salesperson" name="By salesperson" h={12}>
             <Section title={<T id="lead-dashboard.lead-dashboard-page.by-salesperson">By salesperson</T>}>
               <DataTable copyKey="lead-dashboard.lead-dashboard-page"
                 data={data.bySalesperson}
@@ -232,9 +249,9 @@ export function LeadDashboardPage() {
                 label={<T id="lead-dashboard.lead-dashboard-page.salespeople">salespeople</T>}
               />
             </Section>
+            </Block>
           )}
-        </>
-      )}
+      </PageGrid>
     </>
   );
 }

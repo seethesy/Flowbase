@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -590,7 +591,9 @@ export function TaskDashboardPage() {
           {error}
         </p>
       )}
-      <Section title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}>
+      <PageGrid pageKey="tasks.dashboard">
+<Block id="my-tasks" name="My tasks" h={16}>
+<Section title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}>
         <DashboardGroup
           title="Overdue"
           section={data.overdue}
@@ -616,7 +619,9 @@ export function TaskDashboardPage() {
           {act}
         </DashboardGroup>
       </Section>
-      <Section title={<T id="task-lists.task-dashboard-page.overseeing">Overseeing</T>}>
+</Block>
+      <Block id="overseeing" name="Overseeing" h={8}>
+<Section title={<T id="task-lists.task-dashboard-page.overseeing">Overseeing</T>}>
         <DashboardGroup
           title="Tasks I oversee"
           section={data.overseeing}
@@ -626,7 +631,9 @@ export function TaskDashboardPage() {
           {() => null}
         </DashboardGroup>
       </Section>
+</Block>
       {data.needsDelegation && (
+        <Block id="needs-delegation" name="Needs delegation" h={8}>
         <Section title={<T id="task-lists.task-dashboard-page.needs-delegation">Needs delegation</T>}>
           <DashboardGroup
             title="Unassigned in the next 14 days"
@@ -639,7 +646,9 @@ export function TaskDashboardPage() {
             )}
           </DashboardGroup>
         </Section>
+        </Block>
       )}
+</PageGrid>
       {adding && (
         <NewTaskDrawer open onClose={() => setAdding(false)} onCreated={reload} />
       )}
@@ -736,6 +745,8 @@ export function TaskList() {
           {error}
         </p>
       )}
+      <PageGrid pageKey="tasks.all">
+      <Block id="filters" name="Filters" h={6}>
       <FilterBar>
         <Dropdown
           aria-label="Saved view"
@@ -868,6 +879,8 @@ export function TaskList() {
           </Button>
         )}
       </div>
+      </Block>
+      <Block id="list" name="Task list" h={24}>
       {list.error ? (
         <LoadError message={list.error} />
       ) : !list.data ? (
@@ -884,6 +897,8 @@ export function TaskList() {
         <EmptyState title={<T id="task-lists.task-list.no-tasks">No tasks</T>} description={<T id="task-lists.task-list.no-tasks-match-these-filters">No tasks match these filters.</T>} />
       )}
       <LoadMore list={list} />
+      </Block>
+      </PageGrid>
       {adding && (
         <NewTaskDrawer open onClose={() => setAdding(false)} onCreated={list.reload} />
       )}

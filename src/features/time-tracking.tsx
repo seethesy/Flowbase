@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -146,6 +147,8 @@ export function TimeReports() {
         }
         eyebrow={<T id="time-tracking.time-reports.reports">Reports</T>}
       />
+      <PageGrid pageKey="reports.time">
+      <Block id="filters" name="Dates" h={4}>
       <FilterBar>
         <FormField label={<T id="time-tracking.time-reports.from">From</T>}>
           <input
@@ -164,12 +167,13 @@ export function TimeReports() {
           />
         </FormField>
       </FilterBar>
+      </Block>
+      <Block id="effort" name="Effort per booking" h={16}>
       {report.error ? (
         <LoadError message={report.error} />
       ) : !data ? (
         <LoadingSkeleton />
       ) : (
-        <>
           <Section title={<T id="time-tracking.time-reports.effort-per-booking">Effort per booking</T>}>
             {data.effort.length ? (
               <DataTable copyKey="time-tracking.time-reports"
@@ -185,7 +189,10 @@ export function TimeReports() {
               />
             )}
           </Section>
-          {data.proposals.length > 0 && (
+      )}
+      </Block>
+          {data && data.proposals.length > 0 && (
+            <Block id="proposals" name="Effort per proposal" h={12}>
             <Section title={<T id="time-tracking.time-reports.effort-per-proposal">Effort per proposal</T>}>
               <DataTable copyKey="time-tracking.time-reports"
                 data={data.proposals}
@@ -194,7 +201,10 @@ export function TimeReports() {
                 exportName="time by proposal"
               />
             </Section>
+            </Block>
           )}
+          {data && (
+          <Block id="workload" name="Workload" h={14}>
           <Section title={<T id="time-tracking.time-reports.workload">Workload</T>}>
             {data.workload.length ? (
               <DataTable copyKey="time-tracking.time-reports"
@@ -210,8 +220,9 @@ export function TimeReports() {
               />
             )}
           </Section>
-        </>
-      )}
+          </Block>
+          )}
+      </PageGrid>
     </>
   );
 }

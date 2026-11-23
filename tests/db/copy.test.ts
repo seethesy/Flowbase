@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -58,4 +59,41 @@ it("resets a key by deleting its row", async () => {
   await resetCopy(db, "nav.sales");
   await resetCopy(db, "nav.missing");
   expect(await listCopy(db)).toEqual({});
+});
+
+// FLOW-277: renamed keys and trimmed line breaks.
+const renames = {
+  copy: { "staff.staff-form.save-profile": "staff.staff-form.save" },
+  blocks: {},
+  removed: { copy: [], blocks: [] },
+};
+
+it("drops a renamed key's old row when the new key is saved, so the alias can go", async () => {
+  await db.insert(schema.uiCopy).values({ key: "staff.staff-form.save-profile", text: "Save staff" });
+  expect(await saveCopy(db, admin, [{ key: "staff.staff-form.save", text: "Save member", placeholders: [] }], renames))
+    .toEqual({ "staff.staff-form.save": "Save member" });
+});
+
+it("resets a renamed key's old row too, or the alias would bring it back", async () => {
+  await db.insert(schema.uiCopy).values({ key: "staff.staff-form.save-profile", text: "Save staff" });
+  await resetCopy(db, "staff.staff-form.save", renames);
+  expect(await listCopy(db)).toEqual({});
+});
+
+it("cleans line breaks saved before the trim (AC6 migration)", async () => {
+  await db.insert(schema.uiCopy).values([
+    { key: "staff.positions.add", text: "Add Position\n" },
+    { key: "staff.form.save", text: "Save Changes\n\n" },
+    { key: "inventory.list.status", text: "\r\nStatus\n" },
+    { key: "planning.auto", text: " · automatic" },
+    { key: "only.breaks", text: "\n\n" },
+  ]);
+  const migration = readFileSync("drizzle/0067_flow_277_trim_copy_line_breaks.sql", "utf8");
+  for (const statement of migration.split("--> statement-breakpoint")) await db.execute(sql.raw(statement));
+  expect(await listCopy(db)).toEqual({
+    "staff.positions.add": "Add Position",
+    "staff.form.save": "Save Changes",
+    "inventory.list.status": "Status",
+    "planning.auto": " · automatic",
+  });
 });

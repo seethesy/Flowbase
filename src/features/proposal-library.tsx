@@ -7,6 +7,7 @@ import { LoadError } from "../components/record-display";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
 import { T, useCopy } from "../app/copy";
+import { Block, PageGrid } from "../app/page-grid";
 import { proposalsApi } from "../services/proposals";
 import type { ProposalLibraryFile } from "../../shared/proposals";
 import "./proposal-library.css";
@@ -71,12 +72,16 @@ export function ProposalLibrary() {
         </Button>
       </div>
     </PageHeader>
+    <PageGrid pageKey="proposals.library">
+    <Block id="filters" name="Filters" h={3}>
     <FilterBar>
       <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="proposals.library.search.placeholder" />
       <Dropdown aria-label="Uploaded" value={uploaded} onValueChange={setUploaded}>
         <option value="">Any time</option><option value="7">Last 7 days</option><option value="90">Last 90 days</option>
       </Dropdown>
     </FilterBar>
+    </Block>
+    <Block id="files" name="Proposal files" h={20}>
     {files.loading && !files.data ? <LoadingSkeleton />
       : !rows.length ? <EmptyState title={<T id="proposals.library.empty">No proposal files</T>}
         description={<T id="proposals.library.empty-description">Files appear here once a proposal version is uploaded on its event.</T>} />
@@ -104,5 +109,7 @@ export function ProposalLibrary() {
           <span className="proposal-file-date">{uploadedOn(row)}</span>
           <EventLink row={row} />
         </li>)}</ul>}
+    </Block>
+    </PageGrid>
   </>;
 }
