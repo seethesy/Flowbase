@@ -18,7 +18,7 @@ import {
   type BuiltinBlock,
   type PageLayout,
 } from "./layout-state";
-import { styleClass, styleVars } from "./layout-style";
+import { styleClass, styleVars } from "./layout-style-view";
 import { usePermissions } from "./permissions";
 import {
   cardShown,
