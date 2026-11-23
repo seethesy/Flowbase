@@ -133,6 +133,9 @@ const NotificationSettings = lazy(() =>
 const CalendarPage = lazy(() =>
   import("../features/calendar").then((module) => ({ default: module.CalendarPage })),
 );
+const BeoListPage = lazy(() =>
+  import("../features/beo-list").then((module) => ({ default: module.BeoListPage })),
+);
 const DayOfPage = lazy(() =>
   import("../features/day-of").then((module) => ({ default: module.DayOfPage })),
 );
@@ -270,6 +273,7 @@ export const getRouter = () =>
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/events/:id/beo/:beoId", element: <EventBeoPage /> },
         { path: "/calendar", element: <CalendarPage /> },
+        { path: "/beos", element: <BeoListPage /> },
         { path: "/day-of", element: <DayOfPage /> },
         { path: "/production", element: <ProductionOverviewPage /> },
         { path: "/venues", element: <VenueList /> },

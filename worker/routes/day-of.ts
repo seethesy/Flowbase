@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   dayOfCheckpointInputSchema,
   dayOfCheckpointKeySchema,
+  dayOfNoteInputSchema,
   dayOfQuerySchema,
   dayOfStaffUpdateSchema,
   dayOfTruckUpdateSchema,
@@ -10,6 +11,7 @@ import { id as uuid } from "../../shared/schema-primitives";
 import { requirePermission } from "../auth";
 import { ApiError, notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
 import {
+  addDayOfNote,
   getDayOfBoard,
   getDayOfLog,
   setDayOfCheckpoint,
@@ -55,6 +57,11 @@ export function dayOfRoutes(options: { withDb?: RunWithDb }) {
     if (!key.success) throw notFound("Checkpoint");
     const input = await parseBody(c, dayOfCheckpointInputSchema);
     return c.json(await record(c, (db, actor) => setDayOfCheckpoint(db, actor, id, key.data, input)));
+  });
+  routes.post("/events/:id/notes", read, async (c) => {
+    const id = param(c, "id", "Event");
+    const input = await parseBody(c, dayOfNoteInputSchema);
+    return c.json(await record(c, (db, actor) => addDayOfNote(db, actor, id, input)), 201);
   });
   return routes;
 }

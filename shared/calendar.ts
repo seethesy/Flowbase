@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eventStatusSchema } from "./core-records";
+import { eventStatusSchema, type EventStatus } from "./core-records";
 import { shiftKindSchema } from "./event-staff";
 import { id, localDate } from "./schema-primitives";
 import { taskPrioritySchema, taskStatusSchema } from "./tasks";
@@ -29,6 +29,11 @@ export type CalendarRange = z.infer<typeof calendarRangeSchema>;
 
 const wallClock = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 
+// FLOW-265 AC1: the calendar shows events at Negotiation or later. Lost events
+// and earlier pipeline stages stay on the Sales screens.
+export const calendarEventStatuses = ["negotiation", "closing", "closed", "preparation", "finished"] as const satisfies readonly EventStatus[];
+export type CalendarEventStatus = (typeof calendarEventStatuses)[number];
+
 export const calendarEventSchema = z.object({
   id,
   title: z.string(),
@@ -45,6 +50,13 @@ export const calendarEventSchema = z.object({
   salespersonName: z.string().nullable(),
   // People assigned to the event's staffing slots, each counted once.
   staffCount: z.number().int(),
+  // The side panel (FLOW-265): the owner for the Owner filter, the lead and the
+  // newest proposal it opens, and the BEO "Open BEO" opens (null before one is
+  // generated).
+  salespersonId: id.nullable(),
+  leadId: id.nullable(),
+  proposal: z.object({ id, title: z.string() }).nullable(),
+  beoId: id.nullable(),
 });
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 

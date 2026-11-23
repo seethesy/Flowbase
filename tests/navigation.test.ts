@@ -34,7 +34,7 @@ describe("navigation groups", () => {
     expect(headings(admin)).toHaveLength(9);
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Day-of", "Approvals"]);
     expect(tabs(admin, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
-    expect(tabs(admin, "Events")).toEqual(["Calendar", "Production", "Day-of"]);
+    expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Imports"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients"]);
@@ -67,6 +67,7 @@ describe("navigation groups", () => {
     expect(at("/proposals")).toBe("Sales › Proposals");
     expect(at("/sales/reports")).toBe("Sales › Sales tracker");
     expect(at("/events/e-1/beo/b-1")).toBe("Events › Calendar");
+    expect(at("/beos")).toBe("Events › BEOs");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
     // FLOW-266: Bar is its own tab; order lists sit under Purchasing.
     expect(at("/inventory/bar")).toBe("Inventory › Bar");
