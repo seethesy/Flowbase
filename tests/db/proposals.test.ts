@@ -17,6 +17,7 @@ import {
   PDF_TYPE,
   type Proposal,
   type ProposalDetail,
+  type ProposalLibraryFile,
   type ProposalUploadTicket,
 } from "../../shared/proposals";
 import { emitAddendumReminders } from "../../worker/records/contracts";
@@ -542,5 +543,94 @@ describe("proposal review and mapping (FLOW-125)", () => {
     expect(slots).toHaveLength(1);
     expect(slots[0].assigneeId).toBe(people.kit);
     expect(await sam.send("GET", path)).toMatchObject({ paymentSchedule: [{ value: "Deposit $500 due at signing" }] });
+  });
+});
+
+describe("Proposals library (FLOW-276)", () => {
+  const files = (as = sam) => as.send<ProposalLibraryFile[]>("GET", "/api/proposals/files");
+  const age = (versionId: string, completedAt: string) =>
+    db.update(schema.proposalVersions).set({ completedAt: new Date(completedAt) })
+      .where(eq(schema.proposalVersions.id, versionId));
+
+  // AC1
+  it("lists one file per event: the latest uploaded version among its proposals", async () => {
+    const gala = await newEvent();
+    const brunch = await newEvent("Spring brunch");
+    const dinner = await newProposal(gala, "Gala dinner");
+    const cocktails = await newProposal(gala, "Gala cocktails");
+    await newProposal(brunch, "Brunch, never uploaded");
+    const first = await upload(dinner, { docx: docx("Dinner v1.docx"), pdf: pdf("Dinner v1.pdf") });
+    const second = await upload(dinner, { docx: docx("Dinner v2.docx") });
+    const other = await upload(cocktails, { docx: docx("Cocktails.docx") });
+    await age(first.versions[0].id, "2026-10-01T12:00:00.000Z");
+    await age(second.versions[0].id, "2026-10-03T12:00:00.000Z");
+    await age(other.versions[0].id, "2026-10-02T12:00:00.000Z");
+    const listed = await files();
+    // The brunch has no uploaded version, so it doesn't appear.
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      proposalId: dinner.id,
+      title: "Gala dinner",
+      event: { id: gala.id, name: "Fall gala" },
+      versionNumber: 2,
+      uploadedAt: "2026-10-03T12:00:00.000Z",
+      docx: { fileName: "Dinner v2.docx" },
+      pdf: null,
+      approved: false,
+      final: false,
+    });
+    // No event details beyond the name.
+    expect(Object.keys(listed[0].event).sort()).toEqual(["id", "name"]);
+    expect(new URL(listed[0].docx.url).searchParams.get("X-Amz-Expires")).toBe("300");
+    // A newer upload on the other proposal takes its place.
+    await age(other.versions[0].id, "2026-10-04T12:00:00.000Z");
+    expect((await files()).map((row) => [row.proposalId, row.docx.fileName])).toEqual([[cocktails.id, "Cocktails.docx"]]);
+    // An archived proposal's files leave the library.
+    await db.update(schema.proposals).set({ archivedAt: new Date() }).where(eq(schema.proposals.id, cocktails.id));
+    expect((await files()).map((row) => row.docx.fileName)).toEqual(["Dinner v2.docx"]);
+  });
+
+  // AC2
+  it("labels the shown version Approved and the Closed proposal Final", async () => {
+    const event = await newEvent();
+    const proposal = await newProposal(event);
+    const uploaded = await upload(proposal, { docx: docx(), pdf: pdf() });
+    const versionId = uploaded.versions[0].id;
+    expect(await files()).toMatchObject([{ approved: false, final: false, pdf: { fileName: "Gala proposal.pdf" } }]);
+    const request = { subjectType: "proposal_version", subjectId: versionId, summary: "Gala", approverRole: "admin" as const };
+    await db.insert(schema.approvalRequests).values({ ...request, status: "rejected", createdAt: new Date("2026-10-01T12:00:00.000Z") });
+    expect((await files())[0].approved).toBe(false);
+    await db.insert(schema.approvalRequests).values({ ...request, status: "approved", createdAt: new Date("2026-10-02T12:00:00.000Z") });
+    expect((await files())[0]).toMatchObject({ approved: true, final: false });
+    await db.update(schema.proposals).set({ stage: "closed" }).where(eq(schema.proposals.id, proposal.id));
+    expect((await files())[0]).toMatchObject({ approved: true, final: true });
+    // A newer version isn't approved yet, whatever the older one was.
+    const next = await upload(proposal, { docx: docx("Addendum.docx") });
+    expect((await files())[0]).toMatchObject({ versionId: next.versions[0].id, approved: false, final: true });
+  });
+
+  // AC8
+  it("shows only files for events the person can open", async () => {
+    const event = await newEvent();
+    await upload(await newProposal(event), { docx: docx() });
+    expect(await files(sam)).toHaveLength(1);
+    expect(await files(admin)).toHaveLength(1);
+    // Another salesperson sees only their own events.
+    expect(await files(sue)).toEqual([]);
+    expect((await kit.call("GET", "/api/proposals/files")).status).toBe(403);
+  });
+
+  // AC5
+  it("renames a file through the proposal update, only with proposal edit rights", async () => {
+    const event = await newEvent();
+    const proposal = await newProposal(event);
+    await sam.send("PUT", `/api/proposals/${proposal.id}`, { title: "Gala dinner", notes: "Keep these notes" });
+    await upload(proposal, { docx: docx() });
+    expect((await kit.call("PUT", `/api/proposals/${proposal.id}`, { title: "Kit's name", notes: "" })).status).toBe(403);
+    expect((await sue.call("PUT", `/api/proposals/${proposal.id}`, { title: "Sue's name", notes: "" })).status).toBe(404);
+    await sam.send("PUT", `/api/proposals/${proposal.id}`, { title: "Gala dinner final", notes: "Keep these notes" });
+    expect((await files())[0].title).toBe("Gala dinner final");
+    const [row] = await db.select().from(schema.proposals);
+    expect(row.notes).toBe("Keep these notes");
   });
 });

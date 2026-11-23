@@ -2,6 +2,7 @@ import {
   checkProposalFiles,
   DOCX_TYPE,
   proposalDetailSchema,
+  proposalLibraryFileSchema,
   proposalSchema,
   proposalUploadTicketSchema,
   type ProposalCreateInput,
@@ -19,6 +20,7 @@ export const proposalsApi = {
   list: (eventId: string) =>
     request(proposalSchema.array(), `/api/proposals${query({ eventId })}`),
   get: (id: string) => request(proposalDetailSchema, at("proposals", id)),
+  files: () => request(proposalLibraryFileSchema.array(), "/api/proposals/files"),
   mapping: (id: string) => request(proposalMappingSchema.nullable(), at("proposals", id, "mapping")),
   previousMapping: (id: string) => request(proposalMappingSchema.nullable(), at("proposals", id, "previous-mapping")),
   catalog: (id: string) => request(proposalCatalogSchema, at("proposals", id, "catalog")),

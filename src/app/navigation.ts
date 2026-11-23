@@ -30,7 +30,9 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { name: "Leads", to: "/leads", visible: "leads.read" },
       { name: "Clients", to: "/clients", visible: "clients.read" },
-      { name: "Proposals", to: "/proposals", also: ["/sales"], visible: "proposals.read" },
+      { name: "Proposals", to: "/proposals", visible: "proposals.read" },
+      // The Sales tracker moved off /proposals (FLOW-276); its reports sit below it.
+      { name: "Sales tracker", to: "/sales", visible: "proposals.read" },
       { name: "Venues", to: "/venues", visible: "venues.read" },
     ],
   },

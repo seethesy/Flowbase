@@ -48,7 +48,7 @@ it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   await user.click(within(mainNav()).getByRole("link", { name: "Sales" }));
   expect(screen.getByText("Leads screen")).toBeInTheDocument();
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Leads", "Clients", "Proposals", "Venues"]);
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
   expect(within(tabs).getByRole("link", { name: "Leads" })).toHaveAttribute("aria-current", "page");
   await user.click(within(tabs).getByRole("link", { name: "Clients" }));
   expect(screen.getByText("Clients screen")).toBeInTheDocument();

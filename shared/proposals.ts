@@ -184,6 +184,24 @@ export const proposalDetailSchema = proposalSchema.extend({
 });
 export type ProposalDetail = z.infer<typeof proposalDetailSchema>;
 
+// The Proposals library (FLOW-276): one file per event, the latest uploaded
+// version among its proposals, with no event details beyond the event's name.
+export const proposalLibraryFileSchema = z.object({
+  proposalId: id,
+  title: z.string(),
+  event: z.object({ id, name: z.string() }),
+  versionId: id,
+  versionNumber: z.number().int().positive(),
+  uploadedAt: timestamp,
+  docx: proposalFileSchema,
+  pdf: proposalFileSchema.nullable(),
+  // The shown version's latest approval is approved.
+  approved: z.boolean(),
+  // The proposal is Closed (signed).
+  final: z.boolean(),
+});
+export type ProposalLibraryFile = z.infer<typeof proposalLibraryFileSchema>;
+
 export const proposalUploadTicketSchema = z.object({
   versionId: id,
   uploads: z.array(
