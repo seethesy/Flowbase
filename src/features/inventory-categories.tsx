@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -28,6 +29,8 @@ export function InventoryCategoriesPage() {
     <PageHeader title={<T id="inventory-categories.title">Inventory categories</T>}
       subtitle={<T id="inventory-categories.subtitle">Manage categories and their types. Move items before archiving an entry in use.</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
+    <PageGrid pageKey="inventory.categories">
+    <Block id="add" name="Add category" h={5}>
     <Section title={<T id="inventory-categories.add-category">Add category</T>}>
       <div className="form-grid">
         <Dropdown aria-label="Kind" value={kind} onValueChange={setKind}>
@@ -39,6 +42,9 @@ export function InventoryCategoriesPage() {
         </Button>
       </div>
     </Section>
+    </Block>
+    <Block id="categories" name="Categories and types" h={20}>
+    {catalog.error && <p role="alert">{catalog.error}</p>}
     {categories.map((category) => {
       const types = (catalog.data?.types ?? []).filter((row) => row.categoryId === category.id);
       return <Section key={category.id} title={category.name}>
@@ -68,5 +74,7 @@ export function InventoryCategoriesPage() {
         </div>
       </Section>;
     })}
+    </Block>
+    </PageGrid>
   </>;
 }

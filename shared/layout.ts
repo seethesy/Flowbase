@@ -217,6 +217,7 @@ export type SavedLayout = z.infer<typeof savedLayoutSchema>;
 // or moved, and the columns its code renders that aren't registry fields
 // (kept by key, e.g. Leads Notes and BEO).
 export const layoutTables: Record<string, { source: SourceKey; locked: string[]; code: string[] }> = {
+  "documents.library": { source: "documents", locked: [], code: ["file", "linked", "uploaded", "size"] },
   "recipes.recipe-list": { source: "recipes", locked: [], code: ["yield", "dietary", "perServing", "flags"] },
   "sops.library": { source: "sops", locked: [], code: [] },
   "leads.inbox.table": { source: "leads", locked: [], code: ["notes", "latestBeo"] },

@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "./page-grid";
 import { lazy, Suspense } from "react";
 import {
   createHashRouter,
@@ -162,6 +163,7 @@ function Placeholder() {
         title="Room to grow"
         subtitle="A peek at what comes next for your workspace."
       />
+      <PageGrid pageKey="placeholder.page"><Block id="content" name="Page content" h={10}>
       <Section title="Not included in demo">
         <div className="placeholder-content">
           <Leaf size={40} />
@@ -175,6 +177,7 @@ function Placeholder() {
           </Button>
         </div>
       </Section>
+      </Block></PageGrid>
     </>
   );
 }
@@ -184,9 +187,11 @@ function ComingSoon({ title }: { title: string }) {
   return (
     <>
       <PageHeader title={title} subtitle="This page is on its way." />
+      <PageGrid pageKey="coming-soon.page"><Block id="content" name="Page content" h={6}>
       <section className="panel">
         <EmptyState title="Coming soon" description={`${title} isn't available yet.`} />
       </section>
+      </Block></PageGrid>
     </>
   );
 }

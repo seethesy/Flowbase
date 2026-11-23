@@ -1,3 +1,4 @@
+import { documentFields } from "./documents";
 import { workingStaffFields } from "./working-staff";
 import { sopsFields } from "./sops";
 import { recipesFields } from "./recipes";
@@ -18,6 +19,7 @@ export * from "./types";
 
 // One registry per source (FLOW-253), keyed by source.
 export const fieldRegistry: Record<SourceKey, SourceDef> = {
+  documents: documentFields,
   "working-staff": workingStaffFields,
   "sops": sopsFields,
   "recipes": recipesFields,

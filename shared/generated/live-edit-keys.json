@@ -2661,6 +2661,7 @@
     "attachments.title.",
     "clients.client-detail.",
     "clients.client-list.",
+    "documents.library.",
     "event-activity.action.",
     "event-activity.field.",
     "events.event-detail.",
@@ -2686,6 +2687,7 @@
     "labels.day-of-truck-status.",
     "labels.deletable-entity.",
     "labels.department.",
+    "labels.document-type.",
     "labels.hold-status.",
     "labels.item-kind.",
     "labels.item-subtype.",
@@ -2765,6 +2767,12 @@
       ],
       "fieldCards": []
     },
+    "coming-soon.page": {
+      "blocks": [
+        "content"
+      ],
+      "fieldCards": []
+    },
     "dashboard.home": {
       "blocks": [
         "all-tasks",
@@ -2779,6 +2787,14 @@
       "blocks": [
         "events",
         "urgent"
+      ],
+      "fieldCards": []
+    },
+    "documents.library": {
+      "blocks": [
+        "filters",
+        "list",
+        "types"
       ],
       "fieldCards": []
     },
@@ -2885,6 +2901,15 @@
       ],
       "fieldCards": []
     },
+    "imports.detail": {
+      "blocks": [
+        "columns",
+        "file",
+        "history",
+        "results"
+      ],
+      "fieldCards": []
+    },
     "imports.list": {
       "blocks": [
         "importers",
@@ -2899,10 +2924,24 @@
       ],
       "fieldCards": []
     },
+    "inventory.categories": {
+      "blocks": [
+        "add",
+        "categories"
+      ],
+      "fieldCards": []
+    },
     "inventory.consumables": {
       "blocks": [
         "filters",
         "list"
+      ],
+      "fieldCards": []
+    },
+    "inventory.count": {
+      "blocks": [
+        "lines",
+        "progress"
       ],
       "fieldCards": []
     },
@@ -2948,10 +2987,24 @@
       ],
       "fieldCards": []
     },
+    "inventory.order-detail": {
+      "blocks": [
+        "vendors"
+      ],
+      "fieldCards": []
+    },
     "inventory.order-lists": {
       "blocks": [
         "builder",
         "lists"
+      ],
+      "fieldCards": []
+    },
+    "inventory.sections": {
+      "blocks": [
+        "add",
+        "filters",
+        "sections"
       ],
       "fieldCards": []
     },
@@ -2990,6 +3043,18 @@
       ],
       "fieldCards": []
     },
+    "notifications.settings": {
+      "blocks": [
+        "preferences"
+      ],
+      "fieldCards": []
+    },
+    "placeholder.page": {
+      "blocks": [
+        "content"
+      ],
+      "fieldCards": []
+    },
     "production.overview": {
       "blocks": [
         "days",
@@ -3009,6 +3074,17 @@
       "blocks": [
         "dishes",
         "filters"
+      ],
+      "fieldCards": []
+    },
+    "recipes.detail": {
+      "blocks": [
+        "dish",
+        "ingredients",
+        "method",
+        "photos",
+        "scale",
+        "tags"
       ],
       "fieldCards": []
     },
@@ -3057,6 +3133,20 @@
       ],
       "fieldCards": []
     },
+    "settings.archived": {
+      "blocks": [
+        "records"
+      ],
+      "fieldCards": []
+    },
+    "settings.collector": {
+      "blocks": [
+        "monitoring",
+        "sites",
+        "sms"
+      ],
+      "fieldCards": []
+    },
     "settings.operations": {
       "blocks": [
         "jobs",
@@ -3076,6 +3166,13 @@
       ],
       "fieldCards": []
     },
+    "settings.permissions": {
+      "blocks": [
+        "areas",
+        "cards"
+      ],
+      "fieldCards": []
+    },
     "settings.usage": {
       "blocks": [
         "current-usage",
@@ -3087,6 +3184,15 @@
       "blocks": [
         "invite",
         "staff-access"
+      ],
+      "fieldCards": []
+    },
+    "sops.detail": {
+      "blocks": [
+        "attachments",
+        "edit-history",
+        "procedure",
+        "sop-header-facts"
       ],
       "fieldCards": []
     },
@@ -3125,6 +3231,15 @@
         "my-tasks",
         "needs-delegation",
         "overseeing"
+      ],
+      "fieldCards": []
+    },
+    "tasks.detail": {
+      "blocks": [
+        "attachments",
+        "checklist",
+        "comments",
+        "details"
       ],
       "fieldCards": []
     },
@@ -3171,6 +3286,7 @@
   },
   "tables": [
     "clients.client-list",
+    "documents.library",
     "events.event-table",
     "inventory-lists.bar-list",
     "inventory-lists.ingredient-list",

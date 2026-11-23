@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "./page-grid";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -153,6 +154,8 @@ export function RolesPermissionsPage() {
         <LoadingSkeleton />
       ) : (
         <>
+          <PageGrid pageKey="settings.permissions">
+          <Block id="areas" name="Area permissions" h={24}>
           <Section title="Areas">
             <p className="muted">
               None hides the area. Read lets a role view every record. Own lets a role work only on records assigned to
@@ -201,6 +204,8 @@ export function RolesPermissionsPage() {
               </table>
             </div>
           </Section>
+          </Block>
+          <Block id="cards" name="Card visibility" h={16}>
           <Section title="Dashboard and custom cards">
             <p className="muted">
               A card shows only to the roles marked Visible, and only if the role can also read the area it comes from.
@@ -242,6 +247,8 @@ export function RolesPermissionsPage() {
               </table>
             </div>
           </Section>
+          </Block>
+          </PageGrid>
           {error && (
             <p role="alert" className="error-message">
               {error}

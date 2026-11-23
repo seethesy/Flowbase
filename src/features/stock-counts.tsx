@@ -282,9 +282,13 @@ export function CountMode() {
           </Button>
         )}
       </PageHeader>
+      <PageGrid pageKey="inventory.count">
+      <Block id="progress" name="Count progress" h={3}>
       <p className="count-progress" role="status">
         <T id="stock-counts.count-mode.of-counted" values={{ counted, count: current.lines.length }}>{"{counted} of {count} counted"}</T>
       </p>
+      </Block>
+      <Block id="lines" name="Count lines" h={20}>
       {current.lines.length ? (
         <ol className="count-lines">
           {current.lines.map((line) => (
@@ -302,6 +306,8 @@ export function CountMode() {
           <T id="stock-counts.count-mode.nothing-is-kept-in-this">{"Nothing is kept in this section yet. Set an item's storage section to count it here."}</T>
         </p>
       )}
+      </Block>
+      </PageGrid>
       <ConfirmationDialog
         open={completing}
         onClose={() => setCompleting(false)}

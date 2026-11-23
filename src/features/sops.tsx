@@ -96,10 +96,13 @@ export function SopDetail() {
   const selected = data?.history.find((version) => version.version === shownVersion);
   return <>
     <Link className="back-link" to="/sops"><T id="sops.sop-detail.sop-library">← SOP library</T></Link>
-    <PageHeader title={creating ? <T id="sops.sop-detail.new-sop">New SOP</T> : data?.title ?? <T id="sops.sop-detail.sop">SOP</T>} subtitle={data ? <T id="sops.sop-detail.version" values={{ category: data.category, version: data.version }}>{"{category} · Version {version}"}</T> : <T id="sops.sop-detail.standard-procedure">Standard procedure</T>}>
+    <PageHeader title={creating ? <T id="sops.sop-detail.new-sop">New SOP</T> : data?.title ?? <T id="sops.sop-detail.sop">SOP</T>}>
       {data && can("sops.write") && !editing && <Button onClick={beginEdit}><T id="sops.sop-detail.edit-sop">Edit SOP</T></Button>}
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}
+    <PageGrid pageKey="sops.detail">
+    <Block id="sop-header-facts" name="SOP facts" h={3}><p>{data ? <T id="sops.sop-detail.version" values={{ category: data.category, version: data.version }}>{"{category} · Version {version}"}</T> : <T id="sops.sop-detail.standard-procedure">Standard procedure</T>}</p></Block>
+    <Block id="procedure" name="Procedure" h={18}>
     {editing ? <Section title={<T id="sops.sop-detail.procedure">Procedure</T>}>
       <form onSubmit={save}>
         <FormField label={<T id="sops.sop-detail.title">Title</T>}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} /></FormField>
@@ -108,9 +111,10 @@ export function SopDetail() {
         <Button type="submit" disabled={busy}>{busy ? <T id="sops.sop-detail.saving">Saving…</T> : <T id="sops.sop-detail.save-sop">Save SOP</T>}</Button>
         {data && <Button type="button" variant="outline" onClick={() => setEditing(false)}><T id="sops.sop-detail.cancel">Cancel</T></Button>}
       </form>
-    </Section> : data && <>
-      <Section title={<T id="sops.sop-detail.procedure">Procedure</T>}><RichTextView doc={data.content} /></Section>
-      <Attachments recordType="sop" recordId={id} />
+    </Section> : data && <Section title={<T id="sops.sop-detail.procedure">Procedure</T>}><RichTextView doc={data.content} /></Section>}
+    </Block>
+    {data && !editing && <Block id="attachments" name="SOP attachments" h={8}><Attachments recordType="sop" recordId={id} /></Block>}
+    {data && !editing && <Block id="edit-history" name="Edit history" h={12}>
       <Section title={<T id="sops.sop-detail.edit-history">Edit history</T>}>
         <ol>{data.history.map((version) => <li key={version.id}>
           <button type="button" onClick={() => setShownVersion(version.version)}>
@@ -119,6 +123,7 @@ export function SopDetail() {
         </li>)}</ol>
         {selected && <div><h3><T id="sops.sop-detail.version-3" values={{ version: selected.version, title: selected.title }}>{"Version {version}: {title}"}</T></h3><p>{selected.category}</p><RichTextView doc={selected.content} /></div>}
       </Section>
-    </>}
+    </Block>}
+    </PageGrid>
   </>;
 }

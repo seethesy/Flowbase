@@ -166,3 +166,22 @@ optional fields to show.
   the legacy `proposals.tsx` component is unrouted. Staff shifts and item events
   cards do not exist on those detail pages and are excluded by the developer.
   Existing inventory planning holds/allocations keep their organizers.
+
+## Added in FLOW-283
+
+- SOP detail and creation use `sops.detail`: `sop-header-facts`, `procedure`,
+  `edit-history` and attachments. Category/version can be removed independently;
+  procedure content remains record data, edited only through Edit SOP.
+- Newly covered pages: Documents, notification preferences on Profile, task
+  detail, Archived, Collector health, inventory categories and sections, recipe
+  detail, order detail, stock counting, import detail, Roles & permissions,
+  coming-soon pages and placeholders. Existing inventory planning and history
+  blocks were verified; legacy unrouted Proposals is excluded by agreement.
+- Documents' DataTable is layout-aware. SOP library column support is FLOW-281;
+  FLOW-283 verifies it rather than adding a second implementation. Remaining
+  inventory planning/history tables are plain HTML and keep their organizers.
+- `tests/page-layout-coverage.test.ts` follows every router component through
+  local imports and re-exports, and rejects a route with no PageGrid. Printable,
+  sign-in and offline BEO pages are exempt. Redirects do not render pages.
+- Browser coverage: `tests/e2e/layout-remaining-pages.spec.ts`; inventory coverage
+  continues in `tests/e2e/layout-coverage.spec.ts`.

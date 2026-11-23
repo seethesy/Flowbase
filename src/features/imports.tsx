@@ -207,6 +207,8 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
   return (
     <>
+      <PageGrid pageKey="imports.detail">
+      <Block id="file" name="Import file" h={8}>
       <Section title={<T id="imports.import-flow.file">File</T>}>
         <label className="form-field">
           <span><T id="imports.import-flow.file">File</T></span>
@@ -232,6 +234,8 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
         )}
       </Section>
 
+      </Block>
+      <Block id="columns" name="Column mapping" h={14}>
       {file && (
         <Section title={<T id="imports.import-flow.columns">Columns</T>}>
           <div className="import-mapping">
@@ -273,6 +277,8 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
         </Section>
       )}
 
+      </Block>
+      <Block id="results" name="Import results" h={16}>
       {busy && (
         <p role="status" className="import-progress">
           {busy}
@@ -290,7 +296,9 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
       {committed && <CommitSummary committed={committed} />}
 
-      <ImportLogTable module={module.key} version={logVersion} />
+      </Block>
+      <Block id="history" name="Import history" h={12}><ImportLogTable module={module.key} version={logVersion} /></Block>
+      </PageGrid>
     </>
   );
 }

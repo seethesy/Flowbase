@@ -97,6 +97,8 @@ export function OrderListDetail() {
     {message && <p role="status">{message}</p>}
     {data.status === "submitted" && <p role="status"><T id="order-lists.order-list-detail.edits-are-locked-until-admin">Edits are locked until Admin approves or rejects this list.</T></p>}
     {data.status === "approved" && !data.orders.length && <p role="status"><T id="order-lists.order-list-detail.approved-place-each-vendor-s">{"Approved. Place each vendor's order on its portal, then record it below."}</T></p>}
+    <PageGrid pageKey="inventory.order-detail">
+    <Block id="vendors" name="Vendor orders" h={24}>
     {groups.map((vendor) => <section key={vendor} className="order-vendor">
       <h2>{vendor}</h2>
       <p>{lines.find((line) => line.vendorName === vendor)?.orderingInstructions || <T id="order-lists.order-list-detail.no-ordering-instructions-provided">No ordering instructions provided.</T>}</p>
@@ -119,6 +121,8 @@ export function OrderListDetail() {
         onChange={(next, note) => { list.replace(next); setMessage(note); setError(""); }}
         onError={(note) => { setError(note); setMessage(""); }} />}
     </section>)}
+    </Block>
+    </PageGrid>
   </div>;
 }
 
