@@ -42,7 +42,7 @@ test("a heading opens its first tab; placeholders say Coming soon", async ({ pag
 databaseTest("a salesperson sees Sales but not operational reports", async ({ page, isMobile }) => {
   await mockBrowserAuth(page, { userId: salesperson.id });
   await page.goto("/#/leads");
-  await expect(tabs(page, "Sales")).toHaveText(["Leads", "Clients", "Proposals", "Venues"]);
+  await expect(tabs(page, "Sales")).toHaveText(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await page.goto("/#/reports");
   await expect(page.getByRole("navigation", { name: "Reports pages" })).toHaveCount(0);

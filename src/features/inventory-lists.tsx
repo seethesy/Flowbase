@@ -108,6 +108,46 @@ function ClassificationFilters({ kind, categoryId, typeId, onCategory, onType }:
   </>;
 }
 
+// How a consumable is bought, one stored field per column (FLOW-275): purchase
+// unit, pack count, and each size with its unit. Each saves through the inline
+// endpoint.
+function purchaseColumns(
+  save: (item: InventoryItem, field: string, value: string) => Promise<void>,
+  canEdit: (item: InventoryItem) => boolean,
+): ColumnDef<InventoryItem, unknown>[] {
+  const editable = (item: InventoryItem) => canEdit(item) && Boolean(item.consumable);
+  const units = unitSchema.options.map((unit) => ({ value: unit, label: unitLabel(unit) }));
+  return [
+    {
+      id: "purchase",
+      header: "Bought as",
+      accessorFn: (item) => purchaseLabel(item.consumable),
+      // The trigger reads like the column ("case of 12 × 750 ml"); the menu picks the unit.
+      meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.purchaseUnit ?? "",
+        editDisplay: (item) => purchaseLabel(item.consumable), editOptions: units, onEdit: (item, value) => save(item, "consumable.purchaseUnit", value) },
+    },
+    {
+      id: "packCount",
+      header: "Pack count",
+      accessorFn: (item) => item.consumable?.packCount ?? "",
+      meta: { edit: "number", canEdit: editable, onEdit: (item, value) => save(item, "consumable.packCount", value) },
+    },
+    {
+      id: "eachSize",
+      header: "Each size",
+      accessorFn: (item) => item.consumable?.eachSize ? Number(item.consumable.eachSize.quantity) : "",
+      meta: { edit: "number", canEdit: editable, onEdit: (item, value) => save(item, "consumable.eachSize.quantity", value) },
+    },
+    {
+      id: "eachUnit",
+      header: "Each unit",
+      accessorFn: (item) => item.consumable?.eachSize ? unitLabel(item.consumable.eachSize.unit) : "",
+      meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.eachSize?.unit ?? "",
+        editOptions: units, onEdit: (item, value) => save(item, "consumable.eachSize.unit", value) },
+    },
+  ];
+}
+
 function classificationColumns(
   catalog: Awaited<ReturnType<typeof inventoryCategoriesApi.list>> | undefined,
   save: (item: InventoryItem, field: string, value: string) => Promise<void>,
@@ -395,11 +435,7 @@ export function IngredientList({
     { accessorKey: "name", header: supplies ? "Supply" : "Ingredient", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
     { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
-    {
-      id: "purchase",
-      header: "Bought as",
-      accessorFn: (item) => purchaseLabel(item.consumable),
-    },
+    ...purchaseColumns(save, canEdit),
     {
       id: "recipeUnit",
       header: "Recipe unit",
@@ -664,11 +700,7 @@ export function BarList() {
         return joined([<LabelT id="labels.bar-container" value={item.bar.container}>{barContainerLabels[item.bar.container]}</LabelT>, size], " ");
       },
     },
-    {
-      id: "pack",
-      header: "Bought as",
-      accessorFn: (item) => purchaseLabel(item.consumable),
-    },
+    ...purchaseColumns(save, canEdit),
     {
       id: "distributor",
       header: "Distributor",

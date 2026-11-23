@@ -57,7 +57,10 @@ const VenueDetail = lazy(() =>
 const PrintSample = lazy(() =>
   import("../features/print-sample").then((module) => ({ default: module.PrintSample })),
 );
-const Proposals = lazy(() =>
+const ProposalLibrary = lazy(() =>
+  import("../features/proposal-library").then((module) => ({ default: module.ProposalLibrary })),
+);
+const SalesTracker = lazy(() =>
   import("../features/sales").then((module) => ({ default: module.SalesTracker })),
 );
 const SalesReports = lazy(() => import("../features/sales").then((module) => ({ default: module.SalesReports })));
@@ -241,8 +244,9 @@ export const getRouter = () =>
         { path: "/crm/:id", element: <LegacyRoute to="/clients" /> },
         { path: "/customers", element: <LegacyRoute to="/clients" /> },
         { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
-        { path: "/contracts", element: <LegacyRoute to="/proposals" /> },
-        { path: "/proposals", element: <Proposals /> },
+        { path: "/contracts", element: <LegacyRoute to="/sales" /> },
+        { path: "/proposals", element: <ProposalLibrary /> },
+        { path: "/sales", element: <SalesTracker /> },
         { path: "/sales/reports", element: <SalesReports /> },
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/master", element: <MasterInventory /> },

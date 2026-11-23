@@ -33,7 +33,7 @@ describe("navigation groups", () => {
     ]);
     expect(headings(admin)).toHaveLength(9);
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Day-of", "Approvals"]);
-    expect(tabs(admin, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Venues"]);
+    expect(tabs(admin, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
     expect(tabs(admin, "Events")).toEqual(["Calendar", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
@@ -42,7 +42,7 @@ describe("navigation groups", () => {
   });
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
-    expect(tabs(salesperson, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Venues"]);
+    expect(tabs(salesperson, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
     expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
     expect(tabs(salesperson, "Reports")).toEqual(["Time tracking"]);
     // Staff can't read leads, clients or proposals, run imports or see operational reports.
@@ -64,7 +64,8 @@ describe("navigation groups", () => {
     expect(at("/leads")).toBe("Sales › Leads");
     expect(at("/leads/abc")).toBe("Sales › Leads");
     expect(at("/clients/cli-1")).toBe("Sales › Clients");
-    expect(at("/sales/reports")).toBe("Sales › Proposals");
+    expect(at("/proposals")).toBe("Sales › Proposals");
+    expect(at("/sales/reports")).toBe("Sales › Sales tracker");
     expect(at("/events/e-1/beo/b-1")).toBe("Events › Calendar");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
     expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");

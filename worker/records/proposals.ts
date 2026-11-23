@@ -9,6 +9,7 @@ import {
   uploadableProposalStages,
   type Proposal,
   type ProposalDetail,
+  type ProposalLibraryFile,
   type ProposalStage,
   type ProposalStageChangeEntry,
   type ProposalUploadTicket,
@@ -24,6 +25,7 @@ import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import {
   attachments,
+  contracts,
   events,
   leads,
   approvalRequests,
@@ -39,7 +41,7 @@ import {
 import { ApiError, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { eventScope } from "../policy";
-import { advanceEventStatus, findVisibleEvent } from "./events";
+import { advanceEventStatus, findVisibleEvent, visibleEvents } from "./events";
 import { registerApprovalSubject, requestApproval } from "./approvals";
 import { syncProposalRentalHolds } from "./reservations";
 import { indexBy } from "./paging";
@@ -240,6 +242,61 @@ export async function getProposal(
       ? new Date(now.getTime() + DOWNLOAD_URL_SECONDS * 1000).toISOString()
       : null,
   };
+}
+
+// The Proposals library (FLOW-276): for each event the actor can open, the most
+// recently uploaded ready version among its live proposals, with signed links.
+export async function listProposalFiles(
+  db: DbLike,
+  actor: Actor,
+  env: Partial<Bindings>,
+  now = new Date(),
+): Promise<ProposalLibraryFile[]> {
+  const rows = await db
+    .select({
+      proposalId: proposals.id,
+      title: proposals.title,
+      eventId: events.id,
+      eventName: events.title,
+      versionId: proposalVersions.id,
+      number: proposalVersions.number,
+      completedAt: proposalVersions.completedAt,
+      docx: proposalVersions.docx,
+      pdf: proposalVersions.pdf,
+    })
+    .from(proposalVersions)
+    .innerJoin(proposals, eq(proposals.id, proposalVersions.proposalId))
+    .innerJoin(events, eq(events.id, proposals.eventId))
+    .where(and(eq(proposalVersions.status, "ready"), isNull(proposals.archivedAt),
+      isNull(events.archivedAt), visibleEvents(actor)))
+    .orderBy(desc(proposalVersions.completedAt), desc(proposalVersions.number));
+  // Newest first, so the first row per event is the one shown.
+  const latest = [...indexBy(rows, (row) => row.eventId).values()];
+  if (!latest.length) return [];
+  const approvals = await db.select({ subjectId: approvalRequests.subjectId, status: approvalRequests.status })
+    .from(approvalRequests)
+    .where(and(eq(approvalRequests.subjectType, "proposal_version"),
+      inArray(approvalRequests.subjectId, latest.map((row) => row.versionId))))
+    .orderBy(desc(approvalRequests.createdAt));
+  // indexBy keeps the first row: the newest request per version.
+  const approvalOf = indexBy(approvals, (row) => row.subjectId);
+  // Final: the client signed a contract for this exact version (FLOW-129).
+  const signed = new Set((await db.select({ versionId: contracts.versionId }).from(contracts)
+    .where(and(inArray(contracts.versionId, latest.map((row) => row.versionId)), isNull(contracts.archivedAt))))
+    .map((row) => row.versionId));
+  const storage = fileStorage(env);
+  return Promise.all(latest.map(async (row): Promise<ProposalLibraryFile> => ({
+    proposalId: row.proposalId,
+    title: row.title,
+    event: { id: row.eventId, name: row.eventName },
+    versionId: row.versionId,
+    versionNumber: row.number!,
+    uploadedAt: row.completedAt!.toISOString(),
+    docx: await file(storage, row.docx, now),
+    pdf: row.pdf ? await file(storage, row.pdf, now) : null,
+    approved: approvalOf.get(row.versionId)?.status === "approved",
+    final: signed.has(row.versionId),
+  })));
 }
 
 // The salesperson a proposal is assigned to: whoever the caller names when they

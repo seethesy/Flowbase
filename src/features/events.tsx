@@ -64,6 +64,7 @@ import { FieldCard, useShownFields } from "../app/field-card";
 import { T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
 import { StatusPill, StatusSelect } from "../components/ui/status-pill";
+import { mayOverrideStatus } from "../../shared/policy";
 
 const statusLabels = eventStatusLabels;
 
@@ -94,7 +95,8 @@ export function EventTable({
   onSaved?: () => void;
 }) {
   const navigate = useNavigate();
-  const { can } = usePermissions();
+  const { actor, can } = usePermissions();
+  const [statusError, setStatusError] = useState("");
   const clientOptions = useResource(["clients", "event-table-options"], () => allPages((cursor) => clientsApi.list({}, cursor)), { reference: true });
   const venueOptions = useResource(["venues", "event-table-options"], () => allPages((cursor) => venuesApi.list({}, cursor)), { reference: true });
   const edit = async (event: FlowEvent, change: Partial<Pick<EventInput, "title" | "date" | "startTime" | "endTime" | "guestCount" | "clientId" | "venueId">>) => {
@@ -148,10 +150,21 @@ export function EventTable({
       id: "status",
       header: "Status",
       accessorFn: (event) => statusLabels[event.status],
-      cell: ({ row }) => <StatusPill status={row.original.status} />,
+      // FLOW-275: the status pill dropdown, for whoever may change it by hand
+      // (Admin or the event's salesperson, as on the event page).
+      cell: ({ row }) => actor && mayOverrideStatus(actor, row.original)
+        ? <StatusSelect label={`Status for ${row.original.title}`} value={row.original.status} includeEventStages
+          options={eventStatusSchema.options}
+          onChange={async (value) => {
+            try { await eventsApi.setStatus(row.original.id, { status: eventStatusSchema.parse(value), reason: "" }); onSaved?.(); }
+            catch (cause) { setStatusError((cause as Error).message); }
+          }} />
+        : <StatusPill status={row.original.status} />,
     },
   ];
   return (
+    <>
+    {statusError && <p role="alert" className="table-edit-error">{statusError}</p>}
     <DataTable copyKey="events.event-table" openColumn
       data={events}
       columns={columns}
@@ -161,6 +174,7 @@ export function EventTable({
       exportAll={exportAll}
       selection={selection}
     />
+    </>
   );
 }
 

@@ -9,7 +9,7 @@ test("sales tracker filters, saved views, export and live proposal stages", asyn
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   const proposalId = "f0000000-0000-4000-8000-000000000001";
   await browserDb(async (db) => { await db.insert(proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal" }); });
-  await page.goto("/#/proposals");
+  await page.goto("/#/sales");
   await expect(page.getByRole("heading", { name: "Sales tracker" })).toBeVisible();
   await choose(page.getByLabel("Type"), "proposal");
   await expect(page.getByRole("table").getByText("Gala proposal")).toBeVisible();
@@ -29,7 +29,7 @@ test("sales tracker filters, saved views, export and live proposal stages", asyn
   await expect(drawer).toBeVisible();
   await choose(drawer.getByLabel("Move to stage"), { label: "Negotiation" });
   await expect(drawer.getByRole("list", { name: "Stage history" })).toContainText("P Creation → Negotiation");
-  await page.goto("/#/proposals");
+  await page.goto("/#/sales");
   await expect(page.getByRole("table").getByText("Negotiation")).toBeVisible();
 });
 
