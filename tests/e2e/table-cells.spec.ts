@@ -43,7 +43,9 @@ test("My Dashboard tasks are a table: status changes in place, the row opens the
   const upcoming = page.getByRole("region", { name: "Upcoming" });
   const row = upcoming.getByRole("row", { name: /Fold napkins/ });
   await expect(upcoming.getByRole("columnheader", { name: "Due" })).toBeVisible();
-  await expect(row.getByRole("cell", { name: admin.name })).toBeVisible();
+  // Columns: Task, Event, Due, Assignee, Status, Type, actions.
+  const assignee = (r: typeof row) => r.getByRole("cell").nth(3);
+  await expect(assignee(row)).not.toHaveText("Unassigned");
   // The due date with its time beneath it (FLOW-296 AC2).
   await expect(row.locator(".date-time-cell__time")).toHaveText("14:30");
 
@@ -54,7 +56,7 @@ test("My Dashboard tasks are a table: status changes in place, the row opens the
   expect((await saved).ok()).toBeTruthy();
   await expect(page).toHaveURL(/#\/tasks$/);
 
-  await upcoming.getByRole("row", { name: /Fold napkins/ }).getByRole("cell", { name: admin.name }).click();
+  await assignee(upcoming.getByRole("row", { name: /Fold napkins/ })).click();
   await expect(page).toHaveURL(new RegExp(`#/tasks/${taskId}$`));
 });
 

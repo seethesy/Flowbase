@@ -126,7 +126,7 @@ test("delegates from Needs delegation, then reassigns on the task (FLOW-60/61)",
   const needs = page.getByRole("region", { name: "Unassigned in the next 14 days" });
   await expect(needs).toContainText("Build the bar");
   await choose(needs.getByLabel("Assign Build the bar to"), fullTimeStaff.id);
-  await needs.getByRole("button", { name: "Assign" }).click();
+  await needs.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(needs).toContainText("Every task coming up has someone on it.");
   // The Admin assigned it, so the Admin oversees it (AC1).
   const overseeing = page.getByRole("region", { name: "Tasks I oversee" });
