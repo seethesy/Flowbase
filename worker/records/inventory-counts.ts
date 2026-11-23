@@ -254,7 +254,9 @@ export async function recordCountLine(
       "SERVICE_HAS_NO_STOCK",
       "Service items don't have stock, so they can't be counted.",
     );
-  if (!canCountInCountMode(actor, item))
+  // Who can't count the item at all is refused below (403); a Master rental
+  // count needs approval from those who can't apply it directly.
+  if (canCountItem(actor, item) && !canCountInCountMode(actor, item))
     throw new ApiError(
       409,
       "APPROVAL_REQUIRED",

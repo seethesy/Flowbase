@@ -243,9 +243,9 @@ describe("inventory items", () => {
   });
 
   it("filters below par and by vendor in SQL", async () => {
-    // Below par: odd ones (no stock) and even ones under 100.
+    // At or below par (Ash, 2026-11-23): odd ones (no stock) and even ones up to 100.
     const below = await all<{ belowPar: boolean }>("?belowPar=true&subtype=ingredient");
-    expect(below).toHaveLength(150 + 49);
+    expect(below).toHaveLength(150 + 50);
     expect(below.every((row) => row.belowPar)).toBe(true);
     const acme = await all<{ consumable: { preferredVendor: string } }>("?vendor=acme");
     expect(acme).toHaveLength(100);

@@ -192,6 +192,8 @@ export function inventoryRoutes(options: {
   });
   routes.put("/items/:id", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const id = param(c, "Item");
+    // The item's own list decides who may change it, before the body is read.
+    requireList(c, inventoryListOf(await record(c, (db) => findItem(db, id))), "write");
     const input = await parseBody(c, withVersion(itemInputSchema));
     requireList(c, inventoryListOf(input), "write");
     if (input.kind !== "consumable" && !can(c.get("actor"), "rentals.apply_directly"))
