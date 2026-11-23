@@ -804,7 +804,17 @@ describe("FLOW-288: deleting BEOs from the BEOs tab", () => {
 
   it("deletes a draft and an awaiting-approval BEO, and Undo brings them back (AC1)", async () => {
     const draftEvent = await seed();
-    const pendingEvent = await seed();
+    // A second event for the same client (a second seed would duplicate it).
+    const pendingEvent = await sam.send<FlowEvent>("POST", "/api/events", {
+      title: "Winter dinner",
+      date: later,
+      startTime: "19:00",
+      endTime: "22:00",
+      clientId: draftEvent.client!.id,
+      pocContactId: draftEvent.pocContactId,
+      guestCount: 40,
+      assignedSalespersonId: people.sam,
+    });
     const draft = await sam.send<BeoView>("POST", `/api/events/${draftEvent.id}/beo`, {});
     await sam.send<BeoView>("POST", `/api/events/${pendingEvent.id}/beo`, {});
     const pending = await sam.send<BeoView>("POST", `/api/events/${pendingEvent.id}/beo/request-approval`, {}, 200);

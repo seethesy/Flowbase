@@ -154,7 +154,9 @@ describe("FLOW-293: Kitchen › Overview", () => {
     const { menu } = await eventWithMenu("Gala", 4);
     const [line] = await db.insert(schema.kitchenMenuLines).values({ menuId: menu.id, recipeId: rib.id, course: "Mains" }).returning();
 
-    const lead = as("lead");
+    // The Admin edits the kitchen menu of any event (the Kitchen Lead only of
+    // events they are staffed on).
+    const lead = admin;
     expect(await lead("PATCH", `/api/kitchen/lines/${line.id}/in-charge`, { staffId: people.cook })).toEqual({
       lineId: line.id,
       inChargeStaffId: people.cook,
