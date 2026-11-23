@@ -363,6 +363,10 @@ describe("calendar overview mode (FLOW-64)", () => {
         "status",
         "title",
         "venueName",
+        "salespersonId",
+        "leadId",
+        "proposal",
+        "beoId",
       ].sort(),
     );
   });

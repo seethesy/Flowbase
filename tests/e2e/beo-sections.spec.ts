@@ -116,9 +116,3 @@ test("the calendar's side panel shows the clicked event and closes (FLOW-265)", 
   await panel.getByRole("button", { name: "Close dialog" }).click();
   await expect(panel).toHaveCount(0);
 });
-  await expect(detail).toContainText("Fall gala");
-  await expect(detail).toContainText("120 guests");
-  await expect(detail.getByRole("link", { name: "Open event" })).toBeVisible();
-  await detail.getByRole("button", { name: "Close" }).click();
-  await expect(detail).toHaveCount(0);
-});
