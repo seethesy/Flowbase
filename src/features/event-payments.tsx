@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
@@ -85,6 +86,8 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
           {error}
         </p>
       )}
+      <PageGrid pageKey="events.payments">
+      <Block id="summary" name="Payment summary" h={5}>
       <dl className="payments-summary">
         <div>
           <dt><T id="event-payments.event-payments-section.total">Total</T></dt>
@@ -104,6 +107,8 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
           <Plural id="event-payments.event-payments-section.overdue-across-payments" count={data.overdueCount} one="Overdue: {overdueCents} across {count} payment." other="Overdue: {overdueCents} across {count} payments." values={{ overdueCents: formatCents(data.overdueCents) }} />
         </p>
       )}
+      </Block>
+      <Block id="suggestions" name="Payment suggestions" h={8}>
       {data.suggestions.length > 0 && data.canEdit && (
         <div className="payments-suggestions">
           <strong><T id="event-payments.event-payments-section.from-the-proposal">From the proposal</T></strong>
@@ -132,6 +137,8 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
           </ul>
         </div>
       )}
+      </Block>
+      <Block id="schedule" name="Payment schedule" h={12}>
       <div className="payments-subhead">
         <h3><T id="event-payments.event-payments-section.schedule">Schedule</T></h3>
         {data.canEdit && (
@@ -220,6 +227,8 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
         </table>
         </div>
       )}
+      </Block>
+      <Block id="received" name="Payments received" h={12}>
       <h3><T id="event-payments.event-payments-section.payments-received">Payments received</T></h3>
       {data.payments.length === 0 ? (
         <p className="muted"><T id="event-payments.event-payments-section.no-payments-recorded">No payments recorded.</T></p>
@@ -263,6 +272,8 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
         </table>
         </div>
       )}
+      </Block>
+      </PageGrid>
       {itemForm && (
         <ScheduleItemDrawer
           form={itemForm}

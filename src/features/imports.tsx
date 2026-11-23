@@ -49,7 +49,7 @@ export function ImportList() {
   const lastRun = (key: string) => logs.data?.find((log) => log.module === key);
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="imports.list"
         title={<T id="imports.import-list.settings-imports">Imports</T>}
         subtitle={<T id="inventory-screen.imports.bring-records-in-from">Bring records in from a spreadsheet. Re-running a file updates what it imported before.</T>}
       />
@@ -98,7 +98,7 @@ export function ImportPage() {
   const module = useResource(["imports", "module", key], () => importsApi.module(key));
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="imports.detail"
         eyebrow={<T id="imports.import-page.imports">Imports</T>}
         title={module.data ? <T id="imports.import-page.import" values={{ label: module.data.label }}>{"Import {label}"}</T> : <T id="imports.import-page.import-2">Import</T>}
         subtitle={<T id="imports.import-page.choose-a-csv-or-excel">Choose a CSV or Excel (.xlsx) file. Nothing is saved until you import.</T>}
@@ -226,6 +226,8 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
   return (
     <>
+      <PageGrid pageKey="imports.detail">
+      <Block id="file" name="Import file" h={8}>
       <Section title={<T id="imports.import-flow.file">File</T>}>
         <label className="form-field">
           <span><T id="imports.import-flow.file">File</T></span>
@@ -251,6 +253,8 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
         )}
       </Section>
 
+      </Block>
+      <Block id="columns" name="Column mapping" h={14}>
       {file && (
         <Section title={<T id="imports.import-flow.columns">Columns</T>}>
           <div className="import-mapping">
@@ -292,6 +296,8 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
         </Section>
       )}
 
+      </Block>
+      <Block id="results" name="Import results" h={16}>
       {busy && (
         <p role="status" className="import-progress">
           {busy}
@@ -309,7 +315,9 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
       {committed && <CommitSummary committed={committed} />}
 
-      <ImportLogTable module={module.key} version={logVersion} />
+      </Block>
+      <Block id="history" name="Import history" h={12}><ImportLogTable module={module.key} version={logVersion} /></Block>
+      </PageGrid>
     </>
   );
 }

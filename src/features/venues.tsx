@@ -87,7 +87,7 @@ export function VenueList() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="venues.list"
         title={<T id="venues.venue-list.venues">Venues</T>}
         subtitle={<T id="venues.venue-list.addresses-areas-and-load-in">Addresses, areas and load-in details, ready for every event.</T>}
         eyebrow={<T id="venues.venue-list.venues">Venues</T>}

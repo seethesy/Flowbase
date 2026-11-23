@@ -9,6 +9,7 @@ export const clientFields: SourceDef = {
   recordRoute: (row) => (typeof row.id === "string" ? `/clients/${row.id}` : null),
   titleField: "name",
   relations: [
+    { key: "proposals", label: "Proposal tracker", source: "proposals", path: (id) => `/api/sales/clients/${encodeURIComponent(id)}/proposals` },
     {
       key: "events",
       label: "Events",

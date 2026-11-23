@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
@@ -219,7 +220,7 @@ export function CountMode() {
   return (
     <>
       {back}
-      <PageHeader
+      <PageHeader pageKey="inventory.count"
         title={<T id="stock-counts.count-mode.count" values={{ sectionName: current.sectionName }}>{"Count: {sectionName}"}</T>}
         subtitle={
           current.status === "open"
@@ -234,9 +235,13 @@ export function CountMode() {
           </Button>
         )}
       </PageHeader>
+      <PageGrid pageKey="inventory.count">
+      <Block id="progress" name="Count progress" h={3}>
       <p className="count-progress" role="status">
         <T id="stock-counts.count-mode.of-counted" values={{ counted, count: current.lines.length }}>{"{counted} of {count} counted"}</T>
       </p>
+      </Block>
+      <Block id="lines" name="Count lines" h={20}>
       {current.lines.length ? (
         <ol className="count-lines">
           {current.lines.map((line) => (
@@ -254,6 +259,8 @@ export function CountMode() {
           <T id="stock-counts.count-mode.nothing-is-kept-at-this">{"Nothing is kept at this location yet. Stock an item here to count it."}</T>
         </p>
       )}
+      </Block>
+      </PageGrid>
       <ConfirmationDialog
         open={completing}
         onClose={() => setCompleting(false)}

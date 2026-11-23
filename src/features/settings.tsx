@@ -39,7 +39,7 @@ export function SettingsPage() {
   const manage = permissions.can("settings.manage");
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="settings.page"
         title={<T id="settings.settings-page.settings">Settings</T>}
         subtitle={
           manage

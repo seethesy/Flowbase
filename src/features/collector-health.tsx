@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { z } from "zod";
 import { useResource } from "../app/useResource";
@@ -33,7 +34,9 @@ export function CollectorHealthPage({ embedded = false }: { embedded?: boolean }
   };
   return <>
     {embedded ? <h2><T id="collector-health.collector-health-page.collector-health">Collector health</T></h2> :
-      <PageHeader title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />}
+      <PageHeader pageKey="settings.collector" title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />}
+    <PageGrid pageKey="settings.collector">
+    <Block id="monitoring" name="Collector monitoring" h={5}>
     <p><a href={instructions} target="_blank" rel="noreferrer"><T id="collector-health.collector-health-page.collector-re-login-and-ops">Collector re-login and ops instructions</T></a></p>
     {manage && <p><T id="collector-health.collector-health-page.monitor-a-site-before-its">{"Monitor a site before its first run: "}</T>{(["bark", "perfect_venue", "weddingpro", "eventective"] as const)
       .filter((site) => !health.data?.some((row) => row.site === site))
@@ -42,6 +45,8 @@ export function CollectorHealthPage({ embedded = false }: { embedded?: boolean }
           { noLeadsGapHours: 48, failureThreshold: 3 }).then(() => setRevision((v) => v + 1))
           .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Unable to save."));
       }}>{site}</button>)}</p>}
+    </Block>
+    <Block id="sites" name="Collector sites" h={16}>
     {error && <p role="alert">{error}</p>}
     {health.error && <p role="alert"><T id="collector-health.collector-health-page.unable-to-load-collector-health">Unable to load collector health.</T></p>}
     {health.data?.map((site) => <Section key={site.site} title={site.site}>
@@ -54,10 +59,12 @@ export function CollectorHealthPage({ embedded = false }: { embedded?: boolean }
       </form>}
       <ul>{site.recentRuns.map((run) => <li key={run.at}><T id="collector-health.collector-health-page.leads" values={{ at: run.at, status: run.status, leadsFound: run.leadsFound }}>{"{at}: {status}, {leadsFound} leads"}</T></li>)}</ul>
     </Section>)}
-    {manage && <Section title={<T id="collector-health.collector-health-page.sms-outbox">SMS outbox</T>}>
+    </Block>
+    {manage && <Block id="sms" name="SMS outbox" h={10}><Section title={<T id="collector-health.collector-health-page.sms-outbox">SMS outbox</T>}>
       <p><T id="collector-health.collector-health-page.stub-messages-are-recorded-here">Stub messages are recorded here; no text is sent.</T></p>
       {sms.error && <p role="alert"><T id="collector-health.collector-health-page.unable-to-load-sms-outbox">Unable to load SMS outbox.</T></p>}
       <ul>{sms.data?.map((message) => <li key={message.id}>{message.createdAt} · {message.mobile} · {message.status} · {message.body}</li>)}</ul>
-    </Section>}
+    </Section></Block>}
+    </PageGrid>
   </>;
 }

@@ -26,7 +26,7 @@ export function OrderLists() {
     catch (cause) { setError((cause as Error).message); }
   };
   return <>
-    <PageHeader title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from">Build a shopping list from event shortages and low stock.</T>} />
+    <PageHeader pageKey="inventory.order-lists" title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from">Build a shopping list from event shortages and low stock.</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
     <PageGrid pageKey="inventory.order-lists">
     <Block id="builder" name="Build a list" h={3}>
@@ -87,7 +87,7 @@ export function OrderListDetail() {
   };
   return <div className="order-list-page">
     <Link to="/inventory/order" className="back-link"><T id="order-lists.order-list-detail.order-lists">← Order lists</T></Link>
-    <PageHeader title={<T id="order-lists.order-list-detail.order-list" values={{ from: data.from, to: data.to }}>{"Order list {from} – {to}"}</T>} subtitle={<T id="order-lists.order-list-detail.lines" values={{ statusLabel: statusLabel(data.status), linesCount: lines.length }}>{"{statusLabel} · {linesCount} lines"}</T>}>
+    <PageHeader pageKey="inventory.order-detail" title={<T id="order-lists.order-list-detail.order-list" values={{ from: data.from, to: data.to }}>{"Order list {from} – {to}"}</T>} subtitle={<T id="order-lists.order-list-detail.lines" values={{ statusLabel: statusLabel(data.status), linesCount: lines.length }}>{"{statusLabel} · {linesCount} lines"}</T>}>
       <Button variant="outline" onClick={() => window.print()}><T id="order-lists.order-list-detail.print-list">Print list</T></Button>
       {editing && <Button variant="outline" onClick={() => void save()}><T id="order-lists.order-list-detail.save-edits">Save edits</T></Button>}
       {editing && data.status !== "approved" && <Button onClick={() => void submit()}><T id="order-lists.order-list-detail.submit-for-approval">Submit for approval</T></Button>}
@@ -97,6 +97,8 @@ export function OrderListDetail() {
     {message && <p role="status">{message}</p>}
     {data.status === "submitted" && <p role="status"><T id="order-lists.order-list-detail.edits-are-locked-until-admin">Edits are locked until Admin approves or rejects this list.</T></p>}
     {data.status === "approved" && !data.orders.length && <p role="status"><T id="order-lists.order-list-detail.approved-place-each-vendor-s">{"Approved. Place each vendor's order on its portal, then record it below."}</T></p>}
+    <PageGrid pageKey="inventory.order-detail">
+    <Block id="vendors" name="Vendor orders" h={24}>
     {groups.map((vendor) => <section key={vendor} className="order-vendor">
       <h2>{vendor}</h2>
       <p>{lines.find((line) => line.vendorName === vendor)?.orderingInstructions || <T id="order-lists.order-list-detail.no-ordering-instructions-provided">No ordering instructions provided.</T>}</p>
@@ -119,6 +121,8 @@ export function OrderListDetail() {
         onChange={(next, note) => { list.replace(next); setMessage(note); setError(""); }}
         onError={(note) => { setError(note); setMessage(""); }} />}
     </section>)}
+    </Block>
+    </PageGrid>
   </div>;
 }
 

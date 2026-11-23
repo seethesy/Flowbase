@@ -42,7 +42,7 @@ export const liveEditRenames: LiveEditRenames = {
     "inventory-lists.inventory-list.start-stock-count": "stock-counts.start-count.start-stock-count",
     "stock-counts.count-list.all-inventory": "stock-counts.count-mode.all-inventory",
   },
-  blocks: {},
+  blocks: { "documents.library/list": "documents-table" },
   removed: {
     // FLOW-265: wording of the replaced calendar detail mode, day-of board and
     // production overview, and the board's single urgent checkbox (now one

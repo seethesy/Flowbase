@@ -13,9 +13,16 @@ const subtitles = {
   vendors: <T id="inventory-screen.vendors.distributors-rental-vendors-and">Distributors, rental vendors and event partners, and how to order from each.</T>,
 };
 
+// Each tab's page layout, so its heading lines can be edited there (FLOW-282).
+const pageKeys: Record<keyof typeof subtitles, string> = {
+  inventory: "inventory.list",
+  bar: "inventory.bar",
+  order: "inventory.order",
+  vendors: "vendors.list",
+};
 export function InventoryHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {
   return (
-    <PageHeader title={<T id="inventory-screen.inventory-heading.inventory">Inventory</T>} subtitle={subtitles[tab]}>
+    <PageHeader pageKey={pageKeys[tab]} title={<T id="inventory-screen.inventory-heading.inventory">Inventory</T>} subtitle={subtitles[tab]}>
       {children}
     </PageHeader>
   );

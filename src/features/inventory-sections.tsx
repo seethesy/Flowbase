@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
@@ -52,7 +53,7 @@ export function LocationsPage() {
       <Link to="/settings" className="back-link">
         <T id="inventory-sections.locations-page.settings">← Settings</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.sections"
         title={<T id="inventory-sections.locations-page.locations">Locations</T>}
         subtitle={<T id="inventory-sections.locations-page.where-stock-lives-vendor-holds">Where stock lives. Vendor holds sub-rented items; the kitchen keeps ingredients in its own storage.</T>}
         eyebrow={<T id="inventory-sections.locations-page.settings-eyebrow">SETTINGS</T>}
@@ -62,6 +63,8 @@ export function LocationsPage() {
           {error}
         </p>
       )}
+      <PageGrid pageKey="inventory.sections">
+      <Block id="add" name="Add location" h={5}>
       {!archived && (
         <Allowed action="inventory.sections">
           <form
@@ -97,6 +100,8 @@ export function LocationsPage() {
           </form>
         </Allowed>
       )}
+      </Block>
+      <Block id="filters" name="Location filters" h={3}>
       <FilterBar>
         <label className="checkbox-filter">
           <RoundCheck
@@ -106,6 +111,8 @@ export function LocationsPage() {
           <T id="inventory-sections.locations-page.show-archived">Show archived</T>
         </label>
       </FilterBar>
+      </Block>
+      <Block id="sections" name="Locations" h={20}>
       {sections.error ? (
         <LoadError message={sections.error} />
       ) : !sections.data ? (
@@ -223,6 +230,8 @@ export function LocationsPage() {
           );
         })
       )}
+      </Block>
+      </PageGrid>
     </>
   );
 }

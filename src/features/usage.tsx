@@ -36,7 +36,7 @@ export function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
   };
   return <>
     {embedded ? <h2><T id="usage.usage-page.free-tier-usage">Free-tier usage</T></h2> :
-      <PageHeader title={<T id="usage.usage-page.free-tier-usage">Free-tier usage</T>} subtitle={<T id="usage.usage-page.approximate-current-usage-and-configurable">Approximate current usage and configurable warning levels.</T>} />}
+      <PageHeader pageKey="settings.usage" title={<T id="usage.usage-page.free-tier-usage">Free-tier usage</T>} subtitle={<T id="usage.usage-page.approximate-current-usage-and-configurable">Approximate current usage and configurable warning levels.</T>} />}
     <PageGrid pageKey="settings.usage">
     <Block id="current-usage" name="Current usage" h={10}>
     <Section title={<T id="usage.usage-page.current-usage">Current usage</T>}>

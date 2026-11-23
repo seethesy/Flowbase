@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -131,7 +132,7 @@ export function TaskDetail() {
       <button type="button" className="back-link" onClick={() => navigate(-1)}>
         <T id="tasks.task-detail.back">← Back</T>
       </button>
-      <PageHeader
+      <PageHeader pageKey="tasks.detail"
         eyebrow={<T id="tasks.task-detail.task">Task</T>}
         title={data.title}
         subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: <LabelT id="labels.task-type" value={data.type}>{taskTypeLabels[data.type]}</LabelT>, taskPriorityLabels: <LabelT id="labels.task-priority" value={data.priority}>{taskPriorityLabels[data.priority]}</LabelT> }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}
@@ -141,6 +142,8 @@ export function TaskDetail() {
           {error}
         </p>
       )}
+      <PageGrid pageKey="tasks.detail" record={{ source: "tasks", id, row: data as unknown as Record<string, unknown> }}>
+      <Block id="details" name="Task details" h={14}>
       <Section title={<T id="tasks.task-detail.details">Details</T>}>
         <div className="task-detail">
           <FormField label={<T id="tasks.task-detail.status">Status</T>}>
@@ -241,6 +244,8 @@ export function TaskDetail() {
           )}
         </div>
       </Section>
+      </Block>
+      <Block id="checklist" name="Checklist" h={12}>
       <Section title={<T id="tasks.task-detail.checklist" values={{ checklistDone: data.checklistDone, checklistTotal: data.checklistTotal }}>{"Checklist ({checklistDone}/{checklistTotal})"}</T>}>
         <ul className="task-checklist">
           {data.checklist.map((entry) => (
@@ -275,6 +280,8 @@ export function TaskDetail() {
           </Button>
         </form>
       </Section>
+      </Block>
+      <Block id="comments" name="Comments" h={12}>
       <Section title={<T id="tasks.task-detail.comments">Comments</T>}>
         <ul className="task-comments">
           {data.comments.map((entry) => (
@@ -299,7 +306,9 @@ export function TaskDetail() {
           </Button>
         </form>
       </Section>
-      <Attachments recordType="task" recordId={id} />
+      </Block>
+      <Block id="attachments" name="Task attachments" h={8}><Attachments recordType="task" recordId={id} /></Block>
+      </PageGrid>
     </>
   );
 }

@@ -1,3 +1,5 @@
+import { LayoutHeader, PageSubtitle, useLayoutBlockId } from "../../app/layout-deletion";
+import { isValidElement } from "react";
 import { Dropdown } from "../ui/Dropdown";
 import { lazy, Suspense, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
 
@@ -295,6 +297,7 @@ export function Select({
   );
 }
 export function PageHeader({
+  pageKey,
   title,
   subtitle,
   children,
@@ -304,13 +307,14 @@ export function PageHeader({
   subtitle?: ReactNode;
   children?: ReactNode;
   eyebrow?: ReactNode;
+  pageKey?: string;
 }) {
   return (
     <div className="page-heading">
       <div>
         {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <h1>{title}</h1>
-        {subtitle && <p>{subtitle}</p>}
+        {subtitle && (pageKey ? <PageSubtitle pageKey={pageKey}>{subtitle}</PageSubtitle> : <p>{subtitle}</p>)}
       </div>
       <div className="page-actions">{children}</div>
     </div>
@@ -672,21 +676,27 @@ export function ConfirmationDialog({
   onConfirm,
   title,
   children,
+  confirmLabel = <T id="shared.confirmation-dialog.confirm">Confirm</T>,
+  cancelLabel = <T id="shared.confirmation-dialog.cancel">Cancel</T>,
+  description,
 }: {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
   title: ReactNode;
   children: ReactNode;
+  confirmLabel?: ReactNode;
+  cancelLabel?: ReactNode;
+  description?: ReactNode;
 }) {
   const [error, setError] = useState("");
   return (
-    <DetailDrawer open={open} onClose={onClose} title={title}>
+    <DetailDrawer open={open} onClose={onClose} title={title} description={description}>
       <p>{children}</p>
       {error && <p role="alert">{error}</p>}
       <div className="form-actions">
         <Button variant="outline" onClick={onClose}>
-          <T id="shared.confirmation-dialog.cancel">Cancel</T>
+          {cancelLabel}
         </Button>
         <Button
           variant="destructive"
@@ -698,7 +708,7 @@ export function ConfirmationDialog({
             }
           }}
         >
-          <T id="shared.confirmation-dialog.confirm">Confirm</T>
+          {confirmLabel}
         </Button>
       </div>
     </DetailDrawer>
@@ -797,12 +807,15 @@ export function Section({
   children: ReactNode;
   action?: ReactNode;
 }) {
+  const blockId = useLayoutBlockId();
+  const titleProps = isValidElement<{ id?: string; children?: ReactNode }>(title) ? title.props : null;
+  const label = typeof title === "string" ? title : typeof titleProps?.children === "string" ? titleProps.children : "Section";
+  const headerKey = titleProps?.id ?? `${blockId ?? "section"}.${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "title"}`;
   return (
     <section className="panel">
-      <div className="section-heading">
-        <h2>{title}</h2>
-        {action}
-      </div>
+      <LayoutHeader headerKey={headerKey} name={`${label} header`}>
+        <div className="section-heading"><h2>{title}</h2>{action}</div>
+      </LayoutHeader>
       {children}
     </section>
   );

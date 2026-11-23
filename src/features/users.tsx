@@ -71,7 +71,7 @@ function UserList() {
   };
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="settings.users"
         title={<T id="users.user-list.users">Users</T>}
         subtitle={<T id="users.user-list.invite-staff-and-manage-their">Invite staff and manage their access to Flowbase.</T>}
       />

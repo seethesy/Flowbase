@@ -14,7 +14,8 @@ import { Button } from "../components/ui/button";
 import { ColumnPicker } from "./column-picker";
 import { BoxEditorList } from "./box-editor";
 import { usePermissions } from "./permissions";
-import { styleClass, styleVars, StylePopover } from "./layout-style";
+import { styleClass, styleVars } from "./layout-style-view";
+import { StylePopover } from "./layout-style";
 
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
 

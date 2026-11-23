@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -189,6 +190,8 @@ export function NotificationSettings() {
     }
   };
   return (
+    <PageGrid pageKey="notifications.settings">
+    <Block id="preferences" name="Notification preferences" h={18}>
     <Section title={<T id="notifications.settings.title">Notifications</T>}>
         <form
           className="notification-settings"
@@ -239,5 +242,7 @@ export function NotificationSettings() {
           </div>
         </form>
     </Section>
+    </Block>
+    </PageGrid>
   );
 }

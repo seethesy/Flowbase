@@ -2825,6 +2825,7 @@
     "labels.cost-source.",
     "labels.deletable-entity.",
     "labels.department.",
+    "labels.document-type.",
     "labels.hold-status.",
     "labels.item-kind.",
     "labels.item-subtype.",
@@ -2920,6 +2921,12 @@
       ],
       "fieldCards": []
     },
+    "coming-soon.page": {
+      "blocks": [
+        "content"
+      ],
+      "fieldCards": []
+    },
     "dashboard.home": {
       "blocks": [
         "all-tasks",
@@ -2932,7 +2939,33 @@
     },
     "documents.library": {
       "blocks": [
-        "documents-table"
+        "documents-table",
+        "filters",
+        "types"
+      ],
+      "fieldCards": []
+    },
+    "events.activity": {
+      "blocks": [
+        "history"
+      ],
+      "fieldCards": []
+    },
+    "events.beo": {
+      "blocks": [
+        "changes",
+        "edit-notes",
+        "equipment",
+        "event",
+        "food-setup",
+        "header",
+        "layout",
+        "notes",
+        "setup-cleanup",
+        "staff",
+        "status",
+        "summary",
+        "timeline"
       ],
       "fieldCards": []
     },
@@ -2976,6 +3009,54 @@
       ],
       "fieldCards": []
     },
+    "events.payments": {
+      "blocks": [
+        "received",
+        "schedule",
+        "suggestions",
+        "summary"
+      ],
+      "fieldCards": []
+    },
+    "events.preparation": {
+      "blocks": [
+        "progress",
+        "review"
+      ],
+      "fieldCards": []
+    },
+    "events.staff": {
+      "blocks": [
+        "breakdown",
+        "leads",
+        "shifts"
+      ],
+      "fieldCards": []
+    },
+    "events.timeline": {
+      "blocks": [
+        "suggestions",
+        "timeline"
+      ],
+      "fieldCards": []
+    },
+    "events.trucks": {
+      "blocks": [
+        "add-truck",
+        "assignments",
+        "pull-lines"
+      ],
+      "fieldCards": []
+    },
+    "imports.detail": {
+      "blocks": [
+        "columns",
+        "file",
+        "history",
+        "results"
+      ],
+      "fieldCards": []
+    },
     "imports.list": {
       "blocks": [
         "importers",
@@ -2990,10 +3071,24 @@
       ],
       "fieldCards": []
     },
+    "inventory.categories": {
+      "blocks": [
+        "add",
+        "categories"
+      ],
+      "fieldCards": []
+    },
     "inventory.consumables": {
       "blocks": [
         "filters",
         "list"
+      ],
+      "fieldCards": []
+    },
+    "inventory.count": {
+      "blocks": [
+        "lines",
+        "progress"
       ],
       "fieldCards": []
     },
@@ -3029,10 +3124,31 @@
       ],
       "fieldCards": []
     },
+    "inventory.order-detail": {
+      "blocks": [
+        "vendors"
+      ],
+      "fieldCards": []
+    },
     "inventory.order-lists": {
       "blocks": [
         "builder",
         "lists"
+      ],
+      "fieldCards": []
+    },
+    "inventory.photos": {
+      "blocks": [
+        "filters",
+        "gallery"
+      ],
+      "fieldCards": []
+    },
+    "inventory.sections": {
+      "blocks": [
+        "add",
+        "filters",
+        "sections"
       ],
       "fieldCards": []
     },
@@ -3046,6 +3162,13 @@
     "kitchen.overview": {
       "blocks": [
         "menu-items"
+      ],
+      "fieldCards": []
+    },
+    "kitchen.photos": {
+      "blocks": [
+        "filters",
+        "gallery"
       ],
       "fieldCards": []
     },
@@ -3078,6 +3201,25 @@
       ],
       "fieldCards": []
     },
+    "marketing.photos": {
+      "blocks": [
+        "filters",
+        "gallery"
+      ],
+      "fieldCards": []
+    },
+    "notifications.settings": {
+      "blocks": [
+        "preferences"
+      ],
+      "fieldCards": []
+    },
+    "placeholder.page": {
+      "blocks": [
+        "content"
+      ],
+      "fieldCards": []
+    },
     "production.overview": {
       "blocks": [
         "days",
@@ -3105,6 +3247,17 @@
       "blocks": [
         "dishes",
         "filters"
+      ],
+      "fieldCards": []
+    },
+    "recipes.detail": {
+      "blocks": [
+        "dish",
+        "ingredients",
+        "method",
+        "photos",
+        "scale",
+        "tags"
       ],
       "fieldCards": []
     },
@@ -3153,6 +3306,20 @@
       ],
       "fieldCards": []
     },
+    "settings.archived": {
+      "blocks": [
+        "records"
+      ],
+      "fieldCards": []
+    },
+    "settings.collector": {
+      "blocks": [
+        "monitoring",
+        "sites",
+        "sms"
+      ],
+      "fieldCards": []
+    },
     "settings.operations": {
       "blocks": [
         "jobs",
@@ -3172,6 +3339,13 @@
       ],
       "fieldCards": []
     },
+    "settings.permissions": {
+      "blocks": [
+        "areas",
+        "cards"
+      ],
+      "fieldCards": []
+    },
     "settings.usage": {
       "blocks": [
         "current-usage",
@@ -3183,6 +3357,15 @@
       "blocks": [
         "invite",
         "staff-access"
+      ],
+      "fieldCards": []
+    },
+    "sops.detail": {
+      "blocks": [
+        "attachments",
+        "edit-history",
+        "procedure",
+        "sop-header-facts"
       ],
       "fieldCards": []
     },
@@ -3204,6 +3387,7 @@
     },
     "staff.list": {
       "blocks": [
+        "filters",
         "list"
       ],
       "fieldCards": []
@@ -3227,6 +3411,15 @@
         "my-tasks",
         "needs-delegation",
         "overseeing"
+      ],
+      "fieldCards": []
+    },
+    "tasks.detail": {
+      "blocks": [
+        "attachments",
+        "checklist",
+        "comments",
+        "details"
       ],
       "fieldCards": []
     },

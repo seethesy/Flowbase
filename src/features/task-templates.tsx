@@ -291,7 +291,7 @@ export function TaskTemplates() {
       <Link className="back-link" to="/tasks">
         <T id="task-templates.task-templates.tasks">← Tasks</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="tasks.templates"
         title={<T id="task-templates.task-templates.task-templates">Task templates</T>}
         subtitle={<T id="task-templates.task-templates.reusable-sets-of-tasks-due">{"Reusable sets of tasks, due relative to the event. Apply one from an event's Tasks section."}</T>}
       >

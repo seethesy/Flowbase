@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
@@ -25,11 +26,13 @@ export function ArchivedPage() {
     return <p role="alert"><T id="archived.archived-page.no-access">Only an Admin can restore deleted records.</T></p>;
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="settings.archived"
         title={<T id="archived.archived-page.title">Archived</T>}
         subtitle={<T id="archived.archived-page.subtitle">Records deleted from a table. Restore puts one back where it was.</T>}
       />
       {error && <p role="alert" className="error-message">{error}</p>}
+      <PageGrid pageKey="settings.archived">
+      <Block id="records" name="Archived records" h={16}>
       {deleted.error ? (
         <LoadError message={deleted.error} />
       ) : !deleted.data ? (
@@ -71,6 +74,8 @@ export function ArchivedPage() {
           </table></div></div>
         </Section>
       )}
+      </Block>
+      </PageGrid>
     </>
   );
 }
