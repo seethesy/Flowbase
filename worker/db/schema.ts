@@ -2413,3 +2413,46 @@ export const staffPayExceptions = pgTable(
     ),
   ],
 ).enableRLS();
+
+// Per-user Google Calendar sync (FLOW-268). One connection per user: the
+// refresh token encrypted with AES-GCM (worker/google/crypto.ts, AC4) and the
+// "Flowbase events" calendar the app created in their account. Disconnecting
+// archives the row and deletes the token. The user's own Google events are
+// never stored.
+export const googleCalendarConnections = pgTable(
+  "google_calendar_connections",
+  {
+    ...baseColumns(),
+    // No foreign keys to users or events here: other code and tests truncate
+    // those tables without this one.
+    userId: uuid("user_id").notNull(),
+    refreshTokenCipher: text("refresh_token_cipher"),
+    calendarId: text("calendar_id"),
+    // Set when Google refused the refresh token: the user must reconnect.
+    needsReconnectAt: timestamptz("needs_reconnect_at"),
+    lastSyncedAt: timestamptz("last_synced_at"),
+  },
+  (table) => [
+    uniqueIndex("google_calendar_connections_user_idx")
+      .on(table.userId)
+      .where(sql`${table.archivedAt} is null`),
+  ],
+).enableRLS();
+
+// The Google event each Flowbase event was copied to, per user, and a
+// fingerprint of what was sent, so unchanged events aren't sent again.
+export const googleCalendarEventLinks = pgTable(
+  "google_calendar_event_links",
+  {
+    ...baseColumns(),
+    connectionId: uuid("connection_id").notNull().references(() => googleCalendarConnections.id),
+    eventId: uuid("event_id").notNull(),
+    googleEventId: text("google_event_id").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+  },
+  (table) => [
+    uniqueIndex("google_calendar_event_links_event_idx")
+      .on(table.connectionId, table.eventId)
+      .where(sql`${table.archivedAt} is null`),
+  ],
+).enableRLS();

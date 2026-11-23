@@ -244,7 +244,7 @@ it("seeds Technical's Staff pay level at Write", async () => {
   expect(matrix.technical.staff_pay).toBe("write");
   // The migration moves a stored None (the old seed) to Write.
   await db.insert(schema.rolePermissions).values({ role: "technical", area: "staff_pay", level: "none" });
-  const migration = readFileSync("drizzle/0071_flow_270_staff_pay.sql", "utf8");
+  const migration = readFileSync("drizzle/0072_flow_270_staff_pay.sql", "utf8");
   await db.execute(sql.raw(migration.slice(migration.indexOf("UPDATE \"role_permissions\""))));
   const [row] = await db.select().from(schema.rolePermissions)
     .where(sql`${schema.rolePermissions.role} = 'technical' and ${schema.rolePermissions.area} = 'staff_pay'`);

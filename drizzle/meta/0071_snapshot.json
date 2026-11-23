@@ -1,5 +1,5 @@
 {
-  "id": "96e2c5ff-3f09-4033-a9dc-8c42f4192948",
+  "id": "1411a487-769b-48a1-b79f-96fad2e37dce",
   "prevId": "587bc87c-6950-4c24-a1bd-03d2ea9e7ca8",
   "version": "7",
   "dialect": "postgresql",
@@ -3458,7 +3458,7 @@
       "checkConstraints": {
         "deletions_entity_type_check": {
           "name": "deletions_entity_type_check",
-          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop')"
+          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe')"
         }
       },
       "isRLSEnabled": true
@@ -5416,6 +5416,218 @@
           "value": "\"events\".\"status\" in ('inquiry', 'pitching', 'p_creation', 'p_sent', 'negotiation', 'closing', 'closed', 'preparation', 'finished', 'lost')"
         }
       },
+      "isRLSEnabled": true
+    },
+    "public.google_calendar_connections": {
+      "name": "google_calendar_connections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token_cipher": {
+          "name": "refresh_token_cipher",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "calendar_id": {
+          "name": "calendar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_reconnect_at": {
+          "name": "needs_reconnect_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "google_calendar_connections_user_idx": {
+          "name": "google_calendar_connections_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"google_calendar_connections\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.google_calendar_event_links": {
+      "name": "google_calendar_event_links",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "connection_id": {
+          "name": "connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "google_event_id": {
+          "name": "google_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "google_calendar_event_links_event_idx": {
+          "name": "google_calendar_event_links_event_idx",
+          "columns": [
+            {
+              "expression": "connection_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"google_calendar_event_links\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "google_calendar_event_links_connection_id_google_calendar_connections_id_fk": {
+          "name": "google_calendar_event_links_connection_id_google_calendar_connections_id_fk",
+          "tableFrom": "google_calendar_event_links",
+          "tableTo": "google_calendar_connections",
+          "columnsFrom": [
+            "connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.import_keys": {
@@ -11702,225 +11914,6 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
-    "public.staff_pay": {
-      "name": "staff_pay",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "staff_full_name": {
-          "name": "staff_full_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pay_type": {
-          "name": "pay_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rate_cents": {
-          "name": "rate_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rate_unit": {
-          "name": "rate_unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "second_rate_cents": {
-          "name": "second_rate_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "second_rate_label": {
-          "name": "second_rate_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        }
-      },
-      "indexes": {
-        "staff_pay_name_idx": {
-          "name": "staff_pay_name_idx",
-          "columns": [
-            {
-              "expression": "lower(\"staff_full_name\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"staff_pay\".\"archived_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "staff_pay_pay_type_check": {
-          "name": "staff_pay_pay_type_check",
-          "value": "\"staff_pay\".\"pay_type\" in ('hourly', 'per_event', 'salary')"
-        },
-        "staff_pay_rate_unit_check": {
-          "name": "staff_pay_rate_unit_check",
-          "value": "\"staff_pay\".\"rate_unit\" in ('hour', 'event', 'year')"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.staff_pay_exceptions": {
-      "name": "staff_pay_exceptions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "staff_full_name": {
-          "name": "staff_full_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "event_id": {
-          "name": "event_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "project": {
-          "name": "project",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "amount_cents": {
-          "name": "amount_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        }
-      },
-      "indexes": {
-        "staff_pay_exceptions_name_idx": {
-          "name": "staff_pay_exceptions_name_idx",
-          "columns": [
-            {
-              "expression": "lower(\"staff_full_name\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "staff_pay_exceptions_target_check": {
-          "name": "staff_pay_exceptions_target_check",
-          "value": "(\"staff_pay_exceptions\".\"event_id\" is null) <> (\"staff_pay_exceptions\".\"project\" is null)"
-        }
-      },
-      "isRLSEnabled": true
-    },
     "public.stock_count_lines": {
       "name": "stock_count_lines",
       "schema": "",
@@ -13961,13 +13954,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
-        },
-        "has_account": {
-          "name": "has_account",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
         }
       },
       "indexes": {
@@ -13982,7 +13968,6 @@
             }
           ],
           "isUnique": true,
-          "where": "\"users\".\"email\" <> ''",
           "concurrently": false,
           "method": "btree",
           "with": {}
