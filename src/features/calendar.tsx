@@ -123,7 +123,6 @@ function GoogleCalendarControls({
     setError("");
     try {
       await googleCalendarApi.disconnect();
-      onToggle(false);
       status.reload();
     } catch (cause) {
       setError((cause as Error).message);
@@ -189,9 +188,10 @@ export function CalendarPage() {
   // Layers live in state, so a check shows at once; the address follows (a URL
   // update lands a moment later and would let the box flip back first).
   const [layers, setLayers] = useState(() => parseLayers(params.get("layers")));
-  // My Google Calendar (FLOW-268): on after connecting, then as the viewer left it.
+  // My Google Calendar (FLOW-268): on by default once connected; "?gcal=0"
+  // keeps it off.
   const googleResult = params.get("google") ?? "";
-  const [googleOn, setGoogleOn] = useState(() => params.get("gcal") === "1" || googleResult === "connected");
+  const [googleOn, setGoogleOn] = useState(() => googleResult === "connected" || params.get("gcal") !== "0");
   const set = (changes: Record<string, string>) =>
     setParams(
       (current) => {
@@ -206,7 +206,7 @@ export function CalendarPage() {
     );
   const toggleGoogle = (on: boolean) => {
     setGoogleOn(on);
-    set({ gcal: on ? "1" : "", google: "" });
+    set({ gcal: on ? "" : "0", google: "" });
   };
   const toggle = (layer: CalendarLayer, on: boolean) => {
     const next = new Set(layers);
@@ -234,14 +234,16 @@ export function CalendarPage() {
   const shown = (calendar.data?.events ?? []).filter(
     (event) => (!owner || event.salespersonId === owner) && (!status || event.status === status),
   );
+  const google = useResource(["google-calendar"], googleCalendarApi.status);
+  const googleShown = googleOn && Boolean(google.data?.connected && !google.data.needsReconnect);
   const googleEvents = useResource(
     ["google-calendar", "events", grid.from, grid.to],
     () => googleCalendarApi.events(grid.from, grid.to),
-    { enabled: googleOn, keepPrevious: true },
+    { enabled: googleShown, keepPrevious: true },
   );
   const entries = [
     ...(calendar.data ? toCalendarEntries({ ...calendar.data, events: shown }, layers) : []),
-    ...(googleOn && googleEvents.data ? toGoogleEntries(googleEvents.data.events) : []),
+    ...(googleShown && googleEvents.data ? toGoogleEntries(googleEvents.data.events) : []),
   ];
   const [selected, setSelected] = useState<string | null>(null);
   const panelEvent = shown.find((event) => event.id === selected);
@@ -305,7 +307,7 @@ export function CalendarPage() {
       {googleResults[googleResult] && (
         <p role="status" className="muted">{googleResults[googleResult]}</p>
       )}
-      {googleOn && googleEvents.error && <LoadError message={googleEvents.error} />}
+      {googleShown && googleEvents.error && <LoadError message={googleEvents.error} />}
       </Block>
       <Block id="calendar" name="Calendar" h={30}>
       <div className="calendar-toolbar">
