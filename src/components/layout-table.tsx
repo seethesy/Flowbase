@@ -37,8 +37,16 @@ export default function LayoutColumns<Row>({
   const configKey = JSON.stringify(layout.custom ? layout.columns : null);
   const shown = useMemo(() => {
     if (!target || !layout.custom) return columns;
+    const source = target.source;
+    // A table with no source (FLOW-296) keeps its code's columns in their order;
+    // only the saved widths apply.
+    if (!source)
+      return columns.map((column) => {
+        const width = layout.columns.find((config) => config.key === columnKey(column))?.width;
+        return width ? { ...column, meta: { ...column.meta, width } } : column;
+      });
     return layout.columns.flatMap((config): ColumnDef<Row, unknown>[] => {
-      const def = fieldDef(target.source, config.key);
+      const def = fieldDef(source, config.key);
       const existing = columns.find((column) => columnKey(column) === config.key);
       const meta = { ...existing?.meta, width: config.width };
       if (existing) return [{ ...existing, meta, ...(def ? { enableSorting: Boolean(def.sortable) } : {}) }];
@@ -47,8 +55,8 @@ export default function LayoutColumns<Row>({
         {
           id: def.key,
           header: def.label,
-          accessorFn: (row) => fieldText(target.source, def.key, row as Record<string, unknown>),
-          cell: ({ row }) => <FieldValue source={target.source} field={def.key} row={row.original as Record<string, unknown>} />,
+          accessorFn: (row) => fieldText(source, def.key, row as Record<string, unknown>),
+          cell: ({ row }) => <FieldValue source={source} field={def.key} row={row.original as Record<string, unknown>} />,
           enableSorting: Boolean(def.sortable),
           meta,
         },

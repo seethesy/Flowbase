@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Upload } from "lucide-react";
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { Button, DataTable, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader, SearchInput, type DeleteResult } from "../components/shared";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
@@ -177,9 +178,14 @@ export function DocumentsPage() {
       </Dropdown>
     </FilterBar>
     {files.error && <p role="alert" className="error-message">{files.error}</p>}
-    {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
-      selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
-        onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
+    {/* FLOW-296: on a page layout, so an Admin can resize the table's columns. */}
+    <PageGrid pageKey="documents.library">
+      <Block id="documents-table" name="Documents table" h={20}>
+        {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
+          selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
+            onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
+      </Block>
+    </PageGrid>
     {selected && <DetailDrawer open onClose={() => setSelectedId("")} title={selected.name}
       description={<T id="documents.preview.description">File details and earlier versions</T>} wide>
       {latest(selected)?.contentType === "application/pdf" && latest(selected)?.url

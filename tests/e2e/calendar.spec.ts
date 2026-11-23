@@ -121,7 +121,9 @@ test("the List view is the month's events table, filtered by owner and status", 
   await page.getByRole("button", { name: "List", exact: true }).click();
   await expect(page).toHaveURL(/view=list/);
   const row = page.getByRole("row", { name: /Fall gala/ });
-  await expect(row).toContainText("Thu, Sep 17 · 5:00 PM");
+  // The date with the time beneath it (FLOW-296).
+  await expect(row.locator(".date-time-cell__date")).toHaveText("Thu, Sep 17");
+  await expect(row.locator(".date-time-cell__time")).toHaveText("5:00 PM");
   await expect(row).toContainText(salesperson.name);
   await choose(page.getByRole("combobox", { name: "Status", exact: true }), "negotiation");
   await expect(page.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);

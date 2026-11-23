@@ -20,6 +20,10 @@ const setHidden = (page: Page, hidden: boolean) =>
 test("time accrues only while the tab is visible and the user is active", async ({
   page,
 }) => {
+  // About 18 fake minutes in 15-second steps (~70 clock.runFor calls), each waiting
+  // for the event hub's API requests to settle, takes more than 30 s of real time in
+  // CI. The default 30 s timeout cut it off part-way (FLOW-287), so give it room.
+  test.setTimeout(90 * SECOND);
   await page.clock.install({ time: new Date(Date.now() - 60 * MIN) });
   const requests: ActivitySessionInput[][] = [];
   const pending: Promise<unknown>[] = [];
