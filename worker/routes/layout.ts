@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { layoutDocSchema, layoutKeySchema, layoutProblems } from "../../shared/layout";
+import { liveEditRenames, renameLayoutDoc } from "../../shared/live-edit-renames";
 import { requirePermission } from "../auth";
 import { ApiError, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
 import { getLayout, resetLayout, saveLayout } from "../records/layout";
@@ -14,8 +15,13 @@ export function layoutRoutes(options: { withDb?: RunWithDb }) {
     if (!key.success) throw new ApiError(400, "INVALID_KEY", "Invalid page key.");
     return key.data;
   };
-  routes.get("/:pageKey", requirePermission("auth.read"), async (c) =>
-    c.json(await record(c, (db) => getLayout(db, pageKey(c)))));
+  // Renamed block and field-card ids (FLOW-277) read under their new ids; the
+  // page's next Save stores them that way.
+  routes.get("/:pageKey", requirePermission("auth.read"), async (c) => {
+    const key = pageKey(c);
+    const saved = await record(c, (db) => getLayout(db, key));
+    return c.json(saved ? { ...saved, layout: renameLayoutDoc(key, saved.layout, liveEditRenames) } : null);
+  });
   routes.put("/:pageKey", requirePermission("layout.edit"), async (c) => {
     const key = pageKey(c);
     const layout = await parseBody(c, layoutDocSchema);

@@ -6,62 +6,76 @@ import { can, type Action } from "../../shared/policy";
 // page moves in one place. UI convenience only: the API enforces permissions.
 
 type Visibility = Action | ((actor: Actor) => boolean);
+// A page's name for people. Its wording key is nav.<copyId> (FLOW-277): the id is
+// fixed, so renaming the name in code keeps the Admin's saved wording. Never
+// change a copyId; to retire one, list it in shared/live-edit-renames.ts.
+export type NavLabel = { copyId: string; label: string };
 export type NavTab = {
+  copyId: string;
   name: string;
   to: string;
   // Other URL prefixes this tab owns, e.g. event pages live under Calendar.
   also?: string[];
   visible?: Visibility;
 };
-export type NavGroup = { name: string; tabs: NavTab[] };
+export type NavGroup = { copyId: string; name: string; tabs: NavTab[] };
+
+// The wording key of a nav name (FLOW-240, FLOW-277).
+export const navKey = (copyId: string) => `nav.${copyId}`;
 
 export const navigationGroups: NavGroup[] = [
   {
+    copyId: "dashboard",
     name: "Dashboard",
     tabs: [
-      { name: "Overview", to: "/" },
-      { name: "Tasks", to: "/tasks", visible: "tasks.read" },
-      { name: "Day-of", to: "/day-of", visible: "dayof.read" },
-      { name: "Approvals", to: "/approvals", visible: "approvals.read" },
+      { copyId: "overview", name: "Overview", to: "/" },
+      { copyId: "tasks", name: "Tasks", to: "/tasks", visible: "tasks.read" },
+      { copyId: "day-of", name: "Day-of", to: "/day-of", visible: "dayof.read" },
+      { copyId: "approvals", name: "Approvals", to: "/approvals", visible: "approvals.read" },
     ],
   },
   {
+    copyId: "sales",
     name: "Sales",
     tabs: [
-      { name: "Leads", to: "/leads", visible: "leads.read" },
-      { name: "Clients", to: "/clients", visible: "clients.read" },
-      { name: "Proposals", to: "/proposals", visible: "proposals.read" },
+      { copyId: "leads", name: "Leads", to: "/leads", visible: "leads.read" },
+      { copyId: "clients", name: "Clients", to: "/clients", visible: "clients.read" },
+      { copyId: "proposals", name: "Proposals", to: "/proposals", visible: "proposals.read" },
       // The Sales tracker moved off /proposals (FLOW-276); its reports sit below it.
-      { name: "Sales tracker", to: "/sales", visible: "proposals.read" },
-      { name: "Venues", to: "/venues", visible: "venues.read" },
+      { copyId: "sales-tracker", name: "Sales tracker", to: "/sales", visible: "proposals.read" },
+      { copyId: "venues", name: "Venues", to: "/venues", visible: "venues.read" },
     ],
   },
   {
+    copyId: "events",
     name: "Events",
     tabs: [
-      { name: "Calendar", to: "/calendar", also: ["/events"], visible: "events.read" },
+      { copyId: "calendar", name: "Calendar", to: "/calendar", also: ["/events"], visible: "events.read" },
       // Every event's BEO (FLOW-265).
-      { name: "BEOs", to: "/beos", visible: "beos.read" },
-      { name: "Production", to: "/production", visible: "production.read" },
-      { name: "Day-of", to: "/day-of", visible: "dayof.read" },
+      { copyId: "beos", name: "BEOs", to: "/beos", visible: "beos.read" },
+      { copyId: "production", name: "Production", to: "/production", visible: "production.read" },
+      { copyId: "day-of", name: "Day-of", to: "/day-of", visible: "dayof.read" },
     ],
   },
   {
+    copyId: "staffing",
     name: "Staffing",
     tabs: [
-      { name: "Schedule", to: "/staffing/schedule", visible: "staff.read" },
-      { name: "Staff directory", to: "/staff", visible: "staff.read" },
-      { name: "SOPs", to: "/sops", visible: "sops.read" },
+      { copyId: "schedule", name: "Schedule", to: "/staffing/schedule", visible: "staff.read" },
+      { copyId: "staff-directory", name: "Staff directory", to: "/staff", visible: "staff.read" },
+      { copyId: "sops", name: "SOPs", to: "/sops", visible: "sops.read" },
     ],
   },
   {
+    copyId: "inventory",
     name: "Inventory",
     tabs: [
-      { name: "Inventory", to: "/inventory", also: ["/kitchen/orders"], visible: "inventory.read" },
-      { name: "Purchasing", to: "/purchasing", visible: "inventory.read" },
-      { name: "Vendors", to: "/vendors", visible: "vendors.read" },
+      { copyId: "inventory", name: "Inventory", to: "/inventory", also: ["/kitchen/orders"], visible: "inventory.read" },
+      { copyId: "purchasing", name: "Purchasing", to: "/purchasing", visible: "inventory.read" },
+      { copyId: "vendors", name: "Vendors", to: "/vendors", visible: "vendors.read" },
       // Each importer needs its own permission (FLOW-47): inventory or leads.
       {
+        copyId: "imports",
         name: "Imports",
         to: "/imports",
         visible: (actor) => can(actor, "inventory.write") || can(actor, "leads.update"),
@@ -69,53 +83,55 @@ export const navigationGroups: NavGroup[] = [
     ],
   },
   {
+    copyId: "kitchen",
     name: "Kitchen",
     tabs: [
-      { name: "Recipes", to: "/recipes", visible: "recipes.read" },
-      { name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
+      { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
+      { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
     ],
   },
-  { name: "Marketing", tabs: [{ name: "Marketing", to: "/marketing" }] },
-  { name: "Documents", tabs: [{ name: "Documents", to: "/documents" }] },
+  { copyId: "marketing", name: "Marketing", tabs: [{ copyId: "marketing", name: "Marketing", to: "/marketing" }] },
+  { copyId: "documents", name: "Documents", tabs: [{ copyId: "documents", name: "Documents", to: "/documents" }] },
   {
+    copyId: "reports",
     name: "Reports",
     tabs: [
-      { name: "Time tracking", to: "/reports", visible: "time.read" },
-      { name: "Operational reports", to: "/reports/operations", visible: "reports.operations.read" },
+      { copyId: "time-tracking", name: "Time tracking", to: "/reports", visible: "time.read" },
+      { copyId: "operational-reports", name: "Operational reports", to: "/reports/operations", visible: "reports.operations.read" },
     ],
   },
 ];
 
 // Pages outside the headings: the bottom of the sidebar and the profile link.
-const otherPages: Record<string, string> = {
-  "/settings": "Settings",
-  "/help": "Help & resources",
-  "/profile": "Employee profile",
+const otherPages: Record<string, NavLabel> = {
+  "/settings": { copyId: "settings", label: "Settings" },
+  "/help": { copyId: "help-resources", label: "Help & resources" },
+  "/profile": { copyId: "employee-profile", label: "Employee profile" },
 };
 
 // Pages below a tab that aren't records.
-const subPages: Record<string, string> = {
-  "/events": "All events",
-  "/leads/dashboard": "Lead dashboard",
-  "/tasks/all": "All tasks",
-  "/tasks/templates": "Templates",
-  "/sops/new": "New SOP",
-  "/sales/reports": "Sales reports",
-  "/inventory/master": "Master inventory",
-  "/inventory/orders": "Order lists",
-  "/inventory/bar": "Bar",
-  "/inventory/supplies": "Supplies",
-  "/inventory/low-stock": "Low stock",
-  "/inventory/counts": "Stock counts",
-  "/inventory/sections": "Sections",
-  "/kitchen/orders": "Kitchen orders",
-  "/recipes/client": "Client recipe book",
-  "/settings/users": "Users",
-  "/settings/permissions": "Roles & permissions",
-  "/settings/collector": "Collector health",
-  "/settings/usage": "Usage",
-  "/settings/operations": "Operations",
-  "/settings/archived": "Archived",
+const subPages: Record<string, NavLabel> = {
+  "/events": { copyId: "all-events", label: "All events" },
+  "/leads/dashboard": { copyId: "lead-dashboard", label: "Lead dashboard" },
+  "/tasks/all": { copyId: "all-tasks", label: "All tasks" },
+  "/tasks/templates": { copyId: "templates", label: "Templates" },
+  "/sops/new": { copyId: "new-sop", label: "New SOP" },
+  "/sales/reports": { copyId: "sales-reports", label: "Sales reports" },
+  "/inventory/master": { copyId: "master-inventory", label: "Master inventory" },
+  "/inventory/orders": { copyId: "order-lists", label: "Order lists" },
+  "/inventory/bar": { copyId: "bar", label: "Bar" },
+  "/inventory/supplies": { copyId: "supplies", label: "Supplies" },
+  "/inventory/low-stock": { copyId: "low-stock", label: "Low stock" },
+  "/inventory/counts": { copyId: "stock-counts", label: "Stock counts" },
+  "/inventory/sections": { copyId: "sections", label: "Sections" },
+  "/kitchen/orders": { copyId: "kitchen-orders", label: "Kitchen orders" },
+  "/recipes/client": { copyId: "client-recipe-book", label: "Client recipe book" },
+  "/settings/users": { copyId: "users", label: "Users" },
+  "/settings/permissions": { copyId: "roles-permissions", label: "Roles & permissions" },
+  "/settings/collector": { copyId: "collector-health", label: "Collector health" },
+  "/settings/usage": { copyId: "usage", label: "Usage" },
+  "/settings/operations": { copyId: "operations", label: "Operations" },
+  "/settings/archived": { copyId: "archived", label: "Archived" },
 };
 
 // `<base>/<id>` is a record page. Named kinds are looked up for their name; the
@@ -132,17 +148,17 @@ export const namedRecordKinds = [
 ] as const;
 export type RecordKind = (typeof namedRecordKinds)[number];
 // Shown until the record's name loads, or if it can't.
-const recordNouns: Record<RecordKind, string> = {
-  clients: "Client",
-  leads: "Lead",
-  events: "Event",
-  venues: "Venue",
-  vendors: "Vendor",
-  inventory: "Item",
-  recipes: "Recipe",
-  staff: "Staff member",
+const recordNouns: Record<RecordKind, NavLabel> = {
+  clients: { copyId: "client", label: "Client" },
+  leads: { copyId: "lead", label: "Lead" },
+  events: { copyId: "event", label: "Event" },
+  venues: { copyId: "venue", label: "Venue" },
+  vendors: { copyId: "vendor", label: "Vendor" },
+  inventory: { copyId: "item", label: "Item" },
+  recipes: { copyId: "recipe", label: "Recipe" },
+  staff: { copyId: "staff-member", label: "Staff member" },
 };
-const recordBases: Record<string, RecordKind | { label: string }> = {
+const recordBases: Record<string, RecordKind | NavLabel> = {
   "/clients": "clients",
   "/leads": "leads",
   "/events": "events",
@@ -151,14 +167,14 @@ const recordBases: Record<string, RecordKind | { label: string }> = {
   "/inventory": "inventory",
   "/recipes": "recipes",
   "/staff": "staff",
-  "/tasks": { label: "Task" },
-  "/sops": { label: "SOP" },
-  "/inventory/counts": { label: "Stock count" },
-  "/inventory/orders": { label: "Order list" },
-  "/imports": { label: "Import" },
+  "/tasks": { copyId: "task", label: "Task" },
+  "/sops": { copyId: "sop", label: "SOP" },
+  "/inventory/counts": { copyId: "stock-count", label: "Stock count" },
+  "/inventory/orders": { copyId: "order-list", label: "Order list" },
+  "/imports": { copyId: "import", label: "Import" },
 };
 // Pages below a record, e.g. an event's BEO.
-const recordChildren: Record<string, string> = { beo: "BEO" };
+const recordChildren: Record<string, NavLabel> = { beo: { copyId: "beo", label: "BEO" } };
 
 export function canSee(tab: NavTab, actor: Actor | null) {
   if (!tab.visible) return true;
@@ -197,6 +213,8 @@ export function matchNavigation(pathname: string, preferredGroup?: string): NavM
 
 export type Crumb = {
   label: string;
+  // The label's wording key is nav.<copyId> (FLOW-277).
+  copyId: string;
   // Omitted on the last crumb, which is the current page.
   to?: string;
   // A record whose name replaces the label once it loads.
@@ -211,23 +229,23 @@ export function breadcrumbTrail(
   preferredGroup?: string,
 ): Crumb[] {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-  const crumbs: Crumb[] = [{ label: "Workspace", to: "/" }];
+  const crumbs: Crumb[] = [{ copyId: "workspace", label: "Workspace", to: "/" }];
   const match = matchNavigation(path, preferredGroup);
   let covered: string;
   if (match) {
     // Without a signed-in user (tests, sign-in) every tab is listed.
     const tabs = actor ? visibleTabs(match.group, actor) : match.group.tabs;
-    crumbs.push({ label: match.group.name, to: (tabs[0] ?? match.tab).to });
-    if (match.group.tabs.length > 1) crumbs.push({ label: match.tab.name, to: match.tab.to });
+    crumbs.push({ copyId: match.group.copyId, label: match.group.name, to: (tabs[0] ?? match.tab).to });
+    if (match.group.tabs.length > 1) crumbs.push({ copyId: match.tab.copyId, label: match.tab.name, to: match.tab.to });
     covered = match.prefix;
     // A tab's other list page, e.g. All events under Calendar. Its records skip
     // it: Events / Calendar / <event>.
     if (match.prefix !== match.tab.to && path === match.prefix && subPages[path])
-      crumbs.push({ label: subPages[path], to: path });
+      crumbs.push({ ...subPages[path], to: path });
   } else {
     const other = Object.keys(otherPages).find((prefix) => owns(prefix, path));
-    if (!other) return finish([...crumbs, { label: "Page not found" }]);
-    crumbs.push({ label: otherPages[other], to: other });
+    if (!other) return finish([...crumbs, { copyId: "page-not-found", label: "Page not found" }]);
+    crumbs.push({ ...otherPages[other], to: other });
     covered = other;
   }
   const rest = path.slice(covered === "/" ? 1 : covered.length + 1).split("/").filter(Boolean);
@@ -236,7 +254,7 @@ export function breadcrumbTrail(
     const segment = rest[index];
     const next = `${base}/${segment}`;
     if (subPages[next]) {
-      crumbs.push({ label: subPages[next], to: next });
+      crumbs.push({ ...subPages[next], to: next });
       base = next;
       continue;
     }
@@ -245,12 +263,12 @@ export function breadcrumbTrail(
       const id = decodeURIComponent(segment);
       crumbs.push(
         typeof kind === "string"
-          ? { label: recordNouns[kind], to: next, record: { kind, id } }
-          : { label: kind.label, to: next },
+          ? { ...recordNouns[kind], to: next, record: { kind, id } }
+          : { ...kind, to: next },
       );
       // An event's BEO: /events/:id/beo/:beoId shows as "<event> / BEO".
       const child = rest[index + 1] && recordChildren[rest[index + 1]];
-      if (child) crumbs.push({ label: child, to: `${next}/${rest[index + 1]}` });
+      if (child) crumbs.push({ ...child, to: `${next}/${rest[index + 1]}` });
       break;
     }
     break;
@@ -259,3 +277,9 @@ export function breadcrumbTrail(
 }
 const finish = (crumbs: Crumb[]) =>
   crumbs.map((crumb, index) => (index === crumbs.length - 1 ? { ...crumb, to: undefined } : crumb));
+
+// The sidebar's bottom links (Settings, Help).
+export const secondaryPages = [
+  { copyId: "settings", name: "Settings", to: "/settings" },
+  { copyId: "help-resources", name: "Help & resources", to: "/help" },
+] as const;

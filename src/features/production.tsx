@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { productionWindows, type ProductionItem, type ProductionWindow } from "../../shared/production";
@@ -152,6 +153,8 @@ export function ProductionOverviewPage() {
     .filter((day) => day.items.length || day.overcommitted || day.truckConflict || day.staffOvercommitted);
   return <>
     <EventsHeading tab="production" />
+    <PageGrid pageKey="production.overview">
+    <Block id="filters" name="Filters" h={3}>
     <FilterBar>
       <Dropdown variant="filter" aria-label="Days" value={String(days)}
         options={productionWindows.map((value) => ({ value: String(value),
@@ -170,6 +173,8 @@ export function ProductionOverviewPage() {
           ...events.map(([id, title]) => ({ value: id, label: title }))]}
         onValueChange={setEventId} />
     </FilterBar>
+    </Block>
+    <Block id="readiness" name="Readiness questions" h={6}>
     {error && <p role="alert" className="error-message">{error}</p>}
     {overview.error && <LoadError message={overview.error} />}
     {!overview.data && !overview.error && <LoadingSkeleton />}
@@ -193,6 +198,8 @@ export function ProductionOverviewPage() {
           </div>}
       </div>)}
     </section>}
+    </Block>
+    <Block id="days" name="Days" h={30}>
     {overview.data && !shownDays.length && <p className="muted"><T id="production.production-overview-page.no-matching-work">No matching work.</T></p>}
     {shownDays.map((day) => <section key={day.date} className="production-day" aria-label={weekday(day.date)}>
       <header>
@@ -225,5 +232,7 @@ export function ProductionOverviewPage() {
         </li>)}
       </ul>
     </section>)}
+    </Block>
+    </PageGrid>
   </>;
 }

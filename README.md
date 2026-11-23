@@ -36,29 +36,44 @@ A Hono Worker in `worker/` handles the API, and one `wrangler.jsonc` serves `dis
 
 ## CI and testing
 
-GitHub Actions (`.github/workflows/ci.yml`) is the execution authority. Local test/check execution is prohibited by the repository workflow. Every PR runs lint, app and Worker typechecks, frontend Vitest, Node Worker tests, migration drift checks, Postgres integration tests, build, and desktop/mobile Playwright against the actual Worker. PRs changing only Markdown skip Playwright. Superseded runs on the same PR are cancelled; npm and Chromium are cached. Merge-to-main does not start a duplicate CI run. No workflow requires production credentials or repository secrets.
+GitHub Actions (`.github/workflows/ci.yml`) is the execution authority. Local test/check execution is prohibited by the repository workflow. Every PR runs lint, app and Worker typechecks, frontend Vitest, Node Worker tests, migration drift checks, Postgres integration tests, build, and desktop Playwright against the actual Worker. PRs changing only Markdown skip Playwright.
+
+The workflow is split into parallel jobs (FLOW-285), so a PR takes about as long as its slowest job:
+
+| Job | Runs | Postgres |
+|---|---|---|
+| `changes` | Markdown-only detection; its output gates `e2e` | no |
+| `static` | `lint`, `build` (type-checks app and Worker, then bundles), chunk budget | no |
+| `unit` | `npm test`, `npm run test:worker` | no |
+| `db` | `db:check`, `test:db` twice (second shuffled), `db:seed` | yes |
+| `e2e (1..4)` | `npm run test:e2e:ci -- --shard=N/4` after `vite build` | one per shard |
+| `ci-ok` | passes only if every job above succeeded or was skipped | no |
+
+`ci-ok` is the single required status check in branch protection, so adding or removing shards does not change required checks. Each e2e shard has its own database and `wrangler dev`, so the one-database / one-Worker setup below holds inside a shard. Failure traces upload as `browser-failure-artifacts-N` for the failing shard. To run one shard locally: `npx playwright test --project=desktop --project=webkit-offline --shard=1/4`.
+
+The `mobile` Playwright project (iPhone 13 on Chromium) is not run in CI for now (FLOW-286): CI runs `npm run test:e2e:ci`, which is only `desktop` and `webkit-offline`; `npm run test:e2e` still runs every project. Phone-width coverage stays in CI where specs set their own 390×844 viewport under `desktop` (`day-of`, `counts`, `closeout`, `beo-print`, `beo-sections`); the `isMobile` paths in `live-edit` and `calendar` (the nav drawer) are no longer exercised in CI. When a change touches the mobile nav drawer, the `AppShell` responsive layout or phone-only screens, run `npx playwright test --project=mobile` locally. Superseded runs on the same PR are cancelled; npm and Chromium are cached. Merge-to-main does not start a duplicate CI run. No workflow requires production credentials or repository secrets.
 
 Postgres 17 runs as a disposable service with public CI-only credentials. `DATABASE_URL` points only to that service. `worker/db/schema.ts` and the Drizzle migrations in `drizzle/` define the application schema. Before each `npm run test:db` run, `tests/db/global-setup.ts` drops and re-creates the `public` and `drizzle` schemas and applies the committed migrations once, so the suite passes again on the same database and in any file order; it refuses to run unless `DATABASE_URL` points at localhost or the CI service (FLOW-182). A test file that clears migration-seeded rows (the default inventory sections) restores them when it finishes. CI runs the suite twice, the second time in shuffled file order. The DB suite applies committed migrations, checks the base column conventions and soft delete on the real tables, tests a separate CI fixture for reads/writes/rollback, and checks `pg_class.relrowsecurity` and browser-facing policies for all application tables. The drift check runs Drizzle generation and rejects both modified and newly generated migration files. CI does not contact Hyperdrive or any deployed database; that path is covered by the manual live check in [Database](#database).
 
 The DB setup also runs the development seed (FLOW-26). Browser tests (FLOW-183) re-create, migrate and seed the same disposable database before starting their scenarios. They share **one local `wrangler dev` process**, using `tests/e2e/wrangler.jsonc` and the separate `tests/e2e/worker.ts` entry point. That entry point alone trusts a public test signing key; the normal auth resolver still loads each seeded identity from the real allowlist, and all policies, routes and Postgres operations run normally. The production entry point never imports the test verifier. No production credentials, Google login or Supabase Auth service is needed in CI.
 
-Browser tests run serially and reset data between scenarios, without repeating migrations or restarting the Worker. Existing create/edit, transfer, count, lead conversion, search and tracking scenarios use database fixtures instead of an in-memory API. `real-stack.spec.ts` covers all seven modules as Admin and a restricted Salesperson in both desktop and mobile projects. The contract fixture forwards actual Worker responses after parsing them with shared Zod schemas; unknown or malformed response contracts fail the test. This avoids waiting on browser response bodies during page unload. CI stops after three failing tests to bound repeated failures. Only unavailable external OAuth, invitation delivery, R2 transport and explicit failure states are mocked; retained Flowbase mock responses are schema-validated. `event-time-contract.spec.ts` compares New York fixture timestamps with the actual event route in summer, winter, overnight across both DST transitions, and for skipped spring-forward times.
+Browser tests run serially and reset data between scenarios, without repeating migrations or restarting the Worker. Existing create/edit, transfer, count, lead conversion, search and tracking scenarios use database fixtures instead of an in-memory API. `real-stack.spec.ts` covers all seven modules as Admin and a restricted Salesperson in the desktop project (and in mobile when that project is run locally). The contract fixture forwards actual Worker responses after parsing them with shared Zod schemas; unknown or malformed response contracts fail the test. This avoids waiting on browser response bodies during page unload. CI stops after three failing tests to bound repeated failures. Only unavailable external OAuth, invitation delivery, R2 transport and explicit failure states are mocked; retained Flowbase mock responses are schema-validated. `event-time-contract.spec.ts` compares New York fixture timestamps with the actual event route in summer, winter, overnight across both DST transitions, and for skipped spring-forward times.
 
 Commands used by CI:
 
 ```sh
 npm run lint
-npm run typecheck
-npm run typecheck:worker
+npm run build            # includes both type-checks
 npm test
 npm run test:worker
 npm run db:check
 npm run test:db
-npm run build
-npm run test:e2e
+npm run test:e2e:ci -- --shard=N/4
 ```
 
-Manual workflow verification: push two commits to a PR while the first run is active and confirm cancellation; check npm/Chromium cache hits on a subsequent run; open a Markdown-only PR and confirm Playwright is skipped. Review Actions billing minutes after runs: the account's 2,000 monthly free minutes are shared with ops schedules, so avoid redundant pushes. Cloud setup and production deploy verification remain developer tasks.
+`npm run typecheck` and `npm run typecheck:worker` remain for local use.
+
+Manual workflow verification: push two commits to a PR while the first run is active and confirm cancellation; check npm/Chromium cache hits on a subsequent run; open a Markdown-only PR and confirm the `e2e` shards are skipped and `ci-ok` passes. Review Actions billing minutes after runs: the account's 2,000 monthly free minutes are shared with ops schedules, so avoid redundant pushes. Cloud setup and production deploy verification remain developer tasks.
 
 ## Demo limitations
 

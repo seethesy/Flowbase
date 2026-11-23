@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { z } from "zod";
 import { useResource } from "../app/useResource";
 import { PageHeader, Section } from "../components/shared";
@@ -36,6 +37,8 @@ export function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
   return <>
     {embedded ? <h2><T id="usage.usage-page.free-tier-usage">Free-tier usage</T></h2> :
       <PageHeader title={<T id="usage.usage-page.free-tier-usage">Free-tier usage</T>} subtitle={<T id="usage.usage-page.approximate-current-usage-and-configurable">Approximate current usage and configurable warning levels.</T>} />}
+    <PageGrid pageKey="settings.usage">
+    <Block id="current-usage" name="Current usage" h={10}>
     <Section title={<T id="usage.usage-page.current-usage">Current usage</T>}>
       {usage.error && <p role="alert"><T id="usage.usage-page.unable-to-load-usage">Unable to load usage.</T></p>}
       <ul>{usage.data?.map((row) => <li key={row.metric}>
@@ -44,7 +47,8 @@ export function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
       </li>)}</ul>
       <p><T id="usage.usage-page.worker-and-query-counts-are">Worker and query counts are approximate. R2 counts completed Flowbase attachments; GitHub minutes are reported by the ops workflow.</T></p>
     </Section>
-    {manage && <Section title={<T id="usage.usage-page.free-tier-limits">Free-tier limits</T>}>
+    </Block>
+    {manage && <Block id="limits" name="Free-tier limits" h={12}><Section title={<T id="usage.usage-page.free-tier-limits">Free-tier limits</T>}>
       <form onSubmit={(event) => void save(event)}>
         {Object.entries(labels).map(([key, label]) => <p key={key}><label>{label}{" "}
           <input type="number" min="1" step="1" value={draft[key as keyof typeof draft]}
@@ -55,6 +59,7 @@ export function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
       </form>
       {message && <p role="status">{message}</p>}
       <p><T id="usage.usage-page.sms-uses-the-monthly-cap">SMS uses the monthly cap in Settings → Defaults.</T></p>
-    </Section>}
+    </Section></Block>}
+    </PageGrid>
   </>;
 }

@@ -12,6 +12,7 @@ import { getLayout, resetLayout, saveLayout } from "../../worker/records/layout"
 // validation; fields= projection and card queries (FLOW-256).
 vi.mock("../../worker/records/layout", () => ({
   getLayout: vi.fn(),
+  listLayouts: vi.fn(),
   saveLayout: vi.fn(),
   resetLayout: vi.fn(),
 }));

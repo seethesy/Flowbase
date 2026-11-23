@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
@@ -27,15 +28,21 @@ export function OrderLists() {
   return <>
     <PageHeader title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from">Build a shopping list from event shortages and low stock.</T>} eyebrow={<T id="order-lists.order-lists.stock-supplies">{"STOCK & SUPPLIES"}</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
+    <PageGrid pageKey="inventory.order-lists">
+    <Block id="builder" name="Build a list" h={3}>
     <div className="order-list-builder">
       <label><T id="order-lists.order-lists.from">{"From "}</T><input aria-label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
       <label><T id="order-lists.order-lists.to">{"To "}</T><input aria-label="To" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
       <Button onClick={() => void create()}><T id="order-lists.order-lists.build-list">Build list</T></Button>
     </div>
+    </Block>
+    <Block id="lists" name="Order lists" h={16}>
     {lists.error ? <LoadError message={lists.error} /> : lists.loading && !lists.data ? <LoadingSkeleton /> :
       <ul>{lists.data?.map((list) => <li key={list.id}><Link to={`/inventory/orders/${list.id}`}>
         <T id="order-lists.order-lists.lines" values={{ from: list.from, to: list.to, statusLabel: statusLabel(list.status), count: list.lines.length }}>{"{from} – {to} · {statusLabel} · {count} lines"}</T>
       </Link></li>)}</ul>}
+    </Block>
+    </PageGrid>
   </>;
 }
 

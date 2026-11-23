@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -98,6 +99,8 @@ export function DayOfPage() {
           {date === today && <T id="day-of.day-of-page.today-suffix">{" · Today"}</T>}
         </h2>
       </div>
+      <PageGrid pageKey="day-of.board">
+      <Block id="events" name="Events" h={30}>
       {exportError && <p role="alert" className="error-message">{exportError}</p>}
       {board.error && <LoadError message={board.error} />}
       {!board.data && !board.error && <LoadingSkeleton />}
@@ -105,6 +108,8 @@ export function DayOfPage() {
       {board.data?.events.map((event) => (
         <DayOfCard key={event.id} event={event} canUpdate={board.data!.canUpdate} onChanged={board.reload} />
       ))}
+      </Block>
+      </PageGrid>
     </>
   );
 }

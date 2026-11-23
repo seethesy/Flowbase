@@ -12,6 +12,7 @@ import {
 } from "../../shared/beo-list";
 import { utcToBusinessTime } from "../../shared/time";
 import { useResource } from "../app/useResource";
+import { Block, PageGrid } from "../app/page-grid";
 import { LabelT, T } from "../app/copy";
 import { beoApi } from "../services/beo";
 import { LoadError } from "../components/record-display";
@@ -100,6 +101,8 @@ export function BeoListPage() {
   return (
     <>
       <EventsHeading tab="beos" />
+      <PageGrid pageKey="beos.list">
+      <Block id="filters" name="Filters" h={3}>
       <FilterBar>
         <Dropdown
           variant="filter"
@@ -137,6 +140,8 @@ export function BeoListPage() {
           onValueChange={setOwner}
         />
       </FilterBar>
+      </Block>
+      <Block id="list" name="List" h={24}>
       {beos.error && <LoadError message={beos.error} />}
       {!beos.data && !beos.error && <LoadingSkeleton />}
       {beos.data && (
@@ -150,6 +155,8 @@ export function BeoListPage() {
           exportName="beos"
         />
       )}
+      </Block>
+      </PageGrid>
       {selected && (
         <BeoPreview
           row={selected}

@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -120,6 +121,8 @@ export function MasterInventory() {
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}
     {message && <p role="status">{message}</p>}
+    <PageGrid pageKey="inventory.master">
+    <Block id="filters" name="Filters" h={3}>
     <div className="master-filters">
       <input aria-label="Search Master inventory" placeholder={searchPlaceholder} data-copy-id="inventory-master.master-inventory.search.placeholder" value={search} onChange={(event) => setSearch(event.target.value)} />
       <Dropdown aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value as ItemKind | "")}>
@@ -138,9 +141,13 @@ export function MasterInventory() {
         <option value="name">Item</option><option value="quantity">Qty</option><option value="price">Price</option>
       </Dropdown>
     </div>
+    </Block>
+    <Block id="groups" name="Item groups" h={30}>
     {items.error ? <LoadError message={items.error} /> : items.loading && !items.data ? <LoadingSkeleton /> :
       [...new Set(filtered.map((item) => item.group || "Ungrouped"))].map((name) =>
         <section key={name} className="master-group"><h2>{name}</h2><DataTable copyKey="inventory-master.master-inventory" data={filtered.filter((item) => (item.group || "Ungrouped") === name)}
           columns={columns} label={<T id="inventory-master.master-inventory.items">items</T>} /></section>)}
+    </Block>
+    </PageGrid>
   </>;
 }

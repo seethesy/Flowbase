@@ -33,7 +33,7 @@ const operatorNames: Record<string, string> = {
   is_empty: "is empty",
 };
 
-function cardSourceKey(card: CardConfig, recordSource: SourceKey | null): SourceKey | null {
+export function cardSourceKey(card: CardConfig, recordSource: SourceKey | null): SourceKey | null {
   if (card.source.type === "list") return card.source.list;
   if (!recordSource) return null;
   if (card.source.type === "record") return recordSource;
@@ -41,15 +41,50 @@ function cardSourceKey(card: CardConfig, recordSource: SourceKey | null): Source
   return fieldRegistry[recordSource].relations?.find((r) => r.key === relation)?.source ?? null;
 }
 
+// Switching a card's source (FLOW-279): columns, boxes, filters and sort whose
+// field the new source also has stay; the rest are dropped and named.
+export function switchCardSource(
+  card: CardConfig,
+  next: CardConfig["source"],
+  recordSource: SourceKey | null,
+): { card: CardConfig; dropped: string[] } {
+  const from = cardSourceKey(card, recordSource);
+  const to = cardSourceKey({ ...card, source: next }, recordSource);
+  const dropped: string[] = [];
+  const keeps = (field: string) => {
+    const ok = Boolean(to && fieldDef(to, field));
+    const label = (from && fieldDef(from, field)?.label) ?? field;
+    if (!ok && !dropped.includes(label)) dropped.push(label);
+    return ok;
+  };
+  const filters = card.filters.filter((filter) => {
+    if (!keeps(filter.field)) return false;
+    const def = fieldDef(to!, filter.field)!;
+    return Boolean(def.filterable) && operatorsFor(def.type).includes(filter.op);
+  });
+  const sort = card.sort && keeps(card.sort.field) && fieldDef(to!, card.sort.field)?.sortable ? card.sort : undefined;
+  const display: CardConfig["display"] =
+    card.display.type === "table"
+      ? { type: "table", columns: card.display.columns.filter((column) => keeps(column.key)) }
+      : { type: "boxes", boxes: card.display.boxes.filter((box) => box.kind !== "field" || keeps(box.field!)) };
+  return { card: { ...card, source: next, filters, sort, display }, dropped };
+}
+
 export function CardBuilder({
   initial,
   recordSource,
+  lockSource = false,
+  onReset,
   onDone,
   onCancel,
 }: {
   initial: CardConfig;
   // The record page's source, for "This record" and related lists.
   recordSource: SourceKey | null;
+  // A built-in card (FLOW-279): its title and source stay the card's own.
+  lockSource?: boolean;
+  // "Reset card": back to the built-in card's code default.
+  onReset?: () => void;
   onDone: (card: CardConfig) => void;
   onCancel: () => void;
 }) {
@@ -57,6 +92,8 @@ export function CardBuilder({
   const [card, setCard] = useState<CardConfig>(initial);
   // The box whose Style popover is open (FLOW-273).
   const [styling, setStyling] = useState<string | null>(null);
+  // What the last source switch dropped (FLOW-279).
+  const [dropped, setDropped] = useState<string[]>([]);
   const source = cardSourceKey(card, recordSource);
   const fields = source && actor ? readableFields(actor, source) : [];
   const set = (patch: Partial<CardConfig>) => setCard((current) => ({ ...current, ...patch }));
@@ -66,14 +103,9 @@ export function CardBuilder({
     const [type, key] = value.split(":");
     const next: CardConfig["source"] =
       type === "list" ? { type: "list", list: key as SourceKey } : type === "related" ? { type: "related", relation: key } : { type: "record" };
-    // Fields belong to the old source: start the display and filters over.
-    setCard((current) => ({
-      ...current,
-      source: next,
-      filters: [],
-      sort: undefined,
-      display: current.display.type === "table" ? { type: "table", columns: [] } : { type: "boxes", boxes: [] },
-    }));
+    const switched = switchCardSource(card, next, recordSource);
+    setCard(switched.card);
+    setDropped(switched.dropped);
   };
   const setFilter = (index: number, filter: CardFilter) =>
     set({ filters: card.filters.map((current, i) => (i === index ? filter : current)) });
@@ -83,14 +115,19 @@ export function CardBuilder({
   const setBoxes = (next: LayoutBox[]) => set({ display: { type: "boxes", boxes: next } });
   return (
     <aside className="layout-card-builder" role="dialog" aria-label="Card builder">
-      <h2>{initial.title === "New card" ? "Add card" : "Edit card"}</h2>
+      <h2>{lockSource ? `Edit ${initial.title}` : initial.title === "New card" ? "Add card" : "Edit card"}</h2>
+      {lockSource && (
+        <p className="layout-scope-note">
+          A built-in card: its title and source stay as they are. Choose its fields, filters, sort and rows.
+        </p>
+      )}
       <label className="form-field">
         <span>Title</span>
-        <input value={card.title} maxLength={120} onChange={(event) => set({ title: event.target.value })} />
+        <input value={card.title} maxLength={120} disabled={lockSource} onChange={(event) => set({ title: event.target.value })} />
       </label>
       <label className="form-field">
         <span>Source</span>
-        <Dropdown value={sourceValue} onChange={(event) => changeSource(event.target.value)} aria-label="Source">
+        <Dropdown value={sourceValue} disabled={lockSource} onChange={(event) => changeSource(event.target.value)} aria-label="Source">
           {recordSource && <option value="record">This record</option>}
           {recordSource &&
             fieldRegistry[recordSource].relations?.map((relation) => (
@@ -105,6 +142,9 @@ export function CardBuilder({
           ))}
         </Dropdown>
       </label>
+      {dropped.length > 0 && (
+        <p role="status" className="layout-scope-note">{`Not in this source, so dropped: ${dropped.join(", ")}.`}</p>
+      )}
       {isList && source && (
         <fieldset className="layout-card-filters">
           <legend>Filters</legend>
@@ -271,6 +311,10 @@ export function CardBuilder({
                     label="Box layout"
                     rowHeight={28}
                     items={boxes}
+                    itemLabel={(id) => {
+                      const box = boxes.find((b) => b.id === id)!;
+                      return box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : box.text || box.kind;
+                    }}
                     render={(id) => {
                       const box = boxes.find((b) => b.id === id)!;
                       const label = box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : box.text || box.kind;
@@ -314,6 +358,11 @@ export function CardBuilder({
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
+        {onReset && (
+          <Button variant="outline" onClick={onReset}>
+            Reset card
+          </Button>
+        )}
       </div>
     </aside>
   );

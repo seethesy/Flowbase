@@ -4,8 +4,10 @@ import {
   breadcrumbTrail,
   matchNavigation,
   navigationGroups,
+  navKey,
   visibleGroups,
 } from "../src/app/navigation";
+import { copySlug } from "../shared/copy";
 
 // FLOW-246 (sidebar headings and tabs) and FLOW-247 (breadcrumb mapping).
 const actor = (role: Actor["role"], employmentType: Actor["employmentType"] = "full_time"): Actor => ({
@@ -88,6 +90,7 @@ describe("breadcrumb trail", () => {
 
   it("ends with the record, which the header names once it loads", () => {
     expect(breadcrumbTrail("/leads/lead-1", admin).at(-1)).toEqual({
+      copyId: "lead",
       label: "Lead",
       record: { kind: "leads", id: "lead-1" },
     });
@@ -106,7 +109,7 @@ describe("breadcrumb trail", () => {
   it("shows an event's BEO below the event", () => {
     const crumbs = breadcrumbTrail("/events/e-1/beo/b-1", admin);
     expect(crumbs.map((crumb) => crumb.label)).toEqual(["Workspace", "Events", "Calendar", "Event", "BEO"]);
-    expect(crumbs[3]).toEqual({ label: "Event", to: "/events/e-1", record: { kind: "events", id: "e-1" } });
+    expect(crumbs[3]).toEqual({ copyId: "event", label: "Event", to: "/events/e-1", record: { kind: "events", id: "e-1" } });
     expect(crumbs[4].to).toBeUndefined();
   });
 
@@ -125,5 +128,34 @@ describe("breadcrumb trail", () => {
     expect(trail("/venues", staff)).toEqual(["Workspace>/", "Sales>/venues", "Venues"]);
     // Signed out (e.g. tests rendering the header alone), every tab counts.
     expect(trail("/venues", null)).toEqual(["Workspace>/", "Sales>/leads", "Venues"]);
+  });
+});
+
+// FLOW-277: nav wording is keyed by a fixed id, not the slug of the display name.
+describe("nav wording keys", () => {
+  it("keeps the keys the Admin's saved nav wording already uses", () => {
+    // Every copyId was the slug of its name when keys moved to fixed ids, so
+    // the saved nav.* rows (e.g. the "Today" label on nav.day-of) still match.
+    for (const group of navigationGroups) {
+      expect(group.copyId).toBe(copySlug(group.name));
+      for (const tab of group.tabs) expect(tab.copyId).toBe(copySlug(tab.name));
+    }
+    expect(navKey("day-of")).toBe("nav.day-of");
+  });
+
+  it("gives one name per key", () => {
+    const names = new Map<string, string>();
+    const clash: string[] = [];
+    for (const group of navigationGroups)
+      for (const item of [group, ...group.tabs]) {
+        const seen = names.get(item.copyId);
+        if (seen !== undefined && seen !== item.name) clash.push(`${item.copyId}: ${seen} / ${item.name}`);
+        names.set(item.copyId, item.name);
+      }
+    expect(clash).toEqual([]);
+  });
+
+  it("keys a crumb by its id, so renaming its name keeps the key", () => {
+    expect(breadcrumbTrail("/day-of", admin).map((crumb) => crumb.copyId)).toEqual(["workspace", "dashboard", "day-of"]);
   });
 });

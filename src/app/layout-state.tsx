@@ -29,20 +29,27 @@ export function defaultBlocks(builtins: BuiltinBlock[]): LayoutBlock[] {
 }
 
 // A saved document against the blocks the code has now: built-ins the code
-// dropped are left out; new ones go at the bottom.
+// dropped are left out. A built-in the code added since the save goes where its
+// code order puts it (FLOW-278): just above the next saved built-in that follows
+// it in code, pushing the blocks from there down; with none, at the bottom. So a
+// toolbar split out of a saved list stays above the list.
 export function withBuiltins(doc: LayoutDoc, builtins: BuiltinBlock[]): LayoutBlock[] {
   const known = new Set(builtins.map((block) => block.id));
-  const kept = doc.blocks.filter((block) => block.kind !== "builtin" || known.has(block.id));
-  const placed = new Set(kept.map((block) => block.id));
-  let bottom = Math.max(0, ...kept.map((block) => block.y + block.h));
-  const added = builtins
-    .filter((block) => !placed.has(block.id))
-    .map((block): LayoutBlock => {
-      const next: LayoutBlock = { kind: "builtin", id: block.id, x: 0, y: bottom, w: Math.min(block.w, GRID_COLUMNS), h: block.h };
-      bottom += block.h;
-      return next;
-    });
-  return [...kept, ...added];
+  let blocks = doc.blocks.filter((block) => block.kind !== "builtin" || known.has(block.id));
+  const placed = new Set(blocks.map((block) => block.id));
+  builtins.forEach((block, index) => {
+    if (placed.has(block.id)) return;
+    const w = Math.min(block.w, GRID_COLUMNS);
+    const next = builtins.slice(index + 1).map((later) => blocks.find((b) => b.kind === "builtin" && b.id === later.id)).find(Boolean);
+    let y: number;
+    if (next) {
+      y = next.y;
+      blocks = blocks.map((b) => (b.y >= y ? { ...b, y: b.y + block.h } : b));
+    } else y = Math.max(0, ...blocks.map((b) => b.y + b.h));
+    blocks = [...blocks, { kind: "builtin", id: block.id, x: 0, y, w, h: block.h }];
+    placed.add(block.id);
+  });
+  return blocks;
 }
 
 // Reading order: top to bottom, then left to right. Phones stack in this order.

@@ -2,6 +2,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Children, isValidElement, lazy, Suspense, useState, type ReactElement, type ReactNode } from "react";
 import { EyeOff, GripHorizontal, Palette, Pencil, Trash2 } from "lucide-react";
 import {
+  builtinCard,
   GRID_COLUMNS,
   MAX_BLOCKS,
   MAX_CARDS,
@@ -24,6 +25,8 @@ import {
   type PageLayout,
 } from "./layout-state";
 import { styleClass, styleVars, StylePopover } from "./layout-style";
+import { widthPresets, withWidth } from "./layout-sizes";
+import { fieldRegistry } from "../../shared/fields";
 import { usePermissions } from "./permissions";
 import {
   cardShown,
@@ -97,6 +100,17 @@ export function blockVisible(pageKey: string, block: LayoutBlock, role: Role | u
   return true;
 }
 
+// A block's wrapper classes and grid place as everyone sees it (FLOW-278):
+// "Fit content" spans one auto-height row from its saved row, "Hide on phone"
+// hides it below 900px.
+export function blockClass(block: LayoutBlock) {
+  return [styleClass(block.style), block.fit && "layout-fit", block.hidePhone && "layout-hide-phone"].filter(Boolean).join(" ");
+}
+export function blockPlace(block: LayoutBlock) {
+  const place = boxPosition(block);
+  return block.fit ? { ...place, gridRow: `${block.y + 1} / span 1` } : place;
+}
+
 function TextBlock({ block }: { block: Extract<LayoutBlock, { kind: "text" }> }) {
   if (block.variant === "heading") return <h2 className="layout-text-heading">{block.text}</h2>;
   if (block.variant === "note") return <p className="layout-text-note">{block.text}</p>;
@@ -106,15 +120,23 @@ function TextBlock({ block }: { block: Extract<LayoutBlock, { kind: "text" }> })
 export function PageGrid({
   pageKey,
   record = null,
+  blockIds,
   children,
 }: {
   pageKey: string;
   record?: PageLayout["record"];
+  // Every id a <Block> here can have, when the ids aren't literal (built from a
+  // list). The key manifest (FLOW-277, scripts/live-edit-keys.mjs) reads it.
+  blockIds?: readonly string[];
   children: ReactNode;
 }) {
   const elements = Children.toArray(children).filter(
     (child): child is ReactElement<BlockProps> => isValidElement(child) && child.type === Block,
   );
+  if (import.meta.env.DEV && blockIds)
+    for (const element of elements)
+      if (!blockIds.includes(element.props.id))
+        console.error(`PageGrid ${pageKey}: block "${element.props.id}" is missing from blockIds.`);
   const builtins: BuiltinBlock[] = elements.map((element) => ({
     id: element.props.id,
     name: element.props.name,
@@ -147,11 +169,11 @@ export function PageGrid({
           {readingOrder(blocks.filter((block) => !(block.kind === "builtin" && block.hidden) && blockVisible(pageKey, block, actor?.role))).map((block) => (
             <div
               key={block.id}
-              className={`page-grid-block ${styleClass(block.style)}`}
-              style={{ ...boxPosition(block), ...styleVars(block.style) }}
+              className={`page-grid-block ${blockClass(block)}`}
+              style={{ ...blockPlace(block), ...styleVars(block.style) }}
               data-block-id={block.id}
             >
-              <BlockContent block={block} content={content} record={layout.record} />
+              <BlockContent pageKey={pageKey} block={block} content={content} record={layout.record} />
             </div>
           ))}
         </div>
@@ -161,15 +183,23 @@ export function PageGrid({
 }
 
 function BlockContent({
+  pageKey,
   block,
   content,
   record,
 }: {
+  pageKey: string;
   block: LayoutBlock;
   content: Map<string, ReactNode>;
   record: PageLayout["record"];
 }) {
-  if (block.kind === "builtin") return <>{content.get(block.id)}</>;
+  if (block.kind === "builtin") {
+    // A built-in card whose values the Admin edited (FLOW-279) renders through
+    // the custom-card path, which asks only for fields the viewer may read.
+    const edited = block.data ? builtinCard(pageKey, block.id, block.data) : null;
+    if (!edited) return <>{content.get(block.id)}</>;
+    return <CustomCard card={edited} cardId={block.id} record={record ? { source: record.source, id: record.id } : null} />;
+  }
   if (block.kind === "card")
     return <CustomCard card={block.card} cardId={block.id} record={record ? { source: record.source, id: record.id } : null} />;
   return <TextBlock block={block} />;
@@ -208,7 +238,8 @@ function PageGridEditor({
   content: Map<string, ReactNode>;
 }) {
   // The card being built: a new one (id null) or an existing card block's.
-  const [building, setBuilding] = useState<{ id: string | null; card: CardConfig } | null>(null);
+  // A built-in card's values (FLOW-279) are edited the same way, source locked.
+  const [building, setBuilding] = useState<{ id: string | null; card: CardConfig; builtin?: boolean } | null>(null);
   const [styling, setStyling] = useState<string | null>(null);
   const [tray, setTray] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -238,6 +269,11 @@ function PageGridEditor({
   return (
     <div className="page-grid-editing" data-page-layout={layout.pageKey}>
       <div className="layout-toolbar" role="toolbar" aria-label="Page layout">
+        {recordSource && (
+          <span className="layout-scope-note">
+            {`One layout for every record in ${fieldRegistry[recordSource].label}: changes here show on all of them.`}
+          </span>
+        )}
         <Button
           variant="outline"
           disabled={full || cards >= MAX_CARDS}
@@ -312,6 +348,7 @@ function PageGridEditor({
           label="Page blocks"
           rowHeight={ROW_HEIGHT}
           items={shown}
+          itemLabel={(id) => blockName(shown.find((block) => block.id === id)!, builtins)}
           onChange={(items) =>
             change((current) =>
               current.map((block) => {
@@ -326,6 +363,8 @@ function PageGridEditor({
             return (
               <div
                 className={`layout-block-frame ${styleClass(block.style)}`}
+                data-fit={block.fit ? "true" : undefined}
+                data-hide-phone={block.hidePhone ? "true" : undefined}
                 style={styleVars(block.style)}
                 data-block-id={block.id}
               >
@@ -335,6 +374,38 @@ function PageGridEditor({
                     {name}
                   </span>
                   <span className="layout-block-actions">
+                    <span className="layout-size-presets" role="group" aria-label={`Width of ${name}`}>
+                      {widthPresets.map((preset) => (
+                        <button
+                          type="button"
+                          key={preset.w}
+                          aria-label={`${preset.name}: ${name}`}
+                          title={preset.name}
+                          aria-pressed={block.w === preset.w}
+                          onClick={() => patch(block.id, withWidth(block, preset.w))}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        aria-label={`Fit content: ${name}`}
+                        title="Fit content: the height follows what the card shows"
+                        aria-pressed={Boolean(block.fit)}
+                        onClick={() => patch(block.id, { fit: block.fit ? undefined : true })}
+                      >
+                        Fit
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Hide on phone: ${name}`}
+                        title="Hide on phone"
+                        aria-pressed={Boolean(block.hidePhone)}
+                        onClick={() => patch(block.id, { hidePhone: block.hidePhone ? undefined : true })}
+                      >
+                        No phone
+                      </button>
+                    </span>
                     <button type="button" aria-label={`Style ${name}`} title="Style" onClick={() => setStyling(block.id)}>
                       <Palette size={14} />
                     </button>
@@ -349,6 +420,16 @@ function PageGridEditor({
                         aria-label={`Edit ${name}`}
                         title="Edit card"
                         onClick={() => setBuilding({ id: block.id, card: block.card })}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    {block.kind === "builtin" && builtinCard(layout.pageKey, block.id, block.data) && (
+                      <button
+                        type="button"
+                        aria-label={`Edit ${name}`}
+                        title="Edit what this card shows"
+                        onClick={() => setBuilding({ id: block.id, card: builtinCard(layout.pageKey, block.id, block.data)!, builtin: true })}
                       >
                         <Pencil size={14} />
                       </button>
@@ -385,7 +466,7 @@ function PageGridEditor({
                       onChange={(event) => patch(block.id, { text: event.target.value })}
                     />
                   ) : (
-                    <BlockContent block={block} content={content} record={layout.record} />
+                    <BlockContent pageKey={layout.pageKey} block={block} content={content} record={layout.record} />
                   )}
                 </div>
               </div>
@@ -398,9 +479,20 @@ function PageGridEditor({
           <CardBuilder
             initial={building.card}
             recordSource={recordSource}
+            lockSource={building.builtin}
+            onReset={
+              building.builtin && building.id
+                ? () => {
+                    patch(building.id!, { data: undefined });
+                    setBuilding(null);
+                  }
+                : undefined
+            }
             onCancel={() => setBuilding(null)}
             onDone={(card) => {
-              if (building.id) patch(building.id, { card });
+              if (building.builtin && building.id)
+                patch(building.id, { data: { filters: card.filters, sort: card.sort, limit: card.limit, display: card.display } });
+              else if (building.id) patch(building.id, { card });
               else
                 add({
                   kind: "card",

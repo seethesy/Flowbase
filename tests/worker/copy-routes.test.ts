@@ -11,6 +11,8 @@ vi.mock("../../worker/records/copy", () => ({
   listCopy: vi.fn(),
   saveCopy: vi.fn(),
   resetCopy: vi.fn(),
+  deleteCopyRow: vi.fn(),
+  moveCopy: vi.fn(),
 }));
 
 const userId = "41000000-0000-4000-8000-000000000001";
@@ -109,4 +111,17 @@ it("resets a key to its default (AC6)", async () => {
   const response = await send("/api/copy/nav.sales", "DELETE");
   expect(response.status).toBe(204);
   expect(resetCopy).toHaveBeenCalledWith(expect.anything(), "nav.sales");
+});
+
+it("saves wording without its leading and trailing line breaks (FLOW-277 AC6)", async () => {
+  const response = await send("/api/copy", "PUT", [
+    { key: "staff.form.save", text: "Save Changes\n\n" },
+    { key: "planning.auto", text: " · automatic" },
+  ]);
+  expect(response.status).toBe(200);
+  expect(vi.mocked(saveCopy).mock.calls[0][2]).toEqual([
+    { key: "staff.form.save", text: "Save Changes", placeholders: [] },
+    { key: "planning.auto", text: " · automatic", placeholders: [] },
+  ]);
+  expect((await send("/api/copy", "PUT", [{ key: "staff.form.save", text: "\n\n" }])).status).toBe(400);
 });

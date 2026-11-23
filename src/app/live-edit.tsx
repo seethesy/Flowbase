@@ -1,11 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { useBlocker } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Pencil, RotateCcw } from "lucide-react";
-import { placeholderError, placeholderNames } from "../../shared/copy";
+import { placeholderError, placeholderNames, placeholdersMatch } from "../../shared/copy";
+import type { OrphanAction, Orphans } from "../../shared/live-edit-orphans";
 import { Button } from "../components/ui/button";
-import { copyDefaults, layoutStyleProblems, pendingCount, pendingProblems, useLiveEdit, type EditorTarget } from "./copy";
+import {
+  COPY_ORPHANS_QUERY_KEY,
+  COPY_QUERY_KEY,
+  copyApi,
+  copyDefaults,
+  layoutQueryKey,
+  layoutStyleProblems,
+  pendingCount,
+  pendingProblems,
+  useLiveEdit,
+  type EditorTarget,
+} from "./copy";
 
 // The admin's live text editing chrome (FLOW-240): the header pencil, Save and
 // Cancel, the inline editor and the leave-page guard. Its own wording is not
@@ -99,6 +112,7 @@ export function LiveEditLayer() {
   return (
     <>
       {live.editing && live.target && <CopyEditor key={live.target.id} target={live.target} />}
+      {live.editing && <OrphanNotice />}
       {/* Mounted only in edit mode: useBlocker needs the app's data router. */}
       {live.editing && <LeaveGuard />}
     </>
@@ -168,6 +182,13 @@ function CopyEditor({ target }: { target: EditorTarget }) {
         </p>
       )}
       {!draft.trim() && <p className="live-copy-error" role="alert">The text can't be empty</p>}
+      {saved !== undefined && !pending && !placeholdersMatch(target.defaultText, saved) && (
+        <p className="live-copy-stale-note">
+          {`This text was saved for an older version of the screen, so the default shows. Update it for ${
+            target.placeholders.length ? target.placeholders.map((name) => `{${name}}`).join(", ") : "plain text"
+          } to use it again.`}
+        </p>
+      )}
       <div className="live-copy-editor-actions">
         <small>{target.id}</small>
         {resettable && (
@@ -260,5 +281,115 @@ function LeaveGuard() {
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// Saved edits that no longer match a screen (FLOW-277): wording under a key no
+// screen renders, and layout blocks or field cards a page no longer has. The
+// Admin deletes each, or moves it to a key or id a screen has.
+function OrphanNotice() {
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: COPY_ORPHANS_QUERY_KEY, queryFn: copyApi.orphans, retry: false });
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const resolve = useMutation({
+    mutationFn: copyApi.resolveOrphan,
+    onSuccess: async (_result, action) => {
+      setError("");
+      await client.invalidateQueries({ queryKey: COPY_ORPHANS_QUERY_KEY });
+      if (action.type === "copy") await client.invalidateQueries({ queryKey: COPY_QUERY_KEY });
+      else await client.invalidateQueries({ queryKey: layoutQueryKey(action.pageKey) });
+    },
+    onError: (e) => setError((e as Error).message),
+  });
+  const orphans: Orphans | undefined = query.data;
+  const count = orphans ? orphans.copy.length + orphans.blocks.length : 0;
+  if (!count) return null;
+  const act = (action: OrphanAction) => resolve.mutate(action);
+  return (
+    <div className="live-edit-orphans" role="region" aria-label="Saved edits that no longer match a screen">
+      <button type="button" className="live-edit-orphans-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {count === 1 ? "1 saved edit no longer matches a screen" : `${count} saved edits no longer match a screen`}
+      </button>
+      {open && (
+        <div className="live-edit-orphans-list">
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
+          <ul>
+            {orphans!.copy.map((orphan) => (
+              <OrphanRow
+                key={`copy:${orphan.key}`}
+                label={`"${orphan.text}"`}
+                detail={orphan.key}
+                moveLabel="New wording key"
+                busy={resolve.isPending}
+                onDelete={() => act({ action: "delete", type: "copy", key: orphan.key })}
+                onMove={(to) => act({ action: "move", type: "copy", key: orphan.key, to })}
+              />
+            ))}
+            {orphans!.blocks.map((orphan) => (
+              <OrphanRow
+                key={`block:${orphan.pageKey}/${orphan.id}`}
+                label={orphan.kind === "fieldCard" ? `Field card ${orphan.id}` : `Block ${orphan.id}`}
+                detail={orphan.pageKey}
+                moveLabel="New block id"
+                busy={resolve.isPending}
+                onDelete={() => act({ action: "delete", type: "block", pageKey: orphan.pageKey, id: orphan.id })}
+                onMove={(to) => act({ action: "move", type: "block", pageKey: orphan.pageKey, id: orphan.id, to })}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrphanRow({
+  label,
+  detail,
+  moveLabel,
+  busy,
+  onDelete,
+  onMove,
+}: {
+  label: string;
+  detail: string;
+  moveLabel: string;
+  busy: boolean;
+  onDelete: () => void;
+  onMove: (to: string) => void;
+}) {
+  const [moving, setMoving] = useState(false);
+  const [to, setTo] = useState("");
+  return (
+    <li>
+      <span>
+        <strong>{label}</strong> <small>{detail}</small>
+      </span>
+      {moving ? (
+        <span className="live-edit-orphan-move">
+          <input aria-label={moveLabel} value={to} placeholder="area.screen.element" onChange={(event) => setTo(event.target.value.trim())} />
+          <Button disabled={!to || busy} onClick={() => onMove(to)}>
+            Move
+          </Button>
+          <Button variant="ghost" onClick={() => setMoving(false)}>
+            Cancel
+          </Button>
+        </span>
+      ) : (
+        <span className="live-edit-orphan-actions">
+          <Button variant="outline" disabled={busy} onClick={() => setMoving(true)}>
+            Move to key
+          </Button>
+          <Button variant="destructive" disabled={busy} onClick={onDelete}>
+            Delete
+          </Button>
+        </span>
+      )}
+    </li>
   );
 }

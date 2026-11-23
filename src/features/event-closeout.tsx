@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import type { FlowEvent } from "../../shared/core-records";
 import { closeoutLineProblem, type Closeout, type CloseoutLine } from "../../shared/closeout";
 import { useResource } from "../app/useResource";
@@ -108,7 +109,9 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
   return (
     <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}>
       {error && <p role="alert" className="error-message">{error}</p>}
-      {!data.lines.length && <p><T id="event-closeout.event-closeout-section.the-pull-list-is-empty">The pull list is empty; there is nothing to check in.</T></p>}
+      <PageGrid pageKey="events.closeout">
+      <Block id="pull-list" name="Pull list" h={12}>
+{!data.lines.length && <p><T id="event-closeout.event-closeout-section.the-pull-list-is-empty">The pull list is empty; there is nothing to check in.</T></p>}
       {data.lines.map((line) => {
         const entry = entryOf(line);
         return (
@@ -134,7 +137,10 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
           </fieldset>
         );
       })}
-      {open.map((rental) => (
+
+      </Block>
+      {open.length > 0 && <Block id="sub-rentals" name="Sub-rental returns" h={6}>
+{open.map((rental) => (
         <fieldset key={rental.vendorId} className="planning-row">
           <legend><T id="event-closeout.event-closeout-section.sub-rental" values={{ vendorName: rental.vendorName }}>{"Sub-rental: {vendorName}"}</T></legend>
           <label>
@@ -152,10 +158,16 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
           </FormField>
         </fieldset>
       ))}
-      <FormField label={<T id="event-closeout.event-closeout-section.final-notes">Final notes</T>}>
+
+      </Block>}
+      <Block id="finish" name="Final notes" h={5}>
+<FormField label={<T id="event-closeout.event-closeout-section.final-notes">Final notes</T>}>
         <textarea value={notes} maxLength={4000} onChange={(e) => setNotes(e.target.value)} />
       </FormField>
       <Button disabled={busy} onClick={() => void submit()}><T id="event-closeout.event-closeout-section.close-out-event">Close out event</T></Button>
+
+      </Block>
+      </PageGrid>
     </Section>
   );
 }

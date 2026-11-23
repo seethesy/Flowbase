@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Block, PageGrid } from "../app/page-grid";
 import { useAuth } from "../app/auth";
 import { useResource } from "../app/useResource";
 import { PageHeader, Section, LoadingSkeleton } from "../components/shared";
@@ -15,9 +16,13 @@ export function OperationsPage() {
   if (jobs.error || receipts.error) return <LoadError message={jobs.error ?? receipts.error ?? "Unable to load operations."} />;
   return <>
     <PageHeader title={<T id="operations.operations-page.operations">Operations</T>} subtitle={<T id="operations.operations-page.failed-background-work-and-ingest">Failed background work and ingest receipts</T>} />
-    {!jobs.data || !receipts.data ? <LoadingSkeleton /> : <>
+    {!jobs.data || !receipts.data ? <LoadingSkeleton /> : <PageGrid pageKey="settings.operations">
+      <Block id="jobs" name="Failed jobs" h={10}>
       <section id="jobs"><Section title={<T id="operations.operations-page.failed-jobs">Failed jobs</T>}><ul>{jobs.data.map((item) => <li key={item.id}>{item.id} · {item.status ?? <T id="operations.operations-page.failed">failed</T>}{item.lastError && ` · ${item.lastError}`}</li>)}</ul></Section></section>
+      </Block>
+      <Block id="receipts" name="Failed ingest receipts" h={10}>
       <section id="receipts"><Section title={<T id="operations.operations-page.failed-ingest-receipts">Failed ingest receipts</T>}><ul>{receipts.data.map((item) => <li key={item.id}>{item.id} · {item.source ?? <T id="operations.operations-page.ingest">ingest</T>}{item.lastError && ` · ${item.lastError}`}</li>)}</ul></Section></section>
-    </>}
+      </Block>
+    </PageGrid>}
   </>;
 }

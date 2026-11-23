@@ -21,6 +21,11 @@ export async function getLayout(db: DbLike, pageKey: string): Promise<SavedLayou
   return row ? saved(row) : null;
 }
 
+// Every saved page layout (FLOW-277 orphan report).
+export async function listLayouts(db: DbLike): Promise<{ pageKey: string; layout: LayoutDoc }[]> {
+  return db.select({ pageKey: uiLayout.pageKey, layout: uiLayout.layout }).from(uiLayout);
+}
+
 export async function saveLayout(db: Db, actor: Actor, pageKey: string, layout: LayoutDoc): Promise<SavedLayout> {
   return db.transaction(async (tx) => {
     const [before] = await tx.select().from(uiLayout).where(eq(uiLayout.pageKey, pageKey));

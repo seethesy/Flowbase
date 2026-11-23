@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/ui/status-pill";
@@ -68,7 +69,12 @@ export function SalesTracker() {
   const patch = (value: Partial<SalesFilter>) => setFilter({ ...filter, ...value });
   return <>
     <PageHeader title={<T id="sales.sales-tracker.sales-tracker">Sales tracker</T>} subtitle={<T id="sales.sales-tracker.open-leads-clients-events-and">Open leads, clients, events and proposals</T>} />
+    {error && <p role="alert">{error}</p>}
+    <PageGrid pageKey="sales.tracker">
+    <Block id="actions" name="Reports and export" h={3}>
     <div className="sales-actions"><Link to="/sales/reports"><T id="sales.sales-tracker.sales-reports">Sales reports</T></Link><Button onClick={() => download("sales-tracker.csv", salesCsv(rows))}><T id="sales.sales-tracker.export-csv">Export CSV</T></Button></div>
+    </Block>
+    <Block id="filters" name="Filters" h={5}>
     <div className="sales-filters" aria-label="Sales tracker filters">
       <label><T id="sales.sales-tracker.search">{"Search "}</T><input value={filter.search} onChange={(event) => patch({ search: event.target.value })} /></label>
       <label><T id="sales.sales-tracker.type">{"Type "}</T><Dropdown value={filter.kind} onChange={(event) => patch({ kind: event.target.value as SalesFilter["kind"] })}>
@@ -85,6 +91,8 @@ export function SalesTracker() {
       </Dropdown></label>
       <label><RoundCheck checked={filter.history} onChange={(event) => patch({ history: event.target.checked })} /><T id="sales.sales-tracker.include-finished-and-lost-events">{" Include finished and lost events"}</T></label>
     </div>
+    </Block>
+    <Block id="views" name="Saved views" h={3}>
     <div className="sales-actions">
       <label><T id="sales.sales-tracker.saved-views">{"Saved views "}</T><Dropdown aria-label="Saved views" value="" onChange={(event) => { const view = views.data?.find((item) => item.id === event.target.value); if (view) setFilter(view.filter); }}>
         <option value="">Choose a view</option>{views.data?.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}
@@ -93,7 +101,8 @@ export function SalesTracker() {
       <Button disabled={!viewName.trim()} onClick={async () => { try { await salesApi.saveView(viewName.trim(), filter); setViewName(""); views.reload(); } catch (cause) { setError((cause as Error).message); } }}><T id="sales.sales-tracker.save-view">Save view</T></Button>
       {views.data?.map((view) => <Button key={view.id} variant="outline" onClick={async () => { try { await salesApi.deleteView(view.id); views.reload(); } catch (cause) { setError((cause as Error).message); } }}><T id="sales.sales-tracker.delete" values={{ name: view.name }}>{"Delete {name}"}</T></Button>)}
     </div>
-    {error && <p role="alert">{error}</p>}
+    </Block>
+    <Block id="table" name="Sales table" h={24}>
     <Section title={<T id="sales.sales-tracker.rows" values={{ rowsCount: rows.length }}>{"{rowsCount} rows"}</T>}><div className="sales-table-wrap"><table className="sales-table"><thead><tr><th><T id="sales.sales-tracker.type-2">Type</T></th><th><T id="sales.sales-tracker.client-record">Client / record</T></th><th><T id="sales.sales-tracker.event-date">Event date</T></th><th><T id="sales.sales-tracker.event-type">Event type</T></th><th><T id="sales.sales-tracker.stage-2">Stage</T></th><th><T id="sales.sales-tracker.salesperson-2">Salesperson</T></th><th><T id="sales.sales-tracker.source">Source</T></th><th><T id="sales.sales-tracker.total">Total</T></th><th><T id="sales.sales-tracker.balance-due">Balance due</T></th><th><T id="sales.sales-tracker.last-activity">Last activity</T></th><th><T id="sales.sales-tracker.next-follow-up">Next follow-up</T></th></tr></thead>
       <tbody>{rows.map((row) => <tr key={`${row.kind}:${row.id}`}><td>{row.kind}</td><td>{row.kind === "proposal" && edits.canEdit
         ? <><Link to={path(row)}>{row.client}</Link>{" · "}<EditableCell label="Proposal title" row={row} edit="text" value={row.title}
@@ -105,6 +114,8 @@ export function SalesTracker() {
           save={(_row, value) => edits.save(row.id, { assignedSalespersonId: value || null })} />
         : row.owner ?? "—"}</td><td>{row.source ?? "—"}</td><td>{dollars(row.totalCents)}</td><td>{dollars(row.balanceCents)}</td><td>{day(row.lastActivity)}</td><td>{day(row.nextFollowUp)}</td></tr>)}</tbody>
     </table></div></Section>
+    </Block>
+    </PageGrid>
   </>;
 }
 
@@ -144,10 +155,20 @@ export function SalesReports() {
     return `"${safe.replaceAll('"', '""')}"`;
   }).join(",")).join("\r\n");
   return <><PageHeader title={<T id="sales.sales-reports.sales-reports">Sales reports</T>} subtitle={<T id="sales.sales-reports.pipeline-booked-events-and-win">Pipeline, booked events and win rates</T>} />
+    <PageGrid pageKey="sales.reports">
+    <Block id="actions" name="Dates and export" h={4}>
     <p><Link to="/sales"><T id="sales.sales-reports.sales-tracker">← Sales tracker</T></Link></p>
     <div className="sales-actions"><label><T id="sales.sales-reports.from">{"From "}</T><input aria-label="Report from" type="date" value={from} onChange={(event) => { setFrom(event.target.value); if (to && event.target.value > to) setTo(""); }} /></label><label><T id="sales.sales-reports.to">{"To "}</T><input aria-label="Report to" type="date" value={to} onChange={(event) => { setTo(event.target.value); if (from && event.target.value < from) setFrom(""); }} /></label><Button onClick={() => download("sales-reports.csv", csv)}><T id="sales.sales-reports.export-csv">Export CSV</T></Button></div>
+    </Block>
+    <Block id="pipeline" name="Pipeline by proposal stage" h={10} w={6}>
     <Section title={<T id="sales.sales-reports.pipeline-by-proposal-stage">Pipeline by proposal stage</T>}><table className="sales-table"><thead><tr><th><T id="sales.sales-reports.stage">Stage</T></th><th><T id="sales.sales-reports.count">Count</T></th><th><T id="sales.sales-reports.total">Total</T></th></tr></thead><tbody>{report.pipeline.map((row) => <tr key={row.stage}><td><StatusPill status={row.stage} /></td><td>{row.count}</td><td>{dollars(row.totalCents)}</td></tr>)}</tbody></table></Section>
+    </Block>
+    <Block id="booked-by-month" name="Booked total by event month" h={10} w={6}>
     <Section title={<T id="sales.sales-reports.booked-total-by-event-month">Booked total by event month</T>}><table className="sales-table"><thead><tr><th><T id="sales.sales-reports.month">Month</T></th><th><T id="sales.sales-reports.events">Events</T></th><th><T id="sales.sales-reports.total">Total</T></th></tr></thead><tbody>{report.bookedByMonth.map((row) => <tr key={row.month}><td>{row.month}</td><td>{row.count}</td><td>{dollars(row.totalCents)}</td></tr>)}</tbody></table></Section>
+    </Block>
+    <Block id="win-rates" name="Win rates" h={14}>
     {(["winBySalesperson", "winBySource"] as const).map((key) => <Section key={key} title={key === "winBySource" ? <T id="sales.sales-reports.win-rate-by-lead-source">Win rate by lead source</T> : <T id="sales.sales-reports.win-rate-by-salesperson">Win rate by salesperson</T>}><table className="sales-table"><thead><tr><th>{key === "winBySource" ? <T id="sales.sales-reports.source">Source</T> : <T id="sales.sales-reports.salesperson">Salesperson</T>}</th><th><T id="sales.sales-reports.wins">Wins</T></th><th><T id="sales.sales-reports.decided">Decided</T></th><th><T id="sales.sales-reports.win-rate">Win rate</T></th></tr></thead><tbody>{report[key].map((row) => <tr key={"source" in row ? row.source : row.owner}><td>{"source" in row ? row.source : row.owner}</td><td>{row.wins}</td><td>{row.decided}</td><td>{row.rate === null ? "—" : `${Math.round(row.rate * 100)}%`}</td></tr>)}</tbody></table></Section>)}
+    </Block>
+    </PageGrid>
   </>;
 }

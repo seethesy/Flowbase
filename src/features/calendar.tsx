@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Block, PageGrid } from "../app/page-grid";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
@@ -158,6 +159,8 @@ export function CalendarPage() {
   return (
     <>
       <EventsHeading tab="calendar" />
+      <PageGrid pageKey="calendar.page">
+      <Block id="layers" name="Filters and layers" h={3}>
       <FilterBar>
         <Dropdown
           variant="filter"
@@ -193,6 +196,8 @@ export function CalendarPage() {
           ))}
         </fieldset>
       </FilterBar>
+      </Block>
+      <Block id="calendar" name="Calendar" h={30}>
       <div className="calendar-toolbar">
         <div className="calendar-toolbar-nav">
           <Button variant="outline" size="icon" aria-label="Previous month" onClick={() => set({ date: `${shiftMonth(month, -1)}-01` })}>‹</Button>
@@ -244,6 +249,8 @@ export function CalendarPage() {
           owners={owners}
         />
       )}
+      </Block>
+      </PageGrid>
       {panelEvent && <CalendarEventPanel event={panelEvent} onClose={() => setSelected(null)} />}
     </>
   );

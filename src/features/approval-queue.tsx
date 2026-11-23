@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Block, PageGrid } from "../app/page-grid";
 import { Link } from "react-router-dom";
 import { allPages } from "../services/core";
 import { approvalsApi } from "../services/approvals";
@@ -23,6 +24,8 @@ export function ApprovalQueue() {
   return <>
     <PageHeader title={<T id="approval-queue.approval-queue.approvals">Approvals</T>} subtitle={<T id="approval-queue.approval-queue.requests-waiting-for-your-decision">Requests waiting for your decision.</T>} eyebrow={<T id="approval-queue.approval-queue.workflow">WORKFLOW</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
+    <PageGrid pageKey="approvals.queue">
+    <Block id="queue" name="Requests" h={24}>
     {queue.error ? <LoadError message={queue.error} /> : queue.loading && !queue.data ? <LoadingSkeleton /> :
       <div className="approval-queue">{queue.data?.map((approval) => <section key={approval.id} className="table-card" style={{ padding: 16, marginBottom: 12 }}>
         <h2>{approval.summary}</h2>
@@ -35,5 +38,7 @@ export function ApprovalQueue() {
           <Button variant="outline" onClick={() => void decide(approval.id, "reject")}><T id="approval-queue.approval-queue.reject">Reject</T></Button>
         </div>}
       </section>)}</div>}
+    </Block>
+    </PageGrid>
   </>;
 }

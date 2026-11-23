@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -46,7 +47,9 @@ export function SettingsPage() {
             : <T id="settings.settings-page.how-flowbase-works-for-you">How Flowbase works for you.</T>
         }
       />
+      <PageGrid pageKey="settings.page">
       {permissions.can("users.manage") && (
+        <Block id="staff-access" name="Staff access" h={4}>
         <Section title={<T id="settings.settings-page.staff-access">Staff access</T>}>
           <p>
             <Link to="/settings/users"><T id="settings.settings-page.manage-users">Manage users</T></Link> ·{" "}
@@ -54,22 +57,22 @@ export function SettingsPage() {
             <Link to="/staff"><T id="settings.settings-page.staff-directory">Staff directory</T></Link>
           </p>
         </Section>
+        </Block>
       )}
       {manage && (
+        <Block id="deleted-records" name="Deleted records" h={5}>
         <Section title={<T id="settings.settings-page.deleted-records">Deleted records</T>}>
           <p><Link to="/settings/archived"><T id="settings.settings-page.archived">Archived: restore deleted records</T></Link></p>
           <p><Link to="/settings/inventory-categories"><T id="settings.settings-page.inventory-categories">Inventory categories</T></Link></p>
         </Section>
+        </Block>
       )}
-      {manage && (
-        <>
-          <CompanySettings />
-          <ListSettings />
-          <DefaultSettings />
-          <SettingsHistory />
-        </>
-      )}
-      <TimeTrackingSettings />
+      {manage && <Block id="company" name="Company" h={14}><CompanySettings /></Block>}
+      {manage && <Block id="lists" name="Lists" h={20}><ListSettings /></Block>}
+      {manage && <Block id="defaults" name="Defaults" h={16}><DefaultSettings /></Block>}
+      {manage && <Block id="history" name="History" h={12}><SettingsHistory /></Block>}
+      <Block id="time-tracking" name="Time tracking" h={8}><TimeTrackingSettings /></Block>
+      </PageGrid>
     </>
   );
 }

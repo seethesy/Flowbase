@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --project=desktop --project=webkit-offline",
     "dev:worker": "wrangler dev",
     "typecheck:worker": "tsc --project tsconfig.worker.json --noEmit",
     "test:worker": "vitest run --config vitest.worker.config.ts",
@@ -18,6 +19,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "node scripts/seed.mjs",
     "db:check": "node scripts/check-migration-drift.mjs",
+    "live-edit:keys": "node scripts/live-edit-keys.mjs",
     "deploy": "npm run build && npm test && npm run test:worker && npm run deploy:migrate && wrangler deploy --env production && npm run deploy:verify",
     "deploy:verify": "node scripts/check-health.mjs",
     "deploy:migrate": "node scripts/require-env.mjs DATABASE_URL && drizzle-kit migrate"

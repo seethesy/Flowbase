@@ -1,4 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { ClientRecipe } from "../../shared/recipes";
@@ -43,6 +44,8 @@ export function ClientRecipeBook() {
       <Button asChild variant="outline"><Link to={`/print/recipes/client${category ? `?category=${encodeURIComponent(category)}` : ""}`}>{category ? <T id="recipe-books.client-recipe-book.print-category">Print category</T> : <T id="recipe-books.client-recipe-book.print-all-dishes">Print all dishes</T>}</Link></Button>
       {selected.length > 0 && <Button asChild><Link to={printSelection}><T id="recipe-books.client-recipe-book.print-selected" values={{ selectedCount: selected.length }}>{"Print selected ({selectedCount})"}</T></Link></Button>}
     </PageHeader>
+    <PageGrid pageKey="recipes.client-book">
+    <Block id="filters" name="Filters" h={4}>
     <FilterBar>
       <Dropdown aria-label="Category" value={category} onChange={(e) => { setCategory(e.target.value); setSelected([]); }}>
         <option value="">All categories</option>
@@ -50,6 +53,8 @@ export function ClientRecipeBook() {
       </Dropdown>
       <span className="result-count"><T id="recipe-books.client-recipe-book.dishes" values={{ dishesCount: dishes.length }}>{"{dishesCount} dishes"}</T></span>
     </FilterBar>
+    </Block>
+    <Block id="dishes" name="Dishes" h={30}>
     {resource.error ? <LoadError message={resource.error} /> : resource.loading ? <LoadingSkeleton /> : <>
       {!dishes.length && <p><T id="recipe-books.client-recipe-book.no-dishes-in-this-category">No dishes in this category.</T></p>}
       <div className="client-recipe-grid">{dishes.map((dish) => <div key={dish.id}>
@@ -57,6 +62,8 @@ export function ClientRecipeBook() {
         <ClientDish dish={dish} />
       </div>)}</div>
     </>}
+    </Block>
+    </PageGrid>
   </>;
 }
 
