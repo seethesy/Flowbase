@@ -122,8 +122,9 @@ function purchaseColumns(
       id: "purchase",
       header: "Bought as",
       accessorFn: (item) => purchaseLabel(item.consumable),
+      // The trigger reads like the column ("case of 12 × 750 ml"); the menu picks the unit.
       meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.purchaseUnit ?? "",
-        editOptions: units, onEdit: (item, value) => save(item, "consumable.purchaseUnit", value) },
+        editDisplay: (item) => purchaseLabel(item.consumable), editOptions: units, onEdit: (item, value) => save(item, "consumable.purchaseUnit", value) },
     },
     {
       id: "packCount",

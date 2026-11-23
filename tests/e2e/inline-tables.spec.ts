@@ -4,6 +4,7 @@ import { browserDb, seedInventory, seedRecords } from "./database";
 import { utcToBusinessTime } from "../../shared/time";
 import { attachments, orderLists, proposals } from "../../worker/db/schema";
 import type { Locator, Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 async function saveInline(page: Page, path: string, method = "PUT") {
   const saved = page.waitForResponse((response) =>
@@ -305,8 +306,10 @@ test("an event's Tasks section changes a task's status in place", async ({ page 
 
 test("Documents table saves an inline name after reload", async ({ page }) => {
   await seedRecords({ clients: [juniper()] });
+  // Every stored document carries its document id (FLOW-263; migration 0066).
+  const documentId = randomUUID();
   const [document] = await browserDb((db) => db.insert(attachments).values({
-    recordType: "client", recordId: juniper().id, fileName: "synthetic-menu.pdf",
+    id: documentId, documentId, recordType: "client", recordId: juniper().id, fileName: "synthetic-menu.pdf",
     displayName: "Synthetic menu", docType: "other", status: "ready", variants: [],
   }).returning());
   await page.goto("/#/documents");
