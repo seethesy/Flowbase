@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Block, PageGrid } from "../app/page-grid";
@@ -31,6 +31,8 @@ import { eventsApi } from "../services/core";
 import { staffPayApi } from "../services/staff-pay";
 import "./staff.css";
 
+type PayChange = Partial<Pick<PayrollRow, "payType" | "rateCents" | "secondRateCents" | "secondRateLabel">>;
+
 // Staffing › Payroll (FLOW-270): Admin and Technical only (the Staff pay area).
 // Each person's pay type, rate and second rate, edited inline; hours worked
 // from time tracking (FLOW-167/202); and pay per event or per project as
@@ -53,10 +55,20 @@ export function PayrollPage() {
   const [to, setTo] = useState(today);
   const [error, setError] = useState("");
   const payroll = useResource(["staff-pay", from, to], () => staffPayApi.get(from, to));
+  // Edits saved since the rows were last loaded, by name.
+  const pending = useRef(new Map<string, PayChange>());
+  useEffect(() => {
+    pending.current.clear();
+  }, [payroll.data]);
   const edit = can("staff.pay.write");
   if (!can("staff.pay.read")) return <LoadError message="Only Admin and Technical can see pay." />;
-  const save = async (row: PayrollRow, change: Partial<Pick<PayrollRow, "payType" | "rateCents" | "secondRateCents" | "secondRateLabel">>) => {
+  const save = async (row: PayrollRow, change: PayChange) => {
     setError("");
+    // A second edit can start before the first one's reload lands: send it on
+    // top of the earlier edits, not the row as it was drawn.
+    const key = row.staffFullName.toLowerCase();
+    const merged = { ...pending.current.get(key), ...change };
+    pending.current.set(key, merged);
     try {
       await staffPayApi.save({
         staffFullName: row.staffFullName,
@@ -64,7 +76,7 @@ export function PayrollPage() {
         rateCents: row.rateCents,
         secondRateCents: row.secondRateCents,
         secondRateLabel: row.secondRateLabel,
-        ...change,
+        ...merged,
       });
     } catch (e) {
       setError((e as Error).message);
@@ -95,6 +107,7 @@ export function PayrollPage() {
       header: "Rate",
       accessorFn: (row) => rateLabel(row.rateCents, row.rateUnit),
       meta: { edit: "text", editValue: (row) => centsText(row.rateCents), canEdit: () => edit,
+        editDisplay: (row) => rateLabel(row.rateCents, row.rateUnit),
         csv: (row) => centsText(row.rateCents),
         onEdit: async (row, value) => {
           try { await save(row, { rateCents: toCents(value) }); } catch (e) { setError((e as Error).message); }
@@ -105,6 +118,7 @@ export function PayrollPage() {
       header: "Second rate",
       accessorFn: (row) => rateLabel(row.secondRateCents, row.rateUnit ?? "hour", row.secondRateLabel),
       meta: { edit: "text", editValue: (row) => centsText(row.secondRateCents), canEdit: () => edit,
+        editDisplay: (row) => rateLabel(row.secondRateCents, row.rateUnit ?? "hour", row.secondRateLabel),
         csv: (row) => centsText(row.secondRateCents),
         onEdit: async (row, value) => {
           try { await save(row, { secondRateCents: toCents(value) }); } catch (e) { setError((e as Error).message); }

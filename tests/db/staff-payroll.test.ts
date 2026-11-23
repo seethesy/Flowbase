@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -238,8 +239,15 @@ describe("roles in the directory (A5)", () => {
 });
 
 it("seeds Technical's Staff pay level at Write", async () => {
-  await tech.send("GET", "/api/staff-pay");
+  // The built-in level, with nothing stored.
+  const { matrix } = await admin.send<{ matrix: Record<string, Record<string, string>> }>("GET", "/api/permissions");
+  expect(matrix.technical.staff_pay).toBe("write");
+  // The migration moves a stored None (the old seed) to Write.
+  await db.insert(schema.rolePermissions).values({ role: "technical", area: "staff_pay", level: "none" });
+  const migration = readFileSync("drizzle/0071_flow_270_staff_pay.sql", "utf8");
+  await db.execute(sql.raw(migration.slice(migration.indexOf("UPDATE \"role_permissions\""))));
   const [row] = await db.select().from(schema.rolePermissions)
     .where(sql`${schema.rolePermissions.role} = 'technical' and ${schema.rolePermissions.area} = 'staff_pay'`);
   expect(row?.level).toBe("write");
+  invalidatePolicy();
 });

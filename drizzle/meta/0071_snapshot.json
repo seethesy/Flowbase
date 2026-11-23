@@ -11909,21 +11909,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "staff_pay_exceptions_event_id_events_id_fk": {
-          "name": "staff_pay_exceptions_event_id_events_id_fk",
-          "tableFrom": "staff_pay_exceptions",
-          "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

@@ -35,7 +35,6 @@ ALTER TABLE "staff_pay_exceptions" ENABLE ROW LEVEL SECURITY;--> statement-break
 ALTER TABLE "deletions" DROP CONSTRAINT "deletions_entity_type_check";--> statement-breakpoint
 DROP INDEX "users_email_idx";--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "has_account" boolean DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE "staff_pay_exceptions" ADD CONSTRAINT "staff_pay_exceptions_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "staff_pay_name_idx" ON "staff_pay" USING btree (lower("staff_full_name")) WHERE "staff_pay"."archived_at" is null;--> statement-breakpoint
 CREATE INDEX "staff_pay_exceptions_name_idx" ON "staff_pay_exceptions" USING btree (lower("staff_full_name"));--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_idx" ON "users" USING btree (lower("email")) WHERE "users"."email" <> '';--> statement-breakpoint

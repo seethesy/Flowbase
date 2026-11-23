@@ -49,6 +49,8 @@ test("an Admin adds a staff member without an account: no email and a blank role
   await expect(page.getByRole("heading", { name: "Robin Runner" })).toBeVisible();
   await expect(page.getByText("No Flowbase account").first()).toBeVisible();
   await page.goto("/#/staff");
+  // The directory shows 8 rows a page; search so Robin is on the first.
+  await page.getByPlaceholder("Search name or email…").fill("Robin");
   const row = page.getByRole("row", { name: /Robin Runner/ });
   await expect(row).toBeVisible();
   const cells = row.getByRole("cell");

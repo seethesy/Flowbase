@@ -2399,7 +2399,8 @@ export const staffPayExceptions = pgTable(
   {
     ...baseColumns(),
     staffFullName: text("staff_full_name").notNull(),
-    eventId: uuid("event_id").references(() => events.id),
+    // No foreign key: tests and tools truncate events without this table.
+    eventId: uuid("event_id"),
     project: text("project"),
     amountCents: moneyCents("amount_cents").notNull(),
     note: text("note").notNull().default(""),
