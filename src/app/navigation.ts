@@ -51,6 +51,8 @@ export const navigationGroups: NavGroup[] = [
     name: "Events",
     tabs: [
       { copyId: "calendar", name: "Calendar", to: "/calendar", also: ["/events"], visible: "events.read" },
+      // Every event's BEO (FLOW-265).
+      { copyId: "beos", name: "BEOs", to: "/beos", visible: "beos.read" },
       { copyId: "production", name: "Production", to: "/production", visible: "production.read" },
       { copyId: "day-of", name: "Day-of", to: "/day-of", visible: "dayof.read" },
     ],

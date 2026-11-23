@@ -3102,3 +3102,27 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   font-size: 13px;
 }
 .layout-field-card.editing .layout-box { position: relative; }
+
+/* A side panel's label / value list and its buttons (FLOW-265: the calendar's
+   event panel and the BEO preview). */
+.panel-details {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+.panel-details > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+}
+.panel-details dt {
+  color: var(--muted);
+}
+.panel-details dd {
+  margin: 0;
+}
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

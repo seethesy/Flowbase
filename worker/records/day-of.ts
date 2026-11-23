@@ -147,6 +147,7 @@ export async function getDayOfBoard(
       endsAt: events.endsAt,
       arrivesAt: events.arrivesAt,
       venueName: venues.name,
+      guestCount: events.guestCount,
     })
     .from(events)
     .leftJoin(venues, eq(venues.id, events.venueId))
@@ -194,6 +195,7 @@ export async function getDayOfBoard(
         startsAt: event.startsAt.toISOString(),
         endsAt: iso(event.endsAt),
         venueName: event.venueName,
+        guestCount: event.guestCount,
         staff: staffRows
           .filter((row) => row.eventId === event.id)
           .map((row) => ({
@@ -581,21 +583,51 @@ export async function setDayOfCheckpoint(
       },
       urgent: input.urgent,
     });
-    if (input.urgent) {
-      const crew = await tx
-        .select({ userId: eventStaffSlots.assigneeId })
-        .from(eventStaffSlots)
-        .innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
-        .where(
-          and(
-            eq(eventShifts.eventId, eventId),
-            eq(eventShifts.kind, "event_day"),
-            isNull(eventShifts.archivedAt),
-            isNull(eventStaffSlots.archivedAt),
-          ),
-        );
-      await notifyAffected(tx, actor, event, crew.map((row) => row.userId), `${event.title}: ${summary}`);
-    }
+    if (input.urgent)
+      await notifyAffected(tx, actor, event, await eventDayCrew(tx, eventId), `${event.title}: ${summary}`);
+    return entry;
+  });
+}
+
+// The people on an event's event-day shifts.
+async function eventDayCrew(tx: DbLike, eventId: string) {
+  const crew = await tx
+    .select({ userId: eventStaffSlots.assigneeId })
+    .from(eventStaffSlots)
+    .innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
+    .where(
+      and(
+        eq(eventShifts.eventId, eventId),
+        eq(eventShifts.kind, "event_day"),
+        isNull(eventShifts.archivedAt),
+        isNull(eventStaffSlots.archivedAt),
+      ),
+    );
+  return crew.map((row) => row.userId);
+}
+
+// A free-text note in the event's day-of log (FLOW-265), from the board's
+// add-note box. Managers add notes, as they make every other board update; an
+// urgent note tells the event day's crew.
+export async function addDayOfNote(
+  db: Db,
+  actor: Actor,
+  eventId: string,
+  input: { text: string; urgent: boolean },
+): Promise<DayOfUpdate> {
+  assertEdit(actor);
+  return db.transaction(async (tx) => {
+    const event = await lockVisibleEvent(tx, actor, eventId);
+    const entry = await appendLog(tx, actor, {
+      eventId,
+      kind: "note",
+      subjectName: "Note",
+      summary: input.text,
+      changes: {},
+      urgent: input.urgent,
+    });
+    if (input.urgent)
+      await notifyAffected(tx, actor, event, await eventDayCrew(tx, eventId), `${event.title}: ${input.text}`);
     return entry;
   });
 }

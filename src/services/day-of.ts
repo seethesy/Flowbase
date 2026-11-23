@@ -4,6 +4,7 @@ import {
   dayOfUpdateSchema,
   type DayOfCheckpointInput,
   type DayOfCheckpointKey,
+  type DayOfNoteInput,
   type DayOfStaffUpdate,
   type DayOfTruckUpdate,
 } from "../../shared/day-of";
@@ -21,4 +22,7 @@ export const dayOfApi = {
     request(dayOfUpdateSchema, at("day-of/trucks", assignmentId), "PATCH", input),
   setCheckpoint: (eventId: string, key: DayOfCheckpointKey, input: DayOfCheckpointInput) =>
     request(dayOfUpdateSchema, at("day-of/events", eventId, `checkpoints/${key}`), "PUT", input),
+  // A note in the event's day-of log (FLOW-265).
+  addNote: (eventId: string, input: DayOfNoteInput) =>
+    request(dayOfUpdateSchema, at("day-of/events", eventId, "notes"), "POST", input),
 };

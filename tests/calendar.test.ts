@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { overviewLine, toCalendarEntries } from "../src/features/calendar-entries";
+import { calendarWhen, toCalendarEntries } from "../src/features/calendar-entries";
 import { calendarSchema, type Calendar, type CalendarLayer } from "../shared/calendar";
 
 // Basic calendar (FLOW-63), overview mode (FLOW-64) and layers (FLOW-67).
@@ -19,6 +19,10 @@ const gala = {
   guestCount: 120,
   salespersonName: "Sam",
   staffCount: 6,
+  salespersonId: null,
+  leadId: null,
+  proposal: null,
+  beoId: null,
 };
 
 // AC3: FullCalendar's free standard packages only (ADR-19). Premium plugins
@@ -75,22 +79,18 @@ it("draws events by their New York wall-clock times and opens their pages", () =
   ]);
 });
 
-describe("overview mode (FLOW-64)", () => {
-  it("shows the venue, guest count, salesperson and staff count on every event (AC1)", () => {
-    expect(overviewLine({ ...gala, venueName: "The Atrium" })).toBe(
-      "The Atrium · 120 guests · Sam · 6 staff",
-    );
-    // Missing values still show, so every entry has every field.
-    expect(
-      overviewLine({ ...gala, guestCount: null, salespersonName: null, staffCount: 1 }),
-    ).toBe("No venue · Guests TBD · No salesperson · 1 staff");
-    expect(overviewLine({ ...gala, guestCount: 1 })).toContain("1 guest ·");
+describe("event chips and the side panel (FLOW-265)", () => {
+  it("draws each event as a status-colored chip and reads its date and time", () => {
     const [entry] = toCalendarEntries({ events: [gala], tasks: [], layers: noLayers });
     expect(entry).toMatchObject({
       title: "Fall gala",
       display: "block",
-      extendedProps: { overview: "No venue · 120 guests · Sam · 6 staff" },
+      classNames: ["calendar-event", "calendar-status-closed"],
+      extendedProps: { eventId: galaId, status: "closed" },
     });
+    expect(calendarWhen(gala)).toBe("Thu, Sep 17 · 5:00 PM");
+    expect(calendarWhen({ start: "2026-11-28T00:05" })).toBe("Sat, Nov 28 · 12:05 AM");
+    expect(calendarWhen({ start: "2026-11-28T12:30" })).toBe("Sat, Nov 28 · 12:30 PM");
   });
 
   it("sends no contact details or pricing with an event", () => {
@@ -107,6 +107,10 @@ describe("overview mode (FLOW-64)", () => {
         "status",
         "title",
         "venueName",
+        "salespersonId",
+        "leadId",
+        "proposal",
+        "beoId",
       ].sort(),
     );
   });
