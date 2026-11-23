@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --project=desktop --project=webkit-offline",
     "dev:worker": "wrangler dev",
     "typecheck:worker": "tsc --project tsconfig.worker.json --noEmit",
     "test:worker": "vitest run --config vitest.worker.config.ts",

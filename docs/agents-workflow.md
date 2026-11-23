@@ -27,7 +27,7 @@ Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. C
 - **Done** = the ticket's PR has merged into `main`. A blocker in Done is satisfied: its code is in `main`.
 - **Automation** (GitHub–Jira) performs every status transition: to In Progress when linked development starts, to Done when the PR merges into `main`. If a status looks wrong, report it to the developer. Do not fix it.
 - **Issue key linking**: automation matches work to tickets by key, so every branch name, PR title, and commit message contains the key (`FLOW-123`).
-- **CI** (`.github/workflows/ci.yml`) is the only test authority. It runs lint, typecheck, Vitest, build, and Playwright on every PR.
+- **CI** (`.github/workflows/ci.yml`) is the only test authority. It runs lint, typecheck, Vitest, build, and Playwright on every PR, as parallel jobs `static`, `unit`, `db` and four Playwright shards `e2e (N)` (FLOW-285). `ci-ok` is the one required check; read a failure from the job it names. Playwright in CI runs only the `desktop` and `webkit-offline` projects; `mobile` is off in CI for now (FLOW-286). One shard locally: `npx playwright test --project=desktop --project=webkit-offline --shard=1/4`.
 - **Developer-only actions**: merging PRs (squash merge), closing rejected PRs, deciding what happens to their tickets.
 
 ## 3. Hard rules
@@ -35,7 +35,7 @@ Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. C
 Never:
 - change a Jira status or create statuses or issue types;
 - merge a PR, or commit to `main` or your base branch;
-- run tests or checks locally: no `npm run lint|typecheck|test|test:e2e|build`, no `npx vitest|playwright|tsc|eslint`;
+- run tests or checks locally: no `npm run lint|typecheck|test|test:e2e|build`, no `npx vitest|playwright|tsc|eslint`. One exception (FLOW-286): when a change touches the mobile nav drawer, the `AppShell` responsive layout or phone-only screens, run `npx playwright test --project=mobile` locally, because CI no longer runs that project;
 - run `git reset --hard`, `git clean`, `git stash`, `git checkout -- <path>`, `git rebase`, or `git push --force*` (only exception: §5.3);
 - discard, overwrite, or commit changes you did not make;
 - invent product decisions, file paths, APIs, or issue keys;
