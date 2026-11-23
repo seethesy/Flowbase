@@ -18,7 +18,7 @@ const tabs = (page: Page, heading: string) =>
 test("admin sees every heading and tab, and tabs deep-link", async ({ page, isMobile }) => {
   await page.goto("/#/reports/operations");
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Workspace\s*\/\s*Reports\s*\/\s*Operational reports/);
-  await expect(tabs(page, "Reports")).toHaveText(["Time tracking", "Operational reports"]);
+  await expect(tabs(page, "Reports")).toHaveText(["Overview", "Time tracking", "Operational reports"]);
   await expect(tabs(page, "Reports").filter({ hasText: "Operational reports" })).toHaveAttribute("aria-current", "page");
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("link", { name: "Settings", exact: true })).toBeVisible();
@@ -42,22 +42,22 @@ test("a heading opens its first tab; placeholders say Coming soon", async ({ pag
 databaseTest("a salesperson sees Sales but not operational reports", async ({ page, isMobile }) => {
   await mockBrowserAuth(page, { userId: salesperson.id });
   await page.goto("/#/leads");
-  await expect(tabs(page, "Sales")).toHaveText(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await page.goto("/#/reports");
-  await expect(page.getByRole("navigation", { name: "Reports pages" })).toHaveCount(0);
+  await expect(tabs(page, "Reports")).toHaveText(["Overview", "Time tracking"]);
 });
 
 databaseTest("part-time staff only see the tabs they can open", async ({ page, isMobile }) => {
   await mockBrowserAuth(page, { userId: partTimeStaff.id });
   await page.goto("/#/venues");
   await expect(page.getByRole("heading", { name: "Venues", exact: true })).toBeVisible();
-  // Venues is the only Sales tab left, so there is no tab row.
-  await expect(page.getByRole("navigation", { name: "Sales pages" })).toHaveCount(0);
+  // Venues is the only Sales tab left besides the heading's Overview (FLOW-295).
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Venues"]);
   await page.goto("/#/inventory");
   await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Purchasing", "Vendors"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/venues");
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/sales/overview");
 });
 
 test("the right edge collapses and expands the sidebar, and it is remembered", async ({ page, isMobile }) => {
