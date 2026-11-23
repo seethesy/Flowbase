@@ -526,6 +526,34 @@
       "when": 1795464036081,
       "tag": "0074_flow_293_kitchen_in_charge",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1795472030608,
+      "tag": "0075_flow_289_clear_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1795472083194,
+      "tag": "0076_flow_289_inventory_lists",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1795472092904,
+      "tag": "0077_flow_289_default_locations",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1795472094327,
+      "tag": "0078_flow_289_drop_inventory_items",
+      "breakpoints": true
     }
   ]
 }
