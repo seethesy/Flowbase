@@ -302,7 +302,9 @@ function SectionTabs() {
   );
 }
 // What a hidden page shows (FLOW-284), loaded only when one is opened.
-const HiddenPage = lazy(() => import("./hidden-page"));
+const HiddenPage = lazy(() =>
+  import("../../app/nav-visibility-editor").then((module) => ({ default: module.HiddenPage })),
+);
 
 // The live-edit "Who sees this" popover (FLOW-284), loaded only in edit mode so
 // it stays out of the first load.

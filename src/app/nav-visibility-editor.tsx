@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye } from "lucide-react";
 import { roles, type Role } from "../../shared/access";
-import { navHidden, navTabKey, normalizeNavHidden, type NavHidden } from "../../shared/nav-visibility";
+import { Link } from "react-router-dom";
+import { navHidden, navTabKey, normalizeNavHidden, setNavHidden, type NavHidden } from "../../shared/nav-visibility";
+import { navVisibilitySchema } from "../../shared/nav-visibility-schema";
+import { EmptyState } from "../components/shared";
+import { request } from "../services/core";
 import { areas } from "../../shared/role-permissions";
 import { RoundCheck } from "../components/ui/round-check";
 import { roleLabel } from "../services/users";
-import { useLiveEdit } from "./copy";
+import { T, useLiveEdit } from "./copy";
 import { canSee, type NavGroup, type NavTab } from "./navigation";
 import { usePermissions } from "./permissions";
 
@@ -132,5 +136,33 @@ export function NavWhoSees({ group, tab }: { group: NavGroup; tab?: NavTab }) {
         </div>
       )}
     </span>
+  );
+}
+
+// Saves the live-edit "Who sees this" changes with the live-edit Save. The
+// sidebar, tabs and breadcrumb re-read the setting (src/app/auth.tsx).
+export async function saveNavHidden(next: NavHidden) {
+  const { hidden } = await request(navVisibilitySchema, "/api/permissions/navigation", "PUT", { hidden: next });
+  setNavHidden(hidden);
+  window.dispatchEvent(new Event("flowbase:policy-changed"));
+}
+
+// A page the Admin hid from this role (FLOW-284 req. 5), with a link to the
+// role's first visible page. The API still answers by area permissions.
+export function HiddenPage({ first }: { first: string | null }) {
+  return (
+    <section className="panel hidden-page">
+      <EmptyState
+        title={<T id="app-shell.hidden-page.title">Not available for your role</T>}
+        description={<T id="app-shell.hidden-page.description">Your Admin has hidden this page for your role.</T>}
+      />
+      {first && (
+        <p className="hidden-page-link">
+          <Link to={first}>
+            <T id="app-shell.hidden-page.go-to-first-page">Go to your first page</T>
+          </Link>
+        </p>
+      )}
+    </section>
   );
 }

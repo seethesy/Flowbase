@@ -24,7 +24,7 @@ import { z } from "zod";
 import { orphansSchema, type OrphanAction } from "../../shared/live-edit-orphans";
 import type { LayoutDoc } from "../../shared/layout";
 import { styleContrastOk } from "../../shared/contrast";
-import { setNavHidden, type NavHidden } from "../../shared/nav-visibility";
+import type { NavHidden } from "../../shared/nav-visibility";
 
 // Admin live text editing (FLOW-240). Every built-in string on a screen is a
 // <T id="area.screen.element">Default text</T> (or useCopy for an input
@@ -204,13 +204,7 @@ export function CopyProvider({
         }
       }
     }
-    if (navPending) {
-      const { navVisibilitySchema } = await import("../../shared/nav-visibility-schema");
-      const { hidden } = await request(navVisibilitySchema, "/api/permissions/navigation", "PUT", { hidden: navPending });
-      setNavHidden(hidden);
-      // The sidebar, tabs and breadcrumb re-read it (src/app/auth.tsx).
-      window.dispatchEvent(new Event("flowbase:policy-changed"));
-    }
+    if (navPending) await (await import("./nav-visibility-editor")).saveNavHidden(navPending);
     setPending({});
     setLayoutPending({});
     stageNav(null);

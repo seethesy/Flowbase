@@ -17,8 +17,9 @@ const navKeys = new Set((manifestJson as { nav: string[] }).nav);
 export function permissionRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
+  // The browser's sidebar setting (FLOW-284) rides along, saving it a request.
   routes.get("/", requirePermission("auth.read"), async (c) =>
-    c.json({ matrix: await record(c, (db) => loadMatrix(db)) }));
+    c.json(await record(c, async (db) => ({ matrix: await loadMatrix(db), navHidden: await loadNavHidden(db) }))));
   routes.put("/", requirePermission("users.manage"), async (c) => {
     const { matrix } = await parseBody(c, z.object({ matrix: matrixSchema }));
     // Admin is locked to Write on every area, and a level must be one the area
