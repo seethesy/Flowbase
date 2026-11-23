@@ -38,6 +38,7 @@ export type KitchenOverview = z.infer<typeof kitchenOverviewSchema>;
 // PATCH /api/kitchen/lines/:id/in-charge; null clears it.
 export const kitchenInChargeInputSchema = z.object({ staffId: id.nullable() }).strict();
 export type KitchenInChargeInput = z.infer<typeof kitchenInChargeInputSchema>;
+export const kitchenInChargeResultSchema = z.object({ lineId: id, inChargeStaffId: id.nullable() });
 
 // Kitchen roles; a staff position counts when its name says Kitchen.
 export const kitchenRoles = ["kitchen_lead", "kitchen_staff"] as const;
