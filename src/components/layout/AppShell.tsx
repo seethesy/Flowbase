@@ -1,5 +1,5 @@
 import { usePermissions } from "../../app/permissions";
-import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useResource } from "../../app/useResource";
 import { clientsApi, eventsApi, inventoryApi, recipesApi, venuesApi } from "../../services/core";
 import { leadsApi } from "../../services/leads";
@@ -39,7 +39,7 @@ import { GlobalSearch } from "../../features/search";
 import { NotificationBell } from "../../features/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
 import { LiveEditControls, LiveEditLayer } from "../../app/live-edit";
-import { T } from "../../app/copy";
+import { T, useLiveEdit } from "../../app/copy";
 import { useAuth } from "../../app/auth";
 import {
   breadcrumbTrail,
@@ -51,9 +51,10 @@ import {
   secondaryPages,
   visibleGroups,
   visibleTabs,
+  type NavGroup,
+  type NavTab,
   type RecordKind,
 } from "../../app/navigation";
-import { NavWhoSees } from "../../app/nav-visibility-editor";
 const groupIcons: Record<string, LucideIcon> = {
   Dashboard: LayoutDashboard,
   Sales: Inbox,
@@ -300,6 +301,21 @@ function SectionTabs() {
     </nav>
   );
 }
+// The live-edit "Who sees this" popover (FLOW-284), loaded only in edit mode so
+// it stays out of the first load.
+const NavWhoSeesEditor = lazy(() =>
+  import("../../app/nav-visibility-editor").then((module) => ({ default: module.NavWhoSees })),
+);
+function NavWhoSees(props: { group: NavGroup; tab?: NavTab }) {
+  const { editing } = useLiveEdit();
+  if (!editing) return null;
+  return (
+    <Suspense fallback={null}>
+      <NavWhoSeesEditor {...props} />
+    </Suspense>
+  );
+}
+
 // A direct link to a page the Admin hid from this role (FLOW-284 req. 5): an
 // empty state with a link to the role's first page. The landing page (/) goes
 // straight to that first page. The API still answers by area permissions.
