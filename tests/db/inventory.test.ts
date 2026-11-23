@@ -1637,6 +1637,29 @@ describe("inline table fields (FLOW-275)", () => {
     expect((await admin.get<InventoryItem>(`/api/inventory/items/${ingredient.id}`)).consumable?.recipeUnit).toBeNull();
   });
 
+  it("saves how an ingredient is bought and rejects bad purchase values", async () => {
+    const ingredient = await createItem(cream());
+    const read = async () => (await admin.get<InventoryItem>(`/api/inventory/items/${ingredient.id}`)).consumable;
+    expect((await inline(admin, ingredient.id, "consumable.purchaseUnit", "each")).status).toBe(200);
+    expect((await inline(admin, ingredient.id, "consumable.packCount", "6")).status).toBe(200);
+    expect((await inline(admin, ingredient.id, "consumable.purchaseUnit", "case")).status).toBe(200);
+    expect((await inline(admin, ingredient.id, "consumable.eachSize.quantity", "946")).status).toBe(200);
+    expect((await inline(admin, ingredient.id, "consumable.eachSize.unit", "ml")).status).toBe(200);
+    expect(await read()).toMatchObject({ purchaseUnit: "case", packCount: 6, eachSize: { unit: "ml" } });
+    expect(Number((await read())?.eachSize?.quantity)).toBe(946);
+    expect((await inline(admin, ingredient.id, "consumable.purchaseUnit", "bucket")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.packCount", "0")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.packCount", "1.5")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.eachSize.quantity", "-1")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.eachSize.unit", "bucket")).status).toBe(400);
+    // A case needs its pack count.
+    expect((await inline(admin, ingredient.id, "consumable.packCount", "")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.eachSize.quantity", "")).status).toBe(200);
+    expect((await read())?.eachSize).toBeNull();
+    expect((await inline(partTimeStaff, ingredient.id, "consumable.packCount", "12")).status).toBe(403);
+    expect((await read())?.packCount).toBe(6);
+  });
+
   it("saves a rental's group, tier and color, and refuses a user who can't edit inventory", async () => {
     const row = await createItem(chairs());
     expect((await inline(admin, row.id, "group", "Ballroom chairs")).status).toBe(200);

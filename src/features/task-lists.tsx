@@ -115,6 +115,9 @@ function TaskLine({
   };
   // A due date keeps the task's time of day (5 PM when it had none).
   const due = task.dueAt ? utcToBusinessTime(new Date(task.dueAt)) : null;
+  // FLOW-275: the Due field reads as it does elsewhere ("Due 2026-09-03 18:00").
+  const dueText = useCopy("task-lists.task-line.due", "Due {date}", { date: task.dueAt ? dateTimeLabel(task.dueAt) : "" });
+  const noDueText = useCopy("task-lists.task-line.no-due-date", "No due date");
   const people = [
     ...staff,
     ...[...task.assignees, ...(task.overseer ? [task.overseer] : [])]
@@ -139,6 +142,7 @@ function TaskLine({
           options={taskPriorities.map((value) => ({ value, label: taskPriorityLabels[value] }))}
           save={(_row, value) => patch({ priority: taskPrioritySchema.parse(value) })} />
         <EditableCell label="Due" row={task} edit="date" value={due?.date ?? ""}
+          displayText={task.dueAt ? dueText : noDueText}
           save={(_row, value) => {
             if (value && !isBusinessTime(value, due?.time ?? "17:00"))
               return Promise.reject(new Error("Pick a due date that exists in New York time."));
@@ -900,6 +904,8 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
   const list = usePagedList(["tasks", "event", event.id, communal], (cursor) =>
     tasksApi.list(filter, cursor),
   );
+  // FLOW-275: task fields are edited in place here too, as on All tasks.
+  const staff = useActiveStaff();
   const pull = useResource(["event-pull-list", event.id], () => preparationApi.pullList(event.id));
   const tbdPullLines = pull.data?.groups.flatMap((group) => group.lines).filter((line) => line.tbd) ?? [];
   const delegates = can("tasks.delegate");
@@ -974,7 +980,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
       ) : list.data.length ? (
         <ul className="task-lines" aria-label="Event tasks">
           {list.data.map((task) => (
-            <TaskLine key={task.id} task={task}>
+            <TaskLine key={task.id} task={task} onChanged={list.reload} staff={staff} events={[event]}>
               <TaskActions task={task} onChanged={list.reload} onError={setError} />
             </TaskLine>
           ))}
