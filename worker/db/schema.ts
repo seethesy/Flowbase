@@ -2363,6 +2363,19 @@ export const rolePermissions = pgTable(
   ],
 ).enableRLS();
 
+// Which roles see each sidebar heading and tab (FLOW-284): one row per role with
+// the nav keys it hides (shared/nav-visibility.ts). No row means the role sees
+// everything its permissions allow. UI only: the API still answers by area.
+export const roleNavHidden = pgTable(
+  "role_nav_hidden",
+  {
+    ...baseColumns(),
+    role: text("role", { enum: roles }).notNull().unique(),
+    hidden: jsonb("hidden").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  },
+  (table) => [oneOf("role_nav_hidden_role_check", table.role, roles)],
+).enableRLS();
+
 // Per-user Google Calendar sync (FLOW-268). One connection per user: the
 // refresh token encrypted with AES-GCM (worker/google/crypto.ts, AC4) and the
 // "Flowbase events" calendar the app created in their account. Disconnecting

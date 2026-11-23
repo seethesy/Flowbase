@@ -1,11 +1,12 @@
 import { usePermissions } from "../../app/permissions";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useResource } from "../../app/useResource";
 import { clientsApi, eventsApi, inventoryApi, recipesApi, venuesApi } from "../../services/core";
 import { leadsApi } from "../../services/leads";
 import { vendorsApi } from "../../services/vendors";
 import { staffApi } from "../../services/staff";
 import {
+  Navigate,
   Outlet,
   Link,
   useLocation,
@@ -32,7 +33,7 @@ import {
   Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
-import { DetailDrawer, RoleText } from "../shared";
+import { DetailDrawer, EmptyState, RoleText } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
 import { GlobalSearch } from "../../features/search";
 import { NotificationBell } from "../../features/notifications";
@@ -42,13 +43,17 @@ import { T } from "../../app/copy";
 import { useAuth } from "../../app/auth";
 import {
   breadcrumbTrail,
+  firstVisiblePage,
   matchNavigation,
+  navigationGroups,
   navKey,
+  pageHiddenFrom,
   secondaryPages,
   visibleGroups,
   visibleTabs,
   type RecordKind,
 } from "../../app/navigation";
+import { NavWhoSees } from "../../app/nav-visibility-editor";
 const groupIcons: Record<string, LucideIcon> = {
   Dashboard: LayoutDashboard,
   Sales: Inbox,
@@ -191,21 +196,25 @@ function Sidebar({
             const Icon = groupIcons[name] ?? LayoutDashboard;
             // The heading stays highlighted on any of its tabs or record pages.
             const active = match?.group.name === name;
+            const group = navigationGroups.find((each) => each.copyId === copyId);
             return (
-              <Link
-                to={tabs[0].to}
-                state={{ navGroup: name }}
-                key={name}
-                title={name}
-                className={active ? "active" : undefined}
-                aria-current={active ? "page" : undefined}
-                onClick={() => setMobile(false)}
-              >
-                <Icon size={19} />
-                <span className="sidebar-text">
-                  <T id={navKey(copyId)}>{name}</T>
-                </span>
-              </Link>
+              <Fragment key={name}>
+                <Link
+                  to={tabs[0].to}
+                  state={{ navGroup: name }}
+                  title={name}
+                  className={active ? "active" : undefined}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setMobile(false)}
+                >
+                  <Icon size={19} />
+                  <span className="sidebar-text">
+                    <T id={navKey(copyId)}>{name}</T>
+                  </span>
+                </Link>
+                {/* Live edit (FLOW-284): which roles see this heading. */}
+                {group && <NavWhoSees group={group} />}
+              </Fragment>
             );
           })}
         </nav>
@@ -274,18 +283,46 @@ function SectionTabs() {
       {tabs.map((tab) => {
         const active = tab.to === match.tab.to;
         return (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            state={{ navGroup: match.group.name }}
-            className={active ? "active" : undefined}
-            aria-current={active ? "page" : undefined}
-          >
-            <T id={navKey(tab.copyId)}>{tab.name}</T>
-          </Link>
+          <Fragment key={tab.to}>
+            <Link
+              to={tab.to}
+              state={{ navGroup: match.group.name }}
+              className={active ? "active" : undefined}
+              aria-current={active ? "page" : undefined}
+            >
+              <T id={navKey(tab.copyId)}>{tab.name}</T>
+            </Link>
+            {/* Live edit (FLOW-284): which roles see this tab. */}
+            <NavWhoSees group={match.group} tab={tab} />
+          </Fragment>
         );
       })}
     </nav>
+  );
+}
+// A direct link to a page the Admin hid from this role (FLOW-284 req. 5): an
+// empty state with a link to the role's first page. The landing page (/) goes
+// straight to that first page. The API still answers by area permissions.
+function HiddenPageGuard({ children }: { children: ReactNode }) {
+  const { actor } = usePermissions();
+  const { match, pathname } = useNavMatch();
+  if (!actor || !match || !pageHiddenFrom(match, actor)) return <>{children}</>;
+  const first = firstVisiblePage(actor);
+  if (pathname === "/" && first && first !== "/") return <Navigate to={first} replace />;
+  return (
+    <section className="panel hidden-page">
+      <EmptyState
+        title={<T id="app-shell.hidden-page.title">Not available for your role</T>}
+        description={<T id="app-shell.hidden-page.description">Your Admin has hidden this page for your role.</T>}
+      />
+      {first && (
+        <p className="hidden-page-link">
+          <Link to={first}>
+            <T id="app-shell.hidden-page.go-to-first-page">Go to your first page</T>
+          </Link>
+        </p>
+      )}
+    </section>
   );
 }
 function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
@@ -402,7 +439,9 @@ export function AppShell() {
           <TrackingNotice />
           <SectionTabs />
           {dashboardParams.get("fromDashboard") === "1" && <Link className="back-link" to={`/${dashboardRole ? `?role=${encodeURIComponent(dashboardRole)}` : ""}`}><T id="app-shell.app-shell.back-to-dashboard">← Back</T></Link>}
-          <Suspense fallback={<p role="status"><T id="app-shell.app-shell.loading-screen">Loading screen…</T></p>}><Outlet /></Suspense>
+          <HiddenPageGuard>
+            <Suspense fallback={<p role="status"><T id="app-shell.app-shell.loading-screen">Loading screen…</T></p>}><Outlet /></Suspense>
+          </HiddenPageGuard>
         </main>
         <footer className="app-footer">
           <span>

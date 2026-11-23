@@ -13,6 +13,7 @@ import {
   policyMatrix,
   setPolicyMatrix,
 } from "../../shared/role-permissions";
+import { navHidden, navVisibilitySchema, setNavHidden } from "../../shared/nav-visibility";
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
@@ -21,9 +22,14 @@ import { cachedProfile, clearOfflineData, isNetworkError, rememberProfile } from
 import { syncOfflineBeos } from "../offline/sync";
 
 // Loads the roles and permissions matrix (FLOW-269) so `can` in the browser
-// answers like the API does. Resolves true when it changed. A failed load keeps
-// the matrix in force (the built-in rules until the first load succeeds).
+// answers like the API does, and which roles see each sidebar heading and tab
+// (FLOW-284). Resolves true when either changed. A failed load keeps what is in
+// force (the built-in rules and everything shown until the first load succeeds).
 async function refreshPolicy(): Promise<boolean> {
+  const [matrixChanged, navChanged] = await Promise.all([refreshMatrix(), refreshNavigation()]);
+  return matrixChanged || navChanged;
+}
+async function refreshMatrix(): Promise<boolean> {
   try {
     const response = await authFetch("/api/permissions");
     if (!response.ok) return false;
@@ -31,6 +37,18 @@ async function refreshPolicy(): Promise<boolean> {
     const before = JSON.stringify(policyMatrix());
     setPolicyMatrix(matrix);
     return JSON.stringify(matrix) !== before;
+  } catch {
+    return false;
+  }
+}
+async function refreshNavigation(): Promise<boolean> {
+  try {
+    const response = await authFetch("/api/permissions/navigation");
+    if (!response.ok) return false;
+    const { hidden } = navVisibilitySchema.parse(await response.json());
+    const before = JSON.stringify(navHidden());
+    setNavHidden(hidden);
+    return JSON.stringify(navHidden()) !== before;
   } catch {
     return false;
   }

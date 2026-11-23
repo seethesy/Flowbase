@@ -18,6 +18,7 @@ import {
   type Level,
   type Matrix,
 } from "../../shared/role-permissions";
+import { navVisibilitySchema, setNavHidden, type NavHidden } from "../../shared/nav-visibility";
 import { layoutApi } from "../services/layout";
 import { request } from "../services/core";
 import { roleLabel } from "../services/users";
@@ -26,6 +27,9 @@ import { usePermissions } from "./permissions";
 import { defaultBlocks, withBuiltins, type BuiltinBlock } from "./layout-state";
 import { layoutQueryKey } from "./copy";
 import { queryClient } from "./queryClient";
+import { navigationGroups, type NavGroup, type NavTab } from "./navigation";
+import { headingBlocked, keyOf, tabBlocked, withCell } from "./nav-visibility-editor";
+import { RoundCheck } from "../components/ui/round-check";
 import "./roles-permissions.css";
 
 // Settings › Roles & permissions (FLOW-269): a grid of areas × roles, each cell a
@@ -64,14 +68,16 @@ const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringif
 export function RolesPermissionsPage() {
   const { can } = usePermissions();
   const loaded = useResource(["permissions", "editor"], async () => {
-    const [{ matrix }, layout] = await Promise.all([
+    const [{ matrix }, layout, { hidden }] = await Promise.all([
       request(permissionsSchema, "/api/permissions"),
       layoutApi.get(DASHBOARD_PAGE_KEY),
+      request(navVisibilitySchema, "/api/permissions/navigation"),
     ]);
-    return { matrix, doc: layout?.layout ?? null };
+    return { matrix, doc: layout?.layout ?? null, hidden };
   });
   const [matrix, setMatrix] = useState<Matrix | null>(null);
   const [cards, setCards] = useState<CardRoles>({});
+  const [nav, setNav] = useState<NavHidden | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -79,6 +85,7 @@ export function RolesPermissionsPage() {
     if (!loaded.data) return;
     setMatrix(loaded.data.matrix);
     setCards(cardRolesOf(loaded.data.doc));
+    setNav(loaded.data.hidden);
   }, [loaded.data]);
   const rows = useMemo(() => cardRows(loaded.data?.doc ?? null), [loaded.data]);
 
@@ -88,7 +95,8 @@ export function RolesPermissionsPage() {
   const savedCards = cardRolesOf(loaded.data?.doc ?? null);
   const matrixDirty = !!matrix && !!savedMatrix && !sameJson(matrix, savedMatrix);
   const cardsDirty = rows.some((row) => !sameJson(cards[row.id], savedCards[row.id]));
-  const dirty = matrixDirty || cardsDirty;
+  const navDirty = !!nav && !!loaded.data && !sameJson(nav, loaded.data.hidden);
+  const dirty = matrixDirty || cardsDirty || navDirty;
 
   const setLevel = (role: Role, area: AreaKey, level: Level) =>
     setMatrix((current) => current && { ...current, [role]: { ...current[role], [area]: level } });
@@ -102,6 +110,7 @@ export function RolesPermissionsPage() {
     if (!loaded.data) return;
     setMatrix(loaded.data.matrix);
     setCards(cardRolesOf(loaded.data.doc));
+    setNav(loaded.data.hidden);
     setError("");
     setNotice("");
   };
@@ -127,6 +136,10 @@ export function RolesPermissionsPage() {
         await layoutApi.save(DASHBOARD_PAGE_KEY, { ...base, blocks });
         await queryClient.invalidateQueries({ queryKey: layoutQueryKey(DASHBOARD_PAGE_KEY) });
       }
+      if (navDirty && nav) {
+        const result = await request(navVisibilitySchema, "/api/permissions/navigation", "PUT", { hidden: nav });
+        setNavHidden(result.hidden);
+      }
       loaded.reload();
       setNotice("Permissions saved. They apply from each person's next request.");
       // Show it in this browser now: other screens read `can` on render.
@@ -145,7 +158,7 @@ export function RolesPermissionsPage() {
       </Link>
       <PageHeader
         title="Roles & permissions"
-        subtitle="What each role can read or write, area by area, and which roles see each dashboard card."
+        subtitle="What each role can read or write, area by area, and which roles see each dashboard card, sidebar heading and tab."
       />
       {loaded.error ? (
         <LoadError message={loaded.error} />
@@ -242,6 +255,7 @@ export function RolesPermissionsPage() {
               </table>
             </div>
           </Section>
+          {nav && <NavigationSection hidden={nav} onChange={setNav} />}
           {error && (
             <p role="alert" className="error-message">
               {error}
@@ -262,5 +276,73 @@ export function RolesPermissionsPage() {
         </>
       )}
     </>
+  );
+}
+
+// Which roles see each sidebar heading and tab (FLOW-284): headings with their
+// tabs under them, a checkbox per role. Unchecking a heading hides every tab
+// under it. A cell the role can't reach anyway is disabled with the reason.
+function NavigationSection({ hidden, onChange }: { hidden: NavHidden; onChange: (next: NavHidden) => void }) {
+  const cell = (group: NavGroup, tab: NavTab | undefined, role: Role) => {
+    const name = tab ? `${group.name} › ${tab.name}` : group.name;
+    if (role === "admin")
+      return <RoundCheck checked disabled aria-label={`${name} for ${roleLabel(role)}: always shown`} readOnly />;
+    const headingOff = !!tab && hidden[role].includes(group.copyId);
+    const blocked = headingOff ? `${group.name} is hidden` : tab ? tabBlocked(group, tab, role) : headingBlocked(group, role);
+    const shown = !headingOff && !hidden[role].includes(keyOf(group, tab));
+    return (
+      <span className="perm-nav-cell" title={blocked ?? undefined}>
+        <RoundCheck
+          aria-label={`${name} for ${roleLabel(role)}`}
+          checked={shown && !blocked}
+          disabled={!!blocked}
+          onChange={(event) => onChange(withCell(hidden, role, keyOf(group, tab), event.target.checked))}
+        />
+        {blocked && <small className="muted">{blocked}</small>}
+      </span>
+    );
+  };
+  return (
+    <Section title="Navigation">
+      <p className="muted">
+        Choose which roles see each sidebar heading and tab. A role sees a tab only if it is checked here and the role
+        can open it. This only hides navigation: it isn't a security boundary, and what a role can read or write still
+        follows the areas above. Admin always sees everything.
+      </p>
+      <div className="table-scroll">
+        <table className="perm-grid perm-nav-grid" aria-label="Navigation by role">
+          <thead>
+            <tr>
+              <th scope="col">Heading or tab</th>
+              {roles.map((role) => (
+                <th scope="col" key={role}>
+                  {roleLabel(role)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {navigationGroups.flatMap((group) => [
+              <tr key={group.copyId} className="perm-nav-heading">
+                <th scope="row">{group.name}</th>
+                {roles.map((role) => (
+                  <td key={role}>{cell(group, undefined, role)}</td>
+                ))}
+              </tr>,
+              ...group.tabs.map((tab) => (
+                <tr key={keyOf(group, tab)}>
+                  <th scope="row" className="perm-nav-tab">
+                    {tab.name}
+                  </th>
+                  {roles.map((role) => (
+                    <td key={role}>{cell(group, tab, role)}</td>
+                  ))}
+                </tr>
+              )),
+            ])}
+          </tbody>
+        </table>
+      </div>
+    </Section>
   );
 }

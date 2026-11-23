@@ -51,6 +51,11 @@ describe("live-edit key manifest", () => {
     expect(manifest.layout["leads.detail"].fieldCards).toEqual(["lead-facts"]);
     expect(manifest.layout["dashboard.home"].blocks).toContain("my-leads");
     expect(manifest.tables).toContain("leads.inbox.table");
+    // Sidebar heading and tab keys (FLOW-284), with each heading's Overview tab.
+    expect(manifest.nav).toContain("sales");
+    expect(manifest.nav).toContain("sales.venues");
+    expect(manifest.nav).toContain("reports.overview");
+    expect(manifest.nav).toContain("events.day-of");
     // Event hub blocks come from blockIds: one per hub section.
     expect(manifest.layout["events.detail"].blocks).toEqual(
       hubSectionSchema.options.map((section) => section.replace(/_/g, "-")).sort(),

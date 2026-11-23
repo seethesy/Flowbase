@@ -62,3 +62,18 @@
   font-size: 12px;
   padding: 2px 0;
 }
+/* Navigation by role (FLOW-284). */
+.perm-nav-heading th {
+  font-weight: 600;
+}
+.perm-nav-tab {
+  padding-left: 24px !important;
+}
+.perm-nav-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.perm-nav-cell small {
+  font-size: 10px;
+}
