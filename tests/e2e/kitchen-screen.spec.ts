@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { databaseTest as test, expect } from "./auth-fixture";
+import { test, expect } from "./auth-fixture";
 import { browserDb, seedInventory, seedRecords } from "./database";
 import { consumable, fallGala, juniper } from "./fixtures";
 import { seedUsers } from "../../worker/db/seed";
