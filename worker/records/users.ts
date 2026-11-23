@@ -20,8 +20,10 @@ export const toUser = (row: typeof users.$inferSelect) =>
     invitedAt: row.invitedAt.toISOString(),
     activatedAt: row.activatedAt?.toISOString() ?? null,
   });
+// Settings › Users lists accounts; staff without one live only in the directory
+// (FLOW-270 A3).
 export const listUsers = async (db: Db) =>
-  (await db.select().from(users).orderBy(desc(users.createdAt))).map(toUser);
+  (await db.select().from(users).where(eq(users.hasAccount, true)).orderBy(desc(users.createdAt))).map(toUser);
 
 export async function inviteUser(db: Db, actor: Actor, input: InviteInput) {
   // Only revoked invitations may be reissued. Preserve their stable staff id.
@@ -73,7 +75,8 @@ export async function changeUser(
       .from(users)
       .where(eq(users.id, id))
       .for("update");
-    if (!row) throw notFound("User");
+    // Staff without an account have no invite or sign-in to change (FLOW-270 A3).
+    if (!row || !row.hasAccount) throw notFound("User");
     const status = nextUserStatus(row.status, action);
     if (!status)
       throw new ApiError(
@@ -103,7 +106,7 @@ export async function changeUser(
 export async function changeUserEmail(db: Db, actor: Actor, id: string, email: string) {
   return db.transaction(async (tx) => {
     const [row] = await tx.select().from(users).where(eq(users.id, id)).for("update");
-    if (!row || row.archivedAt || row.status === "revoked") throw notFound("User");
+    if (!row || !row.hasAccount || row.archivedAt || row.status === "revoked") throw notFound("User");
     const [taken] = await tx.select({ id: users.id }).from(users)
       .where(and(sql`lower(${users.email}) = ${email.toLowerCase()}`, isNull(users.archivedAt)));
     if (taken && taken.id !== id) throw new ApiError(409, "USER_EXISTS", "This email already belongs to another user.");
@@ -133,14 +136,16 @@ export async function resolveUser(
   return db.transaction(async (tx) => {
     // Lock the invitation: concurrent first requests cannot claim it twice, and
     // revocation/deactivation cannot be overwritten by a sign-in.
+    // Staff without a Flowbase account never sign in (FLOW-270 A3).
     const [byIdentity] = await tx.select().from(users)
-      .where(and(eq(users.authId, identity.sub), isNull(users.archivedAt))).for("update");
+      .where(and(eq(users.authId, identity.sub), eq(users.hasAccount, true), isNull(users.archivedAt))).for("update");
     const [byEmail] = byIdentity ? [] : await tx
       .select()
       .from(users)
       .where(
         and(
           sql`lower(${users.email}) = ${identity.email.toLowerCase()}`,
+          eq(users.hasAccount, true),
           isNull(users.archivedAt),
         ),
       )

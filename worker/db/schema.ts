@@ -52,6 +52,7 @@ import { beoAreaKinds, beoStatuses, runOfShowModes } from "../../shared/beo";
 import { deletableEntities } from "../../shared/deletions";
 import { truckStatuses } from "../../shared/trucks";
 import { dayOfCheckpointKeys, dayOfStaffStatuses, dayOfUpdateKinds } from "../../shared/day-of";
+import { payTypes, rateUnitValues } from "../../shared/staff-pay";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "./conventions";
 
 // Values of enum-like text columns that have no shared name elsewhere; each
@@ -98,9 +99,14 @@ export const users = pgTable(
     notes: text("notes").notNull().default(""),
     positions: jsonb("positions").$type<string[]>().notNull().default([]),
     smsConsentAt: timestamptz("sms_consent_at"),
+    // Staff without a Flowbase account (FLOW-270 A3): no email, never invited,
+    // can't sign in and never notified. Their role is stored as the least
+    // privileged one and shown blank; it grants nothing because they never sign in.
+    hasAccount: boolean("has_account").notNull().default(true),
   },
   (table) => [
-    uniqueIndex("users_email_idx").on(sql`lower(${table.email})`),
+    // Staff without accounts have no email, so only real addresses are unique.
+    uniqueIndex("users_email_idx").on(sql`lower(${table.email})`).where(sql`${table.email} <> ''`),
     oneOf("users_role_check", table.role, roles),
     oneOf("users_status_check", table.status, userStatuses),
   ],
@@ -2360,5 +2366,49 @@ export const rolePermissions = pgTable(
     oneOf("role_permissions_role_check", table.role, roles),
     oneOf("role_permissions_area_check", table.area, areaKeys),
     oneOf("role_permissions_level_check", table.level, levels),
+  ],
+).enableRLS();
+
+// Staff pay (FLOW-270): each person's normal pay, kept off users so it never
+// rides along on other queries. Linked to the staff member by full name (A4,
+// Ash 2026-11-23); renaming a staff member renames the row. Audit-logged.
+export const staffPay = pgTable(
+  "staff_pay",
+  {
+    ...baseColumns(),
+    staffFullName: text("staff_full_name").notNull(),
+    payType: text("pay_type", { enum: payTypes }),
+    rateCents: moneyCents("rate_cents"),
+    rateUnit: text("rate_unit", { enum: rateUnitValues }),
+    secondRateCents: moneyCents("second_rate_cents"),
+    secondRateLabel: text("second_rate_label").notNull().default(""),
+  },
+  (table) => [
+    uniqueIndex("staff_pay_name_idx")
+      .on(sql`lower(${table.staffFullName})`)
+      .where(sql`${table.archivedAt} is null`),
+    oneOf("staff_pay_pay_type_check", table.payType, payTypes),
+    oneOf("staff_pay_rate_unit_check", table.rateUnit, rateUnitValues),
+  ],
+).enableRLS();
+
+// Pay for one event or one project that differs from the person's normal rate
+// (FLOW-270 A2). Exactly one of event_id and project is set. Audit-logged.
+export const staffPayExceptions = pgTable(
+  "staff_pay_exceptions",
+  {
+    ...baseColumns(),
+    staffFullName: text("staff_full_name").notNull(),
+    eventId: uuid("event_id").references(() => events.id),
+    project: text("project"),
+    amountCents: moneyCents("amount_cents").notNull(),
+    note: text("note").notNull().default(""),
+  },
+  (table) => [
+    index("staff_pay_exceptions_name_idx").on(sql`lower(${table.staffFullName})`),
+    check(
+      "staff_pay_exceptions_target_check",
+      sql`(${table.eventId} is null) <> (${table.project} is null)`,
+    ),
   ],
 ).enableRLS();

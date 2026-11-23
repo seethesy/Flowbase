@@ -90,7 +90,8 @@ export async function deliver(
   const byUser = new Map(recipients.map((r) => [r.userId, r]));
   if (!byUser.size) return 0;
   return db.transaction(async (tx) => {
-    // Only active staff are notified.
+    // Only active staff are notified, and never staff without a Flowbase
+    // account (FLOW-270 A3): no notification row, so no email or SMS either.
     const active = await tx
       .select({ id: users.id })
       .from(users)
@@ -98,6 +99,7 @@ export async function deliver(
         and(
           inArray(users.id, [...byUser.keys()]),
           eq(users.status, "active"),
+          eq(users.hasAccount, true),
           isNull(users.archivedAt),
         ),
       );

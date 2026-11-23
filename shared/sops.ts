@@ -21,6 +21,8 @@ export type SopUpdate = z.infer<typeof sopUpdateSchema>;
 export const sopSummarySchema = z.object({
   id, title: z.string(), category: z.string(), version: z.number().int().positive(),
   updatedAt: timestamp,
+  // Who created it (FLOW-270 SOPs tab).
+  owner: z.string().nullable(),
 });
 export type SopSummary = z.infer<typeof sopSummarySchema>;
 export const sopVersionSchema = z.object({

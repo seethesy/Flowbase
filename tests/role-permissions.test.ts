@@ -102,13 +102,18 @@ describe("a changed matrix", () => {
     expect(eventScope(actor("kitchen_lead"))).toBe("staffed");
   });
 
-  it("AC5: Staff pay is Admin-only until an Admin grants it", () => {
+  it("AC5 as changed by FLOW-270 A1: Staff pay is Admin and Technical until an Admin grants it", () => {
     setPolicyMatrix(defaultMatrix);
-    for (const role of roles)
-      expect(can(actor(role), "staff.pay.read"), role).toBe(role === "admin");
+    expect(defaultMatrix.technical.staff_pay).toBe("write");
+    for (const role of roles) {
+      expect(can(actor(role), "staff.pay.read"), role).toBe(role === "admin" || role === "technical");
+      expect(can(actor(role), "staff.pay.write"), role).toBe(role === "admin" || role === "technical");
+    }
     setPolicyMatrix(edited("sales_manager", "staff_pay", "read"));
     expect(can(actor("sales_manager"), "staff.pay.read")).toBe(true);
     expect(can(actor("sales_manager"), "staff.pay.write")).toBe(false);
+    // An Admin can still take pay away from Technical.
+    setPolicyMatrix(edited("technical", "staff_pay", "none"));
     expect(can(actor("technical"), "staff.pay.read")).toBe(false);
   });
 
