@@ -147,3 +147,15 @@ export function requirePermission(action: Action): MiddlewareHandler<AppEnv> {
   permissionGuards.set(guard, action);
   return guard;
 }
+// Any one of the actions lets the request through; the handler then checks the
+// exact one (e.g. an inventory list's own permission, FLOW-289).
+export function requireAnyPermission(...actions: [Action, ...Action[]]): MiddlewareHandler<AppEnv> {
+  const guard: MiddlewareHandler<AppEnv> = async (c, next) => {
+    const actor = c.get("actor");
+    if (!actor || !actions.some((action) => can(actor, action)))
+      return fail(c, 403, "FORBIDDEN", "You don't have access to this.");
+    await next();
+  };
+  permissionGuards.set(guard, actions[0]);
+  return guard;
+}

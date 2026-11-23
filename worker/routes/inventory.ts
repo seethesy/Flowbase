@@ -24,7 +24,7 @@ import {
 } from "../../shared/inventory";
 import { id as uuid, withVersion } from "../../shared/schema-primitives";
 import { unitSchema } from "../../shared/units";
-import { requireActor, requirePermission, type ResolveActor } from "../auth";
+import { requireActor, requireAnyPermission, requirePermission, type ResolveActor } from "../auth";
 import { can } from "../policy";
 import {
   notFound,
@@ -132,7 +132,7 @@ export function inventoryRoutes(options: {
   });
 
   // One list's items (FLOW-289: ?list=master, bar or kitchen), or every list's.
-  routes.get("/items", async (c) => {
+  routes.get("/items", requireAnyPermission("inventory.read", "recipes.read"), async (c) => {
     const list = inventoryListSchema.safeParse(c.req.query("list"));
     requireList(c, list.success ? list.data : "master", "read");
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
@@ -172,7 +172,7 @@ export function inventoryRoutes(options: {
       throw new ApiError(400, "INVALID_REQUEST", "Invalid item ids.");
     return c.json(await record(c, (db) => pendingInventoryChanges(db, ids)));
   });
-  routes.get("/items/:id", async (c) => {
+  routes.get("/items/:id", requireAnyPermission("inventory.read", "recipes.read"), async (c) => {
     const id = param(c, "Item");
     return c.json(await record(c, async (db, actor) => {
       const item = await getItem(db, actor, id);
@@ -180,7 +180,7 @@ export function inventoryRoutes(options: {
       return item;
     }));
   });
-  routes.post("/items", async (c) => {
+  routes.post("/items", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const input = await parseBody(c, itemInputSchema);
     requireList(c, inventoryListOf(input), "write");
     if (input.kind !== "consumable" && !can(c.get("actor"), "rentals.apply_directly"))
@@ -190,7 +190,7 @@ export function inventoryRoutes(options: {
       201,
     );
   });
-  routes.put("/items/:id", async (c) => {
+  routes.put("/items/:id", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const id = param(c, "Item");
     const input = await parseBody(c, withVersion(itemInputSchema));
     requireList(c, inventoryListOf(input), "write");
@@ -200,7 +200,7 @@ export function inventoryRoutes(options: {
       await record(c, (db, actor) => updateItem(db, actor, id, input)),
     );
   });
-  routes.patch("/items/:id/inline", async (c) => {
+  routes.patch("/items/:id/inline", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const id = param(c, "Item");
     const { field, value, updatedAt } = await parseBody(c, inlineSchema);
     return c.json(await record(c, async (db, actor) => {
@@ -462,6 +462,7 @@ export function inventoryRoutes(options: {
   ] as const) {
     routes.post(
       `/items/:id/${action}`,
+      requireAnyPermission("inventory.write", "recipes.write"),
       async (c) => {
         const id = param(c, "Item");
         return c.json(

@@ -133,10 +133,13 @@ it("validates items and transfers before touching the database", async () => {
 
 it("refuses inventory writes to staff and section changes to non-admins", async () => {
   const { mock, withDb } = mockDb();
+  // A Master item needs inventory.write; the kitchen's recipes.write is only
+  // for Kitchen Ingredients (FLOW-289).
+  const chair = { kind: "rental", subtype: "furniture", code: "CH-1", name: "Chair" };
   for (const role of ["salesperson", "kitchen_staff", "staff"] as const) {
     const app = createApp({ withDb, resolveActor: async () => actor(role) });
     expect(
-      (await app.request("/api/inventory/items", post({}), env)).status,
+      (await app.request("/api/inventory/items", post(chair), env)).status,
     ).toBe(403);
   }
   // Part-time Staff (FLOW-249) can't count or move anything.
@@ -288,7 +291,12 @@ it("checks inline item edits before reaching the database", async () => {
     headers: { "Content-Type": "application/json" },
   });
   const path = `/api/inventory/items/${id}/inline`;
-  for (const role of ["salesperson", "kitchen_staff", "staff", "part_time_staff"] as const) {
+  // Roles that can write no list are refused before the item is loaded; the
+  // kitchen's roles are checked against the item's list (FLOW-289).
+  const readOnly = (["salesperson", "kitchen_staff", "staff", "part_time_staff"] as const)
+    .filter((role) => !can(actor(role), "inventory.write") && !can(actor(role), "recipes.write"));
+  expect(readOnly.length).toBeGreaterThan(0);
+  for (const role of readOnly) {
     const app = createApp({ withDb, resolveActor: async () => actor(role) });
     for (const field of ["tier", "bar.container", "consumable.recipeUnit", "consumable.storageSectionId", "group", "color",
       "consumable.purchaseUnit", "consumable.packCount", "consumable.eachSize.quantity", "consumable.eachSize.unit"])
