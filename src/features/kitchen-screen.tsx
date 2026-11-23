@@ -10,7 +10,7 @@ import { useResource } from "../app/useResource";
 import { LoadError } from "../components/record-display";
 import { Button, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader } from "../components/shared";
 import { Dropdown } from "../components/ui/Dropdown";
-import { eventsApi } from "../services/core";
+import { eventsApi, recipesApi } from "../services/core";
 import { documentsApi } from "../services/documents";
 import { weekday } from "./calendar-entries";
 import { DocumentUpload } from "./documents";
@@ -119,9 +119,10 @@ export function KitchenCard({ recipe, onClose }: { recipe: Recipe; onClose: () =
   );
 }
 
-// The Menus tab (FLOW-267): every Document of type Menu (FLOW-263), plus the
-// client recipe book. A menu linked to an event is an event menu; any other is a
-// seasonal menu. Open PDF opens the file; In Documents opens its preview there.
+// The Menus tab (FLOW-267): every Document of type Menu (FLOW-263). A menu linked
+// to an event is an event menu; a stored client recipe book (FLOW-301, group
+// "recipe_book") is a recipe book; any other is a seasonal menu. Open PDF opens
+// the file; In Documents opens its preview there.
 type MenuKind = "event" | "seasonal" | "recipe_book";
 const kindLabels: Record<MenuKind, string> = { event: "Event menu", seasonal: "Seasonal", recipe_book: "Recipe book" };
 const filterLabels: Record<"" | MenuKind, string> = { "": "All menus", event: "Event", seasonal: "Seasonal", recipe_book: "Recipe books" };
@@ -131,14 +132,30 @@ export function MenusPage() {
   const menus = useResource(["documents", "menus"], () => documentsApi.list({ docType: "menu" }));
   const [kind, setKind] = useState<"" | MenuKind>("");
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState("");
   const cards = (menus.data ?? []).map((document) => ({
     document,
-    kind: (document.recordType === "event" ? "event" : "seasonal") as MenuKind,
+    kind: (document.group === "recipe_book" ? "recipe_book"
+      : document.recordType === "event" ? "event" : "seasonal") as MenuKind,
   }));
-  const showBook = !kind || kind === "recipe_book";
+  const shown = cards.filter((card) => !kind || card.kind === kind);
+  // FLOW-301: the client recipe book (all dishes) is generated and stored as a PDF.
+  const generateBook = async () => {
+    setGenerating(true);
+    setError("");
+    try { await recipesApi.saveClientBook({}); menus.reload(); }
+    catch (cause) { setError((cause as Error).message); }
+    finally { setGenerating(false); }
+  };
   return (
     <>
       <KitchenHeading tab="menus">
+        {can("attachments.write") && (
+          <Button variant="outline" disabled={generating} onClick={() => void generateBook()}>
+            <T id="kitchen-screen.menus.generate-recipe-book">Generate recipe book</T>
+          </Button>
+        )}
         {can("attachments.write") && (
           <Button onClick={() => setUploading(true)}><T id="kitchen-screen.menus.upload-menu">+ Upload menu</T></Button>
         )}
@@ -161,9 +178,10 @@ export function MenusPage() {
         </Block>
         <Block id="menus" name="Menus" h={24}>
           {menus.error && <LoadError message={menus.error} />}
+          {error && <p role="alert" className="error-message">{error}</p>}
           {!menus.data && !menus.error && <LoadingSkeleton />}
           <ul className="menu-cards" aria-label="Menus">
-            {cards.filter((card) => !kind || card.kind === kind).map(({ document, kind: cardKind }) => {
+            {shown.map(({ document, kind: cardKind }) => {
               const latest = [...document.versions].sort((a, b) => b.number - a.number)[0];
               return (
                 <MenuCard
@@ -183,19 +201,12 @@ export function MenusPage() {
                 />
               );
             })}
-            {showBook && (
-              <MenuCard
-                title={<T id="kitchen-screen.menus.client-recipe-book">Client recipe book</T>}
-                kicker={<LabelT id="labels.menu-kind" value="recipe_book">{kindLabels.recipe_book}</LabelT>}
-                detail={<T id="kitchen-screen.menus.generated-from-the-recipes">Generated from the recipes</T>}
-                pdf="#/print/recipes/client"
-                documentId={null}
-                tone="recipe_book"
-              />
-            )}
           </ul>
-          {menus.data && !cards.length && kind !== "recipe_book" && (
+          {menus.data && !shown.length && kind !== "recipe_book" && (
             <p className="muted"><T id="kitchen-screen.menus.no-menu-documents-yet">No menu documents yet. Upload one, or set a document's type to Menu.</T></p>
+          )}
+          {menus.data && !shown.length && kind === "recipe_book" && (
+            <p className="muted"><T id="kitchen-screen.menus.no-recipe-books-yet">No recipe books yet. Generate one here or from the client recipe book.</T></p>
           )}
         </Block>
       </PageGrid>
@@ -220,7 +231,7 @@ function MenuCard({ title, kicker, detail, pdf, documentId, tone }: {
   kicker: ReactNode;
   detail: ReactNode;
   pdf: string | null;
-  documentId: string | null;
+  documentId: string;
   tone: MenuKind;
 }) {
   return (
@@ -236,14 +247,12 @@ function MenuCard({ title, kicker, detail, pdf, documentId, tone }: {
         <div className="panel-actions">
           {pdf && (
             <Button variant="outline" asChild>
-              <a href={pdf} target={pdf.startsWith("#") ? undefined : "_blank"} rel="noreferrer"><T id="kitchen-screen.menus.open-pdf">Open PDF</T></a>
+              <a href={pdf} target="_blank" rel="noreferrer"><T id="kitchen-screen.menus.open-pdf">Open PDF</T></a>
             </Button>
           )}
-          {documentId && (
-            <Button variant="outline" asChild>
-              <Link to={`/documents?document=${documentId}`}><T id="kitchen-screen.menus.in-documents">In Documents</T></Link>
-            </Button>
-          )}
+          <Button variant="outline" asChild>
+            <Link to={`/documents?document=${documentId}`}><T id="kitchen-screen.menus.in-documents">In Documents</T></Link>
+          </Button>
         </div>
       </div>
     </li>

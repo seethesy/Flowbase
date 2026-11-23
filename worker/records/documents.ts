@@ -45,6 +45,7 @@ async function toDocument(db: DbLike, env: Partial<Bindings>, rows: Row[]): Prom
     docType: latest.docType as Document["docType"],
     recordType: latest.recordType as Document["recordType"],
     recordId: latest.recordId,
+    group: latest.group,
     protected: latest.protected,
     updatedAt: latest.updatedAt.toISOString(),
     versions: await Promise.all(rows.map(async (row) => {

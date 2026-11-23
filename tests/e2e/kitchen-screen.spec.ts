@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
+import { choose } from "./dropdown";
 import { browserDb, seedInventory, seedRecords } from "./database";
-import { consumable, fallGala, juniper } from "./fixtures";
+import { consumable, defaultSections, fallGala, juniper } from "./fixtures";
 import { seedUsers } from "../../worker/db/seed";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { createRecipe } from "../../worker/records/recipes";
@@ -64,7 +65,6 @@ test("the Menus tab lists every Menu document, and Open PDF and In Documents lea
   const menus = page.getByRole("list", { name: "Menus" });
   await expect(menus.getByRole("listitem").filter({ hasText: "Fall gala menu" })).toContainText(/Event menu/i);
   await expect(menus.getByRole("listitem").filter({ hasText: "Fall seasonal menu" })).toContainText(/Seasonal/i);
-  await expect(menus.getByRole("listitem").filter({ hasText: "Client recipe book" })).toBeVisible();
   await menus.getByRole("listitem").filter({ hasText: "Fall seasonal menu" }).getByRole("link", { name: "In Documents" }).click();
   await expect(page).toHaveURL(/#\/documents\?document=/);
   await expect(page.getByRole("dialog", { name: "Fall seasonal menu" })).toBeVisible();
@@ -112,4 +112,40 @@ test("Kitchen opens on the Overview, one row per menu item, and In charge saves 
   await expect(page).toHaveURL(/#\/kitchen\/overview$/);
   await page.reload();
   await expect(page.getByRole("row", { name: /Braised short rib/ })).toContainText(cook.name);
+});
+
+// FLOW-301: a stored client recipe book is a Menu document in the recipe book
+// group, listed under the Recipe books filter with In Documents.
+test("stored client recipe books appear on Menus under the Recipe books filter (FLOW-301 AC2)", async ({ page }) => {
+  await browserDb(async (db) => {
+    const book = "f3010000-0000-4000-8000-000000000001";
+    await db.insert(s.attachments).values([
+      { documentId: book, recordType: "document", recordId: book, group: "recipe_book", fileName: "Client-recipe-book.pdf",
+        displayName: "Client recipe book", docType: "menu", status: "ready", variants: [] },
+      { recordType: "document", recordId: "f3010000-0000-4000-8000-000000000002", documentId: "f3010000-0000-4000-8000-000000000002",
+        fileName: "spring.pdf", displayName: "Spring seasonal menu", docType: "menu", status: "ready", variants: [] },
+    ]);
+  });
+  await page.goto("/#/kitchen/menus");
+  const menus = page.getByRole("list", { name: "Menus" });
+  const book = menus.getByRole("listitem").filter({ hasText: "Client recipe book" });
+  await expect(book).toContainText(/Recipe book/i);
+  await expect(book.getByRole("link", { name: "In Documents" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Generate recipe book" })).toBeVisible();
+  await choose(page.getByRole("combobox", { name: /^Menus/ }), "recipe_book");
+  await expect(book).toBeVisible();
+  await expect(menus.getByRole("listitem").filter({ hasText: "Spring seasonal menu" })).toHaveCount(0);
+});
+
+test("the Ingredients tab filters by storage (FLOW-301 AC3)", async ({ page }) => {
+  const dry = defaultSections.find((section) => section.name === "Kitchen – Dry Storage")!;
+  await seedInventory({ items: [
+    consumable("Synthetic flour", { details: { storageSectionId: dry.id } }),
+    consumable("Synthetic cream"),
+  ] });
+  await page.goto("/#/inventory/ingredients");
+  await expect(page.getByRole("row", { name: /Synthetic cream/ })).toBeVisible();
+  await choose(page.getByRole("combobox", { name: /^Storage/ }), { label: "Kitchen – Dry Storage" });
+  await expect(page.getByRole("row", { name: /Synthetic flour/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Synthetic cream/ })).toHaveCount(0);
 });

@@ -1,3 +1,4 @@
+import { documentSchema } from "../../shared/documents";
 import type { z } from "zod";
 import { queryClient } from "../app/queryClient";
 import { authFetch } from "./auth";
@@ -346,6 +347,9 @@ export const sectionsApi = {
 export const recipesApi = {
   clientList: (filter: { category?: string } = {}) =>
     request(clientRecipeSchema.array(), `/api/recipes/client${query(filter)}`),
+  // FLOW-301: store the client recipe book as a PDF on Kitchen › Menus.
+  saveClientBook: (input: { category?: string; ids?: string[] } = {}) =>
+    request(documentSchema, "/api/recipes/client-book", "POST", input),
   list: (
     filter: {
       archived?: boolean;

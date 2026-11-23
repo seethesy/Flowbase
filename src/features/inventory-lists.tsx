@@ -58,11 +58,14 @@ function SectionFilter({
   onChange,
   kind,
   label = "Section",
+  allLabel = `All ${label.toLowerCase()}s`,
 }: {
   value: string;
   onChange: (value: string) => void;
   kind?: SectionKind;
   label?: string;
+  // The "every section" option (FLOW-301: "All storage" on Ingredients).
+  allLabel?: string;
 }) {
   const sections = useResource(
     ["sections", { kind }],
@@ -75,7 +78,7 @@ function SectionFilter({
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
-      <option value="">All {label.toLowerCase()}s</option>
+      <option value="">{allLabel}</option>
       {(sections.data ?? []).map((section) => (
         <option key={section.id} value={section.id}>
           {section.name}
@@ -654,7 +657,8 @@ export function IngredientList({
           value={sectionId}
           onChange={setSectionId}
           kind="consumable"
-          label="Storage section"
+          label="Storage"
+          allLabel="All storage"
         />
         <label className="checkbox-filter">
           <RoundCheck

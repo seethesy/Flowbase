@@ -24,7 +24,7 @@ import {
 import type { Unit } from "../../shared/units";
 import { fullView, listHistory, maskField, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { attachments, inventoryItems, recipeLines, recipes } from "../db/schema";
+import { attachments, events, inventoryItems, kitchenMenuLines, kitchenMenus, recipeLines, recipes } from "../db/schema";
 import { fileStorage } from "../attachments/storage";
 import type { Bindings } from "../bindings";
 import { ApiError, forbidden, notFound } from "../hono";
@@ -456,6 +456,24 @@ export async function updateRecipe(
   return getRecipe(db, actor, id);
 }
 
+// FLOW-301: a recipe on the menu of an upcoming event can't be deleted. Upcoming
+// means the event isn't Finished (or Lost, or deleted) yet. Returns the reason,
+// naming the events, or null.
+export async function recipeDeleteBlocked(db: DbLike, _actor: Actor, id: string): Promise<string | null> {
+  const rows = await db.selectDistinct({ title: events.title })
+    .from(kitchenMenuLines)
+    .innerJoin(kitchenMenus, eq(kitchenMenus.id, kitchenMenuLines.menuId))
+    .innerJoin(events, eq(events.id, kitchenMenus.eventId))
+    .where(and(eq(kitchenMenuLines.recipeId, id), isNull(kitchenMenuLines.archivedAt),
+      isNull(kitchenMenus.archivedAt), isNull(events.archivedAt),
+      sql`${events.status} not in ('finished', 'lost')`))
+    .orderBy(asc(events.title))
+    .limit(4);
+  if (!rows.length) return null;
+  const names = rows.slice(0, 3).map((row) => row.title).join(", ");
+  return `is on the menu of an upcoming event (${names}${rows.length > 3 ? ", …" : ""})`;
+}
+
 export async function setRecipeArchived(
   db: Db,
   actor: Actor,
@@ -463,6 +481,11 @@ export async function setRecipeArchived(
   archived: boolean,
 ): Promise<Recipe> {
   await findRecipe(db, id);
+  if (archived) {
+    const reason = await recipeDeleteBlocked(db, actor, id);
+    if (reason)
+      throw new ApiError(409, "RECIPE_ON_UPCOMING_MENU", `This recipe can't be deleted: it ${reason}.`);
+  }
   await setArchived(db, actor, id, archived, {
     update: (tx, values) =>
       tx.update(recipes).set(values).where(eq(recipes.id, id)),

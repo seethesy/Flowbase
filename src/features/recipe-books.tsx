@@ -6,6 +6,7 @@ import type { ClientRecipe } from "../../shared/recipes";
 import { unitLabel } from "../../shared/units";
 import { useResource } from "../app/useResource";
 import { recipesApi } from "../services/core";
+import { usePermissions } from "../app/permissions";
 import { PrintLayout } from "../components/print/PrintLayout";
 import { LoadError } from "../components/record-display";
 import { Button, FilterBar, LoadingSkeleton, PageHeader } from "../components/shared";
@@ -38,12 +39,31 @@ export function ClientRecipeBook() {
   const dishes = resource.data ?? [];
   const toggle = (id: string, checked: boolean) => setSelected((ids) => checked ? [...ids, id] : ids.filter((other) => other !== id));
   const printSelection = `/print/recipes/client?ids=${selected.join(",")}`;
+  // FLOW-301: store this book (the selection, else the category, else every dish)
+  // as a PDF on Kitchen › Menus, under Recipe books.
+  const { can } = usePermissions();
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const saveBook = async () => {
+    setSaving(true);
+    setSaved(false);
+    setSaveError("");
+    try {
+      await recipesApi.saveClientBook(selected.length ? { ids: selected } : { category: category || undefined });
+      setSaved(true);
+    } catch (cause) { setSaveError((cause as Error).message); }
+    finally { setSaving(false); }
+  };
   return <>
     <Link to="/recipes" className="back-link"><T id="recipe-books.client-recipe-book.recipe-book">← Recipe book</T></Link>
     <PageHeader pageKey="recipes.client-book" title={<T id="recipe-books.client-recipe-book.client-recipe-book">Client recipe book</T>} subtitle={<T id="recipe-books.client-recipe-book.choose-dishes-to-show-your">Choose dishes to show your client or save as a branded PDF.</T>}>
       <Button asChild variant="outline"><Link to={`/print/recipes/client${category ? `?category=${encodeURIComponent(category)}` : ""}`}>{category ? <T id="recipe-books.client-recipe-book.print-category">Print category</T> : <T id="recipe-books.client-recipe-book.print-all-dishes">Print all dishes</T>}</Link></Button>
       {selected.length > 0 && <Button asChild><Link to={printSelection}><T id="recipe-books.client-recipe-book.print-selected" values={{ selectedCount: selected.length }}>{"Print selected ({selectedCount})"}</T></Link></Button>}
+      {can("attachments.write") && <Button variant="outline" disabled={saving} onClick={() => void saveBook()}><T id="recipe-books.client-recipe-book.save-to-menus">Save PDF to Menus</T></Button>}
     </PageHeader>
+    {saved && <p role="status"><T id="recipe-books.client-recipe-book.saved-to-menus">Saved. The PDF is on Kitchen › Menus under Recipe books.</T> <Link to="/kitchen/menus"><T id="recipe-books.client-recipe-book.open-menus">Open Menus</T></Link></p>}
+    {saveError && <p role="alert" className="error-message">{saveError}</p>}
     <PageGrid pageKey="recipes.client-book">
     <Block id="filters" name="Filters" h={4}>
     <FilterBar>
