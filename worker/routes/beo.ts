@@ -9,9 +9,11 @@ import {
   layoutCopyInputSchema,
   runOfShowInputSchema,
 } from "../../shared/beo";
+import { beoListQuerySchema } from "../../shared/beo-list";
 import { id as uuid } from "../../shared/schema-primitives";
 import { requirePermission } from "../auth";
-import { notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
+import { ApiError, notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
+import { listBeos } from "../records/beo-list";
 import { approveBeo, createBeo, getBeo, offlineBeos, requestBeoApproval, updateBeoNotes } from "../records/beo";
 import {
   archiveArea,
@@ -127,5 +129,19 @@ export function offlineBeoRoutes(options: { withDb?: RunWithDb }) {
   routes.get("/", requirePermission("beos.read"), async (c) =>
     c.json(await record(c, (db, actor) => offlineBeos(db, actor))),
   );
+  return routes;
+}
+
+// The BEOs tab (FLOW-265), mounted at /api/beos: every BEO of an event the viewer
+// may open, filtered by when, status and owner.
+export function beoListRoutes(options: { withDb?: RunWithDb }) {
+  const routes = new Hono<AppEnv>();
+  const record = recordRunner(options.withDb);
+  routes.get("/", requirePermission("beos.read"), async (c) => {
+    const query = beoListQuerySchema.safeParse(c.req.query());
+    if (!query.success)
+      throw new ApiError(400, "INVALID_REQUEST", query.error.issues[0]?.message ?? "Invalid BEO filter.");
+    return c.json(await record(c, (db, actor) => listBeos(db, actor, query.data)));
+  });
   return routes;
 }

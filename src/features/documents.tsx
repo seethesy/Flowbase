@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 import { useSearchParams } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Upload } from "lucide-react";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button, DataTable, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader, SearchInput, type DeleteResult } from "../components/shared";
@@ -92,9 +92,10 @@ export function DocumentsPage() {
   const [linked, setLinked] = useState("");
   const [uploader, setUploader] = useState("");
   const [updated, setUpdated] = useState("");
-  // ?open=<id> opens a document's details, e.g. from a photo's lightbox (FLOW-271).
+  // /documents?document=<id> opens that file's preview, e.g. a BEO's saved PDF
+  // from the BEOs tab (FLOW-265).
   const [params] = useSearchParams();
-  const [selectedId, setSelectedId] = useState(() => params.get("open") ?? "");
+  const [selectedId, setSelectedId] = useState(() => params.get("document") ?? "");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [undoId, setUndoId] = useState("");
   const [error, setError] = useState("");

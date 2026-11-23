@@ -1,14 +1,20 @@
 import { Dropdown } from "../components/ui/Dropdown";
 import { Block, PageGrid } from "../app/page-grid";
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import type { ProductionItem } from "../../shared/production";
+import { Link, useNavigate } from "react-router-dom";
+import { productionWindows, type ProductionItem, type ProductionWindow } from "../../shared/production";
 import { utcToBusinessTime } from "../../shared/time";
 import { useResource } from "../app/useResource";
-import { LoadingSkeleton, Section } from "../components/shared";
+import { Button, FilterBar, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { productionApi } from "../services/production";
-import { T } from "../app/copy";
+import { LabelT, Plural, T } from "../app/copy";
+import { usePermissions } from "../app/permissions";
+import { RoundCheck } from "../components/ui/round-check";
+import { tasksApi } from "../services/tasks";
+import { orderListsApi } from "../services/order-lists";
+import { weekday } from "./calendar-entries";
+import { EventsHeading } from "./events-heading";
 import "./production.css";
 
 const when = (instant: string) => {
@@ -63,39 +69,169 @@ export function EventProductionSection({ eventId }: { eventId: string }) {
   </Section>;
 }
 
+// The Events screen's Production tab (FLOW-265): readiness questions for the
+// events in the window, then the work grouped by day, each line with its type,
+// a round check, the event, team and due time. Tasks are checked off here (the
+// task's own status); other work completes on its own page and shows its state.
+// Shortages offer "Add to order list": a draft order list from the order-by day
+// through the event, opened for editing.
+const typeLabels: Record<Exclude<ProductionItem["type"], "readiness">, string> = {
+  task: "Task",
+  pull: "Pull",
+  kitchen: "Kitchen",
+  shortage: "Shortage",
+  staff: "Staff",
+  truck: "Truck",
+  order: "Order",
+  setup: "Setup",
+};
+const workTypes = Object.keys(typeLabels) as (keyof typeof typeLabels)[];
+const clockOf = (instant: string) => {
+  const [hours, minutes] = utcToBusinessTime(new Date(instant)).time.split(":").map(Number);
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${hours < 12 ? "AM" : "PM"}`;
+};
+// A task line's task id: "task:<id>:<version>".
+const taskIdOf = (item: ProductionItem) => (item.id.startsWith("task:") ? item.id.split(":")[1] : null);
+
 export function ProductionOverviewPage() {
-  const [days, setDays] = useState<7 | 14>(7);
+  const navigate = useNavigate();
+  const { can } = usePermissions();
+  const [days, setDays] = useState<ProductionWindow>(7);
   const [eventId, setEventId] = useState("");
   const [team, setTeam] = useState("");
   const [type, setType] = useState("");
+  const [error, setError] = useState("");
+  const [answering, setAnswering] = useState<string | null>(null);
+  const [answer, setAnswer] = useState("");
   const overview = useResource(["production-overview", days], () => productionApi.overview(days));
+  const today = utcToBusinessTime(new Date()).date;
   const items = overview.data?.days.flatMap((day) => day.items) ?? [];
   const events = [...new Map(items.map((item) => [item.eventId, item.eventTitle])).entries()];
-  const teams = [...new Set(items.map((item) => item.team))];
-  const types = [...new Set(items.map((item) => item.type))];
+  const teams = [...new Set(items.map((item) => item.team))].sort();
+  const run = async (action: () => Promise<unknown>) => {
+    setError("");
+    try { await action(); overview.reload(); }
+    catch (cause) { setError((cause as Error).message); }
+  };
+  const respond = (check: NonNullable<typeof overview.data>["readiness"][number], state: "answered" | "dismissed") =>
+    run(async () => {
+      await productionApi.respond(check.eventId, check, state, state === "answered" ? answer : "");
+      setAnswering(null);
+      setAnswer("");
+    });
+  // A task's check shows at once and goes back if the save fails.
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const isChecked = (item: ProductionItem) => {
+    const id = taskIdOf(item);
+    return id && id in checked ? checked[id] : item.complete;
+  };
+  const toggle = (item: ProductionItem) => {
+    const id = taskIdOf(item);
+    if (!id) return;
+    const next = !isChecked(item);
+    setChecked((current) => ({ ...current, [id]: next }));
+    void run(async () => {
+      try { await tasksApi.update(id, { status: next ? "done" : "todo" }); }
+      catch (cause) {
+        setChecked((current) => ({ ...current, [id]: !next }));
+        throw cause;
+      }
+    });
+  };
+  const addToOrderList = (item: ProductionItem) =>
+    run(async () => {
+      const from = utcToBusinessTime(new Date(item.due)).date;
+      const list = await orderListsApi.create(from < item.eventDate ? from : item.eventDate, item.eventDate);
+      navigate(`/inventory/orders/${list.id}`);
+    });
+  const readiness = (overview.data?.readiness ?? []).filter((check) => !eventId || check.eventId === eventId);
+  const shownDays = (overview.data?.days ?? [])
+    .map((day) => ({
+      ...day,
+      items: day.items.filter((item) => (!eventId || item.eventId === eventId) && (!team || item.team === team) && (!type || item.type === type)),
+    }))
+    .filter((day) => day.items.length || day.overcommitted || day.truckConflict || day.staffOvercommitted);
   return <>
-    <div className="record-heading"><div><h1><T id="production.production-overview-page.production-overview">Production overview</T></h1><p><T id="production.production-overview-page.upcoming-work-across-events">Upcoming work across events</T></p></div></div>
+    <EventsHeading tab="production" />
     <PageGrid pageKey="production.overview">
     <Block id="filters" name="Filters" h={3}>
-    <div className="production-filters">
-      <label><T id="production.production-overview-page.days">{"Days "}</T><Dropdown value={days} onChange={(e) => setDays(Number(e.target.value) as 7 | 14)}><option value="7">7</option><option value="14">14</option></Dropdown></label>
-      <label><T id="production.production-overview-page.event">{"Event "}</T><Dropdown value={eventId} onChange={(e) => setEventId(e.target.value)}><option value="">All events</option>{events.map(([id, title]) => <option key={id} value={id}>{title}</option>)}</Dropdown></label>
-      <label><T id="production.production-overview-page.team">{"Team "}</T><Dropdown value={team} onChange={(e) => setTeam(e.target.value)}><option value="">All teams</option>{teams.map((value) => <option key={value}>{value}</option>)}</Dropdown></label>
-      <label><T id="production.production-overview-page.type">{"Type "}</T><Dropdown value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option>{types.map((value) => <option key={value}>{value}</option>)}</Dropdown></label>
-    </div>
+    <FilterBar>
+      <Dropdown variant="filter" aria-label="Days" value={String(days)}
+        options={productionWindows.map((value) => ({ value: String(value),
+          label: <T id="production.overview.next-days" values={{ days: value }}>{"Next {days} days"}</T>, text: `Next ${value} days` }))}
+        onValueChange={(next) => setDays(Number(next) as ProductionWindow)} />
+      <Dropdown variant="filter" aria-label="Team" value={team}
+        options={[{ value: "", label: <T id="production.overview.all-teams">All teams</T>, text: "All teams" },
+          ...teams.map((value) => ({ value, label: value }))]}
+        onValueChange={setTeam} />
+      <Dropdown variant="filter" aria-label="Type" value={type}
+        options={[{ value: "", label: <T id="production.overview.all-types">All types</T>, text: "All types" },
+          ...workTypes.map((value) => ({ value, label: <LabelT id="labels.production-type" value={value}>{typeLabels[value]}</LabelT>, text: typeLabels[value] }))]}
+        onValueChange={setType} />
+      <Dropdown variant="filter" aria-label="Event" value={eventId}
+        options={[{ value: "", label: <T id="production.overview.all-events">All events</T>, text: "All events" },
+          ...events.map(([id, title]) => ({ value: id, label: title }))]}
+        onValueChange={setEventId} />
+    </FilterBar>
     </Block>
-    <Block id="days" name="Days" h={30}>
+    <Block id="readiness" name="Readiness questions" h={6}>
+    {error && <p role="alert" className="error-message">{error}</p>}
     {overview.error && <LoadError message={overview.error} />}
     {!overview.data && !overview.error && <LoadingSkeleton />}
-    {overview.data?.days.map((day) => {
-      const shown = day.items.filter((item) => (!eventId || item.eventId === eventId) && (!team || item.team === team) && (!type || item.type === type));
-      return <Section key={day.date} title={day.date}>
-        {day.overcommitted && <p role="status" className="production-capacity"><T id="production.production-overview-page.all-trucks-are-assigned-assignments" values={{ truckCapacity: day.truckCapacity, trucksAssigned: day.trucksAssigned }}>{"All {truckCapacity} trucks are assigned ({trucksAssigned} assignments)."}</T></p>}
-        {day.truckConflict && <p role="status" className="production-capacity"><T id="production.production-overview-page.truck-assignments-overlap">Truck assignments overlap.</T></p>}
-        {day.staffOvercommitted && <p role="status" className="production-capacity"><T id="production.production-overview-page.staff-shifts-overlap">Staff shifts overlap.</T></p>}
-        {shown.length ? <ul className="production-items">{shown.map((item) => <Item key={`${item.eventId}:${item.id}`} item={item} />)}</ul> : <p className="muted"><T id="production.production-overview-page.no-matching-work">No matching work.</T></p>}
-      </Section>;
-    })}
+    {readiness.length > 0 && <section className="production-readiness-panel" aria-label="Readiness questions">
+      <h2><T id="production.overview.readiness-questions" values={{ count: readiness.length }}>{"Readiness questions ({count})"}</T></h2>
+      {readiness.map((check) => <div key={`${check.eventId}:${check.key}`} className="production-readiness-row">
+        <p><strong>{check.eventTitle}:</strong> {check.question}</p>
+        {answering === `${check.eventId}:${check.key}`
+          ? <form className="production-readiness-answer" onSubmit={(event) => { event.preventDefault(); void respond(check, "answered"); }}>
+            <input aria-label={`Answer: ${check.question}`} value={answer} autoFocus onChange={(event) => setAnswer(event.target.value)} />
+            <Button type="submit" variant="outline"><T id="production.overview.save-answer">Save</T></Button>
+            <Button type="button" variant="ghost" onClick={() => setAnswering(null)}><T id="production.overview.cancel">Cancel</T></Button>
+          </form>
+          : <div className="production-readiness-actions">
+            <Button variant="outline" onClick={() => { setAnswering(`${check.eventId}:${check.key}`); setAnswer(""); }}>
+              <T id="production.event-production-section.answer">Answer</T>
+            </Button>
+            <Button variant="outline" onClick={() => void respond(check, "dismissed")}>
+              <T id="production.event-production-section.dismiss">Dismiss</T>
+            </Button>
+          </div>}
+      </div>)}
+    </section>}
+    </Block>
+    <Block id="days" name="Days" h={30}>
+    {overview.data && !shownDays.length && <p className="muted"><T id="production.production-overview-page.no-matching-work">No matching work.</T></p>}
+    {shownDays.map((day) => <section key={day.date} className="production-day" aria-label={weekday(day.date)}>
+      <header>
+        <h2>{day.date === today ? <T id="production.overview.today-date" values={{ date: weekday(day.date) }}>{"Today · {date}"}</T> : weekday(day.date)}</h2>
+        <small><Plural id="production.overview.items" count={day.items.length} one="{count} item" other="{count} items" /></small>
+      </header>
+      {day.overcommitted && <p role="status" className="production-capacity"><T id="production.production-overview-page.all-trucks-are-assigned-assignments" values={{ truckCapacity: day.truckCapacity, trucksAssigned: day.trucksAssigned }}>{"All {truckCapacity} trucks are assigned ({trucksAssigned} assignments)."}</T></p>}
+      {day.truckConflict && <p role="status" className="production-capacity"><T id="production.production-overview-page.truck-assignments-overlap">Truck assignments overlap.</T></p>}
+      {day.staffOvercommitted && <p role="status" className="production-capacity"><T id="production.production-overview-page.staff-shifts-overlap">Staff shifts overlap.</T></p>}
+      <ul className="production-work">
+        {day.items.map((item) => <li key={`${item.eventId}:${item.id}`} className={isChecked(item) ? "complete" : undefined}>
+          {item.type === "shortage"
+            ? <span className="production-check-spacer" />
+            : <RoundCheck checked={isChecked(item)} disabled={!taskIdOf(item)}
+              aria-label={`Complete ${item.title}`} onChange={() => toggle(item)} />}
+          <span className={`production-type production-type--${item.type}`}>
+            {item.type !== "readiness" && <LabelT id="labels.production-type" value={item.type}>{typeLabels[item.type]}</LabelT>}
+          </span>
+          <span className="production-title">{item.title}</span>
+          <Link className="production-event" to={`/events/${item.eventId}`}>{item.eventTitle}</Link>
+          <span className="production-team">{item.team}</span>
+          {item.type === "shortage"
+            ? <>
+              <span className="production-due production-due--late">{weekday(utcToBusinessTime(new Date(item.due)).date).split(",")[0]}</span>
+              {can("order_lists.write") && <Button variant="outline" onClick={() => void addToOrderList(item)}>
+                <T id="production.overview.add-to-order-list">Add to order list</T>
+              </Button>}
+            </>
+            : <span className="production-due">{clockOf(item.due)}</span>}
+        </li>)}
+      </ul>
+    </section>)}
     </Block>
     </PageGrid>
   </>;

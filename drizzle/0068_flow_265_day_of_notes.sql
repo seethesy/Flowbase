@@ -1,0 +1,2 @@
+ALTER TABLE "day_of_updates" DROP CONSTRAINT "day_of_updates_kind_check";--> statement-breakpoint
+ALTER TABLE "day_of_updates" ADD CONSTRAINT "day_of_updates_kind_check" CHECK ("day_of_updates"."kind" in ('staff', 'truck', 'checkpoint', 'note'));

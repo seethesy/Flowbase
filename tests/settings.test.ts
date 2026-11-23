@@ -130,7 +130,7 @@ it("picks the category list for each kind of inventory item", () => {
 
 it("keeps the built-in fallback valid and the seed migrations in step with it", () => {
   expect(businessSettingsSchema.parse(fallbackSettings)).toEqual(fallbackSettings);
-  const rows = ["0021_seed_settings_lists.sql", "0040_recipe_settings_lists.sql", "0069_flow_271_photo_tags.sql"]
+  const rows = ["0021_seed_settings_lists.sql", "0040_recipe_settings_lists.sql", "0070_flow_271_photo_tags.sql"]
     .flatMap((file) => [
       ...readFileSync(`drizzle/${file}`, "utf8").matchAll(/\('([a-z_]+)', '((?:[^']|'')*)', (\d+)\)/g),
     ].map(([, key, label, order]) => [key, label.replaceAll("''", "'"), Number(order)] as const))

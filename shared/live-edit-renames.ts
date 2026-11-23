@@ -21,9 +21,55 @@ export type LiveEditRenames = {
 };
 
 export const liveEditRenames: LiveEditRenames = {
-  copy: {},
+  copy: {
+    // FLOW-265: the Events screen's rebuilt Calendar panel and Day-of board.
+    "calendar-detail.calendar-detail.open-event": "calendar.event-panel.open-event",
+    "day-of.day-of-page.today": "day-of.day-of-page.today-button",
+    "day-of.checkpoint-row.mark-now": "day-of.checkpoint.record-now",
+  },
   blocks: {},
-  removed: { copy: [], blocks: [] },
+  removed: {
+    // FLOW-265: wording of the replaced calendar detail mode, day-of board and
+    // production overview, and the board's single urgent checkbox (now one
+    // "Mark urgent" per event card).
+    copy: [
+      "calendar-detail.calendar-detail.allergens",
+      "calendar-detail.calendar-detail.close",
+      "calendar-detail.calendar-detail.contact",
+      "calendar-detail.calendar-detail.event-details",
+      "calendar-detail.calendar-detail.guests",
+      "calendar-detail.calendar-detail.lead",
+      "calendar-detail.calendar-detail.loading",
+      "calendar-detail.calendar-detail.menu",
+      "calendar-detail.calendar-detail.no-venue-yet",
+      "calendar-detail.calendar-detail.notes",
+      "calendar-detail.calendar-detail.open",
+      "calendar-detail.calendar-detail.setup",
+      "calendar-detail.calendar-detail.staff",
+      "calendar.calendar-page.calendar",
+      "calendar.calendar-page.detail-mode",
+      "calendar.calendar-page.events-and-the-tasks-you",
+      "day-of.checkpoint-row.not-marked",
+      "day-of.checkpoint-row.planned",
+      "day-of.checkpoint-row.reached",
+      "day-of.checkpoint-row.reached-by",
+      "day-of.day-of-page.day-of-board",
+      "day-of.day-of-page.next-day",
+      "day-of.day-of-page.previous-day",
+      "day-of.day-of-page.staff",
+      "day-of.day-of-page.urgent-text-the-people-affected",
+      "day-of.staff-row.save",
+      "day-of.truck-row.driver",
+      "day-of.truck-row.save",
+      "production.production-overview-page.days",
+      "production.production-overview-page.event",
+      "production.production-overview-page.production-overview",
+      "production.production-overview-page.team",
+      "production.production-overview-page.type",
+      "production.production-overview-page.upcoming-work-across-events",
+    ],
+    blocks: ["day-of.board/urgent"],
+  },
 };
 
 // A rename's final key: follows a chain (a -> b -> c), stops on a loop.

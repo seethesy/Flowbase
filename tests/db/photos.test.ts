@@ -55,7 +55,7 @@ beforeEach(async () => {
   stored.clear();
   await db.execute(sql`truncate table attachments`);
   await db.execute(sql`delete from events where title like 'Synthetic photo event%'`);
-  // The tags migration 0069 seeds, in case another file cleared the lists.
+  // The tags migration 0070 seeds, in case another file cleared the lists.
   await db
     .insert(schema.listValues)
     .values(["Food", "Team"].map((label, sortOrder) => ({ listKey: "photo_tag" as const, label, sortOrder })))

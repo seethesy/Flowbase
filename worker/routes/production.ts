@@ -10,7 +10,9 @@ export function productionRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.get("/overview", requirePermission("production.read"), async (c) => {
-    const days = c.req.query("days") === "14" ? 14 : 7;
+    // 7, 14 or 30 days (FLOW-265); anything else is the default week.
+    const asked = Number(c.req.query("days"));
+    const days = asked === 14 ? 14 : asked === 30 ? 30 : 7;
     return c.json(await record(c, (db, actor) => getProductionOverview(db, actor, days)));
   });
   routes.get("/events/:id", requirePermission("production.read"), async (c) => {

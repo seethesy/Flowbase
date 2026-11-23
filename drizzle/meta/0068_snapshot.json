@@ -1,5 +1,5 @@
 {
-  "id": "b805972d-b8a7-4e01-bc02-7eadfc7ea3f7",
+  "id": "2fd210bc-1c83-4c07-8351-14d1cf17e0b7",
   "prevId": "1b2d2e46-4f26-4c62-a116-2268951732e1",
   "version": "7",
   "dialect": "postgresql",
@@ -625,26 +625,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "approved_for_marketing": {
-          "name": "approved_for_marketing",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "tags": {
-          "name": "tags",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "photo_date": {
-          "name": "photo_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
         },
         "status": {
           "name": "status",
@@ -3319,7 +3299,7 @@
       "checkConstraints": {
         "day_of_updates_kind_check": {
           "name": "day_of_updates_kind_check",
-          "value": "\"day_of_updates\".\"kind\" in ('staff', 'truck', 'checkpoint')"
+          "value": "\"day_of_updates\".\"kind\" in ('staff', 'truck', 'checkpoint', 'note')"
         }
       },
       "isRLSEnabled": true
@@ -8363,7 +8343,7 @@
       "checkConstraints": {
         "list_values_list_key_check": {
           "name": "list_values_list_key_check",
-          "value": "\"list_values\".\"list_key\" in ('staff_position', 'event_type', 'service_type', 'food_service_style', 'dress_code', 'lead_source', 'vehicle', 'recipe_category', 'allergen', 'dietary_tag', 'rental_category', 'decor_category', 'kitchen_equipment_category', 'ingredient_category', 'supply_category', 'photo_tag')"
+          "value": "\"list_values\".\"list_key\" in ('staff_position', 'event_type', 'service_type', 'food_service_style', 'dress_code', 'lead_source', 'vehicle', 'recipe_category', 'allergen', 'dietary_tag', 'rental_category', 'decor_category', 'kitchen_equipment_category', 'ingredient_category', 'supply_category')"
         }
       },
       "isRLSEnabled": true

@@ -190,7 +190,7 @@ test("the lightbox moves with the mouse and the keyboard, and approves (FLOW-271
   await expect(lightbox.getByRole("button", { name: "Remove approval" })).toBeVisible();
   await lightbox.getByRole("button", { name: "Food", exact: true }).click();
   await expect(lightbox.getByRole("button", { name: "Food", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(lightbox.getByRole("link", { name: "Open in Documents" })).toHaveAttribute("href", new RegExp(`documents\\?open=${photos[2].id}`));
+  await expect(lightbox.getByRole("link", { name: "Open in Documents" })).toHaveAttribute("href", new RegExp(`documents\\?document=${photos[2].id}`));
   await page.keyboard.press("Escape");
   await expect(lightbox).toHaveCount(0);
   await expect(tiles(page).filter({ hasText: "Third" }).getByText("Approved")).toBeVisible();

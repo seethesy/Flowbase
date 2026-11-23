@@ -305,7 +305,7 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
                   <T id="photos.lightbox.download">Download</T>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to={`/documents?open=${current.id}`}>
+                  <Link to={`/documents?document=${current.id}`}>
                     <ExternalLink size={14} />
                     <T id="photos.lightbox.open-in-documents">Open in Documents</T>
                   </Link>
