@@ -1,6 +1,7 @@
 import { test, expect, mockBrowserAuth } from "./auth-fixture";
 import type { Page } from "@playwright/test";
 import { seedUsers } from "../../worker/db/seed";
+import { choose } from "./dropdown";
 
 // FLOW-295 on the real Worker and database: Sales, Marketing, Documents and
 // Reports open on an Overview tab that starts empty, an Admin adds a card there
@@ -42,6 +43,9 @@ test("an Admin adds a card to the Sales overview that everyone sees (AC2)", asyn
   await page.getByRole("button", { name: "Add card" }).click();
   const builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Pipeline at a glance");
+  // A table card needs at least one column before Done.
+  await choose(builder.getByRole("combobox", { name: "Source" }), "list:leads");
+  await builder.getByRole("checkbox", { name: "Show Client" }).click();
   await builder.getByRole("button", { name: "Done" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
