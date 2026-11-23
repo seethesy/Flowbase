@@ -260,7 +260,7 @@ export function matchNavigation(pathname: string, preferredGroup?: string): NavM
 }
 
 // Whether every heading and tab that owns a page is hidden from the actor's role
-// (FLOW-284). Day-of sits under two headings: hiding one leaves the other.
+// (FLOW-284). A page under two headings stays open while one still shows it.
 export function pageHiddenFrom(match: NavMatch, actor: Actor | null) {
   if (!actor) return false;
   const owners = navigationGroups.flatMap((group) =>

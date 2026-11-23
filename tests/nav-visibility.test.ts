@@ -35,7 +35,7 @@ describe("navigation by role", () => {
     expect(headings(partTime)).not.toContain("Reports");
     expect(headings(partTime)).toContain("Events");
     // The breadcrumb's heading link skips a hidden tab.
-    expect(breadcrumbTrail("/events", partTime)[1]).toMatchObject({ label: "Events", to: "/calendar" });
+    expect(breadcrumbTrail("/events/overview", partTime)[1]).toMatchObject({ label: "Events", to: "/events/overview" });
     // Admin and other roles are unchanged.
     expect(headings(admin)).toContain("Reports");
     expect(tabs(actor("staff"), "Sales")).toEqual(["Overview", "Venues"]);
