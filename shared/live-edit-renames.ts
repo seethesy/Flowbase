@@ -71,7 +71,7 @@ export function resolveBlockId(pageKey: string, id: string, renames: LiveEditRen
 // next Save of the page stores the new ids, so the entry can later be dropped.
 export function renameLayoutDoc(pageKey: string, doc: LayoutDoc, renames: LiveEditRenames = liveEditRenames): LayoutDoc {
   const taken = new Set(doc.blocks.filter((block) => resolveBlockId(pageKey, block.id, renames) === block.id).map((b) => b.id));
-  const blocks = doc.blocks.flatMap((block) => {
+  const blocks = doc.blocks.flatMap((block): LayoutDoc["blocks"] => {
     if (block.kind !== "builtin") return [block];
     const id = resolveBlockId(pageKey, block.id, renames);
     if (id === block.id) return [block];

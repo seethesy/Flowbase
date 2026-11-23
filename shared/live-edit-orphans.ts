@@ -39,7 +39,7 @@ export const orphanActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("delete"), type: z.literal("copy"), key: copyKeySchema }).strict(),
   z.object({ action: z.literal("move"), type: z.literal("copy"), key: copyKeySchema, to: copyKeySchema }).strict(),
   z.object({ action: z.literal("delete"), type: z.literal("block"), ...blockRef }).strict(),
-  z.object({ action: z.literal("move"), type: z.literal("block"), ...blockRef, to: layoutKeySchema }).strict(),
+  z.object({ action: z.literal("move"), type: z.literal("block"), ...blockRef, to: layoutKey }).strict(),
 ]);
 export type OrphanAction = z.infer<typeof orphanActionSchema>;
 
