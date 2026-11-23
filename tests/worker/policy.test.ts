@@ -180,7 +180,9 @@ function unguarded(app: ReturnType<typeof createApp>) {
     )
       continue;
     if (
-      ["/api/health", "/api/auth/config"].includes(route.path) ||
+      // The Google OAuth callback is Google's browser redirect: it trusts only
+      // the signed state (FLOW-268, tests/db/google-calendar.test.ts).
+      ["/api/health", "/api/auth/config", "/api/google-calendar/callback"].includes(route.path) ||
       /^\/api\/(demo|dev|ingest)\//.test(route.path)
     )
       continue;

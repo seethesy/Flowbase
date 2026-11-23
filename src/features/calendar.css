@@ -107,3 +107,22 @@
     gap: 8px;
   }
 }
+/* My Google Calendar (FLOW-268): the viewer's own Google events, outlined in
+   blue so they never read as Flowbase events. */
+.calendar-panel .calendar-google {
+  background: var(--surface);
+  border: 1px solid #1a73e8;
+  color: #1a73e8;
+}
+.calendar-panel .calendar-google .fc-event-title,
+.calendar-panel .calendar-google .fc-event-time {
+  color: #1a73e8;
+}
+.calendar-google-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.calendar-layer-google {
+  color: #1a73e8;
+}
