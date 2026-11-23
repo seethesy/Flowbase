@@ -482,6 +482,8 @@ export function IngredientList({
           </Button>
         </Allowed>
       </PageHeader>
+      <PageGrid pageKey="inventory.consumables">
+        <Block id="filters" name="Filters" h={3}>
       <FilterBar>
         <SearchInput
           value={search}
@@ -524,12 +526,9 @@ export function IngredientList({
           {items.hasMore ? "+" : ""} {supplies ? <T id="inventory-lists.ingredient-list.supplies-3">supplies</T> : <T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
         </span>
       </FilterBar>
-      {items.error ? (
-        <LoadError message={items.error} />
-      ) : items.loading && !items.data ? (
-        <LoadingSkeleton />
-      ) : (
-        <>
+        </Block>
+        {!items.error && items.data && (
+          <Block id="list" name="List" h={24}>
           <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.ingredient-list"
             data={data}
             columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
@@ -540,8 +539,14 @@ export function IngredientList({
             exportAll={items.loadAll}
           />
           <LoadMore list={items} label={supplies ? <T id="inventory-lists.ingredient-list.load-more-supplies">Load more supplies</T> : <T id="inventory-lists.ingredient-list.load-more-ingredients">Load more ingredients</T>} />
-        </>
-      )}
+          </Block>
+        )}
+      </PageGrid>
+      {items.error ? (
+        <LoadError message={items.error} />
+      ) : items.loading && !items.data ? (
+        <LoadingSkeleton />
+      ) : null}
       {create && (
         <ItemForm
           preset={{
@@ -720,6 +725,8 @@ export function BarList() {
           </Button>
         </Allowed>
       </PageHeader>
+      <PageGrid pageKey="inventory.bar">
+        <Block id="filters" name="Filters" h={3}>
       <FilterBar>
         <SearchInput
           value={search}
@@ -793,12 +800,9 @@ export function BarList() {
           {items.hasMore ? <T id="inventory-lists.bar-list.bar-items" values={{ dataCount: data.length }}>{"{dataCount}+ bar items"}</T> : <T id="inventory-lists.bar-list.bar-items-2" values={{ dataCount: data.length }}>{"{dataCount} bar items"}</T>}
         </span>
       </FilterBar>
-      {items.error ? (
-        <LoadError message={items.error} />
-      ) : items.loading && !items.data ? (
-        <LoadingSkeleton />
-      ) : (
-        <>
+        </Block>
+        {!items.error && items.data && (
+          <Block id="list" name="List" h={24}>
           <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.bar-list"
             data={data}
             columns={columns}
@@ -809,8 +813,14 @@ export function BarList() {
             exportAll={items.loadAll}
           />
           <LoadMore list={items} label={<T id="inventory-lists.bar-list.load-more-bar-items">Load more bar items</T>} />
-        </>
-      )}
+          </Block>
+        )}
+      </PageGrid>
+      {items.error ? (
+        <LoadError message={items.error} />
+      ) : items.loading && !items.data ? (
+        <LoadingSkeleton />
+      ) : null}
       {create && (
         <ItemForm
           preset={{ kind: "consumable", subtype: "bar" }}

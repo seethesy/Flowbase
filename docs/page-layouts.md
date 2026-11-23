@@ -71,6 +71,26 @@ wording. With no saved layout a page renders exactly as its code does.
 - A page holds up to 40 blocks.
 - Playwright coverage: `tests/e2e/layout-every-screen.spec.ts`.
 
+## Added in FLOW-279
+
+- Built-in cards that list records can be edited in place: a pencil on the
+  block opens the card builder with the card's current setup, title and source
+  locked. Saving stores `data` (filters, sort, rows, columns or boxes) on the
+  builtin block; the card then renders through the custom-card path with
+  `fields=`, so a viewer only gets fields their role can read. "Reset card"
+  drops `data` and the code's card comes back. Editable cards and their code
+  defaults are listed in `builtinCards` (`shared/layout.ts`), keyed
+  `<pageKey>/<blockId>`, so the server checks the override's fields: Dashboard
+  My Leads and Upcoming Events, and a client's Events. An edited card's title
+  is the card's own name, not a wording key.
+- Layout-aware tables added: master inventory, ingredients and supplies, bar
+  and low stock (`layoutTables`). Ingredients and supplies share one page
+  layout (`inventory.consumables`); bar is `inventory.bar`, low stock
+  `inventory.low-stock`.
+- Switching a custom card's source keeps the columns, boxes, filters and sort
+  whose field the new source has, and names the ones it dropped.
+- Playwright coverage: `tests/e2e/layout-builtin-cards.spec.ts`.
+
 ## Making a page arrangeable
 
 Wrap the page's sections in a `PageGrid` and each section in a `Block` with a
@@ -94,6 +114,11 @@ a `Block`: with a saved layout only blocks render.
 - `w`/`h` are the block's default size in edit mode (12 columns; rows of 24px).
 - A block that is sometimes absent (`{cond && <Block …>}`) keeps its saved
   place and comes back there.
+
+A built-in card becomes editable when its `pageKey/blockId` has an entry in
+`builtinCards` (its code default as a card config). Only record lists qualify:
+notes, files, photos, floor plans, communications and planning keep Style,
+Hide and move only.
 
 A table becomes layout-aware when its `DataTable` `copyKey` is listed in
 `layoutTables` (`shared/layout.ts`) and it sits inside a `PageGrid`. List its

@@ -223,7 +223,20 @@ export const layoutTables: Record<string, { source: SourceKey; locked: string[];
   "venues.venue-list": { source: "venues", locked: [], code: ["areas"] },
   "vendors.vendor-list": { source: "vendors", locked: [], code: ["leadTime"] },
   "staff.staff-directory": { source: "staff", locked: [], code: [] },
-  "inventory-lists.inventory-list": { source: "inventory", locked: [], code: ["variant", "quantity"] },
+  "inventory-lists.inventory-list": { source: "inventory", locked: [], code: ["variant", "quantity", "categoryId", "typeId"] },
+  // FLOW-279: the inventory pages' other tables.
+  "inventory-master.master-inventory": { source: "inventory", locked: [], code: ["quantity", "location", "price", "ratio", "status"] },
+  "inventory-lists.ingredient-list": {
+    source: "inventory",
+    locked: [],
+    code: ["categoryId", "typeId", "purchase", "recipeUnit", "cost", "vendor", "storage", "onHand"],
+  },
+  "inventory-lists.bar-list": {
+    source: "inventory",
+    locked: [],
+    code: ["brand", "categoryId", "typeId", "container", "pack", "distributor", "cost", "onHand"],
+  },
+  "stock-counts.low-stock-list": { source: "inventory", locked: [], code: ["onHand", "par", "short", "storage", "vendor"] },
 };
 // Pseudo-columns a table renders that aren't registry fields (locked controls).
 export const controlColumns = new Set(["actions"]);
@@ -240,6 +253,47 @@ export const recordPages: Record<string, { source: SourceKey; fieldCards: string
   "inventory.detail": { source: "inventory", fieldCards: ["item-facts"] },
   "proposals.detail": { source: "proposals", fieldCards: ["proposal-facts"] },
 };
+
+// Built-in cards whose values the Admin can edit (FLOW-279), keyed
+// "<pageKey>/<blockId>": the card's code default as a card config, which the
+// card builder starts from with the source locked. A saved `data` override on
+// the builtin block renders the card through the custom-card path (fields=
+// projection) instead of its code. Cards that aren't record lists (notes,
+// files, photos, planning) have no entry and keep Style, Hide and move only.
+export const builtinCards: Record<string, CardConfig> = {
+  "dashboard.home/my-leads": {
+    title: "My Leads",
+    source: { type: "list", list: "leads" },
+    filters: [{ field: "assignedSalespersonId", op: "is_me" }],
+    sort: { field: "eventDate", dir: "asc" },
+    limit: 10,
+    display: { type: "table", columns: [{ key: "name" }, { key: "eventName" }, { key: "eventDate" }, { key: "status" }] },
+  },
+  "dashboard.home/upcoming-events": {
+    title: "Upcoming Events",
+    source: { type: "list", list: "events" },
+    filters: [{ field: "date", op: "within_days", value: 30 }],
+    sort: { field: "date", dir: "asc" },
+    limit: 10,
+    display: { type: "table", columns: [{ key: "date" }, { key: "title" }, { key: "venue" }, { key: "guestCount" }] },
+  },
+  "clients.detail/events": {
+    title: "Events",
+    source: { type: "related", relation: "events" },
+    filters: [],
+    sort: { field: "date", dir: "desc" },
+    limit: 20,
+    display: { type: "table", columns: [{ key: "title" }, { key: "date" }, { key: "status" }, { key: "guestCount" }] },
+  },
+};
+export const builtinCardKey = (pageKey: string, blockId: string) => `${pageKey}/${blockId}`;
+// A built-in card with its saved override applied: the card's own title and
+// source, the override's filters, sort, rows and fields.
+export function builtinCard(pageKey: string, blockId: string, data: BuiltinData | undefined): CardConfig | null {
+  const base = builtinCards[builtinCardKey(pageKey, blockId)];
+  if (!base) return null;
+  return data ? { ...base, filters: data.filters, sort: data.sort, limit: data.limit, display: data.display } : base;
+}
 
 // ---- Contrast: shared/contrast.ts -------------------------------------------
 
@@ -267,42 +321,51 @@ export function layoutProblems(pageKey: string, doc: LayoutDoc): LayoutProblem[]
   const recordSource = recordPages[pageKey]?.source ?? null;
   const ids = new Set<string>();
   let cards = 0;
+  const checkCard = (card: CardConfig, path: string) => {
+    let source: SourceKey | null = null;
+    if (card.source.type === "list") source = card.source.list;
+    else if (card.source.type === "record") {
+      source = recordSource;
+      if (!source) problems.push({ path: `${path}.source`, message: "This page has no record." });
+    } else {
+      const relation = recordSource
+        ? fieldRegistry[recordSource].relations?.find((r) => r.key === (card.source as { relation: string }).relation)
+        : undefined;
+      if (!relation) problems.push({ path: `${path}.source`, message: "Unknown related list." });
+      else source = relation.source;
+    }
+    if (!source) return;
+    for (const [i, filter] of card.filters.entries()) {
+      const def = fieldDef(source, filter.field);
+      if (!def?.filterable) problems.push({ path: `${path}.filters.${i}`, message: `Can't filter on "${filter.field}".` });
+      else if (!operatorsFor(def.type).includes(filter.op))
+        problems.push({ path: `${path}.filters.${i}.op`, message: `"${filter.op}" doesn't apply to ${def.label}.` });
+    }
+    if (card.sort && !fieldDef(source, card.sort.field)?.sortable)
+      problems.push({ path: `${path}.sort`, message: `Can't sort on "${card.sort.field}".` });
+    if (card.display.type === "table")
+      card.display.columns.forEach((column, i) => {
+        if (!fieldDef(source!, column.key))
+          problems.push({ path: `${path}.display.columns.${i}`, message: `Unknown field "${column.key}".` });
+      });
+    else checkBoxes(card.display.boxes, source, `${path}.display.boxes`, problems);
+  };
   doc.blocks.forEach((block, index) => {
     const path = `blocks.${index}`;
     if (ids.has(block.id)) problems.push({ path: `${path}.id`, message: `Two blocks are named "${block.id}".` });
     ids.add(block.id);
     if (!styleContrastOk(block.style))
       problems.push({ path: `${path}.style`, message: "Text and background colors are too close." });
+    if (block.kind === "builtin") {
+      if (!block.data) return;
+      const card = builtinCard(pageKey, block.id, block.data);
+      if (!card) problems.push({ path: `${path}.data`, message: "This block's values can't be edited." });
+      else checkCard(card, `${path}.data`);
+      return;
+    }
     if (block.kind !== "card") return;
     cards += 1;
-    const card = block.card;
-    let source: SourceKey | null = null;
-    if (card.source.type === "list") source = card.source.list;
-    else if (card.source.type === "record") {
-      source = recordSource;
-      if (!source) problems.push({ path: `${path}.card.source`, message: "This page has no record." });
-    } else {
-      const relation = recordSource
-        ? fieldRegistry[recordSource].relations?.find((r) => r.key === (card.source as { relation: string }).relation)
-        : undefined;
-      if (!relation) problems.push({ path: `${path}.card.source`, message: "Unknown related list." });
-      else source = relation.source;
-    }
-    if (!source) return;
-    for (const [i, filter] of card.filters.entries()) {
-      const def = fieldDef(source, filter.field);
-      if (!def?.filterable) problems.push({ path: `${path}.card.filters.${i}`, message: `Can't filter on "${filter.field}".` });
-      else if (!operatorsFor(def.type).includes(filter.op))
-        problems.push({ path: `${path}.card.filters.${i}.op`, message: `"${filter.op}" doesn't apply to ${def.label}.` });
-    }
-    if (card.sort && !fieldDef(source, card.sort.field)?.sortable)
-      problems.push({ path: `${path}.card.sort`, message: `Can't sort on "${card.sort.field}".` });
-    if (card.display.type === "table")
-      card.display.columns.forEach((column, i) => {
-        if (!fieldDef(source!, column.key))
-          problems.push({ path: `${path}.card.display.columns.${i}`, message: `Unknown field "${column.key}".` });
-      });
-    else checkBoxes(card.display.boxes, source, `${path}.card.display.boxes`, problems);
+    checkCard(block.card, `${path}.card`);
   });
   if (cards > MAX_CARDS) problems.push({ path: "blocks", message: `A page holds at most ${MAX_CARDS} custom cards.` });
   for (const [key, table] of Object.entries(doc.tables)) {

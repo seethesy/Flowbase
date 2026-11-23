@@ -2829,6 +2829,20 @@
       ],
       "fieldCards": []
     },
+    "inventory.bar": {
+      "blocks": [
+        "filters",
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "inventory.consumables": {
+      "blocks": [
+        "filters",
+        "list"
+      ],
+      "fieldCards": []
+    },
     "inventory.counts": {
       "blocks": [
         "sections"
@@ -2852,6 +2866,12 @@
       ]
     },
     "inventory.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "inventory.low-stock": {
       "blocks": [
         "list"
       ],
@@ -3087,9 +3107,13 @@
   "tables": [
     "clients.client-list",
     "events.event-table",
+    "inventory-lists.bar-list",
+    "inventory-lists.ingredient-list",
     "inventory-lists.inventory-list",
+    "inventory-master.master-inventory",
     "leads.inbox.table",
     "staff.staff-directory",
+    "stock-counts.low-stock-list",
     "vendors.vendor-list",
     "venues.venue-list"
   ]

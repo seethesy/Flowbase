@@ -391,7 +391,8 @@ export function LowStockList() {
       ) : !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <>
+        <PageGrid pageKey="inventory.low-stock">
+          <Block id="list" name="List" h={24}>
           <DataTable copyKey="stock-counts.low-stock-list"
             data={items.data}
             columns={columns}
@@ -401,7 +402,8 @@ export function LowStockList() {
             exportAll={items.loadAll}
           />
           <LoadMore list={items} label={<T id="stock-counts.low-stock-list.load-more-items">Load more items</T>} />
-        </>
+          </Block>
+        </PageGrid>
       )}
     </>
   );

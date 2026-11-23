@@ -2,6 +2,7 @@ import { Dropdown } from "../components/ui/Dropdown";
 import { Children, isValidElement, lazy, Suspense, useState, type ReactElement, type ReactNode } from "react";
 import { EyeOff, GripHorizontal, Palette, Pencil, Trash2 } from "lucide-react";
 import {
+  builtinCard,
   GRID_COLUMNS,
   MAX_BLOCKS,
   MAX_CARDS,
@@ -172,7 +173,7 @@ export function PageGrid({
               style={{ ...blockPlace(block), ...styleVars(block.style) }}
               data-block-id={block.id}
             >
-              <BlockContent block={block} content={content} record={layout.record} />
+              <BlockContent pageKey={pageKey} block={block} content={content} record={layout.record} />
             </div>
           ))}
         </div>
@@ -182,15 +183,23 @@ export function PageGrid({
 }
 
 function BlockContent({
+  pageKey,
   block,
   content,
   record,
 }: {
+  pageKey: string;
   block: LayoutBlock;
   content: Map<string, ReactNode>;
   record: PageLayout["record"];
 }) {
-  if (block.kind === "builtin") return <>{content.get(block.id)}</>;
+  if (block.kind === "builtin") {
+    // A built-in card whose values the Admin edited (FLOW-279) renders through
+    // the custom-card path, which asks only for fields the viewer may read.
+    const edited = block.data ? builtinCard(pageKey, block.id, block.data) : null;
+    if (!edited) return <>{content.get(block.id)}</>;
+    return <CustomCard card={edited} cardId={block.id} record={record ? { source: record.source, id: record.id } : null} />;
+  }
   if (block.kind === "card")
     return <CustomCard card={block.card} cardId={block.id} record={record ? { source: record.source, id: record.id } : null} />;
   return <TextBlock block={block} />;
@@ -229,7 +238,8 @@ function PageGridEditor({
   content: Map<string, ReactNode>;
 }) {
   // The card being built: a new one (id null) or an existing card block's.
-  const [building, setBuilding] = useState<{ id: string | null; card: CardConfig } | null>(null);
+  // A built-in card's values (FLOW-279) are edited the same way, source locked.
+  const [building, setBuilding] = useState<{ id: string | null; card: CardConfig; builtin?: boolean } | null>(null);
   const [styling, setStyling] = useState<string | null>(null);
   const [tray, setTray] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -414,6 +424,16 @@ function PageGridEditor({
                         <Pencil size={14} />
                       </button>
                     )}
+                    {block.kind === "builtin" && builtinCard(layout.pageKey, block.id, block.data) && (
+                      <button
+                        type="button"
+                        aria-label={`Edit ${name}`}
+                        title="Edit what this card shows"
+                        onClick={() => setBuilding({ id: block.id, card: builtinCard(layout.pageKey, block.id, block.data)!, builtin: true })}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
                     {block.kind !== "builtin" && (
                       <ConfirmButton
                         label={`Delete ${name}`}
@@ -446,7 +466,7 @@ function PageGridEditor({
                       onChange={(event) => patch(block.id, { text: event.target.value })}
                     />
                   ) : (
-                    <BlockContent block={block} content={content} record={layout.record} />
+                    <BlockContent pageKey={layout.pageKey} block={block} content={content} record={layout.record} />
                   )}
                 </div>
               </div>
@@ -459,9 +479,20 @@ function PageGridEditor({
           <CardBuilder
             initial={building.card}
             recordSource={recordSource}
+            lockSource={building.builtin}
+            onReset={
+              building.builtin && building.id
+                ? () => {
+                    patch(building.id!, { data: undefined });
+                    setBuilding(null);
+                  }
+                : undefined
+            }
             onCancel={() => setBuilding(null)}
             onDone={(card) => {
-              if (building.id) patch(building.id, { card });
+              if (building.builtin && building.id)
+                patch(building.id, { data: { filters: card.filters, sort: card.sort, limit: card.limit, display: card.display } });
+              else if (building.id) patch(building.id, { card });
               else
                 add({
                   kind: "card",
