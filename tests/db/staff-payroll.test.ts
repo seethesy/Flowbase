@@ -243,7 +243,10 @@ it("seeds Technical's Staff pay level at Write", async () => {
   const { matrix } = await admin.send<{ matrix: Record<string, Record<string, string>> }>("GET", "/api/permissions");
   expect(matrix.technical.staff_pay).toBe("write");
   // The migration moves a stored None (the old seed) to Write.
-  await db.insert(schema.rolePermissions).values({ role: "technical", area: "staff_pay", level: "none" });
+  await db
+    .insert(schema.rolePermissions)
+    .values({ role: "technical", area: "staff_pay", level: "none" })
+    .onConflictDoUpdate({ target: [schema.rolePermissions.role, schema.rolePermissions.area], set: { level: "none" } });
   const migration = readFileSync("drizzle/0072_flow_270_staff_pay.sql", "utf8");
   await db.execute(sql.raw(migration.slice(migration.indexOf("UPDATE \"role_permissions\""))));
   const [row] = await db.select().from(schema.rolePermissions)
