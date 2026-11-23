@@ -127,6 +127,7 @@ export function inventoryRoutes(options: {
           archived: flag(c, "archived"),
           kind: kind.success ? kind.data : undefined,
           subtype: query(c, "subtype"),
+          excludeSubtypes: query(c, "excludeSubtypes")?.split(",").filter(Boolean),
           category: query(c, "category"),
           categoryId: query(c, "categoryId"),
           typeId: query(c, "typeId"),

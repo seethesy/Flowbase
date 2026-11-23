@@ -41,12 +41,14 @@ it("navigates using the sidebar and exposes mobile navigation", async () => {
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<p>Home content</p>} />
+        <Route path="/sales/overview" element={<p>Sales overview content</p>} />
         <Route path="/leads" element={<p>Leads content</p>} />
         <Route path="/clients" element={<ClientList />} />
       </Route>
     </Routes>,
   );
-  // Clients is a tab under the Sales heading (FLOW-246).
+  // Clients is a tab under the Sales heading (FLOW-246), which opens on its
+  // Overview (FLOW-295).
   await user.click(screen.getByRole("link", { name: "Sales" }));
   await user.click(screen.getByRole("link", { name: "Clients" }));
   expect(screen.getByRole("heading", { name: "Clients" })).toBeInTheDocument();

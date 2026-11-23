@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { localDate } from "./schema-primitives";
 
 // Attachments and photos (FLOW-42, ADR-08). The browser resizes photos to a
 // thumbnail and a display size and uploads only those; documents upload as-is.
@@ -57,6 +58,8 @@ export const uploadRequestSchema = z
       .default(""),
     fileName: z.string().trim().min(1).max(200),
     caption: z.string().trim().max(500).default(""),
+    // A gallery photo's date (FLOW-298); left out, it is the upload date.
+    photoDate: localDate.optional(),
     variants: z.array(variantInput).min(1).max(2),
   })
   .superRefine((value, ctx) => {

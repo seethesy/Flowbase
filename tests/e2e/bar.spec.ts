@@ -58,7 +58,7 @@ test("filters the bar screen by category, subcategory, tier and distributor", as
   });
   await page.goto("/#/inventory/bar");
   await expect(
-    page.getByRole("heading", { name: "Bar", level: 1 }),
+    page.getByRole("heading", { name: "Inventory", level: 1 }),
   ).toBeVisible();
   const shown = (name: string) =>
     page.getByRole("button", { name, exact: true });

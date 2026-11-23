@@ -12,6 +12,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -300,6 +301,8 @@ export type ItemFilter = {
   tier?: string;
   // Bar stock (FLOW-90).
   subcategory?: string;
+  // Subtypes to leave out, e.g. bar and ingredient on the Inventory tab (FLOW-266).
+  excludeSubtypes?: string[];
 };
 
 export async function listItems(
@@ -331,6 +334,11 @@ export async function listItems(
           : isNull(inventoryItems.archivedAt),
         filter.kind ? eq(inventoryItems.kind, filter.kind) : undefined,
         filter.subtype ? eq(inventoryItems.subtype, filter.subtype) : undefined,
+        // FLOW-266: the Inventory tab leaves bar stock to the Bar tab and
+        // ingredients to Kitchen. Items without a subtype stay.
+        filter.excludeSubtypes?.length
+          ? or(isNull(inventoryItems.subtype), notInArray(inventoryItems.subtype, filter.excludeSubtypes))
+          : undefined,
         filter.category
           ? eq(inventoryItems.category, filter.category)
           : undefined,
