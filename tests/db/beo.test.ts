@@ -734,3 +734,65 @@ describe("FLOW-264: a lead's BEO link", () => {
     });
   });
 });
+
+describe("FLOW-265: the BEOs tab", () => {
+  type Row = import("../../shared/beo-list").BeoListRow;
+  const list = (who: ReturnType<typeof signedInAs>, query = "") => who.send<Row[]>("GET", `/api/beos${query}`);
+
+  it("lists each event's BEO with its version, status, owner, last editor and saved PDF", async () => {
+    const event = await seed();
+    expect(await list(admin)).toEqual([]);
+    const beo = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    expect(await list(admin)).toEqual([
+      expect.objectContaining({
+        id: beo.id!,
+        eventId: event.id,
+        eventTitle: "Fall gala",
+        version: 1,
+        status: "draft",
+        guestCount: 80,
+        owner: { id: people.sam, name: "Sam" },
+        lastEditedBy: { id: people.sam, name: "Sam" },
+        pdf: null,
+      }),
+    ]);
+    await sam.send<BeoView>("POST", `/api/events/${event.id}/beo/request-approval`, {}, 200);
+    expect((await list(admin))[0].status).toBe("awaiting_approval");
+
+    await manager.send<BeoView>("POST", `/api/events/${event.id}/beo/approve`, {}, 200);
+    await drain();
+    const [approvedRow] = await list(admin);
+    expect(approvedRow).toMatchObject({ status: "approved", version: 1, pdf: { documentId: event.id, name: "BEO - Fall gala" } });
+
+    // A1: Final is an approved BEO whose event has reached Finished.
+    await db.update(schema.events).set({ status: "finished" }).where(eq(schema.events.id, event.id));
+    expect((await list(admin))[0].status).toBe("final");
+  });
+
+  it("filters by when, status and owner", async () => {
+    const event = await seed();
+    await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    const ids = async (query: string) => (await list(admin, query)).map((row) => row.eventId);
+    expect(await ids("?when=upcoming")).toEqual([event.id]);
+    expect(await ids("?when=past")).toEqual([]);
+    expect(await ids("?when=all")).toEqual([event.id]);
+    expect(await ids("?status=draft")).toEqual([event.id]);
+    expect(await ids("?status=approved")).toEqual([]);
+    expect(await ids(`?owner=${people.sam}`)).toEqual([event.id]);
+    expect(await ids(`?owner=${people.manager}`)).toEqual([]);
+    await db.update(schema.events)
+      .set({ startsAt: new Date(Date.now() - 3 * 86_400_000), endsAt: null })
+      .where(eq(schema.events.id, event.id));
+    expect(await ids("?when=upcoming")).toEqual([]);
+    expect(await ids("?when=past")).toEqual([event.id]);
+    expect((await admin.call("GET", "/api/beos?when=soon")).status).toBe(400);
+    expect((await admin.call("GET", "/api/beos?status=done")).status).toBe(400);
+  });
+
+  it("shows only the BEOs of events the person may open", async () => {
+    const event = await seed();
+    await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    expect((await list(jamie)).map((row) => row.eventId)).toEqual([event.id]);
+    expect(await list(nora)).toEqual([]);
+  });
+});

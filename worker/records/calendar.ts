@@ -1,18 +1,21 @@
-import { and, asc, eq, gte, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import type { Calendar, CalendarRange } from "../../shared/calendar";
+import { calendarEventStatuses, type Calendar, type CalendarRange } from "../../shared/calendar";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
 import {
+  beos,
   clients,
   eventShifts,
   eventStaffSlots,
   events,
+  proposals,
   reservations,
   tasks,
   users,
   venues,
 } from "../db/schema";
+import { can } from "../policy";
 import { visibleEvents } from "./events";
 import { involving, visibleTasks } from "./tasks";
 
@@ -52,6 +55,8 @@ export async function getCalendar(
       guestCount: events.guestCount,
       salespersonName: users.name,
       salespersonEmail: users.email,
+      salespersonId: events.assignedSalespersonId,
+      leadId: events.leadId,
       staffCount: sql<number>`(select count(distinct ${eventStaffSlots.assigneeId}) from ${eventStaffSlots} join ${eventShifts} on ${eventShifts.id} = ${eventStaffSlots.shiftId} where ${eventShifts.eventId} = ${events.id} and ${eventShifts.archivedAt} is null and ${eventStaffSlots.archivedAt} is null)`.mapWith(Number),
     })
     .from(events)
@@ -62,6 +67,8 @@ export async function getCalendar(
       and(
         isNull(events.archivedAt),
         visibleEvents(actor),
+        // FLOW-265 AC1: Negotiation or later, never Lost.
+        inArray(events.status, [...calendarEventStatuses]),
         // Overlaps the range: starts before its end and ends (or, without an end
         // time, starts) on or after its start. Compared column by column, so each
         // Date is sent the way its column's type encodes it.
@@ -96,6 +103,26 @@ export async function getCalendar(
     .orderBy(asc(tasks.dueAt), asc(tasks.id))
     .limit(MAX_ROWS);
   const layers = await getLayers(db, actor, range, start, end);
+  const eventIds = eventRows.map((row) => row.id);
+  // The newest proposal and the BEO of each event, for the side panel.
+  // Proposals only for those who may read them (Admin and sales by default).
+  const proposalRows = eventIds.length && can(actor, "proposals.read")
+    ? await db
+        .select({ id: proposals.id, title: proposals.title, eventId: proposals.eventId })
+        .from(proposals)
+        .where(and(inArray(proposals.eventId, eventIds), isNull(proposals.archivedAt)))
+        .orderBy(desc(proposals.createdAt), desc(proposals.id))
+    : [];
+  const proposalOf = new Map<string, { id: string; title: string }>();
+  for (const row of proposalRows)
+    if (!proposalOf.has(row.eventId)) proposalOf.set(row.eventId, { id: row.id, title: row.title });
+  const beoRows = eventIds.length
+    ? await db
+        .select({ id: beos.id, eventId: beos.eventId })
+        .from(beos)
+        .where(and(inArray(beos.eventId, eventIds), isNull(beos.archivedAt)))
+    : [];
+  const beoOf = new Map(beoRows.map((row) => [row.eventId, row.id]));
   return {
     events: eventRows.map((row) => ({
       id: row.id,
@@ -109,6 +136,10 @@ export async function getCalendar(
       // A user without a name shows as their email, as on the roster.
       salespersonName: row.salespersonName || row.salespersonEmail || null,
       staffCount: row.staffCount,
+      salespersonId: row.salespersonId,
+      leadId: row.leadId,
+      proposal: proposalOf.get(row.id) ?? null,
+      beoId: beoOf.get(row.id) ?? null,
     })),
     tasks: taskRows.map((row) => ({
       id: row.id,

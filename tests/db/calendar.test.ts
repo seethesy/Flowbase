@@ -136,6 +136,12 @@ async function seed() {
     .update(schema.events)
     .set({ assistantLeadIds: [people.helper] })
     .where(eq(schema.events.id, gala.id));
+  // The calendar shows Negotiation and later (FLOW-265 AC1). Statuses are stored
+  // directly: walking each event through the lifecycle is FLOW-56's.
+  await db
+    .update(schema.events)
+    .set({ status: "negotiation" })
+    .where(inArray(schema.events.id, [gala.id, brunch.id, late.id, october.id]));
   return { juniper, gala, brunch, late, october };
 }
 const newTask = (input: TaskInput) => admin.send<Task>("POST", "/api/tasks", input, 201);
@@ -149,7 +155,7 @@ describe("calendar (FLOW-63)", () => {
       {
         id: gala.id,
         title: "Fall gala",
-        status: "inquiry",
+        status: "negotiation",
         start: "2026-09-17T17:00",
         end: "2026-09-17T22:00",
         clientName: "Juniper & Co.",
@@ -157,11 +163,42 @@ describe("calendar (FLOW-63)", () => {
         guestCount: null,
         salespersonName: "Sam",
         staffCount: 0,
+        salespersonId: people.sam,
+        leadId: null,
+        proposal: null,
+        beoId: null,
       },
       expect.objectContaining({ id: brunch.id, start: "2026-09-20T10:00", end: null }),
       // Past midnight: it ends on the next day.
       expect.objectContaining({ id: late.id, start: "2026-09-25T22:00", end: "2026-09-26T02:00" }),
     ]);
+  });
+
+  it("shows only events at Negotiation or later, never Lost or earlier stages (FLOW-265 AC1)", async () => {
+    const { gala, brunch, late } = await seed();
+    const shown = async () => (await admin.get<Calendar>(september)).events.map((event) => event.id);
+    expect(await shown()).toEqual([gala.id, brunch.id, late.id]);
+    for (const status of ["inquiry", "pitching", "p_creation", "p_sent", "lost"] as const) {
+      await db.update(schema.events).set({ status }).where(eq(schema.events.id, brunch.id));
+      expect(await shown(), status).toEqual([gala.id, late.id]);
+    }
+    for (const status of ["closing", "closed", "preparation", "finished"] as const) {
+      await db.update(schema.events).set({ status }).where(eq(schema.events.id, brunch.id));
+      expect(await shown(), status).toEqual([gala.id, brunch.id, late.id]);
+    }
+  });
+
+  it("gives the side panel the event's BEO and newest proposal, proposals only to sales roles", async () => {
+    const { gala } = await seed();
+    const [beo] = await db.insert(schema.beos).values({ eventId: gala.id, snapshot: {} }).returning();
+    const insertProposal = (title: string, createdAt: Date) =>
+      db.insert(schema.proposals).values({ eventId: gala.id, title, createdAt }).returning();
+    await insertProposal("First draft", new Date("2026-08-01T12:00:00Z"));
+    const [newest] = await insertProposal("Second draft", new Date("2026-08-02T12:00:00Z"));
+    const fromAdmin = (await admin.get<Calendar>(september)).events.find((event) => event.id === gala.id)!;
+    expect(fromAdmin).toMatchObject({ beoId: beo.id, proposal: { id: newest.id, title: "Second draft" } });
+    const fromHelper = (await helper.get<Calendar>(september)).events.find((event) => event.id === gala.id)!;
+    expect(fromHelper).toMatchObject({ beoId: beo.id, proposal: null });
   });
 
   it("includes an event that started before the range and runs into it", async () => {
@@ -326,6 +363,10 @@ describe("calendar overview mode (FLOW-64)", () => {
         "status",
         "title",
         "venueName",
+        "salespersonId",
+        "leadId",
+        "proposal",
+        "beoId",
       ].sort(),
     );
   });

@@ -58,7 +58,8 @@ export const dayOfCheckpointLabels: Record<DayOfCheckpointKey, string> = {
   service_ended: "Service ended",
 };
 
-export const dayOfUpdateKinds = ["staff", "truck", "checkpoint"] as const;
+// "note": a free-text line added to the log from the board (FLOW-265).
+export const dayOfUpdateKinds = ["staff", "truck", "checkpoint", "note"] as const;
 export const dayOfUpdateKindSchema = z.enum(dayOfUpdateKinds);
 export type DayOfUpdateKind = z.infer<typeof dayOfUpdateKindSchema>;
 
@@ -110,6 +111,7 @@ export const dayOfEventSchema = z.object({
   startsAt: timestamp,
   endsAt: timestamp.nullable(),
   venueName: z.string().nullable(),
+  guestCount: z.number().int().nullable(),
   staff: z.array(dayOfStaffSchema),
   trucks: z.array(dayOfTruckSchema),
   checkpoints: z.array(dayOfCheckpointSchema),
@@ -158,6 +160,14 @@ export const dayOfCheckpointInputSchema = z.object({
   urgent,
 });
 export type DayOfCheckpointInput = z.input<typeof dayOfCheckpointInputSchema>;
+
+// A note added to the event's day-of log from the board (FLOW-265), e.g. "guest
+// count changed to 64". Urgent tells the event day's crew.
+export const dayOfNoteInputSchema = z.object({
+  text: text(1000).min(1, "Write a note."),
+  urgent,
+});
+export type DayOfNoteInput = z.input<typeof dayOfNoteInputSchema>;
 
 // ---- The update log ----
 

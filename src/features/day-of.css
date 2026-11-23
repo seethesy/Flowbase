@@ -1,0 +1,156 @@
+/* The Events screen's Day-of tab (FLOW-265). */
+.day-of-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.day-of-stepper h2 {
+  margin: 0 0 0 8px;
+  font-size: 18px;
+}
+.day-of-card {
+  margin: 0 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.day-of-card > .error-message {
+  margin: 8px 16px 0;
+}
+.day-of-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.day-of-card-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.day-of-card-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.day-of-checkpoints {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--border);
+}
+.day-of-checkpoints li {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding: 12px 16px;
+  border-left: 1px solid var(--border);
+  font-size: 13px;
+}
+.day-of-checkpoints li:first-child {
+  border-left: 0;
+}
+.day-of-checkpoints small {
+  color: var(--muted);
+}
+.day-of-actual {
+  color: var(--primary);
+  font-weight: 600;
+}
+.day-of-clear {
+  margin-left: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.day-of-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.day-of-columns > div {
+  padding: 12px 16px;
+}
+.day-of-columns > div + div {
+  border-left: 1px solid var(--border);
+}
+.day-of-columns h3,
+.day-of-log h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.day-of-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.day-of-rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.day-of-rows li strong {
+  flex: 1;
+  font-weight: 500;
+}
+.day-of-log {
+  padding: 12px 16px;
+}
+.day-of-log ul {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.day-of-log li {
+  display: flex;
+  gap: 16px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.day-of-log li small {
+  min-width: 64px;
+  color: var(--muted);
+}
+.day-of-note {
+  display: flex;
+  gap: 8px;
+}
+.day-of-note input {
+  flex: 1;
+}
+.badge.day-of-en-route {
+  color: #6d28d9;
+  background: #ede9fe;
+}
+@media (max-width: 767px) {
+  .day-of-checkpoints {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .day-of-checkpoints li:nth-child(3) {
+    border-left: 0;
+  }
+  .day-of-columns {
+    grid-template-columns: 1fr;
+  }
+  .day-of-columns > div + div {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .day-of-card-meta {
+    margin-left: 0;
+    width: 100%;
+  }
+}

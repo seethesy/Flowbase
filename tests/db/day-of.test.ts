@@ -249,3 +249,33 @@ describe("day-of update log (FLOW-156)", () => {
     await expect(db.execute(sql`delete from day_of_updates`)).rejects.toThrow();
   });
 });
+
+describe("day-of notes (FLOW-265)", () => {
+  it("adds a note to the event's log, for managers only, and an urgent note tells the crew", async () => {
+    const { gala } = await setup();
+    const note = await manager.send<DayOfUpdate>(
+      "POST",
+      `/api/day-of/events/${gala.id}/notes`,
+      { text: "  Florist arriving 30 min late  " },
+      201,
+    );
+    expect(note).toMatchObject({ eventId: gala.id, kind: "note", subjectName: "Note", summary: "Florist arriving 30 min late", urgent: false, actorName: "Manager" });
+    expect((await logOf(manager, gala.id)).entries[0]).toMatchObject({ id: note.id, kind: "note" });
+    // Jamie works the gala and reads the log, but doesn't update the board.
+    expect((await logOf(jamie, gala.id)).entries.map((entry) => entry.summary)).toContain("Florist arriving 30 min late");
+    expect((await jamie.call("POST", `/api/day-of/events/${gala.id}/notes`, { text: "Hi" })).status).toBe(403);
+    expect((await manager.call("POST", `/api/day-of/events/${gala.id}/notes`, { text: "   " })).status).toBe(400);
+
+    await manager.send("POST", `/api/day-of/events/${gala.id}/notes`, { text: "Guest count changed to 64", urgent: true }, 201);
+    const jobs = await db.select().from(schema.jobs).where(eq(schema.jobs.type, "event:event.day_of_changed"));
+    const urgent = jobs.map((job) => job.payload as { recipientIds?: string[]; body?: string }).filter((p) => p.recipientIds);
+    expect(urgent).toHaveLength(1);
+    expect(urgent[0]).toMatchObject({ recipientIds: [people.jamie], body: "Fall gala: Guest count changed to 64" });
+  });
+
+  it("puts the guest count on the board", async () => {
+    const { gala } = await setup();
+    await db.update(schema.events).set({ guestCount: 90 }).where(eq(schema.events.id, gala.id));
+    expect((await board(manager)).events[0].guestCount).toBe(90);
+  });
+});

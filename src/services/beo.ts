@@ -8,8 +8,9 @@ import {
   type LayoutCopyInput,
   type RunOfShowInput,
 } from "../../shared/beo";
+import { beoListRowSchema, type BeoListQuery } from "../../shared/beo-list";
 import { cachedBeo, isNetworkError } from "../offline/db";
-import { at, request } from "./core";
+import { at, query, request } from "./core";
 
 // The banquet event order (FLOW-143, 144, 148). Every call answers with the whole
 // BEO as the signed-in role may see it.
@@ -18,6 +19,9 @@ const view = (path: string, method: "POST" | "PUT" | "PATCH" | "DELETE", body?: 
   request(beoViewSchema, path, method, body ?? {});
 
 export const beoApi = {
+  // The BEOs tab (FLOW-265): every BEO the viewer may open.
+  list: (filter: Partial<BeoListQuery> = {}) =>
+    request(beoListRowSchema.array(), `/api/beos${query({ when: filter.when, status: filter.status, owner: filter.owner })}`),
   // With no signal, the copy kept for offline use (FLOW-150): read-only, whatever
   // the person could do online.
   get: async (eventId: string) => {

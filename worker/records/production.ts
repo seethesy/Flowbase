@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, isNull, lt, lte } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import { mayViewAllProduction } from "../../shared/policy";
-import { completion, type ProductionItem, type ProductionList, type ProductionOverview } from "../../shared/production";
+import { completion, type ProductionItem, type ProductionList, type ProductionOverview, type ProductionWindow } from "../../shared/production";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
 import { consumableAllocations, eventShifts, eventStaffSlots, events, inventoryItems, kitchenMenus, kitchenMenuLines, orderLists, pullListLines, pullLists, reservationConflicts, taskAssignees, tasks, truckAssignments, trucks, vendorOrders } from "../db/schema";
@@ -22,7 +22,7 @@ export async function getProductionList(db: DbLike, actor: Actor, eventId: strin
   if (!event) throw notFound("Event");
   const eventDate = utcToBusinessTime(event.startsAt).date;
   const due = event.startsAt.toISOString();
-  const base = { eventId, eventTitle: event.title };
+  const base = { eventId, eventTitle: event.title, eventDate };
   const items: ProductionItem[] = [];
   const taskRows = await db.select({ task: tasks, assigneeId: taskAssignees.userId }).from(tasks)
     .leftJoin(taskAssignees, and(eq(taskAssignees.taskId, tasks.id), isNull(taskAssignees.archivedAt)))
@@ -108,7 +108,7 @@ export async function getProductionList(db: DbLike, actor: Actor, eventId: strin
   return { eventId, eventTitle: event.title, eventDate, items: visible.sort((a, b) => a.due.localeCompare(b.due)), ...completion(visible) };
 }
 
-export async function getProductionOverview(db: DbLike, actor: Actor, days: 7 | 14, now = new Date()): Promise<ProductionOverview> {
+export async function getProductionOverview(db: DbLike, actor: Actor, days: ProductionWindow, now = new Date()): Promise<ProductionOverview> {
   if (!mayViewAllProduction(actor) && !await primaryLead(db, actor)) throw forbidden();
   const first = utcToBusinessTime(now).date;
   const end = addLocalDays(first, days);
@@ -139,7 +139,16 @@ export async function getProductionOverview(db: DbLike, actor: Actor, days: 7 | 
   const capacity = truckRows.length;
   const buckets = Array.from({ length: days }, (_, i) => ({ date: addLocalDays(first, i), items: [] as ProductionItem[], trucksAssigned: 0,
     truckCapacity: capacity, overcommitted: false, truckConflict: false, staffOvercommitted: false }));
+  // Readiness questions show in the overview's panel, not among the day's work.
+  const readiness: ProductionOverview["readiness"] = [];
+  for (const list of lists) {
+    const keys = new Set(list.items.filter((entry) => entry.type === "readiness").map((entry) => entry.id.slice("readiness:".length)));
+    if (!keys.size) continue;
+    for (const check of await getReadiness(db, actor, list.eventId, now))
+      if (keys.has(check.key)) readiness.push({ ...check, eventId: list.eventId, eventTitle: list.eventTitle });
+  }
   for (const list of lists) for (const item of list.items) {
+    if (item.type === "readiness") continue;
     const day = utcToBusinessTime(new Date(item.due)).date;
     const bucket = buckets.find((entry) => entry.date === day);
     if (bucket) bucket.items.push(item);
@@ -158,5 +167,5 @@ export async function getProductionOverview(db: DbLike, actor: Actor, days: 7 | 
     day.staffOvercommitted = [...byPerson.values()].some((rows) => rows.some((a, index) => rows.slice(index + 1).some((b) => a.startsAt < b.endsAt && b.startsAt < a.endsAt)));
     day.items.sort((a, b) => a.due.localeCompare(b.due) || a.eventTitle.localeCompare(b.eventTitle));
   }
-  return { days: buckets };
+  return { days: buckets, readiness };
 }
