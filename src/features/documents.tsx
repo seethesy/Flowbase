@@ -209,10 +209,11 @@ export function DocumentsPage() {
   </>;
 }
 
-function DocumentUpload({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+// Also the Kitchen screen's "+ Upload menu" (FLOW-267), with the type preset.
+export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onClose: () => void; onSaved: () => void; presetType?: DocumentType }) {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [type, setType] = useState<DocumentType>("other");
+  const [type, setType] = useState<DocumentType>(presetType);
   const [link, setLink] = useState<{ type: AttachmentRecordType; id: string; name: string }>({ type: "document", id: "", name: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);

@@ -17,6 +17,7 @@ import {
 import { listOptions } from "../../shared/settings";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { canSeeField } from "../../shared/visibility";
+import { utcToBusinessTime } from "../../shared/time";
 import { allPages, inventoryApi, recipesApi } from "../services/core";
 import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
@@ -28,7 +29,6 @@ import {
   FilterBar,
   FormField,
   LoadingSkeleton,
-  PageHeader,
   SearchInput,
   Section,
 } from "../components/shared";
@@ -38,6 +38,8 @@ import { Attachments } from "./attachments";
 import { centsLabel, quantityLabel } from "./inventory-labels";
 import { useArchivedMarks, useListLabels } from "./list-fields";
 import "./inventory.css";
+import { KitchenCard, KitchenHeading } from "./kitchen-screen";
+import { weekday } from "./calendar-entries";
 import { RoundCheck } from "../components/ui/round-check";
 import { Plural, T, useCopy, LabelT } from "../app/copy";
 import { copySlug } from "../../shared/copy";
@@ -84,6 +86,8 @@ export function RecipeList() {
   const [allergen, setAllergen] = useState("");
   const [dietaryTag, setDietaryTag] = useState("");
   const [create, setCreate] = useState(false);
+  // Open shows the kitchen card (FLOW-267).
+  const [card, setCard] = useState<Recipe | null>(null);
   const recipes = useResource(
     ["recipes", { archived, category }],
     () => recipesApi.list({ archived, category: category || undefined }),
@@ -92,7 +96,8 @@ export function RecipeList() {
   const deletable = useDeletable("recipe", () => recipes.reload());
   const data = (recipes.data ?? []).filter((recipe) =>
     [recipe.name, ...recipe.lines.map((line) => line.ingredientName)].some((name) => name.toLowerCase().includes(search.toLowerCase())) &&
-    (!allergen || recipe.allergens.some((tag) => tag === allergen)) &&
+    // "Free of …" (FLOW-267): recipes without the chosen allergen.
+    (!allergen || !recipe.allergens.includes(allergen)) &&
     (!dietaryTag || recipe.dietaryTags.some((tag) => tag === dietaryTag)),
   );
   const { actor, can } = usePermissions();
@@ -125,20 +130,16 @@ export function RecipeList() {
       meta: { edit: "number", editValue: (row) => row.yield?.servings.toString() ?? "",
         canEdit: () => can("recipes.write"),
         onEdit: (row, value) => edit(row, { yield: value ? { servings: Number(value), portionSize: row.yield?.portionSize ?? "" } : null }) } },
+    // FLOW-267: allergens and dietary tags show as chips; they're edited on the
+    // recipe, with its ingredients.
     {
       id: "allergens",
       header: "Allergens",
       accessorFn: (recipe) => markedList(recipe.allergens, markAllergen) || "—",
-      meta: { edit: "select", editMultiple: true, editValue: (row) => row.allergens.join(","),
-        canEdit: () => can("recipes.write"),
-        editOptions: allergenLabels.map((value) => ({ value, label: markAllergen(value) })),
-        onEdit: (row, value) => edit(row, { allergens: value ? value.split(",") : [] }) },
+      cell: ({ row }) => <span className="recipe-chips">{row.original.allergens.map((tag) => <span key={tag} className="badge warning">{markAllergen(tag)}</span>)}</span>,
     },
-    { id: "dietary", header: "Dietary tags", accessorFn: (recipe) => markedList(recipe.dietaryTags, markDietaryTag) || "—",
-      meta: { edit: "select", editMultiple: true, editValue: (row) => row.dietaryTags.join(","),
-        canEdit: () => can("recipes.write"),
-        editOptions: dietaryTagLabels.map((value) => ({ value, label: markDietaryTag(value) })),
-        onEdit: (row, value) => edit(row, { dietaryTags: value ? value.split(",") : [] }) } },
+    { id: "dietary", header: "Dietary", accessorFn: (recipe) => markedList(recipe.dietaryTags, markDietaryTag) || "—",
+      cell: ({ row }) => <span className="recipe-chips">{row.original.dietaryTags.map((tag) => <span key={tag} className="badge success">{markDietaryTag(tag)}</span>)}</span> },
     ...(costHidden
       ? []
       : [
@@ -149,19 +150,25 @@ export function RecipeList() {
               centsLabel(recipe.cost?.perServingCents ?? null),
           },
         ]),
+    { id: "updated", header: "Updated", accessorFn: (recipe) => recipe.updatedAt,
+      cell: ({ row }) => weekday(utcToBusinessTime(new Date(row.original.updatedAt)).date) },
     {
       id: "flags",
       header: "Flags",
       cell: ({ row }) => <RecipeFlags recipe={row.original} />,
     },
   ];
+  // The preview's order (FLOW-267): Dish, Category, Yield, Cost per serving,
+  // Allergens, Dietary, Updated, then flags.
+  const order = ["name", "category", "yield", "perServing", "allergens", "dietary", "updated", "flags"];
+  const keyOf = (column: ColumnDef<Recipe, unknown>) => {
+    const named = column as { id?: string; accessorKey?: string };
+    return named.id ?? named.accessorKey ?? "";
+  };
+  columns.sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
   return (
     <>
-      <PageHeader
-        title={<T id="recipes.recipe-list.recipe-book">Recipe book</T>}
-        subtitle={<T id="recipes.recipe-list.every-dish-with-its-ingredients">Every dish with its ingredients, method, cost and allergens.</T>}
-        eyebrow={<T id="recipes.recipe-list.kitchen">Kitchen</T>}
-      >
+      <KitchenHeading tab="recipes">
         <Button asChild variant="outline"><Link to="/recipes/client"><T id="recipes.recipe-list.client-recipe-book">Client recipe book</T></Link></Button>
         <Allowed action="recipes.write">
           <Button onClick={() => setCreate(true)}>
@@ -169,7 +176,7 @@ export function RecipeList() {
             <T id="recipes.recipe-list.new-recipe">New Recipe</T>
           </Button>
         </Allowed>
-      </PageHeader>
+      </KitchenHeading>
       <PageGrid pageKey="recipes.list">
       <Block id="filters" name="Filters" h={4}>
       <FilterBar>
@@ -191,11 +198,11 @@ export function RecipeList() {
           ))}
         </Dropdown>
         <Dropdown aria-label="Allergen" value={allergen} onChange={(e) => setAllergen(e.target.value)}>
-          <option value="">All allergens</option>
-          {allergenLabels.map((tag) => <option key={tag} value={tag}>{markAllergen(tag)}</option>)}
+          <option value="">Any allergens</option>
+          {allergenLabels.map((tag) => <option key={tag} value={tag}>{`Free of ${markAllergen(tag)}`}</option>)}
         </Dropdown>
         <Dropdown aria-label="Dietary tag" value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>
-          <option value="">All dietary tags</option>
+          <option value="">Any dietary tag</option>
           {dietaryTagLabels.map((tag) => <option key={tag} value={tag}>{markDietaryTag(tag)}</option>)}
         </Dropdown>
         <label className="checkbox-filter">
@@ -217,12 +224,16 @@ export function RecipeList() {
         <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list" openColumn
           data={data}
           columns={columns}
-          onRow={(recipe) => navigate(`/recipes/${recipe.id}`)}
+          onRow={(recipe) => setCard(recipe)}
           label={<T id="recipes.recipe-list.recipes-2">recipes</T>}
         />
       )}
+      <p className="table-hint">
+        <T id="recipes.recipe-list.click-a-cell-to-edit">{"Click a cell to edit it; ingredients, allergens and cost are edited on the recipe (cost is calculated). Drag, Shift+click or Ctrl/Cmd+click to select; Delete or Ctrl+Z."}</T>
+      </p>
       </Block>
       </PageGrid>
+      {card && <KitchenCard recipe={card} onClose={() => setCard(null)} />}
       {create && (
         <RecipeForm
           onClose={() => setCreate(false)}

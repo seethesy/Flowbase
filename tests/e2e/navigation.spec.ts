@@ -32,8 +32,9 @@ test("a heading opens its first tab; placeholders say Coming soon", async ({ pag
   await expect(page).toHaveURL(/#\/staffing\/schedule$/);
   await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
   await expect(tabs(page, "Staffing")).toHaveText(["Schedule", "Staff directory", "SOPs"]);
+  // Marketing is the Photos gallery since FLOW-271, no longer a placeholder.
   await page.goto("/#/marketing");
-  await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Photos", level: 1 })).toBeVisible();
   // Documents is a live library since FLOW-263, no longer a placeholder.
   await page.goto("/#/documents");
   await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
@@ -55,7 +56,7 @@ databaseTest("part-time staff only see the tabs they can open", async ({ page, i
   // Venues is the only Sales tab left, so there is no tab row.
   await expect(page.getByRole("navigation", { name: "Sales pages" })).toHaveCount(0);
   await page.goto("/#/inventory");
-  await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar", "Purchasing", "Vendors"]);
+  await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar", "Purchasing", "Vendors", "Photos"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/venues");
 });

@@ -102,8 +102,9 @@ const expected: Record<Action, string> = {
   "vendors.write": "1110100",
   "staff.pay.read": "1000000",
   "staff.pay.write": "1000000",
-  "marketing.read": "1000000",
-  "marketing.write": "1000000",
+  // Marketing photos (FLOW-271): everyone reads, Sales roles and Admin write.
+  "marketing.read": "1111111",
+  "marketing.write": "1111000",
 };
 // Every Admin has live editing, wording and layout (FLOW-253 comment, FLOW-269).
 it("gives every Admin both live-edit permissions", () => {

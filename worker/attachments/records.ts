@@ -25,6 +25,7 @@ import { findVenue } from "../records/venues";
 import { findVisibleLead } from "../records/leads";
 import { findVendor } from "../records/vendors";
 import { fileStorage } from "./storage";
+import { isPhotoArea, photoAreaActions } from "../../shared/photos";
 
 type AttachmentRow = typeof attachments.$inferSelect;
 type UploadRequest = z.output<typeof uploadRequestSchema>;
@@ -75,6 +76,15 @@ export async function requireParent(
   write: boolean,
   group = "",
 ) {
+  // A photo uploaded straight to a gallery (FLOW-271, FLOW-298) follows that
+  // gallery's area: anyone who reads it sees the photo, anyone who writes it
+  // uploads, edits and deletes.
+  if (recordType === "document" && isPhotoArea(group)) {
+    const area = photoAreaActions[group];
+    if (!can(actor, area.read)) throw notFound("Document");
+    if (write && !can(actor, area.write)) throw forbidden();
+    return;
+  }
   const parent = parents[recordType];
   await parent.find(db, actor, recordId);
   if (write && !isActualSetupPhoto(recordType, group)) {
@@ -156,6 +166,7 @@ export async function startUpload(
       group: input.group,
       fileName: input.fileName,
       caption: input.caption,
+      photoDate: input.photoDate ?? null,
       variants,
       createdBy: actor.userId,
       updatedBy: actor.userId,

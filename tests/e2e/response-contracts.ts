@@ -69,6 +69,7 @@ import {
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
 import { documentSchema, documentUploadTicketSchema } from "../../shared/documents";
+import { photoSchema } from "../../shared/photos";
 import { communicationSchema } from "../../shared/communications";
 import { sopSchema, sopSummarySchema } from "../../shared/sops";
 import { historyEntrySchema } from "../../shared/audit";
@@ -173,6 +174,11 @@ export function responseSchema(
       : !id && method === "POST" ? documentUploadTicketSchema
         : action === "archive" || action === "restore"
           ? z.object({ id: z.string(), restored: z.boolean() }) : documentSchema;
+  // Photo galleries (FLOW-271, FLOW-298).
+  if (resource === "photos")
+    return !id ? photoSchema.array()
+      : action === "archive" || action === "restore"
+        ? z.object({ id: z.string(), restored: z.boolean() }) : photoSchema;
   if (resource === "communications")
     return method === "GET" ? communicationSchema.array() : communicationSchema;
   if (resource === "leads") {

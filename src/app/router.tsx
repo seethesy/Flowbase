@@ -74,6 +74,10 @@ const InventoryCategoriesPage = lazy(() => import("../features/inventory-categor
   .then((module) => ({ default: module.InventoryCategoriesPage })));
 const DocumentsPage = lazy(() => import("../features/documents")
   .then((module) => ({ default: module.DocumentsPage })));
+// Photo galleries (FLOW-271, FLOW-298).
+const MarketingPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.MarketingPhotosPage })));
+const KitchenPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.KitchenPhotosPage })));
+const InventoryPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.InventoryPhotosPage })));
 const CollectorHealthPage = lazy(() => import("../features/collector-health")
   .then((module) => ({ default: module.CollectorHealthPage })));
 const UsagePage = lazy(() => import("../features/usage")
@@ -122,6 +126,7 @@ const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ 
 const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
 const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
 const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
+const MenusPage = lazy(() => import("../features/kitchen-screen").then((module) => ({ default: module.MenusPage })));
 const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
 import { Button, EmptyState, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
@@ -184,8 +189,7 @@ function Placeholder() {
     </>
   );
 }
-// Schedule, Marketing and Documents have a place in the navigation before they
-// have a screen (FLOW-246).
+// Schedule has a place in the navigation before it has a screen (FLOW-246).
 function ComingSoon({ title }: { title: string }) {
   return (
     <>
@@ -267,6 +271,7 @@ export const getRouter = () =>
         { path: "/inventory/sections", element: <SectionList /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
         { path: "/recipes", element: <RecipeList /> },
+        { path: "/kitchen/menus", element: <MenusPage /> },
         { path: "/recipes/client", element: <ClientRecipeBook /> },
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
@@ -283,7 +288,9 @@ export const getRouter = () =>
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/staffing/schedule", element: <ComingSoon title="Schedule" /> },
-        { path: "/marketing", element: <ComingSoon title="Marketing" /> },
+        { path: "/marketing", element: <MarketingPhotosPage /> },
+        { path: "/kitchen/photos", element: <KitchenPhotosPage /> },
+        { path: "/inventory/photos", element: <InventoryPhotosPage /> },
         { path: "/documents", element: <DocumentsPage /> },
         { path: "/profile", element: <Profile /> },
         { path: "/tasks", element: <TaskDashboardPage /> },

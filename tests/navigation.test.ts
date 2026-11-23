@@ -36,22 +36,23 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
     expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
-    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Imports"]);
-    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients"]);
+    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
+    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Menus", "Photos"]);
+    expect(tabs(admin, "Marketing")).toEqual(["Photos"]);
     expect(tabs(admin, "Reports")).toEqual(["Time tracking", "Operational reports"]);
   });
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
     expect(tabs(salesperson, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
-    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Imports"]);
+    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
     expect(tabs(salesperson, "Reports")).toEqual(["Time tracking"]);
     // Staff can't read leads, clients or proposals, run imports or see operational reports.
     expect(tabs(staff, "Sales")).toEqual(["Venues"]);
-    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors"]);
+    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos"]);
     expect(tabs(staff, "Reports")).toEqual(["Time tracking"]);
     expect(headings(staff)).toHaveLength(9);
     // Signed out, only pages that need no permission remain.
-    expect(visibleGroups(null).map((group) => group.name)).toEqual(["Dashboard", "Marketing", "Documents"]);
+    expect(visibleGroups(null).map((group) => group.name)).toEqual(["Dashboard", "Documents"]);
   });
 
   it("keeps existing URLs under their heading, including record pages", () => {
@@ -73,6 +74,10 @@ describe("navigation groups", () => {
     expect(at("/inventory/bar")).toBe("Inventory › Bar");
     expect(at("/inventory/orders/o-1")).toBe("Inventory › Purchasing");
     expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");
+    expect(at("/kitchen/menus")).toBe("Kitchen › Menus");
+    expect(at("/inventory/photos")).toBe("Inventory › Photos");
+    expect(at("/kitchen/photos")).toBe("Kitchen › Photos");
+    expect(at("/marketing")).toBe("Marketing › Photos");
     expect(at("/reports/operations")).toBe("Reports › Operational reports");
     expect(at("/settings")).toBeNull();
     // Day-of: one page, two entry points.
