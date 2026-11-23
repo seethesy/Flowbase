@@ -61,6 +61,12 @@ export function SopLibrary() {
 
 export function SopDetail() {
   const { id = "" } = useParams();
+  return <SopRecord key={id} id={id} />;
+}
+
+// A different SOP (including New) starts a fresh record editor, while the shared
+// page layout continues to apply to all records.
+function SopRecord({ id }: { id: string }) {
   const navigate = useNavigate();
   const { can } = usePermissions();
   const creating = id === "new";

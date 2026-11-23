@@ -20,8 +20,9 @@ for (const [pageKey, id, name] of sections) {
     await browserDb((db) => db.update(s.events).set({ status: "preparation" }).where(eq(s.events.id, fallGala().id)));
     await page.goto(`/#/events/${fallGala().id}`);
     await page.getByRole("button", { name: "Edit screen text" }).click();
-    await page.getByRole("button", { name: `Half width: ${name}`, exact: true }).click();
-    const moving = page.getByLabel(`${name}: arrow keys move, Shift and arrow keys resize`, { exact: true });
+    const section = page.locator(`[data-page-layout="${pageKey}"]`);
+    await section.getByRole("button", { name: `Half width: ${name}`, exact: true }).click();
+    const moving = section.getByLabel(`${name}: arrow keys move, Shift and arrow keys resize`, { exact: true });
     await moving.focus();
     await moving.press("ArrowDown");
     await page.getByRole("button", { name: "Save", exact: true }).click();
