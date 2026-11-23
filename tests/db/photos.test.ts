@@ -123,10 +123,10 @@ it("shows every photo the viewer can see in Marketing, with approval and tags th
 
   const all = await gallery(admin, "marketing");
   expect(all).toHaveLength(3);
-  expect(all.map((photo) => photo.eventTitle).sort()).toEqual([null, "Synthetic photo event A", "Synthetic photo event B"]);
+  expect(all.map((photo) => photo.eventTitle ?? "").sort()).toEqual(["", "Synthetic photo event A", "Synthetic photo event B"]);
   for (const photo of all) expect(photo.urls?.thumb).toMatch(/thumb\.jpg/);
   // A salesperson sees their own event's photos only; staff see neither event.
-  expect((await gallery(sam, "marketing")).map((photo) => photo.eventTitle).sort()).toEqual([null, "Synthetic photo event A"]);
+  expect((await gallery(sam, "marketing")).map((photo) => photo.eventTitle ?? "").sort()).toEqual(["", "Synthetic photo event A"]);
   expect(await gallery(stan, "marketing")).toHaveLength(1);
 
   const photoA = all.find((photo) => photo.eventId === eventA)!;
