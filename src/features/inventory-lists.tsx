@@ -232,7 +232,7 @@ export function InventoryList() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="inventory.list"
         title={<T id="inventory-lists.inventory-list.inventory">Inventory</T>}
         subtitle={<T id="inventory-lists.inventory-list.rentals-decor-kitchen-bar-and">Rentals, decor, kitchen, bar and supplies, and the services you sell.</T>}
         eyebrow={<T id="inventory-lists.inventory-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
@@ -458,7 +458,7 @@ export function IngredientList({
       <Link to="/inventory" className="back-link">
         <T id="inventory-lists.ingredient-list.all-inventory">← All inventory</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.consumables"
         title={supplies ? <T id="inventory-lists.ingredient-list.supplies">Supplies</T> : <T id="inventory-lists.ingredient-list.ingredients">Ingredients</T>}
         subtitle={
           supplies
@@ -709,7 +709,7 @@ export function BarList() {
       <Link to="/inventory" className="back-link">
         <T id="inventory-lists.bar-list.all-inventory">← All inventory</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.bar"
         title={<T id="inventory-lists.bar-list.bar">Bar</T>}
         subtitle={<T id="inventory-lists.bar-list.beer-wine-and-liquor-what">{"Beer, wine and liquor: what's in stock, what's low, and who supplies it."}</T>}
         eyebrow={<T id="inventory-lists.bar-list.bar-2">BAR</T>}

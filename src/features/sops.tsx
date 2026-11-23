@@ -37,7 +37,7 @@ export function SopLibrary() {
   ];
   if (sops.error) return <LoadError message={sops.error} />;
   return <>
-    <PageHeader title={<T id="sops.sop-library.sop-library">SOP library</T>} subtitle={<T id="sops.sop-library.standard-procedures-for-production-and">Standard procedures for production and kitchen work.</T>}>
+    <PageHeader pageKey="sops.library" title={<T id="sops.sop-library.sop-library">SOP library</T>} subtitle={<T id="sops.sop-library.standard-procedures-for-production-and">Standard procedures for production and kitchen work.</T>}>
       {can("sops.write") && <Button asChild><Link to="/sops/new"><T id="sops.sop-library.new-sop">New SOP</T></Link></Button>}
     </PageHeader>
     <PageGrid pageKey="sops.library">
@@ -96,7 +96,7 @@ export function SopDetail() {
   const selected = data?.history.find((version) => version.version === shownVersion);
   return <>
     <Link className="back-link" to="/sops"><T id="sops.sop-detail.sop-library">← SOP library</T></Link>
-    <PageHeader title={creating ? <T id="sops.sop-detail.new-sop">New SOP</T> : data?.title ?? <T id="sops.sop-detail.sop">SOP</T>}>
+    <PageHeader pageKey="sops.detail" title={creating ? <T id="sops.sop-detail.new-sop">New SOP</T> : data?.title ?? <T id="sops.sop-detail.sop">SOP</T>}>
       {data && can("sops.write") && !editing && <Button onClick={beginEdit}><T id="sops.sop-detail.edit-sop">Edit SOP</T></Button>}
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}

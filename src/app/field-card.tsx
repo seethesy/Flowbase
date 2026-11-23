@@ -1,15 +1,16 @@
+import { DeleteLayoutButton, useDeletion } from "./layout-deletion";
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
 import { queryClient } from "./queryClient";
 import { X } from "lucide-react";
 import { fieldDef, fieldRegistry, type SourceKey } from "../../shared/fields";
-import { GRID_COLUMNS, type LayoutBox, type SavedLayout } from "../../shared/layout";
+import { GRID_COLUMNS, layoutItemGone, recordPages, type LayoutBox, type SavedLayout } from "../../shared/layout";
 import { Section } from "../components/shared";
 import { Button } from "../components/ui/button";
 import { BoxContent, BoxesView, useVisibleBoxes } from "../components/layout-boxes";
 import { layoutApi } from "../services/layout";
-import { addFieldBox, addTextBox, AddFieldMenu, AddTextMenu, DeleteTextButton, variantNames } from "./box-editor";
+import { addFieldBox, addTextBox, AddFieldMenu, AddTextMenu, variantNames } from "./box-editor";
 import { layoutQueryKey, useLiveEdit } from "./copy";
 import { usePageLayoutContext } from "./layout-state";
 import { styleClass, styleVars, StylePopover } from "./layout-style";
@@ -57,7 +58,7 @@ export function useFieldBoxes(pageKey: string, cardKey: string): LayoutBox[] | n
 // default, else only fields with a box (FLOW-255: Edit matches what's visible).
 export function useShownFields(pageKey: string, cardKey: string): (field: string) => boolean {
   const boxes = useFieldBoxes(pageKey, cardKey);
-  return (field) => !boxes || boxes.some((box) => box.kind === "field" && box.field === field);
+  return (field) => Boolean(recordPages[pageKey] && fieldDef(recordPages[pageKey].source, field)?.required) || !boxes || boxes.some((box) => box.kind === "field" && box.field === field && !layoutItemGone(box));
 }
 
 export function FieldCard({
@@ -118,6 +119,7 @@ function FieldCardEditor({
   custom: boolean;
 }) {
   const layout = usePageLayoutContext()!;
+  const deletion = useDeletion();
   const [styling, setStyling] = useState<string | null>(null);
   const visible = useVisibleBoxes(boxes, source);
   const required = new Set(fieldRegistry[source].fields.filter((field) => field.required).map((field) => field.key));
@@ -128,6 +130,8 @@ function FieldCardEditor({
   const reset = () =>
     layout.update((doc) => {
       const fieldBoxes = { ...doc.fieldBoxes };
+      // Reset fields must not resurrect tombstoned boxes. Only a page reset does.
+      if (boxes.some(layoutItemGone)) return doc;
       delete fieldBoxes[cardKey];
       return { ...doc, fieldBoxes };
     });
@@ -141,9 +145,9 @@ function FieldCardEditor({
       title={title}
       action={
         <span className="layout-field-card-actions">
-          <AddFieldMenu source={source} boxes={boxes} onAdd={(field) => set(addFieldBox(visible, field))} />
-          <AddTextMenu onAdd={(kind) => set(addTextBox(visible, kind))} />
-          <Button variant="ghost" disabled={!custom} onClick={reset}>
+          <AddFieldMenu source={source} boxes={boxes} onAdd={(field) => set(addFieldBox(boxes, field).filter((box) => !unseen.includes(box)))} />
+          <AddTextMenu onAdd={(kind) => set(addTextBox(boxes, kind).filter((box) => !unseen.includes(box)))} />
+          <Button variant="ghost" disabled={!custom || boxes.some(layoutItemGone)} onClick={reset}>
             Reset fields
           </Button>
         </span>
@@ -194,9 +198,8 @@ function FieldCardEditor({
                           <X size={14} />
                         </button>
                       )
-                    ) : (
-                      <DeleteTextButton label={label} onDelete={() => remove(box.id)} />
-                    )}
+                    ) : null}
+                    <DeleteLayoutButton name={label} onDelete={() => patch(box.id, { deleted: deletion(label) })} />
                   </div>
                   {styling === box.id && (
                     <StylePopover style={box.style} onChange={(style) => patch(box.id, { style })} onClose={() => setStyling(null)} />

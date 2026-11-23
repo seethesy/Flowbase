@@ -157,7 +157,9 @@ test("FLOW-281: SOP columns save order and width and export only visible fields"
   await page.getByLabel("Category", { exact: true }).fill("Production");
   await page.getByRole("textbox", { name: "SOP content" }).fill("Count the sample boxes.");
   await page.getByRole("button", { name: "Save SOP" }).click();
+  await expect(page.getByRole("heading", { name: "Sample loading procedure", exact: true })).toBeVisible();
   await page.getByRole("link", { name: /SOP library/ }).click();
+  await expect(page.getByRole("heading", { name: "SOP library", exact: true })).toBeVisible();
   await edit(page);
   await page.getByRole("button", { name: "Columns", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Columns" });

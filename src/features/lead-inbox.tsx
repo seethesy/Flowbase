@@ -149,7 +149,7 @@ export function LeadInbox() {
     { key: "latestBeo", heading: "BEO", cell: (lead) => lead.latestBeo ? <Link draggable={false} to={`/events/${lead.latestBeo.eventId}/beo/${lead.latestBeo.id}`}><T id="leads.inbox.beo-version" values={{ version: lead.latestBeo.version }}>{"BEO v{version}"}</T></Link> : "—" },
   ];
   return <>
-    <PageHeader title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
+    <PageHeader pageKey="leads.inbox" title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
       <Allowed action="leads.create"><Button onClick={() => setEntering(true)}><T id="leads.inbox.new-lead">New lead</T></Button></Allowed>
       <Button variant="outline" asChild><Link to="/leads/dashboard"><T id="leads.inbox.lead-dashboard">Lead dashboard</T></Link></Button>
     </PageHeader>

@@ -26,7 +26,7 @@ export function InventoryCategoriesPage() {
   if (!can("inventory.sections")) return <p role="alert"><T id="inventory-categories.forbidden">Only Admins can manage inventory categories.</T></p>;
   return <>
     <Link to="/settings" className="back-link"><T id="inventory-categories.back">← Settings</T></Link>
-    <PageHeader title={<T id="inventory-categories.title">Inventory categories</T>}
+    <PageHeader pageKey="inventory.categories" title={<T id="inventory-categories.title">Inventory categories</T>}
       subtitle={<T id="inventory-categories.subtitle">Manage categories and their types. Move items before archiving an entry in use.</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
     <PageGrid pageKey="inventory.categories">

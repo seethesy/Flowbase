@@ -25,7 +25,7 @@ export function ArchivedPage() {
     return <p role="alert"><T id="archived.archived-page.no-access">Only an Admin can restore deleted records.</T></p>;
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="settings.archived"
         title={<T id="archived.archived-page.title">Archived</T>}
         subtitle={<T id="archived.archived-page.subtitle">Records deleted from a table. Restore puts one back where it was.</T>}
       />

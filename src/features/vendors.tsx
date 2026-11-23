@@ -120,7 +120,7 @@ export function VendorList() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="vendors.list"
         title={<T id="vendors.vendor-list.vendors">Vendors</T>}
         subtitle={<T id="vendors.vendor-list.distributors-rental-vendors-and-event">Distributors, rental vendors and event partners, and how to order from each.</T>}
         eyebrow={<T id="vendors.vendor-list.inventory">Inventory</T>}

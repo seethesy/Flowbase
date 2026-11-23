@@ -106,7 +106,7 @@ export function StaffDirectory() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="staff.list"
         title={<T id="staff.staff-directory.staff">Staff</T>}
         subtitle={<T id="staff.staff-directory.who-works-for-the-business">Who works for the business and the positions they can work.</T>}
         eyebrow={<T id="staff.staff-directory.team">TEAM</T>}
@@ -194,7 +194,7 @@ export function StaffProfile({
   return (
     <>
       {heading && (
-        <PageHeader
+        <PageHeader pageKey="staff.detail"
           title={data.name}
           subtitle={<RoleText role={data.role} />}
         />

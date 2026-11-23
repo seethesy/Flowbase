@@ -185,3 +185,22 @@ optional fields to show.
   sign-in and offline BEO pages are exempt. Redirects do not render pages.
 - Browser coverage: `tests/e2e/layout-remaining-pages.spec.ts`; inventory coverage
   continues in `tests/e2e/layout-coverage.spec.ts`.
+
+## Added in FLOW-282
+
+- Delete is separate from Hide. Blocks, field boxes, free text, section headers,
+  page subtitles and layout-aware tables can be deleted with a named confirmation.
+  The page title stays. A table can disappear independently of its containing block.
+- Deleted items shows the name, kind, deleting user id and time. Restore preserves
+  position, size, style and role visibility. Save shares changes; Cancel discards
+  the entire pending layout edit. Only Admin (`layout.edit`) sees these controls.
+- Permanent removal physically removes custom cards/text/inner text. Built-in
+  blocks, field boxes, headers and tables retain tombstones; only Reset page layout
+  brings them back. Reset's confirmation explains this. Deleted items do not count
+  toward the 40 active blocks or 12 active custom cards.
+- Deleted field boxes suppress optional fields in record Edit forms; required
+  record inputs remain available. Stored record values, SOP content and table data
+  never change. Deleted cards leave Roles & permissions; restoring retains roles.
+- Layout audit snapshots include explicit delete/restore/permanent-delete actions.
+- Coverage: `tests/layout-deletion.test.ts`, `tests/e2e/layout-deletion.spec.ts`,
+  and the SOP lifecycle checks in `tests/e2e/layout-remaining-pages.spec.ts`.

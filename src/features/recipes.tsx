@@ -157,7 +157,7 @@ export function RecipeList() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="recipes.list"
         title={<T id="recipes.recipe-list.recipe-book">Recipe book</T>}
         subtitle={<T id="recipes.recipe-list.every-dish-with-its-ingredients">Every dish with its ingredients, method, cost and allergens.</T>}
         eyebrow={<T id="recipes.recipe-list.kitchen">Kitchen</T>}

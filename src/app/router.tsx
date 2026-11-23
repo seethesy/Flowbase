@@ -159,7 +159,7 @@ const UserManagement = lazy(() =>
 function Placeholder() {
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="placeholder.page"
         title="Room to grow"
         subtitle="A peek at what comes next for your workspace."
       />
@@ -186,7 +186,7 @@ function Placeholder() {
 function ComingSoon({ title }: { title: string }) {
   return (
     <>
-      <PageHeader title={title} subtitle="This page is on its way." />
+      <PageHeader pageKey="coming-soon.page" title={title} subtitle="This page is on its way." />
       <PageGrid pageKey="coming-soon.page"><Block id="content" name="Page content" h={6}>
       <section className="panel">
         <EmptyState title="Coming soon" description={`${title} isn't available yet.`} />
@@ -200,7 +200,7 @@ function Profile() {
   const user = auth?.user;
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="notifications.settings"
         title={user?.name ?? "Employee profile"}
         subtitle="Your profile and how Flowbase reaches you"
       />

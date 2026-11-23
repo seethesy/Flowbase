@@ -149,7 +149,7 @@ export function DocumentsPage() {
     event.target.value = "";
   };
   return <>
-    <PageHeader title={<T id="documents.library.title">Documents</T>}
+    <PageHeader pageKey="documents.library" title={<T id="documents.library.title">Documents</T>}
       subtitle={<T id="documents.library.subtitle">Files linked to the work they belong to.</T>}>
       {can("attachments.write") && <Button onClick={() => setUploadOpen(true)}><Upload size={16} /><T id="documents.library.upload">Upload</T></Button>}
     </PageHeader>

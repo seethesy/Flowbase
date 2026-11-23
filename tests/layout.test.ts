@@ -47,9 +47,9 @@ const card = (overrides: Record<string, unknown> = {}) => ({
 const doc = (input: Record<string, unknown>): LayoutDoc => layoutDocSchema.parse({ version: 1, ...input });
 
 describe("field registry (FLOW-253 AC1)", () => {
-  it("covers the nine sources, each with a required name field", () => {
+  it("covers every registered source, each with a required name field", () => {
     expect([...sourceKeys].sort()).toEqual(
-      ["clients", "events", "inventory", "leads", "proposals", "staff", "tasks", "vendors", "venues"],
+      ["clients", "documents", "events", "inventory", "leads", "proposals", "recipes", "sops", "staff", "tasks", "vendors", "venues", "working-staff"],
     );
     for (const source of sourceKeys) {
       const def = fieldRegistry[source];

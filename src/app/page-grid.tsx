@@ -1,8 +1,10 @@
+import { DeleteLayoutButton, DeletedItemsTray, LayoutBlockContext, useDeletion } from "./layout-deletion";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Children, isValidElement, lazy, Suspense, useState, type ReactElement, type ReactNode } from "react";
-import { EyeOff, GripHorizontal, Palette, Pencil, Trash2 } from "lucide-react";
+import { EyeOff, GripHorizontal, Palette, Pencil } from "lucide-react";
 import {
   builtinCard,
+  layoutItemGone,
   GRID_COLUMNS,
   MAX_BLOCKS,
   MAX_CARDS,
@@ -63,8 +65,8 @@ type BlockProps = {
 };
 
 // A marker: PageGrid reads its props and places its children.
-export function Block({ children }: BlockProps) {
-  return <>{children}</>;
+export function Block({ id, children }: BlockProps) {
+  return <LayoutBlockContext.Provider value={id}>{children}</LayoutBlockContext.Provider>;
 }
 
 const newCard = (record: boolean): CardConfig => ({
@@ -166,7 +168,7 @@ export function PageGrid({
         <PageGridEditor layout={layout} blocks={blocks} builtins={builtins} content={content} />
       ) : (
         <div className="page-grid" data-page-layout={pageKey}>
-          {readingOrder(blocks.filter((block) => !(block.kind === "builtin" && block.hidden) && blockVisible(pageKey, block, actor?.role))).map((block) => (
+          {readingOrder(blocks.filter((block) => !layoutItemGone(block) && !(block.kind === "builtin" && block.hidden) && blockVisible(pageKey, block, actor?.role))).map((block) => (
             <div
               key={block.id}
               className={`page-grid-block ${blockClass(block)}`}
@@ -197,33 +199,12 @@ function BlockContent({
     // A built-in card whose values the Admin edited (FLOW-279) renders through
     // the custom-card path, which asks only for fields the viewer may read.
     const edited = block.data ? builtinCard(pageKey, block.id, block.data) : null;
-    if (!edited) return <>{content.get(block.id)}</>;
+    if (!edited) return <LayoutBlockContext.Provider value={block.id}>{content.get(block.id)}</LayoutBlockContext.Provider>;
     return <CustomCard card={edited} cardId={block.id} record={record ? { source: record.source, id: record.id } : null} />;
   }
   if (block.kind === "card")
     return <CustomCard card={block.card} cardId={block.id} record={record ? { source: record.source, id: record.id } : null} />;
   return <TextBlock block={block} />;
-}
-
-function ConfirmButton({ label, question, onConfirm }: { label: string; question: string; onConfirm: () => void }) {
-  const [asking, setAsking] = useState(false);
-  if (asking)
-    return (
-      <span className="layout-confirm" role="alertdialog" aria-label={question}>
-        <span>{question}</span>
-        <Button variant="destructive" onClick={onConfirm}>
-          Delete
-        </Button>
-        <Button variant="ghost" onClick={() => setAsking(false)}>
-          Keep
-        </Button>
-      </span>
-    );
-  return (
-    <button type="button" aria-label={label} title={label} onClick={() => setAsking(true)}>
-      <Trash2 size={14} />
-    </button>
-  );
 }
 
 function PageGridEditor({
@@ -241,12 +222,13 @@ function PageGridEditor({
   // A built-in card's values (FLOW-279) are edited the same way, source locked.
   const [building, setBuilding] = useState<{ id: string | null; card: CardConfig; builtin?: boolean } | null>(null);
   const [styling, setStyling] = useState<string | null>(null);
+  const deletion = useDeletion();
   const [tray, setTray] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const shown = blocks.filter((block) => !(block.kind === "builtin" && block.hidden));
-  const hidden = blocks.filter((block) => block.kind === "builtin" && block.hidden);
-  const cards = blocks.filter((block) => block.kind === "card").length;
-  const full = blocks.length >= MAX_BLOCKS;
+  const shown = blocks.filter((block) => !layoutItemGone(block) && !(block.kind === "builtin" && block.hidden));
+  const hidden = blocks.filter((block) => !layoutItemGone(block) && block.kind === "builtin" && block.hidden);
+  const cards = blocks.filter((block) => !layoutItemGone(block) && block.kind === "card").length;
+  const full = blocks.filter((block) => !layoutItemGone(block)).length >= MAX_BLOCKS;
   const recordSource = recordPages[layout.pageKey]?.source ?? layout.record?.source ?? null;
   const change = (next: (blocks: LayoutBlock[]) => LayoutBlock[]) =>
     layout.update((doc) => ({ ...doc, blocks: next(withBuiltins(doc, builtins)) }));
@@ -265,7 +247,7 @@ function PageGridEditor({
       w: GRID_COLUMNS,
       h: variant === "heading" ? 2 : 3,
     });
-  const remove = (id: string) => change((current) => current.filter((block) => block.id !== id));
+  const remove = (block: LayoutBlock) => patch(block.id, { deleted: deletion(blockName(block, builtins)) });
   return (
     <div className="page-grid-editing" data-page-layout={layout.pageKey}>
       <div className="layout-toolbar" role="toolbar" aria-label="Page layout">
@@ -311,6 +293,7 @@ function PageGridEditor({
                   {hidden.map((block) => (
                     <li key={block.id}>
                       <span>{blockName(block, builtins)}</span>
+                      <DeleteLayoutButton name={blockName(block, builtins)} onDelete={() => remove(block)} />
                       <Button variant="ghost" onClick={() => patch(block.id, { hidden: undefined, y: bottom })}>
                         Show
                       </Button>
@@ -321,9 +304,10 @@ function PageGridEditor({
             </div>
           )}
         </div>
+        <DeletedItemsTray />
         {resetting ? (
           <span className="layout-confirm" role="alertdialog" aria-label="Reset page layout?">
-            <span>Reset this page to its default layout? Custom cards, text and colors go too.</span>
+            <span>Reset this page to its default layout? Custom cards, text and colors go too. Permanently removed built-in items return.</span>
             <Button
               variant="destructive"
               onClick={() => {
@@ -434,13 +418,7 @@ function PageGridEditor({
                         <Pencil size={14} />
                       </button>
                     )}
-                    {block.kind !== "builtin" && (
-                      <ConfirmButton
-                        label={`Delete ${name}`}
-                        question={block.kind === "card" ? "Delete this card?" : "Delete this text?"}
-                        onConfirm={() => remove(block.id)}
-                      />
-                    )}
+                    <DeleteLayoutButton name={name} onDelete={() => remove(block)} />
                   </span>
                 </div>
                 {styling === block.id && (

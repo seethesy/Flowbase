@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
 import { queryClient } from "./queryClient";
-import { emptyLayout, GRID_COLUMNS, type LayoutBlock, type LayoutDoc, type SavedLayout } from "../../shared/layout";
+import { emptyLayout, layoutItemGone, GRID_COLUMNS, type LayoutBlock, type LayoutDoc, type SavedLayout } from "../../shared/layout";
 import { layoutApi } from "../services/layout";
 import { layoutQueryKey, useLiveEdit } from "./copy";
 import { PageLayoutProvider, usePageLayoutContext, type PageLayout } from "./layout-context";
@@ -35,7 +35,7 @@ export function defaultBlocks(builtins: BuiltinBlock[]): LayoutBlock[] {
 // toolbar split out of a saved list stays above the list.
 export function withBuiltins(doc: LayoutDoc, builtins: BuiltinBlock[]): LayoutBlock[] {
   const known = new Set(builtins.map((block) => block.id));
-  let blocks = doc.blocks.filter((block) => block.kind !== "builtin" || known.has(block.id));
+  let blocks = doc.blocks.filter((block) => block.kind !== "builtin" || known.has(block.id) || layoutItemGone(block));
   const placed = new Set(blocks.map((block) => block.id));
   builtins.forEach((block, index) => {
     if (placed.has(block.id)) return;
@@ -78,7 +78,7 @@ export function usePageLayout(
   const update = useCallback(
     (change: (doc: LayoutDoc) => LayoutDoc) => {
       const base: LayoutDoc = doc
-        ? { ...doc, blocks: withBuiltins(doc, builtins) }
+        ? { ...doc, blocks: builtins.length ? withBuiltins(doc, builtins) : doc.blocks }
         : { ...emptyLayout(), blocks: defaultBlocks(builtins) };
       const next = change(base);
       // Back to what is saved, or to the code default with nothing saved:

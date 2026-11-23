@@ -26,6 +26,14 @@ const blockId = z
   .max(60)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use an id such as lead-facts.");
 
+// Layout-only lifecycle: record values never live in these tombstones.
+export const deletionSchema = z.object({
+  at: z.string().datetime(), by: z.string().min(1).max(200), name: z.string().min(1).max(200),
+}).strict();
+export const lifecycleShape = { deleted: deletionSchema.optional(), removed: z.literal(true).optional() };
+export type LayoutLifecycle = { deleted?: z.infer<typeof deletionSchema>; removed?: true };
+export const layoutItemGone = (item: LayoutLifecycle) => Boolean(item.deleted || item.removed);
+
 // Only 6-digit hex colors, never raw CSS.
 export const hexColorSchema = z
   .string()
@@ -79,6 +87,7 @@ export const boxSchema = z
     text: plainText(2000).optional(),
     ...position,
     style: styleSchema.optional(),
+    ...lifecycleShape,
   })
   .strict()
   .refine(insideGrid, gridMessage)
@@ -92,7 +101,7 @@ export const columnSchema = z
   .strict();
 export type ColumnConfig = z.infer<typeof columnSchema>;
 // A table's visible columns in order (FLOW-254).
-export const tableConfigSchema = z.object({ columns: columnSchema.array().max(60) }).strict();
+export const tableConfigSchema = z.object({ columns: columnSchema.array().max(60), ...lifecycleShape }).strict();
 export type TableConfig = z.infer<typeof tableConfigSchema>;
 // A record card's field boxes and free-text boxes (FLOW-255).
 export const fieldBoxesSchema = z.object({ boxes: boxSchema.array().max(60) }).strict();
@@ -126,7 +135,7 @@ export const cardSourceSchema = z.discriminatedUnion("type", [
 export type CardSource = z.infer<typeof cardSourceSchema>;
 export const cardDisplaySchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("table"), columns: columnSchema.array().min(1).max(30) }).strict(),
-  z.object({ type: z.literal("boxes"), boxes: boxSchema.array().min(1).max(30) }).strict(),
+  z.object({ type: z.literal("boxes"), boxes: boxSchema.array().max(30) }).strict(),
 ]);
 export const cardConfigSchema = z
   .object({
@@ -143,6 +152,7 @@ export type CardConfig = z.infer<typeof cardConfigSchema>;
 // Options every block has (FLOW-278): its look, "Fit content" (its height
 // follows its content instead of its row count) and "Hide on phone".
 const blockOptions = {
+  ...lifecycleShape,
   style: styleSchema.optional(),
   fit: z.boolean().optional(),
   hidePhone: z.boolean().optional(),
@@ -161,7 +171,7 @@ export const builtinDataSchema = z
 export type BuiltinData = z.infer<typeof builtinDataSchema>;
 
 // A page block: one of the page's built-in sections, a custom card or a
-// free-text box. Built-in blocks can be moved, resized and hidden, never deleted.
+// free-text box. Built-ins retain tombstones until Reset page layout.
 export const blockSchema = z
   .discriminatedUnion("kind", [
     z
@@ -196,9 +206,10 @@ export const layoutDocSchema = z
   .object({
     version: z.literal(LAYOUT_VERSION),
     // Empty: the page keeps its code order for built-in blocks.
-    blocks: blockSchema.array().max(MAX_BLOCKS, `A page holds at most ${MAX_BLOCKS} blocks.`).default([]),
+    blocks: blockSchema.array().max(400).refine((blocks) => blocks.filter((b) => !layoutItemGone(b)).length <= MAX_BLOCKS, `A page holds at most ${MAX_BLOCKS} blocks.`).default([]),
     tables: z.record(layoutKeySchema, tableConfigSchema).default({}),
     fieldBoxes: z.record(layoutKeySchema, fieldBoxesSchema).default({}),
+    headers: z.record(layoutKeySchema, z.object({ ...lifecycleShape }).strict()).optional(),
   })
   .strict();
 export type LayoutDoc = z.infer<typeof layoutDocSchema>;
@@ -358,6 +369,17 @@ export function layoutProblems(pageKey: string, doc: LayoutDoc): LayoutProblem[]
       });
     else checkBoxes(card.display.boxes, source, `${path}.display.boxes`, problems);
   };
+  // Validate lifecycle combinations even for direct callers, not only HTTP parsing.
+  const lifecycle = (value: unknown, path: string) => {
+    if (!value || typeof value !== "object") return;
+    const state = value as LayoutLifecycle;
+    if (state.deleted && (!deletionSchema.safeParse(state.deleted).success || state.removed))
+      problems.push({ path, message: "Invalid deleted state: use valid metadata or a permanent tombstone, not both." });
+    if (state.removed !== undefined && state.removed !== true)
+      problems.push({ path, message: "Invalid permanent removal state." });
+    for (const [key, child] of Object.entries(value)) if (key !== "deleted") lifecycle(child, `${path}.${key}`);
+  };
+  lifecycle(doc, "layout");
   doc.blocks.forEach((block, index) => {
     const path = `blocks.${index}`;
     if (ids.has(block.id)) problems.push({ path: `${path}.id`, message: `Two blocks are named "${block.id}".` });
@@ -372,7 +394,7 @@ export function layoutProblems(pageKey: string, doc: LayoutDoc): LayoutProblem[]
       return;
     }
     if (block.kind !== "card") return;
-    cards += 1;
+    if (!layoutItemGone(block)) cards += 1;
     checkCard(block.card, `${path}.card`);
   });
   if (cards > MAX_CARDS) problems.push({ path: "blocks", message: `A page holds at most ${MAX_CARDS} custom cards.` });

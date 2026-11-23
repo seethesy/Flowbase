@@ -1,9 +1,8 @@
+import { DeleteLayoutButton, useDeletion } from "./layout-deletion";
 import { Dropdown } from "../components/ui/Dropdown";
-import { useState } from "react";
 import { X } from "lucide-react";
 import { fieldDef, readableFields, type SourceKey } from "../../shared/fields";
-import { GRID_COLUMNS, textVariants, type LayoutBox } from "../../shared/layout";
-import { Button } from "../components/ui/button";
+import { GRID_COLUMNS, layoutItemGone, textVariants, type LayoutBox } from "../../shared/layout";
 import { usePermissions } from "./permissions";
 
 // Adding and removing boxes on a card's inner grid (FLOW-255/256): field boxes
@@ -97,28 +96,6 @@ export function AddTextMenu({ onAdd }: { onAdd: (kind: (typeof textVariants)[num
   );
 }
 
-// Asks before a free-text box goes: its wording can't be brought back.
-export function DeleteTextButton({ label, onDelete }: { label: string; onDelete: () => void }) {
-  const [asking, setAsking] = useState(false);
-  if (asking)
-    return (
-      <span className="layout-confirm" role="alertdialog" aria-label={`Delete ${label}?`}>
-        <span>Delete this text?</span>
-        <Button variant="destructive" onClick={onDelete}>
-          Delete
-        </Button>
-        <Button variant="ghost" onClick={() => setAsking(false)}>
-          Keep
-        </Button>
-      </span>
-    );
-  return (
-    <button type="button" className="layout-box-remove" aria-label={`Delete ${label}`} onClick={() => setAsking(true)}>
-      <X size={14} />
-    </button>
-  );
-}
-
 // The box list of the card builder's Boxes display: add, edit text, remove.
 export function BoxEditorList({
   source,
@@ -129,11 +106,12 @@ export function BoxEditorList({
   boxes: LayoutBox[];
   onChange: (boxes: LayoutBox[]) => void;
 }) {
+  const deletion = useDeletion();
   const remove = (id: string) => onChange(boxes.filter((box) => box.id !== id));
   return (
     <div className="layout-box-editor">
       <ul>
-        {boxes.map((box) => (
+        {boxes.filter((box) => !layoutItemGone(box)).map((box) => (
           <li key={box.id}>
             {box.kind === "field" ? (
               <>
@@ -152,9 +130,11 @@ export function BoxEditorList({
                     onChange(boxes.map((b) => (b.id === box.id ? { ...b, text: event.target.value } : b)))
                   }
                 />
-                <DeleteTextButton label={variantNames[box.kind]} onDelete={() => remove(box.id)} />
+
               </>
             )}
+            <DeleteLayoutButton name={box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : variantNames[box.kind]}
+              onDelete={() => onChange(boxes.map((b) => b.id === box.id ? { ...b, deleted: deletion(b.kind === "field" ? (fieldDef(source, b.field!)?.label ?? b.field!) : variantNames[b.kind]) } : b))} />
           </li>
         ))}
       </ul>

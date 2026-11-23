@@ -40,7 +40,7 @@ export function ImportList() {
   const modules = useResource(["imports", "modules"], () => importsApi.modules());
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="imports.list"
         title={<T id="imports.import-list.imports">Imports</T>}
         subtitle={<T id="imports.import-list.bring-records-in-from-a">Bring records in from a spreadsheet. Re-running a file updates what it imported before.</T>}
       />
@@ -79,7 +79,7 @@ export function ImportPage() {
   const module = useResource(["imports", "module", key], () => importsApi.module(key));
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="imports.detail"
         eyebrow={<T id="imports.import-page.imports">Imports</T>}
         title={module.data ? <T id="imports.import-page.import" values={{ label: module.data.label }}>{"Import {label}"}</T> : <T id="imports.import-page.import-2">Import</T>}
         subtitle={<T id="imports.import-page.choose-a-csv-or-excel">Choose a CSV or Excel (.xlsx) file. Nothing is saved until you import.</T>}

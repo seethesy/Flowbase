@@ -68,7 +68,7 @@ export function SalesTracker() {
   const owners = [...new Map(data.data.rows.filter((row) => row.ownerId).map((row) => [row.ownerId!, row.owner ?? "Unassigned"] as const)).entries()].sort((a, b) => a[1].localeCompare(b[1]));
   const patch = (value: Partial<SalesFilter>) => setFilter({ ...filter, ...value });
   return <>
-    <PageHeader title={<T id="sales.sales-tracker.sales-tracker">Sales tracker</T>} subtitle={<T id="sales.sales-tracker.open-leads-clients-events-and">Open leads, clients, events and proposals</T>} />
+    <PageHeader pageKey="sales.tracker" title={<T id="sales.sales-tracker.sales-tracker">Sales tracker</T>} subtitle={<T id="sales.sales-tracker.open-leads-clients-events-and">Open leads, clients, events and proposals</T>} />
     {error && <p role="alert">{error}</p>}
     <PageGrid pageKey="sales.tracker">
     <Block id="actions" name="Reports and export" h={3}>
@@ -154,7 +154,7 @@ export function SalesReports() {
     const safe = typeof value === "string" && /^[\s]*[=+@-]/.test(content) ? `'${content}` : content;
     return `"${safe.replaceAll('"', '""')}"`;
   }).join(",")).join("\r\n");
-  return <><PageHeader title={<T id="sales.sales-reports.sales-reports">Sales reports</T>} subtitle={<T id="sales.sales-reports.pipeline-booked-events-and-win">Pipeline, booked events and win rates</T>} />
+  return <><PageHeader pageKey="sales.reports" title={<T id="sales.sales-reports.sales-reports">Sales reports</T>} subtitle={<T id="sales.sales-reports.pipeline-booked-events-and-win">Pipeline, booked events and win rates</T>} />
     <PageGrid pageKey="sales.reports">
     <Block id="actions" name="Dates and export" h={4}>
     <p><Link to="/proposals"><T id="sales.sales-reports.sales-tracker">← Sales tracker</T></Link></p>

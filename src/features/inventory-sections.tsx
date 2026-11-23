@@ -51,7 +51,7 @@ export function SectionList() {
       <Link to="/inventory" className="back-link">
         <T id="inventory-sections.section-list.all-inventory">← All inventory</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.sections"
         title={<T id="inventory-sections.section-list.sections">Sections</T>}
         subtitle={<T id="inventory-sections.section-list.where-stock-lives-vendor-holds">Where stock lives. Vendor holds sub-rented items.</T>}
         eyebrow={<T id="inventory-sections.section-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}

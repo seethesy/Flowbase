@@ -132,7 +132,7 @@ export function TaskDetail() {
       <button type="button" className="back-link" onClick={() => navigate(-1)}>
         <T id="tasks.task-detail.back">← Back</T>
       </button>
-      <PageHeader
+      <PageHeader pageKey="tasks.detail"
         eyebrow={<T id="tasks.task-detail.task">Task</T>}
         title={data.title}
         subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: <LabelT id="labels.task-type" value={data.type}>{taskTypeLabels[data.type]}</LabelT>, taskPriorityLabels: <LabelT id="labels.task-priority" value={data.priority}>{taskPriorityLabels[data.priority]}</LabelT> }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}

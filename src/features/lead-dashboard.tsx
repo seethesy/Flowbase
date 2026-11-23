@@ -120,7 +120,7 @@ export function LeadDashboardPage() {
       <Link to="/leads" className="back-link">
         <T id="lead-dashboard.lead-dashboard-page.all-leads">← All leads</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="leads.dashboard"
         title={<T id="lead-dashboard.lead-dashboard-page.lead-dashboard">Lead dashboard</T>}
         subtitle={
           data?.scope === "own"

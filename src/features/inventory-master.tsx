@@ -115,7 +115,7 @@ export function MasterInventory() {
       item.archivedAt ? "Archived" : pendingIds.has(item.id) ? "Pending" : item.active ? "Active" : "Inactive"]),
   ));
   return <>
-    <PageHeader title={<T id="inventory-master.master-inventory.master-inventory">Master inventory</T>} subtitle={<T id="inventory-master.master-inventory.all-items-and-sections-grouped">All items and sections, grouped like the Master sheet.</T>} eyebrow={<T id="inventory-master.master-inventory.stock-supplies">{"STOCK & SUPPLIES"}</T>}>
+    <PageHeader pageKey="inventory.master" title={<T id="inventory-master.master-inventory.master-inventory">Master inventory</T>} subtitle={<T id="inventory-master.master-inventory.all-items-and-sections-grouped">All items and sections, grouped like the Master sheet.</T>} eyebrow={<T id="inventory-master.master-inventory.stock-supplies">{"STOCK & SUPPLIES"}</T>}>
       <Button variant="outline" onClick={exportCsv}><T id="inventory-master.master-inventory.export-csv">Export CSV</T></Button>
       {canEdit && <Button onClick={() => void save()}>{can("rentals.apply_directly") ? <T id="inventory-master.master-inventory.save-changes">Save changes</T> : <T id="inventory-master.master-inventory.submit-batch-for-approval">Submit batch for approval</T>}</Button>}
     </PageHeader>

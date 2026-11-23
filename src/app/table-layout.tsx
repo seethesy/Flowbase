@@ -1,7 +1,8 @@
+import { DeleteLayoutButton, useDeletion } from "./layout-deletion";
 import { useState, type ReactNode } from "react";
 import { Columns3 } from "lucide-react";
 import { canReadField } from "../../shared/fields";
-import { controlColumns, layoutTables, type ColumnConfig } from "../../shared/layout";
+import { controlColumns, layoutItemGone, layoutTables, type ColumnConfig } from "../../shared/layout";
 import { Button } from "../components/ui/button";
 import { ColumnPicker } from "./column-picker";
 import { usePageLayoutContext } from "./layout-state";
@@ -16,6 +17,7 @@ export type CodeColumn = { key: string; header: string };
 
 export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
   const layout = usePageLayoutContext();
+  const deletion = useDeletion();
   const { actor } = usePermissions();
   const target = layoutTables[tableKey];
   const saved = target ? layout?.doc?.tables[tableKey]?.columns : undefined;
@@ -28,7 +30,7 @@ export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
     readable(column.key),
   );
   const setColumns = (next: ColumnConfig[]) =>
-    layout?.update((doc) => ({ ...doc, tables: { ...doc.tables, [tableKey]: { columns: next } } }));
+    layout?.update((doc) => ({ ...doc, tables: { ...doc.tables, [tableKey]: { ...doc.tables[tableKey], columns: next } } }));
   // Column width drag in edit mode (FLOW-273): sets one column's width, saving
   // the table's column set the first time.
   const resizeColumn = (key: string, width: number) =>
@@ -46,6 +48,7 @@ export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
   return {
     // Whether a column set is saved or staged; without one the table renders
     // exactly as its code does.
+    deleted: Boolean(layout?.doc?.tables[tableKey] && layoutItemGone(layout.doc.tables[tableKey])),
     custom: saved !== undefined,
     columns,
     editable: Boolean(target && layout?.editing),
@@ -53,6 +56,8 @@ export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
     resize: target && layout?.editing ? resizeColumn : undefined,
     editor:
       target && layout?.editing ? (
+        <>
+        <DeleteLayoutButton name={`${tableKey} table`} onDelete={() => layout.update((doc) => ({ ...doc, tables: { ...doc.tables, [tableKey]: { columns, deleted: deletion(`${tableKey} table`) } } }))} />
         <ColumnsEditor
           tableKey={tableKey}
           columns={columns}
@@ -61,6 +66,7 @@ export function useTableLayout(tableKey: string, codeColumns: CodeColumn[]) {
           onChange={setColumns}
           onReset={resetColumns}
         />
+        </>
       ) : null,
   };
 }
@@ -129,5 +135,6 @@ export function TableLayout({
   codeColumns: CodeColumn[];
   children: (layout: ReturnType<typeof useTableLayout>) => ReactNode;
 }) {
-  return <>{children(useTableLayout(tableKey, codeColumns))}</>;
+  const layout = useTableLayout(tableKey, codeColumns);
+  return layout.deleted ? null : <>{children(layout)}</>;
 }

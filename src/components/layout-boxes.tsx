@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { canReadField, type SourceKey } from "../../shared/fields";
-import type { LayoutBox } from "../../shared/layout";
+import { layoutItemGone, type LayoutBox } from "../../shared/layout";
 import { usePermissions } from "../app/permissions";
 import { readingOrder } from "../app/layout-state";
 import { styleClass, styleVars } from "../app/layout-style";
@@ -30,7 +30,7 @@ export function BoxContent({ box, source, row }: { box: LayoutBox; source: Sourc
 
 export function useVisibleBoxes(boxes: LayoutBox[], source: SourceKey) {
   const { actor } = usePermissions();
-  return boxes.filter((box) => box.kind !== "field" || (actor !== null && canReadField(actor, source, box.field!)));
+  return boxes.filter((box) => !layoutItemGone(box) && (box.kind !== "field" || (actor !== null && canReadField(actor, source, box.field!))));
 }
 
 export function BoxesView({ boxes, source, row }: { boxes: LayoutBox[]; source: SourceKey; row: Record<string, unknown> | null }) {

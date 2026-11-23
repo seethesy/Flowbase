@@ -22,7 +22,7 @@ export function ApprovalQueue() {
     } catch (cause) { setError((cause as Error).message); }
   };
   return <>
-    <PageHeader title={<T id="approval-queue.approval-queue.approvals">Approvals</T>} subtitle={<T id="approval-queue.approval-queue.requests-waiting-for-your-decision">Requests waiting for your decision.</T>} eyebrow={<T id="approval-queue.approval-queue.workflow">WORKFLOW</T>} />
+    <PageHeader pageKey="approvals.queue" title={<T id="approval-queue.approval-queue.approvals">Approvals</T>} subtitle={<T id="approval-queue.approval-queue.requests-waiting-for-your-decision">Requests waiting for your decision.</T>} eyebrow={<T id="approval-queue.approval-queue.workflow">WORKFLOW</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
     <PageGrid pageKey="approvals.queue">
     <Block id="queue" name="Requests" h={24}>

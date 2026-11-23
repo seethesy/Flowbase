@@ -569,7 +569,7 @@ export function TaskDashboardPage() {
   });
   return (
     <>
-      <PageHeader title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you oversee.</T>}>
+      <PageHeader pageKey="tasks.dashboard" title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you oversee.</T>}>
         <Button asChild variant="outline">
           <Link to="/tasks/all">
             {taskScope(actor) === "all" ? <T id="task-lists.task-dashboard-page.team-tasks">Team tasks</T> : <T id="task-lists.task-dashboard-page.all-tasks">All tasks</T>}
@@ -726,7 +726,7 @@ export function TaskList() {
       <Link className="back-link" to="/tasks">
         <T id="task-lists.task-list.tasks">← Tasks</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="tasks.all"
         title={communal ? <T id="task-lists.task-list.team-tasks">Team tasks</T> : <T id="task-lists.task-list.all-tasks">All tasks</T>}
         subtitle={
           communal

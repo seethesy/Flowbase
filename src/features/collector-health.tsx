@@ -34,7 +34,7 @@ export function CollectorHealthPage({ embedded = false }: { embedded?: boolean }
   };
   return <>
     {embedded ? <h2><T id="collector-health.collector-health-page.collector-health">Collector health</T></h2> :
-      <PageHeader title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />}
+      <PageHeader pageKey="settings.collector" title={<T id="collector-health.collector-health-page.collector-health">Collector health</T>} subtitle={<T id="collector-health.collector-health-page.recent-site-runs-and-alert">Recent site runs and alert thresholds.</T>} />}
     <PageGrid pageKey="settings.collector">
     <Block id="monitoring" name="Collector monitoring" h={5}>
     <p><a href={instructions} target="_blank" rel="noreferrer"><T id="collector-health.collector-health-page.collector-re-login-and-ops">Collector re-login and ops instructions</T></a></p>
