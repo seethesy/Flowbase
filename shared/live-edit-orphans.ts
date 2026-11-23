@@ -35,7 +35,7 @@ const layoutKey = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)*$/);
 const blockRef = { pageKey: layoutKey, id: layoutKey };
 // POST /api/copy/orphans: delete one, or move it to a key a screen renders.
-export const orphanActionSchema = z.discriminatedUnion("action", [
+export const orphanActionSchema = z.union([
   z.object({ action: z.literal("delete"), type: z.literal("copy"), key: copyKeySchema }).strict(),
   z.object({ action: z.literal("move"), type: z.literal("copy"), key: copyKeySchema, to: copyKeySchema }).strict(),
   z.object({ action: z.literal("delete"), type: z.literal("block"), ...blockRef }).strict(),
