@@ -37,7 +37,7 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
-    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Photos"]);
+    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Menus", "Photos"]);
     expect(tabs(admin, "Marketing")).toEqual(["Photos"]);
     expect(tabs(admin, "Reports")).toEqual(["Time tracking", "Operational reports"]);
   });
@@ -74,6 +74,7 @@ describe("navigation groups", () => {
     expect(at("/inventory/bar")).toBe("Inventory › Bar");
     expect(at("/inventory/orders/o-1")).toBe("Inventory › Purchasing");
     expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");
+    expect(at("/kitchen/menus")).toBe("Kitchen › Menus");
     expect(at("/inventory/photos")).toBe("Inventory › Photos");
     expect(at("/kitchen/photos")).toBe("Kitchen › Photos");
     expect(at("/marketing")).toBe("Marketing › Photos");

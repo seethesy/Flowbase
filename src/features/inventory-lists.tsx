@@ -42,6 +42,7 @@ import {
   quantityLabel,
 } from "./inventory-labels";
 import "./inventory.css";
+import { IngredientBulkActions, IngredientStockPill, KitchenHeading, ingredientStockText } from "./kitchen-screen";
 import { InventoryHeading, InventoryShortcuts, StockPill, inventoryTabExcludes, stockLabel, stockState } from "./inventory-screen";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy, LabelT, joined } from "../app/copy";
@@ -453,6 +454,7 @@ export function IngredientList({
   const [sectionId, setSectionId] = useState("");
   const [belowPar, setBelowPar] = useState(false);
   const [create, setCreate] = useState(false);
+  const [bulkError, setBulkError] = useState("");
   const term = useDebounced(search.trim());
   const vendorTerm = useDebounced(vendor.trim());
   const items = usePagedList(
@@ -544,13 +546,57 @@ export function IngredientList({
         </>
       ),
     },
+    // FLOW-267: par and the stock state.
+    {
+      id: "par",
+      header: "Par",
+      accessorFn: (item) => item.consumable?.parLevel ?? "",
+      meta: { edit: "number", canEdit, onEdit: (item, value) => save(item, "consumable.parLevel", value) },
+    },
+    {
+      id: "stock",
+      header: "Stock",
+      accessorFn: ingredientStockText,
+      cell: ({ row }) => <IngredientStockPill item={row.original} />,
+    },
   ];
+  // Bulk on the Kitchen › Ingredients tab (FLOW-267): Move to storage, Set vendor.
+  const applyBulk = (ids: string[], clear: () => void) => async (field: string, value: string) => {
+    setBulkError("");
+    const failed: string[] = [];
+    for (const id of ids) {
+      const item = data.find((row) => row.id === id);
+      if (!item) continue;
+      try { await inventoryApi.inline(item.id, field, value, item.updatedAt); }
+      catch (cause) { failed.push(`${item.name} (${(cause as Error).message})`); }
+    }
+    if (failed.length) setBulkError(failed.join(", "));
+    clear();
+    items.reload();
+  };
   return (
     <>
-      <Link to="/inventory" className="back-link">
+      {!supplies && <KitchenHeading tab="ingredients">
+        <Button variant="outline" asChild>
+          <Link to="/kitchen/orders"><T id="inventory-lists.ingredient-list.kitchen-orders">Kitchen orders</T></Link>
+        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts"><T id="inventory-lists.ingredient-list.start-stock-count">Start stock count</T></Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>
+          </Button>
+        </Allowed>
+      </KitchenHeading>}
+      {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.ingredient-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T></p>}
+      {supplies && <Link to="/inventory" className="back-link">
         <T id="inventory-lists.ingredient-list.all-inventory">← All inventory</T>
-      </Link>
-      <PageHeader
+      </Link>}
+      {supplies && <PageHeader
         title={supplies ? <T id="inventory-lists.ingredient-list.supplies">Supplies</T> : <T id="inventory-lists.ingredient-list.ingredients">Ingredients</T>}
         subtitle={
           supplies
@@ -577,7 +623,7 @@ export function IngredientList({
             {supplies ? <T id="inventory-lists.ingredient-list.new-supply">New Supply</T> : <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>}
           </Button>
         </Allowed>
-      </PageHeader>
+      </PageHeader>}
       <PageGrid pageKey="inventory.consumables">
         <Block id="filters" name="Filters" h={3}>
       <FilterBar>
@@ -625,7 +671,14 @@ export function IngredientList({
         </Block>
         {!items.error && items.data && (
           <Block id="list" name="List" h={24}>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.ingredient-list"
+          <DataTable copyKey="inventory-lists.ingredient-list"
+            selection={{
+              rowId: (row) => row.id,
+              ...deletable,
+              actions: !supplies && can("inventory.write")
+                ? (ids, clear) => <IngredientBulkActions sections={storageSections.data ?? []} onApply={applyBulk(ids, clear)} />
+                : undefined,
+            }}
             data={data}
             columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
             openColumn

@@ -126,6 +126,7 @@ const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ 
 const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
 const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
 const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
+const MenusPage = lazy(() => import("../features/kitchen-screen").then((module) => ({ default: module.MenusPage })));
 const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
 import { Button, EmptyState, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
@@ -270,6 +271,7 @@ export const getRouter = () =>
         { path: "/inventory/sections", element: <SectionList /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
         { path: "/recipes", element: <RecipeList /> },
+        { path: "/kitchen/menus", element: <MenusPage /> },
         { path: "/recipes/client", element: <ClientRecipeBook /> },
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },

@@ -1299,13 +1299,18 @@
     "inventory-lists.ingredient-list.ingredients": [],
     "inventory-lists.ingredient-list.ingredients-2": [],
     "inventory-lists.ingredient-list.kitchen": [],
+    "inventory-lists.ingredient-list.kitchen-orders": [],
     "inventory-lists.ingredient-list.load-more-ingredients": [],
     "inventory-lists.ingredient-list.load-more-supplies": [],
     "inventory-lists.ingredient-list.low-stock": [],
     "inventory-lists.ingredient-list.new-ingredient": [],
     "inventory-lists.ingredient-list.new-supply": [],
+    "inventory-lists.ingredient-list.not-changed": [
+      "names"
+    ],
     "inventory-lists.ingredient-list.search-ingredients.placeholder": [],
     "inventory-lists.ingredient-list.search-supplies.placeholder": [],
+    "inventory-lists.ingredient-list.start-stock-count": [],
     "inventory-lists.ingredient-list.supplies": [],
     "inventory-lists.ingredient-list.supplies-2": [],
     "inventory-lists.ingredient-list.supplies-3": [],
@@ -1482,6 +1487,43 @@
       "replaceAll",
       "toDate"
     ],
+    "kitchen-screen.bulk.move-to-storage": [],
+    "kitchen-screen.bulk.set-vendor": [],
+    "kitchen-screen.ingredients.kitchen-ingredients-what-is": [],
+    "kitchen-screen.kitchen-card.contains": [
+      "tag"
+    ],
+    "kitchen-screen.kitchen-card.cost-per-serving": [],
+    "kitchen-screen.kitchen-card.edit-recipe": [],
+    "kitchen-screen.kitchen-card.ingredients": [],
+    "kitchen-screen.kitchen-card.kicker": [
+      "category"
+    ],
+    "kitchen-screen.kitchen-card.method": [],
+    "kitchen-screen.kitchen-card.no-yield": [],
+    "kitchen-screen.kitchen-card.print-kitchen-card": [],
+    "kitchen-screen.kitchen-card.scale-to": [],
+    "kitchen-screen.kitchen-card.servings-yield": [
+      "servings"
+    ],
+    "kitchen-screen.kitchen-heading.kitchen": [],
+    "kitchen-screen.menus.client-recipe-book": [],
+    "kitchen-screen.menus.every-menu-pdf-in": [],
+    "kitchen-screen.menus.generated-from-the-recipes": [],
+    "kitchen-screen.menus.in-documents": [],
+    "kitchen-screen.menus.no-menu-documents-yet": [],
+    "kitchen-screen.menus.open-pdf": [],
+    "kitchen-screen.menus.pdf": [],
+    "kitchen-screen.menus.upload-menu": [],
+    "kitchen-screen.menus.version-detail": [
+      "by",
+      "date",
+      "version"
+    ],
+    "kitchen-screen.recipes.every-dish-with-its": [],
+    "kitchen-screen.stock.in-stock": [],
+    "kitchen-screen.stock.low": [],
+    "kitchen-screen.stock.out": [],
     "layout.custom-card.no-data": [],
     "layout.custom-card.open": [],
     "lead-convert.client-picker.existing-client": [],
@@ -1679,6 +1721,7 @@
     "nav.low-stock": [],
     "nav.marketing": [],
     "nav.master-inventory": [],
+    "nav.menus": [],
     "nav.new-sop": [],
     "nav.operational-reports": [],
     "nav.operations": [],
@@ -2157,11 +2200,9 @@
     "recipes.recipe-form.unit": [],
     "recipes.recipe-form.used-until-the-ingredient-has": [],
     "recipes.recipe-form.yield-servings": [],
+    "recipes.recipe-list.click-a-cell-to-edit": [],
     "recipes.recipe-list.client-recipe-book": [],
-    "recipes.recipe-list.every-dish-with-its-ingredients": [],
-    "recipes.recipe-list.kitchen": [],
     "recipes.recipe-list.new-recipe": [],
-    "recipes.recipe-list.recipe-book": [],
     "recipes.recipe-list.recipes": [
       "dataCount"
     ],
@@ -2840,6 +2881,8 @@
     "labels.lead-channel.",
     "labels.lead-duplicate-reason.",
     "labels.line-cost-source.",
+    "labels.menu-filter.",
+    "labels.menu-kind.",
     "labels.movement-type.",
     "labels.order-list-status.",
     "labels.payment-method.",
@@ -3053,6 +3096,13 @@
       "blocks": [
         "filters",
         "lists"
+      ],
+      "fieldCards": []
+    },
+    "kitchen.menus": {
+      "blocks": [
+        "filters",
+        "menus"
       ],
       "fieldCards": []
     },

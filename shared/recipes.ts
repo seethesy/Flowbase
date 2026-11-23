@@ -363,3 +363,11 @@ export function scaleRecipe(
     totals: [...totals.values()],
   };
 }
+
+// The kitchen card's "Scale to N servings" (FLOW-267): each line's quantity times
+// N over the recipe's yield. Lines without a quantity stay as they are; a recipe
+// without a yield (or a non-positive N) isn't scaled.
+export function scaleQuantity(quantity: number | null, yieldServings: number | null, servings: number): number | null {
+  if (quantity === null || !yieldServings || yieldServings <= 0 || !(servings > 0)) return quantity;
+  return Math.round((quantity * servings / yieldServings) * 1000) / 1000;
+}

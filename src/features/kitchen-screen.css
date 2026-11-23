@@ -1,0 +1,104 @@
+/* The Kitchen screen (FLOW-267): the kitchen card and the Menus tab. */
+.kitchen-card-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.kitchen-card-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kitchen-card-scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.kitchen-card-scale input {
+  width: 90px;
+}
+.kitchen-card-box {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.kitchen-card-box h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.kitchen-card-box ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kitchen-card-box ul li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.kitchen-card-box ol {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.kitchen-card-cost {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.menu-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.menu-card-cover {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 140px;
+  padding: 16px;
+  text-align: center;
+}
+.menu-card-cover strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 400;
+}
+.menu-card-cover small {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.menu-card-cover--event { background: #f7efe6; }
+.menu-card-cover--seasonal { background: #eef2f6; }
+.menu-card-cover--recipe_book { background: #f3f3ef; }
+.menu-card-body {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+.menu-card-body small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.recipe-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.bulk-vendor-form { display: inline-flex; gap: 6px; align-items: center; }
