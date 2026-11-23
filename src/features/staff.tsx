@@ -194,7 +194,7 @@ export function StaffDirectory() {
       ) : staff.loading && !staff.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable copyKey="staff.staff-directory" openColumn
+        <DataTable copyKey="staff.staff-directory"
           data={data}
           columns={columns}
           onRow={(member) => navigate(`/staff/${member.id}`)}

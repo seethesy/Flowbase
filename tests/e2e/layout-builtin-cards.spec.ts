@@ -163,7 +163,8 @@ test("FLOW-281: SOP columns save order and width and export only visible fields"
   await edit(page);
   await page.getByRole("button", { name: "Columns", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Columns" });
-  await picker.getByRole("checkbox", { name: "Show Version", exact: true }).click();
+  // Owner is shown by default (FLOW-270); Last updated is an extra SOP field.
+  await picker.getByRole("checkbox", { name: "Show Owner", exact: true }).click();
   await picker.getByRole("checkbox", { name: "Show Last updated", exact: true }).click();
   await picker.getByRole("button", { name: "Done", exact: true }).click();
   const resize = page.getByRole("separator", { name: /Title/ });
@@ -171,11 +172,11 @@ test("FLOW-281: SOP columns save order and width and export only visible fields"
   await resize.press("ArrowRight");
   await save(page);
   await page.reload();
-  await expect(page.getByRole("columnheader", { name: "Version", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Owner", exact: true })).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Last updated", exact: true })).toBeVisible();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   const header = await csvHeader(await download);
   expect(header).toContain("Last updated");
-  expect(header).not.toContain("Version");
+  expect(header).not.toContain("Owner");
 });

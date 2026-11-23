@@ -253,7 +253,8 @@ export const layoutTables: Record<string, LayoutTable> = {
   "stock-counts.low-stock-list": { source: "inventory", locked: [], code: ["onHand", "par", "short", "storage", "vendor"] },
   // FLOW-296: every other data table, so an Admin can resize its columns.
   "tasks.dashboard.table": { source: "tasks", locked: [], code: [] },
-  "sops.library": { source: "sops", locked: [], code: [] },
+  // Owner and Updated are Staffing › SOPs columns from code (FLOW-270).
+  "sops.library": { source: "sops", locked: [], code: ["owner", "updated"] },
   "recipes.recipe-list": { source: "recipes", locked: [], code: ["yield", "dietary", "perServing", "updated", "flags"] },
   "documents.library": { source: "documents", locked: [], code: ["file", "linked", "uploaded", "size"] },
   "lead-dashboard.by-source": { source: null, locked: [], code: [] },
