@@ -14,9 +14,8 @@ import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   events,
-  inventorySections,
+  inventoryLocations,
   inventoryRentalDetails,
-  inventoryItems,
   inventoryStock,
   stockMovements,
 } from "../db/schema";
@@ -25,6 +24,7 @@ import { emitDomainEvent } from "../jobs/queue";
 import { canCountItem, canMoveItem } from "../policy";
 import {
   conflict,
+  lockItemRow,
   type CorrectionInput,
   type CountInput,
   type ItemRow,
@@ -55,15 +55,11 @@ export type Movement = {
 export async function recordMovement(
   tx: DbLike,
   actor: Actor,
-  item: Pick<ItemRow, "id" | "kind" | "archivedAt">,
+  item: Pick<ItemRow, "id" | "kind" | "subtype" | "archivedAt">,
   movement: Movement,
 ): Promise<string[]> {
-  const [lockedItem] = await tx
-    .select({ archivedAt: inventoryItems.archivedAt })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, item.id))
-    .for("update");
-  const sectionKind = sectionKindFor(item.kind);
+  const lockedItem = await lockItemRow(tx, item.id);
+  const sectionKind = sectionKindFor(item);
   if (!sectionKind)
     throw conflict(
       "SERVICE_HAS_NO_STOCK",
@@ -194,7 +190,7 @@ export async function recordImportedStock(
     fileName: string;
   },
 ): Promise<string | null> {
-  await tx.select({ id: inventoryItems.id }).from(inventoryItems).where(eq(inventoryItems.id, item.id)).for("update");
+  await lockItemRow(tx, item.id);
   requireCountStep(item, input.quantity);
   const [level] = await tx
     .select({ quantity: inventoryStock.quantity })
@@ -234,11 +230,11 @@ export async function listMovements(
     page,
   );
   const rows = await db
-    .select({ movement: stockMovements, sectionName: inventorySections.name })
+    .select({ movement: stockMovements, sectionName: inventoryLocations.name })
     .from(stockMovements)
     .innerJoin(
-      inventorySections,
-      eq(stockMovements.sectionId, inventorySections.id),
+      inventoryLocations,
+      eq(stockMovements.sectionId, inventoryLocations.id),
     )
     .where(and(eq(stockMovements.itemId, itemId), paging.where))
     .orderBy(...paging.orderBy)
@@ -331,11 +327,7 @@ export async function recordCount(
   color = "",
 ) {
   if (!canCountItem(actor, item)) throw forbidden();
-  await tx
-    .select({ id: inventoryItems.id })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, item.id))
-    .for("update");
+  await lockItemRow(tx, item.id);
   requireCountStep(item, counted);
   await tx.insert(inventoryStock).values({ itemId: item.id, sectionId, color }).onConflictDoNothing();
   const [level] = await tx
@@ -450,11 +442,7 @@ export async function correctMovement(
   const item = await findItem(db, original.itemId);
   if (!canMoveItem(actor, item)) throw forbidden();
   await db.transaction(async (tx) => {
-    await tx
-      .select({ id: inventoryItems.id })
-      .from(inventoryItems)
-      .where(eq(inventoryItems.id, item.id))
-      .for("update");
+    await lockItemRow(tx, item.id);
     await tx.select({ id: stockMovements.id }).from(stockMovements)
       .where(eq(stockMovements.id, original.id)).for("update");
     const [{ total }] = await tx

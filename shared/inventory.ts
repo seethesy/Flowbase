@@ -29,6 +29,43 @@ export const subtypesByKind = {
   service: [],
 } as const satisfies Record<ItemKind, readonly string[]>;
 
+// The three inventory lists (FLOW-289), each its own table. Master holds every
+// rental, service and supply; Bar holds drinks; Kitchen holds ingredients. An
+// item's list follows from its kind and subtype.
+export const inventoryListSchema = z.enum(["master", "bar", "kitchen"]);
+export type InventoryList = z.infer<typeof inventoryListSchema>;
+export const inventoryListLabels: Record<InventoryList, string> = {
+  master: "Inventory",
+  bar: "Bar Inventory",
+  kitchen: "Kitchen Ingredients",
+};
+export const inventoryListOf = (item: {
+  kind: ItemKind;
+  subtype: string | null;
+}): InventoryList =>
+  item.kind === "consumable" && item.subtype === "bar"
+    ? "bar"
+    : item.kind === "consumable" && item.subtype === "ingredient"
+      ? "kitchen"
+      : "master";
+// Master items always read "Rental" (FLOW-289). Their kind is the internal stock
+// tracking: returned after events (rental), used up at events (a supply) or not
+// stocked (service).
+export const stockTrackingSchema = z.enum(["returned", "used_up", "not_stocked"]);
+export type StockTracking = z.infer<typeof stockTrackingSchema>;
+export const stockTrackingLabels: Record<StockTracking, string> = {
+  returned: "Returned after events",
+  used_up: "Used up at events",
+  not_stocked: "Not stocked",
+};
+export const stockTrackingOf = (kind: ItemKind): StockTracking =>
+  kind === "rental" ? "returned" : kind === "consumable" ? "used_up" : "not_stocked";
+export const kindForTracking: Record<StockTracking, ItemKind> = {
+  returned: "rental",
+  used_up: "consumable",
+  not_stocked: "service",
+};
+
 // The classification kind shown in the Category picker. Bar stock keeps its
 // imported free-text category (e.g. Liquor) independently of this hierarchy.
 export const classificationKind = (item: { kind: ItemKind; subtype: string | null }) =>
@@ -409,6 +446,8 @@ export const stockLevelSchema = z.object({
 });
 export const itemSchema = z.object({
   id,
+  // Which of the three lists (tables) holds it (FLOW-289).
+  list: inventoryListSchema,
   kind: itemKindSchema,
   subtype: z.string().nullable(),
   code: z.string(),
@@ -448,35 +487,56 @@ export const itemSchema = z.object({
   totalQuantity: z.number(),
   // null without a par level.
   belowPar: z.boolean().nullable(),
+  // The latest count of any of its stock (FLOW-291), and who counted it (their
+  // name), null before the first.
+  lastCountedAt: timestamp.nullable().optional(),
+  lastCountedBy: z.string().nullable().optional(),
   archivedAt: timestamp.nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
 });
 export type InventoryItem = z.infer<typeof itemSchema>;
 
-// Sections (FLOW-70): where stock lives. Rental sections hold rentals (Vendor means
-// sub-rented); storage sections hold consumables.
-export const sectionKindSchema = z.enum(["rental", "consumable"]);
+// Locations (FLOW-289, replacing the FLOW-70 sections): where stock lives. Master
+// and Bar stock is kept per location (Admin-editable, Vendor means sub-rented);
+// kitchen ingredients keep their own storage list (Fridge, Freezer, Pantry). The
+// API still names a location a section (sectionId) where the shape predates it.
+export const sectionKindSchema = z.enum(["location", "storage"]);
 export type SectionKind = z.infer<typeof sectionKindSchema>;
 export const sectionKindLabels: Record<SectionKind, string> = {
-  rental: "Rental sections",
-  consumable: "Storage sections",
+  location: "Locations",
+  storage: "Kitchen storage",
 };
 export const sectionInputSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(100),
   kind: sectionKindSchema,
 });
 export const sectionRenameSchema = sectionInputSchema.pick({ name: true });
+// Admin reorders a list by sending its ids in the new order.
+export const sectionOrderSchema = z.object({
+  kind: sectionKindSchema,
+  ids: z.array(id).min(1).max(200),
+});
 export const sectionSchema = z.object({
   id,
   name: z.string(),
   kind: sectionKindSchema,
+  sortOrder: z.number().int().optional(),
   totalQuantity: z.number(),
   archivedAt: timestamp.nullable(),
 });
 export type Section = z.infer<typeof sectionSchema>;
-export const sectionKindFor = (kind: ItemKind): SectionKind | null =>
-  kind === "service" ? null : kind;
+// Services are never stocked; ingredients sit in kitchen storage, everything else
+// at a location.
+export const sectionKindFor = (item: {
+  kind: ItemKind;
+  subtype: string | null;
+}): SectionKind | null =>
+  item.kind === "service"
+    ? null
+    : inventoryListOf(item) === "kitchen"
+      ? "storage"
+      : "location";
 
 // The stock ledger (FLOW-71). Every quantity change is a movement of one item in
 // one section with a signed quantity; on-hand is their sum.

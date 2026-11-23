@@ -2,8 +2,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { itemInputSchema } from "../../shared/inventory";
 import type { Db, DbLike } from "../../worker/db/client";
 import {
-  inventoryItems,
-  inventorySections,
+  allInventoryItems,
+  inventoryLocations,
   inventoryStock,
 } from "../../worker/db/schema";
 import { defineImportModule } from "../../worker/records/imports";
@@ -28,13 +28,13 @@ type RentalRow = {
 
 const sectionNamed = async (db: DbLike, name: string) => {
   const [section] = await db
-    .select({ id: inventorySections.id })
-    .from(inventorySections)
+    .select({ id: inventoryLocations.id })
+    .from(inventoryLocations)
     .where(
       and(
-        sql`lower(${inventorySections.name}) = lower(${name})`,
-        eq(inventorySections.kind, "rental"),
-        isNull(inventorySections.archivedAt),
+        sql`lower(${inventoryLocations.name}) = lower(${name})`,
+        eq(inventoryLocations.kind, "location"),
+        isNull(inventoryLocations.archivedAt),
       ),
     );
   return section;
@@ -115,12 +115,12 @@ export const rentalImporter = defineImportModule<RentalRow>({
       : [],
   findDuplicates: async (db, _actor, row) => {
     const matches = await db
-      .select({ id: inventoryItems.id, name: inventoryItems.name })
-      .from(inventoryItems)
+      .select({ id: allInventoryItems.id, name: allInventoryItems.name })
+      .from(allInventoryItems)
       .where(
         and(
-          sql`lower(${inventoryItems.name}) = lower(${row.name})`,
-          isNull(inventoryItems.archivedAt),
+          sql`lower(${allInventoryItems.name}) = lower(${row.name})`,
+          isNull(allInventoryItems.archivedAt),
         ),
       );
     return matches.map((match) => ({ id: match.id, label: match.name }));

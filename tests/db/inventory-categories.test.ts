@@ -9,7 +9,7 @@ import * as schema from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
 
-it("migrates existing rental, ingredient and Bar items to seeded categories without changing legacy Bar values", async () => {
+it("migrates existing rental, ingredient and Bar items to seeded categories without changing legacy Bar values, then starts the FLOW-289 lists empty", async () => {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL must point to disposable CI Postgres.");
   const admin = postgres(url, { max: 1 });
@@ -34,7 +34,12 @@ it("migrates existing rental, ingredient and Bar items to seeded categories with
       ('rental', 'furniture', 'Sample chair', 'Guest tables'),
       ('consumable', 'ingredient', 'Sample herb', 'Herbs'),
       ('consumable', 'bar', 'Sample spirit', 'Liquor')`;
-    await migrate(db, { migrationsFolder: "drizzle" });
+    // Up to FLOW-289, which starts the three lists empty.
+    const clear = journal.entries.findIndex((entry: { tag: string }) => entry.tag.endsWith("_flow_289_clear_inventory"));
+    const legacy = journal.entries.slice(0, clear);
+    await writeFile(join(folder, "meta/_journal.json"), JSON.stringify({ ...journal, entries: legacy }));
+    for (const entry of legacy) await copyFile(`drizzle/${entry.tag}.sql`, join(folder, `${entry.tag}.sql`));
+    await migrate(db, { migrationsFolder: folder });
     const rows = await client`select i.name, i.category as legacy, c.kind, c.name as category, i.type_id
       from inventory_items i join inventory_categories c on c.id = i.category_id
       where i.name like 'Sample %' order by i.name`;
@@ -42,6 +47,16 @@ it("migrates existing rental, ingredient and Bar items to seeded categories with
       { name: "Sample chair", legacy: "Guest tables", kind: "rental", category: "Furniture", type_id: null },
       { name: "Sample herb", legacy: "Herbs", kind: "ingredient", category: "Ingredient", type_id: null },
       { name: "Sample spirit", legacy: "Liquor", kind: "bar", category: "Bar", type_id: null },
+    ]);
+    await migrate(db, { migrationsFolder: "drizzle" });
+    // FLOW-289 AC5: the lists start empty, with the default locations.
+    for (const table of ["master_inventory_items", "bar_inventory_items", "kitchen_ingredients", "inventory_stock", "stock_movements"])
+      expect((await client.unsafe(`select count(*)::int as count from ${table}`))[0].count, table).toBe(0);
+    expect(await client`select to_regclass('public.inventory_items') as legacy`).toEqual([{ legacy: null }]);
+    expect((await client`select name, kind from inventory_locations where archived_at is null order by kind, sort_order`).map((row) => `${row.kind}:${row.name}`)).toEqual([
+      "location:Warehouse", "location:Storage Box", "location:Jamie's - Garage", "location:Jamie's - Basement",
+      "location:Jamie's - Main Floor", "location:Cozy Cafe", "location:Vendor",
+      "storage:Fridge", "storage:Freezer", "storage:Pantry",
     ]);
     const app = createApp({
       withDb: ((_env, run) => run(db)) as RunWithDb,

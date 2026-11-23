@@ -39,7 +39,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -72,11 +72,27 @@ describe("CHECK constraints (FLOW-187 AC1)", () => {
   it("rejects negative stock written directly in SQL", async () => {
     await expect(
       rolledBack(async (tx) => {
-        const [item] = await tx`insert into inventory_items (kind, subtype, name) values ('rental', 'furniture', 'Check Chair') returning id`;
-        const [section] = await tx`insert into inventory_sections (name, kind) values ('Check Section', 'rental') returning id`;
+        const [item] = await tx`insert into master_inventory_items (kind, subtype, name) values ('rental', 'furniture', 'Check Chair') returning id`;
+        const [section] = await tx`insert into inventory_locations (name, kind) values ('Check Section', 'location') returning id`;
         await tx`insert into inventory_stock (item_id, section_id, quantity) values (${item.id}, ${section.id}, -1)`;
       }),
     ).rejects.toThrow(/inventory_stock_quantity_check/);
+  });
+
+  // FLOW-289 AC2: an item can't sit in another list's table.
+  it("keeps each kind of item in its own list", async () => {
+    await expect(
+      rolledBack((tx) => tx`insert into master_inventory_items (kind, subtype, name) values ('consumable', 'bar', 'Check Wine')`),
+    ).rejects.toThrow(/master_inventory_items_list_check/);
+    await expect(
+      rolledBack((tx) => tx`insert into bar_inventory_items (kind, subtype, name) values ('rental', 'furniture', 'Check Chair')`),
+    ).rejects.toThrow(/bar_inventory_items_list_check/);
+    await expect(
+      rolledBack((tx) => tx`insert into kitchen_ingredients (kind, subtype, name) values ('consumable', 'supply', 'Check Napkin')`),
+    ).rejects.toThrow(/kitchen_ingredients_list_check/);
+    await expect(
+      rolledBack((tx) => tx`insert into inventory_locations (name, kind) values ('Check Section', 'rental')`),
+    ).rejects.toThrow(/inventory_locations_kind_check/);
   });
 
   it("reports the SQLSTATE through Drizzle's wrapped error", async () => {

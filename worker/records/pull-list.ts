@@ -31,8 +31,8 @@ import { writeAudit, writeAuditMany } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   events,
-  inventoryItems,
-  inventorySections,
+  allInventoryItems,
+  inventoryLocations,
   proposalMappings,
   proposals,
   pullListLines,
@@ -56,9 +56,9 @@ async function syncSupplyRequirements(tx: DbLike, actor: Actor | null, eventId: 
   const rows = await tx.select({ itemId: pullListLines.itemId, quantity: pullListLines.quantity })
     .from(pullListLines)
     .innerJoin(pullLists, eq(pullLists.id, pullListLines.pullListId))
-    .innerJoin(inventoryItems, eq(inventoryItems.id, pullListLines.itemId))
+    .innerJoin(allInventoryItems, eq(allInventoryItems.id, pullListLines.itemId))
     .where(and(eq(pullLists.eventId, eventId), eq(pullListLines.group, "supplies"),
-      eq(inventoryItems.subtype, "supply"), isNull(pullListLines.archivedAt)));
+      eq(allInventoryItems.subtype, "supply"), isNull(pullListLines.archivedAt)));
   const totals = new Map<string, number>();
   for (const row of rows) {
     if (row.itemId === null || row.quantity === null) continue;
@@ -399,9 +399,9 @@ export async function getPullList(db: Db, actor: Actor, eventId: string): Promis
   if (!list) return empty;
 
   const rows = await db
-    .select({ line: pullListLines, section: inventorySections.name, by: users.name })
+    .select({ line: pullListLines, section: inventoryLocations.name, by: users.name })
     .from(pullListLines)
-    .leftJoin(inventorySections, eq(inventorySections.id, pullListLines.sectionId))
+    .leftJoin(inventoryLocations, eq(inventoryLocations.id, pullListLines.sectionId))
     .leftJoin(users, eq(users.id, pullListLines.statusBy))
     .where(and(eq(pullListLines.pullListId, list.id), isNull(pullListLines.archivedAt)))
     .orderBy(asc(pullListLines.name), asc(pullListLines.createdAt));
@@ -497,9 +497,9 @@ async function findLine(tx: DbLike, eventId: string, lineId: string) {
 async function assertSection(tx: DbLike, sectionId: string | null) {
   if (!sectionId) return;
   const [row] = await tx
-    .select({ id: inventorySections.id })
-    .from(inventorySections)
-    .where(and(eq(inventorySections.id, sectionId), isNull(inventorySections.archivedAt)));
+    .select({ id: inventoryLocations.id })
+    .from(inventoryLocations)
+    .where(and(eq(inventoryLocations.id, sectionId), isNull(inventoryLocations.archivedAt)));
   if (!row) throw new ApiError(400, "INVALID_REQUEST", "Choose a section that exists.");
 }
 
@@ -515,9 +515,9 @@ export async function addPullLine(
     let name = (input.name ?? "").trim();
     if (input.itemId) {
       const [item] = await tx
-        .select({ name: inventoryItems.name })
-        .from(inventoryItems)
-        .where(and(eq(inventoryItems.id, input.itemId), isNull(inventoryItems.archivedAt)));
+        .select({ name: allInventoryItems.name })
+        .from(allInventoryItems)
+        .where(and(eq(allInventoryItems.id, input.itemId), isNull(allInventoryItems.archivedAt)));
       if (!item) throw new ApiError(400, "INVALID_REQUEST", "Choose an item that exists.");
       name = item.name;
     }

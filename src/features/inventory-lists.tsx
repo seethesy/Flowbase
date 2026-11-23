@@ -6,7 +6,7 @@ import { usePermissions } from "../app/permissions";
 import { isFtPlus } from "../../shared/access";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, ClipboardCheck } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   barCategories,
@@ -14,9 +14,7 @@ import {
   barSubcategories,
   barTierLabels,
   barTierSchema,
-  itemKindSchema,
   type InventoryItem,
-  type ItemKind,
   type SectionKind,
 } from "../../shared/inventory";
 import { unitLabel, unitSchema } from "../../shared/units";
@@ -25,7 +23,6 @@ import { inventoryCategoriesApi } from "../services/inventory-categories";
 import { useResource } from "../app/useResource";
 import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
-  PageHeader,
   Button,
   SearchInput,
   FilterBar,
@@ -38,12 +35,14 @@ import { useListLabels } from "./list-fields";
 import {
   barTierLabel,
   centsLabel,
+  dateTimeLabel,
   purchaseLabel,
   quantityLabel,
 } from "./inventory-labels";
 import "./inventory.css";
 import { IngredientBulkActions, IngredientStockPill, KitchenHeading, ingredientStockText } from "./kitchen-screen";
-import { InventoryHeading, InventoryShortcuts, StockPill, inventoryTabExcludes, stockLabel, stockState } from "./inventory-screen";
+import { InventoryHeading, StockPill, stockLabel, stockState } from "./inventory-screen";
+import { StartCount } from "./stock-counts";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy, LabelT, joined } from "../app/copy";
 
@@ -57,7 +56,7 @@ function SectionFilter({
   value,
   onChange,
   kind,
-  label = "Section",
+  label = "Location",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -96,9 +95,10 @@ function ClassificationFilters({ kind, categoryId, typeId, onCategory, onType }:
   return <>
     <Dropdown aria-label="Inventory category" value={categoryId} onValueChange={(next) => { onCategory(next); onType(""); }}>
       <option value="">All categories</option>
-      {(catalog.data?.categories ?? []).filter((entry) => kind === "all" || entry.kind === kind ||
-        (kind === "consumable" && ["ingredient", "bar", "supply"].includes(entry.kind)))
-        .map((entry) => <option key={entry.id} value={entry.id}>{kind === "all" ? `${entry.kind} · ${entry.name}` : entry.name}</option>)}
+      {(catalog.data?.categories ?? []).filter((entry) => entry.kind === kind ||
+        // The Master list holds rentals, services and supplies (FLOW-289).
+        (kind === "master" && ["rental", "service", "supply"].includes(entry.kind)))
+        .map((entry) => <option key={entry.id} value={entry.id}>{kind === "master" ? `${entry.kind} · ${entry.name}` : entry.name}</option>)}
     </Dropdown>
     <Dropdown aria-label="Inventory type" value={typeId} disabled={!categoryId} onValueChange={onType}>
       <option value="">All types</option>
@@ -148,6 +148,24 @@ function purchaseColumns(
   ];
 }
 
+// When an item's stock was last counted, and by whom (FLOW-291, from the old
+// Counts page).
+function countedColumns(): ColumnDef<InventoryItem, unknown>[] {
+  return [
+    {
+      id: "lastCounted",
+      header: "Last counted",
+      accessorFn: (item) => item.lastCountedAt ?? "",
+      cell: ({ row }) => (row.original.lastCountedAt ? dateTimeLabel(row.original.lastCountedAt) : "—"),
+    },
+    {
+      id: "lastCountedBy",
+      header: "Last counted by",
+      accessorFn: (item) => item.lastCountedBy ?? "—",
+    },
+  ];
+}
+
 function classificationColumns(
   catalog: Awaited<ReturnType<typeof inventoryCategoriesApi.list>> | undefined,
   save: (item: InventoryItem, field: string, value: string) => Promise<void>,
@@ -193,18 +211,18 @@ function classificationColumns(
   ];
 }
 
-// The Inventory screen's Inventory tab (FLOW-266): rentals, decor, supplies and
-// services, without bar stock (the Bar tab) or ingredients (Kitchen). Shortcut
-// cards, filters (kind, category, type, vendor, section, below par) and the
-// table: Open, Item, Kind, Category, Type, On hand, Par, Stock, Storage, Vendor,
-// Unit cost, then the item's other stored fields (FLOW-275). On hand comes from
-// counts and Unit cost from receiving, so neither is edited here. Bulk: Move to
-// storage and Set vendor (consumables), Delete (reserved items are skipped).
-const inventoryKindLabels: Record<ItemKind, string> = { rental: "Rentals", consumable: "Supplies", service: "Services" };
+// The Inventory screen's Inventory tab (FLOW-266, FLOW-291): the Master inventory
+// list (rentals, decor, supplies and services; bar stock and ingredients have
+// their own lists). Filters (category, type, vendor, location, below par) and
+// the "Inventory" table: Open, Item, Kind (always "Rental"), Category, Type, On
+// hand (the total; the item page shows each location), Par, Stock, Storage,
+// Vendor, Unit cost, how it's bought, Last counted and Last counted by, then the
+// item's other stored fields (FLOW-275). On hand comes from counts and Unit cost
+// from receiving, so neither is edited here. Bulk: Move to storage and Set vendor
+// (stocked items), Delete (reserved items are skipped).
 export function InventoryList() {
   const navigate = useNavigate();
   const { actor, can } = usePermissions();
-  const [kind, setKind] = useState<ItemKind | "">("");
   const [categoryId, setCategoryId] = useState("");
   const [typeId, setTypeId] = useState("");
   const [sectionId, setSectionId] = useState("");
@@ -215,25 +233,24 @@ export function InventoryList() {
   const [bulkError, setBulkError] = useState("");
   // Filters run on the server across every item (FLOW-179/180).
   const items = usePagedList(
-    ["inventory-items", "list", archived, kind, categoryId, typeId, sectionId, vendor, belowPar],
+    ["inventory-items", "list", archived, categoryId, typeId, sectionId, vendor, belowPar],
     (cursor) =>
       inventoryApi.list(
         {
+          list: "master",
           archived,
-          kind: kind || undefined,
           categoryId: categoryId || undefined,
           typeId: typeId || undefined,
           sectionId: sectionId || undefined,
           vendor: vendor || undefined,
           belowPar: belowPar || undefined,
-          excludeSubtypes: inventoryTabExcludes,
         },
         cursor,
       ),
   );
   const deletable = useDeletable("inventory_item", () => items.reload());
   const catalog = useResource(["inventory-categories"], inventoryCategoriesApi.list, { reference: true });
-  const storage = useResource(["sections", { kind: "consumable" }], () => sectionsApi.list({ kind: "consumable" }), { reference: true });
+  const storage = useResource(["sections", { kind: "location" }], () => sectionsApi.list({ kind: "location" }), { reference: true });
   const canEdit = (item: InventoryItem) => can("inventory.write") && (item.kind === "consumable" || can("rentals.apply_directly"));
   const consumableEdit = (item: InventoryItem) => canEdit(item) && Boolean(item.consumable);
   const save = async (item: InventoryItem, field: string, value: string) => {
@@ -244,11 +261,13 @@ export function InventoryList() {
   const vendors = [...new Set(data.map(vendorOf).filter(Boolean))].sort();
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
+    // Every Master item reads "Rental" (FLOW-289); the item form's Admin-only
+    // Stock tracking says whether it's returned, used up or not stocked.
     {
       id: "kind",
       header: "Kind",
-      accessorFn: (item) => inventoryKindLabels[item.kind],
-      cell: ({ row }) => <LabelT id="labels.inventory-tab-kind" value={row.original.kind}>{inventoryKindLabels[row.original.kind]}</LabelT>,
+      accessorFn: () => "Rental",
+      cell: () => <T id="inventory-lists.inventory-list.rental">Rental</T>,
     },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
     {
@@ -272,7 +291,7 @@ export function InventoryList() {
     },
     {
       id: "storage",
-      header: "Storage",
+      header: "Location",
       accessorFn: (item) => item.consumable?.storageSectionName ?? item.stock.map((level) => level.sectionName).join(", "),
       meta: { edit: "select", canEdit: consumableEdit, editValue: (item) => item.consumable?.storageSectionId ?? "",
         editOptions: [{ value: "", label: "None" }, ...(storage.data ?? []).map((section) => ({ value: section.id, label: section.name }))],
@@ -291,6 +310,9 @@ export function InventoryList() {
       accessorFn: (item) => item.consumable?.unitCostCents ?? null,
       cell: ({ row }) => (row.original.consumable?.unitCostCents == null ? "—" : centsLabel(row.original.consumable.unitCostCents)),
     },
+    // The old Supplies and Counts pages' fields (FLOW-291).
+    ...purchaseColumns(save, canEdit),
+    ...countedColumns(),
     // The item's other stored fields, edited here too (FLOW-275).
     {
       accessorKey: "code",
@@ -334,9 +356,7 @@ export function InventoryList() {
     <>
       <InventoryHeading tab="inventory">
         <Allowed action="inventory.count">
-          <Button variant="outline" asChild>
-            <Link to="/inventory/counts"><T id="inventory-lists.inventory-list.start-stock-count">Start stock count</T></Link>
-          </Button>
+          <StartCount />
         </Allowed>
         {actor && (can("inventory.write") || isFtPlus(actor)) && (
           <Button onClick={() => setCreate(true)}>
@@ -346,26 +366,9 @@ export function InventoryList() {
         )}
       </InventoryHeading>
       <PageGrid pageKey="inventory.list">
-        <Block id="shortcuts" name="Shortcuts" h={3}>
-          <InventoryShortcuts />
-        </Block>
         <Block id="filters" name="Filters" h={3}>
           <FilterBar>
-            <Dropdown
-              variant="filter"
-              aria-label="Kind"
-              value={kind}
-              options={[
-                { value: "", label: <T id="inventory-lists.inventory-list.all-kinds">All kinds</T>, text: "All kinds" },
-                ...itemKindSchema.options.map((option) => ({
-                  value: option,
-                  label: <LabelT id="labels.inventory-tab-kind" value={option}>{inventoryKindLabels[option]}</LabelT>,
-                  text: inventoryKindLabels[option],
-                })),
-              ]}
-              onValueChange={(next) => { setKind(next as ItemKind | ""); setCategoryId(""); setTypeId(""); }}
-            />
-            <ClassificationFilters kind={kind || "all"} categoryId={categoryId} typeId={typeId} onCategory={setCategoryId} onType={setTypeId} />
+            <ClassificationFilters kind="master" categoryId={categoryId} typeId={typeId} onCategory={setCategoryId} onType={setTypeId} />
             <Dropdown
               variant="filter"
               aria-label="Vendor"
@@ -376,7 +379,7 @@ export function InventoryList() {
               ]}
               onValueChange={setVendor}
             />
-            <SectionFilter value={sectionId} onChange={setSectionId} />
+            <SectionFilter value={sectionId} onChange={setSectionId} kind="location" />
             <label className="checkbox-filter">
               <RoundCheck checked={belowPar} onChange={(e) => setBelowPar(e.target.checked)} />
               <T id="inventory-lists.inventory-list.below-par-only">Below par only</T>
@@ -395,6 +398,7 @@ export function InventoryList() {
             <LoadingSkeleton />
           ) : (
             <>
+              <div className="section-heading"><h2><T id="inventory-lists.inventory-list.table-title">Inventory</T></h2></div>
               <DataTable selection={selection} copyKey="inventory-lists.inventory-list"
                 data={data}
                 columns={columns}
@@ -437,11 +441,9 @@ function BulkVendor({ onSet }: { onSet: (name: string) => Promise<void> }) {
   );
 }
 
-// The kitchen ingredient catalog (FLOW-81): consumables of subtype ingredient.
-export function IngredientList({
-  supplies = false,
-}: { supplies?: boolean } = {}) {
-  const searchSuppliesPlaceholder = useCopy("inventory-lists.ingredient-list.search-supplies.placeholder", "Search supplies…");
+// The kitchen ingredient catalog (FLOW-81, FLOW-289): the Kitchen Ingredients
+// list, at /kitchen/ingredients.
+export function IngredientList() {
   const searchIngredientsPlaceholder = useCopy("inventory-lists.ingredient-list.search-ingredients.placeholder", "Search ingredients…");
   const vendorPlaceholder = useCopy("inventory-lists.ingredient-list.vendor.placeholder", "Vendor");
   const navigate = useNavigate();
@@ -458,12 +460,11 @@ export function IngredientList({
   const term = useDebounced(search.trim());
   const vendorTerm = useDebounced(vendor.trim());
   const items = usePagedList(
-    ["inventory-items", "ingredients", supplies, category, categoryId, typeId, sectionId, belowPar, term, vendorTerm],
+    ["inventory-items", "ingredients", category, categoryId, typeId, sectionId, belowPar, term, vendorTerm],
     (cursor) =>
       inventoryApi.list(
         {
-          kind: "consumable",
-          subtype: supplies ? "supply" : "ingredient",
+          list: "kitchen",
           category: category || undefined,
           categoryId: categoryId || undefined,
           typeId: typeId || undefined,
@@ -478,23 +479,22 @@ export function IngredientList({
   );
   const deletable = useDeletable("inventory_item", () => items.reload());
   const catalog = useResource(["inventory-categories"], inventoryCategoriesApi.list, { reference: true });
-  const canEdit = () => can("inventory.write");
-  const storageSections = useResource(["sections", { kind: "consumable" }], () => sectionsApi.list({ kind: "consumable" }), { reference: true });
+  // Kitchen Ingredients are the kitchen's list (FLOW-289).
+  const canEdit = () => can("recipes.write");
+  const storageSections = useResource(["sections", { kind: "storage" }], () => sectionsApi.list({ kind: "storage" }), { reference: true });
   const save = async (item: InventoryItem, field: string, value: string) => {
     await inventoryApi.inline(item.id, field, value, item.updatedAt);
     items.reload();
   };
   // Business settings' categories (FLOW-45), archived ones included so old items
   // can still be found.
-  const listed = useListLabels(
-    supplies ? "supply_category" : "ingredient_category",
-  );
+  const listed = useListLabels("ingredient_category");
   const categories = [
     ...new Set([...listed, ...(items.data ?? []).map((item) => item.category)]),
   ].filter(Boolean);
   const data = items.data ?? [];
   const columns: ColumnDef<InventoryItem, unknown>[] = [
-    { accessorKey: "name", header: supplies ? "Supply" : "Ingredient", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
+    { accessorKey: "name", header: "Ingredient", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
     { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
     ...purchaseColumns(save, canEdit),
@@ -576,62 +576,30 @@ export function IngredientList({
   };
   return (
     <>
-      {!supplies && <KitchenHeading tab="ingredients">
+      <KitchenHeading tab="ingredients">
+        {/* FLOW-292: what's below par is ordered from the Order tab. */}
         <Button variant="outline" asChild>
-          <Link to="/kitchen/orders"><T id="inventory-lists.ingredient-list.kitchen-orders">Kitchen orders</T></Link>
+          <Link to="/inventory/order#kitchen"><T id="inventory-lists.ingredient-list.order">Order</T></Link>
         </Button>
         <Allowed action="inventory.count">
-          <Button variant="outline" asChild>
-            <Link to="/inventory/counts"><T id="inventory-lists.ingredient-list.start-stock-count">Start stock count</T></Link>
-          </Button>
+          <StartCount kind="storage" />
         </Allowed>
-        <Allowed action="inventory.write">
+        <Allowed action="recipes.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
             <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>
           </Button>
         </Allowed>
-      </KitchenHeading>}
+      </KitchenHeading>
       {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.ingredient-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T></p>}
-      {supplies && <Link to="/inventory" className="back-link">
-        <T id="inventory-lists.ingredient-list.all-inventory">← All inventory</T>
-      </Link>}
-      {supplies && <PageHeader
-        title={supplies ? <T id="inventory-lists.ingredient-list.supplies">Supplies</T> : <T id="inventory-lists.ingredient-list.ingredients">Ingredients</T>}
-        subtitle={
-          supplies
-            ? <T id="inventory-lists.ingredient-list.disposables-pack-sizes-stock-and">Disposables, pack sizes, stock and low-stock supplies.</T>
-            : <T id="inventory-lists.ingredient-list.what-the-kitchen-buys-how">{"What the kitchen buys, how it's used in recipes, and where it's kept."}</T>
-        }
-        eyebrow={supplies ? <T id="inventory-lists.ingredient-list.supplies-2">SUPPLIES</T> : <T id="inventory-lists.ingredient-list.kitchen">KITCHEN</T>}
-      >
-        {supplies && (
-          <>
-            <Allowed action="inventory.count">
-              <Button variant="outline" asChild>
-                <Link to="/inventory/counts"><T id="inventory-lists.ingredient-list.count">Count</T></Link>
-              </Button>
-            </Allowed>
-            <Button variant="outline" asChild>
-              <Link to="/inventory/low-stock"><T id="inventory-lists.ingredient-list.low-stock">Low stock</T></Link>
-            </Button>
-          </>
-        )}
-        <Allowed action="inventory.write">
-          <Button onClick={() => setCreate(true)}>
-            <Plus size={16} />
-            {supplies ? <T id="inventory-lists.ingredient-list.new-supply">New Supply</T> : <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>}
-          </Button>
-        </Allowed>
-      </PageHeader>}
       <PageGrid pageKey="inventory.consumables">
         <Block id="filters" name="Filters" h={3}>
       <FilterBar>
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder={supplies ? searchSuppliesPlaceholder : searchIngredientsPlaceholder}
-          copyId={supplies ? "inventory-lists.ingredient-list.search-supplies.placeholder" : "inventory-lists.ingredient-list.search-ingredients.placeholder"}
+          placeholder={searchIngredientsPlaceholder}
+          copyId="inventory-lists.ingredient-list.search-ingredients.placeholder"
         />
         <Dropdown
           aria-label="Category"
@@ -643,7 +611,7 @@ export function IngredientList({
             <option key={option}>{option}</option>
           ))}
         </Dropdown>
-        <ClassificationFilters kind={supplies ? "supply" : "ingredient"} categoryId={categoryId} typeId={typeId} onCategory={setCategoryId} onType={setTypeId} />
+        <ClassificationFilters kind="ingredient" categoryId={categoryId} typeId={typeId} onCategory={setCategoryId} onType={setTypeId} />
         <input
           aria-label="Vendor"
           placeholder={vendorPlaceholder} data-copy-id="inventory-lists.ingredient-list.vendor.placeholder"
@@ -653,8 +621,8 @@ export function IngredientList({
         <SectionFilter
           value={sectionId}
           onChange={setSectionId}
-          kind="consumable"
-          label="Storage section"
+          kind="storage"
+          label="Storage area"
         />
         <label className="checkbox-filter">
           <RoundCheck
@@ -665,7 +633,7 @@ export function IngredientList({
         </label>
         <span className="result-count">
           {data.length}
-          {items.hasMore ? "+" : ""} {supplies ? <T id="inventory-lists.ingredient-list.supplies-3">supplies</T> : <T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
+          {items.hasMore ? "+" : ""} <T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>
         </span>
       </FilterBar>
         </Block>
@@ -675,19 +643,19 @@ export function IngredientList({
             selection={{
               rowId: (row) => row.id,
               ...deletable,
-              actions: !supplies && can("inventory.write")
+              actions: can("recipes.write")
                 ? (ids, clear) => <IngredientBulkActions sections={storageSections.data ?? []} onApply={applyBulk(ids, clear)} />
                 : undefined,
             }}
             data={data}
-            columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
+            columns={columns}
             openColumn
             onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label={supplies ? <T id="inventory-lists.ingredient-list.supplies-3">supplies</T> : <T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
-            exportName={supplies ? "supplies" : "ingredients"}
+            label={<T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
+            exportName="ingredients"
             exportAll={items.loadAll}
           />
-          <LoadMore list={items} label={supplies ? <T id="inventory-lists.ingredient-list.load-more-supplies">Load more supplies</T> : <T id="inventory-lists.ingredient-list.load-more-ingredients">Load more ingredients</T>} />
+          <LoadMore list={items} label={<T id="inventory-lists.ingredient-list.load-more-ingredients">Load more ingredients</T>} />
           </Block>
         )}
       </PageGrid>
@@ -698,10 +666,7 @@ export function IngredientList({
       ) : null}
       {create && (
         <ItemForm
-          preset={{
-            kind: "consumable",
-            subtype: supplies ? "supply" : "ingredient",
-          }}
+          preset={{ kind: "consumable", subtype: "ingredient" }}
           onClose={() => setCreate(false)}
           onSaved={() => items.reload()}
         />
@@ -710,12 +675,9 @@ export function IngredientList({
   );
 }
 
-export function SuppliesList() {
-  return <IngredientList supplies />;
-}
-
-// Bar stock (FLOW-90): consumables of subtype bar, counted, flagged below par and
-// costed like ingredients.
+// Bar stock (FLOW-90, FLOW-289): the Bar Inventory list, counted, flagged below
+// par and costed like ingredients. Bar stock is kept at locations, but no bar
+// screen shows them.
 export function BarList() {
   const searchNameOrBrandPlaceholder = useCopy("inventory-lists.bar-list.search-name-or-brand.placeholder", "Search name or brand…");
   const distributorPlaceholder = useCopy("inventory-lists.bar-list.distributor.placeholder", "Distributor");
@@ -737,8 +699,7 @@ export function BarList() {
     (cursor) =>
       inventoryApi.list(
         {
-          kind: "consumable",
-          subtype: "bar",
+          list: "bar",
           category: category || undefined,
           categoryId: categoryId || undefined,
           typeId: typeId || undefined,
@@ -877,12 +838,7 @@ export function BarList() {
     <>
       <InventoryHeading tab="bar">
         <Allowed action="inventory.count">
-          <Button variant="outline" asChild>
-            <Link to="/inventory/counts">
-              <ClipboardCheck size={16} />
-              <T id="inventory-lists.bar-list.start-bar-count">Start bar count</T>
-            </Link>
-          </Button>
+          <StartCount />
         </Allowed>
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>

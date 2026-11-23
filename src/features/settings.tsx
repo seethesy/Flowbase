@@ -64,6 +64,8 @@ export function SettingsPage() {
         <Section title={<T id="settings.settings-page.deleted-records">Deleted records</T>}>
           <p><Link to="/settings/archived"><T id="settings.settings-page.archived">Archived: restore deleted records</T></Link></p>
           <p><Link to="/settings/inventory-categories"><T id="settings.settings-page.inventory-categories">Inventory categories</T></Link></p>
+          <p><Link to="/settings/locations"><T id="settings.settings-page.locations">Locations</T></Link></p>
+          <p><Link to="/settings/imports"><T id="settings.settings-page.imports">Imports</T></Link></p>
         </Section>
         </Block>
       )}
@@ -234,7 +236,7 @@ function ListSettings() {
   return (
     <Section title={<T id="settings.list-settings.lists">Lists</T>}>
       <p className="settings-hint">
-        <T id="settings.list-settings.the-choices-offered-in-forms">{"The choices offered in forms. Archived values stay on records that already use them but can't be picked for new ones. Inventory sections are managed on "}</T><Link to="/inventory/sections"><T id="settings.list-settings.inventory-sections">Inventory sections</T></Link><T id="settings.list-settings.bar-categories-are-built-in">; bar categories are built in.</T>
+        <T id="settings.list-settings.the-choices-offered-in-forms">{"The choices offered in forms. Archived values stay on records that already use them but can't be picked for new ones. Inventory locations are managed on "}</T><Link to="/settings/locations"><T id="settings.list-settings.inventory-locations">Locations</T></Link><T id="settings.list-settings.bar-categories-are-built-in">; bar categories are built in.</T>
       </p>
       <SaveMessages error={save.error} notice={save.notice} />
       <FormField label={<T id="settings.list-settings.list">List</T>}>

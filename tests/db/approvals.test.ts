@@ -14,6 +14,7 @@ import {
   type ApprovalRow,
   type NewApprovalRequest,
 } from "../../worker/records/approvals";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Approval workflow engine (FLOW-44) through the real API and database: applying
 // exactly the proposed change or failing with a conflict (AC1), rejecting without
@@ -83,18 +84,18 @@ registerApprovalSubject("test_item_change", {
   approverRole: "admin",
   readFields: async (tx, subjectId, fields) => {
     const [item] = await tx
-      .select({ name: schema.inventoryItems.name, group: schema.inventoryItems.group })
-      .from(schema.inventoryItems)
-      .where(eq(schema.inventoryItems.id, subjectId))
+      .select({ name: schema.allInventoryItems.name, group: schema.allInventoryItems.group })
+      .from(schema.allInventoryItems)
+      .where(eq(schema.allInventoryItems.id, subjectId))
       .for("update");
     if (!item) return null;
     return Object.fromEntries(fields.map((field) => [field, item[field as keyof typeof item]]));
   },
   applyChange: async (tx, actor, subjectId, values) => {
     await tx
-      .update(schema.inventoryItems)
+      .update(schema.masterInventoryItems)
       .set({ ...(values as { name?: string; group?: string }), updatedBy: actor.userId })
-      .where(eq(schema.inventoryItems.id, subjectId));
+      .where(eq(schema.masterInventoryItems.id, subjectId));
   },
   onApproved: async (_tx, _actor, request) => {
     hooks.push(`approved:${request.id}`);
@@ -113,7 +114,7 @@ registerApprovalSubject("test_signoff", {
   },
 });
 
-const tables = sql`truncate table approval_requests, audit_log, jobs, recipe_lines, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
+const tables = sql`truncate table approval_requests, audit_log, jobs, recipe_lines, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -142,17 +143,14 @@ afterAll(async () => {
 });
 
 const chairs = async () => {
-  const [item] = await db
-    .insert(schema.inventoryItems)
-    .values({ kind: "rental", name: "Chiavari chairs", group: "Seating", unit: "each" })
-    .returning();
+  const [item] = await insertItems(db, { kind: "rental", name: "Chiavari chairs", group: "Seating", unit: "each" });
   return item;
 };
 const itemNamed = async (id: string) => {
   const [item] = await db
     .select()
-    .from(schema.inventoryItems)
-    .where(eq(schema.inventoryItems.id, id));
+    .from(schema.allInventoryItems)
+    .where(eq(schema.allInventoryItems.id, id));
   return item;
 };
 const ask = (who: keyof typeof people, input: NewApprovalRequest) =>
@@ -292,9 +290,9 @@ describe("approving (AC1)", () => {
     const item = await chairs();
     const id = await ask("sam", renameRequest(item.id));
     await db
-      .update(schema.inventoryItems)
+      .update(schema.masterInventoryItems)
       .set({ name: "Chiavari chairs, silver" })
-      .where(eq(schema.inventoryItems.id, item.id));
+      .where(eq(schema.masterInventoryItems.id, item.id));
     const response = await admin.call("POST", `/api/approvals/${id}/approve`, {});
     expect(response.status).toBe(409);
     expect(await errorOf(response)).toMatchObject({ code: "APPROVAL_CONFLICT" });
@@ -318,9 +316,9 @@ describe("approving (AC1)", () => {
       },
     });
     await db
-      .update(schema.inventoryItems)
+      .update(schema.masterInventoryItems)
       .set({ group: "Furniture" })
-      .where(eq(schema.inventoryItems.id, item.id));
+      .where(eq(schema.masterInventoryItems.id, item.id));
     const response = await admin.call("POST", `/api/approvals/${id}/approve`, {});
     expect(response.status).toBe(409);
     expect(await itemNamed(item.id)).toMatchObject({
@@ -332,7 +330,7 @@ describe("approving (AC1)", () => {
   it("fails with a conflict when the record is gone", async () => {
     const item = await chairs();
     const id = await ask("sam", renameRequest(item.id));
-    await db.delete(schema.inventoryItems).where(eq(schema.inventoryItems.id, item.id));
+    await db.delete(schema.masterInventoryItems).where(eq(schema.masterInventoryItems.id, item.id));
     const response = await admin.call("POST", `/api/approvals/${id}/approve`, {});
     expect(response.status).toBe(409);
     expect(await errorOf(response)).toMatchObject({ code: "APPROVAL_CONFLICT" });

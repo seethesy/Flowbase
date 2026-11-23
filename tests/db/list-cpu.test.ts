@@ -49,30 +49,34 @@ async function medianCpuMs(path: string, runs = 21) {
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
   await db.execute(
-    sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs cascade`,
+    sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, ingest_receipts, jobs cascade`,
   );
   const [section] = await db.execute<{ id: string }>(
-    sql`select id from inventory_sections where kind = 'consumable' and archived_at is null limit 1`,
+    sql`select id from inventory_locations where kind = 'storage' and archived_at is null limit 1`,
   );
-  // 2,000 items: half ingredients with details and stock, the rest rentals.
+  // 2,000 items: half ingredients (Kitchen Ingredients, FLOW-289) with details and
+  // stock, the rest rentals (Master inventory).
   await db.execute(sql`
-    insert into inventory_items (kind, subtype, name, unit, "group", code)
-    select case when n % 2 = 0 then 'consumable' else 'rental' end,
-      case when n % 2 = 0 then 'ingredient' else 'equipment' end,
-      'Item ' || lpad(n::text, 4, '0'), 'each', 'Group ' || (n % 20), 'C' || n
-    from generate_series(1, 2000) as n
+    insert into kitchen_ingredients (kind, subtype, name, unit, "group", code)
+    select 'consumable', 'ingredient', 'Item ' || lpad(n::text, 4, '0'), 'each', 'Group ' || (n % 20), 'C' || n
+    from generate_series(2, 2000, 2) as n
+  `);
+  await db.execute(sql`
+    insert into master_inventory_items (kind, subtype, name, unit, "group", code)
+    select 'rental', 'equipment', 'Item ' || lpad(n::text, 4, '0'), 'each', 'Group ' || (n % 20), 'C' || n
+    from generate_series(1, 2000, 2) as n
   `);
   await db.execute(sql`
     insert into inventory_consumable_details (item_id, purchase_unit, preferred_vendor, par_level, storage_section_id)
-    select id, 'case', 'Acme Foods', 10, ${section.id} from inventory_items where kind = 'consumable'
+    select id, 'case', 'Acme Foods', 10, ${section.id} from kitchen_ingredients
   `);
   await db.execute(sql`
     insert into inventory_rental_details (item_id, price_cents)
-    select id, 1500 from inventory_items where kind = 'rental'
+    select id, 1500 from master_inventory_items where kind = 'rental'
   `);
   await db.execute(sql`
     insert into inventory_stock (item_id, section_id, quantity)
-    select id, ${section.id}, 25 from inventory_items where kind = 'consumable'
+    select id, ${section.id}, 25 from kitchen_ingredients
   `);
   // 500 clients with a contact each, and 600 events across two years.
   await db.execute(sql`
@@ -94,14 +98,14 @@ beforeAll(async () => {
 // (tests/db/seed.test.ts), and random ids can match it.
 afterAll(async () => {
   await db.execute(
-    sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, ingest_receipts, jobs cascade`,
+    sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, ingest_receipts, jobs cascade`,
   );
   await client.end();
 });
 
 const lists: [string, string][] = [
   ["inventory items", "/api/inventory/items"],
-  ["ingredients", "/api/inventory/items?kind=consumable&subtype=ingredient&belowPar=false"],
+  ["ingredients", "/api/inventory/items?list=kitchen&belowPar=false"],
   ["clients", "/api/clients"],
   ["events", "/api/events"],
 ];

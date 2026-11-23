@@ -9,6 +9,7 @@ import { createJobRegistry } from "../../worker/jobs/cron";
 import { runDueJobs } from "../../worker/jobs/queue";
 import { recomputeItem, requestRecompute } from "../../worker/records/allocations";
 import type { RunWithDb } from "../../worker/hono";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Ordering record (FLOW-87) and receiving (FLOW-88).
 const url = process.env.DATABASE_URL;
@@ -34,7 +35,7 @@ const as = (who: keyof typeof people) => {
 const admin = as("admin");
 const lead = as("lead");
 const sectionName = "FLOW-88 walk-in";
-const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
+const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
@@ -46,7 +47,7 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await db.execute(tables);
-  await db.delete(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
+  await db.delete(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
   await db.delete(schema.users).where(sql`${schema.users.id} in (${sql.join(Object.values(people).map((id) => sql`${id}`), sql`, `)})`);
   await client.end();
 });
@@ -54,9 +55,9 @@ afterAll(async () => {
 // A case of 12 wine bottles at $120, stored in the walk-in, and an approved list
 // ordering 3 cases of it from "Wine vendor".
 async function approvedList() {
-  let [section] = await db.select().from(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
-  section ??= (await db.insert(schema.inventorySections).values({ name: sectionName, kind: "consumable" }).returning())[0];
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "bar", name: "Pinot Grigio", unit: "each" }).returning();
+  let [section] = await db.select().from(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
+  section ??= (await db.insert(schema.inventoryLocations).values({ name: sectionName, kind: "location" }).returning())[0];
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "bar", name: "Pinot Grigio", unit: "each" });
   await db.insert(schema.inventoryConsumableDetails).values({ itemId: item.id, purchaseUnit: "case", packCount: 12,
     unitCostCents: 12000, storageSectionId: section.id });
   const line = { itemId: item.id, itemName: "Pinot Grigio", vendorId: null, vendorName: "Wine vendor",

@@ -70,7 +70,17 @@ export function InventoryDetail() {
     item.replace(next);
     setVersion((current) => current + 1);
   };
-  const back = (
+  // Back to the item's own list (FLOW-289).
+  const list = item.data?.list;
+  const back = list === "kitchen" ? (
+    <Link to="/kitchen/ingredients" className="back-link">
+      <T id="inventory-detail.inventory-detail.all-ingredients">← All ingredients</T>
+    </Link>
+  ) : list === "bar" ? (
+    <Link to="/inventory/bar" className="back-link">
+      <T id="inventory-detail.inventory-detail.all-bar-inventory">← Bar Inventory</T>
+    </Link>
+  ) : (
     <Link to="/inventory" className="back-link">
       <T id="inventory-detail.inventory-detail.all-inventory">← All inventory</T>
     </Link>
@@ -94,7 +104,10 @@ export function InventoryDetail() {
           <h1>{i.name}</h1>
           <p>
             <span className="badge neutral">
-              {joined([<LabelT id="labels.item-kind" value={i.kind}>{kindLabels[i.kind]}</LabelT>, subtypeLabel(i.subtype)])}
+              {/* Every Master item reads "Rental" (FLOW-289). */}
+              {i.list === "master"
+                ? <T id="inventory-detail.inventory-detail.rental">Rental</T>
+                : joined([<LabelT id="labels.item-kind" value={i.kind}>{kindLabels[i.kind]}</LabelT>, subtypeLabel(i.subtype)])}
             </span>
             {i.code && <span className="sku">{i.code}</span>}
             {!i.active && <span className="badge error"><T id="inventory-detail.inventory-detail.inactive">Inactive</T></span>}
@@ -273,8 +286,11 @@ export function InventoryDetail() {
             <p>
               {c.parLevel === null ? "—" : quantityLabel(c.parLevel, i.unit)}
             </p>
-            <small><T id="inventory-detail.inventory-detail.storage">Storage</T></small>
-            <p>{c.storageSectionName ?? "—"}</p>
+            {/* Bar stock has no location on screen (FLOW-291). */}
+            {i.list !== "bar" && <>
+              <small><T id="inventory-detail.inventory-detail.storage">Storage</T></small>
+              <p>{c.storageSectionName ?? "—"}</p>
+            </>}
           </Section>
           </Block>
         )}
@@ -295,7 +311,9 @@ export function InventoryDetail() {
         </Section>
       ) : (
         <Section
-          title={<T id="inventory-detail.inventory-detail.stock-by-section">Stock by section</T>}
+          title={i.list === "bar"
+            ? <T id="inventory-detail.inventory-detail.stock">Stock</T>
+            : <T id="inventory-detail.inventory-detail.stock-by-location">Stock by location</T>}
           action={
             !i.archivedAt && (
               <div className="page-actions">
@@ -317,7 +335,7 @@ export function InventoryDetail() {
                     <T id="inventory-detail.inventory-detail.count">Count</T>
                   </Button>
                 </Allowed>
-                <Allowed action="inventory.move" item={i}>
+                {i.list !== "bar" && <Allowed action="inventory.move" item={i}>
                   <Button
                     variant="outline"
                     onClick={() => setStockForm("transfer")}
@@ -325,20 +343,23 @@ export function InventoryDetail() {
                     <ArrowLeftRight size={14} />
                     <T id="inventory-detail.inventory-detail.transfer">Transfer</T>
                   </Button>
-                </Allowed>
+                </Allowed>}
               </div>
             )
           }
         >
+          {/* On hand per location (FLOW-291); bar items show only the total. */}
           <table className="stock-table">
             <thead>
               <tr>
-                <th><T id="inventory-detail.inventory-detail.section">Section</T></th>
+                <th>{i.list === "kitchen"
+                  ? <T id="inventory-detail.inventory-detail.storage-area">Storage area</T>
+                  : i.list === "bar" ? null : <T id="inventory-detail.inventory-detail.location">Location</T>}</th>
                 <th><T id="inventory-detail.inventory-detail.quantity">Quantity</T></th>
               </tr>
             </thead>
             <tbody>
-              {i.stock.map((level) => (
+              {(i.list === "bar" ? [] : i.stock).map((level) => (
                 <tr key={`${level.sectionId}:${level.color ?? ""}`}>
                   <td>
                     {level.sectionName}

@@ -4,7 +4,7 @@ import { defaultDepartment } from "../../shared/event-staff";
 import { diffProposalMappings, unmatchedLines, type ProposalMapping } from "../../shared/proposal-mapping";
 import type { Db } from "../db/client";
 import { writeAudit } from "../audit/log";
-import { eventShifts, eventStaffSlots, events, inventoryItems, proposalMappings, proposalVersions, proposalVersionMappings, proposalChangeLog, approvalRequests, recipes } from "../db/schema";
+import { eventShifts, eventStaffSlots, events, allInventoryItems, proposalMappings, proposalVersions, proposalVersionMappings, proposalChangeLog, approvalRequests, recipes } from "../db/schema";
 import { ApiError } from "../hono";
 import { findVisibleProposal } from "./proposals";
 import { assertListLabels } from "./settings";
@@ -36,7 +36,7 @@ export async function getProposalCatalog(db: Db, actor: Actor, proposalId: strin
   await findVisibleProposal(db, actor, proposalId);
   const [dishes, items] = await Promise.all([
     db.select({ id: recipes.id, name: recipes.name }).from(recipes).where(and(eq(recipes.active, true), isNull(recipes.archivedAt))),
-    db.select({ id: inventoryItems.id, name: inventoryItems.name, kind: inventoryItems.kind, subtype: inventoryItems.subtype }).from(inventoryItems).where(and(eq(inventoryItems.active, true), isNull(inventoryItems.archivedAt))),
+    db.select({ id: allInventoryItems.id, name: allInventoryItems.name, kind: allInventoryItems.kind, subtype: allInventoryItems.subtype }).from(allInventoryItems).where(and(eq(allInventoryItems.active, true), isNull(allInventoryItems.archivedAt))),
   ]);
   return { recipes: dishes, items };
 }

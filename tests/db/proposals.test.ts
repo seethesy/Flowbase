@@ -21,6 +21,7 @@ import {
   type ProposalUploadTicket,
 } from "../../shared/proposals";
 import { emitAddendumReminders } from "../../worker/records/contracts";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Proposals through the real API and database: the record and its stages
 // (FLOW-122) and immutable file versions (FLOW-123).
@@ -89,7 +90,7 @@ const sam = signedInAs(people.sam, "salesperson");
 const sue = signedInAs(people.sue, "salesperson");
 const kit = signedInAs(people.kit, "kitchen_staff");
 
-const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, approval_requests, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, inventory_items cascade`;
+const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, approval_requests, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -357,7 +358,7 @@ describe("proposal approval, revision, booking and addendum (FLOW-127–130)", (
   it("requires current approval, creates a hold, diffs a revision and preserves first booking order", async () => {
     const event = await newEvent();
     const proposal = await newProposal(event);
-    const [item] = await db.insert(schema.inventoryItems).values({ name: "Chairs", kind: "rental", category: "Furniture" }).returning();
+    const [item] = await insertItems(db, { name: "Chairs", kind: "rental", category: "Furniture" });
     const first = await upload(proposal, { docx: docx() });
     await setMapping(proposal.id, mapping(first.versions[0].id, "100", item.id));
     expect((await sam.call("POST", `/api/proposals/${proposal.id}/sent`, { sentAt: "2026-11-01T12:00:00.000Z", method: "email" })).status).toBe(409);

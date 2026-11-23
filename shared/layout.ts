@@ -226,9 +226,14 @@ export const layoutTables: Record<string, LayoutTable> = {
   "venues.venue-list": { source: "venues", locked: [], code: ["areas"] },
   "vendors.vendor-list": { source: "vendors", locked: [], code: ["leadTime"] },
   "staff.staff-directory": { source: "staff", locked: [], code: [] },
-  "inventory-lists.inventory-list": { source: "inventory", locked: [], code: ["variant", "quantity", "categoryId", "typeId"] },
+  "inventory-lists.inventory-list": {
+    source: "inventory",
+    locked: [],
+    // FLOW-291: the old Supplies and Counts pages' columns too.
+    code: ["variant", "quantity", "categoryId", "typeId", "par", "stock", "storage", "vendor", "cost",
+      "purchase", "packCount", "eachSize", "eachUnit", "lastCounted", "lastCountedBy"],
+  },
   // FLOW-279: the inventory pages' other tables.
-  "inventory-master.master-inventory": { source: "inventory", locked: [], code: ["quantity", "location", "price", "ratio", "status"] },
   "inventory-lists.ingredient-list": {
     source: "inventory",
     locked: [],
@@ -239,7 +244,6 @@ export const layoutTables: Record<string, LayoutTable> = {
     locked: [],
     code: ["brand", "categoryId", "typeId", "container", "pack", "distributor", "cost", "onHand"],
   },
-  "stock-counts.low-stock-list": { source: "inventory", locked: [], code: ["onHand", "par", "short", "storage", "vendor"] },
   // FLOW-296: every other data table, so an Admin can resize its columns.
   "tasks.dashboard.table": { source: "tasks", locked: [], code: [] },
   "sops.library": { source: null, locked: [], code: [] },
@@ -253,6 +257,10 @@ export const layoutTables: Record<string, LayoutTable> = {
   "time-tracking.workload": { source: null, locked: [], code: [] },
   "beo-list.table": { source: null, locked: [], code: [] },
   "purchasing.table": { source: null, locked: [], code: [] },
+  // FLOW-292: the Order tab's reorder tables.
+  "inventory-order.reorder-master": { source: null, locked: [], code: [] },
+  "inventory-order.reorder-bar": { source: null, locked: [], code: [] },
+  "inventory-order.reorder-kitchen": { source: null, locked: [], code: [] },
 };
 // Pseudo-columns a table renders that aren't registry fields (locked controls).
 export const controlColumns = new Set(["actions"]);

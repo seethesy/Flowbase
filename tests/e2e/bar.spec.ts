@@ -3,6 +3,7 @@ import { test, expect } from "./auth-fixture";
 import { consumable, defaultSections } from "./fixtures";
 import { seedInventory } from "./database";
 
+// Bar stock is kept at a location (FLOW-289), which no bar screen shows.
 const barStorage = defaultSections[6];
 const bar = (
   name: string,
@@ -102,15 +103,14 @@ test("filters the bar screen by category, subcategory, tier and distributor", as
   await expect(page.getByText("2 bar items", { exact: true })).toBeVisible();
 });
 
-test("creates a bar item kept in Bar Storage", async ({ page }) => {
+test("creates a bar item without a location (FLOW-291)", async ({ page }) => {
   await seedInventory();
   await page.goto("/#/inventory/bar");
+  await expect(page.getByRole("columnheader", { name: /^(Location|Storage)/ })).toHaveCount(0);
+  await expect(page.getByLabel(/^All locations|^Location/)).toHaveCount(0);
   await page.getByRole("button", { name: "New Bar Item", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel(/^Storage section/)).toHaveAttribute(
-    "data-value",
-    barStorage.id,
-  );
+  await expect(dialog.getByLabel(/^(Location|Storage)/)).toHaveCount(0);
   await dialog.getByLabel("Name *", { exact: true }).fill("Tito's Vodka");
   await choose(dialog.getByRole("combobox", { name: "Bar category", exact: true }), "Liquor");
   await choose(dialog.getByLabel(/^Subcategory/), "Vodka");

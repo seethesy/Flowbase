@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { databaseTest as test, expect, mockBrowserAuth } from "./auth-fixture";
 import { seedDatabase, seedId, seedUsers } from "../../worker/db/seed";
 import { browserDb } from "./database";
@@ -157,10 +158,12 @@ for (const role of ["admin", "salesperson"] as const) {
         .getByRole("row", { name: /^Warehouse / }),
     ).toBeVisible();
 
-    await page.goto("/#/inventory/counts");
-    await page
-      .getByRole("button", { name: "Start counting Kitchen – Refrigerated" })
-      .click();
+    // FLOW-291: a kitchen count starts from Kitchen › Ingredients.
+    await page.goto("/#/kitchen/ingredients");
+    await choose(
+      page.getByRole("combobox", { name: "Start stock count" }),
+      { label: "Fridge" },
+    );
     const line = page.getByRole("listitem", {
       name: "Chafing dish fuel",
       exact: true,

@@ -28,16 +28,18 @@ import {
   events,
   inventoryBarDetails,
   inventoryConsumableDetails,
-  inventoryItems,
+  allInventoryItems,
   inventoryStock,
   jobs,
   vendorOrders,
   vendors,
+  barInventoryItems,
 } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import { enqueueJob, type JobRegistry } from "../jobs/queue";
 import { findVisibleEvent, lockVisibleEvent, visibleEvents } from "./events";
 import { evaluateItem } from "./holds";
+import { lockItemRow } from "./inventory-common";
 
 // Consumable allocation and projected stock (FLOW-85, ADR-12). What each event
 // needs of a consumable is stored as requirements; the allocation job turns the
@@ -67,10 +69,10 @@ export const vendorOrdersOnOrder: OnOrderSource = async (db, itemId) => {
         ),
       ),
     db
-      .select({ unit: inventoryItems.unit, detail: inventoryConsumableDetails })
-      .from(inventoryItems)
-      .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
-      .where(eq(inventoryItems.id, itemId)),
+      .select({ unit: allInventoryItems.unit, detail: inventoryConsumableDetails })
+      .from(allInventoryItems)
+      .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
+      .where(eq(allInventoryItems.id, itemId)),
   ]);
   if (!item) return [];
   return orders.flatMap((order) =>
@@ -147,17 +149,13 @@ export async function requestEventRecompute(tx: DbLike, eventId: string) {
 // repeat; it locks the item so recomputes of one item run one at a time.
 export async function recomputeItem(tx: DbLike, itemId: string, now = new Date()) {
   const [pool] = await tx
-    .select({ subtype: inventoryItems.subtype, category: inventoryItems.category, tier: inventoryItems.tier })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, itemId));
+    .select({ subtype: allInventoryItems.subtype, category: allInventoryItems.category, tier: allInventoryItems.tier })
+    .from(allInventoryItems)
+    .where(eq(allInventoryItems.id, itemId));
   // A bar item with a tier is allocated with the rest of its tier (FLOW-170).
   if (pool?.subtype === "bar" && isBarTier(pool.tier))
     return recomputeBarPool(tx, pool.category, pool.tier, now);
-  const [item] = await tx
-    .select({ id: inventoryItems.id, kind: inventoryItems.kind })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, itemId))
-    .for("update");
+  const item = await lockItemRow(tx, itemId);
   if (!item || item.kind !== "consumable") return;
 
   const [lines, stock, vendor] = await Promise.all([
@@ -289,20 +287,23 @@ export async function requestBarRecompute(tx: DbLike, category: string, tier: st
 export async function recomputeBarPool(tx: DbLike, category: string, tier: string, now = new Date()) {
   if (!isBarTier(tier)) return;
   const inPool = and(
-    eq(inventoryItems.kind, "consumable"),
-    eq(inventoryItems.subtype, "bar"),
-    eq(inventoryItems.category, category),
-    eq(inventoryItems.tier, tier),
-    isNull(inventoryItems.archivedAt),
+    eq(allInventoryItems.kind, "consumable"),
+    eq(allInventoryItems.subtype, "bar"),
+    eq(allInventoryItems.category, category),
+    eq(allInventoryItems.tier, tier),
+    isNull(allInventoryItems.archivedAt),
   );
-  await tx.select({ id: inventoryItems.id }).from(inventoryItems).where(inPool)
-    .orderBy(asc(inventoryItems.id)).for("update");
+  // Bar items live in their own table (FLOW-289); the view can't be locked.
+  await tx.select({ id: barInventoryItems.id }).from(barInventoryItems)
+    .where(and(eq(barInventoryItems.category, category), eq(barInventoryItems.tier, tier),
+      isNull(barInventoryItems.archivedAt)))
+    .orderBy(asc(barInventoryItems.id)).for("update");
   const [rows, tierLines] = await Promise.all([
     tx
-      .select({ item: inventoryItems, bar: inventoryBarDetails, leadTimeDays: vendors.leadTimeDays })
-      .from(inventoryItems)
-      .leftJoin(inventoryBarDetails, eq(inventoryBarDetails.itemId, inventoryItems.id))
-      .leftJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
+      .select({ item: allInventoryItems, bar: inventoryBarDetails, leadTimeDays: vendors.leadTimeDays })
+      .from(allInventoryItems)
+      .leftJoin(inventoryBarDetails, eq(inventoryBarDetails.itemId, allInventoryItems.id))
+      .leftJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
       .leftJoin(vendors, eq(vendors.id, inventoryConsumableDetails.preferredVendorId))
       .where(inPool),
     tx
@@ -484,12 +485,12 @@ async function validateConsumables(tx: DbLike, itemIds: string[]) {
   if (!itemIds.length) return;
   const rows = await tx
     .select({
-      id: inventoryItems.id,
-      kind: inventoryItems.kind,
-      archivedAt: inventoryItems.archivedAt,
+      id: allInventoryItems.id,
+      kind: allInventoryItems.kind,
+      archivedAt: allInventoryItems.archivedAt,
     })
-    .from(inventoryItems)
-    .where(inArray(inventoryItems.id, itemIds));
+    .from(allInventoryItems)
+    .where(inArray(allInventoryItems.id, itemIds));
   if (
     rows.length !== itemIds.length ||
     rows.some((row) => row.kind !== "consumable" || row.archivedAt)
@@ -511,13 +512,13 @@ export async function listRequirements(
   const lines = await db
     .select({
       line: eventRequirements,
-      name: inventoryItems.name,
-      unit: inventoryItems.unit,
+      name: allInventoryItems.name,
+      unit: allInventoryItems.unit,
     })
     .from(eventRequirements)
-    .innerJoin(inventoryItems, eq(inventoryItems.id, eventRequirements.itemId))
+    .innerJoin(allInventoryItems, eq(allInventoryItems.id, eventRequirements.itemId))
     .where(and(eq(eventRequirements.eventId, eventId), isNull(eventRequirements.archivedAt)))
-    .orderBy(asc(inventoryItems.name), asc(eventRequirements.source));
+    .orderBy(asc(allInventoryItems.name), asc(eventRequirements.source));
   const results = await db
     .select()
     .from(consumableAllocations)
@@ -635,31 +636,31 @@ export async function getBarPlan(db: Db, actor: Actor, eventId: string): Promise
   const event = await findVisibleEvent(db, actor, eventId);
   const items = (await listRequirements(db, actor, eventId)).filter((line) => line.source === "bar");
   const lines = await db
-    .select({ line: eventBarTiers, reorderName: inventoryItems.name })
+    .select({ line: eventBarTiers, reorderName: allInventoryItems.name })
     .from(eventBarTiers)
-    .leftJoin(inventoryItems, eq(inventoryItems.id, eventBarTiers.reorderItemId))
+    .leftJoin(allInventoryItems, eq(allInventoryItems.id, eventBarTiers.reorderItemId))
     .where(and(eq(eventBarTiers.eventId, eventId), isNull(eventBarTiers.archivedAt)))
     .orderBy(asc(eventBarTiers.category), asc(eventBarTiers.subcategory), asc(eventBarTiers.tier));
   const pools = lines.length
     ? await db
         .select({
-          name: inventoryItems.name,
-          category: inventoryItems.category,
-          tier: inventoryItems.tier,
+          name: allInventoryItems.name,
+          category: allInventoryItems.category,
+          tier: allInventoryItems.tier,
           subcategory: inventoryBarDetails.subcategory,
         })
-        .from(inventoryItems)
-        .leftJoin(inventoryBarDetails, eq(inventoryBarDetails.itemId, inventoryItems.id))
+        .from(allInventoryItems)
+        .leftJoin(inventoryBarDetails, eq(inventoryBarDetails.itemId, allInventoryItems.id))
         .where(
           and(
-            eq(inventoryItems.kind, "consumable"),
-            eq(inventoryItems.subtype, "bar"),
-            eq(inventoryItems.active, true),
-            isNull(inventoryItems.archivedAt),
-            inArray(inventoryItems.category, [...new Set(lines.map(({ line }) => line.category))]),
+            eq(allInventoryItems.kind, "consumable"),
+            eq(allInventoryItems.subtype, "bar"),
+            eq(allInventoryItems.active, true),
+            isNull(allInventoryItems.archivedAt),
+            inArray(allInventoryItems.category, [...new Set(lines.map(({ line }) => line.category))]),
           ),
         )
-        .orderBy(asc(inventoryItems.name))
+        .orderBy(asc(allInventoryItems.name))
     : [];
   return {
     items,
@@ -703,9 +704,9 @@ export async function setBarPlan(db: Db, actor: Actor, eventId: string, input: B
     const ids = items.map((line) => line.itemId);
     if (ids.length) {
       const rows = await tx
-        .select({ id: inventoryItems.id, subtype: inventoryItems.subtype, archivedAt: inventoryItems.archivedAt })
-        .from(inventoryItems)
-        .where(inArray(inventoryItems.id, ids));
+        .select({ id: allInventoryItems.id, subtype: allInventoryItems.subtype, archivedAt: allInventoryItems.archivedAt })
+        .from(allInventoryItems)
+        .where(inArray(allInventoryItems.id, ids));
       if (rows.length !== ids.length || rows.some((row) => row.subtype !== "bar" || row.archivedAt))
         throw new ApiError(400, "INVALID_REQUEST", "Bar lines can only name existing bar items.");
     }
@@ -762,9 +763,9 @@ export async function itemAllocations(
   itemId: string,
 ): Promise<ItemAllocationRow[]> {
   const [item] = await db
-    .select({ kind: inventoryItems.kind })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, itemId));
+    .select({ kind: allInventoryItems.kind })
+    .from(allInventoryItems)
+    .where(eq(allInventoryItems.id, itemId));
   if (!item) throw notFound("Item");
   if (item.kind !== "consumable")
     throw new ApiError(400, "INVALID_REQUEST", "Allocation applies to consumable items.");

@@ -11,6 +11,7 @@ export {
   createSection,
   listSections,
   renameSection,
+  reorderSections,
   setSectionArchived,
 } from "./inventory-sections";
 export {

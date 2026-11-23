@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  inventoryListOf,
   itemInputSchema,
   itemSchema,
   type InventoryItem,
@@ -23,6 +24,7 @@ const item = (id: string, input: unknown): InventoryItem =>
     pullOwner: null,
     flags: [],
     ...itemInputSchema.parse(input),
+    list: inventoryListOf(itemInputSchema.parse(input)),
     id,
     rental: null,
     service: null,

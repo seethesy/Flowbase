@@ -25,7 +25,7 @@ import {
   kitchenMenuLines,
   kitchenMenus,
   events,
-  inventoryItems,
+  allInventoryItems,
   inventoryConsumableDetails,
   recipes,
   taskAssignees,
@@ -104,13 +104,13 @@ async function syncKitchenRequirements(tx: DbLike, actor: Actor | null, eventId:
       purchase.set(line.itemId, { quantity: Math.round(((current?.quantity ?? 0) + line.quantity) * 10_000) / 10_000, unit: line.unit });
     }
   }
-  const details = purchase.size ? await tx.select({ id: inventoryItems.id, unit: inventoryItems.unit,
+  const details = purchase.size ? await tx.select({ id: allInventoryItems.id, unit: allInventoryItems.unit,
     packCount: inventoryConsumableDetails.packCount,
     eachSizeQuantity: inventoryConsumableDetails.eachSizeQuantity,
     eachSizeUnit: inventoryConsumableDetails.eachSizeUnit,
-  }).from(inventoryItems)
-    .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
-    .where(inArray(inventoryItems.id, [...purchase.keys()])) : [];
+  }).from(allInventoryItems)
+    .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
+    .where(inArray(allInventoryItems.id, [...purchase.keys()])) : [];
   const totals = new Map<string, number>();
   for (const item of details) {
     const need = purchase.get(item.id)!;

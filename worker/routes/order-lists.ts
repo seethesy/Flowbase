@@ -1,10 +1,11 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { id } from "../../shared/schema-primitives";
 import { orderListInputSchema, orderListLinesSchema, receiveInputSchema,
   recordOrderInputSchema } from "../../shared/order-lists";
 import { requirePermission } from "../auth";
 import { notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../hono";
-import { cancelOrder, cancelOrderList, createOrderList, getOrderList, listOrderLists, receiveOrder,
+import { addToDraftOrderList, cancelOrder, cancelOrderList, createOrderList, getOrderList, listOrderLists, receiveOrder,
   recordOrder, submitOrderList, updateOrderList } from "../records/order-lists";
 
 export function orderListRoutes(options: { withDb?: RunWithDb }) {
@@ -24,6 +25,11 @@ export function orderListRoutes(options: { withDb?: RunWithDb }) {
   routes.post("/", requirePermission("order_lists.write"), async (c) => {
     const { from, to } = await parseBody(c, orderListInputSchema);
     return c.json(await record(c, (db, actor) => createOrderList(db, actor, from, to)), 201);
+  });
+  // The Order tab's Add to order list (FLOW-292): onto the newest draft list.
+  routes.post("/draft/lines", requirePermission("order_lists.write"), async (c) => {
+    const { itemIds } = await parseBody(c, z.object({ itemIds: z.array(id).min(1).max(200) }));
+    return c.json(await record(c, (db, actor) => addToDraftOrderList(db, actor, itemIds)));
   });
   routes.get("/:id", requirePermission("order_lists.write"), async (c) => c.json(await record(c, (db, actor) => getOrderList(db, actor, param(c.req.param("id"))))));
   routes.put("/:id", requirePermission("order_lists.write"), async (c) => {

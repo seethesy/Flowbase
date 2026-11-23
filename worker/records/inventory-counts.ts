@@ -8,19 +8,19 @@ import type {
 import type { Db, DbLike } from "../db/client";
 import {
   inventoryConsumableDetails,
-  inventoryItems,
-  inventorySections,
+  allInventoryItems,
+  inventoryLocations,
   inventoryStock,
   stockCountLines,
   stockCounts,
   stockMovements,
 } from "../db/schema";
-import { notFound } from "../hono";
-import { canCountItem } from "../policy";
+import { ApiError, notFound } from "../hono";
+import { can, canCountItem } from "../policy";
 import { conflict, type CountLineInput, round } from "./inventory-common";
 import { findItem, toItems } from "./inventory-items";
 import { recordCount } from "./inventory-ledger";
-import { requireStockSection } from "./inventory-sections";
+import { requireLiveSection } from "./inventory-sections";
 import { keyset, type Page, type PageRequest } from "./paging";
 
 // ---- Count mode (FLOW-82) ----
@@ -62,11 +62,11 @@ async function toCountSummaries(
 
 const countQuery = (db: DbLike) =>
   db
-    .select({ count: stockCounts, sectionName: inventorySections.name })
+    .select({ count: stockCounts, sectionName: inventoryLocations.name })
     .from(stockCounts)
     .innerJoin(
-      inventorySections,
-      eq(stockCounts.sectionId, inventorySections.id),
+      inventoryLocations,
+      eq(stockCounts.sectionId, inventoryLocations.id),
     );
 
 export async function listCounts(
@@ -94,7 +94,7 @@ export async function listCounts(
   return paging.page(rows, (kept) => toCountSummaries(db, kept));
 }
 
-// Everything count mode shows: the section's consumables (kept there, holding
+// Everything count mode shows: the location's stocked items (kept there, holding
 // stock there, or already counted) in storage order, with what the section holds
 // and any count already saved, so a partial count resumes where it left off.
 export async function getCount(
@@ -134,12 +134,14 @@ export async function getCount(
         actor,
         await db
           .select()
-          .from(inventoryItems)
+          .from(allInventoryItems)
           .where(
             and(
-              inArray(inventoryItems.id, ids),
-              eq(inventoryItems.kind, "consumable"),
-              isNull(inventoryItems.archivedAt),
+              inArray(allInventoryItems.id, ids),
+              // FLOW-291: Master and Bar items are counted at their location,
+              // ingredients in kitchen storage. Services have no stock.
+              ne(allInventoryItems.kind, "service"),
+              isNull(allInventoryItems.archivedAt),
             ),
           ),
       )
@@ -170,9 +172,10 @@ export async function getCount(
           parLevel: item.consumable?.parLevel ?? null,
           belowPar: item.belowPar,
           systemQuantity:
-            item.stock.find((level) => level.sectionId === count.sectionId)
-              ?.quantity ?? 0,
-          canCount: canCountItem(actor, item),
+            item.stock.find(
+              (level) => level.sectionId === count.sectionId && !level.color,
+            )?.quantity ?? 0,
+          canCount: canCountInCountMode(actor, item),
           counted: line
             ? {
                 quantity: line.quantity,
@@ -189,14 +192,23 @@ export async function getCount(
   };
 }
 
-// Starts a count of a storage section, or returns the one already open there so it
-// can be resumed.
+// A rental's count is a Master inventory change: without rentals.apply_directly it
+// goes through approval from the item page instead (FLOW-73/74).
+const canCountInCountMode = (
+  actor: Actor,
+  item: { kind: InventoryItem["kind"]; subtype: string | null },
+) =>
+  canCountItem(actor, item) &&
+  (item.kind !== "rental" || can(actor, "rentals.apply_directly"));
+
+// Starts a count of a location (or kitchen storage), or returns the one already
+// open there so it can be resumed.
 export async function startCount(
   db: Db,
   actor: Actor,
   sectionId: string,
 ): Promise<{ count: StockCount; created: boolean }> {
-  await requireStockSection(db, sectionId, "consumable");
+  await requireLiveSection(db, sectionId);
   const [open] = await db
     .select({ id: stockCounts.id })
     .from(stockCounts)
@@ -237,10 +249,16 @@ export async function recordCountLine(
 ): Promise<StockCount> {
   await findOpenCount(db, countId);
   const item = await findItem(db, input.itemId);
-  if (item.kind !== "consumable")
+  if (item.kind === "service")
     throw conflict(
-      "NOT_CONSUMABLE",
-      "Count mode is for consumables. Count rentals from the item page.",
+      "SERVICE_HAS_NO_STOCK",
+      "Service items don't have stock, so they can't be counted.",
+    );
+  if (!canCountInCountMode(actor, item))
+    throw new ApiError(
+      409,
+      "APPROVAL_REQUIRED",
+      "Submit this Master inventory quantity for approval.",
     );
   await db.transaction(async (tx) => {
     const [lockedCount] = await tx.select().from(stockCounts)

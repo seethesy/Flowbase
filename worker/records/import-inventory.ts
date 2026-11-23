@@ -25,10 +25,10 @@ import { canSeeField, canSeeRentalCosts } from "../../shared/visibility";
 import { fullView } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
-  inventoryItems,
+  allInventoryItems,
   inventoryCategories,
   inventoryTypes,
-  inventorySections,
+  inventoryLocations,
   inventoryStock,
   vendors,
 } from "../db/schema";
@@ -51,7 +51,7 @@ import { ensureVendor } from "./vendors";
 // notes, pull owner, flags, supplier and the opening quantity. Everything it does
 // not carry (price, colors, kit components…) is kept from the stored item.
 
-type SectionKind = "rental" | "consumable";
+type SectionKind = "location" | "storage";
 type Targets = { vendorId: string | null; sectionId: string | null; categoryId: string | null; typeId: string | null; typeError?: string };
 type StockTarget = { name: string; kind: SectionKind };
 type Draft = Record<string, unknown>;
@@ -65,13 +65,13 @@ const merge = (stored: unknown, imported: unknown) => ({
 
 async function findSection(db: DbLike, name: string, kind: SectionKind) {
   const [section] = await db
-    .select({ id: inventorySections.id })
-    .from(inventorySections)
+    .select({ id: inventoryLocations.id })
+    .from(inventoryLocations)
     .where(
       and(
-        sql`lower(${inventorySections.name}) = lower(${name})`,
-        eq(inventorySections.kind, kind),
-        isNull(inventorySections.archivedAt),
+        sql`lower(${inventoryLocations.name}) = lower(${name})`,
+        eq(inventoryLocations.kind, kind),
+        isNull(inventoryLocations.archivedAt),
       ),
     );
   return section?.id ?? null;
@@ -292,12 +292,12 @@ function inventoryImporter<
     },
     findDuplicates: async (db, _actor, row) => {
       const matches = await db
-        .select({ id: inventoryItems.id, name: inventoryItems.name })
-        .from(inventoryItems)
+        .select({ id: allInventoryItems.id, name: allInventoryItems.name })
+        .from(allInventoryItems)
         .where(
           and(
-            sql`lower(${inventoryItems.name}) = lower(${row.name})`,
-            isNull(inventoryItems.archivedAt),
+            sql`lower(${allInventoryItems.name}) = lower(${row.name})`,
+            isNull(allInventoryItems.archivedAt),
             config.duplicateFilter?.(row),
           ),
         );
@@ -354,15 +354,10 @@ export const masterInventoryImporter = inventoryImporter<MasterRow>({
   describe: describeMasterRow,
   // The sheet lists gear bought from a store or distributor, not food or drink.
   vendorType: "food_distributor",
-  // Rentals count in their sheet location. Consumable supplies can't use the
-  // rental sections, so their stock goes to Supplies (the location is kept in
-  // the notes).
+  // Rentals and supplies are Master items (FLOW-289) and count in their sheet
+  // location; a location the list lacks is added.
   stock: (row) =>
-    row.kind === "service"
-      ? null
-      : row.kind === "rental"
-        ? { name: row.location, kind: "rental" }
-        : { name: "Supplies", kind: "consumable" },
+    row.kind === "service" ? null : { name: row.location, kind: "location" },
   classification: (row) => ({ kind: row.kind === "consumable" ? "supply" : row.kind, category: row.kind === "service" ? "Services" : row.subtype ?? "Supply" }),
   costError: (actor, row) =>
     row.costCents === null
@@ -382,10 +377,7 @@ export const masterInventoryImporter = inventoryImporter<MasterRow>({
       name: row.name,
       category: row.category,
       subcategory: row.subcategory,
-      description:
-        row.kind === "consumable"
-          ? [row.description, `Location: ${row.location}`].filter(Boolean).join("\n")
-          : row.description,
+      description: row.description,
       pullOwner: row.pullOwner,
       flags: sortedFlags(row.flags),
       ...(row.kind === "rental" && { rental: { supplierId: targets.vendorId } }),
@@ -410,9 +402,10 @@ export const barInventoryImporter = inventoryImporter<BarRow>({
   externalKey: barExternalKey,
   describe: describeBarRow,
   vendorType: "beverage_distributor",
-  stock: () => ({ name: "Bar Storage", kind: "consumable" }),
+  // Bar stock is kept per location but no bar screen shows it yet (FLOW-289).
+  stock: () => ({ name: "Warehouse", kind: "location" }),
   classification: () => ({ kind: "bar", category: "Bar" }),
-  duplicateFilter: (row) => eq(inventoryItems.category, row.category),
+  duplicateFilter: (row) => eq(allInventoryItems.category, row.category),
   draft: (row, targets) => ({
     costCents: null,
     item: {

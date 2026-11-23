@@ -4,7 +4,7 @@ import { mayViewAllProduction } from "../../shared/policy";
 import { completion, type ProductionItem, type ProductionList, type ProductionOverview, type ProductionWindow } from "../../shared/production";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
-import { consumableAllocations, eventShifts, eventStaffSlots, events, inventoryItems, kitchenMenus, kitchenMenuLines, orderLists, pullListLines, pullLists, reservationConflicts, taskAssignees, tasks, truckAssignments, trucks, vendorOrders } from "../db/schema";
+import { consumableAllocations, eventShifts, eventStaffSlots, events, allInventoryItems, kitchenMenus, kitchenMenuLines, orderLists, pullListLines, pullLists, reservationConflicts, taskAssignees, tasks, truckAssignments, trucks, vendorOrders } from "../db/schema";
 import { forbidden, notFound } from "../hono";
 import { visibleEvents } from "./events";
 import { getReadiness } from "./readiness";
@@ -78,8 +78,8 @@ export async function getProductionList(db: DbLike, actor: Actor, eventId: strin
   for (const conflict of conflicts) items.push({ ...base, id: `shortage:${conflict.id}:${conflict.updatedAt.toISOString()}`, type: "shortage",
     title: "Resolve inventory shortage or conflict", due, complete: conflict.state === "resolved",
     team: "Production", assignedUserIds: [] });
-  const shortages = await db.select({ allocation: consumableAllocations, itemName: inventoryItems.name })
-    .from(consumableAllocations).innerJoin(inventoryItems, eq(inventoryItems.id, consumableAllocations.itemId))
+  const shortages = await db.select({ allocation: consumableAllocations, itemName: allInventoryItems.name })
+    .from(consumableAllocations).innerJoin(allInventoryItems, eq(allInventoryItems.id, consumableAllocations.itemId))
     .where(eq(consumableAllocations.eventId, eventId));
   for (const { allocation, itemName } of shortages.filter(({ allocation }) => allocation.shortage > 0))
     items.push({ ...base, id: `ordering:${allocation.id}:${allocation.updatedAt.toISOString()}`, type: "shortage",

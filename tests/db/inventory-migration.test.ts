@@ -37,7 +37,12 @@ it("upgrades the audit-log schema to the ledger without losing stock or movement
     await client`insert into stock_movements (item_id, type, quantity, to_section_id, note) values (${item.id}, 'adjustment', 10, ${source}, 'Starting count')`;
     const [transfer] = await client`insert into stock_movements (item_id, type, quantity, from_section_id, to_section_id, note) values (${item.id}, 'transfer', 3, ${source}, ${destination}, 'Moved chairs') returning id`;
 
-    await migrate(db, { migrationsFolder: "drizzle" });
+    // The ledger upgrade, checked before FLOW-289 starts inventory empty.
+    const clear = journal.entries.findIndex((entry: { tag: string }) => entry.tag.endsWith("_flow_289_clear_inventory"));
+    const legacy = journal.entries.slice(0, clear);
+    await writeFile(join(folder, "meta/_journal.json"), JSON.stringify({ ...journal, entries: legacy }));
+    for (const entry of legacy) await copyFile(`drizzle/${entry.tag}.sql`, join(folder, `${entry.tag}.sql`));
+    await migrate(db, { migrationsFolder: folder });
     const totals = await client`select s.section_id, s.quantity, sum(m.quantity) as ledger from inventory_stock s join stock_movements m on m.item_id = s.item_id and m.section_id = s.section_id group by s.section_id, s.quantity order by s.section_id`;
     expect(totals).toHaveLength(2);
     for (const row of totals) expect(Number(row.ledger)).toBe(Number(row.quantity));
@@ -52,9 +57,12 @@ it("upgrades the audit-log schema to the ledger without losing stock or movement
     await expect(client`delete from stock_movements`).rejects.toThrow("append-only");
     expect(await client`select id from inventory_sections where name = 'Unlabeled'`).toHaveLength(1);
     expect((await client`select to_regclass('public.audit_log') as name`)[0].name).toBe("audit_log");
-    // A repeated deploy must skip all applied migrations, including the seed.
+    // FLOW-289 then clears the ledger (TRUNCATE skips its append-only trigger).
     await migrate(db, { migrationsFolder: "drizzle" });
-    expect(await client`select id from stock_movements`).toHaveLength(3);
+    expect(await client`select id from stock_movements`).toHaveLength(0);
+    // A repeated deploy must skip all applied migrations, including the seeds.
+    await migrate(db, { migrationsFolder: "drizzle" });
+    expect(await client`select id from inventory_locations`).toHaveLength(10);
   } finally {
     await client?.end();
     if (created) await admin.unsafe(`DROP DATABASE "${database}"`);

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, ilike, isNull } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { Db } from "../db/client";
-import { inventoryCategories, inventoryItems, inventoryTypes } from "../db/schema";
+import { inventoryCategories, allInventoryItems, inventoryTypes } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 
 const duplicate = (name: string) => new ApiError(409, "DUPLICATE_NAME", `${name} already exists.`);
@@ -37,7 +37,7 @@ export async function updateInventoryCategory(db: Db, actor: Actor, id: string, 
     const [row] = await tx.select().from(inventoryCategories).where(and(eq(inventoryCategories.id, id), isNull(inventoryCategories.archivedAt))).for("update");
     if (!row) throw notFound("Category");
     if (change.archived) {
-      const [used] = await tx.select({ id: inventoryItems.id }).from(inventoryItems).where(eq(inventoryItems.categoryId, id)).limit(1);
+      const [used] = await tx.select({ id: allInventoryItems.id }).from(allInventoryItems).where(eq(allInventoryItems.categoryId, id)).limit(1);
       if (used) throw inUse();
       await tx.update(inventoryTypes).set({ archivedAt: new Date(), updatedBy: actor.userId })
         .where(and(eq(inventoryTypes.categoryId, id), isNull(inventoryTypes.archivedAt)));
@@ -83,7 +83,7 @@ export async function updateInventoryType(db: Db, actor: Actor, id: string, chan
     const [row] = await tx.select().from(inventoryTypes).where(and(eq(inventoryTypes.id, id), isNull(inventoryTypes.archivedAt))).for("update");
     if (!row) throw notFound("Type");
     if (change.archived) {
-      const [used] = await tx.select({ id: inventoryItems.id }).from(inventoryItems).where(eq(inventoryItems.typeId, id)).limit(1);
+      const [used] = await tx.select({ id: allInventoryItems.id }).from(allInventoryItems).where(eq(allInventoryItems.typeId, id)).limit(1);
       if (used) throw inUse();
     }
     if (change.name && change.name !== row.name) {

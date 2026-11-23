@@ -62,10 +62,9 @@ describe("built-in cards (AC1, AC2)", () => {
 
 describe("the inventory tables are layout-aware (AC3)", () => {
   const tables = {
-    "inventory-master.master-inventory": ["quantity", "name", "location", "price", "ratio", "group", "status"],
+    "inventory-lists.inventory-list": ["name", "kind", "categoryId", "typeId", "quantity", "par", "stock", "storage", "vendor", "cost", "purchase", "packCount", "lastCounted", "lastCountedBy"],
     "inventory-lists.ingredient-list": ["name", "categoryId", "typeId", "category", "purchase", "recipeUnit", "cost", "vendor", "storage", "onHand"],
     "inventory-lists.bar-list": ["name", "brand", "categoryId", "typeId", "category", "subcategory", "tier", "container", "pack", "distributor", "cost", "onHand"],
-    "stock-counts.low-stock-list": ["name", "subtype", "onHand", "par", "short", "storage", "vendor"],
   };
   for (const [key, columns] of Object.entries(tables))
     it(`${key}: saves its own columns reordered, plus a registry field, with widths`, () => {

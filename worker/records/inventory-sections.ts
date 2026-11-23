@@ -3,7 +3,7 @@ import type { Actor } from "../../shared/access";
 import type { Section, SectionKind } from "../../shared/inventory";
 import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { inventorySections, inventoryStock } from "../db/schema";
+import { inventoryLocations, inventoryStock } from "../db/schema";
 import { notFound } from "../hono";
 import { setArchived } from "./archive";
 import {
@@ -13,7 +13,7 @@ import {
   type SectionRow,
 } from "./inventory-common";
 
-// ---- Sections ----
+// ---- Locations (FLOW-289; the FLOW-70 sections) ----
 
 async function sectionTotals(db: DbLike, ids: string[]) {
   if (!ids.length) return new Map<string, number>();
@@ -37,6 +37,7 @@ async function toSections(db: DbLike, rows: SectionRow[]): Promise<Section[]> {
     id: row.id,
     name: row.name,
     kind: row.kind,
+    sortOrder: row.sortOrder,
     totalQuantity: totals.get(row.id) ?? 0,
     archivedAt: row.archivedAt?.toISOString() ?? null,
   }));
@@ -48,19 +49,19 @@ export async function listSections(
 ): Promise<Section[]> {
   const rows = await db
     .select()
-    .from(inventorySections)
+    .from(inventoryLocations)
     .where(
       and(
         filter.archived
-          ? isNotNull(inventorySections.archivedAt)
-          : isNull(inventorySections.archivedAt),
-        filter.kind ? eq(inventorySections.kind, filter.kind) : undefined,
+          ? isNotNull(inventoryLocations.archivedAt)
+          : isNull(inventoryLocations.archivedAt),
+        filter.kind ? eq(inventoryLocations.kind, filter.kind) : undefined,
       ),
     )
     .orderBy(
-      asc(inventorySections.kind),
-      asc(inventorySections.sortOrder),
-      asc(inventorySections.name),
+      asc(inventoryLocations.kind),
+      asc(inventoryLocations.sortOrder),
+      asc(inventoryLocations.name),
     );
   return toSections(db, rows);
 }
@@ -68,9 +69,9 @@ export async function listSections(
 async function findSection(db: DbLike, id: string) {
   const [row] = await db
     .select()
-    .from(inventorySections)
-    .where(eq(inventorySections.id, id));
-  if (!row) throw notFound("Section");
+    .from(inventoryLocations)
+    .where(eq(inventoryLocations.id, id));
+  if (!row) throw notFound("Location");
   return row;
 }
 
@@ -96,19 +97,19 @@ async function requireUniqueSectionName(
   exceptId?: string,
 ) {
   const [clash] = await db
-    .select({ id: inventorySections.id })
-    .from(inventorySections)
+    .select({ id: inventoryLocations.id })
+    .from(inventoryLocations)
     .where(
       and(
-        isNull(inventorySections.archivedAt),
-        sql`lower(${inventorySections.name}) = lower(${name})`,
-        exceptId ? sql`${inventorySections.id} <> ${exceptId}` : undefined,
+        isNull(inventoryLocations.archivedAt),
+        sql`lower(${inventoryLocations.name}) = lower(${name})`,
+        exceptId ? sql`${inventoryLocations.id} <> ${exceptId}` : undefined,
       ),
     );
   if (clash)
     throw conflict(
       "DUPLICATE_SECTION",
-      `A section named ${name} already exists.`,
+      `A location named ${name} already exists.`,
     );
 }
 
@@ -120,13 +121,13 @@ export async function createSection(
   await requireUniqueSectionName(db, input.name);
   const [{ next }] = await db
     .select({
-      next: sql<number>`coalesce(max(${inventorySections.sortOrder}) + 1, 0)::int`,
+      next: sql<number>`coalesce(max(${inventoryLocations.sortOrder}) + 1, 0)::int`,
     })
-    .from(inventorySections)
-    .where(eq(inventorySections.kind, input.kind));
+    .from(inventoryLocations)
+    .where(eq(inventoryLocations.kind, input.kind));
   const id = await db.transaction(async (tx) => {
     const [row] = await tx
-      .insert(inventorySections)
+      .insert(inventoryLocations)
       .values({
         name: input.name,
         kind: input.kind,
@@ -134,7 +135,7 @@ export async function createSection(
         createdBy: actor.userId,
         updatedBy: actor.userId,
       })
-      .returning({ id: inventorySections.id });
+      .returning({ id: inventoryLocations.id });
     await writeAudit(tx, actor, {
       entityType: "inventory_section",
       entityId: row.id,
@@ -158,9 +159,9 @@ export async function renameSection(
   await db.transaction(async (tx) => {
     const before = await sectionSnapshot(tx, id);
     await tx
-      .update(inventorySections)
+      .update(inventoryLocations)
       .set({ name, updatedBy: actor.userId })
-      .where(eq(inventorySections.id, id));
+      .where(eq(inventoryLocations.id, id));
     await writeAudit(tx, actor, {
       entityType: "inventory_section",
       entityId: id,
@@ -172,7 +173,45 @@ export async function renameSection(
   return getSection(db, id);
 }
 
-// A section that still holds stock can't be archived (FLOW-70 AC3).
+// Admin's order for one list (FLOW-289 AC4): ids in the new order. Locations left
+// out keep their place after the listed ones.
+export async function reorderSections(
+  db: Db,
+  actor: Actor,
+  kind: SectionKind,
+  ids: string[],
+): Promise<Section[]> {
+  await db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(inventoryLocations)
+      .where(eq(inventoryLocations.kind, kind))
+      .orderBy(asc(inventoryLocations.sortOrder), asc(inventoryLocations.name))
+      .for("update");
+    const known = new Set(rows.map((row) => row.id));
+    if (ids.some((id) => !known.has(id)) || new Set(ids).size !== ids.length)
+      throw notFound("Location");
+    const order = [...ids, ...rows.map((row) => row.id).filter((id) => !ids.includes(id))];
+    for (const [index, id] of order.entries()) {
+      const row = rows.find((candidate) => candidate.id === id)!;
+      if (row.sortOrder === index) continue;
+      await tx
+        .update(inventoryLocations)
+        .set({ sortOrder: index, updatedBy: actor.userId })
+        .where(eq(inventoryLocations.id, id));
+      await writeAudit(tx, actor, {
+        entityType: "inventory_section",
+        entityId: id,
+        action: "update",
+        before: { sortOrder: row.sortOrder },
+        after: { sortOrder: index },
+      });
+    }
+  });
+  return listSections(db, { kind });
+}
+
+// A location that still holds stock can't be archived (FLOW-70 AC3, FLOW-289).
 export async function setSectionArchived(
   db: Db,
   actor: Actor,
@@ -184,34 +223,44 @@ export async function setSectionArchived(
   // Sections have no lifecycle events.
   await setArchived(db, actor, id, archived, {
     lock: async (tx) => {
-      await tx.select({ id: inventorySections.id }).from(inventorySections)
-        .where(eq(inventorySections.id, id)).for("update");
+      await tx.select({ id: inventoryLocations.id }).from(inventoryLocations)
+        .where(eq(inventoryLocations.id, id)).for("update");
       if (archived) {
         const total = (await sectionTotals(tx, [id])).get(id) ?? 0;
         if (total > 0)
-          throw conflict("SECTION_HAS_STOCK", `${section.name} still holds stock. Move or count it out before archiving the section.`);
+          throw conflict("SECTION_HAS_STOCK", `${section.name} still holds stock. Move or count it out before archiving the location.`);
       }
     },
     update: (tx, values) =>
-      tx.update(inventorySections).set(values).where(eq(inventorySections.id, id)),
+      tx.update(inventoryLocations).set(values).where(eq(inventoryLocations.id, id)),
     audit: { entityType: "inventory_section", snapshot: sectionSnapshot },
   });
   return getSection(db, id);
 }
 
-// A live section that can hold this kind of item.
+// A live location or kitchen storage area, locked.
+export async function requireLiveSection(db: DbLike, id: string) {
+  const [section] = await db.select().from(inventoryLocations)
+    .where(eq(inventoryLocations.id, id)).for("update");
+  if (!section) throw notFound("Location");
+  if (section.archivedAt)
+    throw conflict("SECTION_ARCHIVED", `${section.name} is archived.`);
+  return section;
+}
+
+// A live location (or kitchen storage) that can hold this kind of item.
 export async function requireStockSection(db: DbLike, id: string, kind: SectionKind) {
-  const [section] = await db.select().from(inventorySections)
-    .where(eq(inventorySections.id, id)).for("update");
-  if (!section) throw notFound("Section");
+  const [section] = await db.select().from(inventoryLocations)
+    .where(eq(inventoryLocations.id, id)).for("update");
+  if (!section) throw notFound("Location");
   if (section.archivedAt)
     throw conflict("SECTION_ARCHIVED", `${section.name} is archived.`);
   if (section.kind !== kind)
     throw conflict(
       "WRONG_SECTION_KIND",
-      kind === "rental"
-        ? `${section.name} is a storage section; rentals live in rental sections.`
-        : `${section.name} is a rental section; consumables live in storage sections.`,
+      kind === "location"
+        ? `${section.name} is kitchen storage; this item is kept at a location.`
+        : `${section.name} is a location; kitchen ingredients are kept in kitchen storage.`,
     );
   return section;
 }

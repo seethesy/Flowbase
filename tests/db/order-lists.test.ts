@@ -7,6 +7,7 @@ import * as schema from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import { suggestOrderList } from "../../worker/records/order-lists";
 import type { RunWithDb } from "../../worker/hono";
+import { insertItems } from "../fixtures/inventory-tables";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL must point to the disposable CI Postgres service.");
@@ -30,7 +31,7 @@ const as = (who: keyof typeof people) => {
 const admin = as("admin");
 const lead = as("lead");
 const staff = as("staff");
-const tables = sql`truncate table order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
+const tables = sql`truncate table order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(tables);
@@ -51,7 +52,7 @@ it("builds, edits and submits one order list approval, locking edits until a dec
   const created = await lead.call("POST", "/api/order-lists", { from: "2026-11-01", to: "2026-11-30" });
   expect(created.status).toBe(201);
   const list = await created.json();
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "bar", name: "Wine", unit: "each" }).returning();
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "bar", name: "Wine", unit: "each" });
   const line = { itemId: item.id, itemName: "Wine", vendorId: null, vendorName: "Wine vendor",
     orderingInstructions: "Call by noon", quantity: 1, purchaseUnit: "case", shortage: 10,
     orderBy: "2026-11-02", eventIds: [], eventTitles: ["Gala"], note: "" };
@@ -71,8 +72,8 @@ it("builds, edits and submits one order list approval, locking edits until a dec
 it("builds a purchase line from shortages in the selected event date range", async () => {
   const [vendor] = await db.insert(schema.vendors).values({ name: "Wine vendor", type: "beverage_distributor",
     orderingInstructions: "Call by noon" }).returning();
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "bar",
-    name: "Wine", unit: "each" }).returning();
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "bar",
+    name: "Wine", unit: "each" });
   await db.insert(schema.inventoryConsumableDetails).values({ itemId: item.id,
     purchaseUnit: "case", packCount: 12, preferredVendorId: vendor.id });
   const [clientRow] = await db.insert(schema.clients).values({ name: "Gala client", kind: "organization" }).returning();
@@ -86,4 +87,28 @@ it("builds a purchase line from shortages in the selected event date range", asy
     quantity: 1, purchaseUnit: "case", eventTitles: ["Fall gala"], orderBy: "2026-11-10",
   }]);
   expect(await suggestOrderList(db, "2026-12-01", "2026-12-31")).toEqual([]);
+});
+
+// The Order tab's Add to order list (FLOW-292 AC4).
+it("adds below-par items to the newest draft list with what they need, replacing their line", async () => {
+  const [wine] = await insertItems(db, { kind: "consumable", subtype: "bar", name: "Wine", unit: "each" });
+  await db.insert(schema.inventoryConsumableDetails).values({ itemId: wine.id,
+    purchaseUnit: "case", packCount: 12, parLevel: 24 });
+  const [stocked] = await insertItems(db, { kind: "consumable", subtype: "supply", name: "Napkins", unit: "each" });
+  await db.insert(schema.inventoryConsumableDetails).values({ itemId: stocked.id, purchaseUnit: "each", parLevel: null });
+  const add = (who: typeof lead, itemIds: string[]) => who.call("POST", "/api/order-lists/draft/lines", { itemIds });
+  expect((await add(staff, [wine.id])).status).toBe(403);
+  // Nothing selected needs reordering and there's no draft yet.
+  const nothing = await add(lead, [stocked.id]);
+  expect(nothing.status).toBe(409);
+  expect((await nothing.json()).error.code).toBe("NOTHING_TO_ORDER");
+  const first = await add(lead, [wine.id]);
+  expect(first.status).toBe(200);
+  const draft = await first.json();
+  expect(draft.status).toBe("draft");
+  expect(draft.lines).toMatchObject([{ itemId: wine.id, itemName: "Wine", purchaseUnit: "case", quantity: 2 }]);
+  // Adding it again replaces its line on the same list.
+  const again = await (await add(lead, [wine.id])).json();
+  expect(again.id).toBe(draft.id);
+  expect(again.lines).toHaveLength(1);
 });

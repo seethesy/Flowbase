@@ -27,7 +27,6 @@ import { dateTimeLabel } from "./inventory-labels";
 import { T, LabelT } from "../app/copy";
 import "./inventory.css";
 import "./imports.css";
-import { InventoryHeading } from "./inventory-screen";
 
 // What the dry run will do with each row (FLOW-257: editable under imports.dry-run-report.action).
 const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "Updates", create: "Creates" };
@@ -37,7 +36,7 @@ const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "U
 // (ADR-09); the API checks and writes. Each module importer (inventory, recipes,
 // leads) appears here once its ticket registers it.
 
-// The Inventory screen's Imports tab (FLOW-266): a card per importer the viewer
+// Settings › Imports (FLOW-266; out of the Inventory heading since FLOW-291): a card per importer the viewer
 // may run, with when it last ran and who ran it, then the recent imports. Import
 // records are a history: they can be opened but not edited or deleted.
 const importerDescriptions: Record<string, ReactNode> = {
@@ -50,7 +49,10 @@ export function ImportList() {
   const lastRun = (key: string) => logs.data?.find((log) => log.module === key);
   return (
     <>
-      <InventoryHeading tab="imports" />
+      <PageHeader
+        title={<T id="imports.import-list.settings-imports">Imports</T>}
+        subtitle={<T id="inventory-screen.imports.bring-records-in-from">Bring records in from a spreadsheet. Re-running a file updates what it imported before.</T>}
+      />
       <PageGrid pageKey="imports.list">
       <Block id="importers" name="Importers" h={8}>
         {modules.error ? (

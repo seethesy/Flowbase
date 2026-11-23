@@ -36,7 +36,7 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
     expect(tabs(admin, "Events")).toEqual(["Overview", "BEOs", "Production"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
-    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
+    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Overview", "Recipes", "Ingredients", "Menus", "Photos"]);
     expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
     expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents"]);
@@ -45,11 +45,11 @@ describe("navigation groups", () => {
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
     expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
-    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
+    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(salesperson, "Reports")).toEqual(["Overview", "Time tracking"]);
     // Staff can't read leads, clients or proposals, run imports or see operational reports.
     expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues"]);
-    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos"]);
+    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(staff, "Reports")).toEqual(["Overview", "Time tracking"]);
     // Payroll is Admin and Technical only (FLOW-270 AC2).
     expect(tabs(staff, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
@@ -78,10 +78,12 @@ describe("navigation groups", () => {
     expect(at("/kitchen/overview")).toBe("Kitchen › Overview");
     expect(at("/beos")).toBe("Events › BEOs");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
-    // FLOW-266: Bar is its own tab; order lists sit under Purchasing.
-    expect(at("/inventory/bar")).toBe("Inventory › Bar");
-    expect(at("/inventory/orders/o-1")).toBe("Inventory › Purchasing");
-    expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");
+    // FLOW-291/292: Bar Inventory is its own tab; order lists sit under Order;
+    // Ingredients are only under Kitchen.
+    expect(at("/inventory/bar")).toBe("Inventory › Bar Inventory");
+    expect(at("/inventory/order")).toBe("Inventory › Order");
+    expect(at("/inventory/orders/o-1")).toBe("Inventory › Order");
+    expect(at("/kitchen/ingredients")).toBe("Kitchen › Ingredients");
     expect(at("/kitchen/menus")).toBe("Kitchen › Menus");
     expect(at("/inventory/photos")).toBe("Inventory › Photos");
     expect(at("/kitchen/photos")).toBe("Kitchen › Photos");
@@ -108,7 +110,7 @@ describe("breadcrumb trail", () => {
     expect(trail("/approvals")).toEqual(["Workspace>/", "Dashboard>/", "Approvals"]);
     expect(trail("/")).toEqual(["Workspace>/", "Dashboard>/", "Overview"]);
     expect(trail("/leads")).toEqual(["Workspace>/", "Sales>/sales/overview", "Leads"]);
-    expect(trail("/inventory/ingredients")).toEqual(["Workspace>/", "Kitchen>/kitchen/overview", "Ingredients"]);
+    expect(trail("/kitchen/ingredients")).toEqual(["Workspace>/", "Kitchen>/kitchen/overview", "Ingredients"]);
     expect(trail("/marketing")).toEqual(["Workspace>/", "Marketing>/marketing/overview", "Photos"]);
     expect(trail("/reports/overview")).toEqual(["Workspace>/", "Reports>/reports/overview", "Overview"]);
     expect(trail("/events/overview")).toEqual(["Workspace>/", "Events>/events/overview", "Overview"]);
@@ -140,10 +142,11 @@ describe("breadcrumb trail", () => {
   });
 
   it("names sub-pages without loading a record", () => {
-    expect(trail("/inventory/counts")).toEqual(["Workspace>/", "Inventory>/inventory", "Inventory>/inventory", "Stock counts"]);
+    // The Counts list is gone (FLOW-291); count mode sits under Inventory.
     expect(trail("/inventory/counts/c-1")).toEqual([
-      "Workspace>/", "Inventory>/inventory", "Inventory>/inventory", "Stock counts>/inventory/counts", "Stock count",
+      "Workspace>/", "Inventory>/inventory", "Inventory>/inventory", "Stock count",
     ]);
+    expect(trail("/settings/locations")).toEqual(["Workspace>/", "Settings>/settings", "Locations"]);
     expect(trail("/sops/new").at(-1)).toBe("New SOP");
     expect(trail("/events")).toEqual(["Workspace>/", "Events>/events/overview", "Overview>/events/overview", "All events"]);
     expect(trail("/settings/users")).toEqual(["Workspace>/", "Settings>/settings", "Users"]);

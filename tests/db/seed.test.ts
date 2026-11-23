@@ -23,7 +23,7 @@ it("seeds repeatable counts, all roles and employment types, lifecycle stages an
           s.clients,
           s.clientContacts,
           s.events,
-          s.inventoryItems,
+          s.allInventoryItems,
           s.stockMovements,
           s.inventoryStock,
         ].map(
@@ -53,7 +53,7 @@ it("seeds repeatable counts, all roles and employment types, lifecycle stages an
       ["clients", 35],
       ["client_contacts", 45],
       ["events", 10],
-      ["inventory_items", 50],
+      ["all_inventory_items", 50],
     ] as const) {
       const rows = await client.unsafe(
         `select count(*)::int as count from "${table}" where id::text like 'f026%'`,
@@ -64,10 +64,10 @@ it("seeds repeatable counts, all roles and employment types, lifecycle stages an
       await client`select distinct status from events where id::text like 'f026%'`;
     expect(stages.length).toBe(10);
     const sections =
-      await client`select distinct s.name from inventory_stock x join inventory_sections s on s.id=x.section_id join inventory_items i on i.id=x.item_id where i.kind='rental' and i.id::text like 'f026%'`;
+      await client`select distinct s.name from inventory_stock x join inventory_locations s on s.id=x.section_id join all_inventory_items i on i.id=x.item_id where i.kind='rental' and i.id::text like 'f026%'`;
     expect(sections.map((s) => s.name).sort()).toEqual([
-      "Cafe",
-      "Jamie's",
+      "Cozy Cafe",
+      "Jamie's - Garage",
       "Vendor",
       "Warehouse",
     ]);

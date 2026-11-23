@@ -34,7 +34,7 @@ test("edits rental details and maintains separate color stock on one item", asyn
   await choose(dialog
     .getByRole("combobox", { name: "Color", exact: true }), "Silver");
   await choose(dialog
-    .getByRole("combobox", { name: "Section", exact: true }), { label: "Warehouse" });
+    .getByRole("combobox", { name: "Location", exact: true }), { label: "Warehouse" });
   await dialog.getByLabel("Quantity in (each)").fill("6");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -115,26 +115,27 @@ test("creates and edits fixed, per-person and quoted services with includes and 
   }
 });
 
-test("creates a decor kit and supply, filters low stock and reaches supply count mode", async ({
+test("creates a decor kit and a used-up Master item, filters below par and counts it (FLOW-289)", async ({
   page,
 }) => {
   await seedInventory({ items: [chairs()] });
-  await page.goto("/#/inventory/supplies");
-  await page.getByRole("button", { name: "New Supply", exact: true }).click();
+  await page.goto("/#/inventory");
+  await page.getByRole("button", { name: "New Item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name *", { exact: true }).fill("Candles");
+  await choose(dialog.getByRole("combobox", { name: "Stock tracking", exact: true }), "used_up");
+  await expect(dialog.getByRole("combobox", { name: "Subtype", exact: true })).toHaveCount(0);
   await dialog.getByLabel(/^Par level/).fill("10");
-  await expect(dialog.getByLabel(/^Storage section/)).not.toHaveAttribute("data-value", "");
+  await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Candles/ })).toContainText("Rental");
   await page.getByLabel("Below par only").check();
   await expect(
     page.getByRole("button", { name: "Candles", exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Count", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Start counting Supplies", exact: true })
-    .click();
+  await choose(page.getByRole("combobox", { name: "Start stock count" }), { label: "Warehouse" });
+  await expect(page).toHaveURL(/#\/inventory\/counts\/[0-9a-f-]{36}$/);
   await expect(page.getByText("Candles", { exact: true })).toBeVisible();
   await page.goto("/#/inventory");
   await page.getByRole("button", { name: "New Item", exact: true }).click();
@@ -163,13 +164,13 @@ test("creates a decor kit and supply, filters low stock and reaches supply count
   ).toBeVisible();
 });
 
-test("transfers stock between sections from the item page", async ({
+test("transfers stock between locations from the item page", async ({
   page,
 }) => {
   await seedInventory({ items: [chairs()] });
   await page.goto("/#/inventory");
   await choose(page
-    .getByRole("combobox", { name: "Section", exact: true }), { label: "Cafe" });
+    .getByRole("combobox", { name: "Location", exact: true }), { label: "Cozy Cafe" });
   await page
     .getByRole("row", { name: /Chiavari Chair/ })
     .getByRole("button", { name: "Open", exact: true })
@@ -181,13 +182,13 @@ test("transfers stock between sections from the item page", async ({
   await expect(
     stock.getByRole("row", { name: "Warehouse 40 each" }),
   ).toBeVisible();
-  await expect(stock.getByRole("row", { name: "Cafe 10 each" })).toBeVisible();
+  await expect(stock.getByRole("row", { name: "Cozy Cafe 10 each" })).toBeVisible();
   await expect(stock.getByRole("row", { name: "Total 50 each" })).toBeVisible();
 
   await page.getByRole("button", { name: "Transfer", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await choose(dialog.getByLabel(/^From section/), { label: "Warehouse" });
-  await choose(dialog.getByLabel(/^To section/), { label: "Jamie's" });
+  await choose(dialog.getByLabel(/^From location/), { label: "Warehouse" });
+  await choose(dialog.getByLabel(/^To location/), { label: "Jamie's - Garage" });
   await dialog.getByLabel("Quantity (each)").fill("10");
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -195,21 +196,21 @@ test("transfers stock between sections from the item page", async ({
     stock.getByRole("row", { name: "Warehouse 30 each" }),
   ).toBeVisible();
   await expect(
-    stock.getByRole("row", { name: "Jamie's 10 each" }),
+    stock.getByRole("row", { name: "Jamie's - Garage 10 each" }),
   ).toBeVisible();
   await expect(stock.getByRole("row", { name: "Total 50 each" })).toBeVisible();
 
   await page.getByRole("button", { name: "Transfer", exact: true }).click();
-  await choose(dialog.getByLabel(/^From section/), { label: "Cafe" });
-  await choose(dialog.getByLabel(/^To section/), { label: "Vendor" });
+  await choose(dialog.getByLabel(/^From location/), { label: "Cozy Cafe" });
+  await choose(dialog.getByLabel(/^To location/), { label: "Vendor" });
   await dialog.getByLabel("Quantity (each)").fill("11");
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Cafe only has 10");
+  await expect(dialog.getByRole("alert")).toContainText("Cozy Cafe only has 10");
 });
 
 test("creates, edits and filters ingredients", async ({ page }) => {
   await seedInventory();
-  await page.goto("/#/inventory/ingredients");
+  await page.goto("/#/kitchen/ingredients");
   await page
     .getByRole("button", { name: "New Ingredient", exact: true })
     .click();
@@ -230,9 +231,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   await expect(dialog.getByRole("status")).toHaveCount(0);
   await dialog.getByLabel(/^Unit cost/).fill("24");
   await dialog.getByLabel(/^Par level/).fill("6");
-  await choose(dialog.getByLabel(/^Storage section/), {
-    label: "Kitchen – Refrigerated",
-  });
+  await choose(dialog.getByLabel(/^Storage area/), { label: "Fridge" });
   // Allergens are set on dishes, not ingredients (FLOW-95).
   await expect(dialog.getByRole("group", { name: "Allergens" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save item" }).click();
@@ -279,7 +278,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("Sysco", { exact: true })).toBeVisible();
-  await expect(page.getByText("Kitchen – Refrigerated")).toBeVisible();
+  await expect(page.getByText("Fridge", { exact: true })).toBeVisible();
   await expect(page.getByText("$24.00 per case")).toBeVisible();
 });
 
@@ -297,7 +296,7 @@ test("records and corrects a stock movement from the item page", async ({
   await page.getByRole("button", { name: "Record movement" }).click();
   const dialog = page.getByRole("dialog");
   await choose(dialog.getByLabel(/^Type/), "damage_loss");
-  await choose(dialog.getByLabel(/^Section/), { label: "Warehouse" });
+  await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
   await dialog.getByLabel("Quantity out (each)").fill("2");
   await dialog.getByLabel("Reason", { exact: true }).fill("Broken legs");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();
@@ -342,7 +341,7 @@ test("explains that an item with stock history can't change its stock unit", asy
   await page.getByRole("button", { name: "Record movement" }).click();
   const dialog = page.getByRole("dialog");
   await choose(dialog.getByLabel(/^Type/), "damage_loss");
-  await choose(dialog.getByLabel(/^Section/), { label: "Warehouse" });
+  await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
   await dialog.getByLabel("Quantity out (each)").fill("1");
   await dialog.getByLabel("Reason", { exact: true }).fill("Broken leg");
   await dialog.getByRole("button", { name: "Record", exact: true }).click();

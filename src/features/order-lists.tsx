@@ -26,7 +26,7 @@ export function OrderLists() {
     catch (cause) { setError((cause as Error).message); }
   };
   return <>
-    <PageHeader title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from">Build a shopping list from event shortages and low stock.</T>} eyebrow={<T id="order-lists.order-lists.stock-supplies">{"STOCK & SUPPLIES"}</T>} />
+    <PageHeader title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from">Build a shopping list from event shortages and low stock.</T>} />
     {error && <p role="alert" className="error-message">{error}</p>}
     <PageGrid pageKey="inventory.order-lists">
     <Block id="builder" name="Build a list" h={3}>
@@ -86,8 +86,8 @@ export function OrderListDetail() {
     } catch (cause) { setError((cause as Error).message); }
   };
   return <div className="order-list-page">
-    <Link to="/purchasing" className="back-link"><T id="order-lists.order-list-detail.order-lists">← Order lists</T></Link>
-    <PageHeader title={<T id="order-lists.order-list-detail.order-list" values={{ from: data.from, to: data.to }}>{"Order list {from} – {to}"}</T>} subtitle={<T id="order-lists.order-list-detail.lines" values={{ statusLabel: statusLabel(data.status), linesCount: lines.length }}>{"{statusLabel} · {linesCount} lines"}</T>} eyebrow={<T id="order-lists.order-list-detail.stock-supplies">{"STOCK & SUPPLIES"}</T>}>
+    <Link to="/inventory/order" className="back-link"><T id="order-lists.order-list-detail.order-lists">← Order lists</T></Link>
+    <PageHeader title={<T id="order-lists.order-list-detail.order-list" values={{ from: data.from, to: data.to }}>{"Order list {from} – {to}"}</T>} subtitle={<T id="order-lists.order-list-detail.lines" values={{ statusLabel: statusLabel(data.status), linesCount: lines.length }}>{"{statusLabel} · {linesCount} lines"}</T>}>
       <Button variant="outline" onClick={() => window.print()}><T id="order-lists.order-list-detail.print-list">Print list</T></Button>
       {editing && <Button variant="outline" onClick={() => void save()}><T id="order-lists.order-list-detail.save-edits">Save edits</T></Button>}
       {editing && data.status !== "approved" && <Button onClick={() => void submit()}><T id="order-lists.order-list-detail.submit-for-approval">Submit for approval</T></Button>}

@@ -17,6 +17,7 @@ import type { ProposalMapping } from "../../shared/proposal-mapping";
 import type { FlowEvent } from "../../shared/core-records";
 import type { TruckLog } from "../../shared/trucks";
 import type { BeoView } from "../../shared/beo";
+import { insertItems, deleteItems } from "../fixtures/inventory-tables";
 
 // Start planning, the pull list and the kitchen menu (FLOW-133/134/137) against the
 // real database.
@@ -80,7 +81,7 @@ const clean = async () => {
     await db.delete(schema.inventoryRentalDetails).where(inArray(schema.inventoryRentalDetails.itemId, made.items));
     await db.delete(schema.inventoryConsumableDetails).where(inArray(schema.inventoryConsumableDetails.itemId, made.items));
     await db.delete(schema.inventoryServiceDetails).where(inArray(schema.inventoryServiceDetails.itemId, made.items));
-    await db.delete(schema.inventoryItems).where(inArray(schema.inventoryItems.id, made.items));
+    await deleteItems(db, made.items);
   }
   if (made.recipes.length) await db.delete(schema.recipes).where(inArray(schema.recipes.id, made.recipes));
   if (made.vendors.length) await db.delete(schema.vendors).where(inArray(schema.vendors.id, made.vendors));
@@ -95,7 +96,7 @@ afterAll(async () => {
 });
 
 const rental = async (name: string, subtype: string, components: { itemId: string; quantity: number }[] = []) => {
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "rental", subtype, name }).returning();
+  const [item] = await insertItems(db, { kind: "rental", subtype, name });
   await db.insert(schema.inventoryRentalDetails).values({ itemId: item.id, components });
   made.items.push(item.id);
   return item;
@@ -242,7 +243,7 @@ describe("FLOW-141 change propagation", () => {
 describe("FLOW-138 production schedules", () => {
   it("applies service-offering tasks on planning start with event-relative dates", async () => {
     const { event, proposal, data } = await seed();
-    const [offering] = await db.insert(schema.inventoryItems).values({ kind: "service", name: "Large Balloon Arch" }).returning();
+    const [offering] = await insertItems(db, { kind: "service", name: "Large Balloon Arch" });
     made.items.push(offering.id);
     await db.insert(schema.inventoryServiceDetails).values({ itemId: offering.id, includes: [] });
     await db.update(schema.proposalMappings).set({ data: { ...data, lines: [...data.lines, {
@@ -442,7 +443,7 @@ describe("event ingredient requirements (FLOW-135/225)", () => {
     const { event, dish } = await seed();
     await db.update(schema.events).set({ guestCount: 120 }).where(eq(schema.events.id, event.id));
     await db.update(schema.recipes).set({ yieldServings: 10 }).where(eq(schema.recipes.id, dish.id));
-    const [chicken] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "ingredient", name: "Chicken breast", unit: "each" }).returning();
+    const [chicken] = await insertItems(db, { kind: "consumable", subtype: "ingredient", name: "Chicken breast", unit: "each" });
     made.items.push(chicken.id);
     await db.insert(schema.inventoryConsumableDetails).values({ itemId: chicken.id, purchaseUnit: "each" });
     await db.insert(schema.recipeLines).values({ recipeId: dish.id, itemId: chicken.id, quantity: 1, unit: "each" });
@@ -485,12 +486,12 @@ describe("event supply requirements (FLOW-135/225)", () => {
   it("turns a per-guest service include into 120 of each supply", async () => {
     const { event, proposal, data } = await seed();
     await db.update(schema.events).set({ guestCount: 120 }).where(eq(schema.events.id, event.id));
-    const [fork, spoon, service, napkin] = await db.insert(schema.inventoryItems).values([
+    const [fork, spoon, service, napkin] = await insertItems(db, [
       { kind: "consumable", subtype: "supply", name: "Plastic fork" },
       { kind: "consumable", subtype: "supply", name: "Plastic spoon" },
       { kind: "service", name: "Full Plasticware Package" },
       { kind: "consumable", subtype: "supply", name: "Napkin", ratioQuantity: 2, ratioBasis: "per_guest" },
-    ]).returning();
+    ]);
     made.items.push(fork.id, spoon.id, service.id, napkin.id);
     await db.insert(schema.inventoryConsumableDetails).values([
       { itemId: fork.id, purchaseUnit: "each" }, { itemId: spoon.id, purchaseUnit: "each" },

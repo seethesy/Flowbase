@@ -1018,6 +1018,7 @@
     "imports.import-list.master-inventory-description": [],
     "imports.import-list.never-run": [],
     "imports.import-list.no-importers-are-available-to": [],
+    "imports.import-list.settings-imports": [],
     "imports.import-log-table.by": [],
     "imports.import-log-table.created": [],
     "imports.import-log-table.done": [],
@@ -1051,6 +1052,8 @@
     "inventory-detail.included-items.includes": [],
     "inventory-detail.included-items.kit-components": [],
     "inventory-detail.included-items.per-kit": [],
+    "inventory-detail.inventory-detail.all-bar-inventory": [],
+    "inventory-detail.inventory-detail.all-ingredients": [],
     "inventory-detail.inventory-detail.all-inventory": [],
     "inventory-detail.inventory-detail.archive": [],
     "inventory-detail.inventory-detail.archive-this-item": [],
@@ -1083,6 +1086,7 @@
     "inventory-detail.inventory-detail.internal-cost": [],
     "inventory-detail.inventory-detail.item-details": [],
     "inventory-detail.inventory-detail.lead-time": [],
+    "inventory-detail.inventory-detail.location": [],
     "inventory-detail.inventory-detail.no": [],
     "inventory-detail.inventory-detail.notes": [],
     "inventory-detail.inventory-detail.par-level": [],
@@ -1108,13 +1112,14 @@
     "inventory-detail.inventory-detail.ratio": [],
     "inventory-detail.inventory-detail.recipe-unit": [],
     "inventory-detail.inventory-detail.record-movement": [],
+    "inventory-detail.inventory-detail.rental": [],
     "inventory-detail.inventory-detail.replacement-cost": [],
     "inventory-detail.inventory-detail.restore": [],
-    "inventory-detail.inventory-detail.section": [],
     "inventory-detail.inventory-detail.services-aren-t-stocked": [],
     "inventory-detail.inventory-detail.stock": [],
-    "inventory-detail.inventory-detail.stock-by-section": [],
+    "inventory-detail.inventory-detail.stock-by-location": [],
     "inventory-detail.inventory-detail.storage": [],
+    "inventory-detail.inventory-detail.storage-area": [],
     "inventory-detail.inventory-detail.sub-rented-from": [],
     "inventory-detail.inventory-detail.subcategory": [],
     "inventory-detail.inventory-detail.total": [],
@@ -1212,6 +1217,7 @@
       "ratioBasisLabels"
     ],
     "inventory-item-form.item-form-fields.legacy-category": [],
+    "inventory-item-form.item-form-fields.location": [],
     "inventory-item-form.item-form-fields.name": [],
     "inventory-item-form.item-form-fields.new-category": [],
     "inventory-item-form.item-form-fields.new-item": [],
@@ -1237,14 +1243,16 @@
     "inventory-item-form.item-form-fields.remove-add-on": [
       "value"
     ],
+    "inventory-item-form.item-form-fields.rental": [],
     "inventory-item-form.item-form-fields.rented-from": [],
     "inventory-item-form.item-form-fields.reordered-when-an-event-s": [],
     "inventory-item-form.item-form-fields.replacement-cost": [],
     "inventory-item-form.item-form-fields.save-item": [],
     "inventory-item-form.item-form-fields.saved-to-flowbase": [],
     "inventory-item-form.item-form-fields.shelf-order": [],
+    "inventory-item-form.item-form-fields.stock-tracking": [],
     "inventory-item-form.item-form-fields.stock-unit": [],
-    "inventory-item-form.item-form-fields.storage-section": [],
+    "inventory-item-form.item-form-fields.storage-area": [],
     "inventory-item-form.item-form-fields.subcategory": [],
     "inventory-item-form.item-form-fields.submit-for-approval": [],
     "inventory-item-form.item-form-fields.subtype": [],
@@ -1254,7 +1262,7 @@
     ],
     "inventory-item-form.item-form-fields.vendor-cost-per-unit": [],
     "inventory-item-form.item-form-fields.vendor-directory": [],
-    "inventory-item-form.item-form-fields.where-it-sits-in-the": [],
+    "inventory-item-form.item-form-fields.where-it-sits-at-the": [],
     "inventory-lists.bar-list.bar-items": [
       "dataCount"
     ],
@@ -1272,35 +1280,19 @@
     ],
     "inventory-lists.bar-list.search-name-or-brand.placeholder": [],
     "inventory-lists.bar-list.set-tier": [],
-    "inventory-lists.bar-list.start-bar-count": [],
     "inventory-lists.bulk-vendor.set-vendor": [],
     "inventory-lists.bulk-vendor.vendor-name.placeholder": [],
-    "inventory-lists.ingredient-list.all-inventory": [],
     "inventory-lists.ingredient-list.below-par": [],
     "inventory-lists.ingredient-list.below-par-only": [],
-    "inventory-lists.ingredient-list.count": [],
-    "inventory-lists.ingredient-list.disposables-pack-sizes-stock-and": [],
-    "inventory-lists.ingredient-list.ingredients": [],
     "inventory-lists.ingredient-list.ingredients-2": [],
-    "inventory-lists.ingredient-list.kitchen": [],
-    "inventory-lists.ingredient-list.kitchen-orders": [],
     "inventory-lists.ingredient-list.load-more-ingredients": [],
-    "inventory-lists.ingredient-list.load-more-supplies": [],
-    "inventory-lists.ingredient-list.low-stock": [],
     "inventory-lists.ingredient-list.new-ingredient": [],
-    "inventory-lists.ingredient-list.new-supply": [],
     "inventory-lists.ingredient-list.not-changed": [
       "names"
     ],
+    "inventory-lists.ingredient-list.order": [],
     "inventory-lists.ingredient-list.search-ingredients.placeholder": [],
-    "inventory-lists.ingredient-list.search-supplies.placeholder": [],
-    "inventory-lists.ingredient-list.start-stock-count": [],
-    "inventory-lists.ingredient-list.supplies": [],
-    "inventory-lists.ingredient-list.supplies-2": [],
-    "inventory-lists.ingredient-list.supplies-3": [],
     "inventory-lists.ingredient-list.vendor.placeholder": [],
-    "inventory-lists.ingredient-list.what-the-kitchen-buys-how": [],
-    "inventory-lists.inventory-list.all-kinds": [],
     "inventory-lists.inventory-list.all-vendors": [],
     "inventory-lists.inventory-list.below-par-only": [],
     "inventory-lists.inventory-list.click-a-cell-to-edit": [],
@@ -1308,25 +1300,24 @@
     "inventory-lists.inventory-list.load-more-items": [],
     "inventory-lists.inventory-list.move-to-storage": [],
     "inventory-lists.inventory-list.new-item": [],
+    "inventory-lists.inventory-list.rental": [],
     "inventory-lists.inventory-list.show-archived": [],
     "inventory-lists.inventory-list.skipped": [
       "names"
     ],
-    "inventory-lists.inventory-list.start-stock-count": [],
-    "inventory-master.master-inventory.all-items-and-sections-grouped": [],
-    "inventory-master.master-inventory.export-csv": [],
-    "inventory-master.master-inventory.items": [],
-    "inventory-master.master-inventory.master-inventory": [],
-    "inventory-master.master-inventory.open": [],
-    "inventory-master.master-inventory.pending": [],
-    "inventory-master.master-inventory.save-changes": [],
-    "inventory-master.master-inventory.search.placeholder": [],
-    "inventory-master.master-inventory.stock-supplies": [],
-    "inventory-master.master-inventory.submit-batch-for-approval": [],
-    "inventory-master.status.active": [],
-    "inventory-master.status.archived": [],
-    "inventory-master.status.inactive": [],
-    "inventory-master.status.pending": [],
+    "inventory-lists.inventory-list.table-title": [],
+    "inventory-order.order-tab.approvals": [],
+    "inventory-order.order-tab.order-lists": [],
+    "inventory-order.reorder.add-to-order-list": [],
+    "inventory-order.reorder.added": [],
+    "inventory-order.reorder.bar-inventory": [],
+    "inventory-order.reorder.everything-is-above-par": [],
+    "inventory-order.reorder.inventory": [],
+    "inventory-order.reorder.items-to-reorder": [],
+    "inventory-order.reorder.kitchen-ingredients": [],
+    "inventory-order.reorder.load-more": [],
+    "inventory-order.reorder.nothing-needs-reordering": [],
+    "inventory-order.reorder.open-list": [],
     "inventory-planning.consumable-planning.allocated": [],
     "inventory-planning.consumable-planning.allocations": [],
     "inventory-planning.consumable-planning.date": [],
@@ -1366,51 +1357,33 @@
     "inventory-screen.imports.bring-records-in-from": [],
     "inventory-screen.inventory-heading.inventory": [],
     "inventory-screen.inventory.rentals-decor-and-supplies": [],
-    "inventory-screen.purchasing.order-lists-cover-a-date": [],
-    "inventory-screen.shortcuts.counts-in-progress": [
-      "count"
-    ],
-    "inventory-screen.shortcuts.every-item-all-kinds": [],
-    "inventory-screen.shortcuts.items-below-par": [
-      "count"
-    ],
-    "inventory-screen.shortcuts.kitchen-orders": [],
-    "inventory-screen.shortcuts.low-stock": [],
-    "inventory-screen.shortcuts.master-inventory": [],
-    "inventory-screen.shortcuts.open-order-lists": [
-      "count"
-    ],
-    "inventory-screen.shortcuts.sections": [
-      "count"
-    ],
-    "inventory-screen.shortcuts.stock-counts": [],
-    "inventory-screen.shortcuts.storage-sections": [],
+    "inventory-screen.order.order-lists-approvals-and": [],
     "inventory-screen.stock.in-stock": [],
     "inventory-screen.stock.low": [],
     "inventory-screen.stock.out": [],
     "inventory-screen.stock.service": [],
     "inventory-screen.vendors.distributors-rental-vendors-and": [],
-    "inventory-sections.section-list.add-section": [],
-    "inventory-sections.section-list.all-inventory": [],
-    "inventory-sections.section-list.archive": [
+    "inventory-sections.locations-page.add-location": [],
+    "inventory-sections.locations-page.archive": [
       "name"
     ],
-    "inventory-sections.section-list.holds": [],
-    "inventory-sections.section-list.in-stock": [
+    "inventory-sections.locations-page.in-stock": [
       "Number"
     ],
-    "inventory-sections.section-list.new-section-name": [],
-    "inventory-sections.section-list.rename": [
+    "inventory-sections.locations-page.list": [],
+    "inventory-sections.locations-page.locations": [],
+    "inventory-sections.locations-page.new-location-name": [],
+    "inventory-sections.locations-page.rename": [
       "name"
     ],
-    "inventory-sections.section-list.restore": [
+    "inventory-sections.locations-page.restore": [
       "name"
     ],
-    "inventory-sections.section-list.save-name": [],
-    "inventory-sections.section-list.sections": [],
-    "inventory-sections.section-list.show-archived": [],
-    "inventory-sections.section-list.stock-supplies": [],
-    "inventory-sections.section-list.where-stock-lives-vendor-holds": [],
+    "inventory-sections.locations-page.save-name": [],
+    "inventory-sections.locations-page.settings": [],
+    "inventory-sections.locations-page.settings-eyebrow": [],
+    "inventory-sections.locations-page.show-archived": [],
+    "inventory-sections.locations-page.where-stock-lives-vendor-holds": [],
     "inventory-stock-forms.color-select.color": [],
     "inventory-stock-forms.correction-form.cancel": [],
     "inventory-stock-forms.correction-form.correct-movement": [],
@@ -1432,6 +1405,7 @@
     "inventory-stock-forms.movement-form.change-unit": [
       "unit"
     ],
+    "inventory-stock-forms.movement-form.location": [],
     "inventory-stock-forms.movement-form.quantity-in-unit": [
       "unit"
     ],
@@ -1442,7 +1416,6 @@
     "inventory-stock-forms.movement-form.reason-2": [],
     "inventory-stock-forms.movement-form.record": [],
     "inventory-stock-forms.movement-form.record-movement": [],
-    "inventory-stock-forms.movement-form.section": [],
     "inventory-stock-forms.movement-form.type": [],
     "inventory-stock-forms.movement-form.use-a-minus-sign-to": [],
     "inventory-stock-forms.stock-form.cancel": [],
@@ -1450,27 +1423,19 @@
     "inventory-stock-forms.stock-form.counted-quantity-unit": [
       "unit"
     ],
-    "inventory-stock-forms.stock-form.from-section": [],
-    "inventory-stock-forms.stock-form.moves-stock-between-sections-and": [],
+    "inventory-stock-forms.stock-form.from-location": [],
+    "inventory-stock-forms.stock-form.location": [],
+    "inventory-stock-forms.stock-form.moves-stock-between-locations-and": [],
     "inventory-stock-forms.stock-form.quantity-unit": [
       "unit"
     ],
     "inventory-stock-forms.stock-form.reason": [],
-    "inventory-stock-forms.stock-form.records-what-you-counted-in": [],
+    "inventory-stock-forms.stock-form.records-what-you-counted-at": [],
     "inventory-stock-forms.stock-form.save-count": [],
-    "inventory-stock-forms.stock-form.section": [],
     "inventory-stock-forms.stock-form.submit-for-approval": [],
-    "inventory-stock-forms.stock-form.to-section": [],
+    "inventory-stock-forms.stock-form.to-location": [],
     "inventory-stock-forms.stock-form.transfer": [],
     "inventory-stock-forms.stock-form.transfer-stock": [],
-    "kitchen-orders.kitchen-order-status.current-kitchen-purchasing-lists": [],
-    "kitchen-orders.kitchen-order-status.order-list-status": [],
-    "kitchen-orders.kitchen-order-status.order-lists": [],
-    "kitchen-orders.kitchen-order-status.to": [
-      "fromDate",
-      "replaceAll",
-      "toDate"
-    ],
     "kitchen-overview.table.menu-items": [],
     "kitchen-overview.table.no-menu-items": [],
     "kitchen-screen.bulk.move-to-storage": [],
@@ -1699,17 +1664,16 @@
     "nav.inventory": [],
     "nav.item": [],
     "nav.kitchen": [],
-    "nav.kitchen-orders": [],
     "nav.lead": [],
     "nav.lead-dashboard": [],
     "nav.leads": [],
-    "nav.low-stock": [],
+    "nav.locations": [],
     "nav.marketing": [],
-    "nav.master-inventory": [],
     "nav.menus": [],
     "nav.new-sop": [],
     "nav.operational-reports": [],
     "nav.operations": [],
+    "nav.order": [],
     "nav.order-list": [],
     "nav.order-lists": [],
     "nav.overview": [],
@@ -1718,7 +1682,6 @@
     "nav.photos": [],
     "nav.production": [],
     "nav.proposals": [],
-    "nav.purchasing": [],
     "nav.recipe": [],
     "nav.recipes": [],
     "nav.reports": [],
@@ -1727,7 +1690,6 @@
     "nav.sales-reports": [],
     "nav.sales-tracker": [],
     "nav.schedule": [],
-    "nav.sections": [],
     "nav.settings": [],
     "nav.sop": [],
     "nav.sops": [],
@@ -1735,8 +1697,6 @@
     "nav.staff-member": [],
     "nav.staffing": [],
     "nav.stock-count": [],
-    "nav.stock-counts": [],
-    "nav.supplies": [],
     "nav.task": [],
     "nav.tasks": [],
     "nav.templates": [],
@@ -1840,7 +1800,6 @@
     "order-lists.order-list-detail.purchase-qty": [],
     "order-lists.order-list-detail.remove": [],
     "order-lists.order-list-detail.save-edits": [],
-    "order-lists.order-list-detail.stock-supplies": [],
     "order-lists.order-list-detail.submit-for-approval": [],
     "order-lists.order-lists.build-a-shopping-list-from": [],
     "order-lists.order-lists.build-list": [],
@@ -1852,7 +1811,6 @@
       "to"
     ],
     "order-lists.order-lists.order-lists": [],
-    "order-lists.order-lists.stock-supplies": [],
     "order-lists.order-lists.to": [],
     "order-lists.receive-form.actual-cost-per": [
       "purchaseUnit"
@@ -2104,8 +2062,8 @@
     "purchasing.page.all-statuses": [],
     "purchasing.page.how-an-order-list-moves": [],
     "purchasing.page.new-order-list": [],
+    "purchasing.page.order-lists": [],
     "purchasing.page.status-moves-through": [],
-    "purchasing.page.vendor-orders": [],
     "purchasing.table.order-lists": [],
     "recipe-books.client-dish.allergens": [],
     "recipe-books.client-dish.dietary-tags": [],
@@ -2330,7 +2288,7 @@
     ],
     "settings.list-settings.bar-categories-are-built-in": [],
     "settings.list-settings.cancel": [],
-    "settings.list-settings.inventory-sections": [],
+    "settings.list-settings.inventory-locations": [],
     "settings.list-settings.list": [],
     "settings.list-settings.lists": [],
     "settings.list-settings.new-value.placeholder": [],
@@ -2348,7 +2306,9 @@
     "settings.settings-page.deleted-records": [],
     "settings.settings-page.how-flowbase-works-for-the": [],
     "settings.settings-page.how-flowbase-works-for-you": [],
+    "settings.settings-page.imports": [],
     "settings.settings-page.inventory-categories": [],
+    "settings.settings-page.locations": [],
     "settings.settings-page.manage-users": [],
     "settings.settings-page.roles-permissions": [],
     "settings.settings-page.settings": [],
@@ -2495,18 +2455,7 @@
     "stock-counts.count-line-row.recount": [],
     "stock-counts.count-line-row.save": [],
     "stock-counts.count-line-row.you-can-t-count-this": [],
-    "stock-counts.count-list.all-inventory": [],
-    "stock-counts.count-list.count-a-storage-section-item": [],
-    "stock-counts.count-list.counts": [],
-    "stock-counts.count-list.resume-count": [],
-    "stock-counts.count-list.start-count": [],
-    "stock-counts.count-list.started-counted": [
-      "countedItems",
-      "startedAt"
-    ],
-    "stock-counts.count-list.stock-supplies": [],
-    "stock-counts.count-list.storage-sections": [],
-    "stock-counts.count-mode.all-counts": [],
+    "stock-counts.count-mode.all-inventory": [],
     "stock-counts.count-mode.completed": [
       "dateTimeLabel"
     ],
@@ -2520,19 +2469,13 @@
     "stock-counts.count-mode.items-weren-t-counted-their": [
       "value"
     ],
-    "stock-counts.count-mode.nothing-is-kept-in-this": [],
+    "stock-counts.count-mode.nothing-is-kept-at-this": [],
     "stock-counts.count-mode.of-counted": [
       "count",
       "counted"
     ],
     "stock-counts.count-mode.type-what-s-on-the": [],
-    "stock-counts.low-stock-list.all-inventory": [],
-    "stock-counts.low-stock-list.counts": [],
-    "stock-counts.low-stock-list.ingredients-bar-stock-and-supplies": [],
-    "stock-counts.low-stock-list.items-below-par": [],
-    "stock-counts.low-stock-list.load-more-items": [],
-    "stock-counts.low-stock-list.low-stock": [],
-    "stock-counts.low-stock-list.stock-supplies": [],
+    "stock-counts.start-count.start-stock-count": [],
     "task-lists.dashboard-group.view-all": [],
     "task-lists.dashboard-table.mark-selected-done": [],
     "task-lists.dashboard-table.no-due-date": [],
@@ -2867,7 +2810,6 @@
     "inventory-lists.bar-list.",
     "inventory-lists.ingredient-list.",
     "inventory-lists.inventory-list.",
-    "inventory-master.master-inventory.",
     "kitchen-overview.table.",
     "labels.approval-status.",
     "labels.bar-container.",
@@ -2884,7 +2826,6 @@
     "labels.deletable-entity.",
     "labels.department.",
     "labels.hold-status.",
-    "labels.inventory-tab-kind.",
     "labels.item-kind.",
     "labels.item-subtype.",
     "labels.jurisdiction.",
@@ -2931,7 +2872,6 @@
     "shared.file-list.",
     "sops.library.",
     "staff.staff-directory.",
-    "stock-counts.low-stock-list.",
     "task-lists.dashboard-group.",
     "tasks.dashboard.table.",
     "time-tracking.time-reports.",
@@ -3057,12 +2997,6 @@
       ],
       "fieldCards": []
     },
-    "inventory.counts": {
-      "blocks": [
-        "sections"
-      ],
-      "fieldCards": []
-    },
     "inventory.detail": {
       "blocks": [
         "cost-history",
@@ -3082,21 +3016,16 @@
     "inventory.list": {
       "blocks": [
         "filters",
-        "list",
-        "shortcuts"
-      ],
-      "fieldCards": []
-    },
-    "inventory.low-stock": {
-      "blocks": [
         "list"
       ],
       "fieldCards": []
     },
-    "inventory.master": {
+    "inventory.order": {
       "blocks": [
-        "filters",
-        "groups"
+        "order-lists",
+        "reorder-bar",
+        "reorder-kitchen",
+        "reorder-master"
       ],
       "fieldCards": []
     },
@@ -3107,23 +3036,10 @@
       ],
       "fieldCards": []
     },
-    "inventory.purchasing": {
-      "blocks": [
-        "filters",
-        "lists"
-      ],
-      "fieldCards": []
-    },
     "kitchen.menus": {
       "blocks": [
         "filters",
         "menus"
-      ],
-      "fieldCards": []
-    },
-    "kitchen.orders": {
-      "blocks": [
-        "order-lists"
       ],
       "fieldCards": []
     },
@@ -3363,7 +3279,9 @@
     "inventory-lists.bar-list",
     "inventory-lists.ingredient-list",
     "inventory-lists.inventory-list",
-    "inventory-master.master-inventory",
+    "inventory-order.reorder-bar",
+    "inventory-order.reorder-kitchen",
+    "inventory-order.reorder-master",
     "lead-dashboard.by-channel",
     "lead-dashboard.by-salesperson",
     "lead-dashboard.by-source",
@@ -3372,7 +3290,6 @@
     "recipes.recipe-list",
     "sops.library",
     "staff.staff-directory",
-    "stock-counts.low-stock-list",
     "tasks.dashboard.table",
     "time-tracking.by-event",
     "time-tracking.by-proposal",
