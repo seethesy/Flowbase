@@ -36,7 +36,7 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
     expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
-    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
+    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Imports"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients"]);
     expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
     expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents"]);
@@ -45,11 +45,11 @@ describe("navigation groups", () => {
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
     expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
-    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
+    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Imports"]);
     expect(tabs(salesperson, "Reports")).toEqual(["Overview", "Time tracking"]);
     // Staff can't read leads, clients or proposals, run imports or see operational reports.
     expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues"]);
-    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors"]);
+    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors"]);
     expect(tabs(staff, "Reports")).toEqual(["Overview", "Time tracking"]);
     expect(headings(staff)).toHaveLength(9);
     // Signed out, only pages that need no permission remain.
@@ -71,6 +71,9 @@ describe("navigation groups", () => {
     expect(at("/events/e-1/beo/b-1")).toBe("Events › Calendar");
     expect(at("/beos")).toBe("Events › BEOs");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
+    // FLOW-266: Bar is its own tab; order lists sit under Purchasing.
+    expect(at("/inventory/bar")).toBe("Inventory › Bar");
+    expect(at("/inventory/orders/o-1")).toBe("Inventory › Purchasing");
     expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");
     expect(at("/reports/operations")).toBe("Reports › Operational reports");
     // FLOW-295: each heading's Overview, with the old tabs at their URLs.

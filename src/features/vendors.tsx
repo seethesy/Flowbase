@@ -1,6 +1,7 @@
 import { useDeletable } from "../app/deletable";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed, usePermissions } from "../app/permissions";
+import { InventoryHeading } from "./inventory-screen";
 import { Block, PageGrid } from "../app/page-grid";
 import { FieldCard, useShownFields } from "../app/field-card";
 import { useState } from "react";
@@ -24,7 +25,6 @@ import { useResource } from "../app/useResource";
 import { useOpenFor } from "../app/useOpenFor";
 import { LoadMore, useDebounced, usePagedList } from "../app/paging";
 import {
-  PageHeader,
   Button,
   SearchInput,
   FilterBar,
@@ -71,7 +71,7 @@ export function VendorList() {
   );
   const deletable = useDeletable("vendor", () => vendors.reload());
   const data = vendors.data ?? [];
-  const edit = async (vendor: Vendor, change: Partial<Pick<VendorInput, "name" | "type" | "deliveryDays" | "orderCutoff" | "leadTimeDays">>) => {
+  const edit = async (vendor: Vendor, change: Partial<Pick<VendorInput, "name" | "type" | "deliveryDays" | "orderCutoff" | "leadTimeDays" | "minimumOrderCents">>) => {
     const current = await vendorsApi.get(vendor.id);
     await vendorsApi.update(vendor.id, {
       name: current.name, type: current.type, portalUrl: current.portalUrl,
@@ -117,21 +117,39 @@ export function VendorList() {
       meta: { edit: "number", editValue: (row) => row.leadTimeDays?.toString() ?? "", canEdit: () => can("inventory.write"),
         onEdit: (row, value) => edit(row, { leadTimeDays: value === "" ? null : Number(value) }) },
     },
+    // FLOW-266: the minimum order and the main contact's phone.
+    {
+      id: "minOrder",
+      header: "Min order",
+      accessorFn: (vendor) => (vendor.minimumOrderCents == null ? "—" : `$${Math.round(vendor.minimumOrderCents / 100)}`),
+      meta: { edit: "number", editValue: (row) => (row.minimumOrderCents == null ? "" : String(row.minimumOrderCents / 100)),
+        canEdit: () => can("inventory.write"),
+        onEdit: (row, value) => edit(row, { minimumOrderCents: value === "" ? null : Math.round(Number(value) * 100) }) },
+    },
+    {
+      id: "phone",
+      header: "Phone",
+      accessorFn: (vendor) => vendor.contacts?.find((contact) => contact.phone)?.phone ?? "—",
+    },
   ];
+  // The preview's order (FLOW-266): Vendor, Type, Lead time, Order cutoff,
+  // Delivery days, Min order, Phone.
+  const order = ["name", "type", "leadTime", "orderCutoff", "deliveryDays", "minOrder", "phone"];
+  const keyOf = (column: ColumnDef<Vendor, unknown>) => {
+    const named = column as { id?: string; accessorKey?: string };
+    return named.id ?? named.accessorKey ?? "";
+  };
+  columns.sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
   return (
     <>
-      <PageHeader
-        title={<T id="vendors.vendor-list.vendors">Vendors</T>}
-        subtitle={<T id="vendors.vendor-list.distributors-rental-vendors-and-event">Distributors, rental vendors and event partners, and how to order from each.</T>}
-        eyebrow={<T id="vendors.vendor-list.inventory">Inventory</T>}
-      >
+      <InventoryHeading tab="vendors">
         <Allowed action="inventory.write">
           <Button onClick={() => setCreate(true)}>
             <Plus size={16} />
             <T id="vendors.vendor-list.new-vendor">New Vendor</T>
           </Button>
         </Allowed>
-      </PageHeader>
+      </InventoryHeading>
       <FilterBar>
         <SearchInput
           value={search}

@@ -79,7 +79,10 @@ export const navigationGroups: NavGroup[] = [
     name: "Inventory",
     tabs: [
       { copyId: "inventory", name: "Inventory", to: "/inventory", also: ["/kitchen/orders"], visible: "inventory.read" },
-      { copyId: "purchasing", name: "Purchasing", to: "/purchasing", visible: "inventory.read" },
+      // Bar stock has its own tab (FLOW-266); its address stays /inventory/bar.
+      { copyId: "bar", name: "Bar", to: "/inventory/bar", visible: "inventory.read" },
+      // Order lists live under Purchasing (FLOW-266).
+      { copyId: "purchasing", name: "Purchasing", to: "/purchasing", also: ["/inventory/orders"], visible: "inventory.read" },
       { copyId: "vendors", name: "Vendors", to: "/vendors", visible: "vendors.read" },
       // Each importer needs its own permission (FLOW-47): inventory or leads.
       {

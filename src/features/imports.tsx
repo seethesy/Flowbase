@@ -27,6 +27,7 @@ import { dateTimeLabel } from "./inventory-labels";
 import { T, LabelT } from "../app/copy";
 import "./inventory.css";
 import "./imports.css";
+import { InventoryHeading } from "./inventory-screen";
 
 // What the dry run will do with each row (FLOW-257: editable under imports.dry-run-report.action).
 const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "Updates", create: "Creates" };
@@ -36,17 +37,22 @@ const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "U
 // (ADR-09); the API checks and writes. Each module importer (inventory, recipes,
 // leads) appears here once its ticket registers it.
 
+// The Inventory screen's Imports tab (FLOW-266): a card per importer the viewer
+// may run, with when it last ran and who ran it, then the recent imports. Import
+// records are a history: they can be opened but not edited or deleted.
+const importerDescriptions: Record<string, ReactNode> = {
+  master_inventory: <T id="imports.import-list.master-inventory-description">Rentals, decor and supplies with categories, types, storage and quantities.</T>,
+  bar_inventory: <T id="imports.import-list.bar-inventory-description">Liquor, wine, beer and mixers with tiers, containers and distributors.</T>,
+};
 export function ImportList() {
   const modules = useResource(["imports", "modules"], () => importsApi.modules());
+  const logs = useResource(["imports", "logs", undefined, 0], () => importsApi.list(undefined), { keepPrevious: true });
+  const lastRun = (key: string) => logs.data?.find((log) => log.module === key);
   return (
     <>
-      <PageHeader
-        title={<T id="imports.import-list.imports">Imports</T>}
-        subtitle={<T id="imports.import-list.bring-records-in-from-a">Bring records in from a spreadsheet. Re-running a file updates what it imported before.</T>}
-      />
+      <InventoryHeading tab="imports" />
       <PageGrid pageKey="imports.list">
       <Block id="importers" name="Importers" h={8}>
-      <Section title={<T id="imports.import-list.importers">Importers</T>}>
         {modules.error ? (
           <LoadError message={modules.error} />
         ) : !modules.data ? (
@@ -54,17 +60,28 @@ export function ImportList() {
         ) : !modules.data.length ? (
           <p className="muted"><T id="imports.import-list.no-importers-are-available-to">No importers are available to you yet.</T></p>
         ) : (
-          <ul className="import-modules">
-            {modules.data.map((module) => (
-              <li key={module.key}>
-                <Link to={`/imports/${encodeURIComponent(module.key)}`}>
-                  {module.label}
-                </Link>
-              </li>
-            ))}
+          <ul className="import-cards" aria-label="Importers">
+            {modules.data.map((module) => {
+              const last = lastRun(module.key);
+              return (
+                <li key={module.key}>
+                  <h3><Link to={`/imports/${encodeURIComponent(module.key)}`}>{module.label}</Link></h3>
+                  {importerDescriptions[module.key] && <p>{importerDescriptions[module.key]}</p>}
+                  <small>
+                    {last
+                      ? <T id="imports.import-list.last-run" values={{ date: dateTimeLabel(last.createdAt), name: last.createdByName ?? "—" }}>{"Last run {date} by {name}"}</T>
+                      : <T id="imports.import-list.never-run">Never run</T>}
+                  </small>
+                  <Button variant="outline" asChild>
+                    <Link to={`/imports/${encodeURIComponent(module.key)}`}>
+                      <T id="imports.import-list.import-file">Import file</T>
+                    </Link>
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         )}
-      </Section>
       </Block>
       <Block id="log" name="Import log" h={16}>
       <ImportLogTable />
