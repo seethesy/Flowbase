@@ -129,13 +129,14 @@ describe("the scanner", () => {
       "src/features/example.tsx",
       `export const X = () => (
         <PageGrid pageKey="example.page">
-          <Block id="summary" name="Summary"><T id="example.page.hello" values={{ name }}>Hello {name}</T></Block>
+          <Block id="summary" name="Summary"><T id="example.page.hello" values={{ name }}>{"Hello {name}"}</T></Block>
           <LabelT id="labels.example" value={v}>{label}</LabelT>
           <DataTable copyKey="example.table" />
         </PageGrid>
       );`,
     );
     expect(result.blocks.map((block) => `${block.pageKey}/${block.id}`)).toEqual(["example.page/summary"]);
+    // Placeholder defaults are string literals, as in the app's own <T>s.
     expect(result.copy.map((usage) => usage.key)).toEqual(["example.page.hello"]);
     expect(result.prefixes).toEqual(["labels.example.", "example.table."]);
     expect(result.problems).toEqual([]);
