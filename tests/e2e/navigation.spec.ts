@@ -56,7 +56,7 @@ databaseTest("part-time staff only see the tabs they can open", async ({ page, i
   // Venues is the only Sales tab left, so there is no tab row.
   await expect(page.getByRole("navigation", { name: "Sales pages" })).toHaveCount(0);
   await page.goto("/#/inventory");
-  await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Purchasing", "Vendors", "Photos"]);
+  await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar", "Purchasing", "Vendors", "Photos"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/venues");
 });

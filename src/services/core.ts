@@ -239,6 +239,8 @@ export const inventoryApi = {
       archived?: boolean;
       kind?: ItemKind;
       subtype?: string;
+      // Subtypes to leave out, comma-separated (FLOW-266: "bar,ingredient").
+      excludeSubtypes?: string;
       category?: string;
       categoryId?: string;
       typeId?: string;
