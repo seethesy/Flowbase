@@ -138,7 +138,7 @@ export function TimeReports() {
   const data = report.data;
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="reports.time"
         title={<T id="time-tracking.time-reports.time-tracking">Time tracking</T>}
         subtitle={
           data?.scope === "own"

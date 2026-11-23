@@ -81,10 +81,11 @@ describe("date and time cell (FLOW-296 AC2)", () => {
 
 describe("tables registered for resize (FLOW-296 AC1)", () => {
   it("saves widths on a table with no source, and still checks sourced tables", () => {
-    expect(layoutTables["sops.library"].source).toBeNull();
+    expect(layoutTables["lead-dashboard.by-source"].source).toBeNull();
+    expect(layoutTables["sops.library"].source).toBe("sops");
     expect(layoutTables["tasks.dashboard.table"].source).toBe("tasks");
-    const widths = { ...emptyLayout(), tables: { "sops.library": { columns: [{ key: "title", width: 240 }, { key: "category" }] } } };
-    expect(layoutProblems("sops.library", widths)).toEqual([]);
+    const widths = { ...emptyLayout(), tables: { "lead-dashboard.by-source": { columns: [{ key: "source", width: 240 }, { key: "count" }] } } };
+    expect(layoutProblems("leads.dashboard", widths)).toEqual([]);
     const unknown = { ...emptyLayout(), tables: { "tasks.dashboard.table": { columns: [{ key: "title" }, { key: "nope" }] } } };
     expect(layoutProblems("tasks.dashboard", unknown).map((problem) => problem.message)).toContain('Unknown field "nope".');
   });

@@ -153,17 +153,21 @@ export function DocumentsPage() {
     event.target.value = "";
   };
   return <>
-    <PageHeader title={<T id="documents.library.title">Documents</T>}
+    <PageHeader pageKey="documents.library" title={<T id="documents.library.title">Documents</T>}
       subtitle={<T id="documents.library.subtitle">Files linked to the work they belong to.</T>}>
       {can("attachments.write") && <Button onClick={() => setUploadOpen(true)}><Upload size={16} /><T id="documents.library.upload">Upload</T></Button>}
     </PageHeader>
     {error && <p role="alert" className="error-message">{error}</p>}
+    <PageGrid pageKey="documents.library">
+    <Block id="types" name="Document types" h={4}>
     <div className="document-type-tabs">
       <Button variant={type === "" ? "default" : "outline"} onClick={() => setType("")}><T id="documents.library.all">All</T> {all.length}</Button>
       {documentTypes.map((entry) => <Button key={entry} variant={type === entry ? "default" : "outline"} onClick={() => setType(entry)}>
         {documentTypeLabels[entry]} {all.filter((row) => row.docType === entry).length}
       </Button>)}
     </div>
+    </Block>
+    <Block id="filters" name="Document filters" h={5}>
     <FilterBar>
       <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="documents.library.search.placeholder" />
       <Dropdown aria-label="Linked to" value={linked} onValueChange={setLinked}><option value="">Any link</option>
@@ -177,14 +181,13 @@ export function DocumentsPage() {
         <option value="">Any time</option><option value="7">Last 7 days</option><option value="90">Last 90 days</option>
       </Dropdown>
     </FilterBar>
+    </Block>
+    <Block id="documents-table" name="Documents" h={20}>
     {files.error && <p role="alert" className="error-message">{files.error}</p>}
-    {/* FLOW-296: on a page layout, so an Admin can resize the table's columns. */}
-    <PageGrid pageKey="documents.library">
-      <Block id="documents-table" name="Documents table" h={20}>
-        {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
-          selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
-            onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
-      </Block>
+    {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" exportName="documents" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
+      selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
+        onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
+    </Block>
     </PageGrid>
     {selected && <DetailDrawer open onClose={() => setSelectedId("")} title={selected.name}
       description={<T id="documents.preview.description">File details and earlier versions</T>} wide>

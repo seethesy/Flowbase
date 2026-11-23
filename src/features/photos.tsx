@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Link } from "react-router-dom";
@@ -164,7 +165,7 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
 
   return (
     <>
-      <PageHeader title={title} subtitle={subtitle}>
+      <PageHeader pageKey={`${area}.photos`} title={title} subtitle={subtitle}>
         {canWrite && (
           <Button onClick={() => setUploadOpen(true)}>
             <Plus size={16} />
@@ -172,7 +173,9 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
           </Button>
         )}
       </PageHeader>
-      {marketing && (
+      {error && <p role="alert" className="error-message">{error}</p>}
+      {photos.error && <p role="alert" className="error-message">{photos.error}</p>}
+      <GalleryOrganizers area={area} filters={<>      {marketing && (
         <FilterBar>
           <Dropdown aria-label="Event" value={filter.eventId ?? ""} onValueChange={(value) => setFilter({ ...filter, eventId: value || undefined })}>
             <option value="">Any event</option>
@@ -192,9 +195,7 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
           </label>
         </FilterBar>
       )}
-      {error && <p role="alert" className="error-message">{error}</p>}
-      {photos.error && <p role="alert" className="error-message">{photos.error}</p>}
-      {picked.length > 0 && (
+</>} gallery={<>      {picked.length > 0 && (
         <div className="bulk-bar" role="region" aria-label="Selected photos">
           <strong>
             <Plural id="photos.gallery.selected" count={picked.length} one="{count} selected" other="{count} selected" />
@@ -258,6 +259,7 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
           ))}
         </ul>
       )}
+</>} />
       <Dialog.Root open={Boolean(current)} onOpenChange={(open) => !open && setOpenId(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay" />
@@ -569,4 +571,10 @@ export function InventoryPhotosPage() {
       subtitle={<T id="photos.inventory.subtitle">Photos for the inventory team.</T>}
     />
   );
+}
+
+function GalleryOrganizers({ area, filters, gallery }: { area: PhotoArea; filters: ReactNode; gallery: ReactNode }) {
+  if (area === "marketing") return <PageGrid pageKey="marketing.photos"><Block id="filters" name="Photo filters" h={4}>{filters}</Block><Block id="gallery" name="Photo gallery" h={20}>{gallery}</Block></PageGrid>;
+  if (area === "kitchen") return <PageGrid pageKey="kitchen.photos"><Block id="filters" name="Photo filters" h={4}>{filters}</Block><Block id="gallery" name="Photo gallery" h={20}>{gallery}</Block></PageGrid>;
+  return <PageGrid pageKey="inventory.photos"><Block id="filters" name="Photo filters" h={4}>{filters}</Block><Block id="gallery" name="Photo gallery" h={20}>{gallery}</Block></PageGrid>;
 }

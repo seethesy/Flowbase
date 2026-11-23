@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "./page-grid";
 import { lazy, Suspense } from "react";
 import {
   createHashRouter,
@@ -174,10 +175,11 @@ const UserManagement = lazy(() =>
 function Placeholder() {
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="placeholder.page"
         title="Room to grow"
         subtitle="A peek at what comes next for your workspace."
       />
+      <PageGrid pageKey="placeholder.page"><Block id="content" name="Page content" h={10}>
       <Section title="Not included in demo">
         <div className="placeholder-content">
           <Leaf size={40} />
@@ -191,6 +193,7 @@ function Placeholder() {
           </Button>
         </div>
       </Section>
+      </Block></PageGrid>
     </>
   );
 }
@@ -198,10 +201,12 @@ function Placeholder() {
 function ComingSoon({ title }: { title: string }) {
   return (
     <>
-      <PageHeader title={title} subtitle="This page is on its way." />
+      <PageHeader pageKey="coming-soon.page" title={title} subtitle="This page is on its way." />
+      <PageGrid pageKey="coming-soon.page"><Block id="content" name="Page content" h={6}>
       <section className="panel">
         <EmptyState title="Coming soon" description={`${title} isn't available yet.`} />
       </section>
+      </Block></PageGrid>
     </>
   );
 }
@@ -210,7 +215,7 @@ function Profile() {
   const user = auth?.user;
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="notifications.settings"
         title={user?.name ?? "Employee profile"}
         subtitle="Your profile and how Flowbase reaches you"
       />

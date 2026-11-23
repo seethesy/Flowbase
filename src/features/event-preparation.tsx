@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -218,6 +219,8 @@ export function EventPlanningProgressSection({
       }
     >
       <ErrorLine message={error} />
+      <PageGrid pageKey="events.preparation">
+      <Block id="progress" name="Planning progress" h={12}>
       {!data.started ? (
         <p className="muted">
           <T id="event-preparation.event-planning-progress-section.planning-hasn-t-started-starting">{"Planning hasn't started. Starting moves the event to Preparation and builds the pull list and kitchen menu from the mapped proposal."}</T>
@@ -233,6 +236,10 @@ export function EventPlanningProgressSection({
               </li>
             ))}
           </ul>
+        </>
+      )}
+      </Block>
+      {data.started && <Block id="review" name="Planning output review" h={10}>
           {data.staleOutputs.length > 0 && <div role="status" className="warning-message">
             <strong><T id="event-preparation.event-planning-progress-section.planning-outputs-need-review">Planning outputs need review</T></strong>
             <ul>{data.staleOutputs.map((output) => <li key={output.kind}>
@@ -250,8 +257,8 @@ export function EventPlanningProgressSection({
               <T id="event-preparation.event-planning-progress-section.refresh-progress">Refresh progress</T>
             </Button>
           )}
-        </>
-      )}
+      </Block>}
+      </PageGrid>
       <ConfirmationDialog
         open={confirm}
         onClose={() => setConfirm(false)}

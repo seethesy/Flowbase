@@ -1,3 +1,5 @@
+import { layoutLifecycleChanges } from "../../shared/layout-deletion";
+import { emptyLayout } from "../../shared/layout";
 import { eq, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { LayoutDoc, SavedLayout } from "../../shared/layout";
@@ -42,7 +44,7 @@ export async function saveLayout(db: Db, actor: Actor, pageKey: string, layout: 
       entityId: row.id,
       action: before ? "update" : "create",
       before: before ? { pageKey, layout: before.layout } : null,
-      after: { pageKey, layout },
+      after: { pageKey, layout, lifecycle: layoutLifecycleChanges(before?.layout ?? emptyLayout(), layout) },
     });
     return saved(row);
   });

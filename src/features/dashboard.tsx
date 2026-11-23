@@ -1,3 +1,4 @@
+import { LayoutHeader } from "../app/layout-deletion";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -58,26 +59,26 @@ export function Dashboard() {
   const data: HomeDashboard | undefined = dashboard.data;
   const all = data?.allTasks?.filter((row) => !selectedRole || row.assigneeRoles.includes(selectedRole as Role)) ?? [];
   return <>
-    <PageHeader title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? <RoleText role={role} /> : ""} />
+    <PageHeader pageKey="dashboard.home" title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? <RoleText role={role} /> : ""} />
     {error && <p role="alert">{error}</p>}
     {dashboard.error ? <LoadError message={dashboard.error} /> : !data ? <LoadingSkeleton /> :
       <div className={`dashboard-cards ${data.myLeads === null ? "dashboard-cards--no-leads" : ""} ${data.allTasks === null ? "dashboard-cards--no-all" : ""}`}>
         <PageGrid pageKey="dashboard.home">
-        {data.myLeads !== null && <Block id="my-leads" name="My Leads" w={6} h={12}><section className="dashboard-card dashboard-card--leads"><header><h2><T id="dashboard.home.my-leads">My Leads</T> <span>{data.myLeads.length}</span></h2><Link to={to("/leads")}><T id="dashboard.home.view-all-leads">View all</T></Link></header>
+        {data.myLeads !== null && <Block id="my-leads" name="My Leads" w={6} h={12}><section className="dashboard-card dashboard-card--leads"><LayoutHeader headerKey="my-leads.title" name="My Leads header"><header><h2><T id="dashboard.home.my-leads">My Leads</T> <span>{data.myLeads.length}</span></h2><Link to={to("/leads")}><T id="dashboard.home.view-all-leads">View all</T></Link></header></LayoutHeader>
           <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.client">Client</T></th><th><T id="dashboard.home.event">Event</T></th><th><T id="dashboard.home.date">Date</T></th><th><T id="dashboard.home.status">Status</T></th></tr></thead><tbody>{data.myLeads.map((lead) => <tr key={lead.id}>
             <td><Link to={to(`/leads/${lead.id}`)}>{lead.client || <T id="dashboard.home.unnamed-lead">Unnamed lead</T>}</Link></td><td>{lead.event || "—"}</td><td>{day(lead.date)}</td><td><StatusPill status={lead.status} /></td>
           </tr>)}</tbody></table></div></section></Block>}
-        <Block id="my-tasks" name="My Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--my-tasks"><header><h2><T id="dashboard.home.my-tasks">My Tasks</T> <span>{data.myTasks.filter((task) => task.status !== "done").length}</span></h2><Link to={to("/tasks?mine=true")}><T id="dashboard.home.view-all-tasks">View all</T></Link></header>
+        <Block id="my-tasks" name="My Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--my-tasks"><LayoutHeader headerKey="my-tasks.title" name="My Tasks header"><header><h2><T id="dashboard.home.my-tasks">My Tasks</T> <span>{data.myTasks.filter((task) => task.status !== "done").length}</span></h2><Link to={to("/tasks?mine=true")}><T id="dashboard.home.view-all-tasks">View all</T></Link></header></LayoutHeader>
           <div className="dashboard-card__scroll"><TaskRows rows={data.myTasks} showAssignee={false} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>
-        {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><Dropdown aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
+        {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><LayoutHeader headerKey="all-tasks.title" name="All Tasks header"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><Dropdown aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
           <option value="">All roles</option>{data.roles.map((value) => <option key={value} value={value}>{roleLabel(value)}</option>)}
-        </Dropdown></header><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} pickUp={(task) => void pickUp(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
-        <Block id="upcoming-events" name="Upcoming Events" w={6} h={12}><section className="dashboard-card dashboard-card--events"><header><h2><T id="dashboard.home.upcoming-events">Upcoming Events</T></h2><Link to={to("/events")}><T id="dashboard.home.view-all-events">View all</T></Link></header>
+        </Dropdown></header></LayoutHeader><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} pickUp={(task) => void pickUp(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
+        <Block id="upcoming-events" name="Upcoming Events" w={6} h={12}><section className="dashboard-card dashboard-card--events"><LayoutHeader headerKey="upcoming-events.title" name="Upcoming Events header"><header><h2><T id="dashboard.home.upcoming-events">Upcoming Events</T></h2><Link to={to("/events")}><T id="dashboard.home.view-all-events">View all</T></Link></header></LayoutHeader>
 
           <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.event-date">Date</T></th><th><T id="dashboard.home.event-name">Event</T></th><th><T id="dashboard.home.venue">Venue</T></th><th><T id="dashboard.home.guests">Guests</T></th></tr></thead><tbody>{data.upcomingEvents.map((event) => <tr key={event.id}>
             <td>{day(event.date)}</td><td><Link to={to(`/events/${event.id}`)}>{event.event}</Link></td><td>{event.venue ?? "—"}</td><td>{event.guests ?? "—"}</td>
           </tr>)}</tbody></table></div></section></Block>
-        <Block id="working-staff" name="Working Staff" w={6} h={12}><section className="dashboard-card dashboard-card--staff"><header><h2><T id="dashboard.home.working-staff">Working Staff</T></h2><Link to={to("/staff")}><T id="dashboard.home.view-all-staff">View all</T></Link></header>
+        <Block id="working-staff" name="Working Staff" w={6} h={12}><section className="dashboard-card dashboard-card--staff"><LayoutHeader headerKey="working-staff.title" name="Working Staff header"><header><h2><T id="dashboard.home.working-staff">Working Staff</T></h2><Link to={to("/staff")}><T id="dashboard.home.view-all-staff">View all</T></Link></header></LayoutHeader>
           <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.staff-name">Name</T></th><th><T id="dashboard.home.position">Position</T></th><th><T id="dashboard.home.since">Since</T></th></tr></thead><tbody>{data.workingStaff.map((person, index) => <tr key={`${person.id}:${index}`}>
             <td><Link to={to(`/staff/${person.id}`)}>{person.name}</Link></td><td>{person.position}</td><td>{time(person.since)}</td>
           </tr>)}</tbody></table></div></section></Block>

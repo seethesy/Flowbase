@@ -117,3 +117,25 @@ describe("switching a card's source (AC5)", () => {
     expect(dropped).toContain("Budget");
   });
 });
+
+// FLOW-281: both new table registries accept widths and reordered columns.
+for (const [table, source, fields] of [
+  ["recipes.recipe-list", "recipes", ["name", "category", "allergens", "dietaryTags", "updatedAt"]],
+  ["sops.library", "sops", ["title", "category", "version", "updatedAt"]],
+] as const) {
+  it(`${table}: validates chosen columns, order and width`, () => {
+    expect(layoutTables[table].source).toBe(source);
+    const columns = [...fields].reverse().map((key) => ({ key, width: 180 }));
+    const saved = doc([], { [table]: { columns } });
+    expect(saved.tables[table].columns).toEqual(columns);
+    expect(layoutProblems(`${source}.list`, saved)).toEqual([]);
+    expect(layoutProblems(`${source}.list`, doc([], { [table]: { columns: [{ key: "content" }] } }))).not.toEqual([]);
+  });
+}
+
+it("FLOW-281: registers the four existing record lists without inventing absent cards", () => {
+  for (const key of ["dashboard.home/working-staff", "clients.detail/proposal-tracker", "vendors.detail/vendor-items", "venues.detail/event-history"])
+    expect(builtinCards[key]).toBeDefined();
+  expect(builtinCards["staff.detail/shifts"]).toBeUndefined();
+  expect(builtinCards["inventory.detail/events"]).toBeUndefined();
+});

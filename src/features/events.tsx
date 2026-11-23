@@ -282,7 +282,7 @@ export function EventList() {
   const data = events.data ?? [];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="events.list"
         title={<T id="events.event-list.events">Events</T>}
         subtitle={<T id="events.event-list.every-proposal-beo-and-task">Every proposal, BEO and task hangs off an event.</T>}
         eyebrow={<T id="events.event-list.events">Events</T>}

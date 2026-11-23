@@ -27,6 +27,15 @@ export function salesRoutes(options: { withDb?: RunWithDb; resolveActor?: Resolv
     await record(c, (db, actor) => deleteSalesView(db, actor, parsed.data));
     return c.body(null, 204);
   });
+  routes.get("/clients/:id/proposals", requirePermission("proposals.read"), async (c) => {
+    const parsed = uuid.safeParse(c.req.param("id"));
+    if (!parsed.success) throw notFound("Client");
+    const data = await record(c, (db, actor) => salesClient(db, actor, parsed.data));
+    return c.json(data.events.flatMap((event) => event.proposals.map((proposal) => ({
+      id: proposal.id, eventId: event.eventId, title: proposal.title, stage: proposal.stage,
+      currentVersion: proposal.versions[0]?.number ?? null,
+    }))));
+  });
   routes.get("/clients/:id", requirePermission("proposals.read"), async (c) => {
     const parsed = uuid.safeParse(c.req.param("id"));
     if (!parsed.success) throw notFound("Client");

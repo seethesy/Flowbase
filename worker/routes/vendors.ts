@@ -1,3 +1,4 @@
+import { getItem } from "../records/inventory";
 import { Hono } from "hono";
 import { id as uuid } from "../../shared/schema-primitives";
 import { vendorInputSchema, vendorTypeSchema } from "../../shared/vendors";
@@ -59,6 +60,11 @@ export function vendorRoutes(options: {
     const id = param(c);
     return c.json(await record(c, (db, actor) => getVendor(db, actor, id)));
   });
+  routes.get("/:id/items", requirePermission("vendors.read"), requirePermission("inventory.read"), async (c) =>
+    c.json(await record(c, async (db, actor) => {
+      const vendor = await getVendor(db, actor, param(c));
+      return Promise.all(vendor.items.map((item) => getItem(db, actor, item.id)));
+    })));
   routes.get("/:id/history", requirePermission("vendors.read"), async (c) => {
     const id = param(c);
     return sendPage(

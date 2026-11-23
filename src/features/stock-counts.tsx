@@ -64,7 +64,7 @@ export function CountList() {
       <Link to="/inventory" className="back-link">
         <T id="stock-counts.count-list.all-inventory">← All inventory</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.counts"
         title={<T id="stock-counts.count-list.counts">Counts</T>}
         subtitle={<T id="stock-counts.count-list.count-a-storage-section-item">Count a storage section item by item. A count you leave part-way picks up where you stopped.</T>}
         eyebrow={<T id="stock-counts.count-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
@@ -267,7 +267,7 @@ export function CountMode() {
   return (
     <>
       {back}
-      <PageHeader
+      <PageHeader pageKey="inventory.count"
         title={<T id="stock-counts.count-mode.count" values={{ sectionName: current.sectionName }}>{"Count: {sectionName}"}</T>}
         subtitle={
           current.status === "open"
@@ -282,9 +282,13 @@ export function CountMode() {
           </Button>
         )}
       </PageHeader>
+      <PageGrid pageKey="inventory.count">
+      <Block id="progress" name="Count progress" h={3}>
       <p className="count-progress" role="status">
         <T id="stock-counts.count-mode.of-counted" values={{ counted, count: current.lines.length }}>{"{counted} of {count} counted"}</T>
       </p>
+      </Block>
+      <Block id="lines" name="Count lines" h={20}>
       {current.lines.length ? (
         <ol className="count-lines">
           {current.lines.map((line) => (
@@ -302,6 +306,8 @@ export function CountMode() {
           <T id="stock-counts.count-mode.nothing-is-kept-in-this">{"Nothing is kept in this section yet. Set an item's storage section to count it here."}</T>
         </p>
       )}
+      </Block>
+      </PageGrid>
       <ConfirmationDialog
         open={completing}
         onClose={() => setCompleting(false)}
@@ -374,7 +380,7 @@ export function LowStockList() {
       <Link to="/inventory" className="back-link">
         <T id="stock-counts.low-stock-list.all-inventory">← All inventory</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.low-stock"
         title={<T id="stock-counts.low-stock-list.low-stock">Low stock</T>}
         subtitle={<T id="stock-counts.low-stock-list.ingredients-bar-stock-and-supplies">Ingredients, bar stock and supplies below their par level.</T>}
         eyebrow={<T id="stock-counts.low-stock-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}

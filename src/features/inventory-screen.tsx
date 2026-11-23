@@ -21,7 +21,7 @@ const subtitles = {
 
 export function InventoryHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {
   return (
-    <PageHeader title={<T id="inventory-screen.inventory-heading.inventory">Inventory</T>} subtitle={subtitles[tab]}>
+    <PageHeader pageKey={{ "inventory": "inventory.list", "bar": "inventory.bar", "purchasing": "inventory.purchasing", "vendors": "vendors.list", "imports": "imports.list" }[tab]} title={<T id="inventory-screen.inventory-heading.inventory">Inventory</T>} subtitle={subtitles[tab]}>
       {children}
     </PageHeader>
   );

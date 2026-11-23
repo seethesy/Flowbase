@@ -40,7 +40,7 @@ export function ClientRecipeBook() {
   const printSelection = `/print/recipes/client?ids=${selected.join(",")}`;
   return <>
     <Link to="/recipes" className="back-link"><T id="recipe-books.client-recipe-book.recipe-book">← Recipe book</T></Link>
-    <PageHeader title={<T id="recipe-books.client-recipe-book.client-recipe-book">Client recipe book</T>} subtitle={<T id="recipe-books.client-recipe-book.choose-dishes-to-show-your">Choose dishes to show your client or save as a branded PDF.</T>}>
+    <PageHeader pageKey="recipes.client-book" title={<T id="recipe-books.client-recipe-book.client-recipe-book">Client recipe book</T>} subtitle={<T id="recipe-books.client-recipe-book.choose-dishes-to-show-your">Choose dishes to show your client or save as a branded PDF.</T>}>
       <Button asChild variant="outline"><Link to={`/print/recipes/client${category ? `?category=${encodeURIComponent(category)}` : ""}`}>{category ? <T id="recipe-books.client-recipe-book.print-category">Print category</T> : <T id="recipe-books.client-recipe-book.print-all-dishes">Print all dishes</T>}</Link></Button>
       {selected.length > 0 && <Button asChild><Link to={printSelection}><T id="recipe-books.client-recipe-book.print-selected" values={{ selectedCount: selected.length }}>{"Print selected ({selectedCount})"}</T></Link></Button>}
     </PageHeader>

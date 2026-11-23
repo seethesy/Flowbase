@@ -161,7 +161,7 @@ export function ClientList() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="clients.list"
         title={<T id="clients.client-list.clients">Clients</T>}
         subtitle={<T id="clients.client-list.good-relationships-start-with-the">Good relationships start with the little details.</T>}
         eyebrow={<T id="clients.client-list.clients">Clients</T>}

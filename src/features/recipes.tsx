@@ -221,7 +221,7 @@ export function RecipeList() {
       ) : recipes.loading && !recipes.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list" openColumn
+        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list" exportName="recipes" openColumn
           data={data}
           columns={columns}
           onRow={(recipe) => setCard(recipe)}
@@ -916,7 +916,8 @@ export function RecipeDetail() {
           ))}
         </p>
       )}
-      <div className="detail-grid">
+      <PageGrid pageKey="recipes.detail">
+      <Block id="dish" name="Dish" w={6} h={10}>
         <Section title={<T id="recipes.recipe-detail.dish">Dish</T>}>
           <small><T id="recipes.recipe-detail.description">Description</T></small>
           <p>{r.description || "—"}</p>
@@ -925,9 +926,10 @@ export function RecipeDetail() {
           <small><T id="recipes.recipe-detail.portion-size">Portion size</T></small>
           <p>{r.yield?.portionSize || "—"}</p>
         </Section>
-        <TagsSection recipe={r} />
-      </div>
-      <IngredientsSection recipe={r} />
+      </Block>
+      <Block id="tags" name="Allergens and dietary tags" w={6} h={10}><TagsSection recipe={r} /></Block>
+      <Block id="ingredients" name="Ingredients" h={16}><IngredientsSection recipe={r} /></Block>
+      <Block id="method" name="Method" h={12}>
       <Section title={<T id="recipes.recipe-detail.method">Method</T>}>
         {r.steps.length ? (
           <ol>
@@ -944,8 +946,12 @@ export function RecipeDetail() {
           </p>
         )}
       </Section>
+      </Block>
+      <Block id="scale" name="Scale" h={12}>
       <ScaleSection key={`${r.updatedAt}:${requestedServings ?? ""}`} recipe={r} requestedServings={requestedServings} />
-      <Attachments recordType="recipe" recordId={r.id} title="Photos" />
+      </Block>
+      <Block id="photos" name="Photos" h={8}><Attachments recordType="recipe" recordId={r.id} title="Photos" /></Block>
+      </PageGrid>
       {edit && (
         <RecipeForm
           recipe={r}

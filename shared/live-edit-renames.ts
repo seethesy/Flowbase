@@ -33,7 +33,7 @@ export const liveEditRenames: LiveEditRenames = {
     "recipes.recipe-list.every-dish-with-its-ingredients": "kitchen-screen.recipes.every-dish-with-its",
     "recipes.recipe-list.kitchen": "kitchen-screen.kitchen-heading.kitchen",
   },
-  blocks: {},
+  blocks: { "documents.library/list": "documents-table" },
   removed: {
     // FLOW-265: wording of the replaced calendar detail mode, day-of board and
     // production overview, and the board's single urgent checkbox (now one

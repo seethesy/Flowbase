@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import type { FlowEvent } from "../../shared/core-records";
@@ -60,6 +61,8 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
   return <Section title={<T id="event-trucks.event-truck-section.truck-log">Truck log</T>}>
     {error && <p role="alert" className="error-message">{error}</p>}
     {data.missingDriverWarning && <p role="alert" className="warning-message">{data.missingDriverWarning}</p>}
+    <PageGrid pageKey="events.trucks">
+    <Block id="assignments" name="Truck assignments" h={12}>
     <ul className="planning-list">
       {data.trucks.map((truck) => <li key={truck.id} className="planning-row">
         <strong>{truck.name}</strong>
@@ -77,7 +80,8 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
       {data.canEdit && <Button variant="ghost" disabled={busy}
         onClick={() => void update(() => preparationApi.removeTruckAssignment(event.id, assignment.id))}><T id="event-trucks.event-truck-section.remove">Remove</T></Button>}
     </div>)}
-    {data.canEdit && <>
+    </Block>
+    {data.canEdit && <Block id="add-truck" name="Add truck" h={12}>
       <div className="form-grid">
         <FormField label={<T id="event-trucks.event-truck-section.truck">Truck</T>}><Dropdown value={truckId} onChange={(e) => { setTruckId(e.target.value); setConflict(""); }}>
           <option value="">Choose a truck</option>
@@ -102,7 +106,10 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
         <Button disabled={busy || !name.trim()} onClick={() => void update(async () => {
           const next = await preparationApi.addTruck(event.id, name.trim()); setName(""); return next;
         })}><T id="event-trucks.event-truck-section.add-truck">Add truck</T></Button></div>
-    </>}
+    </Block>}
+    <Block id="pull-lines" name="Pull-list lines by truck" h={12}>
+    {pull.error && <LoadError message={pull.error} />}
+    {pull.loading && !pull.data && <LoadingSkeleton />}
     {pull.data && pull.data.groups.flatMap((group) => group.lines).length > 0 && <div>
       <h3><T id="event-trucks.event-truck-section.pull-list-lines-by-truck">Pull-list lines by truck</T></h3>
       {pull.data.groups.flatMap((group) => group.lines).map((line) => <div key={line.id} className="planning-row">
@@ -115,5 +122,7 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
         </Dropdown>
       </div>)}
     </div>}
+    </Block>
+    </PageGrid>
   </Section>;
 }
