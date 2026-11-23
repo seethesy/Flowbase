@@ -1694,6 +1694,8 @@ export const orderLists = pgTable(
       .notNull().default("draft"),
     lines: jsonb("lines").$type<OrderLine[]>().notNull().default([]),
     approvalId: uuid("approval_id").references(() => approvalRequests.id),
+    // List-level notes, edited inline on the Purchasing tab (FLOW-300).
+    notes: text("notes").notNull().default(""),
   },
   (table) => [
     index("order_lists_status_idx").on(table.status, table.createdAt),

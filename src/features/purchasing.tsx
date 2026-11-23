@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import { orderListStatuses, type OrderList, type OrderListStatus } from "../../shared/order-lists";
+import { isDeletableList, orderListStatuses, type OrderList, type OrderListStatus } from "../../shared/order-lists";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { Block, PageGrid } from "../app/page-grid";
 import { LabelT, T } from "../app/copy";
-import { Allowed } from "../app/permissions";
+import { Allowed, usePermissions } from "../app/permissions";
+import { useDeletable } from "../app/deletable";
+import { centsLabel } from "./inventory-labels";
 import { useResource } from "../app/useResource";
 import { LoadError } from "../components/record-display";
 import { Button, DataTable, DetailDrawer, FilterBar, FormField, LoadingSkeleton } from "../components/shared";
@@ -59,6 +61,9 @@ export function PurchasingPage() {
   const lists = useResource(["order-lists"], orderListsApi.list);
   const [status, setStatus] = useState<OrderListStatus | "">("");
   const [creating, setCreating] = useState(false);
+  const { can } = usePermissions();
+  const canEdit = can("order_lists.write");
+  const deletable = useDeletable("order_list", lists.reload);
   const rows = (lists.data ?? []).filter((list) => !status || list.status === status);
   const columns: ColumnDef<OrderList, unknown>[] = [
     {
@@ -71,6 +76,22 @@ export function PurchasingPage() {
     { id: "events", header: "Events", accessorFn: (list) => unique(list.lines.flatMap((line) => line.eventTitles)).join(", ") || "—" },
     { id: "lines", header: "Lines", accessorFn: (list) => list.lines.length },
     { id: "vendors", header: "Vendors", accessorFn: (list) => unique(list.lines.map((line) => line.vendorName)).length },
+    // FLOW-300: the estimated cost, its notes (edited in place) and who made it.
+    {
+      id: "est-total",
+      header: "Est. total",
+      accessorFn: (list) => list.estTotalCents,
+      cell: ({ row }) => centsLabel(row.original.estTotalCents),
+      meta: { fieldGroup: "internal_cost" },
+    },
+    {
+      id: "notes",
+      header: "Notes",
+      accessorFn: (list) => list.notes,
+      meta: { edit: "text", canEdit: () => canEdit,
+        onEdit: async (list, value) => { await orderListsApi.setNotes(list.id, value); lists.reload(); } },
+    },
+    { id: "created-by", header: "Created by", accessorFn: (list) => list.createdBy?.name || "—" },
     {
       id: "updated",
       header: "Updated",
@@ -125,6 +146,7 @@ export function PurchasingPage() {
             <DataTable
               copyKey="purchasing.table"
               openColumn
+              selection={{ rowId: (list) => list.id, ...deletable }}
               data={rows}
               columns={columns}
               onRow={(list) => navigate(`/inventory/orders/${list.id}`)}
@@ -135,6 +157,11 @@ export function PurchasingPage() {
           <p className="table-hint">
             <T id="purchasing.page.status-moves-through">{"Status moves through Submit, Approve and Receive on the list itself; lines are edited inside the list."}</T>
           </p>
+          {lists.data?.some((list) => !isDeletableList(list.status)) && deletable.onDelete && (
+            <p className="table-hint">
+              <T id="purchasing.page.delete-rule">Only Draft, Rejected and Cancelled lists can be deleted.</T>
+            </p>
+          )}
         </Block>
       </PageGrid>
       {creating && <NewOrderList onClose={() => setCreating(false)} onCreated={(list) => navigate(`/inventory/orders/${list.id}`)} />}

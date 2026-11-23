@@ -6,6 +6,7 @@ export const orderListsApi = {
   get: (id: string) => request(orderListSchema, `/api/order-lists/${id}`),
   create: (from: string, to: string) => request(orderListSchema, "/api/order-lists", "POST", { from, to }),
   update: (id: string, lines: OrderLine[]) => request(orderListSchema, `/api/order-lists/${id}`, "PUT", { lines }),
+  setNotes: (id: string, notes: string) => request(orderListSchema, `/api/order-lists/${id}`, "PATCH", { notes }),
   submit: (id: string) => request(orderListSchema, `/api/order-lists/${id}/submit`, "POST", {}),
   // Ordering record (FLOW-87) and receiving (FLOW-88).
   recordOrder: (id: string, input: RecordOrderInput) =>

@@ -20,6 +20,8 @@ export type OrderLine = z.infer<typeof orderLineSchema>;
 export const orderListInputSchema = z.object({ from: localDate, to: localDate })
   .refine((value) => value.from <= value.to, "End date must be on or after start date.");
 export const orderListLinesSchema = z.object({ lines: z.array(orderLineSchema).max(500) });
+// PATCH /api/order-lists/<id>: the list's notes, edited inline (FLOW-300).
+export const orderListNotesSchema = z.object({ notes: text(2000) });
 
 // Order list statuses (Q-15, FLOW-87): draft → submitted → approved → ordered →
 // partially_received → received | cancelled. A rejected list goes back to editing.
@@ -29,6 +31,25 @@ export type OrderListStatus = (typeof orderListStatuses)[number];
 // Statuses after approval, when the list's lines are fixed and orders are recorded.
 export const placedListStatuses = ["approved", "ordered", "partially_received", "received", "cancelled"] as const;
 export const isPlaced = (status: OrderListStatus) => (placedListStatuses as readonly string[]).includes(status);
+// Only these lists can be deleted from the Purchasing tab (FLOW-300).
+export const deletableListStatuses = ["draft", "rejected", "cancelled"] as const;
+export const isDeletableList = (status: OrderListStatus) =>
+  (deletableListStatuses as readonly string[]).includes(status);
+
+// The list's estimated cost (FLOW-300): quantity × the item's unit cost per line,
+// in cents. Lines whose item has no cost add nothing; null when none has one.
+export function estimatedTotalCents(
+  lines: Pick<OrderLine, "itemId" | "quantity">[],
+  unitCosts: Map<string, number | null>,
+): number | null {
+  let total: number | null = null;
+  for (const line of lines) {
+    const cost = unitCosts.get(line.itemId);
+    if (cost == null) continue;
+    total = (total ?? 0) + Math.round(line.quantity * cost);
+  }
+  return total;
+}
 
 // One vendor's order, placed by hand on the vendor's portal and recorded here
 // (FLOW-87), then received line by line (FLOW-88).
@@ -80,6 +101,12 @@ export const orderListSchema = orderListInputSchema.safeExtend({
   id, status: z.enum(orderListStatuses),
   lines: z.array(orderLineSchema), approvalId: id.nullable(),
   orders: z.array(vendorOrderSchema).default([]),
+  // List-level notes (FLOW-300).
+  notes: z.string().default(""),
+  // Sum of each line's quantity × its item's unit cost (FLOW-300). Null when the
+  // user can't see internal costs, or no line has a cost.
+  estTotalCents: z.number().int().nullable().default(null),
+  createdBy: z.object({ id, name: z.string() }).nullable().default(null),
   createdAt: timestamp, updatedAt: timestamp,
 });
 export type OrderList = z.infer<typeof orderListSchema>;

@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { id } from "../../shared/schema-primitives";
-import { orderListInputSchema, orderListLinesSchema, receiveInputSchema,
+import { orderListInputSchema, orderListLinesSchema, orderListNotesSchema, receiveInputSchema,
   recordOrderInputSchema } from "../../shared/order-lists";
 import { requirePermission } from "../auth";
 import { notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../hono";
 import { cancelOrder, cancelOrderList, createOrderList, getOrderList, listOrderLists, receiveOrder,
-  recordOrder, submitOrderList, updateOrderList } from "../records/order-lists";
+  recordOrder, submitOrderList, updateOrderList, updateOrderListNotes } from "../records/order-lists";
 
 export function orderListRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
@@ -29,6 +29,11 @@ export function orderListRoutes(options: { withDb?: RunWithDb }) {
   routes.put("/:id", requirePermission("order_lists.write"), async (c) => {
     const { lines } = await parseBody(c, orderListLinesSchema);
     return c.json(await record(c, (db, actor) => updateOrderList(db, actor, param(c.req.param("id")), lines)));
+  });
+  // The list's notes, edited inline on the Purchasing tab (FLOW-300).
+  routes.patch("/:id", requirePermission("order_lists.write"), async (c) => {
+    const { notes } = await parseBody(c, orderListNotesSchema);
+    return c.json(await record(c, (db, actor) => updateOrderListNotes(db, actor, param(c.req.param("id")), notes)));
   });
   routes.post("/:id/submit", requirePermission("order_lists.write"), async (c) => c.json(await record(c, (db, actor) => submitOrderList(db, actor, param(c.req.param("id"))))));
   // Ordering record (FLOW-87): Admin records each vendor's portal order.

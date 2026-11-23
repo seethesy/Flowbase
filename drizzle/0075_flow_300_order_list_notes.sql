@@ -1,0 +1,3 @@
+ALTER TABLE "deletions" DROP CONSTRAINT "deletions_entity_type_check";--> statement-breakpoint
+ALTER TABLE "order_lists" ADD COLUMN "notes" text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "deletions" ADD CONSTRAINT "deletions_entity_type_check" CHECK ("deletions"."entity_type" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop', 'beo', 'order_list'));

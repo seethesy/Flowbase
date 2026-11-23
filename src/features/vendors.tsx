@@ -82,6 +82,26 @@ export function VendorList() {
     });
     vendors.reload();
   };
+  // FLOW-300: the Phone column edits the main contact's phone: the first contact
+  // with a phone, else the first contact. A vendor with no contacts gets one named
+  // after the vendor. Contacts are FT+ only (null otherwise), so only they edit it.
+  const editPhone = async (vendor: Vendor, phone: string) => {
+    const current = await vendorsApi.get(vendor.id);
+    const contacts = current.contacts ?? [];
+    const main = contacts.findIndex((contact) => contact.phone) >= 0
+      ? contacts.findIndex((contact) => contact.phone) : contacts.length ? 0 : -1;
+    const next = main < 0
+      ? [{ name: current.name, role: "", email: "", phone }]
+      : contacts.map((contact, index) => (index === main ? { ...contact, phone } : contact));
+    await vendorsApi.update(vendor.id, {
+      name: current.name, type: current.type, portalUrl: current.portalUrl,
+      orderCutoff: current.orderCutoff, deliveryDays: current.deliveryDays,
+      minimumOrderCents: current.minimumOrderCents, leadTimeDays: current.leadTimeDays,
+      orderingInstructions: current.orderingInstructions, notes: current.notes,
+      contacts: next,
+    });
+    vendors.reload();
+  };
   const columns: ColumnDef<Vendor, unknown>[] = [
     { accessorKey: "name", header: "Vendor", meta: { edit: "text", canEdit: () => can("inventory.write"), onEdit: (row, value) => edit(row, { name: value }) } },
     {
@@ -130,6 +150,9 @@ export function VendorList() {
       id: "phone",
       header: "Phone",
       accessorFn: (vendor) => vendor.contacts?.find((contact) => contact.phone)?.phone ?? "—",
+      meta: { edit: "text", editValue: (row) => row.contacts?.find((contact) => contact.phone)?.phone ?? "",
+        canEdit: (row) => can("inventory.write") && row.contacts !== null,
+        onEdit: (row, value) => editPhone(row, value.trim()) },
     },
   ];
   // The preview's order (FLOW-266): Vendor, Type, Lead time, Order cutoff,

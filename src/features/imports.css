@@ -61,3 +61,19 @@
 .import-cards a {
   justify-self: start;
 }
+
+/* One import record, read-only (FLOW-300). */
+.import-log-detail {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.import-log-detail div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.import-log-detail dd {
+  margin: 0;
+  font-weight: 600;
+}

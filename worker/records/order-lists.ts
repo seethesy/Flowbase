@@ -1,11 +1,13 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
-import { isPlaced, suggestOrderLines, type OrderCandidate, type OrderLine, type OrderList,
+import { estimatedTotalCents, isDeletableList, isPlaced, suggestOrderLines, type OrderCandidate, type OrderLine, type OrderList,
   type ReceiveInput, type RecordOrderInput, type VendorOrder } from "../../shared/order-lists";
 import type { Unit } from "../../shared/units";
 import type { Db, DbLike } from "../db/client";
 import { consumableAllocations, events, inventoryConsumableDetails, inventoryItems,
-  inventoryStock, orderLists, vendors } from "../db/schema";
+  inventoryStock, orderLists, users, vendors } from "../db/schema";
+import { canSeeField } from "../../shared/visibility";
+import { writeAudit } from "../audit/log";
 import { ApiError, forbidden, notFound } from "../hono";
 import { can } from "../policy";
 import { registerApprovalSubject, requestApproval } from "./approvals";
@@ -15,11 +17,35 @@ import { cancelOrderList as cancelList, cancelVendorOrder, ordersByList, receive
 const requireEditor = (actor: Actor) => {
   if (!can(actor, "order_lists.write")) throw forbidden();
 };
-const toList = (row: typeof orderLists.$inferSelect, orders: VendorOrder[] = []): OrderList => ({
+type ListRow = typeof orderLists.$inferSelect;
+type Extras = { estTotalCents: number | null; createdBy: OrderList["createdBy"] };
+const toList = (row: ListRow, orders: VendorOrder[] = [], extras?: Extras): OrderList => ({
   id: row.id, from: row.fromDate, to: row.toDate, status: row.status,
-  lines: row.lines, approvalId: row.approvalId, orders,
+  lines: row.lines, approvalId: row.approvalId, orders, notes: row.notes,
+  estTotalCents: extras?.estTotalCents ?? null, createdBy: extras?.createdBy ?? null,
   createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
 });
+
+// The Purchasing tab's Est. total and Created by (FLOW-300). Unit costs are
+// internal costs (F-01-04), so the total stays null for people who can't see them.
+async function listExtras(db: DbLike, actor: Actor, rows: ListRow[]): Promise<Map<string, Extras>> {
+  const canSeeCosts = canSeeField(actor, "internal_cost");
+  const itemIds = [...new Set(rows.flatMap((row) => row.lines.map((line) => line.itemId)))];
+  const creatorIds = [...new Set(rows.map((row) => row.createdBy).filter((value): value is string => !!value))];
+  const costs: { itemId: string; cents: number | null }[] = itemIds.length && canSeeCosts
+    ? await db.select({ itemId: inventoryConsumableDetails.itemId, cents: inventoryConsumableDetails.unitCostCents })
+      .from(inventoryConsumableDetails).where(inArray(inventoryConsumableDetails.itemId, itemIds))
+    : [];
+  const creators: { id: string; name: string }[] = creatorIds.length
+    ? await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, creatorIds))
+    : [];
+  const unitCosts = new Map<string, number | null>(costs.map((row) => [row.itemId, row.cents]));
+  const names = new Map(creators.map((row) => [row.id, row.name]));
+  return new Map(rows.map((row) => [row.id, {
+    estTotalCents: canSeeCosts ? estimatedTotalCents(row.lines, unitCosts) : null,
+    createdBy: row.createdBy ? { id: row.createdBy, name: names.get(row.createdBy) ?? "" } : null,
+  }]));
+}
 
 registerApprovalSubject("order_list", {
   approverRole: "admin",
@@ -77,21 +103,60 @@ export async function createOrderList(db: Db, actor: Actor, from: string, to: st
   const lines = await suggestOrderList(db, from, to);
   const [row] = await db.insert(orderLists).values({ fromDate: from, toDate: to, lines,
     createdBy: actor.userId, updatedBy: actor.userId }).returning();
-  return toList(row);
+  return toList(row, [], (await listExtras(db, actor, [row])).get(row.id));
 }
 export async function listOrderLists(db: DbLike, actor: Actor) {
   requireEditor(actor);
   const rows = await db.select().from(orderLists).where(isNull(orderLists.archivedAt))
     .orderBy(sql`${orderLists.createdAt} desc`).limit(100);
-  const orders = await ordersByList(db, actor, rows.map((row) => row.id));
-  return rows.map((row) => toList(row, orders.get(row.id)));
+  const [orders, extras] = await Promise.all([
+    ordersByList(db, actor, rows.map((row) => row.id)), listExtras(db, actor, rows)]);
+  return rows.map((row) => toList(row, orders.get(row.id), extras.get(row.id)));
 }
 export async function getOrderList(db: DbLike, actor: Actor, id: string) {
   requireEditor(actor);
   const [row] = await db.select().from(orderLists)
     .where(and(eq(orderLists.id, id), isNull(orderLists.archivedAt)));
   if (!row) throw notFound("Order list");
-  return toList(row, (await ordersByList(db, actor, [row.id])).get(row.id));
+  const [orders, extras] = await Promise.all([
+    ordersByList(db, actor, [row.id]), listExtras(db, actor, [row])]);
+  return toList(row, orders.get(row.id), extras.get(row.id));
+}
+
+// The list's notes, edited inline on the Purchasing tab (FLOW-300), in any status.
+export async function updateOrderListNotes(db: Db, actor: Actor, id: string, notes: string) {
+  requireEditor(actor);
+  const [row] = await db.update(orderLists).set({ notes, updatedBy: actor.userId, updatedAt: new Date() })
+    .where(and(eq(orderLists.id, id), isNull(orderLists.archivedAt))).returning({ id: orderLists.id });
+  if (!row) throw notFound("Order list");
+  return getOrderList(db, actor, id);
+}
+
+// Bulk delete (FLOW-300): only Draft, Rejected and Cancelled lists; the others
+// wait for approval or have orders recorded against them.
+export async function orderListDeleteName(db: Db, actor: Actor, id: string) {
+  const list = await getOrderList(db, actor, id);
+  return `Order list ${list.from} – ${list.to}`;
+}
+export async function orderListDeleteBlocked(db: DbLike, actor: Actor, id: string) {
+  const list = await getOrderList(db, actor, id);
+  return isDeletableList(list.status) ? null : "only Draft, Rejected and Cancelled lists can be deleted";
+}
+export async function setOrderListArchived(db: Db, actor: Actor, id: string, archived: boolean) {
+  requireEditor(actor);
+  await db.transaction(async (tx) => {
+    const [row] = await tx.select().from(orderLists).where(eq(orderLists.id, id)).for("update");
+    if (!row || (archived && row.archivedAt)) throw notFound("Order list");
+    if (archived && !isDeletableList(row.status))
+      throw new ApiError(409, "ORDER_LIST_NOT_DELETABLE", "Only Draft, Rejected and Cancelled lists can be deleted.");
+    const [updated] = await tx.update(orderLists)
+      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId, updatedAt: new Date() })
+      .where(eq(orderLists.id, id)).returning();
+    const snapshot = (value: ListRow) => ({ status: value.status, from: value.fromDate, to: value.toDate,
+      archivedAt: value.archivedAt?.toISOString() ?? null });
+    await writeAudit(tx, actor, { entityType: "order_list", entityId: id,
+      action: archived ? "archive" : "restore", before: snapshot(row), after: snapshot(updated) });
+  });
 }
 export async function updateOrderList(db: Db, actor: Actor, id: string, lines: OrderLine[]) {
   requireEditor(actor);
