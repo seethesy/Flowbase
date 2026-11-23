@@ -32,7 +32,8 @@ const screens = [
   { title: "Calendar", path: "/#/calendar", pageKey: "calendar.page", id: "calendar", name: "Calendar" },
   { title: "Tasks", path: "/#/tasks", pageKey: "tasks.dashboard", id: "my-tasks", name: "My tasks" },
   { title: "Recipes", path: "/#/recipes", pageKey: "recipes.list", id: "list", name: "List" },
-  { title: "Proposals list", path: "/#/proposals", pageKey: "sales.tracker", id: "table", name: "Sales table" },
+  { title: "Proposals list", path: "/#/proposals", pageKey: "proposals.library", id: "files", name: "Proposal files" },
+  { title: "Sales", path: "/#/sales", pageKey: "sales.tracker", id: "table", name: "Sales table" },
 ];
 
 for (const screen of screens)
@@ -41,7 +42,7 @@ for (const screen of screens)
     await page.getByRole("button", { name: "Edit screen text" }).click();
     await halfWidthAndDown(page, screen.name);
     await save(page);
-    await expect(block(page, screen.pageKey, screen.id)).toHaveCSS("grid-column-end", "span 6");
+    await expect(block(page, screen.pageKey, screen.id)).toHaveAttribute("style", /grid-column: \d+ \/ span 6/);
     const placed = await block(page, screen.pageKey, screen.id).getAttribute("style");
 
     const context = await browser.newContext();
@@ -49,7 +50,7 @@ for (const screen of screens)
     await mockBrowserAuth(other, { userId: manager.id });
     await other.goto(screen.path);
     const seen = block(other, screen.pageKey, screen.id);
-    await expect(seen).toHaveCSS("grid-column-end", "span 6");
+    await expect(seen).toHaveAttribute("style", /grid-column: \d+ \/ span 6/);
     expect(await seen.getAttribute("style")).toBe(placed);
     await context.close();
   });
@@ -62,9 +63,9 @@ test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async
   await page.getByRole("button", { name: "Edit screen text" }).click();
   await halfWidthAndDown(page, "Final notes");
   await save(page);
-  await expect(block(page, "events.closeout", "finish")).toHaveCSS("grid-column-end", "span 6");
+  await expect(block(page, "events.closeout", "finish")).toHaveAttribute("style", /grid-column: \d+ \/ span 6/);
   await page.reload();
-  await expect(block(page, "events.closeout", "finish")).toHaveCSS("grid-column-end", "span 6");
+  await expect(block(page, "events.closeout", "finish")).toHaveAttribute("style", /grid-column: \d+ \/ span 6/);
   await expect(page.getByLabel("Final notes")).toBeVisible();
 });
 

@@ -48,8 +48,8 @@ wording. With no saved layout a page renders exactly as its code does.
 ## Added in FLOW-278
 
 - Every main screen is on the grid: Calendar, Day-of, Tasks (dashboard, all
-  tasks, templates), Recipes and recipe books, SOPs, Sales (Proposals list and
-  reports), Approval queue, Lead dashboard, Production, Master inventory, Order
+  tasks, templates), Recipes and recipe books, SOPs, Sales (tracker and
+  reports), the Proposals library, Approval queue, Lead dashboard, Production, Master inventory, Order
   lists, Kitchen orders, Stock counts, Time tracking, Operational reports,
   Imports, Settings, Usage, Operations and Users. Search (a dialog) and
   Notifications (a section of the profile page) are not pages.

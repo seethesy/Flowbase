@@ -2957,6 +2957,13 @@
         "proposal-facts"
       ]
     },
+    "proposals.library": {
+      "blocks": [
+        "files",
+        "filters"
+      ],
+      "fieldCards": []
+    },
     "recipes.client-book": {
       "blocks": [
         "dishes",
