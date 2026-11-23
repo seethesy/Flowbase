@@ -1,5 +1,5 @@
 import { Dropdown } from "../components/ui/Dropdown";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   clockLabel,
@@ -8,130 +8,266 @@ import {
   dayOfStaffStatusLabels,
   dayOfTruckStatusLabels,
   type DayOfCheckpoint,
+  type DayOfEvent,
   type DayOfStaff,
   type DayOfTruck,
 } from "../../shared/day-of";
 import { truckStatuses } from "../../shared/trucks";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { useResource } from "../app/useResource";
-import { Button, LoadingSkeleton, Section } from "../components/shared";
+import { Button, EditableCell, LoadingSkeleton, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
+import { StatusPill } from "../components/ui/status-pill";
 import { dayOfApi } from "../services/day-of";
 import { csvFileName, downloadCsv, toCsv } from "../services/csv";
-import { RoundCheck } from "../components/ui/round-check";
-import { T, LabelT } from "../app/copy";
+import { T, LabelT, useCopy } from "../app/copy";
+import { EventsHeading } from "./events-heading";
+import "./day-of.css";
 
-const clock = (instant: string) => clockLabel(utcToBusinessTime(new Date(instant)).time);
+// "4:00 PM", as the board's checkpoints read (FLOW-265).
+const time12 = (instant: string) => {
+  const [hours, minutes] = utcToBusinessTime(new Date(instant)).time.split(":").map(Number);
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${hours < 12 ? "AM" : "PM"}`;
+};
+const longDate = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
 
-// The live board for one date (FLOW-155). Phone first: one card per event, a
-// row per person, truck and checkpoint. Everyone who can open an event sees it;
-// managers also get the controls. Other people's updates arrive through the
-// shared freshness service, so nothing here polls.
+const staffTone: Record<DayOfStaff["status"], string> = {
+  scheduled: "badge neutral",
+  en_route: "badge day-of-en-route",
+  on_site: "badge info",
+  working: "badge success",
+  on_break: "badge warning",
+  done: "badge neutral",
+};
+const truckTone: Record<DayOfTruck["status"], string> = {
+  available: "badge success",
+  loading: "badge warning",
+  en_route: "badge day-of-en-route",
+  at_event: "badge info",
+  returning: "badge info",
+  maintenance: "badge error",
+};
+
+// The Events screen's Day-of tab (FLOW-265; the live board, FLOW-155). Phone
+// first: one card per event with its four checkpoints (planned and actual, and
+// "Record now"), staff and trucks with status pill dropdowns, Mark urgent, and
+// the event's day-of log with an add-note box. Everyone who can open an event
+// sees it; managers also get the controls. Mark urgent is per card (A2): while
+// on, that card's updates text the people affected. Other people's updates
+// arrive through the shared freshness service, so nothing here polls.
 export function DayOfPage() {
   const [params, setParams] = useSearchParams();
   const today = utcToBusinessTime(new Date()).date;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : today;
   const board = useResource(["day-of", date], () => dayOfApi.board(date));
-  const [urgent, setUrgent] = useState(false);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const go = (next: string) => setParams({ date: next });
-  const run = async (action: () => Promise<unknown>) => {
-    setBusy(true);
-    setError("");
+  const [exportError, setExportError] = useState("");
+  const go = (next: string) => setParams(next === today ? {} : { date: next });
+  // Every event's log entries made on this date, oldest first.
+  const exportCsv = async () => {
+    setExportError("");
     try {
-      await action();
-      board.reload();
+      const logs = await Promise.all((board.data?.events ?? []).map((event) => dayOfApi.log(event.id)));
+      const rows = logs
+        .flatMap((log) => log.entries.map((entry) => ({ entry, title: board.data!.events.find((event) => event.id === log.eventId)?.title ?? "" })))
+        .filter(({ entry }) => utcToBusinessTime(new Date(entry.at)).date === date)
+        .sort((a, b) => a.entry.at.localeCompare(b.entry.at))
+        .map(({ entry, title }) => {
+          const { date: day, time } = utcToBusinessTime(new Date(entry.at));
+          return [title, day, time, entry.kind, entry.truckName ?? "", entry.subjectName, entry.summary, entry.urgent, entry.actorName ?? ""];
+        });
+      downloadCsv(csvFileName(`day-of ${date}`), toCsv(["Event", ...dayOfLogCsvHeaders], rows));
     } catch (cause) {
-      setError((cause as Error).message);
-    } finally {
-      setBusy(false);
+      setExportError((cause as Error).message);
     }
   };
 
   return (
     <>
-      <div className="record-heading">
-        <div>
-          <h1><T id="day-of.day-of-page.day-of-board">Day-of board</T></h1>
-          <p>{date === today ? <T id="day-of.day-of-page.today">Today</T> : date}</p>
-        </div>
-        <div className="page-actions">
-          <Button variant="ghost" onClick={() => go(addLocalDays(date, -1))}><T id="day-of.day-of-page.previous-day">Previous day</T></Button>
-          <input type="date" aria-label="Board date" value={date} onChange={(e) => e.target.value && go(e.target.value)} />
-          <Button variant="ghost" onClick={() => go(addLocalDays(date, 1))}><T id="day-of.day-of-page.next-day">Next day</T></Button>
-        </div>
+      <EventsHeading tab="day-of">
+        <Button variant="outline" onClick={() => void exportCsv()} disabled={!board.data?.events.length}>
+          <T id="day-of.day-of-page.export-csv">Export CSV</T>
+        </Button>
+      </EventsHeading>
+      <div className="day-of-stepper">
+        <Button variant="outline" size="icon" aria-label="Previous day" onClick={() => go(addLocalDays(date, -1))}>‹</Button>
+        <Button variant="outline" onClick={() => go(today)}><T id="day-of.day-of-page.today-button">Today</T></Button>
+        <Button variant="outline" size="icon" aria-label="Next day" onClick={() => go(addLocalDays(date, 1))}>›</Button>
+        <h2>
+          {longDate(date)}
+          {date === today && <T id="day-of.day-of-page.today-suffix">{" · Today"}</T>}
+        </h2>
       </div>
+      {exportError && <p role="alert" className="error-message">{exportError}</p>}
       {board.error && <LoadError message={board.error} />}
       {!board.data && !board.error && <LoadingSkeleton />}
-      {error && <p role="alert" className="error-message">{error}</p>}
-      {board.data?.canUpdate && (
-        <label>
-          <RoundCheck checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /><T id="day-of.day-of-page.urgent-text-the-people-affected">{" Urgent: text the people affected"}</T>
-        </label>
-      )}
       {board.data && !board.data.events.length && <p><T id="day-of.day-of-page.no-events-on-this-date">No events on this date.</T></p>}
       {board.data?.events.map((event) => (
-        <Section key={event.id} title={event.title}>
-          <p>
-            <span className="badge neutral">{event.status}</span> {clock(event.startsAt)}
-            {event.endsAt ? ` – ${clock(event.endsAt)}` : ""}
-            {event.venueName ? ` · ${event.venueName}` : ""}
-          </p>
-          {event.checkpoints.length > 0 && (
-            <ul aria-label={`${event.title} timeline`} className="planning-list">
-              {event.checkpoints.map((checkpoint) => (
-                <CheckpointRow
-                  key={checkpoint.key}
-                  checkpoint={checkpoint}
-                  canUpdate={board.data!.canUpdate}
-                  busy={busy}
-                  onToggle={() =>
-                    run(() =>
-                      dayOfApi.setCheckpoint(event.id, checkpoint.key, {
-                        reached: !checkpoint.reachedAt,
-                        urgent,
-                      }),
-                    )
-                  }
-                />
-              ))}
-            </ul>
-          )}
-          <h3><T id="day-of.day-of-page.trucks">Trucks</T></h3>
-          {!event.trucks.length && <p><T id="day-of.day-of-page.no-trucks-assigned">No trucks assigned.</T></p>}
-          <ul aria-label={`${event.title} trucks`} className="planning-list">
-            {event.trucks.map((truck) => (
-              <TruckRow
-                key={truck.assignmentId}
-                truck={truck}
-                canUpdate={board.data!.canUpdate}
-                busy={busy}
-                onSave={(input) => run(() => dayOfApi.updateTruck(truck.assignmentId, { ...input, urgent }))}
-              />
-            ))}
-          </ul>
-          <h3><T id="day-of.day-of-page.staff">Staff</T></h3>
-          {!event.staff.length && <p><T id="day-of.day-of-page.no-staff-scheduled">No staff scheduled.</T></p>}
-          <ul aria-label={`${event.title} staff`} className="planning-list">
-            {event.staff.map((member) => (
-              <StaffRow
-                key={member.slotId}
-                member={member}
-                canUpdate={board.data!.canUpdate}
-                busy={busy}
-                onSave={(input) => run(() => dayOfApi.updateStaff(member.slotId, { ...input, urgent }))}
-              />
-            ))}
-          </ul>
-        </Section>
+        <DayOfCard key={event.id} event={event} canUpdate={board.data!.canUpdate} onChanged={board.reload} />
       ))}
     </>
   );
 }
 
-function CheckpointRow({
+function DayOfCard({ event, canUpdate, onChanged }: { event: DayOfEvent; canUpdate: boolean; onChanged: () => void }) {
+  const [urgent, setUrgent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const log = useResource(["day-of-log", event.id], () => dayOfApi.log(event.id));
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+      onChanged();
+      log.reload();
+      return true;
+    } catch (cause) {
+      setError((cause as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const service = time12(event.startsAt);
+  return (
+    <section className="day-of-card" aria-label={event.title}>
+      <header className="day-of-card-head">
+        <h2>{event.title}</h2>
+        <StatusPill status={event.status} />
+        <span className="day-of-card-meta">
+          {event.venueName && <>{event.venueName} · </>}
+          {event.guestCount != null && <T id="day-of.card.guests" values={{ count: event.guestCount }}>{"{count} guests · "}</T>}
+          <T id="day-of.card.service" values={{ time: service }}>{"Service {time}"}</T>
+        </span>
+        {canUpdate && (
+          <Button variant={urgent ? "default" : "outline"} aria-pressed={urgent} onClick={() => setUrgent(!urgent)}
+            title="While on, updates on this card text the people affected">
+            {urgent ? <T id="day-of.card.urgent-on">Urgent on</T> : <T id="day-of.card.mark-urgent">Mark urgent</T>}
+          </Button>
+        )}
+      </header>
+      {error && <p role="alert" className="error-message">{error}</p>}
+      {event.checkpoints.length > 0 && (
+        <ul aria-label={`${event.title} timeline`} className="day-of-checkpoints">
+          {event.checkpoints.map((checkpoint) => (
+            <CheckpointCell
+              key={checkpoint.key}
+              checkpoint={checkpoint}
+              canUpdate={canUpdate}
+              busy={busy}
+              onToggle={() =>
+                void run(() => dayOfApi.setCheckpoint(event.id, checkpoint.key, { reached: !checkpoint.reachedAt, urgent }))
+              }
+            />
+          ))}
+        </ul>
+      )}
+      <div className="day-of-columns">
+        <div>
+          <h3><T id="day-of.card.staff-count" values={{ count: event.staff.length }}>{"Staff ({count})"}</T></h3>
+          {!event.staff.length && <p className="muted"><T id="day-of.day-of-page.no-staff-scheduled">No staff scheduled.</T></p>}
+          <ul aria-label={`${event.title} staff`} className="day-of-rows">
+            {event.staff.map((member) => (
+              <li key={member.slotId}>
+                <strong>{member.name}</strong>
+                <span className="muted">{member.position}</span>
+                <StatusChoice
+                  label={`${member.name} status`}
+                  value={member.status}
+                  options={dayOfStaffStatuses.map((value) => ({ value, label: <LabelT id="labels.day-of-staff-status" value={value}>{dayOfStaffStatusLabels[value]}</LabelT>, text: dayOfStaffStatusLabels[value] }))}
+                  tone={(value) => staffTone[value as DayOfStaff["status"]]}
+                  disabled={!canUpdate || busy}
+                  onChange={(value) => void run(() => dayOfApi.updateStaff(member.slotId, { status: value as DayOfStaff["status"], urgent }))}
+                />
+                {canUpdate ? (
+                  <EditableCell label={`${member.name} location`} row={member} edit="text" value={member.location}
+                    save={(_row, location) => run(() => dayOfApi.updateStaff(member.slotId, { location, urgent })).then((ok) => { if (!ok) throw new Error("Not saved."); })} />
+                ) : member.location ? <small>{member.location}</small> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3><T id="day-of.day-of-page.trucks">Trucks</T></h3>
+          {!event.trucks.length && <p className="muted"><T id="day-of.day-of-page.no-trucks-assigned">No trucks assigned.</T></p>}
+          <ul aria-label={`${event.title} trucks`} className="day-of-rows">
+            {event.trucks.map((truck) => (
+              <li key={truck.assignmentId}>
+                <strong>{truck.name}</strong>
+                <span className="muted">{truck.driverName ?? <T id="day-of.truck-row.unassigned">Unassigned</T>}</span>
+                <StatusChoice
+                  label={`${truck.name} status`}
+                  value={truck.status}
+                  options={truckStatuses.map((value) => ({ value, label: <LabelT id="labels.day-of-truck-status" value={value}>{dayOfTruckStatusLabels[value]}</LabelT>, text: dayOfTruckStatusLabels[value] }))}
+                  tone={(value) => truckTone[value as DayOfTruck["status"]]}
+                  disabled={!canUpdate || busy}
+                  onChange={(value) => void run(() => dayOfApi.updateTruck(truck.assignmentId, { status: value as DayOfTruck["status"], urgent }))}
+                />
+                {canUpdate ? (
+                  <EditableCell label={`${truck.name} location`} row={truck} edit="text" value={truck.location}
+                    save={(_row, location) => run(() => dayOfApi.updateTruck(truck.assignmentId, { location, urgent })).then((ok) => { if (!ok) throw new Error("Not saved."); })} />
+                ) : truck.location ? <small>{truck.location}</small> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="day-of-log">
+        <h3><T id="day-of.event-day-of-section.day-of-log">Day-of log</T></h3>
+        {log.error && <LoadError message={log.error} />}
+        <ul aria-label={`${event.title} day-of log`}>
+          {(log.data?.entries ?? []).map((entry) => (
+            <li key={entry.id}>
+              <small>{time12(entry.at)}</small>
+              <span>
+                {entry.urgent && <span className="badge error"><T id="day-of.event-day-of-section.urgent">Urgent</T></span>}{" "}
+                <strong>{entry.actorName ?? <T id="day-of.event-day-of-section.system">System</T>}</strong> · {entry.summary}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {canUpdate && (
+          <form
+            className="day-of-note"
+            onSubmit={(submit) => {
+              submit.preventDefault();
+              const text = note.trim();
+              if (text) void run(() => dayOfApi.addNote(event.id, { text, urgent })).then((ok) => ok && setNote(""));
+            }}
+          >
+            <NoteInput value={note} onChange={setNote} label={`Note for ${event.title}`} />
+            <Button type="submit" disabled={busy || !note.trim()}><T id="day-of.card.add">Add</T></Button>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function NoteInput({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
+  const placeholder = useCopy("day-of.card.add-a-note.placeholder", "Add a note (e.g. guest count changed to 64)");
+  return <input aria-label={label} value={value} maxLength={1000} placeholder={placeholder} data-copy-id="day-of.card.add-a-note.placeholder" onChange={(e) => onChange(e.target.value)} />;
+}
+
+// A staff or truck status as a pill dropdown (FLOW-259), or a plain pill for
+// anyone who only watches.
+function StatusChoice({ label, value, options, tone, disabled, onChange }: {
+  label: string;
+  value: string;
+  options: { value: string; label: ReactNode; text: string }[];
+  tone: (value: string) => string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Dropdown variant="pill" aria-label={label} value={value} pill={tone} disabled={disabled}
+      options={options} onValueChange={(next) => next !== value && onChange(next)} />
+  );
+}
+
+function CheckpointCell({
   checkpoint,
   canUpdate,
   busy,
@@ -143,126 +279,29 @@ function CheckpointRow({
   onToggle: () => void;
 }) {
   return (
-    <li className="planning-row">
-      <strong>{checkpoint.label}</strong>
+    <li className={checkpoint.reachedAt ? "reached" : undefined}>
+      <small>{checkpoint.label}</small>
       <span>
-        {checkpoint.reachedAt
-          ? checkpoint.reachedByName
-            ? <T id="day-of.checkpoint-row.reached-by" values={{ clock: clock(checkpoint.reachedAt), name: checkpoint.reachedByName }}>{"Reached {clock} by {name}"}</T>
-            : <T id="day-of.checkpoint-row.reached" values={{ clock: clock(checkpoint.reachedAt) }}>{"Reached {clock}"}</T>
-          : checkpoint.plannedAt
-            ? <T id="day-of.checkpoint-row.planned" values={{ clock: clock(checkpoint.plannedAt) }}>{"Planned {clock}"}</T>
-            : <T id="day-of.checkpoint-row.not-marked">Not marked</T>}
+        {checkpoint.plannedAt
+          ? <T id="day-of.checkpoint.planned" values={{ time: time12(checkpoint.plannedAt) }}>{"Planned {time}"}</T>
+          : <T id="day-of.checkpoint.no-plan">No planned time</T>}
       </span>
-      {canUpdate && (
-        <Button
-          variant="ghost"
-          disabled={busy}
-          aria-label={`${checkpoint.reachedAt ? "Clear" : "Mark"} ${checkpoint.label}`}
-          onClick={onToggle}
-        >
-          {checkpoint.reachedAt ? <T id="day-of.checkpoint-row.clear">Clear</T> : <T id="day-of.checkpoint-row.mark-now">Mark now</T>}
+      {checkpoint.reachedAt ? (
+        <span className="day-of-actual">
+          <T id="day-of.checkpoint.actual" values={{ time: time12(checkpoint.reachedAt) }}>{"Actual {time}"}</T>
+          {checkpoint.reachedByName && <small> · {checkpoint.reachedByName}</small>}
+          {canUpdate && (
+            <button type="button" className="day-of-clear" disabled={busy} aria-label={`Clear ${checkpoint.label}`} onClick={onToggle}>
+              <T id="day-of.checkpoint-row.clear">Clear</T>
+            </button>
+          )}
+        </span>
+      ) : canUpdate ? (
+        <Button variant="outline" disabled={busy} aria-label={`Record ${checkpoint.label} now`} onClick={onToggle}>
+          <T id="day-of.checkpoint.record-now">Record now</T>
         </Button>
-      )}
-    </li>
-  );
-}
-
-function TruckRow({
-  truck,
-  canUpdate,
-  busy,
-  onSave,
-}: {
-  truck: DayOfTruck;
-  canUpdate: boolean;
-  busy: boolean;
-  onSave: (input: { status?: DayOfTruck["status"]; location?: string }) => void;
-}) {
-  const [location, setLocation] = useState(truck.location);
-  return (
-    <li className="planning-row">
-      <strong>{truck.name}</strong>
-      <span><T id="day-of.truck-row.driver">{"Driver: "}</T>{truck.driverName ?? <T id="day-of.truck-row.unassigned">Unassigned</T>}</span>
-      {canUpdate ? (
-        <>
-          <Dropdown
-            aria-label={`${truck.name} status`}
-            value={truck.status}
-            disabled={busy}
-            onChange={(e) => onSave({ status: e.target.value as DayOfTruck["status"] })}
-          >
-            {truckStatuses.map((status) => (
-              <option key={status} value={status}>{dayOfTruckStatusLabels[status]}</option>
-            ))}
-          </Dropdown>
-          <input
-            aria-label={`${truck.name} location`}
-            value={location}
-            maxLength={200}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-          <Button
-            variant="ghost"
-            disabled={busy || location === truck.location}
-            aria-label={`Save ${truck.name} location`}
-            onClick={() => onSave({ location })}
-          >
-            <T id="day-of.truck-row.save">Save</T>
-          </Button>
-        </>
       ) : (
-        <span><LabelT id="labels.day-of-truck-status" value={truck.status}>{dayOfTruckStatusLabels[truck.status]}</LabelT>{truck.location ? ` · ${truck.location}` : ""}</span>
-      )}
-    </li>
-  );
-}
-
-function StaffRow({
-  member,
-  canUpdate,
-  busy,
-  onSave,
-}: {
-  member: DayOfStaff;
-  canUpdate: boolean;
-  busy: boolean;
-  onSave: (input: { status?: DayOfStaff["status"]; location?: string }) => void;
-}) {
-  const [location, setLocation] = useState(member.location);
-  return (
-    <li className="planning-row">
-      <strong>{member.name}</strong>
-      <span>{member.position}</span>
-      {canUpdate ? (
-        <>
-          <Dropdown
-            aria-label={`${member.name} status`}
-            value={member.status}
-            disabled={busy}
-            onChange={(e) => onSave({ status: e.target.value as DayOfStaff["status"] })}
-          >
-            {dayOfStaffStatuses.map((status) => (
-              <option key={status} value={status}>{dayOfStaffStatusLabels[status]}</option>
-            ))}
-          </Dropdown>
-          <input
-            aria-label={`${member.name} location`}
-            value={location}
-            maxLength={200}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-          <Button
-            variant="ghost"
-            disabled={busy || location === member.location}
-            aria-label={`Save ${member.name} location`}
-            onClick={() => onSave({ location })}
-          >
-            <T id="day-of.staff-row.save">Save</T>
-          </Button>
-        </>
-      ) : (
-        <span><LabelT id="labels.day-of-staff-status" value={member.status}>{dayOfStaffStatusLabels[member.status]}</LabelT>{member.location ? ` · ${member.location}` : ""}</span>
+        <span className="muted"><T id="day-of.checkpoint.not-yet">Not yet</T></span>
       )}
     </li>
   );

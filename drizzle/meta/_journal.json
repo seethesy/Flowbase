@@ -470,6 +470,13 @@
       "when": 1795304409538,
       "tag": "0066_flow_262_263_inventory_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1795420416566,
+      "tag": "0067_flow_265_day_of_notes",
+      "breakpoints": true
     }
   ]
 }
