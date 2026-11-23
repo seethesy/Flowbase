@@ -48,8 +48,8 @@ wording. With no saved layout a page renders exactly as its code does.
 ## Added in FLOW-278
 
 - Every main screen is on the grid: Calendar, Day-of, Tasks (dashboard, all
-  tasks, templates), Recipes and recipe books, SOPs, Sales (Proposals list and
-  reports), Approval queue, Lead dashboard, Production, Master inventory, Order
+  tasks, templates), Recipes and recipe books, SOPs, Sales (tracker and
+  reports), the Proposals library, Approval queue, Lead dashboard, Production, Master inventory, Order
   lists, Kitchen orders, Stock counts, Time tracking, Operational reports,
   Imports, Settings, Usage, Operations and Users. Search (a dialog) and
   Notifications (a section of the profile page) are not pages.
@@ -175,7 +175,7 @@ optional fields to show.
 - Newly covered pages: Documents, notification preferences on Profile, task
   detail, Archived, Collector health, inventory categories and sections, recipe
   detail, order detail, stock counting, import detail, Roles & permissions,
-  coming-soon pages and placeholders. Existing inventory planning and history
+  coming-soon pages, placeholders and the newly merged photo gallery pages. Existing inventory planning and history
   blocks were verified; legacy unrouted Proposals is excluded by agreement.
 - Documents' DataTable is layout-aware. SOP library column support is FLOW-281;
   FLOW-283 verifies it rather than adding a second implementation. Remaining
@@ -204,3 +204,5 @@ optional fields to show.
 - Layout audit snapshots include explicit delete/restore/permanent-delete actions.
 - Coverage: `tests/layout-deletion.test.ts`, `tests/e2e/layout-deletion.spec.ts`,
   and the SOP lifecycle checks in `tests/e2e/layout-remaining-pages.spec.ts`.
+
+Integration with main preserves FLOW-296 aggregate column resizing (no registry field chooser), FLOW-266 inventory filters and shortcuts, and the Documents `documents-table` id.

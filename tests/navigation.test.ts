@@ -33,25 +33,27 @@ describe("navigation groups", () => {
     ]);
     expect(headings(admin)).toHaveLength(9);
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Day-of", "Approvals"]);
-    expect(tabs(admin, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Venues"]);
-    expect(tabs(admin, "Events")).toEqual(["Calendar", "Production", "Day-of"]);
+    expect(tabs(admin, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+    expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
-    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
-    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients"]);
-    expect(tabs(admin, "Reports")).toEqual(["Time tracking", "Operational reports"]);
+    expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
+    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Menus", "Photos"]);
+    expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
+    expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents"]);
+    expect(tabs(admin, "Reports")).toEqual(["Overview", "Time tracking", "Operational reports"]);
   });
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
-    expect(tabs(salesperson, "Sales")).toEqual(["Leads", "Clients", "Proposals", "Venues"]);
-    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
-    expect(tabs(salesperson, "Reports")).toEqual(["Time tracking"]);
+    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+    expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
+    expect(tabs(salesperson, "Reports")).toEqual(["Overview", "Time tracking"]);
     // Staff can't read leads, clients or proposals, run imports or see operational reports.
-    expect(tabs(staff, "Sales")).toEqual(["Venues"]);
-    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors"]);
-    expect(tabs(staff, "Reports")).toEqual(["Time tracking"]);
+    expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues"]);
+    expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos"]);
+    expect(tabs(staff, "Reports")).toEqual(["Overview", "Time tracking"]);
     expect(headings(staff)).toHaveLength(9);
     // Signed out, only pages that need no permission remain.
-    expect(visibleGroups(null).map((group) => group.name)).toEqual(["Dashboard", "Marketing", "Documents"]);
+    expect(visibleGroups(null).map((group) => group.name)).toEqual(["Dashboard", "Documents"]);
   });
 
   it("keeps existing URLs under their heading, including record pages", () => {
@@ -64,11 +66,29 @@ describe("navigation groups", () => {
     expect(at("/leads")).toBe("Sales › Leads");
     expect(at("/leads/abc")).toBe("Sales › Leads");
     expect(at("/clients/cli-1")).toBe("Sales › Clients");
-    expect(at("/sales/reports")).toBe("Sales › Proposals");
+    expect(at("/proposals")).toBe("Sales › Proposals");
+    expect(at("/sales/reports")).toBe("Sales › Sales tracker");
     expect(at("/events/e-1/beo/b-1")).toBe("Events › Calendar");
+    expect(at("/beos")).toBe("Events › BEOs");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
+    // FLOW-266: Bar is its own tab; order lists sit under Purchasing.
+    expect(at("/inventory/bar")).toBe("Inventory › Bar");
+    expect(at("/inventory/orders/o-1")).toBe("Inventory › Purchasing");
     expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");
+    expect(at("/kitchen/menus")).toBe("Kitchen › Menus");
+    expect(at("/inventory/photos")).toBe("Inventory › Photos");
+    expect(at("/kitchen/photos")).toBe("Kitchen › Photos");
+    expect(at("/marketing")).toBe("Marketing › Photos");
     expect(at("/reports/operations")).toBe("Reports › Operational reports");
+    // FLOW-295: each heading's Overview, with the old tabs at their URLs.
+    expect(at("/sales/overview")).toBe("Sales › Overview");
+    expect(at("/sales")).toBe("Sales › Sales tracker");
+    expect(at("/marketing/overview")).toBe("Marketing › Overview");
+    expect(at("/marketing")).toBe("Marketing › Photos");
+    expect(at("/documents/overview")).toBe("Documents › Overview");
+    expect(at("/documents")).toBe("Documents › Documents");
+    expect(at("/reports/overview")).toBe("Reports › Overview");
+    expect(at("/reports")).toBe("Reports › Time tracking");
     expect(at("/settings")).toBeNull();
     // Day-of: one page, two entry points.
     expect(at("/day-of")).toBe("Dashboard › Day-of");
@@ -80,9 +100,10 @@ describe("breadcrumb trail", () => {
   it("builds Workspace / Heading / Tab with every segment but the last linked", () => {
     expect(trail("/approvals")).toEqual(["Workspace>/", "Dashboard>/", "Approvals"]);
     expect(trail("/")).toEqual(["Workspace>/", "Dashboard>/", "Overview"]);
-    expect(trail("/leads")).toEqual(["Workspace>/", "Sales>/leads", "Leads"]);
+    expect(trail("/leads")).toEqual(["Workspace>/", "Sales>/sales/overview", "Leads"]);
     expect(trail("/inventory/ingredients")).toEqual(["Workspace>/", "Kitchen>/recipes", "Ingredients"]);
-    expect(trail("/marketing")).toEqual(["Workspace>/", "Marketing"]);
+    expect(trail("/marketing")).toEqual(["Workspace>/", "Marketing>/marketing/overview", "Photos"]);
+    expect(trail("/reports/overview")).toEqual(["Workspace>/", "Reports>/reports/overview", "Overview"]);
     expect(trail("/day-of", admin, "Events")).toEqual(["Workspace>/", "Events>/calendar", "Day-of"]);
   });
 
@@ -92,7 +113,7 @@ describe("breadcrumb trail", () => {
       label: "Lead",
       record: { kind: "leads", id: "lead-1" },
     });
-    expect(trail("/leads/lead-1")).toEqual(["Workspace>/", "Sales>/leads", "Leads>/leads", "Lead"]);
+    expect(trail("/leads/lead-1")).toEqual(["Workspace>/", "Sales>/sales/overview", "Leads>/leads", "Lead"]);
     for (const [path, kind] of [
       ["/clients/c-1", "clients"],
       ["/venues/v-1", "venues"],
@@ -123,9 +144,10 @@ describe("breadcrumb trail", () => {
   });
 
   it("links a heading to the first tab the user can open", () => {
-    expect(trail("/venues", staff)).toEqual(["Workspace>/", "Sales>/venues", "Venues"]);
+    // The heading's Overview first (FLOW-295), for anyone who sees another tab.
+    expect(trail("/venues", staff)).toEqual(["Workspace>/", "Sales>/sales/overview", "Venues"]);
     // Signed out (e.g. tests rendering the header alone), every tab counts.
-    expect(trail("/venues", null)).toEqual(["Workspace>/", "Sales>/leads", "Venues"]);
+    expect(trail("/venues", null)).toEqual(["Workspace>/", "Sales>/sales/overview", "Venues"]);
   });
 });
 

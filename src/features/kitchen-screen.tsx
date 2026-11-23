@@ -1,0 +1,276 @@
+import { useState, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { scaleQuantity, type Recipe } from "../../shared/recipes";
+import { unitLabel } from "../../shared/units";
+import { utcToBusinessTime } from "../../shared/time";
+import { Block, PageGrid } from "../app/page-grid";
+import { LabelT, T } from "../app/copy";
+import { usePermissions } from "../app/permissions";
+import { useResource } from "../app/useResource";
+import { LoadError } from "../components/record-display";
+import { Button, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader } from "../components/shared";
+import { Dropdown } from "../components/ui/Dropdown";
+import { eventsApi } from "../services/core";
+import { documentsApi } from "../services/documents";
+import { weekday } from "./calendar-entries";
+import { DocumentUpload } from "./documents";
+import { centsLabel } from "./inventory-labels";
+import "./kitchen-screen.css";
+
+// The Kitchen screen's heading (FLOW-267), the same on its three tabs (Recipes,
+// Ingredients, Menus), each with its own line under it and actions.
+const subtitles = {
+  recipes: <T id="kitchen-screen.recipes.every-dish-with-its">Every dish with its ingredients, method, cost and allergens.</T>,
+  ingredients: <T id="kitchen-screen.ingredients.kitchen-ingredients-what-is">Kitchen ingredients: what is on hand, par levels, costs and who supplies them.</T>,
+  menus: <T id="kitchen-screen.menus.every-menu-pdf-in">{"Every menu PDF in one place: event menus, seasonal menus and the client recipe book. They're the same files as Documents › Menus."}</T>,
+};
+export function KitchenHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {
+  return (
+    <PageHeader pageKey={{ "recipes": "recipes.list", "ingredients": "inventory.consumables", "menus": "kitchen.menus" }[tab]} title={<T id="kitchen-screen.kitchen-heading.kitchen">Kitchen</T>} subtitle={subtitles[tab]}>
+      {children}
+    </PageHeader>
+  );
+}
+
+const amount = (quantity: number | null) =>
+  quantity === null ? "" : Number.isInteger(quantity) ? String(quantity) : String(Number(quantity.toFixed(3)));
+
+// The kitchen card (FLOW-267): a recipe at N servings. Amounts recalculate from
+// the yield as N changes (scaleQuantity); the method, allergen and dietary tags
+// and cost per serving (FT+ only, F-01-04) as on the recipe. Print kitchen card
+// and Edit recipe lead to the print page and the recipe.
+export function KitchenCard({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
+  const navigate = useNavigate();
+  const yieldServings = recipe.yield?.servings ?? null;
+  const [servings, setServings] = useState(String(yieldServings ?? ""));
+  const target = Number(servings);
+  return (
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={
+        <>
+          <small className="kitchen-card-kicker">
+            <T id="kitchen-screen.kitchen-card.kicker" values={{ category: recipe.category }}>{"Kitchen card · {category}"}</T>
+          </small>
+          {recipe.name}
+        </>
+      }
+      description={
+        <span className="kitchen-card-tags">
+          {recipe.allergens.map((tag) => (
+            <span key={tag} className="badge warning">
+              <T id="kitchen-screen.kitchen-card.contains" values={{ tag }}>{"Contains {tag}"}</T>
+            </span>
+          ))}
+          {recipe.dietaryTags.map((tag) => <span key={tag} className="badge success">{tag}</span>)}
+        </span>
+      }
+    >
+      {yieldServings ? (
+        <label className="kitchen-card-scale">
+          <T id="kitchen-screen.kitchen-card.scale-to">Scale to</T>
+          <input aria-label="Servings" type="number" min={1} value={servings} onChange={(event) => setServings(event.target.value)} />
+          <T id="kitchen-screen.kitchen-card.servings-yield" values={{ servings: yieldServings }}>{"servings (recipe yields {servings})"}</T>
+        </label>
+      ) : (
+        <p className="muted"><T id="kitchen-screen.kitchen-card.no-yield">This recipe has no yield, so it can't be scaled.</T></p>
+      )}
+      <section className="kitchen-card-box" aria-label="Ingredients">
+        <h3><T id="kitchen-screen.kitchen-card.ingredients">Ingredients</T></h3>
+        <ul>
+          {recipe.lines.map((line) => (
+            <li key={line.id}>
+              <span>{line.ingredientName}{line.prepNote && <small> · {line.prepNote}</small>}</span>
+              <strong>
+                {amount(scaleQuantity(line.quantity, yieldServings, target))}
+                {line.unit && ` ${unitLabel(line.unit)}`}
+              </strong>
+            </li>
+          ))}
+        </ul>
+      </section>
+      {recipe.steps.length > 0 && (
+        <section className="kitchen-card-box" aria-label="Method">
+          <h3><T id="kitchen-screen.kitchen-card.method">Method</T></h3>
+          <ol>{recipe.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
+        </section>
+      )}
+      {!recipe.costHidden && (
+        <p className="kitchen-card-cost">
+          <T id="kitchen-screen.kitchen-card.cost-per-serving">Cost per serving</T>
+          <strong>{centsLabel(recipe.cost?.perServingCents ?? null)}</strong>
+        </p>
+      )}
+      <div className="panel-actions">
+        <Button asChild><Link to={`/print/recipes/${recipe.id}`}><T id="kitchen-screen.kitchen-card.print-kitchen-card">Print kitchen card</T></Link></Button>
+        <Button variant="outline" onClick={() => navigate(`/recipes/${recipe.id}`)}><T id="kitchen-screen.kitchen-card.edit-recipe">Edit recipe</T></Button>
+      </div>
+    </DetailDrawer>
+  );
+}
+
+// The Menus tab (FLOW-267): every Document of type Menu (FLOW-263), plus the
+// client recipe book. A menu linked to an event is an event menu; any other is a
+// seasonal menu. Open PDF opens the file; In Documents opens its preview there.
+type MenuKind = "event" | "seasonal" | "recipe_book";
+const kindLabels: Record<MenuKind, string> = { event: "Event menu", seasonal: "Seasonal", recipe_book: "Recipe book" };
+const filterLabels: Record<"" | MenuKind, string> = { "": "All menus", event: "Event", seasonal: "Seasonal", recipe_book: "Recipe books" };
+
+export function MenusPage() {
+  const { can } = usePermissions();
+  const menus = useResource(["documents", "menus"], () => documentsApi.list({ docType: "menu" }));
+  const [kind, setKind] = useState<"" | MenuKind>("");
+  const [uploading, setUploading] = useState(false);
+  const cards = (menus.data ?? []).map((document) => ({
+    document,
+    kind: (document.recordType === "event" ? "event" : "seasonal") as MenuKind,
+  }));
+  const showBook = !kind || kind === "recipe_book";
+  return (
+    <>
+      <KitchenHeading tab="menus">
+        {can("attachments.write") && (
+          <Button onClick={() => setUploading(true)}><T id="kitchen-screen.menus.upload-menu">+ Upload menu</T></Button>
+        )}
+      </KitchenHeading>
+      <PageGrid pageKey="kitchen.menus">
+        <Block id="filters" name="Filters" h={3}>
+          <FilterBar>
+            <Dropdown
+              variant="filter"
+              aria-label="Menus"
+              value={kind}
+              options={(["", "event", "seasonal", "recipe_book"] as const).map((value) => ({
+                value,
+                label: <LabelT id="labels.menu-filter" value={value || "all"}>{filterLabels[value]}</LabelT>,
+                text: filterLabels[value],
+              }))}
+              onValueChange={(next) => setKind(next as "" | MenuKind)}
+            />
+          </FilterBar>
+        </Block>
+        <Block id="menus" name="Menus" h={24}>
+          {menus.error && <LoadError message={menus.error} />}
+          {!menus.data && !menus.error && <LoadingSkeleton />}
+          <ul className="menu-cards" aria-label="Menus">
+            {cards.filter((card) => !kind || card.kind === kind).map(({ document, kind: cardKind }) => {
+              const latest = [...document.versions].sort((a, b) => b.number - a.number)[0];
+              return (
+                <MenuCard
+                  key={document.id}
+                  title={document.name}
+                  kicker={cardKind === "event" ? <EventKicker eventId={document.recordId} /> : <LabelT id="labels.menu-kind" value={cardKind}>{kindLabels[cardKind]}</LabelT>}
+                  detail={latest ? (
+                    <T id="kitchen-screen.menus.version-detail" values={{
+                      version: latest.number,
+                      date: weekday(utcToBusinessTime(new Date(latest.createdAt)).date).split(", ")[1] ?? "",
+                      by: latest.uploaderName ? ` · ${latest.uploaderName}` : "",
+                    }}>{"v{version} · {date}{by}"}</T>
+                  ) : null}
+                  pdf={latest?.url ?? null}
+                  documentId={document.id}
+                  tone={cardKind}
+                />
+              );
+            })}
+            {showBook && (
+              <MenuCard
+                title={<T id="kitchen-screen.menus.client-recipe-book">Client recipe book</T>}
+                kicker={<LabelT id="labels.menu-kind" value="recipe_book">{kindLabels.recipe_book}</LabelT>}
+                detail={<T id="kitchen-screen.menus.generated-from-the-recipes">Generated from the recipes</T>}
+                pdf="#/print/recipes/client"
+                documentId={null}
+                tone="recipe_book"
+              />
+            )}
+          </ul>
+          {menus.data && !cards.length && kind !== "recipe_book" && (
+            <p className="muted"><T id="kitchen-screen.menus.no-menu-documents-yet">No menu documents yet. Upload one, or set a document's type to Menu.</T></p>
+          )}
+        </Block>
+      </PageGrid>
+      {uploading && <DocumentUpload presetType="menu" onClose={() => setUploading(false)} onSaved={() => { setUploading(false); menus.reload(); }} />}
+    </>
+  );
+}
+
+// "EVENT MENU · NOV 28": the linked event's date.
+function EventKicker({ eventId }: { eventId: string }) {
+  const event = useResource(["events", "menu-kicker", eventId], () => eventsApi.get(eventId));
+  return (
+    <>
+      <LabelT id="labels.menu-kind" value="event">{kindLabels.event}</LabelT>
+      {event.data && <> · {weekday(event.data.date).split(", ")[1]}</>}
+    </>
+  );
+}
+
+function MenuCard({ title, kicker, detail, pdf, documentId, tone }: {
+  title: ReactNode;
+  kicker: ReactNode;
+  detail: ReactNode;
+  pdf: string | null;
+  documentId: string | null;
+  tone: MenuKind;
+}) {
+  return (
+    <li className="menu-card">
+      <div className={`menu-card-cover menu-card-cover--${tone}`} aria-hidden="true">
+        <strong>{title}</strong>
+        <small>{kicker}</small>
+        <span className="badge error"><T id="kitchen-screen.menus.pdf">PDF</T></span>
+      </div>
+      <div className="menu-card-body">
+        <strong>{title}</strong>
+        <small>{detail}</small>
+        <div className="panel-actions">
+          {pdf && (
+            <Button variant="outline" asChild>
+              <a href={pdf} target={pdf.startsWith("#") ? undefined : "_blank"} rel="noreferrer"><T id="kitchen-screen.menus.open-pdf">Open PDF</T></a>
+            </Button>
+          )}
+          {documentId && (
+            <Button variant="outline" asChild>
+              <Link to={`/documents?document=${documentId}`}><T id="kitchen-screen.menus.in-documents">In Documents</T></Link>
+            </Button>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// The Ingredients tab's Stock pill (FLOW-267): out with nothing on hand, low under
+// par, otherwise in stock.
+export function IngredientStockPill({ item }: { item: { totalQuantity: number; belowPar: boolean | null } }) {
+  if (item.totalQuantity <= 0) return <span className="badge error"><T id="kitchen-screen.stock.out">Out</T></span>;
+  if (item.belowPar) return <span className="badge warning"><T id="kitchen-screen.stock.low">Low</T></span>;
+  return <span className="badge success"><T id="kitchen-screen.stock.in-stock">In stock</T></span>;
+}
+export const ingredientStockText = (item: { totalQuantity: number; belowPar: boolean | null }) =>
+  item.totalQuantity <= 0 ? "Out" : item.belowPar ? "Low" : "In stock";
+
+// The Ingredients tab's bulk actions (FLOW-267): Move to storage and Set vendor,
+// saved item by item through the inline endpoint.
+export function IngredientBulkActions({ sections, onApply }: {
+  sections: { id: string; name: string }[];
+  onApply: (field: string, value: string) => Promise<void>;
+}) {
+  const [vendor, setVendor] = useState("");
+  return (
+    <>
+      <Dropdown variant="dark" aria-label="Move to storage" value=""
+        options={[{ value: "", label: <T id="kitchen-screen.bulk.move-to-storage">Move to storage</T>, text: "Move to storage" },
+          ...sections.map((section) => ({ value: section.id, label: section.name }))]}
+        onValueChange={(next) => next && void onApply("consumable.storageSectionId", next)} />
+      <form className="bulk-vendor-form" onSubmit={(event) => {
+        event.preventDefault();
+        if (vendor.trim()) void onApply("consumable.preferredVendor", vendor.trim()).then(() => setVendor(""));
+      }}>
+        <input aria-label="Vendor for selected ingredients" value={vendor} onChange={(event) => setVendor(event.target.value)} />
+        <Button type="submit" variant="outline" disabled={!vendor.trim()}><T id="kitchen-screen.bulk.set-vendor">Set vendor</T></Button>
+      </form>
+    </>
+  );
+}

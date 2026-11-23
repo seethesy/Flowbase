@@ -3,15 +3,16 @@ import { useState } from "react";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
 import { LabelT, T } from "../app/copy";
-import { Button, EmptyState, LoadingSkeleton, PageHeader, Section } from "../components/shared";
+import { Button, DateTimeCell, EmptyState, LoadingSkeleton, PageHeader, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { deletableLabels } from "../../shared/deletions";
 import { utcToBusinessTime } from "../../shared/time";
 import { deletionsApi } from "../services/deletions";
 
+// FLOW-296: the day with the time beneath it.
 const deletedOn = (iso: string) => {
   const at = utcToBusinessTime(new Date(iso));
-  return `${at.date} ${at.time}`;
+  return <DateTimeCell date={at.date} time={at.time} />;
 };
 
 // Settings › Archived (FLOW-260): records deleted from a table, newest first. The

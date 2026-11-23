@@ -1,7 +1,7 @@
 import { LayoutHeader, PageSubtitle, useLayoutBlockId } from "../../app/layout-deletion";
 import { isValidElement } from "react";
 import { Dropdown } from "../ui/Dropdown";
-import { lazy, Suspense, useState, useRef, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
 
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -30,6 +30,10 @@ import {
 import { Button } from "../ui/button";
 import { useTableSelection, type SelectionOptions } from "./table-selection-ui";
 export { useTableSelection, MAX_BULK_DELETE, type DeleteResult, type SelectionOptions } from "./table-selection-ui";
+import { DateTimeCell } from "./date-time-cell";
+import { fromRowControl, rowOpenProps } from "./row-open";
+export { DateTimeCell, dateTimeSortKey, instantLabels, instantParts } from "./date-time-cell";
+export { fromRowControl, rowOpenProps, ROW_CONTROLS } from "./row-open";
 import { canSeeField, type FieldGroup } from "../../../shared/visibility";
 import type { Actor } from "../../../shared/access";
 import { usePermissions } from "../../app/permissions";
@@ -57,16 +61,21 @@ declare module "@tanstack/react-table" {
     // A saved column width in pixels (FLOW-254).
     width?: number;
     // FLOW-261: only explicitly declared, persisted fields can be edited.
-    edit?: "text" | "number" | "date" | "time" | "select" | "none";
+    // "datetime" (FLOW-296): a date and a time in one cell, edited together;
+    // the value is "YYYY-MM-DDTHH:MM", or just the date when there's no time.
+    edit?: "text" | "number" | "date" | "time" | "datetime" | "select" | "none";
     editOptions?: { value: string; label: string }[] | ((row: TData) => { value: string; label: string }[]);
     editValue?: (row: TData) => string;
     // FLOW-275: what the cell shows until it is edited, when that differs from
     // the option label (Bar container shows its size too).
-    editDisplay?: (row: TData) => string;
+    editDisplay?: (row: TData) => ReactNode;
     editCreate?: (row: TData, name: string) => Promise<string | void>;
     editMultiple?: boolean;
     canEdit?: (row: TData) => boolean;
     onEdit?: (row: TData, value: string) => Promise<void>;
+    // FLOW-297: the cell already links to the record, so a first column isn't
+    // wrapped in the table's open button.
+    opensRecord?: boolean;
   }
 }
 
@@ -79,13 +88,13 @@ export function EditableCell<Row>({
 }: {
   value: unknown;
   row: Row;
-  edit: "text" | "number" | "date" | "time" | "select";
+  edit: "text" | "number" | "date" | "time" | "datetime" | "select";
   options?: { value: string; label: string }[];
   save: (row: Row, value: string) => Promise<void>;
   create?: (row: Row, name: string) => Promise<string | void>;
   multiple?: boolean;
   label?: string;
-  displayText?: string;
+  displayText?: ReactNode;
 }) {
   const shown = value == null ? "" : String(value);
   const [display, setDisplay] = useState(shown);
@@ -109,10 +118,13 @@ export function EditableCell<Row>({
   const shownText = displayText !== undefined && display === shown ? displayText : edit === "select" ? multiple
     ? display.split(",").filter(Boolean).map((part) => options?.find((option) => option.value === part)?.label ?? part).join(", ")
     : options?.find((option) => option.value === display)?.label : display;
+  const [datePart = "", timePart = ""] = (edit === "datetime" ? draft : "").split("T");
   if (!editing) return <>
     <button className="table-edit-trigger" type="button" disabled={busy} onClick={() => { cancelled.current = false; setEditing(true); }}
       title={label}>
-      {shownText || "—"}
+      {edit === "datetime" && !(displayText !== undefined && display === shown)
+        ? <DateTimeCell date={display.split("T")[0]} time={display.split("T")[1]} />
+        : shownText || "—"}
     </button>
     {error && <span className="table-edit-error" role="alert">{error}</span>}
   </>;
@@ -128,6 +140,21 @@ export function EditableCell<Row>({
     onValueChange={(next) => { setDraft(next); void commit(next); }}
     onOpenChange={(open) => { if (!open) setEditing(false); }}
   />;
+  // Both parts of a date and time (FLOW-296): saved once focus leaves them.
+  if (edit === "datetime") {
+    const join = (date: string, time: string) => (date && time ? `${date}T${time}` : date);
+    const keys = (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Escape") { cancelled.current = true; setEditing(false); setDraft(shown); }
+      if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
+    };
+    return <span className="table-edit-datetime"
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) void commit(); }}>
+      <input className="table-edit-input" autoFocus type="date" value={datePart} aria-label={label ? `${label} date` : "Date"}
+        onChange={(event) => setDraft(join(event.target.value, timePart))} onKeyDown={keys} />
+      <input className="table-edit-input" type="time" value={timePart} aria-label={label ? `${label} time` : "Time"}
+        onChange={(event) => setDraft(join(datePart, event.target.value))} onKeyDown={keys} />
+    </span>;
+  }
   return <input
     className="table-edit-input" autoFocus type={edit} value={draft} aria-label={label}
     onChange={(event) => setDraft(event.target.value)}
@@ -330,6 +357,9 @@ type DataTableProps<Row> = {
   label?: ReactNode;
   // Prefix of the column headers' text keys (FLOW-240): <copyKey>.column.<header>.
   copyKey?: string;
+  // The table's key in the page layout (layoutTables, FLOW-254/296), when it
+  // isn't copyKey: a page with several tables sharing one copyKey.
+  tableKey?: string;
   // Shows "Export CSV"; the file is named after it, e.g. "ingredients".
   exportName?: string;
   // A paged list's every matching row (usePagedList's loadAll, FLOW-216); the
@@ -343,11 +373,11 @@ type DataTableProps<Row> = {
 };
 export function DataTable<Row>(props: DataTableProps<Row>) {
   const layout = usePageLayoutContext();
-  const copyKey = props.copyKey ?? "shared.data-table";
-  if (!layout || !(layout.editing || layout.doc?.tables[copyKey])) return <DataTableView {...props} />;
+  const tableKey = props.tableKey ?? props.copyKey ?? "shared.data-table";
+  if (!layout || !(layout.editing || layout.doc?.tables[tableKey])) return <DataTableView {...props} />;
   return (
     <Suspense fallback={<LoadingSkeleton />}>
-      <LayoutColumns copyKey={copyKey} columns={props.columns as unknown as ColumnDef<unknown, unknown>[]}>
+      <LayoutColumns copyKey={tableKey} columns={props.columns as unknown as ColumnDef<unknown, unknown>[]}>
         {(columns, editor, resize) => (
           <DataTableView {...props} columns={columns as unknown as ColumnDef<Row, unknown>[]} editor={editor} onResize={resize} />
         )}
@@ -509,6 +539,10 @@ function DataTableView<Row>({
               <tr
                 key={row.id}
                 {...selecting.rowProps(index)}
+                /* FLOW-296: a click anywhere on the row opens it, except on a
+                   control in a cell (or in a dropdown menu it opened). */
+                {...(onRow ? rowOpenProps(() => onRow(row.original)) : {})}
+                className={[selecting.rowProps(index).className, onRow ? "table-row-openable" : ""].filter(Boolean).join(" ") || undefined}
               >
                 {row.getVisibleCells().map((cell, i) => (
                   <td key={cell.id}>
@@ -525,10 +559,10 @@ function DataTableView<Row>({
                         multiple={cell.column.columnDef.meta.editMultiple}
                         displayText={cell.column.columnDef.meta.editDisplay?.(row.original)}
                       />
-                    ) : i === 0 && onRow && !openColumn ? (
+                    ) : i === 0 && onRow && !openColumn && !cell.column.columnDef.meta?.opensRecord ? (
                       <button
                         className="table-link"
-                        onClick={() => onRow(row.original)}
+                        onClick={(event) => { if (!fromRowControl(event)) onRow(row.original); }}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

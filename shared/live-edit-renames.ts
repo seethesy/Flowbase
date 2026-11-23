@@ -21,10 +21,91 @@ export type LiveEditRenames = {
 };
 
 export const liveEditRenames: LiveEditRenames = {
-  copy: {},
-  blocks: {},
-  removed: { copy: [], blocks: [] },
+  copy: {
+    // FLOW-265: the Events screen's rebuilt Calendar panel and Day-of board.
+    "calendar-detail.calendar-detail.open-event": "calendar.event-panel.open-event",
+    "day-of.day-of-page.today": "day-of.day-of-page.today-button",
+    "day-of.checkpoint-row.mark-now": "day-of.checkpoint.record-now",
+    // FLOW-266: the Inventory screen's shared heading, lines and shortcut cards.
+    "imports.import-list.bring-records-in-from-a": "inventory-screen.imports.bring-records-in-from",
+    "vendors.vendor-list.distributors-rental-vendors-and-event": "inventory-screen.vendors.distributors-rental-vendors-and",
+    "inventory-lists.inventory-list.inventory": "inventory-screen.inventory-heading.inventory",
+    "inventory-lists.inventory-list.low-stock": "inventory-screen.shortcuts.low-stock",
+    // FLOW-267: the Kitchen screen's shared heading and its Recipes line.
+    "recipes.recipe-list.every-dish-with-its-ingredients": "kitchen-screen.recipes.every-dish-with-its",
+    "recipes.recipe-list.kitchen": "kitchen-screen.kitchen-heading.kitchen",
+  },
+  blocks: { "documents.library/list": "documents-table" },
+  removed: {
+    // FLOW-265: wording of the replaced calendar detail mode, day-of board and
+    // production overview, and the board's single urgent checkbox (now one
+    // "Mark urgent" per event card). FLOW-266: the separate page titles, header
+    // links and search box the Inventory screen's tabs, shortcut cards and
+    // filters replace.
+    copy: [
+      // FLOW-267: the Recipes page's own title, now the Kitchen heading.
+      "recipes.recipe-list.recipe-book",
+      "calendar-detail.calendar-detail.allergens",
+      "calendar-detail.calendar-detail.close",
+      "calendar-detail.calendar-detail.contact",
+      "calendar-detail.calendar-detail.event-details",
+      "calendar-detail.calendar-detail.guests",
+      "calendar-detail.calendar-detail.lead",
+      "calendar-detail.calendar-detail.loading",
+      "calendar-detail.calendar-detail.menu",
+      "calendar-detail.calendar-detail.no-venue-yet",
+      "calendar-detail.calendar-detail.notes",
+      "calendar-detail.calendar-detail.open",
+      "calendar-detail.calendar-detail.setup",
+      "calendar-detail.calendar-detail.staff",
+      "calendar.calendar-page.calendar",
+      "calendar.calendar-page.detail-mode",
+      "calendar.calendar-page.events-and-the-tasks-you",
+      "day-of.checkpoint-row.not-marked",
+      "day-of.checkpoint-row.planned",
+      "day-of.checkpoint-row.reached",
+      "day-of.checkpoint-row.reached-by",
+      "day-of.day-of-page.day-of-board",
+      "day-of.day-of-page.next-day",
+      "day-of.day-of-page.previous-day",
+      "day-of.day-of-page.staff",
+      "day-of.day-of-page.urgent-text-the-people-affected",
+      "day-of.staff-row.save",
+      "day-of.truck-row.driver",
+      "day-of.truck-row.save",
+      "production.production-overview-page.days",
+      "production.production-overview-page.event",
+      "production.production-overview-page.production-overview",
+      "production.production-overview-page.team",
+      "production.production-overview-page.type",
+      "production.production-overview-page.upcoming-work-across-events",
+      "imports.import-list.importers",
+      "imports.import-list.imports",
+      "inventory-lists.bar-list.all-inventory",
+      "inventory-lists.bar-list.bar",
+      "inventory-lists.bar-list.bar-2",
+      "inventory-lists.bar-list.beer-wine-and-liquor-what",
+      "inventory-lists.bar-list.count",
+      "inventory-lists.inventory-list.approvals",
+      "inventory-lists.inventory-list.bar",
+      "inventory-lists.inventory-list.counts",
+      "inventory-lists.inventory-list.ingredients",
+      "inventory-lists.inventory-list.items",
+      "inventory-lists.inventory-list.items-2",
+      "inventory-lists.inventory-list.master-sheet",
+      "inventory-lists.inventory-list.order-lists",
+      "inventory-lists.inventory-list.rentals-decor-kitchen-bar-and",
+      "inventory-lists.inventory-list.search-item-name-or-code.placeholder",
+      "inventory-lists.inventory-list.sections",
+      "inventory-lists.inventory-list.stock-supplies",
+      "inventory-lists.inventory-list.supplies",
+      "vendors.vendor-list.inventory",
+      "vendors.vendor-list.vendors",
+    ],
+    blocks: ["day-of.board/urgent"],
+  },
 };
+
 
 // A rename's final key: follows a chain (a -> b -> c), stops on a loop.
 function follow(map: Record<string, string>, key: string): string {

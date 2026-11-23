@@ -377,6 +377,7 @@ describe("contextForPath", () => {
     ["/clients/" + eventId, "client_work", "client", eventId],
     ["/clients/cli-1", "client_work", null, null],
     ["/proposals", "proposal_work", null, null],
+    ["/sales", "proposal_work", null, null],
     ["/inventory/ingredients", "kitchen", null, null],
     ["/inventory/" + eventId, "inventory", null, null],
     ["/recipes/" + eventId, "kitchen", null, null],

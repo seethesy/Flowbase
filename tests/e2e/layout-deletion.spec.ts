@@ -33,7 +33,10 @@ for (const entry of [
   ] };
   await browserDb((db) => db.insert(uiLayout).values({ pageKey: entry.key, layout: doc }));
   await page.goto(path); await edit(page);
-  await remove(page, entry.name);
+  // Materialize any newly added code blocks before measuring the last saved position.
+  await page.getByRole("button", { name: `Half width: ${entry.name}`, exact: true }).click(); await save(page);
+  const original = (await saved(entry.key)).blocks.find((b) => b.id === entry.id);
+  await edit(page); await remove(page, entry.name);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
   expect((await saved(entry.key)).blocks.find((b) => b.id === entry.id)?.deleted).toBeUndefined();
@@ -54,7 +57,7 @@ for (const entry of [
   await edit(page); await page.getByRole("button", { name: "Deleted items (3)", exact: true }).click();
   for (let n = 0; n < 3; n++) await tray.getByRole("button", { name: "Restore", exact: true }).first().click();
   await save(page);
-  expect((await saved(entry.key)).blocks.find((b) => b.id === entry.id)).toEqual(doc.blocks[0]);
+  expect((await saved(entry.key)).blocks.find((b) => b.id === entry.id)).toEqual(original);
   await edit(page);
   for (const name of [entry.name, "Note", "Lifecycle custom"]) await remove(page, name);
   await page.getByRole("button", { name: "Deleted items (3)", exact: true }).click();

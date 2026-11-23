@@ -86,7 +86,7 @@ export function OrderListDetail() {
     } catch (cause) { setError((cause as Error).message); }
   };
   return <div className="order-list-page">
-    <Link to="/inventory/orders" className="back-link"><T id="order-lists.order-list-detail.order-lists">← Order lists</T></Link>
+    <Link to="/purchasing" className="back-link"><T id="order-lists.order-list-detail.order-lists">← Order lists</T></Link>
     <PageHeader pageKey="inventory.order-detail" title={<T id="order-lists.order-list-detail.order-list" values={{ from: data.from, to: data.to }}>{"Order list {from} – {to}"}</T>} subtitle={<T id="order-lists.order-list-detail.lines" values={{ statusLabel: statusLabel(data.status), linesCount: lines.length }}>{"{statusLabel} · {linesCount} lines"}</T>} eyebrow={<T id="order-lists.order-list-detail.stock-supplies">{"STOCK & SUPPLIES"}</T>}>
       <Button variant="outline" onClick={() => window.print()}><T id="order-lists.order-list-detail.print-list">Print list</T></Button>
       {editing && <Button variant="outline" onClick={() => void save()}><T id="order-lists.order-list-detail.save-edits">Save edits</T></Button>}

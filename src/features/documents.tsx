@@ -1,8 +1,9 @@
-import { Block, PageGrid } from "../app/page-grid";
 import { useRef, useState, type ChangeEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Upload } from "lucide-react";
 import { Dropdown } from "../components/ui/Dropdown";
+import { Block, PageGrid } from "../app/page-grid";
 import { Button, DataTable, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader, SearchInput, type DeleteResult } from "../components/shared";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
@@ -92,7 +93,10 @@ export function DocumentsPage() {
   const [linked, setLinked] = useState("");
   const [uploader, setUploader] = useState("");
   const [updated, setUpdated] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+  // /documents?document=<id> opens that file's preview, e.g. a BEO's saved PDF
+  // from the BEOs tab (FLOW-265).
+  const [params] = useSearchParams();
+  const [selectedId, setSelectedId] = useState(() => params.get("document") ?? "");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [undoId, setUndoId] = useState("");
   const [error, setError] = useState("");
@@ -178,9 +182,9 @@ export function DocumentsPage() {
       </Dropdown>
     </FilterBar>
     </Block>
-    <Block id="list" name="Documents" h={20}>
+    <Block id="documents-table" name="Documents" h={20}>
     {files.error && <p role="alert" className="error-message">{files.error}</p>}
-    {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable copyKey="documents.library" exportName="documents" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
+    {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" exportName="documents" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
       selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
         onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
     </Block>
@@ -214,10 +218,11 @@ export function DocumentsPage() {
   </>;
 }
 
-function DocumentUpload({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+// Also the Kitchen screen's "+ Upload menu" (FLOW-267), with the type preset.
+export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onClose: () => void; onSaved: () => void; presetType?: DocumentType }) {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [type, setType] = useState<DocumentType>("other");
+  const [type, setType] = useState<DocumentType>(presetType);
   const [link, setLink] = useState<{ type: AttachmentRecordType; id: string; name: string }>({ type: "document", id: "", name: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);

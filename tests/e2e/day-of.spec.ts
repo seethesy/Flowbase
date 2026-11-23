@@ -56,8 +56,8 @@ test("a truck status update appears on another open board (AC1)", async ({ page,
 test("marking food left kitchen records the time against the timeline (AC2)", async ({ page }) => {
   await seedBoard();
   await page.goto(board);
-  await page.getByRole("button", { name: "Mark Food left kitchen" }).click();
-  await expect(page.getByText(/^Reached \d{1,2}:\d{2}(am|pm)/)).toBeVisible();
+  await page.getByRole("button", { name: "Record Food left kitchen now" }).click();
+  await expect(page.getByText(/^Actual \d{1,2}:\d{2} (AM|PM)/)).toBeVisible();
   await expect
     .poll(() =>
       browserDb(async (db) => {
@@ -79,4 +79,44 @@ test("the update log shows on the event hub (FLOW-156 AC2)", async ({ page }) =>
   await page.goto(`/#/events/${fallGala().id}`);
   await page.getByRole("heading", { name: "Day-of log" }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("list", { name: "Day-of log" })).toContainText(`${truck.name}: status: Available → Loading`);
+});
+
+// FLOW-265: the Events screen's Day-of tab.
+test("adds a note to the event's day-of log from its card, and it stays after a reload", async ({ page }) => {
+  await seedBoard();
+  await page.goto(board);
+  await expect(page.getByRole("heading", { name: "Events", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Saturday, November 14/ })).toBeVisible();
+  const card = page.getByRole("region", { name: fallGala().title });
+  await expect(card).toContainText("120 guests");
+  await card.getByRole("textbox", { name: `Note for ${fallGala().title}` }).fill("Guest count changed to 64");
+  await card.getByRole("button", { name: "Add", exact: true }).click();
+  const log = card.getByRole("list", { name: `${fallGala().title} day-of log` });
+  await expect(log).toContainText("Guest count changed to 64");
+  await page.reload();
+  await expect(page.getByRole("list", { name: `${fallGala().title} day-of log` })).toContainText("Guest count changed to 64");
+  const [row] = await browserDb((db) => db.select().from(s.dayOfUpdates).where(eq(s.dayOfUpdates.kind, "note")));
+  expect(row).toMatchObject({ summary: "Guest count changed to 64", urgent: false });
+});
+
+test("Mark urgent makes that card's updates urgent (A2)", async ({ page }) => {
+  const { truck } = await seedBoard();
+  await page.goto(board);
+  const card = page.getByRole("region", { name: fallGala().title });
+  await card.getByRole("button", { name: "Mark urgent" }).click();
+  await expect(card.getByRole("button", { name: "Urgent on" })).toHaveAttribute("aria-pressed", "true");
+  await choose(card.getByLabel(`${truck.name} status`), "loading");
+  await expect(card.getByLabel(`${truck.name} status`)).toHaveAttribute("data-value", "loading");
+  await expect.poll(() => browserDb(async (db) => (await db.select().from(s.dayOfUpdates))[0]?.urgent ?? null)).toBe(true);
+});
+
+test("the date stepper moves a day at a time and Today comes back", async ({ page }) => {
+  await page.goto(board);
+  await page.getByRole("button", { name: "Next day" }).click();
+  await expect(page).toHaveURL(/date=2026-11-15/);
+  await page.getByRole("button", { name: "Previous day" }).click();
+  await page.getByRole("button", { name: "Previous day" }).click();
+  await expect(page).toHaveURL(/date=2026-11-13/);
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /· Today$/ })).toBeVisible();
 });

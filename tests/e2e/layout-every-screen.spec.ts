@@ -12,6 +12,10 @@ import * as s from "../../worker/db/schema";
 const salesperson = seedUsers.find((user) => user.role === "salesperson")!;
 const manager = seedUsers.find((user) => user.role === "sales_manager") ?? salesperson;
 
+// Six columns wide, as the inline style the browser serializes (grid-area or
+// grid-column).
+const halfWidth = /grid-column: \d+ \/ span 6|grid-area: [^;]*\/ span 6;/;
+
 const block = (page: Page, pageKey: string, id: string) =>
   page.locator(`[data-page-layout="${pageKey}"] > [data-block-id="${id}"]`);
 
@@ -32,16 +36,19 @@ const screens = [
   { title: "Calendar", path: "/#/calendar", pageKey: "calendar.page", id: "calendar", name: "Calendar" },
   { title: "Tasks", path: "/#/tasks", pageKey: "tasks.dashboard", id: "my-tasks", name: "My tasks" },
   { title: "Recipes", path: "/#/recipes", pageKey: "recipes.list", id: "list", name: "List" },
-  { title: "Proposals list", path: "/#/proposals", pageKey: "sales.tracker", id: "table", name: "Sales table" },
+  // /proposals is the file library (FLOW-276); the Sales tracker moved to /sales.
+  { title: "Proposals list", path: "/#/proposals", pageKey: "proposals.library", id: "files", name: "Proposal files" },
+  { title: "Sales tracker", path: "/#/sales", pageKey: "sales.tracker", id: "table", name: "Sales table" },
 ];
 
 for (const screen of screens)
-  test(`moves and resizes a card on ${screen.title} for everyone (FLOW-278 AC1, AC2)`, async ({ page, browser }) => {
+  test(`moves and resizes a card on ${screen.title} for everyone (FLOW-278 AC1, AC2)`, async ({ page, browser, isMobile }) => {
+    test.skip(isMobile, "Phones stack blocks full width (AC5 has its own 390px test).");
     await page.goto(screen.path);
     await page.getByRole("button", { name: "Edit screen text" }).click();
     await halfWidthAndDown(page, screen.name);
     await save(page);
-    await expect(block(page, screen.pageKey, screen.id)).toHaveCSS("grid-column-end", "span 6");
+    await expect(block(page, screen.pageKey, screen.id)).toHaveAttribute("style", halfWidth);
     const placed = await block(page, screen.pageKey, screen.id).getAttribute("style");
 
     const context = await browser.newContext();
@@ -49,12 +56,13 @@ for (const screen of screens)
     await mockBrowserAuth(other, { userId: manager.id });
     await other.goto(screen.path);
     const seen = block(other, screen.pageKey, screen.id);
-    await expect(seen).toHaveCSS("grid-column-end", "span 6");
+    await expect(seen).toHaveAttribute("style", halfWidth);
     expect(await seen.getAttribute("style")).toBe(placed);
     await context.close();
   });
 
-test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async ({ page }) => {
+test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Phones stack blocks full width (AC5 has its own 390px test).");
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await browserDb((db) => db.update(s.events).set({ status: "preparation" }).where(eq(s.events.id, fallGala().id)));
   await page.goto(`/#/events/${fallGala().id}`);
@@ -62,9 +70,9 @@ test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async
   await page.getByRole("button", { name: "Edit screen text" }).click();
   await halfWidthAndDown(page, "Final notes");
   await save(page);
-  await expect(block(page, "events.closeout", "finish")).toHaveCSS("grid-column-end", "span 6");
+  await expect(block(page, "events.closeout", "finish")).toHaveAttribute("style", halfWidth);
   await page.reload();
-  await expect(block(page, "events.closeout", "finish")).toHaveCSS("grid-column-end", "span 6");
+  await expect(block(page, "events.closeout", "finish")).toHaveAttribute("style", halfWidth);
   await expect(page.getByLabel("Final notes")).toBeVisible();
 });
 

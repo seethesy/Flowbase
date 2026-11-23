@@ -176,7 +176,7 @@ export function TimeReports() {
       ) : (
           <Section title={<T id="time-tracking.time-reports.effort-per-booking">Effort per booking</T>}>
             {data.effort.length ? (
-              <DataTable copyKey="time-tracking.time-reports"
+              <DataTable copyKey="time-tracking.time-reports" tableKey="time-tracking.by-event"
                 data={data.effort}
                 columns={effortColumns}
                 label={<T id="time-tracking.time-reports.events">events</T>}
@@ -194,7 +194,7 @@ export function TimeReports() {
           {data && data.proposals.length > 0 && (
             <Block id="proposals" name="Effort per proposal" h={12}>
             <Section title={<T id="time-tracking.time-reports.effort-per-proposal">Effort per proposal</T>}>
-              <DataTable copyKey="time-tracking.time-reports"
+              <DataTable copyKey="time-tracking.time-reports" tableKey="time-tracking.by-proposal"
                 data={data.proposals}
                 columns={proposalColumns}
                 label={<T id="time-tracking.time-reports.proposals">proposals</T>}
@@ -207,7 +207,7 @@ export function TimeReports() {
           <Block id="workload" name="Workload" h={14}>
           <Section title={<T id="time-tracking.time-reports.workload">Workload</T>}>
             {data.workload.length ? (
-              <DataTable copyKey="time-tracking.time-reports"
+              <DataTable copyKey="time-tracking.time-reports" tableKey="time-tracking.workload"
                 data={data.workload}
                 columns={workloadColumns}
                 label={<T id="time-tracking.time-reports.rows">rows</T>}

@@ -1,5 +1,5 @@
 import type { EventInput } from "@fullcalendar/core";
-import type { Calendar, CalendarEvent, CalendarLayer } from "../../shared/calendar";
+import type { Calendar, CalendarLayer } from "../../shared/calendar";
 import { shiftKindLabels } from "../../shared/event-staff";
 import { addLocalDays } from "../../shared/time";
 
@@ -10,14 +10,26 @@ import { addLocalDays } from "../../shared/time";
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`;
 
-// Overview mode (FLOW-64): the compact line under an event's time and title.
-export function overviewLine(event: CalendarEvent): string {
-  return [
-    event.venueName ?? "No venue",
-    event.guestCount === null ? "Guests TBD" : plural(event.guestCount, "guest"),
-    event.salespersonName ?? "No salesperson",
-    plural(event.staffCount, "staff", "staff"),
-  ].join(" · ");
+const clock = (wallClock: string) => {
+  const [hours, minutes] = wallClock.slice(11, 16).split(":").map(Number);
+  const suffix = hours < 12 ? "AM" : "PM";
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+};
+// "Sat, Nov 28" for a New York date.
+export const weekday = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
+  });
+
+// "Sat, Nov 28" and "4:30 PM": a table cell's date with the time beneath it
+// (FLOW-296).
+export function calendarWhenParts(event: { start: string }): { date: string; time: string } {
+  return { date: weekday(event.start.slice(0, 10)), time: clock(event.start) };
+}
+
+// "Sat, Nov 28 · 4:30 PM", the side panel's and list's date and time (FLOW-265).
+export function calendarWhen(event: { start: string }): string {
+  return `${weekday(event.start.slice(0, 10))} · ${clock(event.start)}`;
 }
 
 export function toCalendarEntries(
@@ -31,10 +43,10 @@ export function toCalendarEntries(
       title: event.title,
       start: event.start,
       end: event.end ?? undefined,
-      // A block in the month view too, so the overview line fits under the title.
+      // A chip in the status color (FLOW-251), with its time and name (FLOW-265).
       display: "block",
       classNames: ["calendar-event", `calendar-status-${event.status}`],
-      extendedProps: { path: `/events/${event.id}`, eventId: event.id, overview: overviewLine(event), status: event.status },
+      extendedProps: { path: `/events/${event.id}`, eventId: event.id, status: event.status },
     })),
     ...calendar.tasks.map((task) => ({
       id: `task:${task.id}`,

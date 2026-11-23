@@ -16,6 +16,7 @@ function mount(path = "/", role: Role = "admin") {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<p>Home content</p>} />
+            <Route path="/sales/overview" element={<p>Sales overview screen</p>} />
             <Route path="/leads" element={<p>Leads screen</p>} />
             <Route path="/clients" element={<p>Clients screen</p>} />
             <Route path="/venues" element={<p>Venues screen</p>} />
@@ -45,11 +46,12 @@ it("shows the nine headings, Settings and Help, and no demo note or bottom colla
 it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   const user = userEvent.setup();
   mount();
+  // The heading opens on its Overview (FLOW-295).
   await user.click(within(mainNav()).getByRole("link", { name: "Sales" }));
-  expect(screen.getByText("Leads screen")).toBeInTheDocument();
+  expect(screen.getByText("Sales overview screen")).toBeInTheDocument();
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Leads", "Clients", "Proposals", "Venues"]);
-  expect(within(tabs).getByRole("link", { name: "Leads" })).toHaveAttribute("aria-current", "page");
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+  expect(within(tabs).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   await user.click(within(tabs).getByRole("link", { name: "Clients" }));
   expect(screen.getByText("Clients screen")).toBeInTheDocument();
   // The heading stays highlighted on every tab.
@@ -68,8 +70,9 @@ it("keeps Day-of under the heading it was opened from", async () => {
 
 it("hides tabs the role can't open", () => {
   mount("/venues", "staff");
-  expect(screen.queryByRole("navigation", { name: "Sales pages" })).not.toBeInTheDocument();
-  expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveAttribute("href", "/venues");
+  const tabs = screen.getByRole("navigation", { name: "Sales pages" });
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Venues"]);
+  expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveAttribute("href", "/sales/overview");
 });
 
 it("collapses and expands from the edge bar and remembers it", async () => {
@@ -122,7 +125,7 @@ it("links every breadcrumb segment but the last", () => {
   const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(within(crumbs).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
     ["Workspace", "/"],
-    ["Sales", "/leads"],
+    ["Sales", "/sales/overview"],
   ]);
   expect(within(crumbs).getByText("Clients")).toHaveAttribute("aria-current", "page");
 });

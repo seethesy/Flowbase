@@ -213,7 +213,7 @@ export function LeadDashboardPage() {
                 </ResponsiveContainer>
               </div>
             )}
-            <DataTable copyKey="lead-dashboard.lead-dashboard-page"
+            <DataTable copyKey="lead-dashboard.lead-dashboard-page" tableKey="lead-dashboard.by-source"
               data={data.bySource}
               columns={sourceColumns}
               label={<T id="lead-dashboard.lead-dashboard-page.sources">sources</T>}
@@ -226,7 +226,7 @@ export function LeadDashboardPage() {
         <Block id="by-channel-status" name="By channel and status" h={12}>
           <div className="detail-grid">
             <Section title={<T id="lead-dashboard.lead-dashboard-page.by-channel">By channel</T>}>
-              <DataTable copyKey="lead-dashboard.lead-dashboard-page" data={data.byChannel} columns={channelColumns} label={<T id="lead-dashboard.lead-dashboard-page.channels">channels</T>} />
+              <DataTable copyKey="lead-dashboard.lead-dashboard-page" tableKey="lead-dashboard.by-channel" data={data.byChannel} columns={channelColumns} label={<T id="lead-dashboard.lead-dashboard-page.channels">channels</T>} />
             </Section>
             <Section title={<T id="lead-dashboard.lead-dashboard-page.by-status">By status</T>}>
               <ul aria-label="Leads by status">
@@ -243,7 +243,7 @@ export function LeadDashboardPage() {
           {data?.scope === "all" && (
             <Block id="by-salesperson" name="By salesperson" h={12}>
             <Section title={<T id="lead-dashboard.lead-dashboard-page.by-salesperson">By salesperson</T>}>
-              <DataTable copyKey="lead-dashboard.lead-dashboard-page"
+              <DataTable copyKey="lead-dashboard.lead-dashboard-page" tableKey="lead-dashboard.by-salesperson"
                 data={data.bySalesperson}
                 columns={salespersonColumns}
                 label={<T id="lead-dashboard.lead-dashboard-page.salespeople">salespeople</T>}

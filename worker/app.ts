@@ -31,6 +31,7 @@ import { recordRoutes } from "./routes/records";
 import { searchRoutes } from "./routes/search";
 import { attachmentRoutes } from "./routes/attachments";
 import { documentRoutes } from "./routes/documents";
+import { photoRoutes } from "./routes/photos";
 import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { copyRoutes } from "./routes/copy";
@@ -43,7 +44,7 @@ import { staffRoutes } from "./routes/staff";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
 import { preparationRoutes } from "./routes/preparation";
-import { beoRoutes, offlineBeoRoutes } from "./routes/beo";
+import { beoListRoutes, beoRoutes, offlineBeoRoutes } from "./routes/beo";
 import { beoSync } from "./beo-sync";
 import { paymentRoutes } from "./routes/payments";
 import { planningRoutes } from "./routes/planning";
@@ -336,6 +337,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/events", preparationRoutes(options));
   app.route("/api/events", beoRoutes(options));
   app.route("/api/offline-beos", offlineBeoRoutes(options));
+  app.route("/api/beos", beoListRoutes(options));
   app.route("/api/events", paymentRoutes(options));
   app.route("/api/tasks", taskRoutes(options));
   app.route("/api/sops", sopRoutes(options));
@@ -355,6 +357,7 @@ export function createApp(options: Options = {}) {
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/documents", documentRoutes(options));
+  app.route("/api/photos", photoRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));
   app.route(
     "/api/ingest",

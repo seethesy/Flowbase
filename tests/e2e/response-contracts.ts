@@ -17,6 +17,7 @@ import {
 import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { beoSceneSchema, beoViewSchema, offlineBeosSchema } from "../../shared/beo";
+import { beoListRowSchema } from "../../shared/beo-list";
 import { closeoutSchema } from "../../shared/closeout";
 import { dayOfBoardSchema, dayOfLogSchema, dayOfUpdateSchema } from "../../shared/day-of";
 import { eventRosterSchema } from "../../shared/event-staff";
@@ -36,6 +37,7 @@ import {
 } from "../../shared/reservations";
 import {
   proposalDetailSchema,
+  proposalLibraryFileSchema,
   proposalSchema,
   proposalUploadTicketSchema,
 } from "../../shared/proposals";
@@ -67,6 +69,7 @@ import {
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
 import { documentSchema, documentUploadTicketSchema } from "../../shared/documents";
+import { photoSchema } from "../../shared/photos";
 import { communicationSchema } from "../../shared/communications";
 import { sopSchema, sopSummarySchema } from "../../shared/sops";
 import { historyEntrySchema } from "../../shared/audit";
@@ -158,6 +161,8 @@ export function responseSchema(
   if (resource === "time")
     return id === "report" ? timeReportSchema : activityRecordedSchema;
   if (resource === "offline-beos") return offlineBeosSchema;
+  // The BEOs tab (FLOW-265).
+  if (resource === "beos") return beoListRowSchema.array();
   if (resource === "attachments")
     return !id && method === "GET"
       ? attachmentSchema.array()
@@ -169,6 +174,11 @@ export function responseSchema(
       : !id && method === "POST" ? documentUploadTicketSchema
         : action === "archive" || action === "restore"
           ? z.object({ id: z.string(), restored: z.boolean() }) : documentSchema;
+  // Photo galleries (FLOW-271, FLOW-298).
+  if (resource === "photos")
+    return !id ? photoSchema.array()
+      : action === "archive" || action === "restore"
+        ? z.object({ id: z.string(), restored: z.boolean() }) : photoSchema;
   if (resource === "communications")
     return method === "GET" ? communicationSchema.array() : communicationSchema;
   if (resource === "leads") {
@@ -273,6 +283,8 @@ export function responseSchema(
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
     if (id === "addendums" && action === "open") return openAddendumSchema.array();
+    // The Proposals library (FLOW-276).
+    if (id === "files" && !action) return proposalLibraryFileSchema.array();
     if (id === "event") {
       const tail = path.split("/");
       if (tail.includes("contracts")) return contractSchema.array();

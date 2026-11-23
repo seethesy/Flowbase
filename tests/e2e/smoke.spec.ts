@@ -44,7 +44,8 @@ test("legacy routes redirect and retain proposal filters", async ({ page }) => {
   // Prototype ids aren't real client ids, so the page explains it can't load one.
   await expect(page.getByRole("link", { name: "← All clients" })).toBeVisible();
   await page.goto("/#/contracts?view=table&stage=Sent");
-  await expect(page).toHaveURL(/#\/proposals\?view=table&stage=Sent$/);
+  // The Sales tracker lives at /sales since FLOW-276.
+  await expect(page).toHaveURL(/#\/sales\?view=table&stage=Sent$/);
   await expect(
     page.getByRole("heading", { name: "Sales tracker", exact: true }),
   ).toBeVisible();

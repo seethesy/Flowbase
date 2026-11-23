@@ -7,23 +7,14 @@ permissions:
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+# FLOW-285: independent jobs run in parallel and Playwright is sharded, so a PR
+# takes about as long as its slowest job. `ci-ok` is the single required check.
 jobs:
-  quality:
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: flowbase_ci
-          POSTGRES_USER: flowbase
-          POSTGRES_PASSWORD: flowbase
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U flowbase -d flowbase_ci"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DATABASE_URL: postgres://flowbase:flowbase@localhost:5432/flowbase_ci
+    timeout-minutes: 3
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,16 +35,60 @@ jobs:
           const code = files.some(path => !path.toLowerCase().endsWith('.md'));
           appendFileSync(GITHUB_OUTPUT, `code=${code}\n`);
           JS
+
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run typecheck:worker
+      # `build` type-checks the app and the Worker before bundling, so CI no
+      # longer runs `typecheck` / `typecheck:worker` separately.
+      - run: npm run build
+      - name: Enforce SPA chunk budget
+        run: node scripts/check-bundle-size.mjs
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
       - run: npm test
       - run: npm run test:worker
+
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: flowbase_ci
+          POSTGRES_USER: flowbase
+          POSTGRES_PASSWORD: flowbase
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U flowbase -d flowbase_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://flowbase:flowbase@localhost:5432/flowbase_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
       - run: npm run db:check
       - run: npm run test:db
       # FLOW-182: a second run on the same database, in shuffled file order, keeps
@@ -61,35 +96,86 @@ jobs:
       - run: npm run test:db -- --sequence.shuffle.files
       - name: Verify development seed command
         run: npm run db:seed
-      - run: npm run build
-      - name: Enforce SPA chunk budget
-        run: node scripts/check-bundle-size.mjs
+
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    # Each shard has its own database and its own `wrangler dev`, so the
+    # one-database / one-Worker assumption in playwright.config.ts holds per shard.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: flowbase_ci
+          POSTGRES_USER: flowbase
+          POSTGRES_PASSWORD: flowbase
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U flowbase -d flowbase_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://flowbase:flowbase@localhost:5432/flowbase_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      # The test Worker serves `dist/`. Type checks already run in `static`.
+      - name: Build the SPA for the test Worker
+        run: npx vite build
       - name: Cache Playwright browsers
-        if: steps.changes.outputs.code == 'true'
         id: browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-webkit-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium, WebKit and system dependencies
-        if: steps.changes.outputs.code == 'true' && steps.browsers.outputs.cache-hit != 'true'
+        if: steps.browsers.outputs.cache-hit != 'true'
         run: |
           # The runner's Azure mirror can stall long enough to exhaust this job.
           echo 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
           npx playwright install --with-deps chromium webkit
       - name: Install system dependencies for cached browsers
-        if: steps.changes.outputs.code == 'true' && steps.browsers.outputs.cache-hit == 'true'
+        if: steps.browsers.outputs.cache-hit == 'true'
         run: |
           echo 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
           npx playwright install-deps chromium webkit
-      - name: Playwright desktop and mobile
-        if: steps.changes.outputs.code == 'true'
-        run: npm run test:e2e
+      # FLOW-286: the `mobile` project is not run in CI for now.
+      - name: Playwright desktop and webkit-offline, shard ${{ matrix.shard }}/4
+        run: npm run test:e2e:ci -- --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: browser-failure-artifacts
+          name: browser-failure-artifacts-${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
           retention-days: 7
+
+  ci-ok:
+    needs: [changes, static, unit, db, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job succeeded or was skipped
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module <<'JS'
+          const needs = JSON.parse(process.env.RESULTS);
+          const bad = Object.entries(needs).filter(([, job]) => !['success', 'skipped'].includes(job.result));
+          for (const [name, job] of Object.entries(needs)) console.log(`${name}: ${job.result}`);
+          if (bad.length) {
+            console.log(`::error::Failed or cancelled: ${bad.map(([name]) => name).join(', ')}`);
+            process.exit(1);
+          }
+          JS

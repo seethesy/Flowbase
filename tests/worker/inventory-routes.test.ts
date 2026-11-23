@@ -290,7 +290,8 @@ it("checks inline item edits before reaching the database", async () => {
   const path = `/api/inventory/items/${id}/inline`;
   for (const role of ["salesperson", "kitchen_staff", "staff", "part_time_staff"] as const) {
     const app = createApp({ withDb, resolveActor: async () => actor(role) });
-    for (const field of ["tier", "bar.container", "consumable.recipeUnit", "consumable.storageSectionId", "group", "color"])
+    for (const field of ["tier", "bar.container", "consumable.recipeUnit", "consumable.storageSectionId", "group", "color",
+      "consumable.purchaseUnit", "consumable.packCount", "consumable.eachSize.quantity", "consumable.eachSize.unit"])
       expect((await app.request(path, patch(field, "x"), env)).status).toBe(403);
   }
   const admin = createApp({ withDb, resolveActor: async () => actor("admin") });

@@ -33,6 +33,8 @@ export default defineConfig({
       testIgnore: /offline\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
+    // Not run in CI since FLOW-286 (halves e2e time). Run it locally with
+    // `npx playwright test --project=mobile`.
     {
       name: "mobile",
       testIgnore: /offline\.spec\.ts/,

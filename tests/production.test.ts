@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { completion, type ProductionItem } from "../shared/production";
 
 const item = (id: string, complete: boolean): ProductionItem => ({
-  id, eventId: "e0000000-0000-4000-8000-000000000001", eventTitle: "Autumn gala",
+  id, eventId: "e0000000-0000-4000-8000-000000000001", eventTitle: "Autumn gala", eventDate: "2026-11-14",
   type: "task", title: id, due: "2026-11-14T14:00:00.000Z", complete,
   team: "Production", assignedUserIds: [],
 });

@@ -68,7 +68,7 @@ const classificationChangeSchema = classificationInputSchema.partial().extend({ 
 const typeCreateSchema = classificationInputSchema.extend({ categoryId: uuid });
 const inlineSchema = z.object({
   field: z.enum(["name", "code", "description", "group", "color", "tier", "categoryId", "typeId", "legacyCategory", "bar.brand", "bar.subcategory", "consumable.preferredVendor", "consumable.parLevel",
-    "consumable.recipeUnit", "consumable.storageSectionId", "bar.container"]),
+    "consumable.purchaseUnit", "consumable.packCount", "consumable.eachSize.quantity", "consumable.eachSize.unit", "consumable.recipeUnit", "consumable.storageSectionId", "bar.container"]),
   value: z.string().max(5000),
   updatedAt: z.string().datetime(),
 });
@@ -127,6 +127,7 @@ export function inventoryRoutes(options: {
           archived: flag(c, "archived"),
           kind: kind.success ? kind.data : undefined,
           subtype: query(c, "subtype"),
+          excludeSubtypes: query(c, "excludeSubtypes")?.split(",").filter(Boolean),
           category: query(c, "category"),
           categoryId: query(c, "categoryId"),
           typeId: query(c, "typeId"),
@@ -208,7 +209,25 @@ export function inventoryRoutes(options: {
         if (!input.consumable) throw new ApiError(400, "INVALID_FIELD", "This is not a consumable item.");
         if (field === "consumable.preferredVendor") input.consumable.preferredVendor = value;
         else if (field === "consumable.parLevel") input.consumable.parLevel = value === "" ? null : Number(value);
-        else if (field === "consumable.recipeUnit") {
+        // FLOW-275: how it is bought. A bad value is a 400, not a 500.
+        else if (field === "consumable.purchaseUnit") {
+          const unit = unitSchema.safeParse(value);
+          if (!unit.success) throw new ApiError(400, "INVALID_REQUEST", "Pick how it is bought.");
+          input.consumable.purchaseUnit = unit.data;
+        } else if (field === "consumable.packCount") {
+          const count = z.coerce.number().int().positive().safeParse(value);
+          if (value && !count.success) throw new ApiError(400, "INVALID_REQUEST", "Pack count must be a whole number above 0.");
+          input.consumable.packCount = value ? count.data! : null;
+        } else if (field === "consumable.eachSize.quantity") {
+          const quantity = z.coerce.number().positive().safeParse(value);
+          if (value && !quantity.success) throw new ApiError(400, "INVALID_REQUEST", "Each size must be above 0.");
+          const unit = input.consumable.eachSize?.unit ?? input.consumable.recipeUnit ?? "each";
+          input.consumable.eachSize = value ? { quantity: quantity.data!, unit } : null;
+        } else if (field === "consumable.eachSize.unit") {
+          const unit = unitSchema.safeParse(value);
+          if (!unit.success) throw new ApiError(400, "INVALID_REQUEST", "Pick a unit.");
+          input.consumable.eachSize = { quantity: input.consumable.eachSize?.quantity ?? 1, unit: unit.data };
+        } else if (field === "consumable.recipeUnit") {
           const unit = unitSchema.safeParse(value);
           if (value && !unit.success) throw new ApiError(400, "INVALID_REQUEST", "Pick a recipe unit.");
           input.consumable.recipeUnit = value ? unit.data! : null;

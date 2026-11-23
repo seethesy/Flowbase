@@ -23,6 +23,14 @@ export type NavGroup = { copyId: string; name: string; tabs: NavTab[] };
 // The wording key of a nav name (FLOW-240, FLOW-277).
 export const navKey = (copyId: string) => `nav.${copyId}`;
 
+// The Overview tab that opens a heading (FLOW-295): shown to anyone who may
+// open another tab under it, so a heading with nothing else for a role stays
+// hidden. Its copyId is the Dashboard's, so the name is edited in one place.
+const withOverview = (to: string, tabs: NavTab[]): NavTab[] => [
+  { copyId: "overview", name: "Overview", to, visible: (actor) => tabs.some((tab) => canSee(tab, actor)) },
+  ...tabs,
+];
+
 export const navigationGroups: NavGroup[] = [
   {
     copyId: "dashboard",
@@ -37,18 +45,22 @@ export const navigationGroups: NavGroup[] = [
   {
     copyId: "sales",
     name: "Sales",
-    tabs: [
+    tabs: withOverview("/sales/overview", [
       { copyId: "leads", name: "Leads", to: "/leads", visible: "leads.read" },
       { copyId: "clients", name: "Clients", to: "/clients", visible: "clients.read" },
-      { copyId: "proposals", name: "Proposals", to: "/proposals", also: ["/sales"], visible: "proposals.read" },
+      { copyId: "proposals", name: "Proposals", to: "/proposals", visible: "proposals.read" },
+      // The Sales tracker moved off /proposals (FLOW-276); its reports sit below it.
+      { copyId: "sales-tracker", name: "Sales tracker", to: "/sales", visible: "proposals.read" },
       { copyId: "venues", name: "Venues", to: "/venues", visible: "venues.read" },
-    ],
+    ]),
   },
   {
     copyId: "events",
     name: "Events",
     tabs: [
       { copyId: "calendar", name: "Calendar", to: "/calendar", also: ["/events"], visible: "events.read" },
+      // Every event's BEO (FLOW-265).
+      { copyId: "beos", name: "BEOs", to: "/beos", visible: "beos.read" },
       { copyId: "production", name: "Production", to: "/production", visible: "production.read" },
       { copyId: "day-of", name: "Day-of", to: "/day-of", visible: "dayof.read" },
     ],
@@ -67,8 +79,13 @@ export const navigationGroups: NavGroup[] = [
     name: "Inventory",
     tabs: [
       { copyId: "inventory", name: "Inventory", to: "/inventory", also: ["/kitchen/orders"], visible: "inventory.read" },
-      { copyId: "purchasing", name: "Purchasing", to: "/purchasing", visible: "inventory.read" },
+      // Bar stock has its own tab (FLOW-266); its address stays /inventory/bar.
+      { copyId: "bar", name: "Bar", to: "/inventory/bar", visible: "inventory.read" },
+      // Order lists live under Purchasing (FLOW-266).
+      { copyId: "purchasing", name: "Purchasing", to: "/purchasing", also: ["/inventory/orders"], visible: "inventory.read" },
       { copyId: "vendors", name: "Vendors", to: "/vendors", visible: "vendors.read" },
+      // Inventory photos (FLOW-298).
+      { copyId: "photos", name: "Photos", to: "/inventory/photos", visible: "inventory.read" },
       // Each importer needs its own permission (FLOW-47): inventory or leads.
       {
         copyId: "imports",
@@ -84,17 +101,30 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
       { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
+      // Every menu PDF (FLOW-267): Documents of type Menu and the client recipe book.
+      { copyId: "menus", name: "Menus", to: "/kitchen/menus", visible: "recipes.read" },
+      // Kitchen photos (FLOW-298).
+      { copyId: "photos", name: "Photos", to: "/kitchen/photos", visible: "recipes.read" },
     ],
   },
-  { copyId: "marketing", name: "Marketing", tabs: [{ copyId: "marketing", name: "Marketing", to: "/marketing" }] },
-  { copyId: "documents", name: "Documents", tabs: [{ copyId: "documents", name: "Documents", to: "/documents" }] },
+  // Marketing › Photos (FLOW-271) keeps the old Marketing tab's URL.
+  {
+    copyId: "marketing",
+    name: "Marketing",
+    tabs: withOverview("/marketing/overview", [{ copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" }]),
+  },
+  {
+    copyId: "documents",
+    name: "Documents",
+    tabs: withOverview("/documents/overview", [{ copyId: "documents", name: "Documents", to: "/documents" }]),
+  },
   {
     copyId: "reports",
     name: "Reports",
-    tabs: [
+    tabs: withOverview("/reports/overview", [
       { copyId: "time-tracking", name: "Time tracking", to: "/reports", visible: "time.read" },
       { copyId: "operational-reports", name: "Operational reports", to: "/reports/operations", visible: "reports.operations.read" },
-    ],
+    ]),
   },
 ];
 

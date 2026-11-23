@@ -38,12 +38,12 @@ import { useListLabels } from "./list-fields";
 import {
   barTierLabel,
   centsLabel,
-  kindLabels,
   purchaseLabel,
   quantityLabel,
-  subtypeLabel,
 } from "./inventory-labels";
 import "./inventory.css";
+import { IngredientBulkActions, IngredientStockPill, KitchenHeading, ingredientStockText } from "./kitchen-screen";
+import { InventoryHeading, InventoryShortcuts, StockPill, inventoryTabExcludes, stockLabel, stockState } from "./inventory-screen";
 import { RoundCheck } from "../components/ui/round-check";
 import { T, useCopy, LabelT, joined } from "../app/copy";
 
@@ -108,6 +108,46 @@ function ClassificationFilters({ kind, categoryId, typeId, onCategory, onType }:
   </>;
 }
 
+// How a consumable is bought, one stored field per column (FLOW-275): purchase
+// unit, pack count, and each size with its unit. Each saves through the inline
+// endpoint.
+function purchaseColumns(
+  save: (item: InventoryItem, field: string, value: string) => Promise<void>,
+  canEdit: (item: InventoryItem) => boolean,
+): ColumnDef<InventoryItem, unknown>[] {
+  const editable = (item: InventoryItem) => canEdit(item) && Boolean(item.consumable);
+  const units = unitSchema.options.map((unit) => ({ value: unit, label: unitLabel(unit) }));
+  return [
+    {
+      id: "purchase",
+      header: "Bought as",
+      accessorFn: (item) => purchaseLabel(item.consumable),
+      // The trigger reads like the column ("case of 12 × 750 ml"); the menu picks the unit.
+      meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.purchaseUnit ?? "",
+        editDisplay: (item) => purchaseLabel(item.consumable), editOptions: units, onEdit: (item, value) => save(item, "consumable.purchaseUnit", value) },
+    },
+    {
+      id: "packCount",
+      header: "Pack count",
+      accessorFn: (item) => item.consumable?.packCount ?? "",
+      meta: { edit: "number", canEdit: editable, onEdit: (item, value) => save(item, "consumable.packCount", value) },
+    },
+    {
+      id: "eachSize",
+      header: "Each size",
+      accessorFn: (item) => item.consumable?.eachSize ? Number(item.consumable.eachSize.quantity) : "",
+      meta: { edit: "number", canEdit: editable, onEdit: (item, value) => save(item, "consumable.eachSize.quantity", value) },
+    },
+    {
+      id: "eachUnit",
+      header: "Each unit",
+      accessorFn: (item) => item.consumable?.eachSize ? unitLabel(item.consumable.eachSize.unit) : "",
+      meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.eachSize?.unit ?? "",
+        editOptions: units, onEdit: (item, value) => save(item, "consumable.eachSize.unit", value) },
+    },
+  ];
+}
+
 function classificationColumns(
   catalog: Awaited<ReturnType<typeof inventoryCategoriesApi.list>> | undefined,
   save: (item: InventoryItem, field: string, value: string) => Promise<void>,
@@ -153,21 +193,29 @@ function classificationColumns(
   ];
 }
 
+// The Inventory screen's Inventory tab (FLOW-266): rentals, decor, supplies and
+// services, without bar stock (the Bar tab) or ingredients (Kitchen). Shortcut
+// cards, filters (kind, category, type, vendor, section, below par) and the
+// table: Open, Item, Kind, Category, Type, On hand, Par, Stock, Storage, Vendor,
+// Unit cost, then the item's other stored fields (FLOW-275). On hand comes from
+// counts and Unit cost from receiving, so neither is edited here. Bulk: Move to
+// storage and Set vendor (consumables), Delete (reserved items are skipped).
+const inventoryKindLabels: Record<ItemKind, string> = { rental: "Rentals", consumable: "Supplies", service: "Services" };
 export function InventoryList() {
-  const searchItemNameOrCodePlaceholder = useCopy("inventory-lists.inventory-list.search-item-name-or-code.placeholder", "Search item name or code…");
   const navigate = useNavigate();
   const { actor, can } = usePermissions();
-  const [search, setSearch] = useState("");
   const [kind, setKind] = useState<ItemKind | "">("");
   const [categoryId, setCategoryId] = useState("");
   const [typeId, setTypeId] = useState("");
   const [sectionId, setSectionId] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [belowPar, setBelowPar] = useState(false);
   const [archived, setArchived] = useState(false);
   const [create, setCreate] = useState(false);
-  // Search and filters run on the server across every item (FLOW-179/180).
-  const term = useDebounced(search.trim());
+  const [bulkError, setBulkError] = useState("");
+  // Filters run on the server across every item (FLOW-179/180).
   const items = usePagedList(
-    ["inventory-items", "list", archived, kind, categoryId, typeId, sectionId, term],
+    ["inventory-items", "list", archived, kind, categoryId, typeId, sectionId, vendor, belowPar],
     (cursor) =>
       inventoryApi.list(
         {
@@ -176,96 +224,118 @@ export function InventoryList() {
           categoryId: categoryId || undefined,
           typeId: typeId || undefined,
           sectionId: sectionId || undefined,
-          search: term || undefined,
+          vendor: vendor || undefined,
+          belowPar: belowPar || undefined,
+          excludeSubtypes: inventoryTabExcludes,
         },
         cursor,
       ),
   );
   const deletable = useDeletable("inventory_item", () => items.reload());
   const catalog = useResource(["inventory-categories"], inventoryCategoriesApi.list, { reference: true });
+  const storage = useResource(["sections", { kind: "consumable" }], () => sectionsApi.list({ kind: "consumable" }), { reference: true });
   const canEdit = (item: InventoryItem) => can("inventory.write") && (item.kind === "consumable" || can("rentals.apply_directly"));
+  const consumableEdit = (item: InventoryItem) => canEdit(item) && Boolean(item.consumable);
   const save = async (item: InventoryItem, field: string, value: string) => {
     await inventoryApi.inline(item.id, field, value, item.updatedAt);
     items.reload();
   };
   const data = items.data ?? [];
+  const vendors = [...new Set(data.map(vendorOf).filter(Boolean))].sort();
   const columns: ColumnDef<InventoryItem, unknown>[] = [
     { accessorKey: "name", header: "Item", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
     {
-      accessorKey: "code",
-      header: "Code",
-      cell: (c) => (
-        <span className="sku">{(c.getValue() as string) || "—"}</span>
-      ),
-      meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "code", value) },
-    },
-    {
       id: "kind",
       header: "Kind",
-      accessorFn: (item) =>
-        [kindLabels[item.kind], subtypeLabel(item.subtype)]
-          .filter(Boolean)
-          .join(" · "),
-      cell: ({ row }) =>
-        joined([
-          <LabelT id="labels.item-kind" value={row.original.kind}>{kindLabels[row.original.kind]}</LabelT>,
-          subtypeLabel(row.original.subtype),
-        ]),
+      accessorFn: (item) => inventoryKindLabels[item.kind],
+      cell: ({ row }) => <LabelT id="labels.inventory-tab-kind" value={row.original.kind}>{inventoryKindLabels[row.original.kind]}</LabelT>,
     },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
-    { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
-    // FLOW-275: the three parts of "Group / variant", each editable on its own.
-    { accessorKey: "group", header: "Group", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "group", value) } },
-    { accessorKey: "tier", header: "Tier", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "tier", value) } },
-    { accessorKey: "color", header: "Color", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "color", value) } },
     {
       id: "quantity",
       header: "On hand",
-      accessorFn: (item) =>
-        item.kind === "service" ? null : item.totalQuantity,
+      accessorFn: (item) => (item.kind === "service" ? null : item.totalQuantity),
       sortingFn: "basic",
-      cell: (c) =>
-        c.row.original.kind === "service"
-          ? "Not stocked"
-          : quantityLabel(c.row.original.totalQuantity, c.row.original.unit),
+      cell: (c) => (c.row.original.kind === "service" ? "—" : quantityLabel(c.row.original.totalQuantity, c.row.original.unit)),
     },
+    {
+      id: "par",
+      header: "Par",
+      accessorFn: (item) => item.consumable?.parLevel ?? "",
+      meta: { edit: "number", canEdit: consumableEdit, onEdit: (item, value) => save(item, "consumable.parLevel", value) },
+    },
+    {
+      id: "stock",
+      header: "Stock",
+      accessorFn: (item) => stockLabel(stockState(item)),
+      cell: ({ row }) => <StockPill state={stockState(row.original)} />,
+    },
+    {
+      id: "storage",
+      header: "Storage",
+      accessorFn: (item) => item.consumable?.storageSectionName ?? item.stock.map((level) => level.sectionName).join(", "),
+      meta: { edit: "select", canEdit: consumableEdit, editValue: (item) => item.consumable?.storageSectionId ?? "",
+        editOptions: [{ value: "", label: "None" }, ...(storage.data ?? []).map((section) => ({ value: section.id, label: section.name }))],
+        onEdit: (item, value) => save(item, "consumable.storageSectionId", value) },
+    },
+    {
+      id: "vendor",
+      header: "Vendor",
+      accessorFn: vendorOf,
+      meta: { edit: "text", canEdit: consumableEdit, editValue: (item) => item.consumable?.preferredVendor ?? "",
+        onEdit: (item, value) => save(item, "consumable.preferredVendor", value) },
+    },
+    {
+      id: "cost",
+      header: "Unit cost",
+      accessorFn: (item) => item.consumable?.unitCostCents ?? null,
+      cell: ({ row }) => (row.original.consumable?.unitCostCents == null ? "—" : centsLabel(row.original.consumable.unitCostCents)),
+    },
+    // The item's other stored fields, edited here too (FLOW-275).
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: (c) => <span className="sku">{(c.getValue() as string) || "—"}</span>,
+      meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "code", value) },
+    },
+    { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
+    { accessorKey: "group", header: "Group", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "group", value) } },
+    { accessorKey: "tier", header: "Tier", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "tier", value) } },
+    { accessorKey: "color", header: "Color", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "color", value) } },
   ];
+  // Bulk changes on consumables; other kinds are skipped with a note.
+  const bulk = async (ids: string[], clear: () => void, field: string, value: string) => {
+    setBulkError("");
+    const skipped: string[] = [];
+    for (const id of ids) {
+      const item = data.find((row) => row.id === id);
+      if (!item?.consumable || !canEdit(item)) { if (item) skipped.push(item.name); continue; }
+      try { await inventoryApi.inline(item.id, field, value, item.updatedAt); }
+      catch (cause) { skipped.push(`${item.name} (${(cause as Error).message})`); }
+    }
+    if (skipped.length) setBulkError(skipped.join(", "));
+    clear();
+    items.reload();
+  };
+  const selection = {
+    rowId: (row: InventoryItem) => row.id,
+    ...deletable,
+    actions: can("inventory.write")
+      ? (ids: string[], clear: () => void) => <>
+        <Dropdown variant="dark" aria-label="Move to storage" value=""
+          options={[{ value: "", label: <T id="inventory-lists.inventory-list.move-to-storage">Move to storage</T>, text: "Move to storage" },
+            ...(storage.data ?? []).map((section) => ({ value: section.id, label: section.name }))]}
+          onValueChange={(next) => next && void bulk(ids, clear, "consumable.storageSectionId", next)} />
+        <BulkVendor onSet={(name) => bulk(ids, clear, "consumable.preferredVendor", name)} />
+      </>
+      : undefined,
+  };
   return (
     <>
-      <PageHeader pageKey="inventory.list"
-        title={<T id="inventory-lists.inventory-list.inventory">Inventory</T>}
-        subtitle={<T id="inventory-lists.inventory-list.rentals-decor-kitchen-bar-and">Rentals, decor, kitchen, bar and supplies, and the services you sell.</T>}
-        eyebrow={<T id="inventory-lists.inventory-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
-      >
-        <Button variant="outline" asChild>
-          <Link to="/inventory/master"><T id="inventory-lists.inventory-list.master-sheet">Master sheet</T></Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/orders"><T id="inventory-lists.inventory-list.order-lists">Order lists</T></Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link to="/approvals"><T id="inventory-lists.inventory-list.approvals">Approvals</T></Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/ingredients"><T id="inventory-lists.inventory-list.ingredients">Ingredients</T></Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/bar"><T id="inventory-lists.inventory-list.bar">Bar</T></Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/supplies"><T id="inventory-lists.inventory-list.supplies">Supplies</T></Link>
-        </Button>
+      <InventoryHeading tab="inventory">
         <Allowed action="inventory.count">
           <Button variant="outline" asChild>
-            <Link to="/inventory/counts"><T id="inventory-lists.inventory-list.counts">Counts</T></Link>
-          </Button>
-        </Allowed>
-        <Button variant="outline" asChild>
-          <Link to="/inventory/low-stock"><T id="inventory-lists.inventory-list.low-stock">Low stock</T></Link>
-        </Button>
-        <Allowed action="inventory.sections">
-          <Button variant="outline" asChild>
-            <Link to="/inventory/sections"><T id="inventory-lists.inventory-list.sections">Sections</T></Link>
+            <Link to="/inventory/counts"><T id="inventory-lists.inventory-list.start-stock-count">Start stock count</T></Link>
           </Button>
         </Allowed>
         {actor && (can("inventory.write") || isFtPlus(actor)) && (
@@ -274,61 +344,73 @@ export function InventoryList() {
             <T id="inventory-lists.inventory-list.new-item">New Item</T>
           </Button>
         )}
-      </PageHeader>
+      </InventoryHeading>
       <PageGrid pageKey="inventory.list">
-      <Block id="filters" name="Filters" h={5}>
-      <FilterBar>
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder={searchItemNameOrCodePlaceholder} copyId="inventory-lists.inventory-list.search-item-name-or-code.placeholder"
-        />
-        <Dropdown
-          aria-label="Kind"
-          value={kind}
-          onChange={(e) => { setKind(e.target.value as ItemKind | ""); setCategoryId(""); setTypeId(""); }}
-        >
-          <option value="">All kinds</option>
-          {itemKindSchema.options.map((option) => (
-            <option key={option} value={option}>
-              {kindLabels[option]}
-            </option>
-          ))}
-        </Dropdown>
-        <ClassificationFilters kind={kind || "all"} categoryId={categoryId} typeId={typeId} onCategory={setCategoryId} onType={setTypeId} />
-        <SectionFilter value={sectionId} onChange={setSectionId} />
-        <label className="checkbox-filter">
-          <RoundCheck
-            checked={archived}
-            onChange={(e) => setArchived(e.target.checked)}
-          />
-          <T id="inventory-lists.inventory-list.show-archived">Show archived</T>
-        </label>
-        <span className="result-count">
-          {items.hasMore ? <T id="inventory-lists.inventory-list.items" values={{ dataCount: data.length }}>{"{dataCount}+ items"}</T> : <T id="inventory-lists.inventory-list.items-2" values={{ dataCount: data.length }}>{"{dataCount} items"}</T>}
-        </span>
-      </FilterBar>
-      </Block>
-      <Block id="list" name="List" h={24}>
-      {items.error ? (
-        <LoadError message={items.error} />
-      ) : items.loading && !items.data ? (
-        <LoadingSkeleton />
-      ) : (
-        <>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.inventory-list"
-            data={data}
-            columns={columns}
-            openColumn
-            onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label={<T id="inventory-lists.inventory-list.items-3">items</T>}
-            exportName="inventory"
-            exportAll={items.loadAll}
-          />
-          <LoadMore list={items} label={<T id="inventory-lists.inventory-list.load-more-items">Load more items</T>} />
-        </>
-      )}
-      </Block>
+        <Block id="shortcuts" name="Shortcuts" h={3}>
+          <InventoryShortcuts />
+        </Block>
+        <Block id="filters" name="Filters" h={3}>
+          <FilterBar>
+            <Dropdown
+              variant="filter"
+              aria-label="Kind"
+              value={kind}
+              options={[
+                { value: "", label: <T id="inventory-lists.inventory-list.all-kinds">All kinds</T>, text: "All kinds" },
+                ...itemKindSchema.options.map((option) => ({
+                  value: option,
+                  label: <LabelT id="labels.inventory-tab-kind" value={option}>{inventoryKindLabels[option]}</LabelT>,
+                  text: inventoryKindLabels[option],
+                })),
+              ]}
+              onValueChange={(next) => { setKind(next as ItemKind | ""); setCategoryId(""); setTypeId(""); }}
+            />
+            <ClassificationFilters kind={kind || "all"} categoryId={categoryId} typeId={typeId} onCategory={setCategoryId} onType={setTypeId} />
+            <Dropdown
+              variant="filter"
+              aria-label="Vendor"
+              value={vendor}
+              options={[
+                { value: "", label: <T id="inventory-lists.inventory-list.all-vendors">All vendors</T>, text: "All vendors" },
+                ...[...new Set([...vendors, ...(vendor ? [vendor] : [])])].map((name) => ({ value: name, label: name })),
+              ]}
+              onValueChange={setVendor}
+            />
+            <SectionFilter value={sectionId} onChange={setSectionId} />
+            <label className="checkbox-filter">
+              <RoundCheck checked={belowPar} onChange={(e) => setBelowPar(e.target.checked)} />
+              <T id="inventory-lists.inventory-list.below-par-only">Below par only</T>
+            </label>
+            <label className="checkbox-filter">
+              <RoundCheck checked={archived} onChange={(e) => setArchived(e.target.checked)} />
+              <T id="inventory-lists.inventory-list.show-archived">Show archived</T>
+            </label>
+          </FilterBar>
+        </Block>
+        <Block id="list" name="List" h={24}>
+          {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.inventory-list.skipped" values={{ names: bulkError }}>{"Skipped: {names}"}</T></p>}
+          {items.error ? (
+            <LoadError message={items.error} />
+          ) : items.loading && !items.data ? (
+            <LoadingSkeleton />
+          ) : (
+            <>
+              <DataTable selection={selection} copyKey="inventory-lists.inventory-list"
+                data={data}
+                columns={columns}
+                openColumn
+                onRow={(item) => navigate(`/inventory/${item.id}`)}
+                label={<T id="inventory-lists.inventory-list.items-3">items</T>}
+                exportName="inventory"
+                exportAll={items.loadAll}
+              />
+              <LoadMore list={items} label={<T id="inventory-lists.inventory-list.load-more-items">Load more items</T>} />
+              <p className="table-hint">
+                <T id="inventory-lists.inventory-list.click-a-cell-to-edit">{"Click a cell to edit it (On hand changes through a stock count; Unit cost comes from receiving). Category and Type dropdowns let Admins add new ones. Drag, Shift+click or Ctrl/Cmd+click to select; Delete or Ctrl+Z."}</T>
+              </p>
+            </>
+          )}
+        </Block>
       </PageGrid>
       {create && (
         <ItemForm
@@ -337,6 +419,21 @@ export function InventoryList() {
         />
       )}
     </>
+  );
+}
+
+const vendorOf = (item: InventoryItem) => item.consumable?.preferredVendor || item.rental?.vendorName || "";
+
+// "Set vendor" in the bulk bar: a name typed once for every selected item.
+function BulkVendor({ onSet }: { onSet: (name: string) => Promise<void> }) {
+  const placeholder = useCopy("inventory-lists.bulk-vendor.vendor-name.placeholder", "Vendor name");
+  const [name, setName] = useState("");
+  return (
+    <form className="bulk-inline-form" onSubmit={(event) => { event.preventDefault(); if (name.trim()) void onSet(name.trim()).then(() => setName("")); }}>
+      <input aria-label="Vendor for selected items" placeholder={placeholder} data-copy-id="inventory-lists.bulk-vendor.vendor-name.placeholder"
+        value={name} onChange={(event) => setName(event.target.value)} />
+      <Button type="submit" variant="outline" disabled={!name.trim()}><T id="inventory-lists.bulk-vendor.set-vendor">Set vendor</T></Button>
+    </form>
   );
 }
 
@@ -357,6 +454,7 @@ export function IngredientList({
   const [sectionId, setSectionId] = useState("");
   const [belowPar, setBelowPar] = useState(false);
   const [create, setCreate] = useState(false);
+  const [bulkError, setBulkError] = useState("");
   const term = useDebounced(search.trim());
   const vendorTerm = useDebounced(vendor.trim());
   const items = usePagedList(
@@ -399,11 +497,7 @@ export function IngredientList({
     { accessorKey: "name", header: supplies ? "Supply" : "Ingredient", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
     { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
-    {
-      id: "purchase",
-      header: "Bought as",
-      accessorFn: (item) => purchaseLabel(item.consumable),
-    },
+    ...purchaseColumns(save, canEdit),
     {
       id: "recipeUnit",
       header: "Recipe unit",
@@ -452,13 +546,57 @@ export function IngredientList({
         </>
       ),
     },
+    // FLOW-267: par and the stock state.
+    {
+      id: "par",
+      header: "Par",
+      accessorFn: (item) => item.consumable?.parLevel ?? "",
+      meta: { edit: "number", canEdit, onEdit: (item, value) => save(item, "consumable.parLevel", value) },
+    },
+    {
+      id: "stock",
+      header: "Stock",
+      accessorFn: ingredientStockText,
+      cell: ({ row }) => <IngredientStockPill item={row.original} />,
+    },
   ];
+  // Bulk on the Kitchen › Ingredients tab (FLOW-267): Move to storage, Set vendor.
+  const applyBulk = (ids: string[], clear: () => void) => async (field: string, value: string) => {
+    setBulkError("");
+    const failed: string[] = [];
+    for (const id of ids) {
+      const item = data.find((row) => row.id === id);
+      if (!item) continue;
+      try { await inventoryApi.inline(item.id, field, value, item.updatedAt); }
+      catch (cause) { failed.push(`${item.name} (${(cause as Error).message})`); }
+    }
+    if (failed.length) setBulkError(failed.join(", "));
+    clear();
+    items.reload();
+  };
   return (
     <>
-      <Link to="/inventory" className="back-link">
+      {!supplies && <KitchenHeading tab="ingredients">
+        <Button variant="outline" asChild>
+          <Link to="/kitchen/orders"><T id="inventory-lists.ingredient-list.kitchen-orders">Kitchen orders</T></Link>
+        </Button>
+        <Allowed action="inventory.count">
+          <Button variant="outline" asChild>
+            <Link to="/inventory/counts"><T id="inventory-lists.ingredient-list.start-stock-count">Start stock count</T></Link>
+          </Button>
+        </Allowed>
+        <Allowed action="inventory.write">
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>
+          </Button>
+        </Allowed>
+      </KitchenHeading>}
+      {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.ingredient-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T></p>}
+      {supplies && <Link to="/inventory" className="back-link">
         <T id="inventory-lists.ingredient-list.all-inventory">← All inventory</T>
-      </Link>
-      <PageHeader pageKey="inventory.consumables"
+      </Link>}
+      {supplies && <PageHeader pageKey="inventory.consumables"
         title={supplies ? <T id="inventory-lists.ingredient-list.supplies">Supplies</T> : <T id="inventory-lists.ingredient-list.ingredients">Ingredients</T>}
         subtitle={
           supplies
@@ -485,7 +623,7 @@ export function IngredientList({
             {supplies ? <T id="inventory-lists.ingredient-list.new-supply">New Supply</T> : <T id="inventory-lists.ingredient-list.new-ingredient">New Ingredient</T>}
           </Button>
         </Allowed>
-      </PageHeader>
+      </PageHeader>}
       <PageGrid pageKey="inventory.consumables">
         <Block id="filters" name="Filters" h={3}>
       <FilterBar>
@@ -533,7 +671,14 @@ export function IngredientList({
         </Block>
         {!items.error && items.data && (
           <Block id="list" name="List" h={24}>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.ingredient-list"
+          <DataTable copyKey="inventory-lists.ingredient-list"
+            selection={{
+              rowId: (row) => row.id,
+              ...deletable,
+              actions: !supplies && can("inventory.write")
+                ? (ids, clear) => <IngredientBulkActions sections={storageSections.data ?? []} onApply={applyBulk(ids, clear)} />
+                : undefined,
+            }}
             data={data}
             columns={supplies ? columns.filter((column) => column.id !== "recipeUnit") : columns}
             openColumn
@@ -668,11 +813,7 @@ export function BarList() {
         return joined([<LabelT id="labels.bar-container" value={item.bar.container}>{barContainerLabels[item.bar.container]}</LabelT>, size], " ");
       },
     },
-    {
-      id: "pack",
-      header: "Bought as",
-      accessorFn: (item) => purchaseLabel(item.consumable),
-    },
+    ...purchaseColumns(save, canEdit),
     {
       id: "distributor",
       header: "Distributor",
@@ -703,22 +844,43 @@ export function BarList() {
         </>
       ),
     },
+    // FLOW-266: par and the stock state, as on the Inventory tab.
+    {
+      id: "par",
+      header: "Par",
+      accessorFn: (item) => item.consumable?.parLevel ?? "",
+      meta: { edit: "number", canEdit, onEdit: (item, value) => save(item, "consumable.parLevel", value) },
+    },
+    {
+      id: "stock",
+      header: "Stock",
+      accessorFn: (item) => stockLabel(stockState(item)),
+      cell: ({ row }) => <StockPill state={stockState(row.original)} />,
+    },
   ];
+  // Bulk: Set tier (FLOW-266).
+  const [bulkError, setBulkError] = useState("");
+  const setTiers = async (ids: string[], clear: () => void, value: string) => {
+    setBulkError("");
+    const failed: string[] = [];
+    for (const id of ids) {
+      const item = data.find((row) => row.id === id);
+      if (!item) continue;
+      try { await inventoryApi.inline(item.id, "tier", value, item.updatedAt); }
+      catch (cause) { failed.push(`${item.name} (${(cause as Error).message})`); }
+    }
+    if (failed.length) setBulkError(failed.join(", "));
+    clear();
+    items.reload();
+  };
   return (
     <>
-      <Link to="/inventory" className="back-link">
-        <T id="inventory-lists.bar-list.all-inventory">← All inventory</T>
-      </Link>
-      <PageHeader pageKey="inventory.bar"
-        title={<T id="inventory-lists.bar-list.bar">Bar</T>}
-        subtitle={<T id="inventory-lists.bar-list.beer-wine-and-liquor-what">{"Beer, wine and liquor: what's in stock, what's low, and who supplies it."}</T>}
-        eyebrow={<T id="inventory-lists.bar-list.bar-2">BAR</T>}
-      >
+      <InventoryHeading tab="bar">
         <Allowed action="inventory.count">
           <Button variant="outline" asChild>
             <Link to="/inventory/counts">
               <ClipboardCheck size={16} />
-              <T id="inventory-lists.bar-list.count">Count</T>
+              <T id="inventory-lists.bar-list.start-bar-count">Start bar count</T>
             </Link>
           </Button>
         </Allowed>
@@ -728,7 +890,8 @@ export function BarList() {
             <T id="inventory-lists.bar-list.new-bar-item">New Bar Item</T>
           </Button>
         </Allowed>
-      </PageHeader>
+      </InventoryHeading>
+      {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.bar-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T></p>}
       <PageGrid pageKey="inventory.bar">
         <Block id="filters" name="Filters" h={3}>
       <FilterBar>
@@ -807,7 +970,17 @@ export function BarList() {
         </Block>
         {!items.error && items.data && (
           <Block id="list" name="List" h={24}>
-          <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.bar-list"
+          <DataTable copyKey="inventory-lists.bar-list"
+            selection={{
+              rowId: (row) => row.id,
+              ...deletable,
+              actions: can("inventory.write")
+                ? (ids, clear) => <Dropdown variant="dark" aria-label="Set tier" value=""
+                  options={[{ value: "", label: <T id="inventory-lists.bar-list.set-tier">Set tier</T>, text: "Set tier" },
+                    ...barTierSchema.options.map((option) => ({ value: option, label: barTierLabels[option] }))]}
+                  onValueChange={(next) => next && void setTiers(ids, clear, next)} />
+                : undefined,
+            }}
             data={data}
             columns={columns}
             openColumn

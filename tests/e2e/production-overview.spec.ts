@@ -47,11 +47,42 @@ test("two same-day events show pulls and trucks and flag full truck capacity", a
     }
   });
   await page.goto("/#/production");
-  await expect(page.getByRole("heading", { name: "Production overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Events", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Autumn gala" }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Winter lunch" }).first()).toBeVisible();
   await expect(page.getByText("All 3 trucks are assigned")).toBeVisible();
   await expect(page.getByText("Staff shifts overlap.")).toBeVisible();
   await choose(page.getByRole("combobox", { name: "Event" }), second.id);
   await expect(page.getByRole("link", { name: "Winter lunch" }).first()).toBeVisible();
+});
+
+// FLOW-265: the Events screen's Production tab.
+test("checks off a task in place, and the check stays after a reload", async ({ page }) => {
+  const date = addLocalDays(utcToBusinessTime(new Date()).date, 2);
+  const event = { ...fallGala(), date };
+  await seedRecords({ clients: [juniper()], events: [event] });
+  const taskId = randomUUID();
+  await browserDb((db) => db.insert(s.tasks).values({ id: taskId, eventId: event.id, title: "Build arch", type: "production",
+    dueAt: businessTimeToUtc(date, "09:00") }));
+  await page.goto("/#/production");
+  const line = page.getByRole("listitem").filter({ hasText: "Build arch" });
+  await expect(line).toContainText("Task");
+  await expect(line).toContainText("9:00 AM");
+  await expect(line.getByRole("link", { name: event.title })).toBeVisible();
+  await line.getByRole("checkbox", { name: "Complete Build arch" }).check();
+  await expect.poll(() => browserDb(async (db) => (await db.select().from(s.tasks).where(eq(s.tasks.id, taskId)))[0].status)).toBe("done");
+  await page.reload();
+  await expect(page.getByRole("listitem").filter({ hasText: "Build arch" }).getByRole("checkbox")).toBeChecked();
+});
+
+test("the Days filter reaches 30 days ahead", async ({ page }) => {
+  const date = addLocalDays(utcToBusinessTime(new Date()).date, 20);
+  const event = { ...fallGala(), date };
+  await seedRecords({ clients: [juniper()], events: [event] });
+  await browserDb((db) => db.insert(s.tasks).values({ eventId: event.id, title: "Order linens", type: "production",
+    dueAt: businessTimeToUtc(date, "10:00") }));
+  await page.goto("/#/production");
+  await expect(page.getByText("Order linens")).toHaveCount(0);
+  await choose(page.getByRole("combobox", { name: "Days" }), "30");
+  await expect(page.getByText("Order linens")).toBeVisible();
 });

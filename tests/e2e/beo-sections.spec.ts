@@ -105,15 +105,14 @@ test("a layout image can be uploaded and is shown, and Annotate opens the drawin
   await expect(editor).toHaveCount(0);
 });
 
-test("calendar detail mode shows the clicked event's BEO beside the calendar", async ({ page }) => {
+test("the calendar's side panel shows the clicked event and closes (FLOW-265)", async ({ page }) => {
   await seedBeo();
   await page.goto("/#/calendar?date=2026-09-17");
-  await page.getByLabel("Detail mode").check();
   await page.locator('.fc-daygrid-day[data-date="2026-09-17"] .calendar-event').click();
-  const detail = page.getByRole("complementary", { name: "Event details" });
-  await expect(detail).toContainText("Fall gala");
-  await expect(detail).toContainText("120 guests");
-  await expect(detail.getByRole("link", { name: "Open event" })).toBeVisible();
-  await detail.getByRole("button", { name: "Close" }).click();
-  await expect(detail).toHaveCount(0);
+  const panel = page.getByRole("dialog", { name: "Fall gala" });
+  await expect(panel).toContainText("120");
+  await expect(panel.getByRole("link", { name: "Open event" })).toBeVisible();
+  await expect(panel.getByRole("link", { name: "Open BEO" })).toBeVisible();
+  await panel.getByRole("button", { name: "Close dialog" }).click();
+  await expect(panel).toHaveCount(0);
 });

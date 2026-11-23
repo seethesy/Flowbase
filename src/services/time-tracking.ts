@@ -46,7 +46,9 @@ export function contextForPath(
       return { activity: "client_work", ...record("client") };
     // The proposals pipeline is demo data until FLOW-117, so only the activity is
     // credited; real proposals open on their event (FLOW-122).
+    // The Sales tracker moved from /proposals to /sales (FLOW-276).
     case "proposals":
+    case "sales":
       return { activity: "proposal_work", recordType: null, recordId: null };
     case "events":
       // The BEO's own page, /events/<id>/beo/<beo id> (FLOW-221), is credited to
