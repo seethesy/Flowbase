@@ -17,16 +17,25 @@ import { DocumentUpload } from "./documents";
 import { centsLabel } from "./inventory-labels";
 import "./kitchen-screen.css";
 
-// The Kitchen screen's heading (FLOW-267), the same on its three tabs (Recipes,
-// Ingredients, Menus), each with its own line under it and actions.
+// The Kitchen screen's heading (FLOW-267), the same on its tabs (Overview from
+// FLOW-293, Recipes, Ingredients, Menus), each with its own line under it and
+// actions.
 const subtitles = {
+  overview: <T id="kitchen-screen.overview.menu-items-for-the-next">What the kitchen makes for the next 14 days: every menu item, when it is ready, for how many, and who is in charge.</T>,
   recipes: <T id="kitchen-screen.recipes.every-dish-with-its">Every dish with its ingredients, method, cost and allergens.</T>,
   ingredients: <T id="kitchen-screen.ingredients.kitchen-ingredients-what-is">Kitchen ingredients: what is on hand, par levels, costs and who supplies them.</T>,
   menus: <T id="kitchen-screen.menus.every-menu-pdf-in">{"Every menu PDF in one place: event menus, seasonal menus and the client recipe book. They're the same files as Documents › Menus."}</T>,
 };
+// Each tab's page layout, so its heading lines can be edited there (FLOW-282).
+const pageKeys: Record<keyof typeof subtitles, string> = {
+  overview: "kitchen.overview",
+  recipes: "recipes.list",
+  ingredients: "inventory.consumables",
+  menus: "kitchen.menus",
+};
 export function KitchenHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {
   return (
-    <PageHeader title={<T id="kitchen-screen.kitchen-heading.kitchen">Kitchen</T>} subtitle={subtitles[tab]}>
+    <PageHeader pageKey={pageKeys[tab]} title={<T id="kitchen-screen.kitchen-heading.kitchen">Kitchen</T>} subtitle={subtitles[tab]}>
       {children}
     </PageHeader>
   );

@@ -117,3 +117,66 @@ for (const table of inventoryTables)
     expect(header).toContain("Unit");
     expect(header).not.toContain(table.hide);
   });
+
+for (const entry of [
+  { name: "Working Staff", id: "working-staff", path: "/#/", tab: "", field: "Position" },
+  { name: "Proposal tracker", id: "proposal-tracker", path: `/#/clients/${juniper().id}`, tab: "Proposal tracker", field: "Version" },
+]) {
+  test(`FLOW-281: ${entry.name} opens prefilled, shares and resets`, async ({ page, browser }) => {
+    await seedRecords({ clients: [juniper()], events: [fallGala()] });
+    await page.goto(entry.path);
+    if (entry.tab) await page.getByRole("tab", { name: entry.tab, exact: true }).click();
+    await edit(page);
+    await page.getByRole("button", { name: `Edit ${entry.name}`, exact: true }).click();
+    const builder = page.getByRole("dialog", { name: "Card builder" });
+    await expect(builder.getByLabel("Title", { exact: true })).toHaveValue(entry.name);
+    await expect(builder.getByRole("combobox", { name: "Source", exact: true })).toBeDisabled();
+    await expect(builder.getByRole("checkbox", { name: `Show ${entry.field}`, exact: true })).toBeChecked();
+    await builder.getByRole("checkbox", { name: `Show ${entry.field}`, exact: true }).click();
+    await builder.getByRole("spinbutton", { name: "Row limit" }).fill("2");
+    await builder.getByRole("button", { name: "Done", exact: true }).click();
+    await save(page);
+    const other = await asUser(browser, seedUsers.find((u) => u.role === "sales_manager")!.id);
+    await other.page.goto(entry.path);
+    if (entry.tab) await other.page.getByRole("tab", { name: entry.tab, exact: true }).click();
+    await expect(other.page.locator(`[data-card-id="${entry.id}"]`).getByRole("heading", { name: entry.name, exact: true })).toBeVisible();
+    await expect(other.page.getByRole("button", { name: "Edit screen text" })).toHaveCount(0);
+    await other.close();
+    await edit(page);
+    await page.getByRole("button", { name: `Edit ${entry.name}`, exact: true }).click();
+    await expect(builder.getByRole("spinbutton", { name: "Row limit" })).toHaveValue("2");
+    await builder.getByRole("button", { name: "Reset card" }).click();
+    await save(page);
+    await expect(page.locator(`[data-card-id="${entry.id}"]`)).toHaveCount(0);
+  });
+}
+
+test("FLOW-281: SOP columns save order and width and export only visible fields", async ({ page }) => {
+  await page.goto("/#/sops/new");
+  await page.getByLabel("Title", { exact: true }).fill("Sample loading procedure");
+  await page.getByLabel("Category", { exact: true }).fill("Production");
+  await page.getByRole("textbox", { name: "SOP content" }).fill("Count the sample boxes.");
+  await page.getByRole("button", { name: "Save SOP" }).click();
+  await expect(page.getByRole("heading", { name: "Sample loading procedure", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: /SOP library/ }).click();
+  await expect(page.getByRole("heading", { name: "SOP library", exact: true })).toBeVisible();
+  await edit(page);
+  await page.getByRole("button", { name: "Columns", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Columns" });
+  // Owner is shown by default (FLOW-270); Last updated is an extra SOP field.
+  await picker.getByRole("checkbox", { name: "Show Owner", exact: true }).click();
+  await picker.getByRole("checkbox", { name: "Show Last updated", exact: true }).click();
+  await picker.getByRole("button", { name: "Done", exact: true }).click();
+  const resize = page.getByRole("separator", { name: /Title/ });
+  await resize.focus();
+  await resize.press("ArrowRight");
+  await save(page);
+  await page.reload();
+  await expect(page.getByRole("columnheader", { name: "Owner", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Last updated", exact: true })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export CSV" }).click();
+  const header = await csvHeader(await download);
+  expect(header).toContain("Last updated");
+  expect(header).not.toContain("Owner");
+});

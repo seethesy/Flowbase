@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Allowed } from "../app/permissions";
 import { useState } from "react";
@@ -50,7 +51,7 @@ export function SectionList() {
       <Link to="/inventory" className="back-link">
         <T id="inventory-sections.section-list.all-inventory">← All inventory</T>
       </Link>
-      <PageHeader
+      <PageHeader pageKey="inventory.sections"
         title={<T id="inventory-sections.section-list.sections">Sections</T>}
         subtitle={<T id="inventory-sections.section-list.where-stock-lives-vendor-holds">Where stock lives. Vendor holds sub-rented items.</T>}
         eyebrow={<T id="inventory-sections.section-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
@@ -60,6 +61,8 @@ export function SectionList() {
           {error}
         </p>
       )}
+      <PageGrid pageKey="inventory.sections">
+      <Block id="add" name="Add section" h={5}>
       {!archived && (
         <Allowed action="inventory.sections">
           <form
@@ -95,6 +98,8 @@ export function SectionList() {
           </form>
         </Allowed>
       )}
+      </Block>
+      <Block id="filters" name="Section filters" h={3}>
       <FilterBar>
         <label className="checkbox-filter">
           <RoundCheck
@@ -104,6 +109,8 @@ export function SectionList() {
           <T id="inventory-sections.section-list.show-archived">Show archived</T>
         </label>
       </FilterBar>
+      </Block>
+      <Block id="sections" name="Stock sections" h={20}>
       {sections.error ? (
         <LoadError message={sections.error} />
       ) : !sections.data ? (
@@ -204,6 +211,8 @@ export function SectionList() {
           </Section>
         ))
       )}
+      </Block>
+      </PageGrid>
     </>
   );
 }

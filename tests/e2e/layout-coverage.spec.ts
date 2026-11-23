@@ -147,7 +147,7 @@ test("event page: hide a field with Edit mode matching, required fields have no 
   const card = page.locator('[data-field-card="event-facts"]');
   await choose(card.locator("xpath=ancestor::section[1]").getByRole("combobox", { name: "Add text" }), "heading");
   await page.getByRole("textbox", { name: "Heading text" }).first().fill("Gala facts");
-  await choose(page.getByRole("toolbar", { name: "Page layout" }).getByRole("combobox", { name: "Add text" }), "note");
+  await choose(page.locator('[data-page-layout="events.detail"] > [role="toolbar"]').getByRole("combobox", { name: "Add text" }), "note");
   await page.getByRole("textbox", { name: "Note text" }).last().fill("Confirm the load-in window");
   await save(page);
   await expect(page.getByRole("heading", { name: "Gala facts" })).toBeVisible();
@@ -166,10 +166,10 @@ test("event page: hide a field with Edit mode matching, required fields have no 
 
   // Delete both texts.
   await edit(page);
-  await page.getByRole("button", { name: "Delete Note" }).click();
-  await page.getByRole("alertdialog", { name: "Delete this text?" }).getByRole("button", { name: "Delete" }).click();
-  await page.getByRole("button", { name: "Delete Heading" }).click();
-  await page.getByRole("alertdialog", { name: "Delete Heading?" }).getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete Note", exact: true }).click();
+  await page.getByRole("dialog", { name: "Delete Note?", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
+  await page.getByRole("button", { name: "Delete Heading", exact: true }).click();
+  await page.getByRole("dialog", { name: "Delete Heading?", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
   await save(page);
   await expect(page.getByRole("heading", { name: "Gala facts" })).toHaveCount(0);
   await expect(page.getByText("Confirm the load-in window")).toHaveCount(0);
@@ -255,15 +255,15 @@ test("a This record 2 × 2 Boxes card and an event's Tasks related list: add, ed
 
   // Delete it.
   await edit(page);
-  await page.getByRole("button", { name: "Delete Our client" }).click();
-  await page.getByRole("alertdialog", { name: "Delete this card?" }).getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("button", { name: "Delete Our client", exact: true }).click();
+  await page.getByRole("dialog", { name: "Delete Our client?", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
   await save(page);
   await expect(page.getByRole("heading", { name: "Our client" })).toHaveCount(0);
 
   // An event's related Tasks list.
   await page.goto(`/#/events/${fallGala().id}`);
   await edit(page);
-  await page.getByRole("button", { name: "Add card" }).click();
+  await page.locator('[data-page-layout="events.detail"] > [role="toolbar"]').getByRole("button", { name: "Add card" }).click();
   builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Event tasks");
   await choose(builder.getByRole("combobox", { name: "Source" }), "related:tasks");

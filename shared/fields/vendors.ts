@@ -10,6 +10,7 @@ export const vendorFields: SourceDef = {
   detailPath: (id) => `/api/vendors/${encodeURIComponent(id)}`,
   recordRoute: (row) => (typeof row.id === "string" ? `/vendors/${row.id}` : null),
   titleField: "name",
+  relations: [{ key: "items", label: "Items they supply", source: "inventory", path: (id) => `/api/vendors/${encodeURIComponent(id)}/items` }],
   fields: [
     { key: "name", label: "Vendor", type: "text", required: true, sortable: true, filterable: true },
     {

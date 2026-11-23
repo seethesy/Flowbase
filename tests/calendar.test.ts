@@ -85,8 +85,9 @@ describe("event chips and the side panel (FLOW-265)", () => {
     expect(entry).toMatchObject({
       title: "Fall gala",
       display: "block",
-      classNames: ["calendar-event", "calendar-status-closed"],
-      extendedProps: { eventId: galaId, status: "closed" },
+      // Closed is confirmed: a filled chip (FLOW-294).
+      classNames: ["calendar-event", "calendar-status-closed", "calendar-confirmed"],
+      extendedProps: { eventId: galaId, status: "closed", pending: false },
     });
     expect(calendarWhen(gala)).toBe("Thu, Sep 17 · 5:00 PM");
     expect(calendarWhen({ start: "2026-11-28T00:05" })).toBe("Sat, Nov 28 · 12:05 AM");

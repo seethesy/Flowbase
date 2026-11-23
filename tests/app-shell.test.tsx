@@ -20,8 +20,8 @@ function mount(path = "/", role: Role = "admin") {
             <Route path="/leads" element={<p>Leads screen</p>} />
             <Route path="/clients" element={<p>Clients screen</p>} />
             <Route path="/venues" element={<p>Venues screen</p>} />
-            <Route path="/calendar" element={<p>Calendar screen</p>} />
-            <Route path="/day-of" element={<p>Day-of screen</p>} />
+            <Route path="/events/overview" element={<p>Events overview screen</p>} />
+            <Route path="/beos" element={<p>BEOs screen</p>} />
             <Route path="/profile" element={<p>Profile screen</p>} />
           </Route>
         </Routes>
@@ -58,12 +58,15 @@ it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveClass("active");
 });
 
-it("keeps Day-of under the heading it was opened from", async () => {
+it("opens Events on its Overview and keeps its tabs under Events (FLOW-294)", async () => {
   const user = userEvent.setup();
   mount();
   await user.click(within(mainNav()).getByRole("link", { name: "Events" }));
-  await user.click(within(screen.getByRole("navigation", { name: "Events pages" })).getByRole("link", { name: "Day-of" }));
-  expect(screen.getByText("Day-of screen")).toBeInTheDocument();
+  expect(screen.getByText("Events overview screen")).toBeInTheDocument();
+  const tabs = screen.getByRole("navigation", { name: "Events pages" });
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "BEOs", "Production"]);
+  await user.click(within(tabs).getByRole("link", { name: "BEOs" }));
+  expect(screen.getByText("BEOs screen")).toBeInTheDocument();
   expect(within(mainNav()).getByRole("link", { name: "Events" })).toHaveClass("active");
   expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Events" })).toBeInTheDocument();
 });

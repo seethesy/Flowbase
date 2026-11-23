@@ -60,7 +60,7 @@ function OperationalReportsContent({ userRole }: { userRole?: string }) {
     ...(data?.orders.map((r) => ["Vendor spend", r.vendor, r.month, r.orders, r.spendCents]) ?? []),
   ];
   return <>
-    <PageHeader title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} subtitle={<T id="operational-reports.operational-reports.time-leads-rental-use-and">Time, leads, rental use and purchasing</T>} />
+    <PageHeader pageKey="reports.operations" title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} subtitle={<T id="operational-reports.operational-reports.time-leads-rental-use-and">Time, leads, rental use and purchasing</T>} />
     <PageGrid pageKey="reports.operations">
     <Block id="dates" name="Dates and export" h={3}>
     <div className="sales-actions">

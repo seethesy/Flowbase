@@ -39,9 +39,9 @@ test("lists orphaned edits; Delete removes one and Move to key re-keys another (
   expect(rows.map((row) => row.key)).toEqual(["nav.venues"]);
 });
 
-test("keeps the saved Day-of label under its fixed key (AC5)", async ({ page, isMobile }) => {
+test("keeps the saved Approvals label under its fixed key (AC5)", async ({ page, isMobile }) => {
   test.skip(isMobile, "The section tabs are the same on phones; one viewport is enough.");
-  await browserDb((db) => db.insert(s.uiCopy).values({ key: "nav.day-of", text: "Today" }));
-  await page.goto("/#/day-of");
+  await browserDb((db) => db.insert(s.uiCopy).values({ key: "nav.approvals", text: "Today" }));
+  await page.goto("/#/approvals");
   await expect(page.getByRole("navigation", { name: "Dashboard pages" }).getByText("Today", { exact: true })).toBeVisible();
 });

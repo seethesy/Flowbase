@@ -19,6 +19,7 @@ import {
   vendorOrders,
 } from "../db/schema";
 import { ApiError, forbidden } from "../hono";
+import { beoDeleteBlocked, beoDeleteName, setBeoArchived } from "./beo";
 import { getClient, setClientArchived } from "./clients";
 import { getEvent, setEventArchived } from "./events";
 import { findItem, getItem, setItemArchived } from "./inventory-items";
@@ -123,6 +124,12 @@ const entities: Record<DeletableEntity, Entity> = {
   sop: {
     name: async (db, _actor, id) => (await findSop(db, id)).title,
     archive: setSopArchived,
+  },
+  // The BEOs tab (FLOW-288). The id is the BEO's; the event must be visible.
+  beo: {
+    name: beoDeleteName,
+    blocked: beoDeleteBlocked,
+    archive: setBeoArchived,
   },
 };
 

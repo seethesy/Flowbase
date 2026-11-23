@@ -162,3 +162,69 @@ optional fields to show.
 - At most 40 blocks and 12 custom cards per page; a card shows at most 100 rows.
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.
+
+## Added in FLOW-280
+
+- Event BEO, staff, trucks, payments, preparation, timeline and activity have
+  independent section grids (`events.beo`, `events.staff`, `events.trucks`,
+  `events.payments`, `events.preparation`, `events.timeline`, `events.activity`).
+  Existing lists, timeline and BEO areas keep their own controls. Errors and
+  drawers remain outside the inner grids.
+- Staff and Inventory filters are separate blocks. The table retains `list`,
+  including when loading or reporting an error, so existing saved layouts work.
+- Browser coverage: `tests/e2e/layout-event-tabs.spec.ts`.
+
+## Added in FLOW-281
+
+- In-place card editing also covers Dashboard Working Staff, client Proposal
+  tracker, vendor Items they supply and venue Event history. Working Staff uses
+  the dashboard's currently working shifts and original event visibility rules.
+  Related lists retain their parent scope and the viewer's permissions.
+- Recipes and SOP library tables choose and reorder columns, save widths and
+  export the visible columns. SOP procedure content is never a layout field.
+- Lead dashboard and time-report aggregate tables remain code-only: their rows
+  combine different measures and are not individual registry records.
+- Confirmed exclusions: `clients.client-detail` is a tab copy key, not a table;
+  the legacy `proposals.tsx` component is unrouted. Staff shifts and item events
+  cards do not exist on those detail pages and are excluded by the developer.
+  Existing inventory planning holds/allocations keep their organizers.
+
+## Added in FLOW-283
+
+- SOP detail and creation use `sops.detail`: `sop-header-facts`, `procedure`,
+  `edit-history` and attachments. Category/version can be removed independently;
+  procedure content remains record data, edited only through Edit SOP.
+- Newly covered pages: Documents, notification preferences on Profile, task
+  detail, Archived, Collector health, inventory categories and sections, recipe
+  detail, order detail, stock counting, import detail, Roles & permissions,
+  coming-soon pages, placeholders and the newly merged photo gallery pages. Existing inventory planning and history
+  blocks were verified; legacy unrouted Proposals is excluded by agreement.
+- Documents' DataTable is layout-aware. SOP library column support is FLOW-281;
+  FLOW-283 verifies it rather than adding a second implementation. Remaining
+  inventory planning/history tables are plain HTML and keep their organizers.
+- `tests/page-layout-coverage.test.ts` follows every router component through
+  local imports and re-exports, and rejects a route with no PageGrid. Printable,
+  sign-in and offline BEO pages are exempt. Redirects do not render pages.
+- Browser coverage: `tests/e2e/layout-remaining-pages.spec.ts`; inventory coverage
+  continues in `tests/e2e/layout-coverage.spec.ts`.
+
+## Added in FLOW-282
+
+- Delete is separate from Hide. Blocks, field boxes, free text, section headers,
+  page subtitles and layout-aware tables can be deleted with a named confirmation.
+  The page title stays. A table can disappear independently of its containing block.
+- Deleted items shows the name, kind, deleting user id and time. Restore preserves
+  position, size, style and role visibility. Save shares changes; Cancel discards
+  the entire pending layout edit. Only Admin (`layout.edit`) sees these controls.
+- Permanent removal physically removes custom cards/text/inner text. Built-in
+  blocks, field boxes, headers and tables retain tombstones; only Reset page layout
+  brings them back. Reset's confirmation explains this. Deleted items do not count
+  toward the 40 active blocks or 12 active custom cards.
+- Deleted field boxes suppress optional fields in record Edit forms; required
+  record inputs remain available. Stored record values, SOP content and table data
+  never change. Deleted cards leave Roles & permissions; restoring retains roles.
+- Layout audit snapshots include explicit delete/restore/permanent-delete actions.
+- Coverage: `tests/layout-deletion.test.ts`, `tests/e2e/layout-deletion.spec.ts`,
+  and the SOP lifecycle checks in `tests/e2e/layout-remaining-pages.spec.ts`.
+
+Integration with main preserves FLOW-296 aggregate column resizing (no registry field chooser), FLOW-266 inventory filters and shortcuts, and the Documents `documents-table` id.

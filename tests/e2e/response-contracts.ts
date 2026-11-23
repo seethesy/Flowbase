@@ -114,6 +114,8 @@ import {
   importRowPlanSchema,
 } from "../../shared/imports";
 
+import { kitchenInChargeResultSchema, kitchenOverviewSchema } from "../../shared/kitchen-overview";
+
 export function responseSchema(
   path: string,
   method: string,
@@ -362,6 +364,8 @@ export function responseSchema(
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;
+  // Kitchen › Overview and its In charge dropdown (FLOW-293).
+  if (resource === "kitchen") return id === "overview" ? kitchenOverviewSchema : kitchenInChargeResultSchema;
   if (resource === "order-lists")
     return !id && method === "GET" ? orderListSchema.array() : orderListSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);

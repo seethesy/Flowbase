@@ -32,6 +32,8 @@ export type AuditEntity =
   | "staff_pay"
   | "staff_pay_exception"
   | "sop"
+  // A BEO deleted from the BEOs tab and restored (FLOW-288).
+  | "beo"
   | "setting"
   | "list_value"
   | "recipe"

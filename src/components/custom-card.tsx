@@ -1,3 +1,4 @@
+import { LayoutHeader } from "../app/layout-deletion";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
@@ -41,9 +42,11 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
   const source = target?.source;
   return (
     <section className="panel layout-card" data-card-id={cardId}>
+      <LayoutHeader headerKey={`${cardId}.title`} name={`${card.title} header`}>
       <div className="section-heading">
         <h2>{card.title}</h2>
       </div>
+      </LayoutHeader>
       {!source || !path ? (
         <p className="muted">
           <T id="layout.custom-card.no-data">No data</T>

@@ -46,7 +46,7 @@ describe("live-edit key manifest", () => {
   });
 
   it("lists wording, placeholders, blocks, field cards and tables", () => {
-    expect(manifest.copy["nav.day-of"]).toEqual([]);
+    expect(manifest.copy["nav.beos"]).toEqual([]);
     expect(Object.keys(manifest.copy).length).toBeGreaterThan(1000);
     expect(manifest.layout["leads.detail"].fieldCards).toEqual(["lead-facts"]);
     expect(manifest.layout["dashboard.home"].blocks).toContain("my-leads");
@@ -55,7 +55,7 @@ describe("live-edit key manifest", () => {
     expect(manifest.nav).toContain("sales");
     expect(manifest.nav).toContain("sales.venues");
     expect(manifest.nav).toContain("reports.overview");
-    expect(manifest.nav).toContain("events.day-of");
+    expect(manifest.nav).toContain("events.overview");
     // Event hub blocks come from blockIds: one per hub section.
     expect(manifest.layout["events.detail"].blocks).toEqual(
       hubSectionSchema.options.map((section) => section.replace(/_/g, "-")).sort(),

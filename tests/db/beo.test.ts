@@ -9,6 +9,8 @@ import type { RunWithDb } from "../../worker/hono";
 import type { EmploymentType, Role } from "../../shared/access";
 import type { ApprovalRequest } from "../../shared/approvals";
 import type { BeoView, OfflineBeos } from "../../shared/beo";
+import type { BeoListRow } from "../../shared/beo-list";
+import type { DeleteResult } from "../../shared/deletions";
 import type { Client, FlowEvent } from "../../shared/core-records";
 import type { EventRoster } from "../../shared/event-staff";
 import { createJobRegistry } from "../../worker/jobs/cron";
@@ -94,7 +96,7 @@ const casey = signedInAs("casey");
 const kit = signedInAs("kit");
 const nora = signedInAs("nora");
 
-const tables = sql`truncate table pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
+const tables = sql`truncate table deletions, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, sms_outbox, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, notifications, notification_preferences, approval_requests, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users cascade`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -794,5 +796,72 @@ describe("FLOW-265: the BEOs tab", () => {
     await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
     expect((await list(jamie)).map((row) => row.eventId)).toEqual([event.id]);
     expect(await list(nora)).toEqual([]);
+  });
+});
+
+describe("FLOW-288: deleting BEOs from the BEOs tab", () => {
+  const listed = async () => (await sam.send<BeoListRow[]>("GET", "/api/beos?when=all")).map((row) => row.id);
+
+  it("deletes a draft and an awaiting-approval BEO, and Undo brings them back (AC1)", async () => {
+    const draftEvent = await seed();
+    // A second event for the same client (a second seed would duplicate it).
+    const pendingEvent = await sam.send<FlowEvent>("POST", "/api/events", {
+      title: "Winter dinner",
+      date: later,
+      startTime: "19:00",
+      endTime: "22:00",
+      clientId: draftEvent.client!.id,
+      pocContactId: draftEvent.pocContactId,
+      guestCount: 40,
+      assignedSalespersonId: people.sam,
+    });
+    const draft = await sam.send<BeoView>("POST", `/api/events/${draftEvent.id}/beo`, {});
+    await sam.send<BeoView>("POST", `/api/events/${pendingEvent.id}/beo`, {});
+    const pending = await sam.send<BeoView>("POST", `/api/events/${pendingEvent.id}/beo/request-approval`, {}, 200);
+    const ids = [draft.id!, pending.id!];
+
+    const result = await sam.send<DeleteResult>("POST", "/api/deletions/beo", { ids }, 200);
+    expect(result).toEqual({ deleted: ids, skipped: [] });
+    expect(await listed()).toEqual([]);
+    // The open approval request leaves the approvers' queue.
+    const [request] = await db.select().from(schema.approvalRequests);
+    expect(request.status).toBe("withdrawn");
+
+    expect(await sam.send("POST", "/api/deletions/beo/restore", { ids }, 200)).toEqual({ restored: expect.arrayContaining(ids) });
+    expect((await listed()).sort()).toEqual([...ids].sort());
+    // Restored as drafts: the withdrawn request is not reopened.
+    expect((await getBeo(sam, pendingEvent)).status).toBe("working_on");
+  });
+
+  it("skips approved and Final BEOs with the reason (AC2)", async () => {
+    const event = await seed();
+    const beo = await approved(event);
+    const result = await sam.send<DeleteResult>("POST", "/api/deletions/beo", { ids: [beo.id] }, 200);
+    expect(result.deleted).toEqual([]);
+    expect(result.skipped).toEqual([{ id: beo.id, name: "BEO: Fall gala", reason: "has an approved BEO" }]);
+    expect(await listed()).toEqual([beo.id]);
+  });
+
+  it("generates a new BEO after a delete, and the old one can no longer be restored (AC3)", async () => {
+    const event = await seed();
+    const first = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    await sam.send<DeleteResult>("POST", "/api/deletions/beo", { ids: [first.id] }, 200);
+    expect((await getBeo(sam, event)).exists).toBe(false);
+
+    const again = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    expect(again).toMatchObject({ exists: true, status: "working_on" });
+    expect(again.id).not.toBe(first.id);
+    expect(again.content.summary.guestCount).toBe(80);
+    expect(await listed()).toEqual([again.id]);
+
+    const undo = await sam.call("POST", "/api/deletions/beo/restore", { ids: [first.id] });
+    expect(undo.status).toBe(409);
+    expect(await listed()).toEqual([again.id]);
+  });
+
+  it("is refused to people who can't edit events", async () => {
+    const event = await seed();
+    const beo = await sam.send<BeoView>("POST", `/api/events/${event.id}/beo`, {});
+    expect((await jamie.call("POST", "/api/deletions/beo", { ids: [beo.id] })).status).toBe(403);
   });
 });

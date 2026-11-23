@@ -65,5 +65,5 @@ export default function LayoutColumns<Row>({
     // configKey stands for layout.columns.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columns, configKey, target]);
-  return <>{children(shown, layout.editor, layout.resize)}</>;
+  return layout.deleted ? null : <>{children(shown, layout.editor, layout.resize)}</>;
 }

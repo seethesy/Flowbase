@@ -2172,6 +2172,9 @@ export const kitchenMenuLines = pgTable(
     notes: text("notes").notNull().default(""),
     sourceKey: text("source_key"),
     edited: boolean("edited").notNull().default(false),
+    // Who in the kitchen is in charge of this item (FLOW-293), from Kitchen ›
+    // Overview. A user id; no foreign key, as with other staff links (FLOW-270).
+    inChargeStaffId: uuid("in_charge_staff_id"),
   },
   (table) => [
     index("kitchen_menu_lines_menu_idx").on(table.menuId),
@@ -2193,9 +2196,10 @@ export const beos = pgTable(
   "beos",
   {
     ...baseColumns(),
+    // One live BEO per event; a deleted (archived) one can sit beside a new one
+    // (FLOW-288).
     eventId: uuid("event_id")
       .notNull()
-      .unique()
       .references(() => events.id),
     status: text("status", { enum: beoStatuses }).notNull().default("working_on"),
     approvalId: uuid("approval_id"),
@@ -2209,6 +2213,7 @@ export const beos = pgTable(
     runOfShowMode: text("run_of_show_mode", { enum: runOfShowModes }).notNull().default("auto"),
   },
   (table) => [
+    uniqueIndex("beos_event_live_idx").on(table.eventId).where(sql`${table.archivedAt} is null`),
     oneOf("beos_status_check", table.status, beoStatuses),
     oneOf("beos_run_of_show_mode_check", table.runOfShowMode, runOfShowModes),
   ],

@@ -1,10 +1,11 @@
+import { Block, PageGrid } from "./page-grid";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button, LoadingSkeleton, PageHeader, Section } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { roles, type Role } from "../../shared/access";
-import { emptyLayout, type LayoutBlock, type LayoutDoc } from "../../shared/layout";
+import { emptyLayout, layoutItemGone, type LayoutBlock, type LayoutDoc } from "../../shared/layout";
 import {
   areas,
   cardShown,
@@ -52,9 +53,9 @@ type CardRow = { id: string; name: string };
 
 function cardRows(doc: LayoutDoc | null): CardRow[] {
   const custom = (doc?.blocks ?? []).flatMap((block) =>
-    block.kind === "card" ? [{ id: block.id, name: block.card.title }] : [],
+    block.kind === "card" && !layoutItemGone(block) ? [{ id: block.id, name: block.card.title }] : [],
   );
-  return [...dashboardCards.map((card) => ({ id: card.key, name: card.label })), ...custom];
+  return [...dashboardCards.filter((card) => !doc?.blocks.some((block) => block.id === card.key && layoutItemGone(block))).map((card) => ({ id: card.key, name: card.label })), ...custom];
 }
 function cardRolesOf(doc: LayoutDoc | null): CardRoles {
   const result: CardRoles = {};
@@ -156,7 +157,7 @@ export function RolesPermissionsPage() {
       <Link className="back-link" to="/settings">
         ← Settings
       </Link>
-      <PageHeader
+      <PageHeader pageKey="settings.permissions"
         title="Roles & permissions"
         subtitle="What each role can read or write, area by area, and which roles see each dashboard card, sidebar heading and tab."
       />
@@ -166,6 +167,8 @@ export function RolesPermissionsPage() {
         <LoadingSkeleton />
       ) : (
         <>
+          <PageGrid pageKey="settings.permissions">
+          <Block id="areas" name="Area permissions" h={24}>
           <Section title="Areas">
             <p className="muted">
               None hides the area. Read lets a role view every record. Own lets a role work only on records assigned to
@@ -214,6 +217,8 @@ export function RolesPermissionsPage() {
               </table>
             </div>
           </Section>
+          </Block>
+          <Block id="cards" name="Card visibility" h={16}>
           <Section title="Dashboard and custom cards">
             <p className="muted">
               A card shows only to the roles marked Visible, and only if the role can also read the area it comes from.
@@ -255,7 +260,13 @@ export function RolesPermissionsPage() {
               </table>
             </div>
           </Section>
-          {nav && <NavigationSection hidden={nav} onChange={setNav} />}
+          </Block>
+          {nav && (
+            <Block id="navigation" name="Navigation visibility" h={24}>
+              <NavigationSection hidden={nav} onChange={setNav} />
+            </Block>
+          )}
+          </PageGrid>
           {error && (
             <p role="alert" className="error-message">
               {error}

@@ -596,7 +596,7 @@ export function IngredientList({
       {supplies && <Link to="/inventory" className="back-link">
         <T id="inventory-lists.ingredient-list.all-inventory">← All inventory</T>
       </Link>}
-      {supplies && <PageHeader
+      {supplies && <PageHeader pageKey="inventory.consumables"
         title={supplies ? <T id="inventory-lists.ingredient-list.supplies">Supplies</T> : <T id="inventory-lists.ingredient-list.ingredients">Ingredients</T>}
         subtitle={
           supplies

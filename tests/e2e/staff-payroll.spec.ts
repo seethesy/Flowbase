@@ -66,7 +66,10 @@ test("Admin edits pay type and rate on Payroll and the change persists (AC1)", a
   await page.goto("/#/staffing/payroll");
   await expect(page.getByRole("heading", { name: "Payroll", level: 1 })).toBeVisible();
   const row = page.getByRole("row", { name: new RegExp(server.name.replace(/[()]/g, "\\$&")) });
+  // Read the headers once the Pay table has loaded, not while it's a skeleton.
+  await expect(row).toBeVisible();
   const columns = await headers(page);
+  expect(columns).toContain("Pay type");
   const saved = () => page.waitForResponse((response) => response.url().endsWith("/api/staff-pay") && response.request().method() === "PUT");
   let done = saved();
   await row.getByRole("cell").nth(columns.indexOf("Pay type")).getByRole("button").click();

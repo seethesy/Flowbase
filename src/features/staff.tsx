@@ -145,13 +145,15 @@ export function StaffDirectory() {
   ];
   return (
     <>
-      <PageHeader
+      <PageHeader pageKey="staff.list"
         title={<T id="staff.staff-directory.staff">Staff</T>}
         subtitle={<T id="staff.staff-directory.who-works-for-the-business">Who works for the business and the positions they can work.</T>}
         eyebrow={<T id="staff.staff-directory.team">TEAM</T>}
       >
         {manage && <Button onClick={() => setAdding(true)}><T id="staff.staff-directory.add-staff-without-account">Add staff without an account</T></Button>}
       </PageHeader>
+      <PageGrid pageKey="staff.list">
+      <Block id="filters" name="Filters" h={5}>
       <FilterBar>
         <SearchInput
           value={search}
@@ -184,14 +186,14 @@ export function StaffDirectory() {
         </label>
         <span className="result-count"><T id="staff.staff-directory.staff-2" values={{ dataCount: data.length }}>{"{dataCount} staff"}</T></span>
       </FilterBar>
+      </Block>
+      <Block id="list" name="List" h={24}>
       {bulkError && <p role="alert" className="error-message">{bulkError}</p>}
       {staff.error ? (
         <LoadError message={staff.error} />
       ) : staff.loading && !staff.data ? (
         <LoadingSkeleton />
       ) : (
-<PageGrid pageKey="staff.list">
-        <Block id="list" name="List" h={24}>
         <DataTable copyKey="staff.staff-directory"
           data={data}
           columns={columns}
@@ -217,9 +219,9 @@ export function StaffDirectory() {
               : undefined,
           } : undefined}
         />
-        </Block>
-        </PageGrid>
       )}
+      </Block>
+      </PageGrid>
       {adding && <AddStaffForm onClose={() => setAdding(false)} onSaved={(member) => { setAdding(false); staff.reload(); navigate(`/staff/${member.id}`); }} />}
     </>
   );
@@ -293,7 +295,7 @@ export function StaffProfile({
   return (
     <>
       {heading && (
-        <PageHeader
+        <PageHeader pageKey="staff.detail"
           title={data.name}
           subtitle={data.role ? <RoleText role={data.role} /> : <T id="staff.staff-profile.no-account">No Flowbase account</T>}
         />

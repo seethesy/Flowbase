@@ -1,21 +1,16 @@
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
 import { queryClient } from "./queryClient";
-import { X } from "lucide-react";
-import { fieldDef, fieldRegistry, type SourceKey } from "../../shared/fields";
-import { GRID_COLUMNS, type LayoutBox, type SavedLayout } from "../../shared/layout";
+import { fieldDef, type SourceKey } from "../../shared/fields";
+import { GRID_COLUMNS, layoutItemGone, recordPages, type LayoutBox, type SavedLayout } from "../../shared/layout";
 import { Section } from "../components/shared";
-import { Button } from "../components/ui/button";
-import { BoxContent, BoxesView, useVisibleBoxes } from "../components/layout-boxes";
+import { BoxesView } from "../components/layout-boxes";
 import { layoutApi } from "../services/layout";
-import { addFieldBox, addTextBox, AddFieldMenu, AddTextMenu, DeleteTextButton, variantNames } from "./box-editor";
 import { layoutQueryKey, useLiveEdit } from "./copy";
 import { usePageLayoutContext } from "./layout-state";
-import { styleClass, styleVars, StylePopover } from "./layout-style";
-import { widthPresets, withWidth } from "./layout-sizes";
 
-const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
+const FieldCardEditor = lazy(() => import("./field-card-editor"));
 
 // Field boxes on a record page (FLOW-255): a card of the record's fields, each a
 // box (label + value) on the card's inner 12-column grid, plus free-text boxes.
@@ -24,7 +19,6 @@ const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
 // with ×, adds fields and text, and drags boxes into place. Required fields
 // can't be hidden. Edit chrome wording isn't wrapped in <T>.
 
-const BOX_ROW_HEIGHT = 28;
 
 // The code's default boxes: its fields two to a row.
 export function defaultFieldBoxes(fields: string[]): LayoutBox[] {
@@ -57,7 +51,7 @@ export function useFieldBoxes(pageKey: string, cardKey: string): LayoutBox[] | n
 // default, else only fields with a box (FLOW-255: Edit matches what's visible).
 export function useShownFields(pageKey: string, cardKey: string): (field: string) => boolean {
   const boxes = useFieldBoxes(pageKey, cardKey);
-  return (field) => !boxes || boxes.some((box) => box.kind === "field" && box.field === field);
+  return (field) => Boolean(recordPages[pageKey] && fieldDef(recordPages[pageKey].source, field)?.required) || !boxes || boxes.some((box) => box.kind === "field" && box.field === field && !layoutItemGone(box));
 }
 
 export function FieldCard({
@@ -91,133 +85,14 @@ export function FieldCard({
     );
   }
   return (
-    <FieldCardEditor
+    <Suspense fallback={null}><FieldCardEditor
       cardKey={cardKey}
       source={source}
       row={row}
       title={title}
       boxes={saved ?? defaultFieldBoxes(fields)}
       custom={saved !== undefined}
-    />
+    /></Suspense>
   );
 }
 
-function FieldCardEditor({
-  cardKey,
-  source,
-  row,
-  title,
-  boxes,
-  custom,
-}: {
-  cardKey: string;
-  source: SourceKey;
-  row: Record<string, unknown>;
-  title: ReactNode;
-  boxes: LayoutBox[];
-  custom: boolean;
-}) {
-  const layout = usePageLayoutContext()!;
-  const [styling, setStyling] = useState<string | null>(null);
-  const visible = useVisibleBoxes(boxes, source);
-  const required = new Set(fieldRegistry[source].fields.filter((field) => field.required).map((field) => field.key));
-  // Boxes the viewer can't read stay saved as they are.
-  const unseen = boxes.filter((box) => !visible.includes(box));
-  const set = (next: LayoutBox[]) =>
-    layout.update((doc) => ({ ...doc, fieldBoxes: { ...doc.fieldBoxes, [cardKey]: { boxes: [...next, ...unseen] } } }));
-  const reset = () =>
-    layout.update((doc) => {
-      const fieldBoxes = { ...doc.fieldBoxes };
-      delete fieldBoxes[cardKey];
-      return { ...doc, fieldBoxes };
-    });
-  const remove = (id: string) => set(visible.filter((box) => box.id !== id));
-  const patch = (id: string, values: Partial<LayoutBox>) =>
-    set(visible.map((box) => (box.id === id ? { ...box, ...values } : box)));
-  const name = (box: LayoutBox) =>
-    box.kind === "field" ? (fieldDef(source, box.field!)?.label ?? box.field!) : variantNames[box.kind];
-  return (
-    <Section
-      title={title}
-      action={
-        <span className="layout-field-card-actions">
-          <AddFieldMenu source={source} boxes={boxes} onAdd={(field) => set(addFieldBox(visible, field))} />
-          <AddTextMenu onAdd={(kind) => set(addTextBox(visible, kind))} />
-          <Button variant="ghost" disabled={!custom} onClick={reset}>
-            Reset fields
-          </Button>
-        </span>
-      }
-    >
-      <div className="layout-field-card editing" data-field-card={cardKey}>
-        <Suspense fallback={<div className="skeleton" role="status" aria-label="Loading field editor" />}>
-          <LayoutGridEditor
-            label={`Fields of ${cardKey}`}
-            rowHeight={BOX_ROW_HEIGHT}
-            items={visible}
-            itemLabel={(id) => name(visible.find((box) => box.id === id)!)}
-            onChange={(items) =>
-              set(visible.map((box) => {
-                const moved = items.find((item) => item.id === box.id);
-                return moved ? { ...box, x: moved.x, y: moved.y, w: moved.w, h: moved.h } : box;
-              }))
-            }
-            render={(id) => {
-              const box = visible.find((b) => b.id === id)!;
-              const label = name(box);
-              return (
-                <div className={`layout-box layout-box--${box.kind} ${styleClass(box.style)}`} style={styleVars(box.style)}>
-                  <div className="layout-box-bar">
-                    <span className="layout-handle" title="Drag to move" aria-hidden="true">
-                      ⠿
-                    </span>
-                    <span className="layout-size-presets" role="group" aria-label={`Width of ${label}`}>
-                      {widthPresets.map((preset) => (
-                        <button
-                          type="button"
-                          key={preset.w}
-                          aria-label={`${preset.name}: ${label}`}
-                          title={preset.name}
-                          aria-pressed={box.w === preset.w}
-                          onClick={() => patch(box.id, withWidth(box, preset.w))}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </span>
-                    <button type="button" className="layout-box-style" aria-label={`Style ${label}`} onClick={() => setStyling(box.id)}>
-                      ◐
-                    </button>
-                    {box.kind === "field" ? (
-                      !required.has(box.field!) && (
-                        <button type="button" className="layout-box-remove" aria-label={`Hide ${label}`} onClick={() => remove(box.id)}>
-                          <X size={14} />
-                        </button>
-                      )
-                    ) : (
-                      <DeleteTextButton label={label} onDelete={() => remove(box.id)} />
-                    )}
-                  </div>
-                  {styling === box.id && (
-                    <StylePopover style={box.style} onChange={(style) => patch(box.id, { style })} onClose={() => setStyling(null)} />
-                  )}
-                  {box.kind === "field" ? (
-                    <BoxContent box={box} source={source} row={row} />
-                  ) : (
-                    <textarea
-                      className={`layout-text-input layout-text-input--${box.kind}`}
-                      aria-label={`${label} text`}
-                      value={box.text ?? ""}
-                      maxLength={2000}
-                      onChange={(event) => patch(box.id, { text: event.target.value })}
-                    />
-                  )}
-                </div>
-              );
-            }}
-          />
-        </Suspense>
-      </div>
-    </Section>
-  );
-}

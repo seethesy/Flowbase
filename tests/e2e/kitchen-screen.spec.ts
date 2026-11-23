@@ -3,6 +3,7 @@ import { test, expect } from "./auth-fixture";
 import { browserDb, seedInventory, seedRecords } from "./database";
 import { consumable, fallGala, juniper } from "./fixtures";
 import { seedUsers } from "../../worker/db/seed";
+import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { createRecipe } from "../../worker/records/recipes";
 import { recipeInputSchema } from "../../shared/recipes";
 import * as s from "../../worker/db/schema";
@@ -20,12 +21,12 @@ async function seedDish() {
   })));
 }
 
-test("the tabs read Recipes | Ingredients | Menus | Photos under the Kitchen heading (AC1)", async ({ page }) => {
-  for (const path of ["/recipes", "/inventory/ingredients", "/kitchen/menus"]) {
+test("the tabs read Overview | Recipes | Ingredients | Menus | Photos under the Kitchen heading (AC1; FLOW-293 AC1)", async ({ page }) => {
+  for (const path of ["/kitchen/overview", "/recipes", "/inventory/ingredients", "/kitchen/menus"]) {
     await page.goto(`/#${path}`);
     await expect(page.getByRole("heading", { name: "Kitchen", level: 1 })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Kitchen pages" }).getByRole("link"))
-      .toHaveText(["Recipes", "Ingredients", "Menus", "Photos"]);
+      .toHaveText(["Overview", "Recipes", "Ingredients", "Menus", "Photos"]);
   }
 });
 
@@ -67,4 +68,48 @@ test("the Menus tab lists every Menu document, and Open PDF and In Documents lea
   await menus.getByRole("listitem").filter({ hasText: "Fall seasonal menu" }).getByRole("link", { name: "In Documents" }).click();
   await expect(page).toHaveURL(/#\/documents\?document=/);
   await expect(page.getByRole("dialog", { name: "Fall seasonal menu" })).toBeVisible();
+});
+
+// FLOW-293: Kitchen › Overview lists each menu item of the next 14 days' events,
+// and In charge saves inline without opening the row.
+test("Kitchen opens on the Overview, one row per menu item, and In charge saves inline (FLOW-293 AC1-AC3)", async ({ page, isMobile }) => {
+  test.skip(isMobile, "The same table on phones; one viewport is enough.");
+  const dish = await seedDish();
+  const date = addLocalDays(utcToBusinessTime(new Date()).date, 3);
+  const later = { ...fallGala(), id: "e0000000-0000-4000-8000-000000002931", title: "Far-off dinner", date: addLocalDays(date, 30) };
+  await seedRecords({ clients: [juniper()], events: [{ ...fallGala(), date, guestCount: 80 }, later] });
+  const cook = seedUsers.find((user) => user.role === "kitchen_staff")!;
+  await browserDb(async (db) => {
+    for (const event of [fallGala(), later]) {
+      const [menu] = await db.insert(s.kitchenMenus).values({
+        eventId: event.id,
+        leavesKitchenAt: event.id === fallGala().id ? businessTimeToUtc(date, "16:30") : null,
+      }).returning();
+      await db.insert(s.kitchenMenuLines).values({ menuId: menu.id, recipeId: dish.id, course: "Mains", plannedQuantity: 80, notes: "Sauce on the side" });
+    }
+  });
+
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Kitchen", exact: true }).click();
+  await expect(page).toHaveURL(/#\/kitchen\/overview$/);
+  const rows = page.getByRole("row", { name: /Braised short rib/ });
+  await expect(rows).toHaveCount(1);
+  const row = rows.first();
+  await expect(row).toContainText("Fall gala");
+  await expect(row.locator(".date-time-cell__time")).toHaveText("4:30 PM");
+  await expect(row).toContainText("Mains");
+  await expect(row).toContainText("80");
+  await expect(row).toContainText("Sauce on the side");
+  await expect(row).toContainText("Milk");
+  await expect(page.getByText("Far-off dinner")).toHaveCount(0);
+
+  await row.getByRole("cell").last().getByRole("button").click();
+  const options = page.getByRole("listbox").last();
+  // Only kitchen staff are offered.
+  await expect(options.getByRole("option", { name: seedUsers.find((user) => user.role === "salesperson")!.name })).toHaveCount(0);
+  await options.getByRole("option", { name: cook.name, exact: true }).click();
+  await expect(row).toContainText(cook.name);
+  await expect(page).toHaveURL(/#\/kitchen\/overview$/);
+  await page.reload();
+  await expect(page.getByRole("row", { name: /Braised short rib/ })).toContainText(cook.name);
 });

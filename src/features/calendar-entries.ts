@@ -7,6 +7,10 @@ import { addLocalDays } from "../../shared/time";
 // Times stay New York wall-clock strings; the calendar runs in UTC so it draws
 // them unchanged. Each entry carries the page it opens.
 
+// Negotiation and Closing aren't confirmed yet (FLOW-294); Closed, Preparation
+// and Finished are.
+export const isPendingStatus = (status: string) => status === "negotiation" || status === "closing";
+
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`;
 
@@ -43,10 +47,20 @@ export function toCalendarEntries(
       title: event.title,
       start: event.start,
       end: event.end ?? undefined,
-      // A chip in the status color (FLOW-251), with its time and name (FLOW-265).
+      // A chip in the status color (FLOW-251), with its time and name (FLOW-265):
+      // filled when confirmed, a dot and no fill while pending (FLOW-294).
       display: "block",
-      classNames: ["calendar-event", `calendar-status-${event.status}`],
-      extendedProps: { path: `/events/${event.id}`, eventId: event.id, status: event.status },
+      classNames: [
+        "calendar-event",
+        `calendar-status-${event.status}`,
+        isPendingStatus(event.status) ? "calendar-pending" : "calendar-confirmed",
+      ],
+      extendedProps: {
+        path: `/events/${event.id}`,
+        eventId: event.id,
+        status: event.status,
+        pending: isPendingStatus(event.status),
+      },
     })),
     ...calendar.tasks.map((task) => ({
       id: `task:${task.id}`,

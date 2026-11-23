@@ -1,5 +1,5 @@
 {
-  "id": "8a71bd29-434f-4ebf-96b2-cb2fbc1e6386",
+  "id": "a0fd9c18-da56-4ca8-b917-419b38b9f289",
   "prevId": "6952383b-1720-4427-b52a-716d2868b042",
   "version": "7",
   "dialect": "postgresql",
@@ -1554,7 +1554,24 @@
           "default": "'auto'"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "beos_event_live_idx": {
+          "name": "beos_event_live_idx",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"beos\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "beos_event_id_events_id_fk": {
           "name": "beos_event_id_events_id_fk",
@@ -1571,15 +1588,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "beos_event_id_unique": {
-          "name": "beos_event_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "event_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
         "beos_status_check": {
@@ -3458,7 +3467,7 @@
       "checkConstraints": {
         "deletions_entity_type_check": {
           "name": "deletions_entity_type_check",
-          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop')"
+          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop', 'beo')"
         }
       },
       "isRLSEnabled": true
@@ -11293,84 +11302,6 @@
         "reservations_window_check": {
           "name": "reservations_window_check",
           "value": "\"reservations\".\"window_end\" >= \"reservations\".\"window_start\""
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.role_nav_hidden": {
-      "name": "role_nav_hidden",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "hidden": {
-          "name": "hidden",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "role_nav_hidden_role_unique": {
-          "name": "role_nav_hidden_role_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "role"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "role_nav_hidden_role_check": {
-          "name": "role_nav_hidden_role_check",
-          "value": "\"role_nav_hidden\".\"role\" in ('admin', 'technical', 'sales_manager', 'salesperson', 'kitchen_lead', 'kitchen_staff', 'staff', 'part_time_staff')"
         }
       },
       "isRLSEnabled": true

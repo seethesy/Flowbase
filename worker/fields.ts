@@ -37,6 +37,8 @@ const routes: { pattern: RegExp; source: SourceKey; detail: boolean }[] = [
       { pattern: new RegExp(`^${list}/${uuid}$`, "i"), source: def.key, detail: true },
     ];
   }) as { pattern: RegExp; source: SourceKey; detail: boolean }[]),
+  { pattern: new RegExp(`^/api/vendors/${uuid}/items$`, "i"), source: "inventory", detail: false },
+  { pattern: new RegExp(`^/api/sales/clients/${uuid}/proposals$`, "i"), source: "proposals", detail: false },
   // A lead's events (related list).
   { pattern: new RegExp(`^/api/leads/${uuid}/events$`, "i"), source: "events", detail: false },
 ];
@@ -219,7 +221,7 @@ export function fieldProjection(app: () => Hono<AppEnv>): MiddlewareHandler<AppE
     // A card query: read the list as the viewer, page by page, without the card
     // parameters, then filter, sort, cut and project.
     for (const key of ["fields", "where", "orderBy", "take", "cursor", "limit"]) url.searchParams.delete(key);
-    const proposalsList = route.source === "proposals" && !url.searchParams.get("eventId");
+    const proposalsList = c.req.path === "/api/proposals" && !url.searchParams.get("eventId");
     const base = proposalsList ? new URL("/api/sales", url) : url;
     let context: AppContext["executionCtx"] | undefined;
     try {
