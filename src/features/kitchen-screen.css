@@ -102,3 +102,8 @@
 }
 .recipe-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .bulk-vendor-form { display: inline-flex; gap: 6px; align-items: center; }
+/* Kitchen › Overview (FLOW-293): the dish with its course beneath it. */
+.kitchen-overview-item {
+  display: flex;
+  flex-direction: column;
+}

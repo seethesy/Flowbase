@@ -33,7 +33,7 @@ async function save(page: Page) {
 }
 
 const screens = [
-  { title: "Calendar", path: "/#/calendar", pageKey: "calendar.page", id: "calendar", name: "Calendar" },
+  { title: "Events overview", path: "/#/events/overview", pageKey: "calendar.page", id: "calendar", name: "Calendar" },
   { title: "Tasks", path: "/#/tasks", pageKey: "tasks.dashboard", id: "my-tasks", name: "My tasks" },
   { title: "Recipes", path: "/#/recipes", pageKey: "recipes.list", id: "list", name: "List" },
   // /proposals is the file library (FLOW-276); the Sales tracker moved to /sales.

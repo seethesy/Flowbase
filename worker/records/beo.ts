@@ -33,7 +33,8 @@ import {
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can, projectBeo } from "../policy";
-import { decideApproval, registerApprovalSubject, requestApproval } from "./approvals";
+import { closeForDeletedSubject, decideApproval, registerApprovalSubject, requestApproval } from "./approvals";
+import { writeAudit } from "../audit/log";
 import { businessDefaults, loadParts, partsContent, seedParts } from "./beo-parts";
 import { getRoster } from "./event-staff";
 import { getTimeline } from "./event-timeline";
@@ -375,6 +376,51 @@ export async function ensureBeoDraft(tx: DbLike, userId: string, eventId: string
   const fields = beoFields(await assembleBeo(tx, actor, eventId, row));
   await tx.update(beos).set({ snapshot: snapshotOfFields(fields) }).where(eq(beos.id, row.id));
   return true;
+}
+
+// Delete from the BEOs tab (FLOW-288): archives the BEO. An approved BEO is
+// never deleted (deletions.ts skips it). A pending approval request is closed as
+// withdrawn, so the BEO comes back as a draft on Undo. Only one live BEO per
+// event: once Generate BEO has made a new one, the old one can't be restored.
+export async function beoDeleteName(db: DbLike, actor: Actor, id: string) {
+  const [row] = await db.select({ eventId: beos.eventId }).from(beos).where(eq(beos.id, id));
+  if (!row) throw notFound("Banquet event order");
+  const event = await findVisibleEvent(db, actor, row.eventId);
+  return `BEO: ${event.title}`;
+}
+
+export async function beoDeleteBlocked(db: DbLike, _actor: Actor, id: string) {
+  const [row] = await db.select({ status: beos.status }).from(beos).where(eq(beos.id, id));
+  return row?.status === "approved" ? "has an approved BEO" : null;
+}
+
+export async function setBeoArchived(db: Db, actor: Actor, id: string, archived: boolean) {
+  if (!can(actor, "events.write")) throw forbidden();
+  return db.transaction(async (tx) => {
+    const [row] = await tx.select().from(beos).where(eq(beos.id, id)).for("update");
+    if (!row || Boolean(row.archivedAt) === archived) throw notFound("Banquet event order");
+    await lockVisibleEvent(tx, actor, row.eventId);
+    if (archived) {
+      if (row.status === "approved")
+        throw new ApiError(409, "BEO_APPROVED", "An approved banquet event order can't be deleted.");
+      if (row.status === "pending_approval" && row.approvalId) await closeForDeletedSubject(tx, actor, row.approvalId);
+    } else if (await findBeo(tx, row.eventId)) {
+      throw new ApiError(409, "BEO_REPLACED", "This event already has a new banquet event order.");
+    }
+    const [updated] = await tx
+      .update(beos)
+      .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
+      .where(eq(beos.id, id))
+      .returning();
+    await writeAudit(tx, actor, {
+      entityType: "beo",
+      entityId: id,
+      action: archived ? "archive" : "restore",
+      before: { status: row.status, archivedAt: row.archivedAt?.toISOString() ?? null },
+      after: { status: updated.status, archivedAt: updated.archivedAt?.toISOString() ?? null },
+    });
+    return { id };
+  });
 }
 
 // The parts of the BEO that no other record owns yet.

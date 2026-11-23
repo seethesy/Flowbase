@@ -46,7 +46,7 @@ describe("live-edit key manifest", () => {
   });
 
   it("lists wording, placeholders, blocks, field cards and tables", () => {
-    expect(manifest.copy["nav.day-of"]).toEqual([]);
+    expect(manifest.copy["nav.beos"]).toEqual([]);
     expect(Object.keys(manifest.copy).length).toBeGreaterThan(1000);
     expect(manifest.layout["leads.detail"].fieldCards).toEqual(["lead-facts"]);
     expect(manifest.layout["dashboard.home"].blocks).toContain("my-leads");

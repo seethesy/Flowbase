@@ -22,6 +22,26 @@
 .calendar-panel .calendar-status-closed { --status-bg: var(--status-closed-bg); --status-fg: var(--status-closed-fg); }
 .calendar-panel .calendar-status-preparation { --status-bg: #edf3ee; --status-fg: #20543f; }
 .calendar-panel .calendar-status-finished { --status-bg: #e2e8e3; --status-fg: #202c27; }
+/* Pending events (FLOW-294): no fill, a dot in the status color before the
+   time and name, as Google Calendar shows them. Confirmed ones keep the fill. */
+.calendar-panel .calendar-status-negotiation { --status-dot: #d9a514; }
+.calendar-panel .calendar-status-closing { --status-dot: var(--status-closing-fg); }
+.calendar-panel .calendar-event.calendar-pending {
+  background: transparent;
+  border-color: transparent;
+}
+.calendar-panel .calendar-pending .calendar-chip .fc-event-time,
+.calendar-panel .calendar-pending .calendar-chip .fc-event-title {
+  color: var(--text);
+}
+.calendar-panel .calendar-dot {
+  flex: none;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-dot, var(--status-bg));
+}
 .calendar-panel .calendar-chip {
   display: flex;
   gap: 4px;
@@ -48,7 +68,7 @@
 .calendar-panel .calendar-task .fc-event-time {
   color: #78350f;
 }
-/* The toolbar: month stepper and title, Month | List. */
+/* The toolbar: stepper and title, Month | Week | Day. */
 .calendar-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -93,6 +113,18 @@
   margin: 0 0 12px;
   font-size: 12px;
   color: var(--muted);
+}
+/* The events table under the calendar (FLOW-294): a fixed-height scroll with
+   a sticky header. */
+.calendar-events-table .table-scroll {
+  max-height: 440px;
+  overflow: auto;
+}
+.calendar-events-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
 }
 .calendar-list-hint {
   margin-top: 12px;

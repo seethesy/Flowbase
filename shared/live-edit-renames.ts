@@ -24,8 +24,6 @@ export const liveEditRenames: LiveEditRenames = {
   copy: {
     // FLOW-265: the Events screen's rebuilt Calendar panel and Day-of board.
     "calendar-detail.calendar-detail.open-event": "calendar.event-panel.open-event",
-    "day-of.day-of-page.today": "day-of.day-of-page.today-button",
-    "day-of.checkpoint-row.mark-now": "day-of.checkpoint.record-now",
     // FLOW-266: the Inventory screen's shared heading, lines and shortcut cards.
     "imports.import-list.bring-records-in-from-a": "inventory-screen.imports.bring-records-in-from",
     "vendors.vendor-list.distributors-rental-vendors-and-event": "inventory-screen.vendors.distributors-rental-vendors-and",
@@ -43,6 +41,35 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-294: the Day-of board page and tab, and the calendar's List view,
+      // are gone; the calendar is Events › Overview.
+      "calendar.calendar-page.list",
+      "day-of.card.add",
+      "day-of.card.add-a-note.placeholder",
+      "day-of.card.guests",
+      "day-of.card.mark-urgent",
+      "day-of.card.service",
+      "day-of.card.staff-count",
+      "day-of.card.urgent-on",
+      "day-of.checkpoint-row.clear",
+      "day-of.checkpoint-row.mark-now",
+      "day-of.checkpoint.actual",
+      "day-of.checkpoint.no-plan",
+      "day-of.checkpoint.not-yet",
+      "day-of.checkpoint.planned",
+      "day-of.checkpoint.record-now",
+      "day-of.day-of-page.export-csv",
+      "day-of.day-of-page.no-events-on-this-date",
+      "day-of.day-of-page.no-staff-scheduled",
+      "day-of.day-of-page.no-trucks-assigned",
+      "day-of.day-of-page.today",
+      "day-of.day-of-page.today-button",
+      "day-of.day-of-page.today-suffix",
+      "day-of.day-of-page.trucks",
+      "day-of.truck-row.unassigned",
+      "events-screen.day-of.live-board-for-each",
+      "nav.calendar",
+      "nav.day-of",
       // FLOW-267: the Recipes page's own title, now the Kitchen heading.
       "recipes.recipe-list.recipe-book",
       "calendar-detail.calendar-detail.allergens",
@@ -102,7 +129,7 @@ export const liveEditRenames: LiveEditRenames = {
       "vendors.vendor-list.inventory",
       "vendors.vendor-list.vendors",
     ],
-    blocks: ["day-of.board/urgent"],
+    blocks: ["day-of.board/urgent", "day-of.board/events"],
   },
 };
 
