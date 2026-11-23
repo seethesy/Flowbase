@@ -19,6 +19,7 @@ import { createActorResolver, requireActor, type ResolveActor } from "./auth";
 import { authRoutes, userRoutes } from "./routes/users";
 import { ApiError, type AppEnv, type RunWithDb } from "./hono";
 import type { IngestSource } from "./ingest/sources";
+import { googleCalendarRoutes } from "./routes/google-calendar";
 import type { ImportModule } from "./records/imports";
 import { adminRoutes } from "./routes/admin";
 import { ingestRoutes } from "./routes/ingest";
@@ -187,7 +188,7 @@ export function createApp(options: Options = {}) {
     // Liveness and public Auth configuration have no user data. Machine intake
     // authenticates with its own service token/webhook signature.
     if (
-      ["/api/health", "/api/auth/config"].includes(c.req.path) ||
+      ["/api/health", "/api/auth/config", "/api/google-calendar/callback"].includes(c.req.path) ||
       c.req.path.startsWith("/api/ingest/")
     ) {
       await next();
@@ -344,6 +345,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/approvals", approvalRoutes(options));
   app.route("/api/order-lists", orderListRoutes(options));
   app.route("/api/calendar", calendarRoutes(options));
+  app.route("/api/google-calendar", googleCalendarRoutes(options));
   app.route("/api/day-of", dayOfRoutes(options));
   app.route("/api/production", productionRoutes(options));
   app.route("/api/notifications", notificationRoutes(options));

@@ -97,6 +97,11 @@ import {
 } from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
 import { calendarSchema } from "../../shared/calendar";
+import {
+  googleCalendarStatusSchema,
+  googleConnectSchema,
+  googleEventsSchema,
+} from "../../shared/google-calendar";
 import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
 import { orderListSchema } from "../../shared/order-lists";
 import { salesClientSchema, salesDataSchema, salesReportSchema, salesViewSchema } from "../../shared/sales";
@@ -338,6 +343,12 @@ export function responseSchema(
     return !id && method === "GET" ? sopSummarySchema.array() : sopSchema;
   // Basic calendar (FLOW-63).
   if (resource === "calendar") return calendarSchema;
+  // The viewer's own Google Calendar (FLOW-268).
+  if (resource === "google-calendar") {
+    if (id === "events") return googleEventsSchema;
+    if (id === "connect") return googleConnectSchema;
+    return googleCalendarStatusSchema;
+  }
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;

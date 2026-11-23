@@ -13,6 +13,8 @@ import {
 } from "../../shared/calendar";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { calendarApi, eventsApi } from "../services/core";
+import { googleCalendarApi } from "../services/google-calendar";
+import type { GoogleEvent } from "../../shared/google-calendar";
 import { leadsApi } from "../services/leads";
 import { useResource } from "../app/useResource";
 import { LoadMore, usePagedList } from "../app/paging";
@@ -78,6 +80,91 @@ const gridOf = (month: string) => {
   return { from, to: addLocalDays(from, 41) };
 };
 
+// The viewer's own Google events (FLOW-268), outlined in blue. Clicking one
+// opens it in Google Calendar.
+function toGoogleEntries(events: GoogleEvent[]) {
+  return events.map((event) => ({
+    id: `google:${event.id}`,
+    title: event.title,
+    start: event.start,
+    end: event.end ?? undefined,
+    allDay: event.allDay,
+    classNames: ["calendar-layer", "calendar-google"],
+    extendedProps: { href: event.htmlLink, layer: "google" },
+  }));
+}
+
+// Connect, show or hide, and disconnect the viewer's own Google Calendar. Hidden
+// until Google sign-in is set up for Flowbase.
+function GoogleCalendarControls({
+  on,
+  onToggle,
+}: {
+  on: boolean;
+  onToggle: (on: boolean) => void;
+}) {
+  const status = useResource(["google-calendar"], googleCalendarApi.status);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const data = status.data;
+  if (!data?.configured) return null;
+  const connect = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      window.location.assign((await googleCalendarApi.connect()).url);
+    } catch (cause) {
+      setError((cause as Error).message);
+      setBusy(false);
+    }
+  };
+  const disconnect = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await googleCalendarApi.disconnect();
+      onToggle(false);
+      status.reload();
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <span className="calendar-google-controls">
+      {data.connected && !data.needsReconnect && (
+        <label className="calendar-layer-toggle calendar-layer-google">
+          <RoundCheck checked={on} onChange={(e) => onToggle(e.target.checked)} />
+          <T id="calendar.google.my-google-calendar">My Google Calendar</T>
+        </label>
+      )}
+      {!data.connected && (
+        <Button variant="outline" disabled={busy} onClick={() => void connect()}>
+          <T id="calendar.google.connect">Connect Google Calendar</T>
+        </Button>
+      )}
+      {data.connected && data.needsReconnect && (
+        <Button variant="outline" disabled={busy} onClick={() => void connect()}>
+          <T id="calendar.google.reconnect">Reconnect Google Calendar</T>
+        </Button>
+      )}
+      {data.connected && (
+        <Button variant="ghost" disabled={busy} onClick={() => void disconnect()}>
+          <T id="calendar.google.disconnect">Disconnect Google</T>
+        </Button>
+      )}
+      {error && <span role="alert" className="error-message">{error}</span>}
+    </span>
+  );
+}
+
+const googleResults: Record<string, string> = {
+  connected: "Google Calendar connected. Your Flowbase events are being copied to the \"Flowbase events\" calendar in Google.",
+  cancelled: "Google Calendar wasn't connected.",
+  failed: "Google Calendar couldn't be connected. Try again.",
+};
+
 // An event chip: time and name, in the status color (FLOW-251). Layer entries
 // draw as FullCalendar does.
 function renderEntry(arg: EventContentArg) {
@@ -102,6 +189,9 @@ export function CalendarPage() {
   // Layers live in state, so a check shows at once; the address follows (a URL
   // update lands a moment later and would let the box flip back first).
   const [layers, setLayers] = useState(() => parseLayers(params.get("layers")));
+  // My Google Calendar (FLOW-268): on after connecting, then as the viewer left it.
+  const googleResult = params.get("google") ?? "";
+  const [googleOn, setGoogleOn] = useState(() => params.get("gcal") === "1" || googleResult === "connected");
   const set = (changes: Record<string, string>) =>
     setParams(
       (current) => {
@@ -114,6 +204,10 @@ export function CalendarPage() {
       },
       { replace: true },
     );
+  const toggleGoogle = (on: boolean) => {
+    setGoogleOn(on);
+    set({ gcal: on ? "1" : "", google: "" });
+  };
   const toggle = (layer: CalendarLayer, on: boolean) => {
     const next = new Set(layers);
     if (on) next.add(layer);
@@ -140,7 +234,15 @@ export function CalendarPage() {
   const shown = (calendar.data?.events ?? []).filter(
     (event) => (!owner || event.salespersonId === owner) && (!status || event.status === status),
   );
-  const entries = calendar.data ? toCalendarEntries({ ...calendar.data, events: shown }, layers) : [];
+  const googleEvents = useResource(
+    ["google-calendar", "events", grid.from, grid.to],
+    () => googleCalendarApi.events(grid.from, grid.to),
+    { enabled: googleOn, keepPrevious: true },
+  );
+  const entries = [
+    ...(calendar.data ? toCalendarEntries({ ...calendar.data, events: shown }, layers) : []),
+    ...(googleOn && googleEvents.data ? toGoogleEntries(googleEvents.data.events) : []),
+  ];
   const [selected, setSelected] = useState<string | null>(null);
   const panelEvent = shown.find((event) => event.id === selected);
 
@@ -152,8 +254,11 @@ export function CalendarPage() {
   const open = (click: EventClickArg) => {
     click.jsEvent.preventDefault();
     const eventId = click.event.extendedProps.eventId as string | undefined;
+    const href = click.event.extendedProps.href as string | null | undefined;
     if (eventId) setSelected(eventId);
-    else navigate(String(click.event.extendedProps.path));
+    else if (click.event.extendedProps.layer === "google") {
+      if (href) window.open(href, "_blank", "noopener");
+    } else navigate(String(click.event.extendedProps.path));
   };
 
   return (
@@ -195,7 +300,12 @@ export function CalendarPage() {
             </label>
           ))}
         </fieldset>
+        <GoogleCalendarControls on={googleOn} onToggle={toggleGoogle} />
       </FilterBar>
+      {googleResults[googleResult] && (
+        <p role="status" className="muted">{googleResults[googleResult]}</p>
+      )}
+      {googleOn && googleEvents.error && <LoadError message={googleEvents.error} />}
       </Block>
       <Block id="calendar" name="Calendar" h={30}>
       <div className="calendar-toolbar">
