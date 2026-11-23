@@ -2372,7 +2372,9 @@ export const googleCalendarConnections = pgTable(
   "google_calendar_connections",
   {
     ...baseColumns(),
-    userId: uuid("user_id").notNull().references(() => users.id),
+    // No foreign keys to users or events here: other code and tests truncate
+    // those tables without this one.
+    userId: uuid("user_id").notNull(),
     refreshTokenCipher: text("refresh_token_cipher"),
     calendarId: text("calendar_id"),
     // Set when Google refused the refresh token: the user must reconnect.
@@ -2393,7 +2395,7 @@ export const googleCalendarEventLinks = pgTable(
   {
     ...baseColumns(),
     connectionId: uuid("connection_id").notNull().references(() => googleCalendarConnections.id),
-    eventId: uuid("event_id").notNull().references(() => events.id),
+    eventId: uuid("event_id").notNull(),
     googleEventId: text("google_event_id").notNull(),
     fingerprint: text("fingerprint").notNull(),
   },

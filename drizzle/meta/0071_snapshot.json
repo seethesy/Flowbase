@@ -5510,21 +5510,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "google_calendar_connections_user_id_users_id_fk": {
-          "name": "google_calendar_connections_user_id_users_id_fk",
-          "tableFrom": "google_calendar_connections",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -5630,19 +5616,6 @@
           "tableTo": "google_calendar_connections",
           "columnsFrom": [
             "connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "google_calendar_event_links_event_id_events_id_fk": {
-          "name": "google_calendar_event_links_event_id_events_id_fk",
-          "tableFrom": "google_calendar_event_links",
-          "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
           ],
           "columnsTo": [
             "id"

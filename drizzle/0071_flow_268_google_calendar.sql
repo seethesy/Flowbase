@@ -27,8 +27,6 @@ CREATE TABLE "google_calendar_event_links" (
 );
 --> statement-breakpoint
 ALTER TABLE "google_calendar_event_links" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "google_calendar_connections" ADD CONSTRAINT "google_calendar_connections_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "google_calendar_event_links" ADD CONSTRAINT "google_calendar_event_links_connection_id_google_calendar_connections_id_fk" FOREIGN KEY ("connection_id") REFERENCES "public"."google_calendar_connections"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "google_calendar_event_links" ADD CONSTRAINT "google_calendar_event_links_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "google_calendar_connections_user_idx" ON "google_calendar_connections" USING btree ("user_id") WHERE "google_calendar_connections"."archived_at" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "google_calendar_event_links_event_idx" ON "google_calendar_event_links" USING btree ("connection_id","event_id") WHERE "google_calendar_event_links"."archived_at" is null;
