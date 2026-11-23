@@ -11489,19 +11489,6 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "recipe_lines_item_id_kitchen_ingredients_id_fk": {
-          "name": "recipe_lines_item_id_kitchen_ingredients_id_fk",
-          "tableFrom": "recipe_lines",
-          "tableTo": "kitchen_ingredients",
-          "columnsFrom": [
-            "item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},

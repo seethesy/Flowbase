@@ -1358,9 +1358,8 @@ export const recipeLines = pgTable(
     recipeId: uuid("recipe_id")
       .notNull()
       .references(() => recipes.id),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => kitchenIngredients.id),
+    // Any consumable, kitchen, bar or supply (FLOW-169), so no foreign key (FLOW-289).
+    itemId: anyItemReference(),
     quantity: quantity("quantity"),
     unit: text("unit"),
     prepNote: text("prep_note").notNull().default(""),
