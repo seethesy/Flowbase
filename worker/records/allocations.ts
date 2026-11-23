@@ -286,12 +286,13 @@ export async function requestBarRecompute(tx: DbLike, category: string, tier: st
 // the pool's items in id order so pool recomputes run one at a time.
 export async function recomputeBarPool(tx: DbLike, category: string, tier: string, now = new Date()) {
   if (!isBarTier(tier)) return;
+  // Only bar items are in a pool, and they live in their own table (FLOW-289).
   const inPool = and(
-    eq(allInventoryItems.kind, "consumable"),
-    eq(allInventoryItems.subtype, "bar"),
-    eq(allInventoryItems.category, category),
-    eq(allInventoryItems.tier, tier),
-    isNull(allInventoryItems.archivedAt),
+    eq(barInventoryItems.kind, "consumable"),
+    eq(barInventoryItems.subtype, "bar"),
+    eq(barInventoryItems.category, category),
+    eq(barInventoryItems.tier, tier),
+    isNull(barInventoryItems.archivedAt),
   );
   // Bar items live in their own table (FLOW-289); the view can't be locked.
   await tx.select({ id: barInventoryItems.id }).from(barInventoryItems)
@@ -300,10 +301,10 @@ export async function recomputeBarPool(tx: DbLike, category: string, tier: strin
     .orderBy(asc(barInventoryItems.id)).for("update");
   const [rows, tierLines] = await Promise.all([
     tx
-      .select({ item: allInventoryItems, bar: inventoryBarDetails, leadTimeDays: vendors.leadTimeDays })
-      .from(allInventoryItems)
-      .leftJoin(inventoryBarDetails, eq(inventoryBarDetails.itemId, allInventoryItems.id))
-      .leftJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
+      .select({ item: barInventoryItems, bar: inventoryBarDetails, leadTimeDays: vendors.leadTimeDays })
+      .from(barInventoryItems)
+      .leftJoin(inventoryBarDetails, eq(inventoryBarDetails.itemId, barInventoryItems.id))
+      .leftJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, barInventoryItems.id))
       .leftJoin(vendors, eq(vendors.id, inventoryConsumableDetails.preferredVendorId))
       .where(inPool),
     tx
