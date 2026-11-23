@@ -26,6 +26,9 @@ export const liveEditRenames: LiveEditRenames = {
     "calendar-detail.calendar-detail.open-event": "calendar.event-panel.open-event",
     "day-of.day-of-page.today": "day-of.day-of-page.today-button",
     "day-of.checkpoint-row.mark-now": "day-of.checkpoint.record-now",
+    // FLOW-267: the Kitchen screen's shared heading and its Recipes line.
+    "recipes.recipe-list.every-dish-with-its-ingredients": "kitchen-screen.recipes.every-dish-with-its",
+    "recipes.recipe-list.kitchen": "kitchen-screen.kitchen-heading.kitchen",
   },
   blocks: {},
   removed: {
@@ -33,6 +36,8 @@ export const liveEditRenames: LiveEditRenames = {
     // production overview, and the board's single urgent checkbox (now one
     // "Mark urgent" per event card).
     copy: [
+      // FLOW-267: the Recipes page's own title, now the Kitchen heading.
+      "recipes.recipe-list.recipe-book",
       "calendar-detail.calendar-detail.allergens",
       "calendar-detail.calendar-detail.close",
       "calendar-detail.calendar-detail.contact",

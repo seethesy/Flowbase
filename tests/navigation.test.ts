@@ -37,7 +37,7 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Purchasing", "Vendors", "Imports"]);
-    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients"]);
+    expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Menus"]);
     expect(tabs(admin, "Reports")).toEqual(["Time tracking", "Operational reports"]);
   });
 
@@ -70,6 +70,7 @@ describe("navigation groups", () => {
     expect(at("/beos")).toBe("Events › BEOs");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
     expect(at("/inventory/ingredients")).toBe("Kitchen › Ingredients");
+    expect(at("/kitchen/menus")).toBe("Kitchen › Menus");
     expect(at("/reports/operations")).toBe("Reports › Operational reports");
     expect(at("/settings")).toBeNull();
     // Day-of: one page, two entry points.

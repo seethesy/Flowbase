@@ -88,6 +88,8 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
       { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
+      // Every menu PDF (FLOW-267): Documents of type Menu and the client recipe book.
+      { copyId: "menus", name: "Menus", to: "/kitchen/menus", visible: "recipes.read" },
     ],
   },
   { copyId: "marketing", name: "Marketing", tabs: [{ copyId: "marketing", name: "Marketing", to: "/marketing" }] },
