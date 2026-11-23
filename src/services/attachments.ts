@@ -103,6 +103,8 @@ export async function uploadAttachment(
     recordId: string;
     group?: string;
     caption?: string;
+    // A gallery photo's date (FLOW-298).
+    photoDate?: string;
   },
 ) {
   const variants = await prepare(file);

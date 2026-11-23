@@ -4,6 +4,7 @@ import { allergenLabels, ingredientCategories, ratioBasisSchema } from "./invent
 import { defaultLeadSources } from "./leads";
 import { historyEntrySchema } from "./audit";
 import { defaultDietaryTags, defaultRecipeCategories } from "./recipes";
+import { defaultPhotoTags } from "./photos";
 
 // Business settings and configurable lists (FLOW-45). Admin changes them on the
 // Settings screen without a deploy; every change is audited. Records keep the
@@ -25,6 +26,8 @@ export const listKeys = [
   "kitchen_equipment_category",
   "ingredient_category",
   "supply_category",
+  // Marketing photo tags (FLOW-271).
+  "photo_tag",
 ] as const;
 export const listKeySchema = z.enum(listKeys);
 export type ListKey = z.infer<typeof listKeySchema>;
@@ -44,6 +47,7 @@ export const listLabels: Record<ListKey, string> = {
   kitchen_equipment_category: "Kitchen equipment categories",
   ingredient_category: "Ingredient categories",
   supply_category: "Supply categories",
+  photo_tag: "Photo tags",
 };
 
 // The values a fresh database starts with (the seed migration inserts the same
@@ -75,6 +79,7 @@ export const defaultListValues: Record<ListKey, readonly string[]> = {
   kitchen_equipment_category: [],
   ingredient_category: ingredientCategories,
   supply_category: [],
+  photo_tag: defaultPhotoTags,
 };
 
 // Which category list an inventory item's category comes from. Bar categories stay

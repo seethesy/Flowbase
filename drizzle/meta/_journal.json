@@ -477,6 +477,20 @@
       "when": 1795384409538,
       "tag": "0067_flow_277_trim_copy_line_breaks",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1795423773088,
+      "tag": "0068_flow_271_photo_galleries",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1795423778926,
+      "tag": "0069_flow_271_photo_tags",
+      "breakpoints": true
     }
   ]
 }

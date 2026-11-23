@@ -74,6 +74,10 @@ const InventoryCategoriesPage = lazy(() => import("../features/inventory-categor
   .then((module) => ({ default: module.InventoryCategoriesPage })));
 const DocumentsPage = lazy(() => import("../features/documents")
   .then((module) => ({ default: module.DocumentsPage })));
+// Photo galleries (FLOW-271, FLOW-298).
+const MarketingPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.MarketingPhotosPage })));
+const KitchenPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.KitchenPhotosPage })));
+const InventoryPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.InventoryPhotosPage })));
 const CollectorHealthPage = lazy(() => import("../features/collector-health")
   .then((module) => ({ default: module.CollectorHealthPage })));
 const UsagePage = lazy(() => import("../features/usage")
@@ -181,8 +185,7 @@ function Placeholder() {
     </>
   );
 }
-// Schedule, Marketing and Documents have a place in the navigation before they
-// have a screen (FLOW-246).
+// Schedule has a place in the navigation before it has a screen (FLOW-246).
 function ComingSoon({ title }: { title: string }) {
   return (
     <>
@@ -278,7 +281,9 @@ export const getRouter = () =>
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/staffing/schedule", element: <ComingSoon title="Schedule" /> },
-        { path: "/marketing", element: <ComingSoon title="Marketing" /> },
+        { path: "/marketing", element: <MarketingPhotosPage /> },
+        { path: "/kitchen/photos", element: <KitchenPhotosPage /> },
+        { path: "/inventory/photos", element: <InventoryPhotosPage /> },
         { path: "/documents", element: <DocumentsPage /> },
         { path: "/profile", element: <Profile /> },
         { path: "/tasks", element: <TaskDashboardPage /> },

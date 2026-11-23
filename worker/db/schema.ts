@@ -892,6 +892,11 @@ export const attachments = pgTable(
     protected: boolean("protected").notNull().default(false),
     caption: text("caption").notNull().default(""),
     sortOrder: integer("sort_order").notNull().default(0),
+    // Photo galleries (FLOW-271, FLOW-298): Marketing's approval and tags, and
+    // the photo's own date (null means the upload date).
+    approvedForMarketing: boolean("approved_for_marketing").notNull().default(false),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    photoDate: date("photo_date", { mode: "string" }),
     status: text("status", { enum: attachmentStatuses })
       .notNull()
       .default("pending"),

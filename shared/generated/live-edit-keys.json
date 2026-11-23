@@ -1628,14 +1628,17 @@
     "nav.imports": [],
     "nav.ingredients": [],
     "nav.inventory": [],
+    "nav.inventory-photos": [],
     "nav.item": [],
     "nav.kitchen": [],
     "nav.kitchen-orders": [],
+    "nav.kitchen-photos": [],
     "nav.lead": [],
     "nav.lead-dashboard": [],
     "nav.leads": [],
     "nav.low-stock": [],
     "nav.marketing": [],
+    "nav.marketing-photos": [],
     "nav.master-inventory": [],
     "nav.new-sop": [],
     "nav.operational-reports": [],
@@ -1829,6 +1832,67 @@
     ],
     "paging.load-more.load-more": [],
     "paging.load-more.loading": [],
+    "photos.delete.description": [],
+    "photos.delete.title-many": [
+      "count"
+    ],
+    "photos.delete.title-one": [],
+    "photos.details.date": [],
+    "photos.details.label": [],
+    "photos.details.save": [],
+    "photos.gallery.approve-for-marketing": [],
+    "photos.gallery.approved": [],
+    "photos.gallery.approved-for-marketing-only": [],
+    "photos.gallery.clear": [],
+    "photos.gallery.delete": [],
+    "photos.gallery.deleted.one": [
+      "count"
+    ],
+    "photos.gallery.deleted.other": [
+      "count"
+    ],
+    "photos.gallery.download-zip": [],
+    "photos.gallery.no-photos": [],
+    "photos.gallery.no-photos-description": [],
+    "photos.gallery.selected.one": [
+      "count"
+    ],
+    "photos.gallery.selected.other": [
+      "count"
+    ],
+    "photos.gallery.undo": [],
+    "photos.gallery.upload-photos": [],
+    "photos.inventory.subtitle": [],
+    "photos.inventory.title": [],
+    "photos.kitchen.subtitle": [],
+    "photos.kitchen.title": [],
+    "photos.lightbox.approve": [],
+    "photos.lightbox.delete": [],
+    "photos.lightbox.download": [],
+    "photos.lightbox.open-in-documents": [],
+    "photos.lightbox.remove-approval": [],
+    "photos.lightbox.unavailable": [],
+    "photos.marketing.subtitle": [],
+    "photos.marketing.title": [],
+    "photos.upload.choose": [],
+    "photos.upload.chosen.one": [
+      "count"
+    ],
+    "photos.upload.chosen.other": [
+      "count"
+    ],
+    "photos.upload.date": [],
+    "photos.upload.description": [],
+    "photos.upload.event": [],
+    "photos.upload.find-event.placeholder": [],
+    "photos.upload.label": [],
+    "photos.upload.progress": [
+      "done",
+      "total"
+    ],
+    "photos.upload.title": [],
+    "photos.upload.type-photo": [],
+    "photos.upload.upload": [],
     "production.event-production-section.answer": [],
     "production.event-production-section.complete": [
       "percent"

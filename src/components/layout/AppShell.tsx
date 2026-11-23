@@ -29,7 +29,7 @@ import {
   X,
   Leaf,
   Contact,
-  Megaphone,
+  Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 import { DetailDrawer, RoleText } from "../shared";
@@ -56,7 +56,7 @@ const groupIcons: Record<string, LucideIcon> = {
   Staffing: Contact,
   Inventory: Package,
   Kitchen: ChefHat,
-  Marketing: Megaphone,
+  Marketing: ImageIcon,
   Documents: FileText,
   Reports: ChartNoAxesCombined,
 };
