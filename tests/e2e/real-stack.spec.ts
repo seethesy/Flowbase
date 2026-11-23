@@ -158,19 +158,20 @@ for (const role of ["admin", "salesperson"] as const) {
         .getByRole("row", { name: /^Warehouse / }),
     ).toBeVisible();
 
-    // FLOW-291: a kitchen count starts from Kitchen › Ingredients.
-    await page.goto("/#/kitchen/ingredients");
+    // FLOW-291: a count starts from the Inventory tab; supplies are Master
+    // items kept at the Warehouse (FLOW-289).
+    await page.goto("/#/inventory");
     await choose(
       page.getByRole("combobox", { name: "Start stock count" }),
-      { label: "Fridge" },
+      { label: "Warehouse" },
     );
     const line = page.getByRole("listitem", {
-      name: "Sourdough dinner rolls",
+      name: "Chafing dish fuel",
       exact: true,
     });
     await line.getByLabel("Counted (each)").fill("5");
     await line
-      .getByRole("button", { name: "Save count for Sourdough dinner rolls" })
+      .getByRole("button", { name: "Save count for Chafing dish fuel" })
       .click();
     await expect(line.getByRole("status")).toContainText("Counted 5 each");
     await page.reload();
