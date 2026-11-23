@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { id } from "../../shared/schema-primitives";
+import { id, localDate } from "../../shared/schema-primitives";
 import {
   payExceptionInputSchema,
   payExceptionUpdateSchema,
@@ -19,7 +19,6 @@ import {
 
 // Staff pay and the Payroll tab (FLOW-270), mounted at /api/staff-pay. Admin and
 // Technical by default (the Staff pay area); everyone else gets 403.
-const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export function staffPayRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
