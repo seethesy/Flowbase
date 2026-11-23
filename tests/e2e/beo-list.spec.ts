@@ -24,9 +24,9 @@ test("lists BEOs with working filters, and Saved PDF opens the file in Documents
   await expect(row).toContainText("Approved");
   await expect(row).toContainText("v1");
 
-  await choose(page.getByRole("combobox", { name: "Status" }), "draft");
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "draft");
   await expect(page.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);
-  await choose(page.getByRole("combobox", { name: "Status" }), "approved");
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "approved");
   await expect(row).toBeVisible();
   await choose(page.getByRole("combobox", { name: "When" }), "past");
   await expect(page.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);

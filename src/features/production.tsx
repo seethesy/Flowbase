@@ -118,9 +118,24 @@ export function ProductionOverviewPage() {
       setAnswering(null);
       setAnswer("");
     });
+  // A task's check shows at once and goes back if the save fails.
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const isChecked = (item: ProductionItem) => {
+    const id = taskIdOf(item);
+    return id && id in checked ? checked[id] : item.complete;
+  };
   const toggle = (item: ProductionItem) => {
     const id = taskIdOf(item);
-    if (id) void run(() => tasksApi.update(id, { status: item.complete ? "todo" : "done" }));
+    if (!id) return;
+    const next = !isChecked(item);
+    setChecked((current) => ({ ...current, [id]: next }));
+    void run(async () => {
+      try { await tasksApi.update(id, { status: next ? "done" : "todo" }); }
+      catch (cause) {
+        setChecked((current) => ({ ...current, [id]: !next }));
+        throw cause;
+      }
+    });
   };
   const addToOrderList = (item: ProductionItem) =>
     run(async () => {
@@ -188,11 +203,11 @@ export function ProductionOverviewPage() {
       {day.truckConflict && <p role="status" className="production-capacity"><T id="production.production-overview-page.truck-assignments-overlap">Truck assignments overlap.</T></p>}
       {day.staffOvercommitted && <p role="status" className="production-capacity"><T id="production.production-overview-page.staff-shifts-overlap">Staff shifts overlap.</T></p>}
       <ul className="production-work">
-        {day.items.map((item) => <li key={`${item.eventId}:${item.id}`} className={item.complete ? "complete" : undefined}>
+        {day.items.map((item) => <li key={`${item.eventId}:${item.id}`} className={isChecked(item) ? "complete" : undefined}>
           {item.type === "shortage"
             ? <span className="production-check-spacer" />
-            : <RoundCheck checked={item.complete} disabled={!taskIdOf(item)}
-              aria-label={`${item.complete ? "Reopen" : "Complete"} ${item.title}`} onChange={() => toggle(item)} />}
+            : <RoundCheck checked={isChecked(item)} disabled={!taskIdOf(item)}
+              aria-label={`Complete ${item.title}`} onChange={() => toggle(item)} />}
           <span className={`production-type production-type--${item.type}`}>
             {item.type !== "readiness" && <LabelT id="labels.production-type" value={item.type}>{typeLabels[item.type]}</LabelT>}
           </span>

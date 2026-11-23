@@ -98,7 +98,9 @@ export function CalendarPage() {
   const view = viewOf(params.get("view"));
   const owner = params.get("owner") ?? "";
   const status = isStatus(params.get("status")) ? (params.get("status") as CalendarEventStatus) : "";
-  const layers = parseLayers(params.get("layers"));
+  // Layers live in state, so a check shows at once; the address follows (a URL
+  // update lands a moment later and would let the box flip back first).
+  const [layers, setLayers] = useState(() => parseLayers(params.get("layers")));
   const set = (changes: Record<string, string>) =>
     setParams(
       (current) => {
@@ -115,6 +117,7 @@ export function CalendarPage() {
     const next = new Set(layers);
     if (on) next.add(layer);
     else next.delete(layer);
+    setLayers(next);
     set({ layers: calendarLayers.filter((entry) => next.has(entry)).join(",") });
   };
 

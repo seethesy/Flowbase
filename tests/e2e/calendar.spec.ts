@@ -34,7 +34,7 @@ test("draws events at Negotiation or later as chips at their New York times, mon
   await expect(page.getByText("Early pitch")).toHaveCount(0);
   await expect(page.getByText("Lost dinner")).toHaveCount(0);
   // The Status filter offers only Negotiation and later.
-  await page.getByRole("combobox", { name: "Status" }).click();
+  await page.getByRole("combobox", { name: "Status", exact: true }).click();
   await expect(page.getByRole("listbox").last().getByRole("option")).toHaveText(["All statuses", "Negotiation", "Closing", "Closed", "Preparation", "Finished"]);
   await page.keyboard.press("Escape");
 
@@ -123,11 +123,11 @@ test("the List view is the month's events table, filtered by owner and status", 
   const row = page.getByRole("row", { name: /Fall gala/ });
   await expect(row).toContainText("Thu, Sep 17 · 5:00 PM");
   await expect(row).toContainText(salesperson.name);
-  await choose(page.getByRole("combobox", { name: "Status" }), "negotiation");
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "negotiation");
   await expect(page.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);
-  await choose(page.getByRole("combobox", { name: "Status" }), "closed");
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "closed");
   await expect(page.getByRole("row", { name: /Fall gala/ })).toBeVisible();
-  await choose(page.getByRole("combobox", { name: "Owner" }), salesperson.id);
+  await choose(page.getByRole("combobox", { name: "Owner", exact: true }), salesperson.id);
   await expect(page.getByRole("row", { name: /Fall gala/ })).toBeVisible();
   // Kept on reload.
   await page.reload();
