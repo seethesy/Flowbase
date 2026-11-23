@@ -13,7 +13,7 @@ import {
   policyMatrix,
   setPolicyMatrix,
 } from "../../shared/role-permissions";
-import { navHidden, navVisibilitySchema, setNavHidden } from "../../shared/nav-visibility";
+import { navHidden, setNavHidden } from "../../shared/nav-visibility";
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
@@ -45,9 +45,11 @@ async function refreshNavigation(): Promise<boolean> {
   try {
     const response = await authFetch("/api/permissions/navigation");
     if (!response.ok) return false;
-    const { hidden } = navVisibilitySchema.parse(await response.json());
+    // No schema here: setNavHidden keeps only each role's string keys.
+    const body = (await response.json()) as { hidden?: unknown };
+    if (!body.hidden || typeof body.hidden !== "object") return false;
     const before = JSON.stringify(navHidden());
-    setNavHidden(hidden);
+    setNavHidden(body.hidden as Parameters<typeof setNavHidden>[0]);
     return JSON.stringify(navHidden()) !== before;
   } catch {
     return false;

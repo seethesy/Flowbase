@@ -19,7 +19,8 @@ import {
   type Level,
   type Matrix,
 } from "../../shared/role-permissions";
-import { navVisibilitySchema, setNavHidden, type NavHidden } from "../../shared/nav-visibility";
+import { setNavHidden, type NavHidden } from "../../shared/nav-visibility";
+import { navVisibilitySchema } from "../../shared/nav-visibility-schema";
 import { layoutApi } from "../services/layout";
 import { request } from "../services/core";
 import { roleLabel } from "../services/users";

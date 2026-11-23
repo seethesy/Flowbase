@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "../shared/access";
+import { navHiddenProblem } from "../shared/nav-visibility-schema";
 import {
   emptyNavHidden,
-  navHiddenProblem,
   navHides,
   normalizeNavHidden,
   setNavHidden,

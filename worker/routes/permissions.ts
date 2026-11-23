@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { matrixProblem, matrixSchema } from "../../shared/role-permissions";
-import { navHiddenProblem, navVisibilitySchema } from "../../shared/nav-visibility";
+import { navHiddenProblem, navVisibilitySchema } from "../../shared/nav-visibility-schema";
 import manifestJson from "../../shared/generated/live-edit-keys.json";
 import { requirePermission } from "../auth";
 import { ApiError, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../hono";

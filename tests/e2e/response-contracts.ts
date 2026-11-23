@@ -6,7 +6,7 @@ import { copyOverridesSchema } from "../../shared/copy";
 import { orphansSchema } from "../../shared/live-edit-orphans";
 import { savedLayoutSchema } from "../../shared/layout";
 import { permissionsSchema } from "../../shared/role-permissions";
-import { navVisibilitySchema } from "../../shared/nav-visibility";
+import { navVisibilitySchema } from "../../shared/nav-visibility-schema";
 import { authConfigSchema, userSchema } from "../../shared/users";
 import { recordSchemas } from "../../shared/records";
 import {

@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { roles, type Role } from "./access";
 
 // Which roles see each sidebar heading and tab (FLOW-284). Each role has a list
@@ -7,44 +6,28 @@ import { roles, type Role } from "./access";
 // never change (src/app/navigation.ts), so renaming a tab in live edit keeps the
 // setting. Hiding only narrows what a role sees: a tab still needs its own rule
 // (area permission) to show. It is UI only and is not a security boundary. The
-// API answers by area permissions, as before.
+// API answers by area permissions, as before. The API's schemas and checks are
+// in shared/nav-visibility-schema.ts.
 
 export const navTabKey = (groupId: string, tabId: string) => `${groupId}.${tabId}`;
-
-const navKeyPattern = /^[a-z0-9-]+(\.[a-z0-9-]+)?$/;
-export const navKeySchema = z.string().max(120).regex(navKeyPattern);
 
 export type NavHidden = Record<Role, string[]>;
 
 export const emptyNavHidden = (): NavHidden =>
   Object.fromEntries(roles.map((role) => [role, []])) as unknown as NavHidden;
 
-// What GET/PUT /api/permissions/navigation carry: a list for every role.
-export const navHiddenSchema = z
-  .object(
-    Object.fromEntries(roles.map((role) => [role, z.array(navKeySchema).max(500)])) as unknown as Record<
-      Role,
-      z.ZodType<string[]>
-    >,
-  )
-  .strict() as unknown as z.ZodType<NavHidden>;
-export const navVisibilitySchema = z.object({ hidden: navHiddenSchema });
-
-// Sorted and without duplicates, so a save compares and audits cleanly.
-export const normalizeNavHidden = (hidden: Partial<Record<Role, readonly string[]>>): NavHidden =>
+// Sorted and without duplicates, so a save compares and audits cleanly. Keeps
+// only strings, so the browser can take the API's answer without a schema
+// (the schemas are in nav-visibility-schema.ts, off the first load).
+export const normalizeNavHidden = (hidden: Partial<Record<Role, readonly unknown[]>>): NavHidden =>
   Object.fromEntries(
-    roles.map((role) => [role, role === "admin" ? [] : [...new Set(hidden[role] ?? [])].sort()]),
+    roles.map((role) => [
+      role,
+      role === "admin" || !Array.isArray(hidden[role])
+        ? []
+        : [...new Set(hidden[role]!.filter((key): key is string => typeof key === "string"))].sort(),
+    ]),
   ) as unknown as NavHidden;
-
-// Why a setting can't be saved, or null. Admin always sees everything (AC4), and
-// every key must be a heading or tab that exists.
-export function navHiddenProblem(hidden: NavHidden, known: ReadonlySet<string>): string | null {
-  if (hidden.admin.length) return "Admin always sees every heading and tab.";
-  for (const role of roles)
-    for (const key of hidden[role])
-      if (!known.has(key)) return `There is no heading or tab "${key}".`;
-  return null;
-}
 
 // The setting the browser uses. It stays empty (everything shown) until it
 // loads, and also outside the app, in unit tests.

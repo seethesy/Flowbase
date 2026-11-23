@@ -33,7 +33,7 @@ import {
   Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
-import { DetailDrawer, EmptyState, RoleText } from "../shared";
+import { DetailDrawer, RoleText } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
 import { GlobalSearch } from "../../features/search";
 import { NotificationBell } from "../../features/notifications";
@@ -301,6 +301,9 @@ function SectionTabs() {
     </nav>
   );
 }
+// What a hidden page shows (FLOW-284), loaded only when one is opened.
+const HiddenPage = lazy(() => import("./hidden-page"));
+
 // The live-edit "Who sees this" popover (FLOW-284), loaded only in edit mode so
 // it stays out of the first load.
 const NavWhoSeesEditor = lazy(() =>
@@ -326,19 +329,9 @@ function HiddenPageGuard({ children }: { children: ReactNode }) {
   const first = firstVisiblePage(actor);
   if (pathname === "/" && first && first !== "/") return <Navigate to={first} replace />;
   return (
-    <section className="panel hidden-page">
-      <EmptyState
-        title={<T id="app-shell.hidden-page.title">Not available for your role</T>}
-        description={<T id="app-shell.hidden-page.description">Your Admin has hidden this page for your role.</T>}
-      />
-      {first && (
-        <p className="hidden-page-link">
-          <Link to={first}>
-            <T id="app-shell.hidden-page.go-to-first-page">Go to your first page</T>
-          </Link>
-        </p>
-      )}
-    </section>
+    <Suspense fallback={null}>
+      <HiddenPage first={first} />
+    </Suspense>
   );
 }
 function TopHeader({ setMobile }: { setMobile: (v: boolean) => void }) {
