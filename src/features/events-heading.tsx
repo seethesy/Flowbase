@@ -10,9 +10,16 @@ const subtitles = {
   production: <T id="events-screen.production.upcoming-work-across-events">Upcoming work across events: tasks, pulls, kitchen prep, shortages, staffing and trucks.</T>,
 };
 
+// Each tab's page layout, so its heading lines can be edited there (FLOW-282).
+const pageKeys: Record<keyof typeof subtitles, string> = {
+  overview: "calendar.page",
+  beos: "beos.list",
+  production: "production.overview",
+};
+
 export function EventsHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {
   return (
-    <PageHeader pageKey={{ "calendar": "calendar.page", "beos": "beos.list", "production": "production.overview", "day-of": "day-of.board" }[tab]} title={<T id="events-screen.events-heading.events">Events</T>} subtitle={subtitles[tab]}>
+    <PageHeader pageKey={pageKeys[tab]} title={<T id="events-screen.events-heading.events">Events</T>} subtitle={subtitles[tab]}>
       {children}
     </PageHeader>
   );

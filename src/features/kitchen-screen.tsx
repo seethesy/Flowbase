@@ -26,9 +26,16 @@ const subtitles = {
   ingredients: <T id="kitchen-screen.ingredients.kitchen-ingredients-what-is">Kitchen ingredients: what is on hand, par levels, costs and who supplies them.</T>,
   menus: <T id="kitchen-screen.menus.every-menu-pdf-in">{"Every menu PDF in one place: event menus, seasonal menus and the client recipe book. They're the same files as Documents › Menus."}</T>,
 };
+// Each tab's page layout, so its heading lines can be edited there (FLOW-282).
+const pageKeys: Record<keyof typeof subtitles, string> = {
+  overview: "kitchen.overview",
+  recipes: "recipes.list",
+  ingredients: "inventory.consumables",
+  menus: "kitchen.menus",
+};
 export function KitchenHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {
   return (
-    <PageHeader pageKey={{ "recipes": "recipes.list", "ingredients": "inventory.consumables", "menus": "kitchen.menus" }[tab]} title={<T id="kitchen-screen.kitchen-heading.kitchen">Kitchen</T>} subtitle={subtitles[tab]}>
+    <PageHeader pageKey={pageKeys[tab]} title={<T id="kitchen-screen.kitchen-heading.kitchen">Kitchen</T>} subtitle={subtitles[tab]}>
       {children}
     </PageHeader>
   );
