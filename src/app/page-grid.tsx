@@ -106,15 +106,23 @@ function TextBlock({ block }: { block: Extract<LayoutBlock, { kind: "text" }> })
 export function PageGrid({
   pageKey,
   record = null,
+  blockIds,
   children,
 }: {
   pageKey: string;
   record?: PageLayout["record"];
+  // Every id a <Block> here can have, when the ids aren't literal (built from a
+  // list). The key manifest (FLOW-277, scripts/live-edit-keys.mjs) reads it.
+  blockIds?: readonly string[];
   children: ReactNode;
 }) {
   const elements = Children.toArray(children).filter(
     (child): child is ReactElement<BlockProps> => isValidElement(child) && child.type === Block,
   );
+  if (import.meta.env.DEV && blockIds)
+    for (const element of elements)
+      if (!blockIds.includes(element.props.id))
+        console.error(`PageGrid ${pageKey}: block "${element.props.id}" is missing from blockIds.`);
   const builtins: BuiltinBlock[] = elements.map((element) => ({
     id: element.props.id,
     name: element.props.name,

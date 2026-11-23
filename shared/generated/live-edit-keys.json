@@ -1,0 +1,2905 @@
+{
+  "version": 1,
+  "copy": {
+    "app-shell.app-shell.back-to-dashboard": [],
+    "app-shell.app-shell.dashboard-contains-sample-data": [],
+    "app-shell.app-shell.flowbase-workspace": [],
+    "app-shell.app-shell.loading-screen": [],
+    "app-shell.app-shell.skip-to-content": [],
+    "app-shell.sidebar.catering-workspace": [],
+    "app-shell.sidebar.coreops": [],
+    "app-shell.sidebar.f": [],
+    "app-shell.sidebar.flowbase": [],
+    "app-shell.sidebar.workspace": [],
+    "app-shell.top-header.employee-profile": [],
+    "app-shell.top-header.find-clients-leads-events-venues": [],
+    "app-shell.top-header.manage-users": [],
+    "app-shell.top-header.search-anything": [],
+    "app-shell.top-header.search-your-workspace": [],
+    "app-shell.top-header.sign-out": [],
+    "approval-queue.approval-queue.approvals": [],
+    "approval-queue.approval-queue.approve": [],
+    "approval-queue.approval-queue.reason-for-rejection.placeholder": [],
+    "approval-queue.approval-queue.reject": [],
+    "approval-queue.approval-queue.requests-waiting-for-your-decision": [],
+    "approval-queue.approval-queue.unknown-proposer": [],
+    "approval-queue.approval-queue.view-record": [],
+    "approval-queue.approval-queue.workflow": [],
+    "archived.archived-page.column.deleted": [],
+    "archived.archived-page.column.deleted-by": [],
+    "archived.archived-page.column.name": [],
+    "archived.archived-page.column.type": [],
+    "archived.archived-page.deleted-records": [],
+    "archived.archived-page.empty": [],
+    "archived.archived-page.empty-hint": [],
+    "archived.archived-page.no-access": [],
+    "archived.archived-page.restore": [],
+    "archived.archived-page.subtitle": [],
+    "archived.archived-page.title": [],
+    "attachments.attachments.add-files": [],
+    "attachments.attachments.loading-files": [],
+    "attachments.attachments.no-files-yet": [],
+    "attachments.attachments.uploading": [],
+    "beo-areas.area-photos.add-image": [],
+    "beo-areas.area-photos.take-or-add-photo": [],
+    "beo-areas.area-photos.uploading": [],
+    "beo-areas.beo-area-list.add-area": [],
+    "beo-areas.beo-area-list.annotate": [],
+    "beo-areas.beo-area-list.area-name": [],
+    "beo-areas.beo-area-list.cancel": [],
+    "beo-areas.beo-area-list.e-g-inside-tent.placeholder": [],
+    "beo-areas.beo-area-list.edit": [
+      "name"
+    ],
+    "beo-areas.beo-area-list.edit-annotation": [],
+    "beo-areas.beo-area-list.loading-the-drawing-tool": [],
+    "beo-areas.beo-area-list.new-layout-area": [],
+    "beo-areas.beo-area-list.new-setup-area": [],
+    "beo-areas.beo-area-list.no-layout-areas-yet": [],
+    "beo-areas.beo-area-list.no-notes": [],
+    "beo-areas.beo-area-list.no-setup-areas-yet": [],
+    "beo-areas.beo-area-list.notes": [],
+    "beo-areas.beo-area-list.save-area": [],
+    "beo-areas.beo-cleanup.add-section": [],
+    "beo-areas.beo-cleanup.cancel": [],
+    "beo-areas.beo-cleanup.cleanup-and-breakdown-checklist": [],
+    "beo-areas.beo-cleanup.edit-checklist": [],
+    "beo-areas.beo-cleanup.items-for-section-one-per": [
+      "value"
+    ],
+    "beo-areas.beo-cleanup.no-checklist-yet": [],
+    "beo-areas.beo-cleanup.save-checklist": [],
+    "beo-areas.beo-cleanup.section": [
+      "value"
+    ],
+    "beo-areas.beo-cleanup.someone": [],
+    "beo-areas.copy-layout.copy-its-layout": [],
+    "beo-areas.copy-layout.copy-the-venue-s-areas": [],
+    "beo-areas.copy-layout.past-event-at-this-venue": [],
+    "beo-layout-editor.layout-editor.annotate": [
+      "name"
+    ],
+    "beo-layout-editor.layout-editor.cancel": [],
+    "beo-layout-editor.layout-editor.loading-the-plan": [],
+    "beo-layout-editor.layout-editor.save-annotation": [],
+    "beo-layout-editor.layout-editor.saving": [],
+    "beo-schedule.beo-schedule.activity": [],
+    "beo-schedule.beo-schedule.add-cue": [],
+    "beo-schedule.beo-schedule.automatic-turns-it-on-at": [
+      "threshold"
+    ],
+    "beo-schedule.beo-schedule.cancel": [],
+    "beo-schedule.beo-schedule.cue": [],
+    "beo-schedule.beo-schedule.cue.placeholder": [],
+    "beo-schedule.beo-schedule.edit-run-of-show": [],
+    "beo-schedule.beo-schedule.end": [],
+    "beo-schedule.beo-schedule.event-day": [],
+    "beo-schedule.beo-schedule.no-cues-yet": [],
+    "beo-schedule.beo-schedule.none-assigned": [],
+    "beo-schedule.beo-schedule.notes": [],
+    "beo-schedule.beo-schedule.notes.placeholder": [],
+    "beo-schedule.beo-schedule.nothing-scheduled": [],
+    "beo-schedule.beo-schedule.owner": [],
+    "beo-schedule.beo-schedule.owner.placeholder": [],
+    "beo-schedule.beo-schedule.run-of-show": [],
+    "beo-schedule.beo-schedule.save-run-of-show": [],
+    "beo-schedule.beo-schedule.start": [],
+    "beo-schedule.beo-schedule.team": [],
+    "beo-schedule.beo-schedule.time": [],
+    "beo-schedule.beo-schedule.where": [],
+    "beo-schedule.beo-schedule.who": [],
+    "calendar-detail.calendar-detail.allergens": [
+      "join"
+    ],
+    "calendar-detail.calendar-detail.close": [],
+    "calendar-detail.calendar-detail.contact": [
+      "name",
+      "value"
+    ],
+    "calendar-detail.calendar-detail.event-details": [],
+    "calendar-detail.calendar-detail.guests": [
+      "guestCount"
+    ],
+    "calendar-detail.calendar-detail.lead": [
+      "productionLead"
+    ],
+    "calendar-detail.calendar-detail.loading": [],
+    "calendar-detail.calendar-detail.menu": [],
+    "calendar-detail.calendar-detail.no-venue-yet": [],
+    "calendar-detail.calendar-detail.notes": [
+      "additionalNotes"
+    ],
+    "calendar-detail.calendar-detail.open": [
+      "openSlots"
+    ],
+    "calendar-detail.calendar-detail.open-event": [],
+    "calendar-detail.calendar-detail.setup": [
+      "setupDetails"
+    ],
+    "calendar-detail.calendar-detail.staff": [],
+    "calendar.calendar-page.calendar": [],
+    "calendar.calendar-page.detail-mode": [],
+    "calendar.calendar-page.events-and-the-tasks-you": [],
+    "calendar.calendar-page.layers": [],
+    "clients.client-detail.add-contacts-from-edit": [],
+    "clients.client-detail.all-clients": [],
+    "clients.client-detail.archive": [],
+    "clients.client-detail.archive-this-client": [],
+    "clients.client-detail.archived": [],
+    "clients.client-detail.client-information": [],
+    "clients.client-detail.contacts": [],
+    "clients.client-detail.created-by-a-salesperson-who": [],
+    "clients.client-detail.edit": [],
+    "clients.client-detail.no-contacts": [],
+    "clients.client-detail.no-notes-yet": [],
+    "clients.client-detail.none": [],
+    "clients.client-detail.notes": [],
+    "clients.client-detail.organization": [],
+    "clients.client-detail.person": [],
+    "clients.client-detail.possible-duplicate-of": [],
+    "clients.client-detail.restore": [],
+    "clients.client-detail.tags": [],
+    "clients.client-detail.upcoming-events": [],
+    "clients.client-detail.will-be-hidden-from-the": [
+      "name"
+    ],
+    "clients.client-form-fields.a-client-with-this-email": [],
+    "clients.client-form-fields.add-contact": [],
+    "clients.client-form-fields.cancel": [],
+    "clients.client-form-fields.contact-name": [],
+    "clients.client-form-fields.contacts": [],
+    "clients.client-form-fields.create-anyway": [],
+    "clients.client-form-fields.edit-client": [],
+    "clients.client-form-fields.email": [],
+    "clients.client-form-fields.email-and-phone-are-visible": [],
+    "clients.client-form-fields.name": [],
+    "clients.client-form-fields.new-client": [],
+    "clients.client-form-fields.notes": [],
+    "clients.client-form-fields.phone": [],
+    "clients.client-form-fields.remove-contact": [],
+    "clients.client-form-fields.role": [],
+    "clients.client-form-fields.save-client": [],
+    "clients.client-form-fields.saved-to-flowbase": [],
+    "clients.client-form-fields.separate-tags-with-commas": [],
+    "clients.client-form-fields.tags": [],
+    "clients.client-form-fields.type": [],
+    "clients.client-list.clients": [],
+    "clients.client-list.clients-2": [
+      "dataCount"
+    ],
+    "clients.client-list.clients-3": [
+      "dataCount"
+    ],
+    "clients.client-list.clients-4": [],
+    "clients.client-list.good-relationships-start-with-the": [],
+    "clients.client-list.load-more-clients": [],
+    "clients.client-list.new-client": [],
+    "clients.client-list.organization": [],
+    "clients.client-list.person": [],
+    "clients.client-list.possible-duplicate": [],
+    "clients.client-list.search-clients-or-contacts.placeholder": [],
+    "clients.client-list.show-archived": [],
+    "collector-health.collector-health-page.collector-health": [],
+    "collector-health.collector-health-page.collector-re-login-and-ops": [],
+    "collector-health.collector-health-page.failures-before-alert": [],
+    "collector-health.collector-health-page.last-error": [
+      "lastError"
+    ],
+    "collector-health.collector-health-page.last-successful-run": [],
+    "collector-health.collector-health-page.latest-leads": [
+      "value"
+    ],
+    "collector-health.collector-health-page.leads": [
+      "at",
+      "leadsFound",
+      "status"
+    ],
+    "collector-health.collector-health-page.monitor-a-site-before-its": [],
+    "collector-health.collector-health-page.never": [],
+    "collector-health.collector-health-page.no-leads-gap-hours": [],
+    "collector-health.collector-health-page.recent-site-runs-and-alert": [],
+    "collector-health.collector-health-page.save": [],
+    "collector-health.collector-health-page.sms-outbox": [],
+    "collector-health.collector-health-page.status": [],
+    "collector-health.collector-health-page.stub-messages-are-recorded-here": [],
+    "collector-health.collector-health-page.unable-to-load-collector-health": [],
+    "collector-health.collector-health-page.unable-to-load-sms-outbox": [],
+    "communications.communication-log.communication-log": [],
+    "communications.communication-log.follow-up-done": [
+      "day"
+    ],
+    "communications.communication-log.follow-up-open": [
+      "day"
+    ],
+    "communications.communication-log.load-more-entries": [],
+    "communications.communication-log.log-conversation": [],
+    "communications.communication-log.next-follow-up": [],
+    "communications.communication-log.nothing-logged-yet": [],
+    "communications.communication-log.summary": [],
+    "communications.communication-log.type": [],
+    "communications.communication-log.view-task": [],
+    "dashboard.home.all-tasks": [],
+    "dashboard.home.client": [],
+    "dashboard.home.date": [],
+    "dashboard.home.event": [],
+    "dashboard.home.event-date": [],
+    "dashboard.home.event-name": [],
+    "dashboard.home.guests": [],
+    "dashboard.home.my-leads": [],
+    "dashboard.home.my-tasks": [],
+    "dashboard.home.no-event": [],
+    "dashboard.home.pick-up": [],
+    "dashboard.home.position": [],
+    "dashboard.home.since": [],
+    "dashboard.home.staff-name": [],
+    "dashboard.home.status": [],
+    "dashboard.home.title": [],
+    "dashboard.home.unassigned": [],
+    "dashboard.home.unnamed-lead": [],
+    "dashboard.home.upcoming-events": [],
+    "dashboard.home.venue": [],
+    "dashboard.home.view-all-events": [],
+    "dashboard.home.view-all-leads": [],
+    "dashboard.home.view-all-staff": [],
+    "dashboard.home.view-all-tasks": [],
+    "dashboard.home.working-staff": [],
+    "day-of.checkpoint-row.clear": [],
+    "day-of.checkpoint-row.mark-now": [],
+    "day-of.checkpoint-row.not-marked": [],
+    "day-of.checkpoint-row.planned": [
+      "clock"
+    ],
+    "day-of.checkpoint-row.reached": [
+      "clock"
+    ],
+    "day-of.checkpoint-row.reached-by": [
+      "clock",
+      "name"
+    ],
+    "day-of.day-of-page.day-of-board": [],
+    "day-of.day-of-page.next-day": [],
+    "day-of.day-of-page.no-events-on-this-date": [],
+    "day-of.day-of-page.no-staff-scheduled": [],
+    "day-of.day-of-page.no-trucks-assigned": [],
+    "day-of.day-of-page.previous-day": [],
+    "day-of.day-of-page.staff": [],
+    "day-of.day-of-page.today": [],
+    "day-of.day-of-page.trucks": [],
+    "day-of.day-of-page.urgent-text-the-people-affected": [],
+    "day-of.event-day-of-section.day-of-log": [],
+    "day-of.event-day-of-section.export-csv": [],
+    "day-of.event-day-of-section.no-day-of-updates-yet": [],
+    "day-of.event-day-of-section.showing-the-latest-updates": [
+      "entriesCount"
+    ],
+    "day-of.event-day-of-section.system": [],
+    "day-of.event-day-of-section.urgent": [],
+    "day-of.staff-row.save": [],
+    "day-of.truck-row.driver": [],
+    "day-of.truck-row.save": [],
+    "day-of.truck-row.unassigned": [],
+    "documents.library.all": [],
+    "documents.library.cancel-link": [],
+    "documents.library.deleted": [],
+    "documents.library.save-link": [],
+    "documents.library.search.placeholder": [],
+    "documents.library.subtitle": [],
+    "documents.library.title": [],
+    "documents.library.undo": [],
+    "documents.library.unlinked": [],
+    "documents.library.upload": [],
+    "documents.picker.link-to": [],
+    "documents.picker.search.placeholder": [],
+    "documents.picker.selected": [
+      "name"
+    ],
+    "documents.preview.delete": [],
+    "documents.preview.description": [],
+    "documents.preview.new-version": [],
+    "documents.preview.no-preview": [],
+    "documents.preview.version": [
+      "name",
+      "number"
+    ],
+    "documents.preview.versions": [],
+    "documents.upload.description": [],
+    "documents.upload.drop": [],
+    "documents.upload.name": [],
+    "documents.upload.save": [],
+    "documents.upload.title": [],
+    "documents.upload.type": [],
+    "event-activity.event-history-section.changed": [],
+    "event-activity.event-history-section.flowbase": [],
+    "event-activity.event-history-section.history": [],
+    "event-activity.event-history-section.no": [],
+    "event-activity.event-history-section.no-changes-recorded-yet": [],
+    "event-activity.event-history-section.show-older-changes": [],
+    "event-activity.event-history-section.someone": [],
+    "event-activity.event-history-section.yes": [],
+    "event-beo.event-beo-page.back-to-event": [],
+    "event-beo.event-beo-section.additional-notes": [],
+    "event-beo.event-beo-section.allergens": [],
+    "event-beo.event-beo-section.approve": [],
+    "event-beo.event-beo-section.approved": [
+      "when"
+    ],
+    "event-beo.event-beo-section.assistants": [
+      "join"
+    ],
+    "event-beo.event-beo-section.banquet-event-order": [],
+    "event-beo.event-beo-section.by": [
+      "name"
+    ],
+    "event-beo.event-beo-section.cancel": [],
+    "event-beo.event-beo-section.changes-after-approval": [],
+    "event-beo.event-beo-section.client": [],
+    "event-beo.event-beo-section.crew-arrives": [],
+    "event-beo.event-beo-section.dietary": [],
+    "event-beo.event-beo-section.dress-code": [],
+    "event-beo.event-beo-section.edit-setup-details-and-notes": [],
+    "event-beo.event-beo-section.empty": [],
+    "event-beo.event-beo-section.food-leaves-the-kitchen-at": [
+      "leavesKitchenTime"
+    ],
+    "event-beo.event-beo-section.generate-beo": [],
+    "event-beo.event-beo-section.guests": [],
+    "event-beo.event-beo-section.load-in": [
+      "loadInNotes"
+    ],
+    "event-beo.event-beo-section.no-dishes-yet": [],
+    "event-beo.event-beo-section.no-equipment-on-the-pull": [],
+    "event-beo.event-beo-section.no-setup-details-yet": [],
+    "event-beo.event-beo-section.no-venue": [],
+    "event-beo.event-beo-section.none": [],
+    "event-beo.event-beo-section.open": [
+      "openSlots"
+    ],
+    "event-beo.event-beo-section.open-beo-page": [],
+    "event-beo.event-beo-section.parking": [
+      "parkingNotes"
+    ],
+    "event-beo.event-beo-section.phone-numbers-and-emails-are": [],
+    "event-beo.event-beo-section.print": [],
+    "event-beo.event-beo-section.production-lead": [],
+    "event-beo.event-beo-section.request-approval": [],
+    "event-beo.event-beo-section.save": [],
+    "event-beo.event-beo-section.service": [],
+    "event-beo.event-beo-section.servings": [],
+    "event-beo.event-beo-section.setup-details": [],
+    "event-beo.event-beo-section.someone": [],
+    "event-beo.event-beo-section.this-is-a-preview-generate": [],
+    "event-beo.event-beo-section.transportation": [
+      "transportationNotes"
+    ],
+    "event-beo.event-beo-section.venue": [],
+    "event-beo.event-beo-section.when": [],
+    "event-beo.marks.changed-since-approval": [],
+    "event-beo.offline-status.available-offline-last-synced": [
+      "when"
+    ],
+    "event-beo.open.open": [],
+    "event-beo.tbd.tbd": [],
+    "event-closeout.event-closeout-section.an-event-can-be-closed": [],
+    "event-closeout.event-closeout-section.by": [
+      "closedByName"
+    ],
+    "event-closeout.event-closeout-section.close-out-event": [],
+    "event-closeout.event-closeout-section.closed-out": [],
+    "event-closeout.event-closeout-section.closeout-and-returns": [],
+    "event-closeout.event-closeout-section.damaged": [
+      "name"
+    ],
+    "event-closeout.event-closeout-section.final-notes": [],
+    "event-closeout.event-closeout-section.missing": [
+      "name"
+    ],
+    "event-closeout.event-closeout-section.on": [
+      "value"
+    ],
+    "event-closeout.event-closeout-section.only-managers-can-close-out": [],
+    "event-closeout.event-closeout-section.pulled": [
+      "pulled"
+    ],
+    "event-closeout.event-closeout-section.return-notes": [
+      "vendorName"
+    ],
+    "event-closeout.event-closeout-section.returned": [],
+    "event-closeout.event-closeout-section.returned-2": [
+      "name"
+    ],
+    "event-closeout.event-closeout-section.returned-damaged-missing": [
+      "value",
+      "value2",
+      "value3"
+    ],
+    "event-closeout.event-closeout-section.returned-to": [
+      "vendorName"
+    ],
+    "event-closeout.event-closeout-section.sub-rental": [
+      "vendorName"
+    ],
+    "event-closeout.event-closeout-section.the-pull-list-is-empty": [],
+    "event-closeout.event-closeout-section.used": [
+      "name"
+    ],
+    "event-closeout.event-closeout-section.used-left-over": [
+      "value",
+      "value2"
+    ],
+    "event-payments.event-payments-section.add": [],
+    "event-payments.event-payments-section.add-scheduled-payment": [],
+    "event-payments.event-payments-section.amount": [],
+    "event-payments.event-payments-section.balance": [],
+    "event-payments.event-payments-section.due": [],
+    "event-payments.event-payments-section.edit": [],
+    "event-payments.event-payments-section.from-the-proposal": [],
+    "event-payments.event-payments-section.item": [],
+    "event-payments.event-payments-section.method": [],
+    "event-payments.event-payments-section.no-payments-recorded": [],
+    "event-payments.event-payments-section.no-scheduled-payments": [],
+    "event-payments.event-payments-section.overdue": [],
+    "event-payments.event-payments-section.overdue-across-payments.one": [
+      "count",
+      "overdueCents"
+    ],
+    "event-payments.event-payments-section.overdue-across-payments.other": [
+      "count",
+      "overdueCents"
+    ],
+    "event-payments.event-payments-section.paid": [],
+    "event-payments.event-payments-section.payments": [],
+    "event-payments.event-payments-section.payments-received": [],
+    "event-payments.event-payments-section.received": [],
+    "event-payments.event-payments-section.record-payment": [],
+    "event-payments.event-payments-section.recorded-by": [],
+    "event-payments.event-payments-section.reference": [],
+    "event-payments.event-payments-section.schedule": [],
+    "event-payments.event-payments-section.status": [],
+    "event-payments.event-payments-section.total": [],
+    "event-payments.payment-drawer.amount": [],
+    "event-payments.payment-drawer.cancel": [],
+    "event-payments.payment-drawer.date-received": [],
+    "event-payments.payment-drawer.method": [],
+    "event-payments.payment-drawer.never-enter-a-card-number": [],
+    "event-payments.payment-drawer.note": [],
+    "event-payments.payment-drawer.record-payment": [],
+    "event-payments.payment-drawer.reference": [],
+    "event-payments.schedule-item-drawer.add-scheduled-payment": [],
+    "event-payments.schedule-item-drawer.amount": [],
+    "event-payments.schedule-item-drawer.cancel": [],
+    "event-payments.schedule-item-drawer.due-date": [],
+    "event-payments.schedule-item-drawer.edit-scheduled-payment": [],
+    "event-payments.schedule-item-drawer.label": [],
+    "event-payments.schedule-item-drawer.save": [],
+    "event-payments.schedule-item-drawer.type": [],
+    "event-planning.add-tier-line.add-bar-tier": [],
+    "event-planning.bar-plan-section.bar-plan": [],
+    "event-planning.bar-plan-section.no-bar-planned-yet": [],
+    "event-planning.conflict-card.conflict": [],
+    "event-planning.conflict-card.in": [
+      "kitName"
+    ],
+    "event-planning.conflict-card.is-short-of": [
+      "number",
+      "number2",
+      "number3"
+    ],
+    "event-planning.conflict-card.is-short-of-risk-accepted": [
+      "number",
+      "number2",
+      "number3"
+    ],
+    "event-planning.conflict-card.note.placeholder": [],
+    "event-planning.conflict-card.resolve": [],
+    "event-planning.conflict-card.warning": [],
+    "event-planning.event-planning-section.equipment-stock": [],
+    "event-planning.hold-row.conflict-short": [
+      "number"
+    ],
+    "event-planning.hold-row.warning-short": [
+      "number"
+    ],
+    "event-planning.need-row.allocated-once-the-event-is": [],
+    "event-planning.need-row.covered": [],
+    "event-planning.need-row.needs": [
+      "number",
+      "number2",
+      "unit"
+    ],
+    "event-planning.need-row.order-by": [
+      "orderBy"
+    ],
+    "event-planning.need-row.per-guest-needs": [
+      "number",
+      "number2",
+      "unit"
+    ],
+    "event-planning.need-row.short": [
+      "number",
+      "unit"
+    ],
+    "event-planning.planning-sections.consumable-needs": [],
+    "event-planning.planning-sections.equipment-holds": [],
+    "event-planning.planning-sections.equipment-stock": [],
+    "event-planning.planning-sections.no-consumables-required-yet": [],
+    "event-planning.planning-sections.no-equipment-held-yet": [],
+    "event-planning.rental-requests-section.copy-text": [],
+    "event-planning.rental-requests-section.delivery": [],
+    "event-planning.rental-requests-section.delivery-or-pickup-details": [],
+    "event-planning.rental-requests-section.details-to-confirm": [],
+    "event-planning.rental-requests-section.event": [],
+    "event-planning.rental-requests-section.fulfillment": [],
+    "event-planning.rental-requests-section.item": [],
+    "event-planning.rental-requests-section.no-vendor-rentals-are-held": [],
+    "event-planning.rental-requests-section.pickup": [],
+    "event-planning.rental-requests-section.print-request": [],
+    "event-planning.rental-requests-section.quantity": [],
+    "event-planning.rental-requests-section.rental-dates": [],
+    "event-planning.rental-requests-section.rental-request": [
+      "vendorName"
+    ],
+    "event-planning.rental-requests-section.status": [],
+    "event-planning.rental-requests-section.vendor-rental-requests": [],
+    "event-planning.tier-row.allocated-once-the-event-is": [],
+    "event-planning.tier-row.by": [
+      "orderBy"
+    ],
+    "event-planning.tier-row.covered": [],
+    "event-planning.tier-row.from": [
+      "join"
+    ],
+    "event-planning.tier-row.needs": [
+      "number",
+      "number2"
+    ],
+    "event-planning.tier-row.no-matching-bar-items": [],
+    "event-planning.tier-row.order": [
+      "reorderItemName"
+    ],
+    "event-planning.tier-row.per-guest-needs": [
+      "number",
+      "number2"
+    ],
+    "event-planning.tier-row.short": [
+      "number"
+    ],
+    "event-preparation.event-kitchen-menu-section.add-dish": [],
+    "event-preparation.event-kitchen-menu-section.allergens": [
+      "join"
+    ],
+    "event-preparation.event-kitchen-menu-section.assign-prep": [],
+    "event-preparation.event-kitchen-menu-section.course.placeholder": [],
+    "event-preparation.event-kitchen-menu-section.crew-arrives": [
+      "time"
+    ],
+    "event-preparation.event-kitchen-menu-section.dishes-without-a-yield-excluded": [],
+    "event-preparation.event-kitchen-menu-section.food-leaves-kitchen": [],
+    "event-preparation.event-kitchen-menu-section.food-leaves-the-kitchen": [],
+    "event-preparation.event-kitchen-menu-section.food-leaves-the-kitchen-at": [
+      "leavesKitchenTime"
+    ],
+    "event-preparation.event-kitchen-menu-section.kitchen-menu": [],
+    "event-preparation.event-kitchen-menu-section.kitchen-sheet": [
+      "title"
+    ],
+    "event-preparation.event-kitchen-menu-section.kitchen-tasks": [],
+    "event-preparation.event-kitchen-menu-section.method-and-ingredients-for-servings": [
+      "plannedQuantity"
+    ],
+    "event-preparation.event-kitchen-menu-section.no-kitchen-menu-yet-start": [],
+    "event-preparation.event-kitchen-menu-section.no-kitchen-tasks-yet": [],
+    "event-preparation.event-kitchen-menu-section.prep-assignments": [],
+    "event-preparation.event-kitchen-menu-section.prep-task.placeholder": [],
+    "event-preparation.event-kitchen-menu-section.print": [],
+    "event-preparation.event-kitchen-menu-section.qty.placeholder": [],
+    "event-preparation.event-kitchen-menu-section.regenerate-kitchen-menu": [],
+    "event-preparation.event-kitchen-menu-section.servings": [
+      "servings"
+    ],
+    "event-preparation.event-kitchen-menu-section.servings-not-set": [],
+    "event-preparation.event-kitchen-menu-section.servings-tbd": [],
+    "event-preparation.event-kitchen-menu-section.tbd": [],
+    "event-preparation.event-kitchen-menu-section.tbd.placeholder": [],
+    "event-preparation.event-kitchen-menu-section.unassigned": [],
+    "event-preparation.event-kitchen-menu-section.venue-arrival": [],
+    "event-preparation.event-planning-progress-section.planning": [],
+    "event-preparation.event-planning-progress-section.planning-hasn-t-started-starting": [],
+    "event-preparation.event-planning-progress-section.planning-is-complete": [],
+    "event-preparation.event-planning-progress-section.planning-outputs-need-review": [],
+    "event-preparation.event-planning-progress-section.refresh-progress": [],
+    "event-preparation.event-planning-progress-section.start-planning": [],
+    "event-preparation.event-planning-progress-section.start-planning-2": [],
+    "event-preparation.event-planning-progress-section.use-the-regenerate-button-in": [],
+    "event-preparation.event-planning-progress-section.will-move-to-preparation-and": [
+      "title"
+    ],
+    "event-preparation.event-pull-list-section.add-line": [],
+    "event-preparation.event-pull-list-section.item.placeholder": [],
+    "event-preparation.event-pull-list-section.lines-need-a-quantity.one": [
+      "count"
+    ],
+    "event-preparation.event-pull-list-section.lines-need-a-quantity.other": [
+      "count"
+    ],
+    "event-preparation.event-pull-list-section.no-pull-list-yet-start": [],
+    "event-preparation.event-pull-list-section.nothing-to-pull": [],
+    "event-preparation.event-pull-list-section.of-lines-pulled-or-further": [
+      "linesCount"
+    ],
+    "event-preparation.event-pull-list-section.print": [],
+    "event-preparation.event-pull-list-section.pull-list": [],
+    "event-preparation.event-pull-list-section.puller": [],
+    "event-preparation.event-pull-list-section.pulling-starts-at": [
+      "date",
+      "scheduledTime",
+      "value"
+    ],
+    "event-preparation.event-pull-list-section.qty.placeholder": [],
+    "event-preparation.event-pull-list-section.readiness-check-missing-schedule-set": [],
+    "event-preparation.event-pull-list-section.regenerate-pull-list": [],
+    "event-preparation.event-pull-list-section.setup-day": [],
+    "event-preparation.event-pull-list-section.short": [
+      "shortfall"
+    ],
+    "event-preparation.event-pull-list-section.start-pulling-date": [],
+    "event-preparation.event-pull-list-section.start-pulling-time": [],
+    "event-preparation.event-pull-list-section.status-by": [
+      "status",
+      "statusBy"
+    ],
+    "event-preparation.event-pull-list-section.tbd": [],
+    "event-preparation.event-pull-list-section.tbd.placeholder": [],
+    "event-preparation.refresh-planning-output.cancel": [],
+    "event-preparation.refresh-planning-output.no-derived-values-changed-manual": [],
+    "event-preparation.refresh-planning-output.preview-regeneration": [
+      "replaceAll"
+    ],
+    "event-preparation.refresh-planning-output.regenerate": [],
+    "event-preparation.regenerate-button.already-up-to-date-nothing": [],
+    "event-preparation.regenerate-button.cancel": [],
+    "event-preparation.regenerate-button.checking": [],
+    "event-preparation.regenerate-button.discard-manual-edits-and-removals": [],
+    "event-preparation.regenerate-button.edited-by-hand-kept": [],
+    "event-preparation.regenerate-button.now": [
+      "current"
+    ],
+    "event-preparation.regenerate-button.regenerate": [],
+    "event-preparation.regenerate-button.removed-by-hand-kept": [],
+    "event-proposals.event-proposal-plan.menu": [],
+    "event-proposals.event-proposal-plan.payment-schedule": [],
+    "event-proposals.event-proposal-plan.plan": [
+      "title"
+    ],
+    "event-proposals.event-proposal-plan.rentals-decor-and-services": [],
+    "event-proposals.event-proposal-plan.staffing-slots": [],
+    "event-proposals.event-proposals-section.addendums": [],
+    "event-proposals.event-proposals-section.and": [
+      "clientSigner",
+      "salespersonSigner",
+      "stamp"
+    ],
+    "event-proposals.event-proposals-section.change-log-entries": [
+      "count"
+    ],
+    "event-proposals.event-proposals-section.new-proposal": [],
+    "event-proposals.event-proposals-section.no-proposals-yet": [],
+    "event-proposals.event-proposals-section.open-sent": [
+      "stamp"
+    ],
+    "event-proposals.event-proposals-section.proposal-version": [
+      "proposalVersionId"
+    ],
+    "event-proposals.event-proposals-section.proposals": [],
+    "event-proposals.event-proposals-section.signed": [
+      "stamp"
+    ],
+    "event-proposals.event-proposals-section.signed-contracts": [],
+    "event-proposals.proposal-drawer.addendum": [],
+    "event-proposals.proposal-drawer.cancel": [],
+    "event-proposals.proposal-drawer.card-last-4": [],
+    "event-proposals.proposal-drawer.card-on-file": [],
+    "event-proposals.proposal-drawer.change-log": [],
+    "event-proposals.proposal-drawer.client-signed-date": [],
+    "event-proposals.proposal-drawer.client-signer": [],
+    "event-proposals.proposal-drawer.created-in": [
+      "proposalStageLabels"
+    ],
+    "event-proposals.proposal-drawer.current": [],
+    "event-proposals.proposal-drawer.current-version": [],
+    "event-proposals.proposal-drawer.current-version-approval": [
+      "status"
+    ],
+    "event-proposals.proposal-drawer.edit-details": [],
+    "event-proposals.proposal-drawer.edit-proposal": [],
+    "event-proposals.proposal-drawer.i-confirm-the-pdf-shows": [],
+    "event-proposals.proposal-drawer.lost": [
+      "lostReason"
+    ],
+    "event-proposals.proposal-drawer.mark-lost": [],
+    "event-proposals.proposal-drawer.marking-this-proposal-lost-is": [],
+    "event-proposals.proposal-drawer.method": [],
+    "event-proposals.proposal-drawer.move-to-stage": [],
+    "event-proposals.proposal-drawer.no-versions-uploaded-yet": [],
+    "event-proposals.proposal-drawer.none-yet": [],
+    "event-proposals.proposal-drawer.notes": [],
+    "event-proposals.proposal-drawer.proposal-details": [],
+    "event-proposals.proposal-drawer.record-addendum-sent": [],
+    "event-proposals.proposal-drawer.record-as-sent": [],
+    "event-proposals.proposal-drawer.record-booking": [],
+    "event-proposals.proposal-drawer.record-signed-contract": [],
+    "event-proposals.proposal-drawer.salesperson": [],
+    "event-proposals.proposal-drawer.salesperson-signer": [],
+    "event-proposals.proposal-drawer.save-addendum": [],
+    "event-proposals.proposal-drawer.sent-by": [
+      "sentMethod",
+      "stamp"
+    ],
+    "event-proposals.proposal-drawer.sent-date": [],
+    "event-proposals.proposal-drawer.signed-contract-pdf-optional": [],
+    "event-proposals.proposal-drawer.someone": [],
+    "event-proposals.proposal-drawer.stage": [],
+    "event-proposals.proposal-drawer.stage-history": [],
+    "event-proposals.proposal-drawer.stages-after-revisions-are-set": [],
+    "event-proposals.proposal-drawer.system": [],
+    "event-proposals.proposal-drawer.upload-version-docx-optional-pdf": [],
+    "event-proposals.proposal-drawer.version": [
+      "currentVersion"
+    ],
+    "event-proposals.proposal-drawer.version-2": [],
+    "event-proposals.proposal-drawer.version-3": [
+      "number"
+    ],
+    "event-proposals.proposal-drawer.versions": [],
+    "event-proposals.proposal-drawer.why-was-it-lost": [],
+    "event-proposals.proposal-form.cancel": [],
+    "event-proposals.proposal-form.notes": [],
+    "event-proposals.proposal-form.save-proposal": [],
+    "event-proposals.proposal-form.the-proposal-itself-is-written": [],
+    "event-proposals.proposal-form.title": [],
+    "event-proposals.proposal-row.approved": [],
+    "event-proposals.proposal-row.awaiting-approval": [],
+    "event-proposals.proposal-row.no-salesperson": [],
+    "event-proposals.proposal-row.no-version-yet": [],
+    "event-proposals.proposal-row.open": [],
+    "event-proposals.proposal-row.version": [
+      "currentVersion"
+    ],
+    "event-proposals.sign-addendum.record-signed": [],
+    "event-staff.add-slots.add-slots": [],
+    "event-staff.conflict.another-event": [],
+    "event-staff.conflict.event-shift-range": [
+      "event",
+      "range",
+      "shift"
+    ],
+    "event-staff.event-staff-section.add-shift": [],
+    "event-staff.event-staff-section.assistants": [],
+    "event-staff.event-staff-section.department-total-filled": [
+      "department",
+      "filled",
+      "total"
+    ],
+    "event-staff.event-staff-section.no-staffing-slots-yet": [],
+    "event-staff.event-staff-section.not-named": [],
+    "event-staff.event-staff-section.open-count": [
+      "count"
+    ],
+    "event-staff.event-staff-section.production-lead": [],
+    "event-staff.event-staff-section.production-leads": [],
+    "event-staff.event-staff-section.staff": [],
+    "event-staff.leads-form.assistant-production-leads": [],
+    "event-staff.leads-form.cancel": [],
+    "event-staff.leads-form.full-time-staff-only": [],
+    "event-staff.leads-form.primary-production-lead": [],
+    "event-staff.leads-form.production-leads": [],
+    "event-staff.leads-form.save-leads": [],
+    "event-staff.leads-form.the-primary-receives-the-event": [],
+    "event-staff.shift-block.double-booked-also-working": [
+      "join"
+    ],
+    "event-staff.shift-block.edit-shift": [],
+    "event-staff.shift-block.no-slots-yet": [],
+    "event-staff.shift-block.open": [],
+    "event-staff.shift-block.remove-shift": [],
+    "event-staff.shift-form.activities": [],
+    "event-staff.shift-form.add-shift": [],
+    "event-staff.shift-form.cancel": [],
+    "event-staff.shift-form.date": [],
+    "event-staff.shift-form.day": [],
+    "event-staff.shift-form.edit-shift": [],
+    "event-staff.shift-form.end-time": [],
+    "event-staff.shift-form.save-shift": [],
+    "event-staff.shift-form.start-time": [],
+    "event-staff.shift-form.times-are-new-york-time": [],
+    "event-timeline.entry-form.activity": [],
+    "event-timeline.entry-form.add-timeline-entry": [],
+    "event-timeline.entry-form.cancel": [],
+    "event-timeline.entry-form.date": [],
+    "event-timeline.entry-form.edit-timeline-entry": [],
+    "event-timeline.entry-form.end-time": [],
+    "event-timeline.entry-form.event-partner": [],
+    "event-timeline.entry-form.kind": [],
+    "event-timeline.entry-form.role": [],
+    "event-timeline.entry-form.save": [],
+    "event-timeline.entry-form.staff-member": [],
+    "event-timeline.entry-form.start-time": [],
+    "event-timeline.entry-form.times-are-new-york-time": [],
+    "event-timeline.entry-form.where": [],
+    "event-timeline.entry-form.who": [],
+    "event-timeline.event-timeline-section.add": [],
+    "event-timeline.event-timeline-section.add-entry": [],
+    "event-timeline.event-timeline-section.event-day": [],
+    "event-timeline.event-timeline-section.from-the-proposal": [],
+    "event-timeline.event-timeline-section.no-timeline-entries": [],
+    "event-timeline.event-timeline-section.staff-shift-filled": [
+      "endTime",
+      "filled",
+      "slots",
+      "startTime",
+      "value"
+    ],
+    "event-timeline.event-timeline-section.timeline": [],
+    "event-trucks.event-truck-section.acknowledge-and-assign": [],
+    "event-trucks.event-truck-section.add-truck": [],
+    "event-trucks.event-truck-section.assign-truck": [],
+    "event-trucks.event-truck-section.back-at-warehouse": [],
+    "event-trucks.event-truck-section.cancel": [],
+    "event-trucks.event-truck-section.conflict-acknowledged": [
+      "conflictMessage"
+    ],
+    "event-trucks.event-truck-section.departure": [],
+    "event-trucks.event-truck-section.driver": [],
+    "event-trucks.event-truck-section.driver-2": [],
+    "event-trucks.event-truck-section.loaders": [],
+    "event-trucks.event-truck-section.pull-list-lines-by-truck": [],
+    "event-trucks.event-truck-section.remove": [],
+    "event-trucks.event-truck-section.truck": [],
+    "event-trucks.event-truck-section.truck-log": [],
+    "event-trucks.event-truck-section.unassigned": [],
+    "events.event-detail.all-events": [],
+    "events.event-detail.archive": [],
+    "events.event-detail.archive-this-event": [],
+    "events.event-detail.archived": [],
+    "events.event-detail.client": [],
+    "events.event-detail.edit": [],
+    "events.event-detail.event-details": [],
+    "events.event-detail.internal": [],
+    "events.event-detail.needs-refresh-since": [
+      "date"
+    ],
+    "events.event-detail.no-venue": [],
+    "events.event-detail.notes": [],
+    "events.event-detail.open-client": [],
+    "events.event-detail.open-venue": [],
+    "events.event-detail.organization": [
+      "value"
+    ],
+    "events.event-detail.person": [
+      "value"
+    ],
+    "events.event-detail.point-of-contact": [],
+    "events.event-detail.restore": [],
+    "events.event-detail.transportation": [],
+    "events.event-detail.will-be-hidden-from-the": [
+      "title"
+    ],
+    "events.event-form-fields.address": [],
+    "events.event-form-fields.areas": [],
+    "events.event-form-fields.cancel": [],
+    "events.event-form-fields.client": [],
+    "events.event-form-fields.dress-code": [],
+    "events.event-form-fields.edit-event": [],
+    "events.event-form-fields.find-client": [],
+    "events.event-form-fields.internal-notes": [],
+    "events.event-form-fields.leave-empty-to-use-the": [],
+    "events.event-form-fields.new-event": [],
+    "events.event-form-fields.one-per-line-left-unchanged": [],
+    "events.event-form-fields.only-title-date-start-time": [],
+    "events.event-form-fields.pick-a-preset-or-type": [],
+    "events.event-form-fields.point-of-contact": [],
+    "events.event-form-fields.save-event": [],
+    "events.event-form-fields.status": [],
+    "events.event-form-fields.title": [],
+    "events.event-form-fields.transportation-notes": [],
+    "events.event-form-fields.type-a-client-or-contact.placeholder": [],
+    "events.event-form-fields.venue": [],
+    "events.event-list.events": [],
+    "events.event-list.events-2": [
+      "dataCount"
+    ],
+    "events.event-list.events-3": [
+      "dataCount"
+    ],
+    "events.event-list.every-proposal-beo-and-task": [],
+    "events.event-list.from": [],
+    "events.event-list.load-more-events": [],
+    "events.event-list.new-event": [],
+    "events.event-list.search-events-clients-or-venues.placeholder": [],
+    "events.event-list.show-archived": [],
+    "events.event-list.to": [],
+    "events.event-status-panel.automatic": [],
+    "events.event-status-panel.change-status": [],
+    "events.event-status-panel.created-as": [
+      "eventStatusDetailLabels"
+    ],
+    "events.event-status-panel.new-status": [],
+    "events.event-status-panel.show-older-changes": [],
+    "events.event-status-panel.status": [],
+    "events.event-status-panel.status-history": [],
+    "events.event-status-panel.why-optional": [],
+    "events.event-table.events": [],
+    "fields.value.no": [],
+    "fields.value.yes": [],
+    "forms.record-form.account-owner": [],
+    "forms.record-form.cancel": [],
+    "forms.record-form.client": [],
+    "forms.record-form.demo-records-are-validated-by": [],
+    "forms.record-form.event-date": [],
+    "forms.record-form.name": [],
+    "forms.record-form.proposal-value": [],
+    "forms.record-form.save": [
+      "kind"
+    ],
+    "imports.commit-summary.imported": [],
+    "imports.commit-summary.imported-created-updated-unchanged-failed": [
+      "created",
+      "failed",
+      "fileName",
+      "skipped",
+      "updated"
+    ],
+    "imports.dry-run-report.dry-run": [],
+    "imports.dry-run-report.import": [
+      "importable"
+    ],
+    "imports.dry-run-report.items": [],
+    "imports.dry-run-report.looks-like": [
+      "matches"
+    ],
+    "imports.dry-run-report.possible-duplicates": [],
+    "imports.dry-run-report.repeated-in-this-file": [],
+    "imports.dry-run-report.rows-with-errors": [],
+    "imports.dry-run-report.same-key-as-row": [
+      "row"
+    ],
+    "imports.dry-run-report.skipped-merged-or-renamed-rows": [],
+    "imports.dry-run-report.the-importer-s-row-rules": [
+      "plural"
+    ],
+    "imports.dry-run-report.these-rows-are-skipped-the": [],
+    "imports.dry-run-report.to-create": [
+      "count"
+    ],
+    "imports.dry-run-report.to-review": [],
+    "imports.dry-run-report.to-update": [
+      "count"
+    ],
+    "imports.dry-run-report.unchanged": [
+      "count"
+    ],
+    "imports.dry-run-report.with-errors": [
+      "plural"
+    ],
+    "imports.import-flow.check-rows": [],
+    "imports.import-flow.choose-a-column-for": [],
+    "imports.import-flow.columns": [],
+    "imports.import-flow.file": [],
+    "imports.import-flow.required": [],
+    "imports.import-flow.to-import": [
+      "name",
+      "plural"
+    ],
+    "imports.import-list.bring-records-in-from-a": [],
+    "imports.import-list.importers": [],
+    "imports.import-list.imports": [],
+    "imports.import-list.no-importers-are-available-to": [],
+    "imports.import-log-table.by": [],
+    "imports.import-log-table.created": [],
+    "imports.import-log-table.done": [],
+    "imports.import-log-table.failed": [],
+    "imports.import-log-table.file": [],
+    "imports.import-log-table.no-imports-yet": [],
+    "imports.import-log-table.not-finished": [],
+    "imports.import-log-table.recent-imports": [],
+    "imports.import-log-table.status": [],
+    "imports.import-log-table.unchanged": [],
+    "imports.import-log-table.updated": [],
+    "imports.import-log-table.when": [],
+    "imports.import-page.all-imports": [],
+    "imports.import-page.choose-a-csv-or-excel": [],
+    "imports.import-page.import": [
+      "label"
+    ],
+    "imports.import-page.import-2": [],
+    "imports.import-page.imports": [],
+    "imports.row-table.row": [],
+    "inventory-categories.add-category": [],
+    "inventory-categories.add-type": [],
+    "inventory-categories.archive": [],
+    "inventory-categories.back": [],
+    "inventory-categories.create": [],
+    "inventory-categories.forbidden": [],
+    "inventory-categories.move-down": [],
+    "inventory-categories.move-up": [],
+    "inventory-categories.subtitle": [],
+    "inventory-categories.title": [],
+    "inventory-detail.included-items.includes": [],
+    "inventory-detail.included-items.kit-components": [],
+    "inventory-detail.included-items.per-kit": [],
+    "inventory-detail.inventory-detail.all-inventory": [],
+    "inventory-detail.inventory-detail.archive": [],
+    "inventory-detail.inventory-detail.archive-this-item": [],
+    "inventory-detail.inventory-detail.archived": [],
+    "inventory-detail.inventory-detail.assembly-notes": [],
+    "inventory-detail.inventory-detail.available-on-request": [],
+    "inventory-detail.inventory-detail.below-par": [],
+    "inventory-detail.inventory-detail.bought-as": [],
+    "inventory-detail.inventory-detail.brand-varietal": [],
+    "inventory-detail.inventory-detail.buffer-days-before-after": [],
+    "inventory-detail.inventory-detail.category": [],
+    "inventory-detail.inventory-detail.category-default": [],
+    "inventory-detail.inventory-detail.colors": [],
+    "inventory-detail.inventory-detail.container": [],
+    "inventory-detail.inventory-detail.cost-hidden-for-your-role": [],
+    "inventory-detail.inventory-detail.count": [],
+    "inventory-detail.inventory-detail.days.one": [
+      "count"
+    ],
+    "inventory-detail.inventory-detail.days.other": [
+      "count"
+    ],
+    "inventory-detail.inventory-detail.description": [],
+    "inventory-detail.inventory-detail.dimensions": [],
+    "inventory-detail.inventory-detail.distributor": [],
+    "inventory-detail.inventory-detail.edit": [],
+    "inventory-detail.inventory-detail.group-variant": [],
+    "inventory-detail.inventory-detail.house-pick-for-its-tier": [],
+    "inventory-detail.inventory-detail.inactive": [],
+    "inventory-detail.inventory-detail.internal-cost": [],
+    "inventory-detail.inventory-detail.item-details": [],
+    "inventory-detail.inventory-detail.lead-time": [],
+    "inventory-detail.inventory-detail.no": [],
+    "inventory-detail.inventory-detail.notes": [],
+    "inventory-detail.inventory-detail.par-level": [],
+    "inventory-detail.inventory-detail.pending-changes": [],
+    "inventory-detail.inventory-detail.per": [
+      "unitCostCents",
+      "unitLabel"
+    ],
+    "inventory-detail.inventory-detail.per-guest": [
+      "name",
+      "priceCents"
+    ],
+    "inventory-detail.inventory-detail.preferred-vendor": [],
+    "inventory-detail.inventory-detail.price": [],
+    "inventory-detail.inventory-detail.priced-by-quote": [],
+    "inventory-detail.inventory-detail.proposed-by-on": [
+      "field",
+      "proposedBy",
+      "toLocaleString"
+    ],
+    "inventory-detail.inventory-detail.purchasing": [],
+    "inventory-detail.inventory-detail.quantity": [],
+    "inventory-detail.inventory-detail.ratio": [],
+    "inventory-detail.inventory-detail.recipe-unit": [],
+    "inventory-detail.inventory-detail.record-movement": [],
+    "inventory-detail.inventory-detail.replacement-cost": [],
+    "inventory-detail.inventory-detail.restore": [],
+    "inventory-detail.inventory-detail.section": [],
+    "inventory-detail.inventory-detail.services-aren-t-stocked": [],
+    "inventory-detail.inventory-detail.stock": [],
+    "inventory-detail.inventory-detail.stock-by-section": [],
+    "inventory-detail.inventory-detail.storage": [],
+    "inventory-detail.inventory-detail.sub-rented-from": [],
+    "inventory-detail.inventory-detail.subcategory": [],
+    "inventory-detail.inventory-detail.total": [],
+    "inventory-detail.inventory-detail.transfer": [],
+    "inventory-detail.inventory-detail.unassigned-color": [],
+    "inventory-detail.inventory-detail.unit-cost": [],
+    "inventory-detail.inventory-detail.vendor": [],
+    "inventory-detail.inventory-detail.vendor-cost": [],
+    "inventory-detail.inventory-detail.will-be-hidden-from-inventory": [
+      "name"
+    ],
+    "inventory-detail.inventory-detail.yes": [],
+    "inventory-detail.service-task-templates.applied-when-planning-starts": [],
+    "inventory-detail.service-task-templates.no-task-template-is-linked": [],
+    "inventory-detail.service-task-templates.task-templates": [],
+    "inventory-histories.cost-history.cost-history": [],
+    "inventory-histories.cost-history.cost-per": [
+      "unit"
+    ],
+    "inventory-histories.cost-history.no-cost-changes-yet": [],
+    "inventory-histories.cost-history.show-older-changes": [],
+    "inventory-histories.cost-history.source": [],
+    "inventory-histories.cost-history.was": [],
+    "inventory-histories.cost-history.when": [],
+    "inventory-histories.movement-history.actions": [],
+    "inventory-histories.movement-history.change": [],
+    "inventory-histories.movement-history.correct": [],
+    "inventory-histories.movement-history.corrected": [],
+    "inventory-histories.movement-history.correction": [],
+    "inventory-histories.movement-history.movement-history": [],
+    "inventory-histories.movement-history.no-stock-movements-yet": [],
+    "inventory-histories.movement-history.reason": [],
+    "inventory-histories.movement-history.section": [],
+    "inventory-histories.movement-history.show-older-movements": [],
+    "inventory-histories.movement-history.type": [],
+    "inventory-histories.movement-history.when": [],
+    "inventory-includes.catalog-includes.add-component": [],
+    "inventory-includes.catalog-includes.component": [
+      "value"
+    ],
+    "inventory-includes.catalog-includes.component-basis": [
+      "value"
+    ],
+    "inventory-includes.catalog-includes.component-quantity": [
+      "value"
+    ],
+    "inventory-includes.catalog-includes.includes": [],
+    "inventory-includes.catalog-includes.kit-components": [],
+    "inventory-includes.catalog-includes.remove-component": [
+      "value"
+    ],
+    "inventory-item-form.item-form-fields.a-sub-rented-item-is": [],
+    "inventory-item-form.item-form-fields.active": [],
+    "inventory-item-form.item-form-fields.add-on-name": [
+      "value"
+    ],
+    "inventory-item-form.item-form-fields.add-on-price-per-guest": [
+      "value"
+    ],
+    "inventory-item-form.item-form-fields.add-per-person-add-on": [],
+    "inventory-item-form.item-form-fields.add-what-one-each-weighs": [
+      "conversionProblem"
+    ],
+    "inventory-item-form.item-form-fields.assembly-notes": [],
+    "inventory-item-form.item-form-fields.bar-category": [],
+    "inventory-item-form.item-form-fields.brand-varietal": [],
+    "inventory-item-form.item-form-fields.buffer-days-after": [],
+    "inventory-item-form.item-form-fields.buffer-days-before": [],
+    "inventory-item-form.item-form-fields.cancel": [],
+    "inventory-item-form.item-form-fields.classification-category": [],
+    "inventory-item-form.item-form-fields.classification-type": [],
+    "inventory-item-form.item-form-fields.code-sku": [],
+    "inventory-item-form.item-form-fields.color-finish": [],
+    "inventory-item-form.item-form-fields.colors": [],
+    "inventory-item-form.item-form-fields.container": [],
+    "inventory-item-form.item-form-fields.costs-are-visible-to-full": [],
+    "inventory-item-form.item-form-fields.description": [],
+    "inventory-item-form.item-form-fields.dimensions": [],
+    "inventory-item-form.item-form-fields.distributor": [],
+    "inventory-item-form.item-form-fields.e-g-2-per-guest": [],
+    "inventory-item-form.item-form-fields.e-g-750-ml-a": [],
+    "inventory-item-form.item-form-fields.e-g-pinot-grigio": [],
+    "inventory-item-form.item-form-fields.e-g-standard-premium": [],
+    "inventory-item-form.item-form-fields.e-g-table-linens": [],
+    "inventory-item-form.item-form-fields.each-size-unit": [],
+    "inventory-item-form.item-form-fields.edit-item": [],
+    "inventory-item-form.item-form-fields.group": [],
+    "inventory-item-form.item-form-fields.house-pick": [],
+    "inventory-item-form.item-form-fields.internal-cost": [],
+    "inventory-item-form.item-form-fields.items-per-case": [],
+    "inventory-item-form.item-form-fields.kind": [],
+    "inventory-item-form.item-form-fields.lead-time-days": [],
+    "inventory-item-form.item-form-fields.leave-empty-to-use-category": [
+      "quantity",
+      "ratioBasisLabels"
+    ],
+    "inventory-item-form.item-form-fields.legacy-category": [],
+    "inventory-item-form.item-form-fields.name": [],
+    "inventory-item-form.item-form-fields.new-category": [],
+    "inventory-item-form.item-form-fields.new-item": [],
+    "inventory-item-form.item-form-fields.new-type": [],
+    "inventory-item-form.item-form-fields.notes": [],
+    "inventory-item-form.item-form-fields.one-color-per-line-stock": [],
+    "inventory-item-form.item-form-fields.one-each-is-about": [],
+    "inventory-item-form.item-form-fields.par-level": [
+      "unitLabel"
+    ],
+    "inventory-item-form.item-form-fields.per-person-add-ons": [],
+    "inventory-item-form.item-form-fields.preferred-vendor": [],
+    "inventory-item-form.item-form-fields.price": [],
+    "inventory-item-form.item-form-fields.price-changes-will-be-submitted": [],
+    "inventory-item-form.item-form-fields.price-per-unit": [],
+    "inventory-item-form.item-form-fields.priced": [],
+    "inventory-item-form.item-form-fields.priced-by-quote": [],
+    "inventory-item-form.item-form-fields.purchase-unit": [],
+    "inventory-item-form.item-form-fields.purchasing-and-units": [],
+    "inventory-item-form.item-form-fields.ratio": [],
+    "inventory-item-form.item-form-fields.ratio-basis": [],
+    "inventory-item-form.item-form-fields.recipe-unit": [],
+    "inventory-item-form.item-form-fields.remove-add-on": [
+      "value"
+    ],
+    "inventory-item-form.item-form-fields.rented-from": [],
+    "inventory-item-form.item-form-fields.reordered-when-an-event-s": [],
+    "inventory-item-form.item-form-fields.replacement-cost": [],
+    "inventory-item-form.item-form-fields.save-item": [],
+    "inventory-item-form.item-form-fields.saved-to-flowbase": [],
+    "inventory-item-form.item-form-fields.shelf-order": [],
+    "inventory-item-form.item-form-fields.stock-unit": [],
+    "inventory-item-form.item-form-fields.storage-section": [],
+    "inventory-item-form.item-form-fields.subcategory": [],
+    "inventory-item-form.item-form-fields.submit-for-approval": [],
+    "inventory-item-form.item-form-fields.subtype": [],
+    "inventory-item-form.item-form-fields.tier": [],
+    "inventory-item-form.item-form-fields.unit-cost-per": [
+      "unitLabel"
+    ],
+    "inventory-item-form.item-form-fields.vendor-cost-per-unit": [],
+    "inventory-item-form.item-form-fields.vendor-directory": [],
+    "inventory-item-form.item-form-fields.where-it-sits-in-the": [],
+    "inventory-lists.bar-list.all-inventory": [],
+    "inventory-lists.bar-list.bar": [],
+    "inventory-lists.bar-list.bar-2": [],
+    "inventory-lists.bar-list.bar-items": [
+      "dataCount"
+    ],
+    "inventory-lists.bar-list.bar-items-2": [
+      "dataCount"
+    ],
+    "inventory-lists.bar-list.bar-items-3": [],
+    "inventory-lists.bar-list.beer-wine-and-liquor-what": [],
+    "inventory-lists.bar-list.below-par": [],
+    "inventory-lists.bar-list.below-par-only": [],
+    "inventory-lists.bar-list.count": [],
+    "inventory-lists.bar-list.distributor.placeholder": [],
+    "inventory-lists.bar-list.load-more-bar-items": [],
+    "inventory-lists.bar-list.new-bar-item": [],
+    "inventory-lists.bar-list.search-name-or-brand.placeholder": [],
+    "inventory-lists.ingredient-list.all-inventory": [],
+    "inventory-lists.ingredient-list.below-par": [],
+    "inventory-lists.ingredient-list.below-par-only": [],
+    "inventory-lists.ingredient-list.count": [],
+    "inventory-lists.ingredient-list.disposables-pack-sizes-stock-and": [],
+    "inventory-lists.ingredient-list.ingredients": [],
+    "inventory-lists.ingredient-list.ingredients-2": [],
+    "inventory-lists.ingredient-list.kitchen": [],
+    "inventory-lists.ingredient-list.load-more-ingredients": [],
+    "inventory-lists.ingredient-list.load-more-supplies": [],
+    "inventory-lists.ingredient-list.low-stock": [],
+    "inventory-lists.ingredient-list.new-ingredient": [],
+    "inventory-lists.ingredient-list.new-supply": [],
+    "inventory-lists.ingredient-list.search-ingredients.placeholder": [],
+    "inventory-lists.ingredient-list.search-supplies.placeholder": [],
+    "inventory-lists.ingredient-list.supplies": [],
+    "inventory-lists.ingredient-list.supplies-2": [],
+    "inventory-lists.ingredient-list.supplies-3": [],
+    "inventory-lists.ingredient-list.vendor.placeholder": [],
+    "inventory-lists.ingredient-list.what-the-kitchen-buys-how": [],
+    "inventory-lists.inventory-list.approvals": [],
+    "inventory-lists.inventory-list.bar": [],
+    "inventory-lists.inventory-list.counts": [],
+    "inventory-lists.inventory-list.ingredients": [],
+    "inventory-lists.inventory-list.inventory": [],
+    "inventory-lists.inventory-list.items": [
+      "dataCount"
+    ],
+    "inventory-lists.inventory-list.items-2": [
+      "dataCount"
+    ],
+    "inventory-lists.inventory-list.items-3": [],
+    "inventory-lists.inventory-list.load-more-items": [],
+    "inventory-lists.inventory-list.low-stock": [],
+    "inventory-lists.inventory-list.master-sheet": [],
+    "inventory-lists.inventory-list.new-item": [],
+    "inventory-lists.inventory-list.order-lists": [],
+    "inventory-lists.inventory-list.rentals-decor-kitchen-bar-and": [],
+    "inventory-lists.inventory-list.search-item-name-or-code.placeholder": [],
+    "inventory-lists.inventory-list.sections": [],
+    "inventory-lists.inventory-list.show-archived": [],
+    "inventory-lists.inventory-list.stock-supplies": [],
+    "inventory-lists.inventory-list.supplies": [],
+    "inventory-master.master-inventory.all-items-and-sections-grouped": [],
+    "inventory-master.master-inventory.export-csv": [],
+    "inventory-master.master-inventory.items": [],
+    "inventory-master.master-inventory.master-inventory": [],
+    "inventory-master.master-inventory.open": [],
+    "inventory-master.master-inventory.pending": [],
+    "inventory-master.master-inventory.save-changes": [],
+    "inventory-master.master-inventory.search.placeholder": [],
+    "inventory-master.master-inventory.stock-supplies": [],
+    "inventory-master.master-inventory.submit-batch-for-approval": [],
+    "inventory-master.status.active": [],
+    "inventory-master.status.archived": [],
+    "inventory-master.status.inactive": [],
+    "inventory-master.status.pending": [],
+    "inventory-planning.consumable-planning.allocated": [],
+    "inventory-planning.consumable-planning.allocations": [],
+    "inventory-planning.consumable-planning.date": [],
+    "inventory-planning.consumable-planning.event": [],
+    "inventory-planning.consumable-planning.no-event-needs-this-item": [],
+    "inventory-planning.consumable-planning.order-by": [],
+    "inventory-planning.consumable-planning.projected-stock": [],
+    "inventory-planning.consumable-planning.required": [],
+    "inventory-planning.consumable-planning.shortage": [],
+    "inventory-planning.rental-planning.availability": [],
+    "inventory-planning.rental-planning.available": [],
+    "inventory-planning.rental-planning.available-on-request": [],
+    "inventory-planning.rental-planning.available-with-tentative-holds": [],
+    "inventory-planning.rental-planning.choose-a-range-that-ends": [],
+    "inventory-planning.rental-planning.conflict": [],
+    "inventory-planning.rental-planning.conflict-short": [
+      "number"
+    ],
+    "inventory-planning.rental-planning.from": [],
+    "inventory-planning.rental-planning.holds-in-this-range": [],
+    "inventory-planning.rental-planning.no-open-conflicts": [],
+    "inventory-planning.rental-planning.nothing-is-held-in-this": [],
+    "inventory-planning.rental-planning.open-conflicts": [],
+    "inventory-planning.rental-planning.owned": [],
+    "inventory-planning.rental-planning.short-of": [
+      "number",
+      "number2",
+      "number3"
+    ],
+    "inventory-planning.rental-planning.to": [],
+    "inventory-planning.rental-planning.warning": [],
+    "inventory-planning.rental-planning.warning-short": [
+      "number"
+    ],
+    "inventory-planning.screen.an-event-you-can-t": [],
+    "inventory-sections.section-list.add-section": [],
+    "inventory-sections.section-list.all-inventory": [],
+    "inventory-sections.section-list.archive": [
+      "name"
+    ],
+    "inventory-sections.section-list.holds": [],
+    "inventory-sections.section-list.in-stock": [
+      "Number"
+    ],
+    "inventory-sections.section-list.new-section-name": [],
+    "inventory-sections.section-list.rename": [
+      "name"
+    ],
+    "inventory-sections.section-list.restore": [
+      "name"
+    ],
+    "inventory-sections.section-list.save-name": [],
+    "inventory-sections.section-list.sections": [],
+    "inventory-sections.section-list.show-archived": [],
+    "inventory-sections.section-list.stock-supplies": [],
+    "inventory-sections.section-list.where-stock-lives-vendor-holds": [],
+    "inventory-stock-forms.color-select.color": [],
+    "inventory-stock-forms.correction-form.cancel": [],
+    "inventory-stock-forms.correction-form.correct-movement": [],
+    "inventory-stock-forms.correction-form.of-in-on-the-difference": [
+      "changeLabel",
+      "createdAt",
+      "movementTypeLabels",
+      "sectionName",
+      "unitLabel"
+    ],
+    "inventory-stock-forms.correction-form.reason": [],
+    "inventory-stock-forms.correction-form.save-correction": [],
+    "inventory-stock-forms.correction-form.should-have-been": [
+      "unitLabel"
+    ],
+    "inventory-stock-forms.correction-form.signed-a-minus-sign-removes": [],
+    "inventory-stock-forms.movement-form.adds-a-movement-to-the": [],
+    "inventory-stock-forms.movement-form.cancel": [],
+    "inventory-stock-forms.movement-form.change-unit": [
+      "unit"
+    ],
+    "inventory-stock-forms.movement-form.quantity-in-unit": [
+      "unit"
+    ],
+    "inventory-stock-forms.movement-form.quantity-out-unit": [
+      "unit"
+    ],
+    "inventory-stock-forms.movement-form.reason": [],
+    "inventory-stock-forms.movement-form.reason-2": [],
+    "inventory-stock-forms.movement-form.record": [],
+    "inventory-stock-forms.movement-form.record-movement": [],
+    "inventory-stock-forms.movement-form.section": [],
+    "inventory-stock-forms.movement-form.type": [],
+    "inventory-stock-forms.movement-form.use-a-minus-sign-to": [],
+    "inventory-stock-forms.stock-form.cancel": [],
+    "inventory-stock-forms.stock-form.count-stock": [],
+    "inventory-stock-forms.stock-form.counted-quantity-unit": [
+      "unit"
+    ],
+    "inventory-stock-forms.stock-form.from-section": [],
+    "inventory-stock-forms.stock-form.moves-stock-between-sections-and": [],
+    "inventory-stock-forms.stock-form.quantity-unit": [
+      "unit"
+    ],
+    "inventory-stock-forms.stock-form.reason": [],
+    "inventory-stock-forms.stock-form.records-what-you-counted-in": [],
+    "inventory-stock-forms.stock-form.save-count": [],
+    "inventory-stock-forms.stock-form.section": [],
+    "inventory-stock-forms.stock-form.submit-for-approval": [],
+    "inventory-stock-forms.stock-form.to-section": [],
+    "inventory-stock-forms.stock-form.transfer": [],
+    "inventory-stock-forms.stock-form.transfer-stock": [],
+    "kitchen-orders.kitchen-order-status.current-kitchen-purchasing-lists": [],
+    "kitchen-orders.kitchen-order-status.order-list-status": [],
+    "kitchen-orders.kitchen-order-status.order-lists": [],
+    "kitchen-orders.kitchen-order-status.to": [
+      "fromDate",
+      "replaceAll",
+      "toDate"
+    ],
+    "layout.custom-card.no-data": [],
+    "layout.custom-card.open": [],
+    "lead-convert.client-picker.existing-client": [],
+    "lead-convert.client-picker.find-client": [],
+    "lead-convert.client-picker.type-a-client-or-contact.placeholder": [],
+    "lead-convert.confirm.description": [
+      "name"
+    ],
+    "lead-convert.confirm.linked-event": [],
+    "lead-convert.confirm.submit": [],
+    "lead-convert.confirm.title": [],
+    "lead-convert.convert-lead-form.a-client-with-this-email": [],
+    "lead-convert.convert-lead-form.cancel": [],
+    "lead-convert.convert-lead-form.client": [],
+    "lead-convert.convert-lead-form.client-name": [],
+    "lead-convert.convert-lead-form.client-type": [],
+    "lead-convert.convert-lead-form.create-a-new-client": [],
+    "lead-convert.convert-lead-form.create-anyway": [],
+    "lead-convert.convert-lead-form.event": [],
+    "lead-convert.convert-lead-form.event-date": [],
+    "lead-convert.convert-lead-form.event-title": [],
+    "lead-convert.convert-lead-form.link-to": [
+      "name"
+    ],
+    "lead-convert.convert-lead-form.link-to-an-existing-client": [],
+    "lead-convert.convert-lead-form.start-time": [],
+    "lead-dashboard.lead-dashboard-page.all-leads": [],
+    "lead-dashboard.lead-dashboard-page.average-budget-where-none-given": [
+      "averageBudgetCents"
+    ],
+    "lead-dashboard.lead-dashboard-page.awaiting-action": [
+      "awaitingAction"
+    ],
+    "lead-dashboard.lead-dashboard-page.by-channel": [],
+    "lead-dashboard.lead-dashboard-page.by-salesperson": [],
+    "lead-dashboard.lead-dashboard-page.by-source": [],
+    "lead-dashboard.lead-dashboard-page.by-status": [],
+    "lead-dashboard.lead-dashboard-page.channels": [],
+    "lead-dashboard.lead-dashboard-page.conversion-rate": [],
+    "lead-dashboard.lead-dashboard-page.converted-closed": [
+      "closed",
+      "converted"
+    ],
+    "lead-dashboard.lead-dashboard-page.dollar-figures-are-estimates-a": [],
+    "lead-dashboard.lead-dashboard-page.est-closed-value": [],
+    "lead-dashboard.lead-dashboard-page.from": [],
+    "lead-dashboard.lead-dashboard-page.lead-dashboard": [],
+    "lead-dashboard.lead-dashboard-page.leads": [],
+    "lead-dashboard.lead-dashboard-page.median-first-response": [],
+    "lead-dashboard.lead-dashboard-page.no-budgets-yet-to-estimate": [],
+    "lead-dashboard.lead-dashboard-page.received-to-first-contact": [],
+    "lead-dashboard.lead-dashboard-page.salespeople": [],
+    "lead-dashboard.lead-dashboard-page.sources": [],
+    "lead-dashboard.lead-dashboard-page.to": [],
+    "lead-dashboard.lead-dashboard-page.which-lead-sources-are-worth": [],
+    "lead-dashboard.lead-dashboard-page.your-leads-by-source-channel": [],
+    "lead-detail.edit.cancel": [],
+    "lead-detail.edit.edit": [],
+    "lead-detail.edit.new-event": [],
+    "lead-detail.edit.save": [],
+    "lead-detail.edit.title": [],
+    "lead-detail.events.add": [],
+    "lead-detail.events.beo-version": [
+      "status",
+      "version"
+    ],
+    "lead-detail.events.cancel": [],
+    "lead-detail.events.title": [],
+    "lead-detail.lead-detail.all-leads": [],
+    "lead-detail.lead-detail.assign": [],
+    "lead-detail.lead-detail.assign-to-user-id": [],
+    "lead-detail.lead-detail.assignment": [],
+    "lead-detail.lead-detail.budget": [],
+    "lead-detail.lead-detail.channel": [],
+    "lead-detail.lead-detail.client": [],
+    "lead-detail.lead-detail.contact": [],
+    "lead-detail.lead-detail.convert-and-link-to": [
+      "name"
+    ],
+    "lead-detail.lead-detail.converted": [],
+    "lead-detail.lead-detail.email": [],
+    "lead-detail.lead-detail.event": [],
+    "lead-detail.lead-detail.event-date": [],
+    "lead-detail.lead-detail.event-type": [],
+    "lead-detail.lead-detail.first-response": [],
+    "lead-detail.lead-detail.guests": [],
+    "lead-detail.lead-detail.location": [],
+    "lead-detail.lead-detail.lost-reason-2": [],
+    "lead-detail.lead-detail.merge-into-this-lead": [],
+    "lead-detail.lead-detail.merged-by": [
+      "businessDate",
+      "value"
+    ],
+    "lead-detail.lead-detail.message": [],
+    "lead-detail.lead-detail.name": [],
+    "lead-detail.lead-detail.needs-review": [],
+    "lead-detail.lead-detail.no-message": [],
+    "lead-detail.lead-detail.not-a-duplicate": [],
+    "lead-detail.lead-detail.not-yet": [],
+    "lead-detail.lead-detail.open-on-source": [],
+    "lead-detail.lead-detail.phone": [],
+    "lead-detail.lead-detail.possible-duplicates": [],
+    "lead-detail.lead-detail.purchased": [],
+    "lead-detail.lead-detail.raw-payload": [],
+    "lead-detail.lead-detail.reassign": [],
+    "lead-detail.lead-detail.received": [],
+    "lead-detail.lead-detail.received-2": [
+      "businessDate"
+    ],
+    "lead-detail.lead-detail.salesperson": [],
+    "lead-detail.lead-detail.source": [],
+    "lead-detail.lead-detail.source-lead": [],
+    "lead-detail.lead-detail.source-links": [],
+    "lead-detail.lead-detail.unassigned": [],
+    "lead-detail.lead-detail.unnamed-lead": [],
+    "lead-detail.lead-detail.view-client": [],
+    "lead-detail.lead-detail.view-event": [],
+    "lead-detail.lead-facts.title": [],
+    "lead-detail.notes.cancel": [],
+    "lead-detail.notes.edit": [],
+    "lead-detail.notes.empty": [],
+    "lead-detail.notes.save": [],
+    "lead-detail.notes.title": [],
+    "lead-entry.new-lead-form.budget": [],
+    "lead-entry.new-lead-form.cancel": [],
+    "lead-entry.new-lead-form.email": [],
+    "lead-entry.new-lead-form.event-date": [],
+    "lead-entry.new-lead-form.event-type": [],
+    "lead-entry.new-lead-form.guests": [],
+    "lead-entry.new-lead-form.location": [],
+    "lead-entry.new-lead-form.log-a-lead-that-didn": [],
+    "lead-entry.new-lead-form.name": [],
+    "lead-entry.new-lead-form.new-lead": [],
+    "lead-entry.new-lead-form.notes": [],
+    "lead-entry.new-lead-form.phone": [],
+    "lead-entry.new-lead-form.save-lead": [],
+    "lead-entry.new-lead-form.source": [],
+    "lead-inbox.summary-line.unassigned": [],
+    "leads.inbox.assign-selected": [],
+    "leads.inbox.assign-selected-to": [],
+    "leads.inbox.beo-version": [
+      "version"
+    ],
+    "leads.inbox.eyebrow": [],
+    "leads.inbox.lead-count": [
+      "count"
+    ],
+    "leads.inbox.lead-dashboard": [],
+    "leads.inbox.needs-review": [],
+    "leads.inbox.new-lead": [],
+    "leads.inbox.next": [],
+    "leads.inbox.owners": [],
+    "leads.inbox.page-range": [
+      "end",
+      "start",
+      "total"
+    ],
+    "leads.inbox.previous": [],
+    "leads.inbox.rows-per-page": [],
+    "leads.inbox.search-placeholder": [],
+    "leads.inbox.subtitle": [],
+    "leads.inbox.title": [],
+    "list-fields.list-checkboxes.archived": [
+      "label"
+    ],
+    "nav.all-events": [],
+    "nav.all-tasks": [],
+    "nav.approvals": [],
+    "nav.archived": [],
+    "nav.bar": [],
+    "nav.beo": [],
+    "nav.calendar": [],
+    "nav.client": [],
+    "nav.client-recipe-book": [],
+    "nav.clients": [],
+    "nav.collector-health": [],
+    "nav.dashboard": [],
+    "nav.day-of": [],
+    "nav.documents": [],
+    "nav.employee-profile": [],
+    "nav.event": [],
+    "nav.events": [],
+    "nav.help-resources": [],
+    "nav.import": [],
+    "nav.imports": [],
+    "nav.ingredients": [],
+    "nav.inventory": [],
+    "nav.item": [],
+    "nav.kitchen": [],
+    "nav.kitchen-orders": [],
+    "nav.lead": [],
+    "nav.lead-dashboard": [],
+    "nav.leads": [],
+    "nav.low-stock": [],
+    "nav.marketing": [],
+    "nav.master-inventory": [],
+    "nav.new-sop": [],
+    "nav.operational-reports": [],
+    "nav.operations": [],
+    "nav.order-list": [],
+    "nav.order-lists": [],
+    "nav.overview": [],
+    "nav.page-not-found": [],
+    "nav.production": [],
+    "nav.proposals": [],
+    "nav.purchasing": [],
+    "nav.recipe": [],
+    "nav.recipes": [],
+    "nav.reports": [],
+    "nav.roles-permissions": [],
+    "nav.sales": [],
+    "nav.sales-reports": [],
+    "nav.schedule": [],
+    "nav.sections": [],
+    "nav.settings": [],
+    "nav.sop": [],
+    "nav.sops": [],
+    "nav.staff-directory": [],
+    "nav.staff-member": [],
+    "nav.staffing": [],
+    "nav.stock-count": [],
+    "nav.stock-counts": [],
+    "nav.supplies": [],
+    "nav.task": [],
+    "nav.tasks": [],
+    "nav.templates": [],
+    "nav.time-tracking": [],
+    "nav.usage": [],
+    "nav.users": [],
+    "nav.vendor": [],
+    "nav.vendors": [],
+    "nav.venue": [],
+    "nav.venues": [],
+    "nav.workspace": [],
+    "notifications.notification-bell.email-settings": [],
+    "notifications.notification-bell.mark-all-as-read": [],
+    "notifications.notification-bell.notifications": [],
+    "notifications.notification-bell.notifications-couldn-t-load": [
+      "message"
+    ],
+    "notifications.notification-bell.things-that-need-your-attention": [],
+    "notifications.notification-bell.unread": [
+      "unread"
+    ],
+    "notifications.notification-bell.unread-2": [],
+    "notifications.notification-bell.you-re-all-caught-up": [],
+    "notifications.notification-settings.urgent": [],
+    "notifications.settings.hint": [],
+    "notifications.settings.save": [],
+    "notifications.settings.saving": [],
+    "notifications.settings.title": [],
+    "operational-reports.operational-reports.events-proposals": [
+      "count",
+      "count2"
+    ],
+    "operational-reports.operational-reports.explore-lead-dashboard": [],
+    "operational-reports.operational-reports.export-csv": [],
+    "operational-reports.operational-reports.from": [],
+    "operational-reports.operational-reports.lead-source-and-channel": [],
+    "operational-reports.operational-reports.leads-converted-estimated-closed-value": [
+      "converted",
+      "leads",
+      "source",
+      "toFixed"
+    ],
+    "operational-reports.operational-reports.leads-converted-estimated-closed-value-2": [
+      "channel",
+      "converted",
+      "leads",
+      "toFixed"
+    ],
+    "operational-reports.operational-reports.min": [
+      "round"
+    ],
+    "operational-reports.operational-reports.min-2": [
+      "activity",
+      "round",
+      "value"
+    ],
+    "operational-reports.operational-reports.operational-reports": [],
+    "operational-reports.operational-reports.order-spend-by-vendor-and": [],
+    "operational-reports.operational-reports.orders": [
+      "month",
+      "orders",
+      "toFixed",
+      "vendor"
+    ],
+    "operational-reports.operational-reports.rental-utilization": [],
+    "operational-reports.operational-reports.reservations-units": [
+      "quantity",
+      "reservations"
+    ],
+    "operational-reports.operational-reports.time-leads-rental-use-and": [],
+    "operational-reports.operational-reports.time-per-event-and-proposal": [],
+    "operational-reports.operational-reports.to": [],
+    "operational-reports.operational-reports.workload-by-person-and-activity": [],
+    "operational-reports.operational-reports.you-do-not-have-access": [],
+    "operations.operations-page.failed": [],
+    "operations.operations-page.failed-background-work-and-ingest": [],
+    "operations.operations-page.failed-ingest-receipts": [],
+    "operations.operations-page.failed-jobs": [],
+    "operations.operations-page.ingest": [],
+    "operations.operations-page.operations": [],
+    "operations.operations-page.you-do-not-have-access": [],
+    "order-lists.order-list-detail.approved-place-each-vendor-s": [],
+    "order-lists.order-list-detail.cancel-list": [],
+    "order-lists.order-list-detail.edits-are-locked-until-admin": [],
+    "order-lists.order-list-detail.events": [],
+    "order-lists.order-list-detail.item": [],
+    "order-lists.order-list-detail.lines": [
+      "linesCount",
+      "statusLabel"
+    ],
+    "order-lists.order-list-detail.no-ordering-instructions-provided": [],
+    "order-lists.order-list-detail.note": [],
+    "order-lists.order-list-detail.order-by": [],
+    "order-lists.order-list-detail.order-list": [
+      "from",
+      "to"
+    ],
+    "order-lists.order-list-detail.order-lists": [],
+    "order-lists.order-list-detail.par-level": [],
+    "order-lists.order-list-detail.print-list": [],
+    "order-lists.order-list-detail.purchase-qty": [],
+    "order-lists.order-list-detail.remove": [],
+    "order-lists.order-list-detail.save-edits": [],
+    "order-lists.order-list-detail.stock-supplies": [],
+    "order-lists.order-list-detail.submit-for-approval": [],
+    "order-lists.order-lists.build-a-shopping-list-from": [],
+    "order-lists.order-lists.build-list": [],
+    "order-lists.order-lists.from": [],
+    "order-lists.order-lists.lines": [
+      "count",
+      "from",
+      "statusLabel",
+      "to"
+    ],
+    "order-lists.order-lists.order-lists": [],
+    "order-lists.order-lists.stock-supplies": [],
+    "order-lists.order-lists.to": [],
+    "order-lists.receive-form.actual-cost-per": [
+      "purchaseUnit"
+    ],
+    "order-lists.receive-form.e-g-1-case-short.placeholder": [],
+    "order-lists.receive-form.nothing-more-is-coming-on": [],
+    "order-lists.receive-form.receive-a-delivery": [],
+    "order-lists.receive-form.received": [
+      "purchaseUnit"
+    ],
+    "order-lists.receive-form.record-delivery": [],
+    "order-lists.receive-form.short-or-damaged": [],
+    "order-lists.receive-form.to-come": [
+      "itemName",
+      "outstanding",
+      "purchaseUnit"
+    ],
+    "order-lists.record-order-form.changes-or-notes": [],
+    "order-lists.record-order-form.expected-delivery": [],
+    "order-lists.record-order-form.mark-as-ordered": [],
+    "order-lists.record-order-form.order-date": [],
+    "order-lists.record-order-form.order-total": [],
+    "order-lists.record-order-form.portal-order-number": [],
+    "order-lists.record-order-form.record-the-portal-order": [],
+    "order-lists.vendor-order-panel.approved": [
+      "approvedQuantity"
+    ],
+    "order-lists.vendor-order-panel.cancel-order": [],
+    "order-lists.vendor-order-panel.item": [],
+    "order-lists.vendor-order-panel.note": [],
+    "order-lists.vendor-order-panel.order": [
+      "portalOrderNumber",
+      "statusLabel"
+    ],
+    "order-lists.vendor-order-panel.order-was-cancelled": [
+      "portalOrderNumber"
+    ],
+    "order-lists.vendor-order-panel.ordered": [],
+    "order-lists.vendor-order-panel.ordered-expected": [
+      "expectedDelivery",
+      "orderedOn"
+    ],
+    "order-lists.vendor-order-panel.received": [],
+    "order-lists.vendor-order-panel.total": [
+      "dollars"
+    ],
+    "paging.load-more.load-more": [],
+    "paging.load-more.loading": [],
+    "production.event-production-section.answer": [],
+    "production.event-production-section.complete": [
+      "percent"
+    ],
+    "production.event-production-section.dismiss": [],
+    "production.event-production-section.no-assigned-production-items-yet": [],
+    "production.event-production-section.of-items": [
+      "complete",
+      "total"
+    ],
+    "production.event-production-section.open": [],
+    "production.event-production-section.production-list": [],
+    "production.event-production-section.readiness-questions": [],
+    "production.production-overview-page.all-trucks-are-assigned-assignments": [
+      "truckCapacity",
+      "trucksAssigned"
+    ],
+    "production.production-overview-page.days": [],
+    "production.production-overview-page.event": [],
+    "production.production-overview-page.no-matching-work": [],
+    "production.production-overview-page.production-overview": [],
+    "production.production-overview-page.staff-shifts-overlap": [],
+    "production.production-overview-page.team": [],
+    "production.production-overview-page.truck-assignments-overlap": [],
+    "production.production-overview-page.type": [],
+    "production.production-overview-page.upcoming-work-across-events": [],
+    "proposal-review.list-section.add-line": [
+      "title"
+    ],
+    "proposal-review.list-section.remove": [],
+    "proposal-review.proposal-review.add-line": [],
+    "proposal-review.proposal-review.add-staffing-line": [],
+    "proposal-review.proposal-review.confirm-each-value-against-the": [],
+    "proposal-review.proposal-review.document": [],
+    "proposal-review.proposal-review.event-details": [],
+    "proposal-review.proposal-review.item-name.placeholder": [],
+    "proposal-review.proposal-review.mapped": [
+      "id"
+    ],
+    "proposal-review.proposal-review.menu-rentals-decor-services-and": [],
+    "proposal-review.proposal-review.not-extracted": [
+      "id"
+    ],
+    "proposal-review.proposal-review.not-extracted-2": [],
+    "proposal-review.proposal-review.not-tracked": [],
+    "proposal-review.proposal-review.notes.placeholder": [],
+    "proposal-review.proposal-review.position.placeholder": [],
+    "proposal-review.proposal-review.proposal-total-usd": [],
+    "proposal-review.proposal-review.remove": [],
+    "proposal-review.proposal-review.remove-line": [],
+    "proposal-review.proposal-review.review-and-map": [],
+    "proposal-review.proposal-review.section-for-example-mains.placeholder": [],
+    "proposal-review.proposal-review.staffing": [],
+    "proposal-review.proposal-review.submit-for-approval": [],
+    "proposal-review.source-select.view-source": [],
+    "proposals.open-addendums.open-addendums": [],
+    "proposals.open-addendums.sent-proposal-version": [
+      "eventTitle",
+      "proposalVersionId",
+      "toLocaleDateString"
+    ],
+    "proposals.proposal-drawer.attachments": [],
+    "proposals.proposal-drawer.cancel-loss": [],
+    "proposals.proposal-drawer.confirm-lost": [],
+    "proposals.proposal-drawer.confirm-marking-this-proposal-lost": [],
+    "proposals.proposal-drawer.date-sent": [],
+    "proposals.proposal-drawer.edit-proposal": [],
+    "proposals.proposal-drawer.event-date": [],
+    "proposals.proposal-drawer.last-updated": [],
+    "proposals.proposal-drawer.loss-reason": [],
+    "proposals.proposal-drawer.loss-reason-2": [
+      "lossReason"
+    ],
+    "proposals.proposal-drawer.owner": [],
+    "proposals.proposal-drawer.proposal-stage": [],
+    "proposals.proposals.drag-cards-to-move-stages": [],
+    "proposals.proposals.events-from": [],
+    "proposals.proposals.in-your-pipeline": [],
+    "proposals.proposals.keep-every-opportunity-moving-forward": [],
+    "proposals.proposals.new-proposal": [],
+    "proposals.proposals.no-proposals": [],
+    "proposals.proposals.open-opportunities": [],
+    "proposals.proposals.pipeline": [],
+    "proposals.proposals.proposals": [],
+    "proposals.proposals.proposals-2": [],
+    "proposals.proposals.proposals-won-this-month": [],
+    "proposals.proposals.search-proposals.placeholder": [],
+    "proposals.proposals.table": [],
+    "proposals.proposals.this-stage-is-ready-for": [],
+    "proposals.proposals.your-business-connected": [],
+    "recipe-books.client-dish.allergens": [],
+    "recipe-books.client-dish.dietary-tags": [],
+    "recipe-books.client-dish.ingredients": [],
+    "recipe-books.client-dish.none-listed": [],
+    "recipe-books.client-recipe-book.choose-dishes-to-show-your": [],
+    "recipe-books.client-recipe-book.client-recipe-book": [],
+    "recipe-books.client-recipe-book.dishes": [
+      "dishesCount"
+    ],
+    "recipe-books.client-recipe-book.no-dishes-in-this-category": [],
+    "recipe-books.client-recipe-book.print-all-dishes": [],
+    "recipe-books.client-recipe-book.print-category": [],
+    "recipe-books.client-recipe-book.print-selected": [
+      "selectedCount"
+    ],
+    "recipe-books.client-recipe-book.recipe-book": [],
+    "recipe-books.client-recipe-book.select": [
+      "name"
+    ],
+    "recipes.ingredients-section.archived": [],
+    "recipes.ingredients-section.batch-cost": [],
+    "recipes.ingredients-section.cost": [],
+    "recipes.ingredients-section.costs-are-visible-to-full": [],
+    "recipes.ingredients-section.ingredient": [],
+    "recipes.ingredients-section.ingredients": [],
+    "recipes.ingredients-section.lines-have-no-cost-and.one": [
+      "count"
+    ],
+    "recipes.ingredients-section.lines-have-no-cost-and.other": [
+      "count"
+    ],
+    "recipes.ingredients-section.needs-a-yield": [],
+    "recipes.ingredients-section.no-ingredients-yet": [],
+    "recipes.ingredients-section.per-serving": [],
+    "recipes.ingredients-section.prep": [],
+    "recipes.ingredients-section.quantity": [],
+    "recipes.ingredients-section.source": [],
+    "recipes.recipe-detail.another-dish-in-this-category": [],
+    "recipes.recipe-detail.archive": [],
+    "recipes.recipe-detail.archive-this-recipe": [],
+    "recipes.recipe-detail.archived": [],
+    "recipes.recipe-detail.description": [],
+    "recipes.recipe-detail.dish": [],
+    "recipes.recipe-detail.edit": [],
+    "recipes.recipe-detail.finish": [],
+    "recipes.recipe-detail.kitchen-card": [],
+    "recipes.recipe-detail.method": [],
+    "recipes.recipe-detail.no-method-yet": [],
+    "recipes.recipe-detail.not-set": [],
+    "recipes.recipe-detail.portion-size": [],
+    "recipes.recipe-detail.recipe-book": [],
+    "recipes.recipe-detail.restore": [],
+    "recipes.recipe-detail.servings": [
+      "Number"
+    ],
+    "recipes.recipe-detail.will-be-hidden-from-the": [
+      "name"
+    ],
+    "recipes.recipe-detail.yield": [],
+    "recipes.recipe-flags.duplicate-name": [],
+    "recipes.recipe-flags.inactive": [],
+    "recipes.recipe-flags.no-yield": [],
+    "recipes.recipe-form.active": [],
+    "recipes.recipe-form.add-ingredient": [],
+    "recipes.recipe-form.allergens-and-dietary-tags": [],
+    "recipes.recipe-form.cancel": [],
+    "recipes.recipe-form.category": [],
+    "recipes.recipe-form.description": [],
+    "recipes.recipe-form.e-g-6-oz": [],
+    "recipes.recipe-form.e-g-garnish-with-microgreens": [],
+    "recipes.recipe-form.edit-recipe": [],
+    "recipes.recipe-form.empty-for-as-needed": [],
+    "recipes.recipe-form.entered-cost": [],
+    "recipes.recipe-form.finishing-note": [],
+    "recipes.recipe-form.ingredient": [
+      "value"
+    ],
+    "recipes.recipe-form.ingredients": [],
+    "recipes.recipe-form.leave-empty-if-unknown-the": [],
+    "recipes.recipe-form.method": [],
+    "recipes.recipe-form.name": [],
+    "recipes.recipe-form.new-recipe": [],
+    "recipes.recipe-form.one-step-per-line-in": [],
+    "recipes.recipe-form.portion-size": [],
+    "recipes.recipe-form.prep-note": [],
+    "recipes.recipe-form.quantity": [],
+    "recipes.recipe-form.remove-ingredient": [],
+    "recipes.recipe-form.save-recipe": [],
+    "recipes.recipe-form.saved-to-flowbase": [],
+    "recipes.recipe-form.steps": [],
+    "recipes.recipe-form.unit": [],
+    "recipes.recipe-form.used-until-the-ingredient-has": [],
+    "recipes.recipe-form.yield-servings": [],
+    "recipes.recipe-list.client-recipe-book": [],
+    "recipes.recipe-list.every-dish-with-its-ingredients": [],
+    "recipes.recipe-list.kitchen": [],
+    "recipes.recipe-list.new-recipe": [],
+    "recipes.recipe-list.recipe-book": [],
+    "recipes.recipe-list.recipes": [
+      "dataCount"
+    ],
+    "recipes.recipe-list.recipes-2": [],
+    "recipes.recipe-list.search-recipes.placeholder": [],
+    "recipes.recipe-list.show-archived": [],
+    "recipes.scale-section.ingredient": [],
+    "recipes.scale-section.purchase-units": [],
+    "recipes.scale-section.quantity": [],
+    "recipes.scale-section.scale": [],
+    "recipes.scale-section.servings": [],
+    "recipes.tag-choices.archived": [
+      "label"
+    ],
+    "recipes.tags-section.allergens": [],
+    "recipes.tags-section.allergens-and-dietary-tags": [],
+    "recipes.tags-section.dietary-tags": [],
+    "recipes.tags-section.none": [],
+    "rich-text-editor.rich-text-editor.apply-link": [],
+    "rich-text-editor.rich-text-editor.cancel": [],
+    "rich-text-editor.rich-text-editor.https.placeholder": [],
+    "rich-text-editor.rich-text-editor.link-url": [],
+    "rich-text-editor.rich-text-editor.remove-link": [],
+    "rich-text-editor.rich-text-editor.use-an-http-https-mailto": [],
+    "sales.client-sales-tracker.booked": [
+      "day"
+    ],
+    "sales.client-sales-tracker.client-proposal-tracker": [],
+    "sales.client-sales-tracker.events-lifetime-booked-total": [
+      "dollars",
+      "eventCount"
+    ],
+    "sales.client-sales-tracker.none": [],
+    "sales.client-sales-tracker.total-received-balance-due": [
+      "dollars",
+      "dollars2",
+      "dollars3"
+    ],
+    "sales.client-sales-tracker.versions": [],
+    "sales.sales-reports.booked-total-by-event-month": [],
+    "sales.sales-reports.count": [],
+    "sales.sales-reports.decided": [],
+    "sales.sales-reports.events": [],
+    "sales.sales-reports.export-csv": [],
+    "sales.sales-reports.from": [],
+    "sales.sales-reports.month": [],
+    "sales.sales-reports.pipeline-booked-events-and-win": [],
+    "sales.sales-reports.pipeline-by-proposal-stage": [],
+    "sales.sales-reports.sales-reports": [],
+    "sales.sales-reports.sales-tracker": [],
+    "sales.sales-reports.salesperson": [],
+    "sales.sales-reports.source": [],
+    "sales.sales-reports.stage": [],
+    "sales.sales-reports.to": [],
+    "sales.sales-reports.total": [],
+    "sales.sales-reports.win-rate": [],
+    "sales.sales-reports.win-rate-by-lead-source": [],
+    "sales.sales-reports.win-rate-by-salesperson": [],
+    "sales.sales-reports.wins": [],
+    "sales.sales-tracker.balance-due": [],
+    "sales.sales-tracker.client-record": [],
+    "sales.sales-tracker.delete": [
+      "name"
+    ],
+    "sales.sales-tracker.event-date": [],
+    "sales.sales-tracker.event-type": [],
+    "sales.sales-tracker.export-csv": [],
+    "sales.sales-tracker.include-finished-and-lost-events": [],
+    "sales.sales-tracker.last-activity": [],
+    "sales.sales-tracker.next-follow-up": [],
+    "sales.sales-tracker.open-leads-clients-events-and": [],
+    "sales.sales-tracker.rows": [
+      "rowsCount"
+    ],
+    "sales.sales-tracker.sales-reports": [],
+    "sales.sales-tracker.sales-tracker": [],
+    "sales.sales-tracker.salesperson": [],
+    "sales.sales-tracker.salesperson-2": [],
+    "sales.sales-tracker.save-view": [],
+    "sales.sales-tracker.saved-views": [],
+    "sales.sales-tracker.search": [],
+    "sales.sales-tracker.sort": [],
+    "sales.sales-tracker.source": [],
+    "sales.sales-tracker.stage": [],
+    "sales.sales-tracker.stage-2": [],
+    "sales.sales-tracker.total": [],
+    "sales.sales-tracker.type": [],
+    "sales.sales-tracker.type-2": [],
+    "sales.sales-tracker.view-name.placeholder": [],
+    "search.global-search.everything-in-one-place": [],
+    "search.global-search.no-matching-records": [],
+    "search.global-search.search-clients-leads-events-venues.placeholder": [],
+    "search.global-search.try-another-spelling-or-part": [],
+    "search.global-search.type-a-name-email-phone": [],
+    "settings.company-settings.company-name": [],
+    "settings.company-settings.company-profile": [],
+    "settings.company-settings.e-g-sales-sales-phone": [],
+    "settings.company-settings.logo": [],
+    "settings.company-settings.png-jpeg-or-webp-resized": [],
+    "settings.company-settings.remove-logo": [],
+    "settings.company-settings.sales-contact": [],
+    "settings.company-settings.save-company-profile": [],
+    "settings.company-settings.shown-at-the-top-of": [],
+    "settings.company-settings.website": [],
+    "settings.default-settings.a-new-inventory-item-in": [],
+    "settings.default-settings.add-ratio-default": [],
+    "settings.default-settings.beo-cleanup-checklist-template": [],
+    "settings.default-settings.beo-key-fields": [],
+    "settings.default-settings.category.placeholder": [],
+    "settings.default-settings.default-payment-terms": [],
+    "settings.default-settings.defaults": [],
+    "settings.default-settings.one-field-key-per-line": [],
+    "settings.default-settings.one-section-per-line-items": [],
+    "settings.default-settings.per-guest-ratio-defaults-by": [],
+    "settings.default-settings.quantity.placeholder": [],
+    "settings.default-settings.readiness-checks-start-days-before": [],
+    "settings.default-settings.recorded-in-the-sms-outbox": [],
+    "settings.default-settings.remove": [],
+    "settings.default-settings.save-defaults": [],
+    "settings.default-settings.urgent-notification-types-sms": [],
+    "settings.list-settings.add": [],
+    "settings.list-settings.archive": [],
+    "settings.list-settings.archived": [
+      "archivedCount"
+    ],
+    "settings.list-settings.bar-categories-are-built-in": [],
+    "settings.list-settings.cancel": [],
+    "settings.list-settings.inventory-sections": [],
+    "settings.list-settings.list": [],
+    "settings.list-settings.lists": [],
+    "settings.list-settings.new-value.placeholder": [],
+    "settings.list-settings.no-values-yet": [],
+    "settings.list-settings.rename": [],
+    "settings.list-settings.restore": [],
+    "settings.list-settings.save": [],
+    "settings.list-settings.the-choices-offered-in-forms": [],
+    "settings.settings-history.changes-to-settings-and-lists": [],
+    "settings.settings-history.no-changes-yet": [],
+    "settings.settings-history.recent-changes": [],
+    "settings.settings-history.system": [],
+    "settings.settings-history.unable-to-load-the-change": [],
+    "settings.settings-page.archived": [],
+    "settings.settings-page.deleted-records": [],
+    "settings.settings-page.how-flowbase-works-for-the": [],
+    "settings.settings-page.how-flowbase-works-for-you": [],
+    "settings.settings-page.inventory-categories": [],
+    "settings.settings-page.manage-users": [],
+    "settings.settings-page.roles-permissions": [],
+    "settings.settings-page.settings": [],
+    "settings.settings-page.staff-access": [],
+    "settings.settings-page.staff-directory": [],
+    "shared.confirmation-dialog.cancel": [],
+    "shared.confirmation-dialog.confirm": [],
+    "shared.data-table.cancel": [],
+    "shared.data-table.export-csv": [],
+    "shared.data-table.exporting-rows.one": [
+      "count"
+    ],
+    "shared.data-table.exporting-rows.other": [
+      "count"
+    ],
+    "shared.data-table.of": [
+      "first",
+      "label",
+      "last",
+      "total"
+    ],
+    "shared.data-table.open": [],
+    "shared.data-table.page-of": [
+      "page",
+      "pages"
+    ],
+    "shared.data-table.records": [],
+    "shared.data-table.save": [],
+    "shared.detail-drawer.description": [],
+    "shared.dropdown.add": [],
+    "shared.dropdown.add.placeholder": [],
+    "shared.empty-state.description": [],
+    "shared.empty-state.title": [],
+    "shared.file-list.demo-file": [],
+    "shared.file-list.sample-attachment-preview-only": [
+      "size"
+    ],
+    "shared.search-input.placeholder": [],
+    "shared.table-selection.clear": [],
+    "shared.table-selection.delete": [],
+    "shared.table-selection.deleted.one": [
+      "count"
+    ],
+    "shared.table-selection.deleted.other": [
+      "count"
+    ],
+    "shared.table-selection.selected.one": [
+      "count"
+    ],
+    "shared.table-selection.selected.other": [
+      "count"
+    ],
+    "shared.table-selection.skipped": [
+      "count",
+      "reasons"
+    ],
+    "shared.table-selection.undo": [],
+    "sops.sop-detail.cancel": [],
+    "sops.sop-detail.category": [],
+    "sops.sop-detail.edit-history": [],
+    "sops.sop-detail.edit-sop": [],
+    "sops.sop-detail.new-sop": [],
+    "sops.sop-detail.procedure": [],
+    "sops.sop-detail.save-sop": [],
+    "sops.sop-detail.saving": [],
+    "sops.sop-detail.sop": [],
+    "sops.sop-detail.sop-library": [],
+    "sops.sop-detail.standard-procedure": [],
+    "sops.sop-detail.title": [],
+    "sops.sop-detail.unknown-editor": [],
+    "sops.sop-detail.version": [
+      "category",
+      "version"
+    ],
+    "sops.sop-detail.version-2": [
+      "version"
+    ],
+    "sops.sop-detail.version-3": [
+      "title",
+      "version"
+    ],
+    "sops.sop-library.all-categories.placeholder": [],
+    "sops.sop-library.category": [],
+    "sops.sop-library.find-a-procedure": [],
+    "sops.sop-library.new-sop": [],
+    "sops.sop-library.no-sops-found": [],
+    "sops.sop-library.procedures": [],
+    "sops.sop-library.search-sops": [],
+    "sops.sop-library.sop-library": [],
+    "sops.sop-library.standard-procedures-for-production-and": [],
+    "staff.staff-detail.all-staff": [],
+    "staff.staff-directory.search-name-or-email.placeholder": [],
+    "staff.staff-directory.show-inactive": [],
+    "staff.staff-directory.staff": [],
+    "staff.staff-directory.staff-2": [
+      "dataCount"
+    ],
+    "staff.staff-directory.staff-3": [],
+    "staff.staff-directory.team": [],
+    "staff.staff-directory.who-works-for-the-business": [],
+    "staff.staff-form.cancel": [],
+    "staff.staff-form.cancel-email": [],
+    "staff.staff-form.change-email": [],
+    "staff.staff-form.employee-profile": [],
+    "staff.staff-form.opted-in": [],
+    "staff.staff-form.positions": [],
+    "staff.staff-form.save": [],
+    "staff.staff-form.save-email": [],
+    "staff.staff-form.sms-consent": [],
+    "staff.staff-form.staff-profile": [],
+    "staff.staff-profile.staff-profile": [],
+    "staff.staff-summary.edit": [],
+    "staff.staff-summary.employee-profile": [],
+    "staff.staff-summary.mobile": [],
+    "staff.staff-summary.name": [],
+    "staff.staff-summary.primary-email": [],
+    "staff.staff-summary.secondary-email": [],
+    "stock-counts.count-line-row.below-par": [],
+    "stock-counts.count-line-row.counted": [
+      "changeLabel",
+      "quantityLabel"
+    ],
+    "stock-counts.count-line-row.counted-2": [
+      "unit"
+    ],
+    "stock-counts.count-line-row.in-system": [
+      "quantityLabel"
+    ],
+    "stock-counts.count-line-row.nearest": [
+      "step"
+    ],
+    "stock-counts.count-line-row.optional.placeholder": [],
+    "stock-counts.count-line-row.par": [
+      "quantityLabel"
+    ],
+    "stock-counts.count-line-row.reason": [],
+    "stock-counts.count-line-row.recount": [],
+    "stock-counts.count-line-row.save": [],
+    "stock-counts.count-line-row.you-can-t-count-this": [],
+    "stock-counts.count-list.all-inventory": [],
+    "stock-counts.count-list.count-a-storage-section-item": [],
+    "stock-counts.count-list.counts": [],
+    "stock-counts.count-list.resume-count": [],
+    "stock-counts.count-list.start-count": [],
+    "stock-counts.count-list.started-counted": [
+      "countedItems",
+      "startedAt"
+    ],
+    "stock-counts.count-list.stock-supplies": [],
+    "stock-counts.count-list.storage-sections": [],
+    "stock-counts.count-mode.all-counts": [],
+    "stock-counts.count-mode.completed": [
+      "dateTimeLabel"
+    ],
+    "stock-counts.count-mode.count": [
+      "sectionName"
+    ],
+    "stock-counts.count-mode.count-mode": [],
+    "stock-counts.count-mode.every-item-has-been-counted": [],
+    "stock-counts.count-mode.finish-count": [],
+    "stock-counts.count-mode.finish-this-count": [],
+    "stock-counts.count-mode.items-weren-t-counted-their": [
+      "value"
+    ],
+    "stock-counts.count-mode.nothing-is-kept-in-this": [],
+    "stock-counts.count-mode.of-counted": [
+      "count",
+      "counted"
+    ],
+    "stock-counts.count-mode.type-what-s-on-the": [],
+    "stock-counts.low-stock-list.all-inventory": [],
+    "stock-counts.low-stock-list.counts": [],
+    "stock-counts.low-stock-list.ingredients-bar-stock-and-supplies": [],
+    "stock-counts.low-stock-list.items-below-par": [],
+    "stock-counts.low-stock-list.load-more-items": [],
+    "stock-counts.low-stock-list.low-stock": [],
+    "stock-counts.low-stock-list.stock-supplies": [],
+    "task-lists.dashboard-group.view-all": [],
+    "task-lists.event-tasks-section.add-task": [],
+    "task-lists.event-tasks-section.apply-template": [],
+    "task-lists.event-tasks-section.no-tasks-on-this-event": [],
+    "task-lists.event-tasks-section.production-list-pull-quantity-tbd": [],
+    "task-lists.event-tasks-section.tasks": [],
+    "task-lists.event-tasks-section.who-is-assigned-to": [
+      "title"
+    ],
+    "task-lists.event-tasks-section.who-is-building-the-balloon": [],
+    "task-lists.new-task-drawer.add-a-task-for-yourself": [],
+    "task-lists.new-task-drawer.add-task": [],
+    "task-lists.new-task-drawer.assign-to": [],
+    "task-lists.new-task-drawer.assign-to-me": [],
+    "task-lists.new-task-drawer.cancel": [],
+    "task-lists.new-task-drawer.due-date": [],
+    "task-lists.new-task-drawer.due-time": [],
+    "task-lists.new-task-drawer.event": [],
+    "task-lists.new-task-drawer.new-task": [],
+    "task-lists.new-task-drawer.overseer": [],
+    "task-lists.new-task-drawer.pick-one-or-more-people": [],
+    "task-lists.new-task-drawer.priority": [],
+    "task-lists.new-task-drawer.sop": [],
+    "task-lists.new-task-drawer.title": [],
+    "task-lists.new-task-drawer.type": [],
+    "task-lists.new-task-drawer.when-you-assign-someone-else": [],
+    "task-lists.quick-assign.assign": [],
+    "task-lists.task-actions.claim": [],
+    "task-lists.task-actions.done": [],
+    "task-lists.task-actions.pick-up": [],
+    "task-lists.task-dashboard-page.all-tasks": [],
+    "task-lists.task-dashboard-page.every-task-coming-up-has": [],
+    "task-lists.task-dashboard-page.my-tasks": [],
+    "task-lists.task-dashboard-page.needs-delegation": [],
+    "task-lists.task-dashboard-page.new-task": [],
+    "task-lists.task-dashboard-page.nothing-coming-up": [],
+    "task-lists.task-dashboard-page.nothing-else-due-today": [],
+    "task-lists.task-dashboard-page.nothing-overdue": [],
+    "task-lists.task-dashboard-page.overseeing": [],
+    "task-lists.task-dashboard-page.tasks": [],
+    "task-lists.task-dashboard-page.team-tasks": [],
+    "task-lists.task-dashboard-page.templates": [],
+    "task-lists.task-dashboard-page.you-don-t-oversee-any": [],
+    "task-lists.task-dashboard-page.your-tasks-and-the-ones": [],
+    "task-lists.task-line.due": [
+      "date"
+    ],
+    "task-lists.task-line.edit": [],
+    "task-lists.task-line.no-due-date": [],
+    "task-lists.task-line.unassigned": [],
+    "task-lists.task-list.all-tasks": [],
+    "task-lists.task-list.delete-view": [
+      "name"
+    ],
+    "task-lists.task-list.every-open-task-on-the": [],
+    "task-lists.task-list.name-these-filters-to-save.placeholder": [],
+    "task-lists.task-list.new-task": [],
+    "task-lists.task-list.no-tasks": [],
+    "task-lists.task-list.no-tasks-match-these-filters": [],
+    "task-lists.task-list.save-view": [],
+    "task-lists.task-list.tasks": [],
+    "task-lists.task-list.team-tasks": [],
+    "task-lists.task-list.your-tasks-and-the-open": [],
+    "task-templates.offset.day-after": [],
+    "task-templates.offset.day-before": [],
+    "task-templates.offset.days-after": [
+      "days"
+    ],
+    "task-templates.offset.days-before": [
+      "days"
+    ],
+    "task-templates.offset.event-day": [],
+    "task-templates.task-templates.archive": [],
+    "task-templates.task-templates.automatic-match": [
+      "join"
+    ],
+    "task-templates.task-templates.edit": [],
+    "task-templates.task-templates.library-sop": [],
+    "task-templates.task-templates.new-template": [],
+    "task-templates.task-templates.no-task-templates": [],
+    "task-templates.task-templates.reusable-sets-of-tasks-due": [],
+    "task-templates.task-templates.sop": [],
+    "task-templates.task-templates.task-templates": [],
+    "task-templates.task-templates.tasks": [],
+    "task-templates.task-templates.templates-you-add-appear-here": [],
+    "task-templates.template-editor.add-another-task": [],
+    "task-templates.template-editor.automatically-apply-to-events-of": [],
+    "task-templates.template-editor.automatically-apply-when-a-mapped": [],
+    "task-templates.template-editor.automatically-apply-when-a-mapped-2": [],
+    "task-templates.template-editor.blank-the-event-s-start": [],
+    "task-templates.template-editor.cancel": [],
+    "task-templates.template-editor.days": [],
+    "task-templates.template-editor.default-position": [],
+    "task-templates.template-editor.each-task-is-due-a": [],
+    "task-templates.template-editor.edit": [
+      "name"
+    ],
+    "task-templates.template-editor.event-type": [],
+    "task-templates.template-editor.https.placeholder": [],
+    "task-templates.template-editor.library-sop": [],
+    "task-templates.template-editor.new-task-template": [],
+    "task-templates.template-editor.opens-directly-from-each-task": [],
+    "task-templates.template-editor.optional-added-to-each-task": [],
+    "task-templates.template-editor.proposal-line-type": [],
+    "task-templates.template-editor.remove-task": [
+      "value"
+    ],
+    "task-templates.template-editor.save-template": [],
+    "task-templates.template-editor.service-offering": [],
+    "task-templates.template-editor.sop-link": [],
+    "task-templates.template-editor.task": [],
+    "task-templates.template-editor.template-name": [],
+    "task-templates.template-editor.time": [],
+    "task-templates.template-editor.type": [],
+    "task-templates.template-editor.when": [],
+    "tasks.reassign.assigned-to": [],
+    "tasks.reassign.overseer": [],
+    "tasks.reassign.pick-one-or-more-people": [],
+    "tasks.reassign.save-assignment": [],
+    "tasks.task-detail.add": [],
+    "tasks.task-detail.add-a-checklist-item.placeholder": [],
+    "tasks.task-detail.another-event": [],
+    "tasks.task-detail.assign-to-me": [],
+    "tasks.task-detail.assigned-to": [],
+    "tasks.task-detail.back": [],
+    "tasks.task-detail.by": [
+      "name"
+    ],
+    "tasks.task-detail.checklist": [
+      "checklistDone",
+      "checklistTotal"
+    ],
+    "tasks.task-detail.comment": [],
+    "tasks.task-detail.comments": [],
+    "tasks.task-detail.completed": [],
+    "tasks.task-detail.created-by": [],
+    "tasks.task-detail.details": [],
+    "tasks.task-detail.due": [],
+    "tasks.task-detail.event": [],
+    "tasks.task-detail.linked-sop": [],
+    "tasks.task-detail.open-sop": [],
+    "tasks.task-detail.overseer": [],
+    "tasks.task-detail.pick-up": [],
+    "tasks.task-detail.position": [],
+    "tasks.task-detail.priority": [
+      "taskPriorityLabels",
+      "taskTypeLabels"
+    ],
+    "tasks.task-detail.status": [],
+    "tasks.task-detail.system": [],
+    "tasks.task-detail.task": [],
+    "tasks.task-detail.write-a-comment.placeholder": [],
+    "time-tracking.time-reports.active-time-in-flowbase-per": [],
+    "time-tracking.time-reports.active-time-in-this-range": [],
+    "time-tracking.time-reports.effort-per-booking": [],
+    "time-tracking.time-reports.effort-per-proposal": [],
+    "time-tracking.time-reports.events": [],
+    "time-tracking.time-reports.from": [],
+    "time-tracking.time-reports.no-event-time-yet": [],
+    "time-tracking.time-reports.no-time-recorded": [],
+    "time-tracking.time-reports.proposals": [],
+    "time-tracking.time-reports.reports": [],
+    "time-tracking.time-reports.rows": [],
+    "time-tracking.time-reports.time-spent-on-an-event": [],
+    "time-tracking.time-reports.time-tracking": [],
+    "time-tracking.time-reports.to": [],
+    "time-tracking.time-reports.workload": [],
+    "time-tracking.time-reports.your-own-active-time-in": [],
+    "time-tracking.time-tracking-settings.everyone-else-sees-only-their": [],
+    "time-tracking.time-tracking-settings.reports": [],
+    "time-tracking.time-tracking-settings.time-is-credited-to-the": [],
+    "time-tracking.time-tracking-settings.time-tracking": [],
+    "time-tracking.time-tracking-settings.time-tracking-is-on": [],
+    "tracking-notice.tracking-notice.got-it": [],
+    "tracking-notice.tracking-notice.more-about-time-tracking": [],
+    "tracking-notice.tracking-notice.time-tracking-is-on": [],
+    "usage.usage-page.approximate-current-usage-and-configurable": [],
+    "usage.usage-page.current-usage": [],
+    "usage.usage-page.free-tier-limits": [],
+    "usage.usage-page.free-tier-usage": [],
+    "usage.usage-page.save-limits": [],
+    "usage.usage-page.sms-uses-the-monthly-cap": [],
+    "usage.usage-page.unable-to-load-usage": [],
+    "usage.usage-page.worker-and-query-counts-are": [],
+    "users.user-list.cancel-email": [],
+    "users.user-list.change-email": [],
+    "users.user-list.email": [],
+    "users.user-list.invite-a-user": [],
+    "users.user-list.invite-staff-and-manage-their": [],
+    "users.user-list.loading-users": [],
+    "users.user-list.mobile-number": [],
+    "users.user-list.no-users-yet": [],
+    "users.user-list.primary-email": [],
+    "users.user-list.role": [],
+    "users.user-list.save-email": [],
+    "users.user-list.send-invite": [],
+    "users.user-list.staff-access": [],
+    "users.user-list.unable-to-load-users": [],
+    "users.user-list.users": [],
+    "users.user-management.only-admin-can-manage-users": [],
+    "vendors.vendor-detail.account-number": [],
+    "vendors.vendor-detail.all-vendors": [],
+    "vendors.vendor-detail.archive": [],
+    "vendors.vendor-detail.archive-this-vendor": [],
+    "vendors.vendor-detail.archived": [],
+    "vendors.vendor-detail.contacts": [],
+    "vendors.vendor-detail.delivery-days": [],
+    "vendors.vendor-detail.edit": [],
+    "vendors.vendor-detail.items-they-supply": [],
+    "vendors.vendor-detail.lead-time": [],
+    "vendors.vendor-detail.minimum-order": [],
+    "vendors.vendor-detail.no-contacts-yet": [],
+    "vendors.vendor-detail.no-items-yet-pick-this": [],
+    "vendors.vendor-detail.notes": [],
+    "vendors.vendor-detail.order-cutoff": [],
+    "vendors.vendor-detail.ordering": [],
+    "vendors.vendor-detail.ordering-instructions": [],
+    "vendors.vendor-detail.restore": [],
+    "vendors.vendor-detail.sub-rental": [],
+    "vendors.vendor-detail.vendor-contacts-are": [
+      "hiddenNote"
+    ],
+    "vendors.vendor-detail.vendor-portal": [],
+    "vendors.vendor-detail.will-no-longer-be-offered": [
+      "name"
+    ],
+    "vendors.vendor-form.account-number": [],
+    "vendors.vendor-form.add-contact": [],
+    "vendors.vendor-form.cancel": [],
+    "vendors.vendor-form.contacts": [],
+    "vendors.vendor-form.delivery-days": [],
+    "vendors.vendor-form.edit-vendor": [],
+    "vendors.vendor-form.lead-time-days": [],
+    "vendors.vendor-form.minimum-order": [],
+    "vendors.vendor-form.name": [],
+    "vendors.vendor-form.new-vendor": [],
+    "vendors.vendor-form.notes": [],
+    "vendors.vendor-form.order-cutoff": [],
+    "vendors.vendor-form.ordering-instructions": [],
+    "vendors.vendor-form.remove-contact": [],
+    "vendors.vendor-form.save-vendor": [],
+    "vendors.vendor-form.saved-to-flowbase-portal-passwords": [],
+    "vendors.vendor-form.type": [],
+    "vendors.vendor-form.vendor-contacts-are": [
+      "hiddenNote"
+    ],
+    "vendors.vendor-form.vendor-portal-url": [],
+    "vendors.vendor-list.distributors-rental-vendors-and-event": [],
+    "vendors.vendor-list.inventory": [],
+    "vendors.vendor-list.load-more-vendors": [],
+    "vendors.vendor-list.new-vendor": [],
+    "vendors.vendor-list.search-vendors.placeholder": [],
+    "vendors.vendor-list.show-archived": [],
+    "vendors.vendor-list.vendors": [],
+    "vendors.vendor-list.vendors-2": [
+      "dataCount"
+    ],
+    "vendors.vendor-list.vendors-3": [
+      "dataCount"
+    ],
+    "vendors.vendor-list.vendors-4": [],
+    "venues.venue-detail.all-venues": [],
+    "venues.venue-detail.archive": [],
+    "venues.venue-detail.archive-this-venue": [],
+    "venues.venue-detail.archived": [],
+    "venues.venue-detail.areas": [],
+    "venues.venue-detail.edit": [],
+    "venues.venue-detail.event-history": [],
+    "venues.venue-detail.load-in": [],
+    "venues.venue-detail.no-areas-yet": [],
+    "venues.venue-detail.no-venue-contacts-yet": [],
+    "venues.venue-detail.parking": [],
+    "venues.venue-detail.restore": [],
+    "venues.venue-detail.venue-contacts": [],
+    "venues.venue-detail.venue-contacts-are-visible-to": [],
+    "venues.venue-detail.venue-details": [],
+    "venues.venue-detail.will-no-longer-be-offered": [
+      "name"
+    ],
+    "venues.venue-form-fields.add-area": [],
+    "venues.venue-form-fields.add-venue-contact": [],
+    "venues.venue-form-fields.address": [],
+    "venues.venue-form-fields.area": [
+      "value"
+    ],
+    "venues.venue-form-fields.areas": [],
+    "venues.venue-form-fields.cancel": [],
+    "venues.venue-form-fields.contact-name": [],
+    "venues.venue-form-fields.edit-venue": [],
+    "venues.venue-form-fields.email": [],
+    "venues.venue-form-fields.jurisdiction": [],
+    "venues.venue-form-fields.load-in-notes": [],
+    "venues.venue-form-fields.name": [],
+    "venues.venue-form-fields.new-venue": [],
+    "venues.venue-form-fields.parking-notes": [],
+    "venues.venue-form-fields.phone": [],
+    "venues.venue-form-fields.remove-area": [],
+    "venues.venue-form-fields.remove-contact": [],
+    "venues.venue-form-fields.role": [],
+    "venues.venue-form-fields.save-venue": [],
+    "venues.venue-form-fields.saved-to-flowbase": [],
+    "venues.venue-form-fields.stored-for-future-tax-use": [],
+    "venues.venue-form-fields.venue-contacts": [],
+    "venues.venue-form-fields.venue-contacts-are-visible-to": [],
+    "venues.venue-list.addresses-areas-and-load-in": [],
+    "venues.venue-list.load-more-venues": [],
+    "venues.venue-list.new-venue": [],
+    "venues.venue-list.search-venues.placeholder": [],
+    "venues.venue-list.show-archived": [],
+    "venues.venue-list.venues": [],
+    "venues.venue-list.venues-2": [
+      "dataCount"
+    ],
+    "venues.venue-list.venues-3": [
+      "dataCount"
+    ],
+    "venues.venue-list.venues-4": []
+  },
+  "copyPrefixes": [
+    "attachments.title.",
+    "clients.client-detail.",
+    "clients.client-list.",
+    "event-activity.action.",
+    "event-activity.field.",
+    "events.event-detail.",
+    "events.event-table.",
+    "fields.",
+    "imports.dry-run-report.action.",
+    "imports.row-table.column.",
+    "inventory-lists.bar-list.",
+    "inventory-lists.ingredient-list.",
+    "inventory-lists.inventory-list.",
+    "inventory-master.master-inventory.",
+    "labels.approval-status.",
+    "labels.bar-container.",
+    "labels.beo-section.",
+    "labels.beo-status.",
+    "labels.calendar-layer.",
+    "labels.client-kind.",
+    "labels.communication-kind.",
+    "labels.conflict-state.",
+    "labels.contact-role.",
+    "labels.cost-source.",
+    "labels.day-of-staff-status.",
+    "labels.day-of-truck-status.",
+    "labels.deletable-entity.",
+    "labels.department.",
+    "labels.hold-status.",
+    "labels.item-kind.",
+    "labels.item-subtype.",
+    "labels.jurisdiction.",
+    "labels.lead-channel.",
+    "labels.lead-duplicate-reason.",
+    "labels.line-cost-source.",
+    "labels.movement-type.",
+    "labels.payment-method.",
+    "labels.pipeline-status.",
+    "labels.planning-output-kind.",
+    "labels.planning-step-status.",
+    "labels.proposal-stage.",
+    "labels.pull-status.",
+    "labels.pull-suggestion.",
+    "labels.ratio-basis.",
+    "labels.role.",
+    "labels.schedule-kind.",
+    "labels.search-result-type.",
+    "labels.section-kind.",
+    "labels.shift-kind.",
+    "labels.task-priority.",
+    "labels.task-status.",
+    "labels.task-type.",
+    "labels.time-activity.",
+    "labels.timeline-kind.",
+    "labels.user-status.",
+    "labels.vendor-type.",
+    "labels.venue-contact-role.",
+    "labels.weekday.",
+    "lead-dashboard.lead-dashboard-page.",
+    "leads.inbox.column.",
+    "notifications.settings.",
+    "proposals.proposals.",
+    "recipes.recipe-list.",
+    "recipes.tag-choices.",
+    "shared.file-list.",
+    "sops.library.",
+    "staff.staff-directory.",
+    "stock-counts.low-stock-list.",
+    "task-lists.dashboard-group.",
+    "time-tracking.time-reports.",
+    "vendors.vendor-list.",
+    "venues.venue-list."
+  ],
+  "layout": {
+    "clients.detail": {
+      "blocks": [
+        "client-facts",
+        "communications",
+        "contacts",
+        "events",
+        "files",
+        "proposal-tracker",
+        "upcoming-events"
+      ],
+      "fieldCards": [
+        "client-facts"
+      ]
+    },
+    "clients.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "dashboard.home": {
+      "blocks": [
+        "all-tasks",
+        "my-leads",
+        "my-tasks",
+        "upcoming-events",
+        "working-staff"
+      ],
+      "fieldCards": []
+    },
+    "events.detail": {
+      "blocks": [
+        "beo",
+        "booking",
+        "client",
+        "closeout",
+        "day-of",
+        "details",
+        "files",
+        "history",
+        "inventory",
+        "kitchen-menu",
+        "payments",
+        "planning",
+        "production",
+        "proposal",
+        "pull-list",
+        "staff",
+        "tasks",
+        "timeline",
+        "trucks"
+      ],
+      "fieldCards": [
+        "event-facts"
+      ]
+    },
+    "events.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "inventory.detail": {
+      "blocks": [
+        "cost-history",
+        "included-items",
+        "item-facts",
+        "movement-history",
+        "photos",
+        "planning",
+        "purchasing",
+        "stock",
+        "task-templates"
+      ],
+      "fieldCards": [
+        "item-facts"
+      ]
+    },
+    "inventory.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "leads.detail": {
+      "blocks": [
+        "assignment",
+        "lead-facts",
+        "linked-events",
+        "notes",
+        "source",
+        "source-links"
+      ],
+      "fieldCards": [
+        "lead-facts"
+      ]
+    },
+    "leads.inbox": {
+      "blocks": [
+        "lead-table"
+      ],
+      "fieldCards": []
+    },
+    "proposals.detail": {
+      "blocks": [
+        "proposal-facts"
+      ],
+      "fieldCards": [
+        "proposal-facts"
+      ]
+    },
+    "staff.detail": {
+      "blocks": [
+        "staff-facts",
+        "staff-positions"
+      ],
+      "fieldCards": [
+        "staff-facts"
+      ]
+    },
+    "staff.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "vendors.detail": {
+      "blocks": [
+        "vendor-contacts",
+        "vendor-facts",
+        "vendor-items"
+      ],
+      "fieldCards": [
+        "vendor-facts"
+      ]
+    },
+    "vendors.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
+    "venues.detail": {
+      "blocks": [
+        "aerial-images",
+        "event-history",
+        "floor-plans",
+        "venue-contacts",
+        "venue-facts"
+      ],
+      "fieldCards": [
+        "venue-facts"
+      ]
+    },
+    "venues.list": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    }
+  },
+  "tables": [
+    "clients.client-list",
+    "events.event-table",
+    "inventory-lists.inventory-list",
+    "leads.inbox.table",
+    "staff.staff-directory",
+    "vendors.vendor-list",
+    "venues.venue-list"
+  ]
+}

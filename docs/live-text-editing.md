@@ -49,7 +49,9 @@ native `<option>` labels and server-generated text (notification messages).
   as `copyId`.
 - `DataTable` and `Tabs` take `copyKey`; their column headers and tab names become
   `<copyKey>.column.<header>` and `<copyKey>.tab.<name>`. Sidebar headings, section
-  tabs and breadcrumb labels share `nav.<name>`.
+  tabs and breadcrumb labels share `nav.<copyId>`, where `copyId` is a fixed id
+  next to the name in `src/app/navigation.ts` (FLOW-277): renaming a page there
+  keeps the Admin's saved label. Never change a `copyId`.
 
 ## Key convention
 
@@ -98,5 +100,41 @@ Shared maps use the `labels` area (`labels.pipeline-status`, `labels.role`,
 `accessorFn` (sorting, filtering, export) and adds a `cell` that renders the
 `LabelT`. Strings chosen in plain code (`x ? "Supply" : "Ingredient"`) become one
 `<T>` per branch.
+
+## Keeping saved edits across releases (FLOW-277)
+
+Saved wording is matched to the code by key, and so are the block and field-card
+ids in saved page layouts. A release that renames a key would otherwise drop the
+Admin's edit silently: the row stays in the database and nothing reads it.
+
+- **Key manifest.** `shared/generated/live-edit-keys.json` lists every wording key
+  (with its default's placeholder names), the prefixes of keys built at run time
+  (`LabelT` maps, `DataTable`/`Tabs` `copyKey`s, template ids), every page layout's
+  block and field-card ids and the layout-aware tables. `npm run live-edit:keys`
+  (`scripts/live-edit-keys.mjs`, the same scan as `tests/copy-keys.test.ts`)
+  regenerates it; commit it with the change. CI fails when it is out of date.
+- **Renames.** When you rename a key, a block id or a field-card id, add the old
+  and new one to `shared/live-edit-renames.ts`: `copy: { "old.key": "new.key" }`,
+  `blocks: { "page.key/old-id": "new-id" }`. `GET /api/copy` and
+  `GET /api/layout/:pageKey` read saved edits through it, so everyone keeps seeing
+  the override. Saving the key (or the page) stores it under the new key and drops
+  the old row; resetting it removes both. Drop the entry a release later.
+- **Removed.** A key or id that is gone on purpose goes in `removed.copy` or
+  `removed.blocks` (`"page.key/id"`).
+- **CI guard.** `tests/live-edit-keys.test.ts` compares the manifest with the PR
+  base branch's (from git) and fails, naming the file to update, when a key or
+  block id disappears without a rename or removed entry. It needs no access to
+  production.
+- **Orphans.** In edit mode the Admin sees "N saved edits no longer match a
+  screen" (`GET /api/copy/orphans`, Admin only): wording under a key no screen
+  renders, and saved blocks or field cards a page no longer has. Each can be
+  deleted, or moved to a key or block id a screen has (`POST /api/copy/orphans`;
+  a moved text must keep the new key's placeholders).
+- **Placeholders.** An override whose `{placeholders}` no longer match its default
+  (a release renamed or dropped one) isn't shown: the default shows, and in edit
+  mode the string gets a warning dot and "Update for new {…}". Save still refuses
+  an edit with the wrong placeholders.
+- **Line breaks.** Saved wording loses leading and trailing line breaks
+  (`copyTextSchema`); spaces are kept as typed. Migration 0067 cleaned older rows.
 
 Page layout editing (blocks, columns, field boxes, custom cards) uses the same session: see `docs/page-layouts.md`.

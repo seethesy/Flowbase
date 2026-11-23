@@ -39,11 +39,12 @@ import { NotificationBell } from "../../features/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
 import { LiveEditControls, LiveEditLayer } from "../../app/live-edit";
 import { T } from "../../app/copy";
-import { copySlug } from "../../../shared/copy";
 import { useAuth } from "../../app/auth";
 import {
   breadcrumbTrail,
   matchNavigation,
+  navKey,
+  secondaryPages,
   visibleGroups,
   visibleTabs,
   type RecordKind,
@@ -83,7 +84,7 @@ export function Breadcrumbs() {
         const label = crumb.record ? (
           <RecordName key={pathname} {...crumb.record} fallback={crumb.label} />
         ) : (
-          <T id={`nav.${copySlug(crumb.label)}`}>{crumb.label}</T>
+          <T id={navKey(crumb.copyId)}>{crumb.label}</T>
         );
         return (
           <span className={index === 0 ? "crumb crumb-root" : "crumb"} key={`${index}:${crumb.label}`}>
@@ -186,7 +187,7 @@ function Sidebar({
         </button>
         <div className="nav-label sidebar-text"><T id="app-shell.sidebar.workspace">WORKSPACE</T></div>
         <nav className="primary-nav" aria-label="Main">
-          {groups.map(({ name, tabs }) => {
+          {groups.map(({ copyId, name, tabs }) => {
             const Icon = groupIcons[name] ?? LayoutDashboard;
             // The heading stays highlighted on any of its tabs or record pages.
             const active = match?.group.name === name;
@@ -202,7 +203,7 @@ function Sidebar({
               >
                 <Icon size={19} />
                 <span className="sidebar-text">
-                  <T id={`nav.${copySlug(name)}`}>{name}</T>
+                  <T id={navKey(copyId)}>{name}</T>
                 </span>
               </Link>
             );
@@ -210,10 +211,8 @@ function Sidebar({
         </nav>
         <div className="sidebar-bottom">
           <nav className="secondary-nav" aria-label="Settings and help">
-            {[
-              { name: "Settings", icon: Settings, to: "/settings" },
-              { name: "Help & resources", icon: CircleHelp, to: "/help" },
-            ].map(({ name, icon: Icon, to }) => {
+            {secondaryPages.map(({ copyId, name, to }) => {
+              const Icon = to === "/settings" ? Settings : CircleHelp;
               const active = pathname === to || pathname.startsWith(`${to}/`);
               return (
                 <Link
@@ -226,7 +225,7 @@ function Sidebar({
                 >
                   <Icon size={18} />
                   <span className="sidebar-text">
-                    <T id={`nav.${copySlug(name)}`}>{name}</T>
+                    <T id={navKey(copyId)}>{name}</T>
                   </span>
                 </Link>
               );
@@ -282,7 +281,7 @@ function SectionTabs() {
             className={active ? "active" : undefined}
             aria-current={active ? "page" : undefined}
           >
-            <T id={`nav.${copySlug(tab.name)}`}>{tab.name}</T>
+            <T id={navKey(tab.copyId)}>{tab.name}</T>
           </Link>
         );
       })}

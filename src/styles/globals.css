@@ -2441,6 +2441,78 @@ input.round-check:disabled {
   border-radius: 50%;
   background: var(--primary);
 }
+/* An override saved for an older default's placeholders (FLOW-277): the default
+   shows, with a warning dot. */
+.live-copy-stale {
+  outline-color: var(--warning, #92400e);
+}
+.live-copy-stale::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning, #92400e);
+}
+.live-copy-stale-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--warning, #92400e);
+}
+/* Saved edits that no longer match a screen (FLOW-277). */
+.live-edit-orphans {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 900;
+  max-width: min(520px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+}
+.live-edit-orphans-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--warning, #92400e);
+  font-weight: 600;
+}
+.live-edit-orphans-list {
+  max-height: 50vh;
+  overflow: auto;
+  padding: 0 12px 12px;
+}
+.live-edit-orphans-list ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.live-edit-orphans-list li {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.live-edit-orphans-list small {
+  color: var(--muted, #64746b);
+  word-break: break-all;
+}
+.live-edit-orphan-actions,
+.live-edit-orphan-move {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.live-edit-orphan-move input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
 .live-editing input[data-copy-id],
 .live-editing textarea[data-copy-id] {
   outline: 1px dashed var(--border-dark);

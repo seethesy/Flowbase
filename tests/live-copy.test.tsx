@@ -34,7 +34,11 @@ function Screen({ onAction }: { onAction: () => void }) {
   );
 }
 
-function mount({ canEdit = true, overrides = {} as Record<string, string> } = {}) {
+function mount({
+  canEdit = true,
+  overrides = {} as Record<string, string>,
+  orphans = { copy: [], blocks: [] } as { copy: { key: string; text: string }[]; blocks: { pageKey: string; id: string; kind: string }[] },
+} = {}) {
   const writes: { method: string; path: string; body: unknown }[] = [];
   let saved = { ...overrides };
   vi.mocked(fetch).mockImplementation(async (input, init) => {
@@ -46,6 +50,13 @@ function mount({ canEdit = true, overrides = {} as Record<string, string> } = {}
       writes.push({ method, path, body });
       for (const edit of body) saved[edit.key] = edit.text;
       return Response.json(saved);
+    }
+    if (path === "/api/copy/orphans" && method === "GET") return Response.json(orphans);
+    if (path === "/api/copy/orphans" && method === "POST") {
+      const body = JSON.parse(String(init?.body)) as { action: string; key: string; to?: string };
+      writes.push({ method, path, body });
+      orphans = { ...orphans, copy: orphans.copy.filter((orphan) => orphan.key !== body.key) };
+      return new Response(null, { status: 204 });
     }
     if (path.startsWith("/api/copy/") && method === "DELETE") {
       writes.push({ method, path, body: null });
@@ -210,5 +221,66 @@ describe("live edit mode", () => {
     fireEvent.click(within(prompt).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
     expect(writes[0].body).toEqual([{ key: "test.screen.title", text: "Lead inbox", placeholders: [] }]);
+  });
+});
+
+// FLOW-277: edits that outlive their screen or their default's placeholders.
+describe("live edits across releases", () => {
+  it("shows the default while an override's placeholders don't match it (AC4)", async () => {
+    // Saved for an older default "{total} leads"; the default is now "{count} leads".
+    mount({ overrides: { "test.screen.leads": "{total} open leads" } });
+    await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("3 leads"));
+    expect(screen.getByTestId("count")).not.toHaveTextContent("{total}");
+    startEditing();
+    await waitFor(() => expect(screen.getByTestId("count").querySelector(".live-copy-stale")).not.toBeNull());
+    const flagged = screen.getByTestId("count").querySelector(".live-copy-stale");
+    expect(flagged).toHaveAttribute("title", "Update for new {count}");
+    fireEvent.click(screen.getByText("3 leads"));
+    // The editor opens on the saved text; Save stays blocked until {count} is back.
+    expect(within(editor()).getByRole("textbox", { name: "Text" })).toHaveValue("{total} open leads");
+    expect(within(editor()).getByText(/saved for an older version/)).toBeInTheDocument();
+    fireEvent.change(within(editor()).getByRole("textbox", { name: "Text" }), { target: { value: "{total} leads!" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(within(editor()).getByRole("textbox", { name: "Text" }), { target: { value: "{count} open leads" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("trims line breaks before saving (AC6)", async () => {
+    const { writes } = mount();
+    startEditing();
+    fireEvent.click(screen.getByText("Save lead"));
+    fireEvent.change(within(editor()).getByRole("textbox", { name: "Text" }), { target: { value: "Save Changes\n\n" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0].body).toEqual([{ key: "test.screen.save-lead", text: "Save Changes", placeholders: [] }]);
+  });
+
+  it("lists saved edits that no longer match a screen, to delete or move (AC3)", async () => {
+    const { writes } = mount({
+      orphans: {
+        copy: [
+          { key: "retired.screen.title", text: "Old title" },
+          { key: "retired.screen.note", text: "Old note" },
+        ],
+        blocks: [],
+      },
+    });
+    startEditing();
+    fireEvent.click(await screen.findByRole("button", { name: "2 saved edits no longer match a screen" }));
+    const notice = screen.getByRole("region", { name: "Saved edits that no longer match a screen" });
+    const first = within(notice).getByText('"Old title"').closest("li")!;
+    fireEvent.click(within(first as HTMLElement).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(writes.at(-1)?.body).toEqual({ action: "delete", type: "copy", key: "retired.screen.title" }),
+    );
+    expect(await screen.findByRole("button", { name: "1 saved edit no longer matches a screen" })).toBeInTheDocument();
+    const second = within(notice).getByText('"Old note"').closest("li") as HTMLElement;
+    fireEvent.click(within(second).getByRole("button", { name: "Move to key" }));
+    fireEvent.change(within(second).getByRole("textbox", { name: "New wording key" }), { target: { value: "test.screen.title" } });
+    fireEvent.click(within(second).getByRole("button", { name: "Move" }));
+    await waitFor(() =>
+      expect(writes.at(-1)?.body).toEqual({ action: "move", type: "copy", key: "retired.screen.note", to: "test.screen.title" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Saved edits that no longer match a screen" })).toBeNull());
   });
 });
