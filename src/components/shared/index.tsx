@@ -66,7 +66,7 @@ declare module "@tanstack/react-table" {
     editValue?: (row: TData) => string;
     // FLOW-275: what the cell shows until it is edited, when that differs from
     // the option label (Bar container shows its size too).
-    editDisplay?: (row: TData) => string;
+    editDisplay?: (row: TData) => ReactNode;
     editCreate?: (row: TData, name: string) => Promise<string | void>;
     editMultiple?: boolean;
     canEdit?: (row: TData) => boolean;
@@ -92,7 +92,7 @@ export function EditableCell<Row>({
   create?: (row: Row, name: string) => Promise<string | void>;
   multiple?: boolean;
   label?: string;
-  displayText?: string;
+  displayText?: ReactNode;
 }) {
   const shown = value == null ? "" : String(value);
   const [display, setDisplay] = useState(shown);

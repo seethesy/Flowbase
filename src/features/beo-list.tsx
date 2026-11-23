@@ -16,9 +16,9 @@ import { Block, PageGrid } from "../app/page-grid";
 import { LabelT, T } from "../app/copy";
 import { beoApi } from "../services/beo";
 import { LoadError } from "../components/record-display";
-import { Button, DataTable, DetailDrawer, FilterBar, LoadingSkeleton } from "../components/shared";
+import { Button, DataTable, DateTimeCell, DetailDrawer, FilterBar, LoadingSkeleton } from "../components/shared";
 import { Dropdown } from "../components/ui/Dropdown";
-import { calendarWhen, weekday } from "./calendar-entries";
+import { calendarWhenParts, weekday } from "./calendar-entries";
 import { EventsHeading } from "./events-heading";
 import "./beo-list.css";
 
@@ -42,9 +42,11 @@ export function BeoStatusBadge({ status }: { status: BeoListStatus }) {
 }
 
 const day = (instant: string) => weekday(utcToBusinessTime(new Date(instant)).date);
+// The event's day with its time beneath it (FLOW-296).
 const eventDay = (row: BeoListRow) => {
   const { date, time } = utcToBusinessTime(new Date(row.eventStartsAt));
-  return calendarWhen({ start: `${date}T${time}` });
+  const parts = calendarWhenParts({ start: `${date}T${time}` });
+  return <DateTimeCell date={parts.date} time={parts.time} />;
 };
 
 export function BeoListPage() {

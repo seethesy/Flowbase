@@ -41,7 +41,7 @@ import { hidden, initials, LoadError } from "../components/record-display";
 import { Attachments } from "./attachments";
 import { CommunicationLog } from "./communications";
 import { date, time } from "./event-format";
-import { calendarWhen } from "./calendar-entries";
+import { calendarWhen, calendarWhenParts } from "./calendar-entries";
 import { EventPlanningSection } from "./event-planning";
 import { EventTruckSection } from "./event-trucks";
 import { EventDayOfSection } from "./day-of";
@@ -200,10 +200,22 @@ export function EventTable({
       id: "when",
       header: "Date & Time",
       accessorFn: (event) => event.startsAt,
-      cell: ({ row }) => calendarWhen({ start: `${row.original.date}T${row.original.startTime}` }),
-      meta: { edit: "date", canEdit: () => can("events.write"), editValue: (row) => row.date,
-        editDisplay: (row) => calendarWhen({ start: `${row.date}T${row.startTime}` }),
-        onEdit: (row, value) => edit(row, { date: value }) },
+      // FLOW-296: the date with the time beneath it, both edited in place.
+      cell: ({ row }) => {
+        const parts = calendarWhenParts({ start: `${row.original.date}T${row.original.startTime}` });
+        return <DateTimeCell date={parts.date} time={parts.time} />;
+      },
+      meta: { edit: "datetime", canEdit: () => can("events.write"), editValue: (row) => dateTimeSortKey(row.date, row.startTime),
+        editDisplay: (row) => {
+          const parts = calendarWhenParts({ start: `${row.date}T${row.startTime}` });
+          return <DateTimeCell date={parts.date} time={parts.time} />;
+        },
+        csv: (row) => calendarWhen({ start: `${row.date}T${row.startTime}` }),
+        onEdit: (row, value) => {
+          const [date, startTime] = value.split("T");
+          if (!date || !startTime) return Promise.reject(new Error("An event needs a date and a start time."));
+          return edit(row, { date, startTime });
+        } },
     },
     column("title"),
     column("client"),

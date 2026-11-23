@@ -251,6 +251,7 @@ export const layoutTables: Record<string, LayoutTable> = {
   "time-tracking.by-event": { source: null, locked: [], code: [] },
   "time-tracking.by-proposal": { source: null, locked: [], code: [] },
   "time-tracking.workload": { source: null, locked: [], code: [] },
+  "beo-list.table": { source: null, locked: [], code: [] },
 };
 // Pseudo-columns a table renders that aren't registry fields (locked controls).
 export const controlColumns = new Set(["actions"]);

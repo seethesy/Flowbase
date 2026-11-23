@@ -3182,6 +3182,7 @@
     }
   },
   "tables": [
+    "beo-list.table",
     "clients.client-list",
     "documents.library",
     "events.event-table",
