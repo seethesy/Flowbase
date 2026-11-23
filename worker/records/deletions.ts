@@ -24,7 +24,8 @@ import { getClient, setClientArchived } from "./clients";
 import { getEvent, setEventArchived } from "./events";
 import { findItem, getItem, setItemArchived } from "./inventory-items";
 import { findVisibleLead, setLeadArchived } from "./leads";
-import { getRecipe, setRecipeArchived } from "./recipes";
+import { orderListDeleteBlocked, orderListDeleteName, setOrderListArchived } from "./order-lists";
+import { getRecipe, recipeDeleteBlocked, setRecipeArchived } from "./recipes";
 import { findSop, setSopArchived } from "./sops";
 import { setStaffArchived, staffDeleteBlocked, staffDeleteName } from "./staff";
 import { getVendor, setVendorArchived } from "./vendors";
@@ -112,6 +113,8 @@ const entities: Record<DeletableEntity, Entity> = {
   },
   recipe: {
     name: async (db, actor, id) => (await getRecipe(db, actor, id)).name,
+    // FLOW-301: recipes on upcoming event menus are skipped.
+    blocked: recipeDeleteBlocked,
     archive: setRecipeArchived,
   },
   // The staff directory (FLOW-270): your own account and people on upcoming
@@ -130,6 +133,12 @@ const entities: Record<DeletableEntity, Entity> = {
     name: beoDeleteName,
     blocked: beoDeleteBlocked,
     archive: setBeoArchived,
+  },
+  // The Purchasing tab (FLOW-300): lists past Draft, Rejected or Cancelled are skipped.
+  order_list: {
+    name: orderListDeleteName,
+    blocked: orderListDeleteBlocked,
+    archive: setOrderListArchived,
   },
 };
 
