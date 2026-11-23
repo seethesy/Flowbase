@@ -12,6 +12,8 @@ export function homeRoutes(options: { withDb?: RunWithDb; resolveActor?: Resolve
   routes.use("*", requireActor(options.resolveActor));
   routes.get("/dashboard", requirePermission("tasks.read"), async (c) =>
     c.json(await record(c, (db, actor) => homeDashboard(db, actor))));
+  routes.get("/working-staff", requirePermission("tasks.read"), async (c) =>
+    c.json((await record(c, (db, actor) => homeDashboard(db, actor))).workingStaff));
   routes.get("/my-shifts", requirePermission("events.read"), async (c) => c.json(await record(c, async (db, actor) => {
     const [row] = await db.select({ count: sql<number>`count(distinct ${eventShifts.id})::int` })
       .from(eventStaffSlots).innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))

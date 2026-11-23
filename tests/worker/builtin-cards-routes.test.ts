@@ -93,3 +93,22 @@ it("never gives a restricted role a field it can't read from an edited card (AC4
     { id: leadRows[1].id, name: "Blake", budgetCents: 700 },
   ]);
 });
+
+mini.get("/api/recipes", (c) => c.json([{ id: userId, name: "Sample soup", category: "Soup", cost: { batchCents: 900 }, steps: ["Private preparation"] }]));
+mini.get("/api/sops", (c) => c.json([{ id: userId, title: "Loading", version: 1, content: { type: "doc" } }]));
+mini.get("/api/home/working-staff", (c) => c.json([{ id: userId, name: "Test worker", position: "Loader", since: "2026-11-23T12:00:00Z", mobile: "private" }]));
+mini.get("/api/sales/clients/:id/proposals", (c) => c.json([{ id: userId, eventId: userId, title: "Sample proposal", stage: "inquiry", currentVersion: 2, secret: "private" }]));
+
+it("FLOW-281: new sources project only registered readable fields", async () => {
+  actor = { userId, role: "part_time_staff" };
+  expect(await (await mini.request("/api/recipes?fields=name,category&take=10")).json()).toEqual([{ id: userId, name: "Sample soup", category: "Soup" }]);
+  expect(await (await mini.request("/api/sops?fields=title,version&take=10")).json()).toEqual([{ id: userId, title: "Loading", version: 1 }]);
+  expect(await (await mini.request("/api/home/working-staff?fields=name,position&take=10")).json()).toEqual([{ id: userId, name: "Test worker", position: "Loader" }]);
+  expect((await mini.request("/api/recipes?fields=cost")).status).toBe(400);
+});
+
+it("FLOW-281: related client proposals retain the client endpoint instead of querying all sales", async () => {
+  const result = await mini.request(`/api/sales/clients/${userId}/proposals?fields=title,stage&take=10`);
+  expect(result.status).toBe(200);
+  expect(await result.json()).toEqual([{ id: userId, eventId: userId, title: "Sample proposal", stage: "inquiry" }]);
+});

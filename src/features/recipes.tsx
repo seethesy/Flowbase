@@ -214,7 +214,7 @@ export function RecipeList() {
       ) : recipes.loading && !recipes.data ? (
         <LoadingSkeleton />
       ) : (
-        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list" openColumn
+        <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="recipes.recipe-list" exportName="recipes" openColumn
           data={data}
           columns={columns}
           onRow={(recipe) => navigate(`/recipes/${recipe.id}`)}

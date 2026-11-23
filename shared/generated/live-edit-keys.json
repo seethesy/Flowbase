@@ -3177,6 +3177,8 @@
     "inventory-lists.inventory-list",
     "inventory-master.master-inventory",
     "leads.inbox.table",
+    "recipes.recipe-list",
+    "sops.library",
     "staff.staff-directory",
     "stock-counts.low-stock-list",
     "vendors.vendor-list",

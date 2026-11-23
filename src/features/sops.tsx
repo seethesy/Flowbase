@@ -50,7 +50,7 @@ export function SopLibrary() {
     <Block id="procedures" name="Procedures" h={20}>
     <Section title={<T id="sops.sop-library.procedures">Procedures</T>}>
       {!sops.data ? <LoadingSkeleton /> : sops.data.length ?
-        <DataTable copyKey="sops.library" data={sops.data} columns={columns}
+        <DataTable copyKey="sops.library" exportName="sops" data={sops.data} columns={columns}
           onRow={(row) => navigate(`/sops/${row.id}`)} openColumn />
         : <p><T id="sops.sop-library.no-sops-found">No SOPs found.</T></p>}
     </Section>

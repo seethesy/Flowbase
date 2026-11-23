@@ -151,3 +151,18 @@ optional fields to show.
 - Staff and Inventory filters are separate blocks. The table retains `list`,
   including when loading or reporting an error, so existing saved layouts work.
 - Browser coverage: `tests/e2e/layout-event-tabs.spec.ts`.
+
+## Added in FLOW-281
+
+- In-place card editing also covers Dashboard Working Staff, client Proposal
+  tracker, vendor Items they supply and venue Event history. Working Staff uses
+  the dashboard's currently working shifts and original event visibility rules.
+  Related lists retain their parent scope and the viewer's permissions.
+- Recipes and SOP library tables choose and reorder columns, save widths and
+  export the visible columns. SOP procedure content is never a layout field.
+- Lead dashboard and time-report aggregate tables remain code-only: their rows
+  combine different measures and are not individual registry records.
+- Confirmed exclusions: `clients.client-detail` is a tab copy key, not a table;
+  the legacy `proposals.tsx` component is unrouted. Staff shifts and item events
+  cards do not exist on those detail pages and are excluded by the developer.
+  Existing inventory planning holds/allocations keep their organizers.

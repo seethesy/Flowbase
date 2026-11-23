@@ -261,6 +261,7 @@ export type Permissions = z.infer<typeof permissionsSchema>;
 
 // The area a custom card's list source reads from.
 export const sourceArea: Record<string, AreaKey | undefined> = {
+  recipes: "recipes_menus", sops: "documents", "working-staff": "staff_directory",
   leads: "leads",
   events: "events",
   clients: "clients",

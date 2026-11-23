@@ -217,6 +217,8 @@ export type SavedLayout = z.infer<typeof savedLayoutSchema>;
 // or moved, and the columns its code renders that aren't registry fields
 // (kept by key, e.g. Leads Notes and BEO).
 export const layoutTables: Record<string, { source: SourceKey; locked: string[]; code: string[] }> = {
+  "recipes.recipe-list": { source: "recipes", locked: [], code: ["yield", "dietary", "perServing", "flags"] },
+  "sops.library": { source: "sops", locked: [], code: [] },
   "leads.inbox.table": { source: "leads", locked: [], code: ["notes", "latestBeo"] },
   "events.event-table": { source: "events", locked: [], code: ["when", "guests"] },
   "clients.client-list": { source: "clients", locked: [], code: ["contact", "email", "phone", "tags"] },
@@ -261,6 +263,11 @@ export const recordPages: Record<string, { source: SourceKey; fieldCards: string
 // projection) instead of its code. Cards that aren't record lists (notes,
 // files, photos, planning) have no entry and keep Style, Hide and move only.
 export const builtinCards: Record<string, CardConfig> = {
+  "dashboard.home/working-staff": {"title": "Working Staff", "source": {"type": "list", "list": "working-staff"}, "filters": [], "sort": {"field": "since", "dir": "asc"}, "limit": 20, "display": {"type": "table", "columns": [{"key": "name"}, {"key": "position"}, {"key": "since"}]}},
+  "clients.detail/proposal-tracker": {"title": "Proposal tracker", "source": {"type": "related", "relation": "proposals"}, "filters": [], "sort": {"field": "title", "dir": "asc"}, "limit": 20, "display": {"type": "table", "columns": [{"key": "title"}, {"key": "stage"}, {"key": "currentVersion"}]}},
+  "vendors.detail/vendor-items": {"title": "Items they supply", "source": {"type": "related", "relation": "items"}, "filters": [], "sort": {"field": "name", "dir": "asc"}, "limit": 20, "display": {"type": "table", "columns": [{"key": "name"}, {"key": "code"}, {"key": "kind"}, {"key": "subtype"}]}},
+  "venues.detail/event-history": {"title": "Event history", "source": {"type": "related", "relation": "events"}, "filters": [], "sort": {"field": "date", "dir": "asc"}, "limit": 20, "display": {"type": "table", "columns": [{"key": "title"}, {"key": "date"}, {"key": "status"}, {"key": "guestCount"}]}},
+
   "dashboard.home/my-leads": {
     title: "My Leads",
     source: { type: "list", list: "leads" },

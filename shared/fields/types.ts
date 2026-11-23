@@ -42,6 +42,9 @@ export type FieldDef = {
 };
 
 export const sourceKeys = [
+  "working-staff",
+  "sops",
+  "recipes",
   "leads",
   "events",
   "clients",
