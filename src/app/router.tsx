@@ -134,6 +134,7 @@ const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ 
 const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
 const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
 const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
+const KitchenOverviewPage = lazy(() => import("../features/kitchen-overview").then((module) => ({ default: module.KitchenOverviewPage })));
 const MenusPage = lazy(() => import("../features/kitchen-screen").then((module) => ({ default: module.MenusPage })));
 const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
 import { Button, EmptyState, PageHeader, Section } from "../components/shared";
@@ -148,9 +149,6 @@ const CalendarPage = lazy(() =>
 );
 const BeoListPage = lazy(() =>
   import("../features/beo-list").then((module) => ({ default: module.BeoListPage })),
-);
-const DayOfPage = lazy(() =>
-  import("../features/day-of").then((module) => ({ default: module.DayOfPage })),
 );
 const ProductionOverviewPage = lazy(() =>
   import("../features/production").then((module) => ({ default: module.ProductionOverviewPage })),
@@ -288,15 +286,20 @@ export const getRouter = () =>
         { path: "/inventory/sections", element: <SectionList /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
         { path: "/recipes", element: <RecipeList /> },
+        { path: "/kitchen/overview", element: <KitchenOverviewPage /> },
         { path: "/kitchen/menus", element: <MenusPage /> },
         { path: "/recipes/client", element: <ClientRecipeBook /> },
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
+        // Events › Overview (FLOW-294): the calendar with its events table. The
+        // old Calendar tab and the removed Day-of board land here, keeping
+        // their ?date= and filters.
+        { path: "/events/overview", element: <CalendarPage /> },
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/events/:id/beo/:beoId", element: <EventBeoPage /> },
-        { path: "/calendar", element: <CalendarPage /> },
+        { path: "/calendar", element: <LegacyRoute to="/events/overview" /> },
         { path: "/beos", element: <BeoListPage /> },
-        { path: "/day-of", element: <DayOfPage /> },
+        { path: "/day-of", element: <LegacyRoute to="/events/overview" /> },
         { path: "/production", element: <ProductionOverviewPage /> },
         { path: "/venues", element: <VenueList /> },
         { path: "/venues/:id", element: <VenueDetail /> },

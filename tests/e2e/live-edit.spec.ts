@@ -82,7 +82,7 @@ test("asks Save, Discard or Stay before leaving with unsaved edits (AC4)", async
 
   await go("Events");
   await prompt.getByRole("button", { name: "Discard" }).click();
-  await expect(page).toHaveURL(/#\/calendar$/);
+  await expect(page).toHaveURL(/#\/events\/overview$/);
   await closeNav(page, isMobile);
   // Edit mode stays on across pages.
   await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();

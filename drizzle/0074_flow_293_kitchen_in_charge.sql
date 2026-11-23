@@ -1,0 +1,1 @@
+ALTER TABLE "kitchen_menu_lines" ADD COLUMN "in_charge_staff_id" uuid;

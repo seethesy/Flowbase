@@ -38,7 +38,6 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "overview", name: "Overview", to: "/" },
       { copyId: "tasks", name: "Tasks", to: "/tasks", visible: "tasks.read" },
-      { copyId: "day-of", name: "Day-of", to: "/day-of", visible: "dayof.read" },
       { copyId: "approvals", name: "Approvals", to: "/approvals", visible: "approvals.read" },
     ],
   },
@@ -57,12 +56,13 @@ export const navigationGroups: NavGroup[] = [
   {
     copyId: "events",
     name: "Events",
+    // The calendar with its events table is the Overview (FLOW-294); /calendar
+    // and the removed Day-of board redirect to it.
     tabs: [
-      { copyId: "calendar", name: "Calendar", to: "/calendar", also: ["/events"], visible: "events.read" },
+      { copyId: "overview", name: "Overview", to: "/events/overview", also: ["/events"], visible: "events.read" },
       // Every event's BEO (FLOW-265).
       { copyId: "beos", name: "BEOs", to: "/beos", visible: "beos.read" },
       { copyId: "production", name: "Production", to: "/production", visible: "production.read" },
-      { copyId: "day-of", name: "Day-of", to: "/day-of", visible: "dayof.read" },
     ],
   },
   {
@@ -100,7 +100,9 @@ export const navigationGroups: NavGroup[] = [
   {
     copyId: "kitchen",
     name: "Kitchen",
+    // Kitchen opens on its Overview (FLOW-293): the next 14 days' menu items.
     tabs: [
+      { copyId: "overview", name: "Overview", to: "/kitchen/overview", visible: (actor) => can(actor, "events.read") && can(actor, "recipes.read") },
       { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
       { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
       // Every menu PDF (FLOW-267): Documents of type Menu and the client recipe book.
@@ -222,9 +224,9 @@ const owns = (prefix: string, pathname: string) =>
 
 export type NavMatch = { group: NavGroup; tab: NavTab; prefix: string };
 // The heading and tab a URL belongs to: the longest owned prefix wins, so
-// /inventory/ingredients is Kitchen › Ingredients, not Inventory. Day-of sits
-// under two headings; `preferredGroup` (the heading it was opened from) decides,
-// and otherwise the first heading does.
+// /inventory/ingredients is Kitchen › Ingredients, not Inventory. A page under
+// two headings goes to `preferredGroup` (the heading it was opened from), and
+// otherwise to the first heading.
 export function matchNavigation(pathname: string, preferredGroup?: string): NavMatch | null {
   let best: NavMatch | null = null;
   for (const group of navigationGroups)

@@ -107,7 +107,7 @@ test("a layout image can be uploaded and is shown, and Annotate opens the drawin
 
 test("the calendar's side panel shows the clicked event and closes (FLOW-265)", async ({ page }) => {
   await seedBeo();
-  await page.goto("/#/calendar?date=2026-09-17");
+  await page.goto("/#/events/overview?date=2026-09-17");
   await page.locator('.fc-daygrid-day[data-date="2026-09-17"] .calendar-event').click();
   const panel = page.getByRole("dialog", { name: "Fall gala" });
   await expect(panel).toContainText("120");

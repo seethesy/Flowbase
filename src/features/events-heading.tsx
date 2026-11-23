@@ -2,13 +2,12 @@ import type { ReactNode } from "react";
 import { PageHeader } from "../components/shared";
 import { T } from "../app/copy";
 
-// The Events screen's heading (FLOW-265), the same on its four tabs (Calendar,
-// BEOs, Production, Day-of), each with its own line under it and actions.
+// The Events screen's heading (FLOW-265), the same on its tabs (Overview, BEOs,
+// Production; FLOW-294), each with its own line under it and actions.
 const subtitles = {
-  calendar: <T id="events-screen.calendar.events-at-negotiation-or-later">Events at Negotiation or later, by date. New events start from a lead.</T>,
+  overview: <T id="events-screen.calendar.events-at-negotiation-or-later">Events at Negotiation or later, by date. New events start from a lead.</T>,
   beos: <T id="events-screen.beos.every-events-beo">{"Every event's BEO. Each approved version is also saved as a PDF in Documents."}</T>,
   production: <T id="events-screen.production.upcoming-work-across-events">Upcoming work across events: tasks, pulls, kitchen prep, shortages, staffing and trucks.</T>,
-  "day-of": <T id="events-screen.day-of.live-board-for-each">Live board for each event day: checkpoints, staff, trucks and the log.</T>,
 };
 
 export function EventsHeading({ tab, children }: { tab: keyof typeof subtitles; children?: ReactNode }) {

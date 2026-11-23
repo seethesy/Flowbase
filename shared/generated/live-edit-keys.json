@@ -133,11 +133,12 @@
     "calendar.calendar-list.load-more-events": [],
     "calendar.calendar-page.all-owners": [],
     "calendar.calendar-page.all-statuses": [],
+    "calendar.calendar-page.day": [],
     "calendar.calendar-page.layers": [],
-    "calendar.calendar-page.list": [],
     "calendar.calendar-page.month": [],
     "calendar.calendar-page.status": [],
     "calendar.calendar-page.today": [],
+    "calendar.calendar-page.week": [],
     "calendar.event-panel.client": [],
     "calendar.event-panel.date-time": [],
     "calendar.event-panel.guests": [],
@@ -274,36 +275,6 @@
     "dashboard.home.view-all-staff": [],
     "dashboard.home.view-all-tasks": [],
     "dashboard.home.working-staff": [],
-    "day-of.card.add": [],
-    "day-of.card.add-a-note.placeholder": [],
-    "day-of.card.guests": [
-      "count"
-    ],
-    "day-of.card.mark-urgent": [],
-    "day-of.card.service": [
-      "time"
-    ],
-    "day-of.card.staff-count": [
-      "count"
-    ],
-    "day-of.card.urgent-on": [],
-    "day-of.checkpoint-row.clear": [],
-    "day-of.checkpoint.actual": [
-      "time"
-    ],
-    "day-of.checkpoint.no-plan": [],
-    "day-of.checkpoint.not-yet": [],
-    "day-of.checkpoint.planned": [
-      "time"
-    ],
-    "day-of.checkpoint.record-now": [],
-    "day-of.day-of-page.export-csv": [],
-    "day-of.day-of-page.no-events-on-this-date": [],
-    "day-of.day-of-page.no-staff-scheduled": [],
-    "day-of.day-of-page.no-trucks-assigned": [],
-    "day-of.day-of-page.today-button": [],
-    "day-of.day-of-page.today-suffix": [],
-    "day-of.day-of-page.trucks": [],
     "day-of.event-day-of-section.day-of-log": [],
     "day-of.event-day-of-section.export-csv": [],
     "day-of.event-day-of-section.no-day-of-updates-yet": [],
@@ -312,7 +283,6 @@
     ],
     "day-of.event-day-of-section.system": [],
     "day-of.event-day-of-section.urgent": [],
-    "day-of.truck-row.unassigned": [],
     "documents.library.all": [],
     "documents.library.cancel-link": [],
     "documents.library.deleted": [],
@@ -893,7 +863,6 @@
     "event-trucks.event-truck-section.unassigned": [],
     "events-screen.beos.every-events-beo": [],
     "events-screen.calendar.events-at-negotiation-or-later": [],
-    "events-screen.day-of.live-board-for-each": [],
     "events-screen.events-heading.events": [],
     "events-screen.production.upcoming-work-across-events": [],
     "events.event-detail.all-events": [],
@@ -1502,6 +1471,8 @@
       "replaceAll",
       "toDate"
     ],
+    "kitchen-overview.table.menu-items": [],
+    "kitchen-overview.table.no-menu-items": [],
     "kitchen-screen.bulk.move-to-storage": [],
     "kitchen-screen.bulk.set-vendor": [],
     "kitchen-screen.ingredients.kitchen-ingredients-what-is": [],
@@ -1535,6 +1506,7 @@
       "date",
       "version"
     ],
+    "kitchen-screen.overview.menu-items-for-the-next": [],
     "kitchen-screen.recipes.every-dish-with-its": [],
     "kitchen-screen.stock.in-stock": [],
     "kitchen-screen.stock.low": [],
@@ -1711,13 +1683,11 @@
     "nav.bar": [],
     "nav.beo": [],
     "nav.beos": [],
-    "nav.calendar": [],
     "nav.client": [],
     "nav.client-recipe-book": [],
     "nav.clients": [],
     "nav.collector-health": [],
     "nav.dashboard": [],
-    "nav.day-of": [],
     "nav.documents": [],
     "nav.employee-profile": [],
     "nav.event": [],
@@ -2898,6 +2868,7 @@
     "inventory-lists.ingredient-list.",
     "inventory-lists.inventory-list.",
     "inventory-master.master-inventory.",
+    "kitchen-overview.table.",
     "labels.approval-status.",
     "labels.bar-container.",
     "labels.beo-list-status.",
@@ -2910,8 +2881,6 @@
     "labels.conflict-state.",
     "labels.contact-role.",
     "labels.cost-source.",
-    "labels.day-of-staff-status.",
-    "labels.day-of-truck-status.",
     "labels.deletable-entity.",
     "labels.department.",
     "labels.document-type.",
@@ -2987,6 +2956,7 @@
     "calendar.page": {
       "blocks": [
         "calendar",
+        "events",
         "layers"
       ],
       "fieldCards": []
@@ -3024,12 +2994,6 @@
         "my-tasks",
         "upcoming-events",
         "working-staff"
-      ],
-      "fieldCards": []
-    },
-    "day-of.board": {
-      "blocks": [
-        "events"
       ],
       "fieldCards": []
     },
@@ -3276,6 +3240,12 @@
     "kitchen.orders": {
       "blocks": [
         "order-lists"
+      ],
+      "fieldCards": []
+    },
+    "kitchen.overview": {
+      "blocks": [
+        "menu-items"
       ],
       "fieldCards": []
     },
