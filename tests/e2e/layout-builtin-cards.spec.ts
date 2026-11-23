@@ -89,7 +89,7 @@ test("edits a client's Events related list (AC2)", async ({ page }) => {
 });
 
 const inventoryTables = [
-  { name: "Ingredients", path: "/#/inventory/ingredients", item: consumable("Synthetic flour", { unit: "lb" }), hide: "Legacy category" },
+  { name: "Ingredients", path: "/#/inventory/ingredients", item: consumable("Synthetic flour", { unit: "lb" }), hide: "Storage" },
   {
     name: "Low stock",
     path: "/#/inventory/low-stock",
