@@ -83,7 +83,7 @@ export const navigationGroups: NavGroup[] = [
       // FLOW-291: Inventory | Bar Inventory | Order | Vendors (and Photos, FLOW-298).
       { copyId: "inventory", name: "Inventory", to: "/inventory", visible: "inventory.read" },
       // Bar stock's tab keeps its address, /inventory/bar.
-      { copyId: "bar", name: "Bar Inventory", to: "/inventory/bar", visible: "inventory.read" },
+      { copyId: "bar-inventory", name: "Bar Inventory", to: "/inventory/bar", visible: "inventory.read" },
       // Ordering (FLOW-292): order lists, approvals and what needs reordering.
       // Replaces Purchasing and Low stock.
       { copyId: "order", name: "Order", to: "/inventory/order", also: ["/inventory/orders"], visible: "inventory.read" },
@@ -194,6 +194,9 @@ const recordBases: Record<string, RecordKind | NavLabel> = {
   "/inventory/orders": { copyId: "order-list", label: "Order list" },
   "/imports": { copyId: "import", label: "Import" },
 };
+// Path segments with no page of their own: count mode (/inventory/counts/:id)
+// sits under Inventory now the Counts list is gone (FLOW-291).
+const passThrough = new Set(["/inventory/counts"]);
 // Pages below a record, e.g. an event's BEO.
 const recordChildren: Record<string, NavLabel> = { beo: { copyId: "beo", label: "BEO" } };
 
@@ -274,8 +277,8 @@ export function breadcrumbTrail(
   for (let index = 0; index < rest.length; index += 1) {
     const segment = rest[index];
     const next = `${base}/${segment}`;
-    if (subPages[next]) {
-      crumbs.push({ ...subPages[next], to: next });
+    if (subPages[next] || passThrough.has(next)) {
+      if (subPages[next]) crumbs.push({ ...subPages[next], to: next });
       base = next;
       continue;
     }

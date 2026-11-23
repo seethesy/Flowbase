@@ -22,6 +22,8 @@ export type LiveEditRenames = {
 
 export const liveEditRenames: LiveEditRenames = {
   copy: {
+    // FLOW-291: the Bar tab is now Bar Inventory.
+    "nav.bar": "nav.bar-inventory",
     // FLOW-265: the Events screen's rebuilt Calendar panel and Day-of board.
     "calendar-detail.calendar-detail.open-event": "calendar.event-panel.open-event",
     // FLOW-266: the Inventory screen's shared heading, lines and shortcut cards.
