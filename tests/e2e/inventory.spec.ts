@@ -65,8 +65,9 @@ test("creates and edits fixed, per-person and quoted services with includes and 
     await page.getByRole("button", { name: "New Item", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name *", { exact: true }).fill(name);
+    // Master items read "Rental"; Stock tracking makes one a service (FLOW-289).
     await choose(dialog
-      .getByRole("combobox", { name: "Kind", exact: true }), "service");
+      .getByRole("combobox", { name: "Stock tracking", exact: true }), "not_stocked");
     if (basis === "quote")
       await dialog.getByLabel("Priced by quote", { exact: true }).check();
     else {
@@ -129,6 +130,9 @@ test("creates a decor kit and a used-up Master item, filters below par and count
   await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
   await dialog.getByRole("button", { name: "Save item" }).click();
   await expect(dialog).toHaveCount(0);
+  // Saving opens the new item's page.
+  await expect(page.getByRole("heading", { name: "Candles", level: 1 })).toBeVisible();
+  await page.goto("/#/inventory");
   await expect(page.getByRole("row", { name: /Candles/ })).toContainText("Rental");
   await page.getByLabel("Below par only").check();
   await expect(

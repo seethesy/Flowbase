@@ -165,12 +165,12 @@ for (const role of ["admin", "salesperson"] as const) {
       { label: "Fridge" },
     );
     const line = page.getByRole("listitem", {
-      name: "Chafing dish fuel",
+      name: "Sourdough dinner rolls",
       exact: true,
     });
     await line.getByLabel("Counted (each)").fill("5");
     await line
-      .getByRole("button", { name: "Save count for Chafing dish fuel" })
+      .getByRole("button", { name: "Save count for Sourdough dinner rolls" })
       .click();
     await expect(line.getByRole("status")).toContainText("Counted 5 each");
     await page.reload();
