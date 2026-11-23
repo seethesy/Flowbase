@@ -1597,3 +1597,57 @@ describe("bar stock (FLOW-90)", () => {
     await expectLedgerMatchesCache(beer.id);
   });
 });
+
+// Inline table edits (FLOW-261/275): one PATCH per cell, checked like the item's
+// own save.
+describe("inline table fields (FLOW-275)", () => {
+  const inline = (as: ReturnType<typeof signedInAs>, id: string, field: string, value: string) =>
+    versionOf(id).then((updatedAt) =>
+      as.call("PATCH", `/api/inventory/items/${id}/inline`, { field, value, updatedAt }));
+
+  it("saves Bar tier, container and distributor, and rejects values outside their lists", async () => {
+    const vodka = await createItem(titos());
+    expect((await inline(admin, vodka.id, "tier", "premium")).status).toBe(200);
+    expect((await inline(admin, vodka.id, "bar.container", "keg")).status).toBe(200);
+    expect((await inline(admin, vodka.id, "consumable.preferredVendor", "Synthetic distributor")).status).toBe(200);
+    expect(await admin.get<InventoryItem>(`/api/inventory/items/${vodka.id}`)).toMatchObject({
+      tier: "premium",
+      bar: { container: "keg", brand: "Tito's" },
+      consumable: { preferredVendor: "Synthetic distributor", packCount: 12, unitCostCents: 2299 },
+    });
+    expect((await inline(admin, vodka.id, "bar.container", "crate")).status).toBe(400);
+    expect((await inline(admin, vodka.id, "tier", "top shelf")).status).toBe(400);
+    expect((await inline(admin, vodka.id, "bar.container", "")).status).toBe(200);
+    expect((await admin.get<InventoryItem>(`/api/inventory/items/${vodka.id}`)).bar?.container).toBeNull();
+  });
+
+  it("saves an ingredient's recipe unit and storage, and keeps storage in storage sections", async () => {
+    const ingredient = await createItem(cream());
+    const cooler = await section("Synthetic cooler", "consumable");
+    const warehouse = await section("Synthetic warehouse");
+    expect((await inline(admin, ingredient.id, "consumable.recipeUnit", "tbsp")).status).toBe(200);
+    expect((await inline(admin, ingredient.id, "consumable.storageSectionId", cooler.id)).status).toBe(200);
+    expect((await admin.get<InventoryItem>(`/api/inventory/items/${ingredient.id}`)).consumable).toMatchObject({
+      recipeUnit: "tbsp", storageSectionId: cooler.id, storageSectionName: "Synthetic cooler",
+    });
+    expect((await inline(admin, ingredient.id, "consumable.recipeUnit", "bucket")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.storageSectionId", "not-an-id")).status).toBe(400);
+    expect((await inline(admin, ingredient.id, "consumable.storageSectionId", warehouse.id)).status).toBe(409);
+    expect((await inline(admin, ingredient.id, "consumable.recipeUnit", "")).status).toBe(200);
+    expect((await admin.get<InventoryItem>(`/api/inventory/items/${ingredient.id}`)).consumable?.recipeUnit).toBeNull();
+  });
+
+  it("saves a rental's group, tier and color, and refuses a user who can't edit inventory", async () => {
+    const row = await createItem(chairs());
+    expect((await inline(admin, row.id, "group", "Ballroom chairs")).status).toBe(200);
+    expect((await inline(admin, row.id, "tier", "Premium")).status).toBe(200);
+    expect((await inline(admin, row.id, "color", "Silver")).status).toBe(200);
+    expect(await admin.get<InventoryItem>(`/api/inventory/items/${row.id}`)).toMatchObject({
+      group: "Ballroom chairs", tier: "Premium", color: "Silver",
+    });
+    const vodka = await createItem(titos());
+    expect((await inline(partTimeStaff, vodka.id, "bar.container", "can")).status).toBe(403);
+    expect((await inline(partTimeStaff, row.id, "color", "Gold")).status).toBe(403);
+    expect((await admin.get<InventoryItem>(`/api/inventory/items/${vodka.id}`)).bar?.container).toBe("bottle");
+  });
+});

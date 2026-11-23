@@ -1,14 +1,34 @@
 import { test, expect } from "./auth-fixture";
 import { juniper, fallGala, chairs, consumable } from "./fixtures";
-import { seedInventory, seedRecords } from "./database";
+import { browserDb, seedInventory, seedRecords } from "./database";
 import { utcToBusinessTime } from "../../shared/time";
-import type { Page } from "@playwright/test";
+import { orderLists, proposals } from "../../worker/db/schema";
+import type { Locator, Page } from "@playwright/test";
 
 async function saveInline(page: Page, path: string, method = "PUT") {
   const saved = page.waitForResponse((response) =>
     response.url().includes(path) && response.request().method() === method,
   );
   await page.locator("tbody tr input.table-edit-input").press("Enter");
+  expect((await saved).ok()).toBeTruthy();
+}
+
+// The cell under a column header in the row whose name matches (FLOW-275).
+async function cellOf(page: Page, row: RegExp, header: string) {
+  await expect(page.getByRole("row", { name: row })).toBeVisible();
+  const headers = (await page.locator("thead th").allTextContents())
+    .map((text) => text.replace(/[↑↓]/g, "").trim());
+  const index = headers.indexOf(header);
+  expect(index, `column ${header} in ${headers.join(", ")}`).toBeGreaterThanOrEqual(0);
+  return page.getByRole("row", { name: row }).getByRole("cell").nth(index);
+}
+// Opens an inline dropdown cell, picks an option and waits for the save.
+async function pickInline(page: Page, trigger: Locator, option: string, path: string, method = "PATCH") {
+  const saved = page.waitForResponse((response) =>
+    response.url().includes(path) && response.request().method() === method,
+  );
+  await trigger.click();
+  await page.getByRole("listbox").last().getByRole("option", { name: option, exact: true }).click();
   expect((await saved).ok()).toBeTruthy();
 }
 
@@ -150,4 +170,97 @@ test("recipe table saves an inline dish name", async ({ page }) => {
   await saveInline(page, "/api/recipes/");
   await page.reload();
   await expect(page.getByRole("row", { name: /Synthetic entrée/ })).toBeVisible();
+});
+
+// FLOW-275: the remaining stored fields on Inventory, Ingredients and Bar.
+test("Inventory, Ingredient and Bar tables save the remaining item fields inline", async ({ page }) => {
+  await seedInventory({ items: [
+    chairs(), consumable("Synthetic herb"),
+    consumable("Synthetic spirit", { subtype: "bar", category: "Liquor",
+      bar: { brand: "Synthetic", subcategory: "Vodka", container: "bottle", housePick: false } }),
+  ] });
+  await page.goto("/#/inventory");
+  await (await cellOf(page, /Chiavari Chair/, "Group")).getByRole("button").click();
+  await page.locator("tbody tr input.table-edit-input").fill("Ballroom chairs");
+  await saveInline(page, "/api/inventory/items/", "PATCH");
+  await page.reload();
+  await expect(await cellOf(page, /Chiavari Chair/, "Group")).toHaveText("Ballroom chairs");
+
+  await page.goto("/#/inventory/ingredients");
+  await pickInline(page, (await cellOf(page, /Synthetic herb/, "Recipe unit")).getByRole("button"), "tbsp", "/api/inventory/items/");
+  await page.reload();
+  await expect(await cellOf(page, /Synthetic herb/, "Recipe unit")).toHaveText("tbsp");
+
+  await page.goto("/#/inventory/bar");
+  await pickInline(page, (await cellOf(page, /Synthetic spirit/, "Tier")).getByRole("button"), "Premium", "/api/inventory/items/");
+  await pickInline(page, (await cellOf(page, /Synthetic spirit/, "Container")).getByRole("button"), "Keg", "/api/inventory/items/");
+  await (await cellOf(page, /Synthetic spirit/, "Distributor")).getByRole("button").click();
+  await page.locator("tbody tr input.table-edit-input").fill("Synthetic distributor");
+  await saveInline(page, "/api/inventory/items/", "PATCH");
+  await page.reload();
+  await expect(await cellOf(page, /Synthetic spirit/, "Tier")).toHaveText("Premium");
+  await expect(await cellOf(page, /Synthetic spirit/, "Container")).toHaveText("Keg");
+  await expect(await cellOf(page, /Synthetic spirit/, "Distributor")).toHaveText("Synthetic distributor");
+});
+
+test("All tasks saves a task's priority and position in place", async ({ page }) => {
+  await page.goto("/#/tasks/all");
+  await page.getByRole("button", { name: "New task" }).click();
+  const drawer = page.getByRole("dialog");
+  await drawer.getByLabel("Title").fill("Stack chairs");
+  await drawer.getByRole("button", { name: "Add task" }).click();
+  await expect(drawer).toHaveCount(0);
+  const row = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Stack chairs" });
+  await pickInline(page, row.getByTitle("Priority"), "High", "/api/tasks/");
+  const saved = page.waitForResponse((response) =>
+    response.url().includes("/api/tasks/") && response.request().method() === "PATCH",
+  );
+  await row.getByTitle("Position").click();
+  await row.getByRole("textbox", { name: "Position" }).fill("Server");
+  await row.getByRole("textbox", { name: "Position" }).press("Enter");
+  expect((await saved).ok()).toBeTruthy();
+  await page.reload();
+  const reloaded = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Stack chairs" });
+  await expect(reloaded.getByTitle("Priority")).toHaveText("High");
+  await expect(reloaded.getByTitle("Position")).toHaveText("Server");
+});
+
+test("the Proposals tracker renames a proposal in place and the name persists", async ({ page }) => {
+  await seedRecords({ clients: [juniper()], events: [fallGala()] });
+  const proposalId = "f0000000-0000-4000-8000-000000000075";
+  await browserDb(async (db) => {
+    await db.insert(proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", notes: "Keep these notes" });
+  });
+  await page.goto("/#/proposals");
+  const row = page.getByRole("row", { name: /Gala proposal/ });
+  await row.getByTitle("Proposal title").click();
+  await row.getByRole("textbox", { name: "Proposal title" }).fill("Gala proposal v2");
+  await saveInline(page, `/api/proposals/${proposalId}`);
+  await page.reload();
+  await expect(page.getByTitle("Proposal title")).toHaveText("Gala proposal v2");
+  // The save kept the proposal's notes.
+  await expect.poll(() => browserDb(async (db) =>
+    (await db.select({ notes: proposals.notes }).from(proposals))[0]?.notes)).toBe("Keep these notes");
+});
+
+test("Purchasing saves an order line's note on blur", async ({ page }) => {
+  const herb = consumable("Synthetic herb");
+  await seedInventory({ items: [herb] });
+  const listId = await browserDb(async (db) => {
+    const [row] = await db.insert(orderLists).values({ fromDate: "2026-11-01", toDate: "2026-11-30", status: "draft",
+      lines: [{ itemId: herb.id, itemName: "Synthetic herb", vendorId: null, vendorName: "Synthetic vendor",
+        orderingInstructions: "", quantity: 2, purchaseUnit: "case", shortage: 2,
+        orderBy: null, eventIds: [], eventTitles: [], note: "" }] }).returning();
+    return row.id;
+  });
+  await page.goto(`/#/inventory/orders/${listId}`);
+  const note = page.getByLabel("Note for Synthetic herb");
+  await note.fill("Ask for the large bunches");
+  const saved = page.waitForResponse((response) =>
+    response.url().includes(`/api/order-lists/${listId}`) && response.request().method() === "PUT",
+  );
+  await note.press("Enter");
+  expect((await saved).ok()).toBeTruthy();
+  await page.reload();
+  await expect(page.getByLabel("Note for Synthetic herb")).toHaveValue("Ask for the large bunches");
 });
