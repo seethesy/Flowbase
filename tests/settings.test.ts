@@ -149,7 +149,10 @@ it("accepts only known staff profile fields", () => {
     { email: "new@gmail.com" },
     { mobile: "" },
     { positions: ["Server", "Server"] },
-    { status: "active" },
+    // Status is Active or Inactive for staff without an account (FLOW-270); no
+    // other value is accepted.
+    { status: "invited" },
   ])
     expect(staffUpdateSchema.safeParse(input).success, JSON.stringify(input)).toBe(false);
+  expect(staffUpdateSchema.parse({ status: "deactivated" })).toEqual({ status: "deactivated" });
 });

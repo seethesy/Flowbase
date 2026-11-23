@@ -1744,6 +1744,7 @@
     "nav.order-lists": [],
     "nav.overview": [],
     "nav.page-not-found": [],
+    "nav.payroll": [],
     "nav.photos": [],
     "nav.production": [],
     "nav.proposals": [],
@@ -1930,6 +1931,20 @@
     ],
     "paging.load-more.load-more": [],
     "paging.load-more.loading": [],
+    "payroll.exception-form.cancel": [],
+    "payroll.exception-form.save": [],
+    "payroll.pay-exceptions.add-exception": [],
+    "payroll.pay-exceptions.exceptions": [],
+    "payroll.pay-exceptions.none": [],
+    "payroll.pay-exceptions.pay-exceptions": [],
+    "payroll.pay-exceptions.remove": [],
+    "payroll.payroll-page.from": [],
+    "payroll.payroll-page.pay": [],
+    "payroll.payroll-page.pay-rates-hours": [],
+    "payroll.payroll-page.payroll": [],
+    "payroll.payroll-page.staff": [],
+    "payroll.payroll-page.staffing": [],
+    "payroll.payroll-page.to": [],
     "photos.delete.description": [],
     "photos.delete.title-many": [
       "count"
@@ -2454,7 +2469,13 @@
     "sops.sop-library.search-sops": [],
     "sops.sop-library.sop-library": [],
     "sops.sop-library.standard-procedures-for-production-and": [],
+    "staff.add-staff-form.add-staff": [],
+    "staff.add-staff-form.add-staff-without-account": [],
+    "staff.add-staff-form.cancel": [],
+    "staff.add-staff-form.no-invite-no-sign-in": [],
     "staff.staff-detail.all-staff": [],
+    "staff.staff-directory.add-staff-without-account": [],
+    "staff.staff-directory.change-role": [],
     "staff.staff-directory.search-name-or-email.placeholder": [],
     "staff.staff-directory.show-inactive": [],
     "staff.staff-directory.staff": [],
@@ -2474,6 +2495,7 @@
     "staff.staff-form.save-email": [],
     "staff.staff-form.sms-consent": [],
     "staff.staff-form.staff-profile": [],
+    "staff.staff-profile.no-account": [],
     "staff.staff-profile.staff-profile": [],
     "staff.staff-summary.edit": [],
     "staff.staff-summary.employee-profile": [],
@@ -2904,6 +2926,7 @@
     "labels.menu-kind.",
     "labels.movement-type.",
     "labels.order-list-status.",
+    "labels.pay-type.",
     "labels.payment-method.",
     "labels.pipeline-status.",
     "labels.planning-output-kind.",
@@ -2930,6 +2953,8 @@
     "lead-dashboard.lead-dashboard-page.",
     "leads.inbox.column.",
     "notifications.settings.",
+    "payroll.exceptions.",
+    "payroll.pay.",
     "proposals.proposals.",
     "purchasing.table.",
     "recipes.recipe-list.",
@@ -3294,6 +3319,13 @@
     "staff.list": {
       "blocks": [
         "list"
+      ],
+      "fieldCards": []
+    },
+    "staff.payroll": {
+      "blocks": [
+        "exceptions",
+        "pay"
       ],
       "fieldCards": []
     },
