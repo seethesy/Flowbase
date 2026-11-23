@@ -2,8 +2,9 @@ import { test, expect } from "./auth-fixture";
 import { juniper, fallGala, chairs, consumable } from "./fixtures";
 import { browserDb, seedInventory, seedRecords } from "./database";
 import { utcToBusinessTime } from "../../shared/time";
-import { orderLists, proposals } from "../../worker/db/schema";
+import { attachments, orderLists, proposals } from "../../worker/db/schema";
 import type { Locator, Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 async function saveInline(page: Page, path: string, method = "PUT") {
   const saved = page.waitForResponse((response) =>
@@ -263,4 +264,58 @@ test("Purchasing saves an order line's note on blur", async ({ page }) => {
   expect((await saved).ok()).toBeTruthy();
   await page.reload();
   await expect(page.getByLabel("Note for Synthetic herb")).toHaveValue("Ask for the large bunches");
+});
+
+// FLOW-275: how an ingredient is bought, saved inline and still there after a reload.
+test("Ingredients save how an item is bought inline", async ({ page }) => {
+  await seedInventory({ items: [consumable("Synthetic thyme", { details: { purchaseUnit: "each", packCount: null } })] });
+  await page.goto("/#/inventory/ingredients");
+  // A case needs its pack count first.
+  await (await cellOf(page, /Synthetic thyme/, "Pack count")).getByRole("button").click();
+  await page.locator("tbody tr input.table-edit-input").fill("6");
+  await saveInline(page, "/api/inventory/items/", "PATCH");
+  await pickInline(page, (await cellOf(page, /Synthetic thyme/, "Bought as")).getByRole("button"), "case", "/api/inventory/items/");
+  await page.reload();
+  await expect(await cellOf(page, /Synthetic thyme/, "Bought as")).toContainText("case of 6");
+  await expect(await cellOf(page, /Synthetic thyme/, "Pack count")).toHaveText("6");
+});
+
+test("event table changes an event's status with the pill dropdown", async ({ page }) => {
+  const event = { ...fallGala(), date: utcToBusinessTime(new Date()).date };
+  await seedRecords({ clients: [juniper()], events: [event] });
+  await page.goto("/#/events");
+  await pickInline(page, page.getByRole("combobox", { name: "Status for Fall gala" }), "Negotiation", `/api/events/${event.id}/status`, "POST");
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Status for Fall gala" })).toHaveAttribute("data-value", "negotiation");
+});
+
+test("an event's Tasks section changes a task's status in place", async ({ page }) => {
+  const event = { ...fallGala(), date: "2026-09-17", startTime: "18:00" };
+  await seedRecords({ clients: [juniper()], events: [event] });
+  await page.goto(`/#/events/${event.id}`);
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  const drawer = page.getByRole("dialog");
+  await drawer.getByLabel("Title").fill("Fold napkins");
+  await drawer.getByRole("button", { name: "Add task" }).click();
+  await expect(drawer).toHaveCount(0);
+  const row = () => page.getByRole("list", { name: "Event tasks" }).getByRole("listitem").filter({ hasText: "Fold napkins" });
+  await pickInline(page, row().getByTitle("Status"), "In progress", "/api/tasks/");
+  await page.reload();
+  await expect(row().getByTitle("Status")).toHaveText("In progress");
+});
+
+test("Documents table saves an inline name after reload", async ({ page }) => {
+  await seedRecords({ clients: [juniper()] });
+  // Every stored document carries its document id (FLOW-263; migration 0066).
+  const documentId = randomUUID();
+  const [document] = await browserDb((db) => db.insert(attachments).values({
+    id: documentId, documentId, recordType: "client", recordId: juniper().id, fileName: "synthetic-menu.pdf",
+    displayName: "Synthetic menu", docType: "other", status: "ready", variants: [],
+  }).returning());
+  await page.goto("/#/documents");
+  await page.getByRole("row", { name: /Synthetic menu/ }).getByRole("button", { name: "Synthetic menu" }).click();
+  await page.locator("tbody tr input.table-edit-input").fill("Synthetic tasting menu");
+  await saveInline(page, `/api/documents/${document.id}`, "PATCH");
+  await page.reload();
+  await expect(page.getByRole("row", { name: /Synthetic tasting menu/ })).toBeVisible();
 });
