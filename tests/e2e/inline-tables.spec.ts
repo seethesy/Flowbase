@@ -225,13 +225,13 @@ test("All tasks saves a task's priority and position in place", async ({ page })
   await expect(reloaded.getByTitle("Position")).toHaveText("Server");
 });
 
-test("the Proposals tracker renames a proposal in place and the name persists", async ({ page }) => {
+test("the Sales tracker renames a proposal in place and the name persists", async ({ page }) => {
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   const proposalId = "f0000000-0000-4000-8000-000000000075";
   await browserDb(async (db) => {
     await db.insert(proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", notes: "Keep these notes" });
   });
-  await page.goto("/#/proposals");
+  await page.goto("/#/sales");
   const row = page.getByRole("row", { name: /Gala proposal/ });
   await row.getByTitle("Proposal title").click();
   await row.getByRole("textbox", { name: "Proposal title" }).fill("Gala proposal v2");

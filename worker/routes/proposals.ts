@@ -24,6 +24,7 @@ import {
   completeProposalUpload,
   createProposal,
   getProposal,
+  listProposalFiles,
   listProposals,
   startProposalUpload,
   updateProposal,
@@ -49,6 +50,10 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
 
   routes.get("/addendums/open", requirePermission("proposals.read"), async (c) =>
     c.json(await record(c, (db, actor) => listOpenAddendums(db, actor))),
+  );
+  // The Proposals library (FLOW-276): one file per event the user can open.
+  routes.get("/files", requirePermission("proposals.read"), async (c) =>
+    c.json(await record(c, (db, actor) => listProposalFiles(db, actor, env(c)))),
   );
 
   routes.get("/event/:eventId/contracts", requirePermission("proposals.read"), async (c) =>

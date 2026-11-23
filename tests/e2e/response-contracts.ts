@@ -35,6 +35,7 @@ import {
 } from "../../shared/reservations";
 import {
   proposalDetailSchema,
+  proposalLibraryFileSchema,
   proposalSchema,
   proposalUploadTicketSchema,
 } from "../../shared/proposals";
@@ -270,6 +271,8 @@ export function responseSchema(
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
     if (id === "addendums" && action === "open") return openAddendumSchema.array();
+    // The Proposals library (FLOW-276).
+    if (id === "files" && !action) return proposalLibraryFileSchema.array();
     if (id === "event") {
       const tail = path.split("/");
       if (tail.includes("contracts")) return contractSchema.array();
