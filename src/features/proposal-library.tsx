@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FileText, LayoutGrid, List } from "lucide-react";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Button, EditableCell, EmptyState, FilterBar, LoadingSkeleton, PageHeader, SearchInput } from "../components/shared";
+import { Button, EmptyState, FilterBar, LoadingSkeleton, PageHeader, SearchInput } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { useResource } from "../app/useResource";
 import { usePermissions } from "../app/permissions";
@@ -12,7 +12,8 @@ import type { ProposalLibraryFile } from "../../shared/proposals";
 import "./proposal-library.css";
 
 // The Proposals library (FLOW-276): one file per event, its latest uploaded
-// proposal version, as a list or a grid. No event details beyond its name.
+// proposal version, as a list or a grid. No event details beyond its name. Read
+// only: a proposal is renamed on its event page.
 type View = "list" | "grid";
 const viewKey = (userId: string | undefined) => `flowbase.proposals.view.${userId ?? "anonymous"}`;
 // Browser storage can be missing or blocked; the list view is the fallback.
@@ -46,21 +47,12 @@ const EventLink = ({ row }: { row: ProposalLibraryFile }) =>
 
 export function ProposalLibrary() {
   const searchPlaceholder = useCopy("proposals.library.search.placeholder", "Search files…");
-  const { actor, can } = usePermissions();
+  const { actor } = usePermissions();
   const files = useResource(["proposals", "files"], proposalsApi.files);
   const [view, setView] = useState<View>(() => readView(actor?.userId));
   const [search, setSearch] = useState("");
   const [uploaded, setUploaded] = useState("");
-  const canRename = can("proposals.write");
   const choose = (next: View) => { setView(next); writeView(actor?.userId, next); };
-  // A rename is the proposal's title, saved through the proposal update with its
-  // notes and salesperson kept.
-  const rename = async (row: ProposalLibraryFile, title: string) => {
-    const current = await proposalsApi.get(row.proposalId);
-    await proposalsApi.update(row.proposalId, { title, notes: current.notes,
-      assignedSalespersonId: current.assignedSalesperson?.id ?? null });
-    files.reload();
-  };
   if (files.error) return <LoadError message={files.error} />;
   const all = files.data ?? [];
   const term = search.trim().toLowerCase();
@@ -97,9 +89,8 @@ export function ProposalLibrary() {
             <th><T id="proposals.library.event">Event</T></th>
           </tr></thead>
           <tbody>{rows.map((row) => <tr key={row.proposalId}>
-            <td>{canRename
-              ? <EditableCell label="File name" row={row} edit="text" value={row.title} save={rename} />
-              : row.title} <Labels row={row} /></td>
+            {/* Renamed only on the event page, never here. */}
+            <td>{row.title} <Labels row={row} /></td>
             <td><FileLinks row={row} /></td>
             <td>{uploadedOn(row)}</td>
             <td><EventLink row={row} /></td>

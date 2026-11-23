@@ -591,7 +591,7 @@ describe("Proposals library (FLOW-276)", () => {
   });
 
   // AC2
-  it("labels the shown version Approved and the Closed proposal Final", async () => {
+  it("shows no label by default, Approved once approved and Final once its contract is signed", async () => {
     const event = await newEvent();
     const proposal = await newProposal(event);
     const uploaded = await upload(proposal, { docx: docx(), pdf: pdf() });
@@ -602,11 +602,15 @@ describe("Proposals library (FLOW-276)", () => {
     expect((await files())[0].approved).toBe(false);
     await db.insert(schema.approvalRequests).values({ ...request, status: "approved", createdAt: new Date("2026-10-02T12:00:00.000Z") });
     expect((await files())[0]).toMatchObject({ approved: true, final: false });
+    // The proposal's stage alone doesn't make it Final; a signed contract does.
     await db.update(schema.proposals).set({ stage: "closed" }).where(eq(schema.proposals.id, proposal.id));
+    expect((await files())[0].final).toBe(false);
+    await db.insert(schema.contracts).values({ eventId: event.id, proposalId: proposal.id, versionId,
+      signedAt: new Date("2026-10-03T12:00:00.000Z"), clientSigner: "Client", salespersonSigner: "Sam" });
     expect((await files())[0]).toMatchObject({ approved: true, final: true });
-    // A newer version isn't approved yet, whatever the older one was.
+    // A newer version is neither approved nor the signed contract.
     const next = await upload(proposal, { docx: docx("Addendum.docx") });
-    expect((await files())[0]).toMatchObject({ versionId: next.versions[0].id, approved: false, final: true });
+    expect((await files())[0]).toMatchObject({ versionId: next.versions[0].id, approved: false, final: false });
   });
 
   // AC8
@@ -620,17 +624,11 @@ describe("Proposals library (FLOW-276)", () => {
     expect((await kit.call("GET", "/api/proposals/files")).status).toBe(403);
   });
 
-  // AC5
-  it("renames a file through the proposal update, only with proposal edit rights", async () => {
+  it("shows the name set on the event page", async () => {
     const event = await newEvent();
     const proposal = await newProposal(event);
-    await sam.send("PUT", `/api/proposals/${proposal.id}`, { title: "Gala dinner", notes: "Keep these notes" });
     await upload(proposal, { docx: docx() });
-    expect((await kit.call("PUT", `/api/proposals/${proposal.id}`, { title: "Kit's name", notes: "" })).status).toBe(403);
-    expect((await sue.call("PUT", `/api/proposals/${proposal.id}`, { title: "Sue's name", notes: "" })).status).toBe(404);
-    await sam.send("PUT", `/api/proposals/${proposal.id}`, { title: "Gala dinner final", notes: "Keep these notes" });
+    await sam.send("PUT", `/api/proposals/${proposal.id}`, { title: "Gala dinner final" });
     expect((await files())[0].title).toBe("Gala dinner final");
-    const [row] = await db.select().from(schema.proposals);
-    expect(row.notes).toBe("Keep these notes");
   });
 });

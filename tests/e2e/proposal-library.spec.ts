@@ -3,7 +3,7 @@ import { choose } from "./dropdown";
 import { test, expect } from "./auth-fixture";
 import { fallGala, juniper } from "./fixtures";
 import { browserDb, seedRecords } from "./database";
-import { approvalRequests, proposals, proposalVersions } from "../../worker/db/schema";
+import { approvalRequests, contracts, proposals, proposalVersions } from "../../worker/db/schema";
 import { DOCX_TYPE, PDF_TYPE } from "../../shared/proposals";
 
 // The Proposals library (FLOW-276) as the seeded Admin on the real Worker and
@@ -19,7 +19,7 @@ async function seedLibrary() {
   await seedRecords({ clients: [juniper()], events: [fallGala(), { ...fallGala(), id: brunch.event, title: "Spring brunch", date: "2027-03-14" }] });
   await browserDb(async (db) => {
     await db.insert(proposals).values([
-      { id: gala.proposal, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", notes: "Keep these notes", stage: "closed" },
+      { id: gala.proposal, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", stage: "closed" },
       { id: brunch.proposal, eventId: brunch.event, clientId: juniper().id, title: "Brunch proposal" },
     ]);
     await db.insert(proposalVersions).values([
@@ -31,6 +31,9 @@ async function seedLibrary() {
     await db.update(proposals).set({ currentVersionId: gala.v2 }).where(eq(proposals.id, gala.proposal));
     await db.update(proposals).set({ currentVersionId: brunch.v1 }).where(eq(proposals.id, brunch.proposal));
     await db.insert(approvalRequests).values({ subjectType: "proposal_version", subjectId: gala.v2, summary: "Gala", approverRole: "admin", status: "approved" });
+    // Final: the client signed the contract for the gala's latest version.
+    await db.insert(contracts).values({ eventId: fallGala().id, proposalId: gala.proposal, versionId: gala.v2,
+      signedAt: daysAgo(1), clientSigner: "Client", salespersonSigner: "Salesperson" });
   });
 }
 
@@ -67,20 +70,16 @@ test("lists one file per event with labels, links, search and the upload-date fi
   await expect(galaRow).toBeVisible();
 });
 
-test("renames a file inline, keeping the proposal's notes, and the name persists", async ({ page }) => {
+test("names can't be edited in the library; they change on the event page", async ({ page }) => {
   await seedLibrary();
   await page.goto("/#/proposals");
-  const row = page.getByRole("row", { name: /Gala proposal/ });
-  await row.getByTitle("File name").click();
-  await row.getByRole("textbox", { name: "File name" }).fill("Gala proposal final");
-  const saved = page.waitForResponse((response) =>
-    response.url().includes(`/api/proposals/${gala.proposal}`) && response.request().method() === "PUT");
-  await row.getByRole("textbox", { name: "File name" }).press("Enter");
-  expect((await saved).ok()).toBeTruthy();
+  const table = page.getByRole("table", { name: "Proposal files" });
+  await expect(table.getByRole("row", { name: /Gala proposal/ })).toBeVisible();
+  await expect(table.locator(".table-edit-trigger")).toHaveCount(0);
+  await expect(table.getByRole("textbox")).toHaveCount(0);
+  await browserDb(async (db) => { await db.update(proposals).set({ title: "Gala proposal final" }).where(eq(proposals.id, gala.proposal)); });
   await page.reload();
-  await expect(page.getByRole("row", { name: /Gala proposal final/ }).getByTitle("File name")).toHaveText("Gala proposal final");
-  await expect.poll(() => browserDb(async (db) =>
-    (await db.select({ notes: proposals.notes }).from(proposals).where(eq(proposals.id, gala.proposal)))[0]?.notes)).toBe("Keep these notes");
+  await expect(table.getByRole("row", { name: /Gala proposal final/ })).toBeVisible();
 });
 
 test("switches between list and grid views and remembers the choice", async ({ page }) => {

@@ -195,9 +195,9 @@ export const proposalLibraryFileSchema = z.object({
   uploadedAt: timestamp,
   docx: proposalFileSchema,
   pdf: proposalFileSchema.nullable(),
-  // The shown version's latest approval is approved.
+  // Both false by default. Approved: the shown version's latest approval is
+  // approved, as on the event page. Final: the client signed a contract for it.
   approved: z.boolean(),
-  // The proposal is Closed (signed).
   final: z.boolean(),
 });
 export type ProposalLibraryFile = z.infer<typeof proposalLibraryFileSchema>;

@@ -25,6 +25,7 @@ import type { Bindings } from "../bindings";
 import type { Db, DbLike } from "../db/client";
 import {
   attachments,
+  contracts,
   events,
   leads,
   approvalRequests,
@@ -255,7 +256,6 @@ export async function listProposalFiles(
     .select({
       proposalId: proposals.id,
       title: proposals.title,
-      stage: proposals.stage,
       eventId: events.id,
       eventName: events.title,
       versionId: proposalVersions.id,
@@ -280,6 +280,10 @@ export async function listProposalFiles(
     .orderBy(desc(approvalRequests.createdAt));
   // indexBy keeps the first row: the newest request per version.
   const approvalOf = indexBy(approvals, (row) => row.subjectId);
+  // Final: the client signed a contract for this exact version (FLOW-129).
+  const signed = new Set((await db.select({ versionId: contracts.versionId }).from(contracts)
+    .where(and(inArray(contracts.versionId, latest.map((row) => row.versionId)), isNull(contracts.archivedAt))))
+    .map((row) => row.versionId));
   const storage = fileStorage(env);
   return Promise.all(latest.map(async (row): Promise<ProposalLibraryFile> => ({
     proposalId: row.proposalId,
@@ -291,7 +295,7 @@ export async function listProposalFiles(
     docx: await file(storage, row.docx, now),
     pdf: row.pdf ? await file(storage, row.pdf, now) : null,
     approved: approvalOf.get(row.versionId)?.status === "approved",
-    final: row.stage === "closed",
+    final: signed.has(row.versionId),
   })));
 }
 
