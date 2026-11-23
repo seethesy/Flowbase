@@ -1025,9 +1025,14 @@
       "name",
       "plural"
     ],
-    "imports.import-list.bring-records-in-from-a": [],
-    "imports.import-list.importers": [],
-    "imports.import-list.imports": [],
+    "imports.import-list.bar-inventory-description": [],
+    "imports.import-list.import-file": [],
+    "imports.import-list.last-run": [
+      "date",
+      "name"
+    ],
+    "imports.import-list.master-inventory-description": [],
+    "imports.import-list.never-run": [],
     "imports.import-list.no-importers-are-available-to": [],
     "imports.import-log-table.by": [],
     "imports.import-log-table.created": [],
@@ -1266,9 +1271,6 @@
     "inventory-item-form.item-form-fields.vendor-cost-per-unit": [],
     "inventory-item-form.item-form-fields.vendor-directory": [],
     "inventory-item-form.item-form-fields.where-it-sits-in-the": [],
-    "inventory-lists.bar-list.all-inventory": [],
-    "inventory-lists.bar-list.bar": [],
-    "inventory-lists.bar-list.bar-2": [],
     "inventory-lists.bar-list.bar-items": [
       "dataCount"
     ],
@@ -1276,14 +1278,19 @@
       "dataCount"
     ],
     "inventory-lists.bar-list.bar-items-3": [],
-    "inventory-lists.bar-list.beer-wine-and-liquor-what": [],
     "inventory-lists.bar-list.below-par": [],
     "inventory-lists.bar-list.below-par-only": [],
-    "inventory-lists.bar-list.count": [],
     "inventory-lists.bar-list.distributor.placeholder": [],
     "inventory-lists.bar-list.load-more-bar-items": [],
     "inventory-lists.bar-list.new-bar-item": [],
+    "inventory-lists.bar-list.not-changed": [
+      "names"
+    ],
     "inventory-lists.bar-list.search-name-or-brand.placeholder": [],
+    "inventory-lists.bar-list.set-tier": [],
+    "inventory-lists.bar-list.start-bar-count": [],
+    "inventory-lists.bulk-vendor.set-vendor": [],
+    "inventory-lists.bulk-vendor.vendor-name.placeholder": [],
     "inventory-lists.ingredient-list.all-inventory": [],
     "inventory-lists.ingredient-list.below-par": [],
     "inventory-lists.ingredient-list.below-par-only": [],
@@ -1309,29 +1316,19 @@
     "inventory-lists.ingredient-list.supplies-3": [],
     "inventory-lists.ingredient-list.vendor.placeholder": [],
     "inventory-lists.ingredient-list.what-the-kitchen-buys-how": [],
-    "inventory-lists.inventory-list.approvals": [],
-    "inventory-lists.inventory-list.bar": [],
-    "inventory-lists.inventory-list.counts": [],
-    "inventory-lists.inventory-list.ingredients": [],
-    "inventory-lists.inventory-list.inventory": [],
-    "inventory-lists.inventory-list.items": [
-      "dataCount"
-    ],
-    "inventory-lists.inventory-list.items-2": [
-      "dataCount"
-    ],
+    "inventory-lists.inventory-list.all-kinds": [],
+    "inventory-lists.inventory-list.all-vendors": [],
+    "inventory-lists.inventory-list.below-par-only": [],
+    "inventory-lists.inventory-list.click-a-cell-to-edit": [],
     "inventory-lists.inventory-list.items-3": [],
     "inventory-lists.inventory-list.load-more-items": [],
-    "inventory-lists.inventory-list.low-stock": [],
-    "inventory-lists.inventory-list.master-sheet": [],
+    "inventory-lists.inventory-list.move-to-storage": [],
     "inventory-lists.inventory-list.new-item": [],
-    "inventory-lists.inventory-list.order-lists": [],
-    "inventory-lists.inventory-list.rentals-decor-kitchen-bar-and": [],
-    "inventory-lists.inventory-list.search-item-name-or-code.placeholder": [],
-    "inventory-lists.inventory-list.sections": [],
     "inventory-lists.inventory-list.show-archived": [],
-    "inventory-lists.inventory-list.stock-supplies": [],
-    "inventory-lists.inventory-list.supplies": [],
+    "inventory-lists.inventory-list.skipped": [
+      "names"
+    ],
+    "inventory-lists.inventory-list.start-stock-count": [],
     "inventory-master.master-inventory.all-items-and-sections-grouped": [],
     "inventory-master.master-inventory.export-csv": [],
     "inventory-master.master-inventory.items": [],
@@ -1381,6 +1378,34 @@
       "number"
     ],
     "inventory-planning.screen.an-event-you-can-t": [],
+    "inventory-screen.bar.beer-wine-liquor-and-mixers": [],
+    "inventory-screen.imports.bring-records-in-from": [],
+    "inventory-screen.inventory-heading.inventory": [],
+    "inventory-screen.inventory.rentals-decor-and-supplies": [],
+    "inventory-screen.purchasing.order-lists-cover-a-date": [],
+    "inventory-screen.shortcuts.counts-in-progress": [
+      "count"
+    ],
+    "inventory-screen.shortcuts.every-item-all-kinds": [],
+    "inventory-screen.shortcuts.items-below-par": [
+      "count"
+    ],
+    "inventory-screen.shortcuts.kitchen-orders": [],
+    "inventory-screen.shortcuts.low-stock": [],
+    "inventory-screen.shortcuts.master-inventory": [],
+    "inventory-screen.shortcuts.open-order-lists": [
+      "count"
+    ],
+    "inventory-screen.shortcuts.sections": [
+      "count"
+    ],
+    "inventory-screen.shortcuts.stock-counts": [],
+    "inventory-screen.shortcuts.storage-sections": [],
+    "inventory-screen.stock.in-stock": [],
+    "inventory-screen.stock.low": [],
+    "inventory-screen.stock.out": [],
+    "inventory-screen.stock.service": [],
+    "inventory-screen.vendors.distributors-rental-vendors-and": [],
     "inventory-sections.section-list.add-section": [],
     "inventory-sections.section-list.all-inventory": [],
     "inventory-sections.section-list.archive": [
@@ -2009,6 +2034,17 @@
     "proposals.proposals.table": [],
     "proposals.proposals.this-stage-is-ready-for": [],
     "proposals.proposals.your-business-connected": [],
+    "purchasing.new-order-list.build-list": [],
+    "purchasing.new-order-list.built-from-the-events": [],
+    "purchasing.new-order-list.from": [],
+    "purchasing.new-order-list.new-order-list": [],
+    "purchasing.new-order-list.to": [],
+    "purchasing.page.all-statuses": [],
+    "purchasing.page.how-an-order-list-moves": [],
+    "purchasing.page.new-order-list": [],
+    "purchasing.page.status-moves-through": [],
+    "purchasing.page.vendor-orders": [],
+    "purchasing.table.order-lists": [],
     "recipe-books.client-dish.allergens": [],
     "recipe-books.client-dish.dietary-tags": [],
     "recipe-books.client-dish.ingredients": [],
@@ -2675,13 +2711,10 @@
       "hiddenNote"
     ],
     "vendors.vendor-form.vendor-portal-url": [],
-    "vendors.vendor-list.distributors-rental-vendors-and-event": [],
-    "vendors.vendor-list.inventory": [],
     "vendors.vendor-list.load-more-vendors": [],
     "vendors.vendor-list.new-vendor": [],
     "vendors.vendor-list.search-vendors.placeholder": [],
     "vendors.vendor-list.show-archived": [],
-    "vendors.vendor-list.vendors": [],
     "vendors.vendor-list.vendors-2": [
       "dataCount"
     ],
@@ -2779,6 +2812,7 @@
     "labels.deletable-entity.",
     "labels.department.",
     "labels.hold-status.",
+    "labels.inventory-tab-kind.",
     "labels.item-kind.",
     "labels.item-subtype.",
     "labels.jurisdiction.",
@@ -2788,6 +2822,7 @@
     "labels.menu-filter.",
     "labels.menu-kind.",
     "labels.movement-type.",
+    "labels.order-list-status.",
     "labels.payment-method.",
     "labels.pipeline-status.",
     "labels.planning-output-kind.",
@@ -2815,6 +2850,7 @@
     "leads.inbox.column.",
     "notifications.settings.",
     "proposals.proposals.",
+    "purchasing.table.",
     "recipes.recipe-list.",
     "recipes.tag-choices.",
     "shared.file-list.",
@@ -2968,7 +3004,9 @@
     },
     "inventory.list": {
       "blocks": [
-        "list"
+        "filters",
+        "list",
+        "shortcuts"
       ],
       "fieldCards": []
     },
@@ -2988,6 +3026,13 @@
     "inventory.order-lists": {
       "blocks": [
         "builder",
+        "lists"
+      ],
+      "fieldCards": []
+    },
+    "inventory.purchasing": {
+      "blocks": [
+        "filters",
         "lists"
       ],
       "fieldCards": []

@@ -1674,3 +1674,20 @@ describe("inline table fields (FLOW-275)", () => {
     expect((await admin.get<InventoryItem>(`/api/inventory/items/${vodka.id}`)).bar?.container).toBe("bottle");
   });
 });
+
+describe("the Inventory tab's list (FLOW-266)", () => {
+  it("leaves out the subtypes asked for, keeping items without a subtype", async () => {
+    const rental = await createItem(chairs());
+    const ingredient = await createItem(cream());
+    const vodka = await createItem(titos());
+    const names = async (query: string) =>
+      (await admin.get<{ id: string }[]>(`/api/inventory/items${query}`)).map((row) => row.id);
+    const all = await names("");
+    expect(all).toEqual(expect.arrayContaining([rental.id, ingredient.id, vodka.id]));
+    const tab = await names("?excludeSubtypes=bar,ingredient");
+    expect(tab).toContain(rental.id);
+    expect(tab).not.toContain(ingredient.id);
+    expect(tab).not.toContain(vodka.id);
+    expect(await names("?excludeSubtypes=bar")).toEqual(expect.arrayContaining([rental.id, ingredient.id]));
+  });
+});
