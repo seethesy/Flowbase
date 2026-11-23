@@ -84,6 +84,8 @@ export const navigationGroups: NavGroup[] = [
       // Order lists live under Purchasing (FLOW-266).
       { copyId: "purchasing", name: "Purchasing", to: "/purchasing", also: ["/inventory/orders"], visible: "inventory.read" },
       { copyId: "vendors", name: "Vendors", to: "/vendors", visible: "vendors.read" },
+      // Inventory photos (FLOW-298).
+      { copyId: "photos", name: "Photos", to: "/inventory/photos", visible: "inventory.read" },
       // Each importer needs its own permission (FLOW-47): inventory or leads.
       {
         copyId: "imports",
@@ -99,13 +101,17 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
       { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
+      // Every menu PDF (FLOW-267): Documents of type Menu and the client recipe book.
+      { copyId: "menus", name: "Menus", to: "/kitchen/menus", visible: "recipes.read" },
+      // Kitchen photos (FLOW-298).
+      { copyId: "photos", name: "Photos", to: "/kitchen/photos", visible: "recipes.read" },
     ],
   },
-  // The Photos tab (FLOW-271) keeps the old Marketing tab's URL.
+  // Marketing › Photos (FLOW-271) keeps the old Marketing tab's URL.
   {
     copyId: "marketing",
     name: "Marketing",
-    tabs: withOverview("/marketing/overview", [{ copyId: "photos", name: "Photos", to: "/marketing" }]),
+    tabs: withOverview("/marketing/overview", [{ copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" }]),
   },
   {
     copyId: "documents",

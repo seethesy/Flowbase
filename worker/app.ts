@@ -31,6 +31,7 @@ import { recordRoutes } from "./routes/records";
 import { searchRoutes } from "./routes/search";
 import { attachmentRoutes } from "./routes/attachments";
 import { documentRoutes } from "./routes/documents";
+import { photoRoutes } from "./routes/photos";
 import { timeTrackingRoutes } from "./routes/time-tracking";
 import { settingsRoutes } from "./routes/settings";
 import { copyRoutes } from "./routes/copy";
@@ -356,6 +357,7 @@ export function createApp(options: Options = {}) {
   app.route("/api", recordRoutes(options));
   app.route("/api/attachments", attachmentRoutes(options));
   app.route("/api/documents", documentRoutes(options));
+  app.route("/api/photos", photoRoutes(options));
   app.route("/api/time", timeTrackingRoutes(options));
   app.route(
     "/api/ingest",

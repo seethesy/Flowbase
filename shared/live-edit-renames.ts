@@ -31,6 +31,9 @@ export const liveEditRenames: LiveEditRenames = {
     "vendors.vendor-list.distributors-rental-vendors-and-event": "inventory-screen.vendors.distributors-rental-vendors-and",
     "inventory-lists.inventory-list.inventory": "inventory-screen.inventory-heading.inventory",
     "inventory-lists.inventory-list.low-stock": "inventory-screen.shortcuts.low-stock",
+    // FLOW-267: the Kitchen screen's shared heading and its Recipes line.
+    "recipes.recipe-list.every-dish-with-its-ingredients": "kitchen-screen.recipes.every-dish-with-its",
+    "recipes.recipe-list.kitchen": "kitchen-screen.kitchen-heading.kitchen",
   },
   blocks: {},
   removed: {
@@ -40,6 +43,8 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-267: the Recipes page's own title, now the Kitchen heading.
+      "recipes.recipe-list.recipe-book",
       "calendar-detail.calendar-detail.allergens",
       "calendar-detail.calendar-detail.close",
       "calendar-detail.calendar-detail.contact",
