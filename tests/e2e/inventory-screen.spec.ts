@@ -29,7 +29,7 @@ test("bar items appear only on the Bar tab (AC2)", async ({ page }) => {
 });
 
 test("/purchasing shows the order lists, not a not-found page (AC3)", async ({ page }) => {
-  await seedInventory({ items: [consumable("Synthetic cups", { details: { parLevel: 12 } })] });
+  await seedInventory({ items: [consumable("Synthetic cups", { subtype: "supply", details: { parLevel: 12 } })] });
   await page.goto("/#/purchasing");
   await expect(page.getByText("Page not found")).toHaveCount(0);
   await expect(page.getByText("How an order list moves:")).toBeVisible();
@@ -49,8 +49,8 @@ test("/purchasing shows the order lists, not a not-found page (AC3)", async ({ p
 test("the Low stock card counts items below par, and Below par only shows them (AC4)", async ({ page }) => {
   await seedInventory({ items: [
     chairs(),
-    consumable("Synthetic napkins", { onHand: 2, details: { parLevel: 10 } }),
-    consumable("Synthetic foil", { onHand: 50, details: { parLevel: 10 } }),
+    consumable("Synthetic napkins", { subtype: "supply", onHand: 2, details: { parLevel: 10 } }),
+    consumable("Synthetic foil", { subtype: "supply", onHand: 50, details: { parLevel: 10 } }),
     // Bar stock below par counts on the Bar tab, not here.
     consumable("Synthetic gin", { subtype: "bar", category: "Liquor", onHand: 1, details: { parLevel: 6 },
       bar: { brand: "Synthetic", subcategory: "Gin", container: "bottle", housePick: false } }),
