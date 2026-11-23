@@ -32,11 +32,13 @@ const screens = [
   { title: "Calendar", path: "/#/calendar", pageKey: "calendar.page", id: "calendar", name: "Calendar" },
   { title: "Tasks", path: "/#/tasks", pageKey: "tasks.dashboard", id: "my-tasks", name: "My tasks" },
   { title: "Recipes", path: "/#/recipes", pageKey: "recipes.list", id: "list", name: "List" },
-  { title: "Proposals list", path: "/#/proposals", pageKey: "sales.tracker", id: "table", name: "Sales table" },
+  // The Sales tracker moved to /sales; /proposals is now the file library (FLOW-276).
+  { title: "Sales tracker", path: "/#/sales", pageKey: "sales.tracker", id: "table", name: "Sales table" },
 ];
 
 for (const screen of screens)
-  test(`moves and resizes a card on ${screen.title} for everyone (FLOW-278 AC1, AC2)`, async ({ page, browser }) => {
+  test(`moves and resizes a card on ${screen.title} for everyone (FLOW-278 AC1, AC2)`, async ({ page, browser, isMobile }) => {
+    test.skip(isMobile, "Phones stack blocks full width (AC5 has its own 390px test).");
     await page.goto(screen.path);
     await page.getByRole("button", { name: "Edit screen text" }).click();
     await halfWidthAndDown(page, screen.name);
@@ -54,7 +56,8 @@ for (const screen of screens)
     await context.close();
   });
 
-test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async ({ page }) => {
+test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Phones stack blocks full width (AC5 has its own 390px test).");
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await browserDb((db) => db.update(s.events).set({ status: "preparation" }).where(eq(s.events.id, fallGala().id)));
   await page.goto(`/#/events/${fallGala().id}`);
