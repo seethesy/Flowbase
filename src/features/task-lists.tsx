@@ -61,8 +61,8 @@ const names = (people: { name: string }[]) =>
   people.map((person) => person.name).join(", ") || "Unassigned";
 
 // Active staff, for assignee and overseer pickers.
-function useActiveStaff() {
-  const staff = useResource(["staff"], () => staffApi.list(), { reference: true });
+function useActiveStaff(enabled = true) {
+  const staff = useResource(["staff"], () => staffApi.list(), { reference: true, enabled });
   return (staff.data ?? []).filter((member) => member.active);
 }
 
@@ -904,9 +904,11 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
   const list = usePagedList(["tasks", "event", event.id, communal], (cursor) =>
     tasksApi.list(filter, cursor),
   );
-  // FLOW-275: task fields are edited in place here too, as on All tasks.
-  const staff = useActiveStaff();
   const pull = useResource(["event-pull-list", event.id], () => preparationApi.pullList(event.id));
+  // FLOW-275: task fields are edited in place here too, as on All tasks. Staff
+  // (the assignee and overseer choices) load only once the event has tasks, so an
+  // event page without tasks makes no extra request.
+  const staff = useActiveStaff(Boolean(list.data?.length));
   const tbdPullLines = pull.data?.groups.flatMap((group) => group.lines).filter((line) => line.tbd) ?? [];
   const delegates = can("tasks.delegate");
   const templates = useResource(["tasks", "templates"], () => tasksApi.templates(), {
