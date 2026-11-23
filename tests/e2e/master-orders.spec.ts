@@ -73,8 +73,10 @@ databaseTest("builds, edits, submits and prints an order list grouped by vendor"
   await seedInventory({ items: [consumable("Wine bottles", { details: { parLevel: 12,
     purchaseUnit: "case", packCount: 12 } })] });
   await mockBrowserAuth(page, { userId: lead.id });
-  await page.goto("/#/inventory/orders");
-  await page.getByRole("button", { name: "Build list" }).click();
+  // FLOW-266: order lists live on Inventory › Purchasing.
+  await page.goto("/#/purchasing");
+  await page.getByRole("button", { name: "+ New order list" }).click();
+  await page.getByRole("dialog", { name: "New order list" }).getByRole("button", { name: "Build list" }).click();
   await expect(page.getByRole("heading", { name: "Unassigned vendor" })).toBeVisible();
   await page.getByLabel("Quantity for Wine bottles").fill("2");
   await page.getByRole("button", { name: "Save edits" }).click();

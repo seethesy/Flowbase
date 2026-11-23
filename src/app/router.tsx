@@ -64,6 +64,10 @@ const SalesTracker = lazy(() =>
   import("../features/sales").then((module) => ({ default: module.SalesTracker })),
 );
 const SalesReports = lazy(() => import("../features/sales").then((module) => ({ default: module.SalesReports })));
+const SalesOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.SalesOverview })));
+const MarketingOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.MarketingOverview })));
+const DocumentsOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
+const ReportsOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.ReportsOverview })));
 const TimeReports = lazy(() =>
   import("../features/time-tracking").then((module) => ({ default: module.TimeReports })),
 );
@@ -74,6 +78,10 @@ const InventoryCategoriesPage = lazy(() => import("../features/inventory-categor
   .then((module) => ({ default: module.InventoryCategoriesPage })));
 const DocumentsPage = lazy(() => import("../features/documents")
   .then((module) => ({ default: module.DocumentsPage })));
+// Photo galleries (FLOW-271, FLOW-298).
+const MarketingPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.MarketingPhotosPage })));
+const KitchenPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.KitchenPhotosPage })));
+const InventoryPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.InventoryPhotosPage })));
 const CollectorHealthPage = lazy(() => import("../features/collector-health")
   .then((module) => ({ default: module.CollectorHealthPage })));
 const UsagePage = lazy(() => import("../features/usage")
@@ -91,7 +99,7 @@ const InventoryList = lazy(() =>
   import("../features/inventory").then((module) => ({ default: module.InventoryList })),
 );
 const MasterInventory = lazy(() => import("../features/inventory-master").then((module) => ({ default: module.MasterInventory })));
-const OrderLists = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderLists })));
+const PurchasingPage = lazy(() => import("../features/purchasing").then((module) => ({ default: module.PurchasingPage })));
 const OrderListDetail = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderListDetail })));
 const ApprovalQueue = lazy(() => import("../features/approval-queue").then((module) => ({ default: module.ApprovalQueue })));
 const InventoryDetail = lazy(() =>
@@ -122,6 +130,7 @@ const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ 
 const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
 const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
 const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
+const MenusPage = lazy(() => import("../features/kitchen-screen").then((module) => ({ default: module.MenusPage })));
 const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
 import { Button, EmptyState, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
@@ -184,8 +193,7 @@ function Placeholder() {
     </>
   );
 }
-// Schedule, Marketing and Documents have a place in the navigation before they
-// have a screen (FLOW-246).
+// Schedule has a place in the navigation before it has a screen (FLOW-246).
 function ComingSoon({ title }: { title: string }) {
   return (
     <>
@@ -249,11 +257,17 @@ export const getRouter = () =>
         { path: "/customers/:id", element: <LegacyRoute to="/clients" /> },
         { path: "/contracts", element: <LegacyRoute to="/sales" /> },
         { path: "/proposals", element: <ProposalLibrary /> },
+        // The headings' Overview tabs (FLOW-295).
+        { path: "/sales/overview", element: <SalesOverview /> },
+        { path: "/marketing/overview", element: <MarketingOverview /> },
+        { path: "/documents/overview", element: <DocumentsOverview /> },
+        { path: "/reports/overview", element: <ReportsOverview /> },
         { path: "/sales", element: <SalesTracker /> },
         { path: "/sales/reports", element: <SalesReports /> },
         { path: "/inventory", element: <InventoryList /> },
         { path: "/inventory/master", element: <MasterInventory /> },
-        { path: "/inventory/orders", element: <OrderLists /> },
+        // FLOW-266: the order lists are Inventory › Purchasing.
+        { path: "/inventory/orders", element: <Navigate to="/purchasing" replace /> },
         { path: "/kitchen/orders", element: <KitchenOrderStatus /> },
         { path: "/inventory/orders/:id", element: <OrderListDetail /> },
         { path: "/approvals", element: <ApprovalQueue /> },
@@ -266,6 +280,7 @@ export const getRouter = () =>
         { path: "/inventory/sections", element: <SectionList /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
         { path: "/recipes", element: <RecipeList /> },
+        { path: "/kitchen/menus", element: <MenusPage /> },
         { path: "/recipes/client", element: <ClientRecipeBook /> },
         { path: "/recipes/:id", element: <RecipeDetail /> },
         { path: "/events", element: <EventList /> },
@@ -282,7 +297,9 @@ export const getRouter = () =>
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/staffing/schedule", element: <ComingSoon title="Schedule" /> },
-        { path: "/marketing", element: <ComingSoon title="Marketing" /> },
+        { path: "/marketing", element: <MarketingPhotosPage /> },
+        { path: "/kitchen/photos", element: <KitchenPhotosPage /> },
+        { path: "/inventory/photos", element: <InventoryPhotosPage /> },
         { path: "/documents", element: <DocumentsPage /> },
         { path: "/profile", element: <Profile /> },
         { path: "/tasks", element: <TaskDashboardPage /> },
@@ -303,7 +320,8 @@ export const getRouter = () =>
         { path: "/settings/users", element: <UserManagement /> },
         { path: "/settings/permissions", element: <RolesPermissionsPage /> },
         { path: "/settings/archived", element: <ArchivedPage /> },
-        ...["purchasing", "help", "*"].map((path) => ({
+        { path: "/purchasing", element: <PurchasingPage /> },
+        ...["help", "*"].map((path) => ({
           path,
           element: <Placeholder />,
         })),

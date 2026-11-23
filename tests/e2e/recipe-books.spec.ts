@@ -31,12 +31,16 @@ test("browses by category, ingredient, allergen and dietary tag and prints a kit
   await expect(page.getByRole("button", { name: "Tuscan Chicken", exact: true })).toBeVisible();
   await page.getByPlaceholder("Search recipes…").fill("breast");
   await choose(page.getByLabel("Category", { exact: true }), "Mains");
+  // FLOW-267: the Allergen filter is "Free of …", so a dish with milk drops out.
   await choose(page.getByLabel("Allergen", { exact: true }), "Milk");
+  await expect(page.getByText("0 recipes", { exact: true })).toBeVisible();
+  await choose(page.getByLabel("Allergen", { exact: true }), "");
   await choose(page.getByLabel("Dietary tag", { exact: true }), "Vegan");
   await expect(page.getByText("0 recipes", { exact: true })).toBeVisible();
   await choose(page.getByLabel("Dietary tag", { exact: true }), "Gluten-free");
+  // Open shows the kitchen card; Print kitchen card prints it.
   await page.getByRole("row", { name: /Tuscan Chicken/ }).getByRole("button", { name: "Open", exact: true }).click();
-  await page.getByRole("link", { name: "Kitchen card" }).click();
+  await page.getByRole("dialog", { name: /Tuscan Chicken/ }).getByRole("link", { name: "Print kitchen card" }).click();
   await expect(page).toHaveURL(new RegExp(`/print/recipes/${dish.id}`));
   await expect(page.locator(".print-document")).toContainText("Sear until golden.");
   await expect(page.locator(".print-document")).toContainText("Chicken Breast — 10 each");

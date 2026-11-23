@@ -37,6 +37,8 @@ const common = [
   "dayof.read",
   "beos.read",
   "vendors.read",
+  // Marketing › Photos (FLOW-271): everyone looks; Sales roles and Admin change.
+  "marketing.read",
 ] as const;
 const sales = [
   "clients.read",
@@ -56,6 +58,7 @@ const sales = [
   "payments.record",
   "rentals.write",
   "inventory.rentals.move",
+  "marketing.write",
   "inventory.count",
   "inventory.move",
 ] as const;
@@ -86,12 +89,10 @@ const adminOnly = [
   // Admin live layout editing (FLOW-253): change page layouts, columns, field
   // boxes, custom cards and their colors. Every Admin has it (FLOW-269).
   "layout.edit",
-  // Staff pay and Marketing photos (FLOW-269): areas of the roles editor. Admin
-  // only until an Admin grants them; nothing reads them yet.
+  // Staff pay (FLOW-269): an area of the roles editor. Admin only until an
+  // Admin grants it; nothing reads it yet.
   "staff.pay.read",
   "staff.pay.write",
-  "marketing.read",
-  "marketing.write",
 ] as const;
 export const actions = [
   ...new Set([
