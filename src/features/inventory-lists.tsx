@@ -275,6 +275,8 @@ export function InventoryList() {
           </Button>
         )}
       </PageHeader>
+      <PageGrid pageKey="inventory.list">
+      <Block id="filters" name="Filters" h={5}>
       <FilterBar>
         <SearchInput
           value={search}
@@ -306,13 +308,14 @@ export function InventoryList() {
           {items.hasMore ? <T id="inventory-lists.inventory-list.items" values={{ dataCount: data.length }}>{"{dataCount}+ items"}</T> : <T id="inventory-lists.inventory-list.items-2" values={{ dataCount: data.length }}>{"{dataCount} items"}</T>}
         </span>
       </FilterBar>
+      </Block>
+      <Block id="list" name="List" h={24}>
       {items.error ? (
         <LoadError message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : (
-        <PageGrid pageKey="inventory.list">
-          <Block id="list" name="List" h={24}>
+        <>
           <DataTable selection={{ rowId: (row) => row.id, ...deletable }} copyKey="inventory-lists.inventory-list"
             data={data}
             columns={columns}
@@ -323,9 +326,10 @@ export function InventoryList() {
             exportAll={items.loadAll}
           />
           <LoadMore list={items} label={<T id="inventory-lists.inventory-list.load-more-items">Load more items</T>} />
-        </Block>
-          </PageGrid>
+        </>
       )}
+      </Block>
+      </PageGrid>
       {create && (
         <ItemForm
           onClose={() => setCreate(false)}

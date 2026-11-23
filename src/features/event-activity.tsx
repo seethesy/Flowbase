@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import type { HistoryEntry } from "../../shared/audit";
 import { eventStatusDetailLabels, type EventStatus } from "../../shared/core-records";
 import { BUSINESS_TIME_ZONE } from "../../shared/time";
@@ -90,6 +91,8 @@ export function EventHistorySection({
   if (!list.data) return <LoadingSkeleton />;
   return (
     <Section title={<T id="event-activity.event-history-section.history">History</T>}>
+      <PageGrid pageKey="events.activity">
+      <Block id="history" name="Event history" h={16}>
       {list.data.length ? (
         <ul aria-label="Event history" className="event-activity-list">
           {list.data.map((entry) => {
@@ -121,6 +124,8 @@ export function EventHistorySection({
         <p className="muted"><T id="event-activity.event-history-section.no-changes-recorded-yet">No changes recorded yet.</T></p>
       )}
       <LoadMore list={list} label={<T id="event-activity.event-history-section.show-older-changes">Show older changes</T>} />
+      </Block>
+      </PageGrid>
     </Section>
   );
 }

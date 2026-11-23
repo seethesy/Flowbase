@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -113,6 +114,8 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
           {error}
         </p>
       )}
+      <PageGrid pageKey="events.timeline">
+      <Block id="suggestions" name="Timeline suggestions" h={8}>
       {data.suggestions.length > 0 && data.canEdit && (
         <div className="timeline-suggestions">
           <strong><T id="event-timeline.event-timeline-section.from-the-proposal">From the proposal</T></strong>
@@ -130,6 +133,8 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
           </ul>
         </div>
       )}
+      </Block>
+      <Block id="timeline" name="Event timeline" h={18}>
       {data.days.map((day) => (
         <div key={day.date} className="timeline-day">
           <h3>
@@ -186,6 +191,8 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
           )}
         </div>
       ))}
+      </Block>
+      </PageGrid>
       {form && (
         <EntryForm
           event={event}

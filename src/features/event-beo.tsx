@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Check, Printer, Send } from "lucide-react";
@@ -293,6 +294,8 @@ export function EventBeoSection({
           {error}
         </p>
       )}
+      <PageGrid pageKey="events.beo" blockIds={["status", "header", "event", "summary", "food-setup", "staff", "timeline", "equipment", "layout", "setup-cleanup", "notes", "edit-notes", "changes"]}>
+      <Block id="status" name="BEO status" h={4}>
       <OfflineStatus eventId={event.id} />
       {!data.exists && <p className="muted"><T id="event-beo.event-beo-section.this-is-a-preview-generate">This is a preview. Generate the BEO to start working on it.</T></p>}
       {data.approvedAt && (
@@ -301,7 +304,9 @@ export function EventBeoSection({
           {data.approvedBy && <T id="event-beo.event-beo-section.by" values={{ name: data.approvedBy.name }}>{" by {name}"}</T>}.
         </p>
       )}
-      {beoSections.map((section) => part(section, sectionBodies[section]))}
+      </Block>
+      {beoSections.map((section) => <Block key={section} id={section.replaceAll("_", "-")} name={beoSectionLabels[section]} h={12}>{part(section, sectionBodies[section])}</Block>)}
+      <Block id="edit-notes" name="Edit BEO notes" h={8}>
       {data.exists && data.canEdit && (
         <div className="beo-edit">
           {notes ? (
@@ -344,6 +349,8 @@ export function EventBeoSection({
           )}
         </div>
       )}
+      </Block>
+      <Block id="changes" name="BEO changes" h={10}>
       {data.changes.length > 0 && (
         <div className="beo-log">
           <h3><T id="event-beo.event-beo-section.changes-after-approval">Changes after approval</T></h3>
@@ -359,6 +366,8 @@ export function EventBeoSection({
           </ul>
         </div>
       )}
+      </Block>
+      </PageGrid>
     </Section>
   );
 }

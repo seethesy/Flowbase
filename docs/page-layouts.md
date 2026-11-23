@@ -140,3 +140,14 @@ optional fields to show.
 - At most 40 blocks and 12 custom cards per page; a card shows at most 100 rows.
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.
+
+## Added in FLOW-280
+
+- Event BEO, staff, trucks, payments, preparation, timeline and activity have
+  independent section grids (`events.beo`, `events.staff`, `events.trucks`,
+  `events.payments`, `events.preparation`, `events.timeline`, `events.activity`).
+  Existing lists, timeline and BEO areas keep their own controls. Errors and
+  drawers remain outside the inner grids.
+- Staff and Inventory filters are separate blocks. The table retains `list`,
+  including when loading or reporting an error, so existing saved layouts work.
+- Browser coverage: `tests/e2e/layout-event-tabs.spec.ts`.

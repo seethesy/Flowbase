@@ -1,3 +1,4 @@
+import { Block, PageGrid } from "../app/page-grid";
 import { Dropdown } from "../components/ui/Dropdown";
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -145,6 +146,8 @@ export function EventStaffSection({
           {warning}
         </p>
       )}
+      <PageGrid pageKey="events.staff">
+      <Block id="leads" name="Production leads" h={5}>
       <div className="staff-leads">
         <div>
           <small><T id="event-staff.event-staff-section.production-lead">Production Lead</T></small>
@@ -163,6 +166,8 @@ export function EventStaffSection({
           </Button>
         )}
       </div>
+      </Block>
+      <Block id="breakdown" name="Staffing breakdown" h={4}>
       <p className="staff-breakdown" aria-label="Staffing breakdown">
         {data.breakdown.length
           ? joined([
@@ -175,6 +180,8 @@ export function EventStaffSection({
             ])
           : <T id="event-staff.event-staff-section.no-staffing-slots-yet">No staffing slots yet.</T>}
       </p>
+      </Block>
+      <Block id="shifts" name="Shifts" h={16}>
       {data.shifts.map((shift) => (
         <ShiftBlock
           key={shift.id}
@@ -207,6 +214,8 @@ export function EventStaffSection({
           }
         />
       ))}
+      </Block>
+      </PageGrid>
       {shiftForm && (
         <ShiftForm
           event={event}

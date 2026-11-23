@@ -111,6 +111,8 @@ export function StaffDirectory() {
         subtitle={<T id="staff.staff-directory.who-works-for-the-business">Who works for the business and the positions they can work.</T>}
         eyebrow={<T id="staff.staff-directory.team">TEAM</T>}
       />
+      <PageGrid pageKey="staff.list">
+      <Block id="filters" name="Filters" h={5}>
       <FilterBar>
         <SearchInput
           value={search}
@@ -136,13 +138,13 @@ export function StaffDirectory() {
         </label>
         <span className="result-count"><T id="staff.staff-directory.staff-2" values={{ dataCount: data.length }}>{"{dataCount} staff"}</T></span>
       </FilterBar>
+      </Block>
+      <Block id="list" name="List" h={24}>
       {staff.error ? (
         <LoadError message={staff.error} />
       ) : staff.loading && !staff.data ? (
         <LoadingSkeleton />
       ) : (
-<PageGrid pageKey="staff.list">
-        <Block id="list" name="List" h={24}>
         <DataTable copyKey="staff.staff-directory" openColumn
           data={data}
           columns={columns}
@@ -150,9 +152,9 @@ export function StaffDirectory() {
           label={<T id="staff.staff-directory.staff-3">staff</T>}
           exportName="staff"
         />
-        </Block>
-        </PageGrid>
       )}
+      </Block>
+      </PageGrid>
     </>
   );
 }

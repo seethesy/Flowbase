@@ -2782,6 +2782,30 @@
       ],
       "fieldCards": []
     },
+    "events.activity": {
+      "blocks": [
+        "history"
+      ],
+      "fieldCards": []
+    },
+    "events.beo": {
+      "blocks": [
+        "changes",
+        "edit-notes",
+        "equipment",
+        "event",
+        "food-setup",
+        "header",
+        "layout",
+        "notes",
+        "setup-cleanup",
+        "staff",
+        "status",
+        "summary",
+        "timeline"
+      ],
+      "fieldCards": []
+    },
     "events.closeout": {
       "blocks": [
         "finish",
@@ -2819,6 +2843,45 @@
     "events.list": {
       "blocks": [
         "list"
+      ],
+      "fieldCards": []
+    },
+    "events.payments": {
+      "blocks": [
+        "received",
+        "schedule",
+        "suggestions",
+        "summary"
+      ],
+      "fieldCards": []
+    },
+    "events.preparation": {
+      "blocks": [
+        "progress",
+        "review"
+      ],
+      "fieldCards": []
+    },
+    "events.staff": {
+      "blocks": [
+        "breakdown",
+        "leads",
+        "shifts"
+      ],
+      "fieldCards": []
+    },
+    "events.timeline": {
+      "blocks": [
+        "suggestions",
+        "timeline"
+      ],
+      "fieldCards": []
+    },
+    "events.trucks": {
+      "blocks": [
+        "add-truck",
+        "assignments",
+        "pull-lines"
       ],
       "fieldCards": []
     },
@@ -2867,6 +2930,7 @@
     },
     "inventory.list": {
       "blocks": [
+        "filters",
         "list"
       ],
       "fieldCards": []
@@ -3044,6 +3108,7 @@
     },
     "staff.list": {
       "blocks": [
+        "filters",
         "list"
       ],
       "fieldCards": []
