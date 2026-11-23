@@ -7,10 +7,11 @@ import { seedInventory } from "./database";
 const spirit = () => consumable("Synthetic spirit", { subtype: "bar", category: "Liquor",
   bar: { brand: "Synthetic", subcategory: "Vodka", container: "bottle", housePick: false } });
 
-test("the tabs read Inventory | Bar | Purchasing | Vendors | Imports, each under the Inventory heading (AC1)", async ({ page }) => {
+test("the tabs read Inventory | Bar | Purchasing | Vendors | Photos | Imports, each under the Inventory heading (AC1)", async ({ page }) => {
   await page.goto("/#/inventory");
   await expect(page.getByRole("navigation", { name: "Inventory pages" }).getByRole("link"))
     .toHaveText(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
+  // Photos (FLOW-298) has its own "Inventory photos" heading, so it is not in the loop below.
   for (const path of ["/inventory", "/inventory/bar", "/purchasing", "/vendors", "/imports"]) {
     await page.goto(`/#${path}`);
     await expect(page.getByRole("heading", { name: "Inventory", level: 1 })).toBeVisible();
