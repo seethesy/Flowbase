@@ -15,6 +15,7 @@ import { Trash2, Undo2, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Plural, T } from "../../app/copy";
 import { emptySelection, selectionReducer } from "./table-selection";
+import { fromRowControl } from "./row-open";
 
 // The selection, bulk bar, Delete key and Undo toast every data table shares
 // (FLOW-260). DataTable uses it; a custom table (Leads) can too: spread
@@ -162,7 +163,9 @@ export function useTableSelection(options: SelectionOptions | undefined, ids: st
       "aria-selected": isSelected,
       className: isSelected ? "is-selected" : undefined,
       onPointerDown: (event: PointerEvent<HTMLTableRowElement>) => {
-        if (event.button !== 0 || (event.target as HTMLElement).closest(OWN_POINTER)) return;
+        // A control's own pointer-down, including one in a dropdown menu that
+        // renders in a portal (FLOW-296), never starts a selection.
+        if (event.button !== 0 || fromRowControl(event)) return;
         const ctrl = event.ctrlKey || event.metaKey;
         // Modifier clicks select; stop the browser selecting text or following links.
         if (event.shiftKey || ctrl) event.preventDefault();

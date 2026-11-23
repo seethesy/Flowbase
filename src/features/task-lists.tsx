@@ -1,7 +1,8 @@
 import { Dropdown } from "../components/ui/Dropdown";
 import { Block, PageGrid } from "../app/page-grid";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   taskDueBucketLabels,
   taskDueBuckets,
@@ -31,8 +32,11 @@ import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
 import {
   Button,
+  DataTable,
+  DateTimeCell,
   DetailDrawer,
   EditableCell,
+  instantParts,
   EmptyState,
   FilterBar,
   FormField,
@@ -458,17 +462,133 @@ const listLink = (filter: TaskFilter) =>
     ),
   ).toString()}`;
 
+// A dashboard section's tasks as a table (FLOW-297): the shared data table, so
+// an Admin in live edit picks and resizes its columns (one column set for every
+// section), the status changes in place without opening the task, and a click
+// anywhere else on the row opens it.
+function DashboardTaskTable({
+  tasks,
+  actions,
+  onChanged,
+  onError,
+}: {
+  tasks: TaskSummary[];
+  actions: (task: TaskSummary) => ReactNode;
+  onChanged: () => void;
+  onError: (message: string) => void;
+}) {
+  const navigate = useNavigate();
+  const columns: ColumnDef<TaskSummary, unknown>[] = [
+    {
+      accessorKey: "title",
+      header: "Task",
+      cell: ({ row }) => <Link to={`/tasks/${row.original.id}`}>{row.original.title}</Link>,
+      meta: { opensRecord: true },
+    },
+    {
+      id: "eventTitle",
+      header: "Event",
+      accessorFn: (task) => task.eventTitle ?? "",
+      cell: ({ row }) => row.original.eventId && row.original.eventTitle
+        ? <Link to={`/events/${row.original.eventId}`}>{row.original.eventTitle}</Link>
+        : "—",
+    },
+    {
+      id: "dueAt",
+      header: "Due",
+      // An ISO instant sorts by date and time together (FLOW-296).
+      accessorFn: (task) => task.dueAt ?? "",
+      cell: ({ row }) => {
+        const due = instantParts(row.original.dueAt);
+        return due ? <DateTimeCell date={due.date} time={due.time} /> : <T id="task-lists.dashboard-table.no-due-date">No due date</T>;
+      },
+      meta: { csv: (task) => (task.dueAt ? dateTimeLabel(task.dueAt) : "") },
+    },
+    {
+      id: "assignees",
+      header: "Assignee",
+      accessorFn: (task) => names(task.assignees),
+      cell: ({ row }) => row.original.assignees.length
+        ? names(row.original.assignees)
+        : <T id="task-lists.dashboard-table.unassigned">Unassigned</T>,
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorFn: (task) => taskStatusLabels[task.status],
+      cell: ({ row }) => <LabelT id="labels.task-status" value={row.original.status}>{taskStatusLabels[row.original.status]}</LabelT>,
+      // Anyone who sees a task may change its status (as on All tasks).
+      meta: {
+        edit: "select",
+        editValue: (task) => task.status,
+        editOptions: taskStatuses.map((value) => ({ value, label: taskStatusLabels[value] })),
+        onEdit: async (task, value) => {
+          await tasksApi.update(task.id, { status: taskStatusSchema.parse(value) });
+          onChanged();
+        },
+      },
+    },
+    {
+      id: "type",
+      header: "Type",
+      accessorFn: (task) => taskTypeLabels[task.type],
+      cell: ({ row }) => <LabelT id="labels.task-type" value={row.original.type}>{taskTypeLabels[row.original.type]}</LabelT>,
+    },
+    {
+      id: "actions",
+      header: "",
+      enableSorting: false,
+      meta: { exportable: false },
+      cell: ({ row }) => <div className="task-line-actions">{actions(row.original)}</div>,
+    },
+  ];
+  return (
+    <DataTable
+      copyKey="tasks.dashboard.table"
+      data={tasks}
+      columns={columns}
+      onRow={(task) => navigate(`/tasks/${task.id}`)}
+      label={<T id="task-lists.dashboard-table.tasks">tasks</T>}
+      // FLOW-260 selection, with a bulk Done (tasks have no Delete).
+      selection={{
+        rowId: (task) => task.id,
+        actions: (ids, clear) => (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              onError("");
+              try {
+                await Promise.all(ids.map((id) => tasksApi.update(id, { status: "done" })));
+                clear();
+                onChanged();
+              } catch (cause) {
+                onError(cause instanceof Error ? cause.message : String(cause));
+              }
+            }}
+          >
+            <T id="task-lists.dashboard-table.mark-selected-done">Mark done</T>
+          </Button>
+        ),
+      }}
+    />
+  );
+}
+
 function DashboardGroup({
   title,
   section,
   filter,
   empty,
+  onChanged,
+  onError,
   children,
 }: {
   title: string;
   section: TaskDashboardSection;
   filter: TaskFilter;
   empty: ReactNode;
+  onChanged: () => void;
+  onError: (message: string) => void;
   children: (task: TaskSummary) => ReactNode;
 }) {
 
@@ -483,13 +603,7 @@ function DashboardGroup({
         {section.count > 0 && <Link to={listLink(filter)}><T id="task-lists.dashboard-group.view-all">View all</T></Link>}
       </div>
       {section.tasks.length ? (
-        <ul className="task-lines">
-          {section.tasks.map((task) => (
-            <TaskLine key={task.id} task={task}>
-              {children(task)}
-            </TaskLine>
-          ))}
-        </ul>
+        <DashboardTaskTable tasks={section.tasks} actions={children} onChanged={onChanged} onError={onError} />
       ) : (
         <p className="task-empty">{empty}</p>
       )}
@@ -595,6 +709,8 @@ export function TaskDashboardPage() {
 <Block id="my-tasks" name="My tasks" h={16}>
 <Section title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}>
         <DashboardGroup
+          onChanged={reload}
+          onError={setError}
           title="Overdue"
           section={data.overdue}
           filter={mine("overdue")}
@@ -603,6 +719,8 @@ export function TaskDashboardPage() {
           {act}
         </DashboardGroup>
         <DashboardGroup
+          onChanged={reload}
+          onError={setError}
           title="Due today"
           section={data.today}
           filter={mine("today")}
@@ -611,6 +729,8 @@ export function TaskDashboardPage() {
           {act}
         </DashboardGroup>
         <DashboardGroup
+          onChanged={reload}
+          onError={setError}
           title="Upcoming"
           section={data.upcoming}
           filter={mine("upcoming")}
@@ -623,6 +743,8 @@ export function TaskDashboardPage() {
       <Block id="overseeing" name="Overseeing" h={8}>
 <Section title={<T id="task-lists.task-dashboard-page.overseeing">Overseeing</T>}>
         <DashboardGroup
+          onChanged={reload}
+          onError={setError}
           title="Tasks I oversee"
           section={data.overseeing}
           filter={{ mine: "true", overseerId: actor.userId }}
@@ -636,6 +758,8 @@ export function TaskDashboardPage() {
         <Block id="needs-delegation" name="Needs delegation" h={8}>
         <Section title={<T id="task-lists.task-dashboard-page.needs-delegation">Needs delegation</T>}>
           <DashboardGroup
+          onChanged={reload}
+          onError={setError}
             title="Unassigned in the next 14 days"
             section={data.needsDelegation}
             filter={{ unassigned: "true" }}

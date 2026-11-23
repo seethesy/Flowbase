@@ -21,6 +21,12 @@ export const weekday = (date: string) =>
     weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
   });
 
+// "Sat, Nov 28" and "4:30 PM": a table cell's date with the time beneath it
+// (FLOW-296).
+export function calendarWhenParts(event: { start: string }): { date: string; time: string } {
+  return { date: weekday(event.start.slice(0, 10)), time: clock(event.start) };
+}
+
 // "Sat, Nov 28 · 4:30 PM", the side panel's and list's date and time (FLOW-265).
 export function calendarWhen(event: { start: string }): string {
   return `${weekday(event.start.slice(0, 10))} · ${clock(event.start)}`;

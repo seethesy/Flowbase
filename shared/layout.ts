@@ -215,8 +215,11 @@ export type SavedLayout = z.infer<typeof savedLayoutSchema>;
 
 // Each layout-aware table names its source, the columns that can't be hidden
 // or moved, and the columns its code renders that aren't registry fields
-// (kept by key, e.g. Leads Notes and BEO).
-export const layoutTables: Record<string, { source: SourceKey; locked: string[]; code: string[] }> = {
+// (kept by key, e.g. Leads Notes and BEO). A table whose rows aren't records of
+// one source (source null, FLOW-296) keeps only its code's columns, which the
+// Admin resizes; a saved key its code no longer has is dropped when shown.
+export type LayoutTable = { source: SourceKey | null; locked: string[]; code: string[] };
+export const layoutTables: Record<string, LayoutTable> = {
   "leads.inbox.table": { source: "leads", locked: [], code: ["notes", "latestBeo"] },
   "events.event-table": { source: "events", locked: [], code: ["when", "guests"] },
   "clients.client-list": { source: "clients", locked: [], code: ["contact", "email", "phone", "tags"] },
@@ -237,6 +240,19 @@ export const layoutTables: Record<string, { source: SourceKey; locked: string[];
     code: ["brand", "categoryId", "typeId", "container", "pack", "distributor", "cost", "onHand"],
   },
   "stock-counts.low-stock-list": { source: "inventory", locked: [], code: ["onHand", "par", "short", "storage", "vendor"] },
+  // FLOW-296: every other data table, so an Admin can resize its columns.
+  "tasks.dashboard.table": { source: "tasks", locked: [], code: [] },
+  "sops.library": { source: null, locked: [], code: [] },
+  "recipes.recipe-list": { source: null, locked: [], code: [] },
+  "documents.library": { source: null, locked: [], code: [] },
+  "lead-dashboard.by-source": { source: null, locked: [], code: [] },
+  "lead-dashboard.by-channel": { source: null, locked: [], code: [] },
+  "lead-dashboard.by-salesperson": { source: null, locked: [], code: [] },
+  "time-tracking.by-event": { source: null, locked: [], code: [] },
+  "time-tracking.by-proposal": { source: null, locked: [], code: [] },
+  "time-tracking.workload": { source: null, locked: [], code: [] },
+  "beo-list.table": { source: null, locked: [], code: [] },
+  "purchasing.table": { source: null, locked: [], code: [] },
 };
 // Pseudo-columns a table renders that aren't registry fields (locked controls).
 export const controlColumns = new Set(["actions"]);
@@ -375,7 +391,7 @@ export function layoutProblems(pageKey: string, doc: LayoutDoc): LayoutProblem[]
       continue;
     }
     table.columns.forEach((column, i) => {
-      if (!controlColumns.has(column.key) && !target.code.includes(column.key) && !fieldDef(target.source, column.key))
+      if (target.source && !controlColumns.has(column.key) && !target.code.includes(column.key) && !fieldDef(target.source, column.key))
         problems.push({ path: `tables.${key}.columns.${i}`, message: `Unknown field "${column.key}".` });
     });
     const keys = table.columns.map((column) => column.key);
@@ -383,7 +399,7 @@ export function layoutProblems(pageKey: string, doc: LayoutDoc): LayoutProblem[]
     for (const locked of target.locked)
       if (!table.columns.some((column) => column.key === locked))
         problems.push({ path: `tables.${key}`, message: `The "${locked}" column can't be hidden.` });
-    for (const field of fieldRegistry[target.source].fields.filter((f) => f.required))
+    for (const field of target.source ? fieldRegistry[target.source].fields.filter((f) => f.required) : [])
       if (!keys.includes(field.key))
         problems.push({ path: `tables.${key}`, message: `${field.label} can't be hidden.` });
   }

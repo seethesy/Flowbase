@@ -2538,6 +2538,10 @@
     "stock-counts.low-stock-list.low-stock": [],
     "stock-counts.low-stock-list.stock-supplies": [],
     "task-lists.dashboard-group.view-all": [],
+    "task-lists.dashboard-table.mark-selected-done": [],
+    "task-lists.dashboard-table.no-due-date": [],
+    "task-lists.dashboard-table.tasks": [],
+    "task-lists.dashboard-table.unassigned": [],
     "task-lists.event-tasks-section.add-task": [],
     "task-lists.event-tasks-section.apply-template": [],
     "task-lists.event-tasks-section.no-tasks-on-this-event": [],
@@ -2931,6 +2935,7 @@
     "staff.staff-directory.",
     "stock-counts.low-stock-list.",
     "task-lists.dashboard-group.",
+    "tasks.dashboard.table.",
     "time-tracking.time-reports.",
     "vendors.vendor-list.",
     "venues.venue-list."
@@ -2989,6 +2994,12 @@
     "day-of.board": {
       "blocks": [
         "events"
+      ],
+      "fieldCards": []
+    },
+    "documents.library": {
+      "blocks": [
+        "documents-table"
       ],
       "fieldCards": []
     },
@@ -3339,15 +3350,27 @@
     }
   },
   "tables": [
+    "beo-list.table",
     "clients.client-list",
+    "documents.library",
     "events.event-table",
     "inventory-lists.bar-list",
     "inventory-lists.ingredient-list",
     "inventory-lists.inventory-list",
     "inventory-master.master-inventory",
+    "lead-dashboard.by-channel",
+    "lead-dashboard.by-salesperson",
+    "lead-dashboard.by-source",
     "leads.inbox.table",
+    "purchasing.table",
+    "recipes.recipe-list",
+    "sops.library",
     "staff.staff-directory",
     "stock-counts.low-stock-list",
+    "tasks.dashboard.table",
+    "time-tracking.by-event",
+    "time-tracking.by-proposal",
+    "time-tracking.workload",
     "vendors.vendor-list",
     "venues.venue-list"
   ]
