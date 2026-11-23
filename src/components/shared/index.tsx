@@ -55,7 +55,7 @@ declare module "@tanstack/react-table" {
     // A saved column width in pixels (FLOW-254).
     width?: number;
     // FLOW-261: only explicitly declared, persisted fields can be edited.
-    edit?: "text" | "number" | "date" | "time" | "select" | "none";
+    edit?: "text" | "number" | "date" | "time" | "datetime-local" | "select" | "none";
     editOptions?: { value: string; label: string }[] | ((row: TData) => { value: string; label: string }[]);
     editValue?: (row: TData) => string;
     editCreate?: (row: TData, name: string) => Promise<string | void>;
@@ -65,12 +65,17 @@ declare module "@tanstack/react-table" {
   }
 }
 
-function EditableCell<Row>({
-  value, row, edit, options, save, create, multiple,
+// FLOW-261 inline editor; also used outside DataTable (task lines, FLOW-275).
+// label names the field for screen readers when the cell has no column header.
+export function EditableCell<Row>({
+  value, row, edit, options, save, create, multiple, label, format,
 }: {
   value: unknown;
   row: Row;
-  edit: "text" | "number" | "date" | "time" | "select";
+  edit: "text" | "number" | "date" | "time" | "datetime-local" | "select";
+  label?: string;
+  // How the stored value reads when not editing (default: as stored, or "—").
+  format?: (value: string, text: string) => string;
   options?: { value: string; label: string }[];
   save: (row: Row, value: string) => Promise<void>;
   create?: (row: Row, name: string) => Promise<string | void>;
@@ -95,28 +100,31 @@ function EditableCell<Row>({
     catch (cause) { setDisplay(shown); setDraft(shown); setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   };
+  const label_ = (edit === "select" ? multiple
+    ? display.split(",").filter(Boolean).map((part) => options?.find((option) => option.value === part)?.label ?? part).join(", ")
+    : options?.find((option) => option.value === display)?.label : display) ?? "";
+  const text = (format ? format(display, label_) : label_) || "—";
   if (!editing) return <>
-    <button className="table-edit-trigger" type="button" disabled={busy} onClick={() => { cancelled.current = false; setEditing(true); }}>
-      {(edit === "select" ? multiple
-        ? display.split(",").filter(Boolean).map((part) => options?.find((option) => option.value === part)?.label ?? part).join(", ")
-        : options?.find((option) => option.value === display)?.label : display) || "—"}
+    <button className="table-edit-trigger" type="button" disabled={busy} aria-label={label ? `${label}: ${text}` : undefined}
+      onClick={() => { cancelled.current = false; setEditing(true); }}>
+      {text}
     </button>
     {error && <span className="table-edit-error" role="alert">{error}</span>}
   </>;
   if (edit === "select" && multiple) return <div className="table-edit-multiple">
-    <Dropdown multiple autoFocus openOnMount value={draft ? draft.split(",") : []} variant="field"
+    <Dropdown multiple autoFocus openOnMount aria-label={label} value={draft ? draft.split(",") : []} variant="field"
       options={options ?? []} onValueChange={(next) => setDraft(next.join(","))} />
     <button type="button" onClick={() => void commit()}><T id="shared.data-table.save">Save</T></button>
     <button type="button" onClick={() => { setEditing(false); setDraft(shown); }}><T id="shared.data-table.cancel">Cancel</T></button>
   </div>;
   if (edit === "select") return <Dropdown
-    autoFocus openOnMount value={draft} variant="field" options={options ?? []}
+    autoFocus openOnMount aria-label={label} value={draft} variant="field" options={options ?? []}
     creatable={create ? { onCreate: (name) => create(row, name) } : undefined}
     onValueChange={(next) => { setDraft(next); void commit(next); }}
     onOpenChange={(open) => { if (!open) setEditing(false); }}
   />;
   return <input
-    className="table-edit-input" autoFocus type={edit} value={draft}
+    className="table-edit-input" autoFocus type={edit} value={draft} aria-label={label}
     onChange={(event) => setDraft(event.target.value)}
     onBlur={() => void commit()}
     onKeyDown={(event) => {

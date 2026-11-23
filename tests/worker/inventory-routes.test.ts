@@ -276,3 +276,16 @@ it("lets Admin, sales, the kitchen and FT+ update rental stock", () => {
     part_time_staff: [false, false],
   });
 });
+
+// FLOW-275: inline saves need inventory.write before any database work, and an
+// unknown field is refused.
+it("guards the inline item endpoint by permission and field", async () => {
+  const { mock, withDb } = mockDb();
+  const patch = (body: unknown) => ({ method: "PATCH", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
+  const body = { field: "consumable.recipeUnit", value: "ml", updatedAt: "2026-11-01T00:00:00.000Z" };
+  const cook = createApp({ withDb, resolveActor: async () => actor("kitchen_staff") });
+  expect((await cook.request(`/api/inventory/items/${id}/inline`, patch(body), env)).status).toBe(403);
+  const lead = createApp({ withDb, resolveActor: async () => actor("kitchen_lead") });
+  expect((await lead.request(`/api/inventory/items/${id}/inline`, patch({ ...body, field: "consumable.unitCostCents" }), env)).status).toBe(400);
+  expect(mock).not.toHaveBeenCalled();
+});

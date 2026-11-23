@@ -1597,3 +1597,62 @@ describe("bar stock (FLOW-90)", () => {
     await expectLedgerMatchesCache(beer.id);
   });
 });
+
+// FLOW-275: the inline fields added for Ingredients, Supplies and Bar save through
+// PATCH /items/:id/inline with inventory.write, and persist.
+describe("inline consumable and Bar fields", () => {
+  const inline = async (item: InventoryItem, field: string, value: string, as = lead, status = 200) =>
+    as.send<InventoryItem>("PATCH", `/api/inventory/items/${item.id}/inline`, { field, value, updatedAt: await versionOf(item.id) }, status);
+
+  it("saves how an ingredient is bought, sized and stored, and reads it back", async () => {
+    const storage = await section("Walk-in", "consumable");
+    const item = await createItem(cream());
+    await inline(item, "consumable.purchaseUnit", "case");
+    await inline(item, "consumable.packCount", "12");
+    await inline(item, "consumable.eachSize.quantity", "750");
+    await inline(item, "consumable.eachSize.unit", "ml");
+    await inline(item, "consumable.recipeUnit", "ml");
+    await inline(item, "consumable.storageSectionId", storage.id);
+    const saved = await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`);
+    expect(saved.consumable).toMatchObject({
+      purchaseUnit: "case",
+      packCount: 12,
+      eachSize: { quantity: 750, unit: "ml" },
+      recipeUnit: "ml",
+      storageSectionId: storage.id,
+    });
+    // Clearing optional fields stores null.
+    await inline(item, "consumable.recipeUnit", "");
+    await inline(item, "consumable.eachSize.quantity", "");
+    const cleared = await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`);
+    expect(cleared.consumable).toMatchObject({ recipeUnit: null, eachSize: null });
+  });
+
+  it("saves a Bar item's container and tier", async () => {
+    const vodka = await createItem({
+      kind: "consumable",
+      subtype: "bar",
+      name: "House vodka",
+      category: "Liquor",
+      unit: "each",
+      consumable: { purchaseUnit: "case", packCount: 12 },
+      bar: { brand: "", subcategory: "Vodka", container: null },
+    });
+    await inline(vodka, "bar.container", "bottle");
+    await inline(vodka, "tier", "rail");
+    const saved = await admin.get<InventoryItem>(`/api/inventory/items/${vodka.id}`);
+    expect(saved.bar?.container).toBe("bottle");
+    expect(saved.tier).toBe("rail");
+  });
+
+  it("refuses bad values with 400 and people without inventory.write with 403", async () => {
+    const item = await createItem(cream());
+    await inline(item, "consumable.purchaseUnit", "barrel", lead, 400);
+    await inline(item, "consumable.packCount", "-2", lead, 400);
+    await inline(item, "consumable.storageSectionId", "not-an-id", lead, 400);
+    await inline(item, "bar.container", "bottle", lead, 400);
+    await inline(item, "consumable.recipeUnit", "ml", cook, 403);
+    const unchanged = await admin.get<InventoryItem>(`/api/inventory/items/${item.id}`);
+    expect(unchanged.consumable?.recipeUnit).toBe("cup");
+  });
+});

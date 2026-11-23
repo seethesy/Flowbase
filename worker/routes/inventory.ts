@@ -16,7 +16,9 @@ import {
   sectionRenameSchema,
   startCountInputSchema,
   transferInputSchema,
+  barContainerSchema,
 } from "../../shared/inventory";
+import { unitSchema } from "../../shared/units";
 import { id as uuid, withVersion } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import { can } from "../policy";
@@ -65,10 +67,19 @@ const categoryCreateSchema = classificationInputSchema.extend({ kind: z.enum(["r
 const classificationChangeSchema = classificationInputSchema.partial().extend({ archived: z.boolean().optional() });
 const typeCreateSchema = classificationInputSchema.extend({ categoryId: uuid });
 const inlineSchema = z.object({
-  field: z.enum(["name", "code", "description", "group", "color", "tier", "categoryId", "typeId", "legacyCategory", "bar.brand", "bar.subcategory", "consumable.preferredVendor", "consumable.parLevel"]),
+  field: z.enum(["name", "code", "description", "group", "color", "tier", "categoryId", "typeId", "legacyCategory", "bar.brand", "bar.subcategory", "bar.container",
+    "consumable.preferredVendor", "consumable.parLevel", "consumable.purchaseUnit", "consumable.packCount", "consumable.eachSize.quantity",
+    "consumable.eachSize.unit", "consumable.recipeUnit", "consumable.storageSectionId"]),
   value: z.string().max(5000),
   updatedAt: z.string().datetime(),
 });
+
+// One inline value through its schema; a bad value is a 400, not a 500.
+function inlineValue<T>(schema: z.ZodType<T>, value: string): T {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw new ApiError(400, "INVALID_REQUEST", "That value isn't valid for this field.");
+  return parsed.data;
+}
 
 // Inventory API (FLOW-69/70/71/81/82/83/90), mounted at /api/inventory. Every route
 // needs a signed-in user; item writes need inventory.write, section changes
@@ -191,15 +202,27 @@ export function inventoryRoutes(options: {
       } else if (field === "legacyCategory") {
         input.category = value;
       }
-      else if (field === "bar.brand" || field === "bar.subcategory") {
+      else if (field === "bar.brand" || field === "bar.subcategory" || field === "bar.container") {
         if (!input.bar) throw new ApiError(400, "INVALID_FIELD", "This is not a Bar item.");
         if (field === "bar.brand") input.bar.brand = value;
-        else input.bar.subcategory = value;
-      } else if (field === "consumable.preferredVendor" || field === "consumable.parLevel") {
-        if (!input.consumable) throw new ApiError(400, "INVALID_FIELD", "This is not a consumable item.");
-        if (field === "consumable.preferredVendor") input.consumable.preferredVendor = value;
-        else input.consumable.parLevel = value === "" ? null : Number(value);
-      } else input[field] = value;
+        else if (field === "bar.subcategory") input.bar.subcategory = value;
+        else input.bar.container = value ? inlineValue(barContainerSchema, value) : null;
+      } else if (field.startsWith("consumable.")) {
+        const consumable = input.consumable;
+        if (!consumable) throw new ApiError(400, "INVALID_FIELD", "This is not a consumable item.");
+        // FLOW-275: how it is bought, its recipe unit and its storage section.
+        if (field === "consumable.preferredVendor") consumable.preferredVendor = value;
+        else if (field === "consumable.parLevel") consumable.parLevel = value === "" ? null : Number(value);
+        else if (field === "consumable.purchaseUnit") consumable.purchaseUnit = inlineValue(unitSchema, value);
+        else if (field === "consumable.packCount") consumable.packCount = value === "" ? null : inlineValue(z.coerce.number().int().positive(), value);
+        else if (field === "consumable.eachSize.quantity")
+          consumable.eachSize = value === "" ? null
+            : { quantity: inlineValue(z.coerce.number().positive(), value), unit: consumable.eachSize?.unit ?? consumable.recipeUnit ?? "each" };
+        else if (field === "consumable.eachSize.unit")
+          consumable.eachSize = { quantity: consumable.eachSize?.quantity ?? 1, unit: inlineValue(unitSchema, value) };
+        else if (field === "consumable.recipeUnit") consumable.recipeUnit = value ? inlineValue(unitSchema, value) : null;
+        else if (field === "consumable.storageSectionId") consumable.storageSectionId = value ? inlineValue(uuid, value) : null;
+      } else input[field as "name" | "code" | "description" | "group" | "color" | "tier"] = value;
       return updateItem(db, actor, id, { ...input, updatedAt });
     }));
   });

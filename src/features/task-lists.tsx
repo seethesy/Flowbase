@@ -15,17 +15,20 @@ import {
   type TaskDueBucket,
   type TaskFilter,
   type TaskPriority,
+  type TaskStatus,
   type TaskSummary,
   type TaskType,
+  type TaskUpdate,
 } from "../../shared/tasks";
 import type { FlowEvent } from "../../shared/core-records";
 import { can, taskScope } from "../../shared/policy";
-import { businessTimeToUtc, isBusinessTime } from "../../shared/time";
+import { businessTimeToUtc, isBusinessTime, utcToBusinessTime } from "../../shared/time";
 import { LoadMore, usePagedList } from "../app/paging";
 import { usePermissions } from "../app/permissions";
 import { useResource } from "../app/useResource";
 import {
   Button,
+  EditableCell,
   DetailDrawer,
   EmptyState,
   FilterBar,
@@ -71,14 +74,32 @@ function useUpcomingEvents() {
   return events.data ?? [];
 }
 
+// Choices for the line's inline fields (FLOW-275): active staff and events.
+type TaskChoices = { staff: { id: string; name: string }[]; events: { id: string; title: string }[] };
+
+// The due date as a New York wall-clock datetime-local value, and back.
+const dueValue = (dueAt: string | null) => {
+  if (!dueAt) return "";
+  const at = utcToBusinessTime(new Date(dueAt));
+  return `${at.date}T${at.time}`;
+};
+const dueInstant = (value: string) => {
+  if (!value) return null;
+  const [date, time] = value.split("T");
+  if (!isBusinessTime(date, time)) throw new Error(`${time} doesn't exist on ${date} in New York. Pick another time.`);
+  return businessTimeToUtc(date, time).toISOString();
+};
+
 function TaskLine({
   task,
   children,
   onChanged,
+  choices,
 }: {
   task: TaskSummary;
   children?: ReactNode;
   onChanged?: () => void;
+  choices?: TaskChoices;
 }) {
   const { actor } = usePermissions();
   const [editing, setEditing] = useState(false);
@@ -109,7 +130,7 @@ function TaskLine({
             cancelled.current = false; setDraft(display); setEditing(true);
           }}><T id="task-lists.task-line.edit">Edit</T></button>)}
         {error && <span className="table-edit-error" role="alert">{error}</span>}
-        <small>
+        {onChanged && choices ? <TaskFields task={task} choices={choices} manage={editable} onChanged={onChanged} /> : <small>
           {joined([
             <LabelT id="labels.task-type" value={task.type}>{taskTypeLabels[task.type]}</LabelT>,
             <LabelT id="labels.task-status" value={task.status}>{taskStatusLabels[task.status]}</LabelT>,
@@ -120,11 +141,73 @@ function TaskLine({
             task.position,
             task.eventTitle,
           ])}
-        </small>
+        </small>}
       </div>
       {children && <div className="task-line-actions">{children}</div>}
     </li>
   );
+}
+
+// The line's stored fields, each edited in place (FLOW-275): anyone who sees the
+// task may change its status; its creator, its overseer and people who delegate
+// change the rest (the same rules as the task page).
+function TaskFields({ task, choices, manage, onChanged }: {
+  task: TaskSummary;
+  choices: TaskChoices;
+  manage: boolean;
+  onChanged: () => void;
+}) {
+  const save = (patch: TaskUpdate) => async () => {
+    await tasksApi.update(task.id, patch);
+    onChanged();
+  };
+  const field = (label: string, node: ReactNode) => <span className="task-field" key={label}>{node}</span>;
+  const events = choices.events.some((event) => event.id === task.eventId) || !task.eventId
+    ? choices.events
+    : [{ id: task.eventId, title: task.eventTitle ?? "Event" }, ...choices.events];
+  const staff = [
+    ...choices.staff,
+    ...task.assignees.filter((person) => !choices.staff.some((member) => member.id === person.id)),
+  ];
+  const readOnly = (node: ReactNode) => <span className="task-field-value">{node}</span>;
+  return <small className="task-fields">
+    {field("Type", manage
+      ? <EditableCell label={`Type for ${task.title}`} row={task} edit="select" value={task.type}
+        options={taskTypes.map((value) => ({ value, label: taskTypeLabels[value] }))}
+        save={(_row, value) => save({ type: value as TaskType })()} />
+      : readOnly(<LabelT id="labels.task-type" value={task.type}>{taskTypeLabels[task.type]}</LabelT>))}
+    {field("Status", <EditableCell label={`Status for ${task.title}`} row={task} edit="select" value={task.status}
+      options={taskStatuses.map((value) => ({ value, label: taskStatusLabels[value] }))}
+      save={(_row, value) => save({ status: value as TaskStatus })()} />)}
+    {field("Priority", manage
+      ? <EditableCell label={`Priority for ${task.title}`} row={task} edit="select" value={task.priority}
+        options={taskPriorities.map((value) => ({ value, label: taskPriorityLabels[value] }))}
+        save={(_row, value) => save({ priority: value as TaskPriority })()} />
+      : readOnly(<LabelT id="labels.task-priority" value={task.priority}>{taskPriorityLabels[task.priority]}</LabelT>))}
+    {field("Due", manage
+      ? <EditableCell label={`Due for ${task.title}`} row={task} edit="datetime-local" value={dueValue(task.dueAt)}
+        format={(value) => value ? `Due ${value.replace("T", " ")}` : "No due date"}
+        save={(_row, value) => save({ dueAt: dueInstant(value) })()} />
+      : readOnly(task.dueAt
+        ? <T id="task-lists.task-line.due" values={{ date: dateTimeLabel(task.dueAt) }}>{"Due {date}"}</T>
+        : <T id="task-lists.task-line.no-due-date">No due date</T>))}
+    {field("Assignees", manage
+      ? <EditableCell label={`Assignees for ${task.title}`} row={task} edit="select" multiple
+        value={task.assignees.map((person) => person.id).join(",")}
+        format={(_value, text) => text || "Unassigned"}
+        options={staff.map((person) => ({ value: person.id, label: person.name }))}
+        save={(_row, value) => save({ assigneeIds: value ? value.split(",") : [] })()} />
+      : readOnly(task.assignees.length ? names(task.assignees) : <T id="task-lists.task-line.unassigned">Unassigned</T>))}
+    {field("Position", manage
+      ? <EditableCell label={`Position for ${task.title}`} row={task} edit="text" value={task.position ?? ""}
+        save={(_row, value) => save({ position: value.trim() || null })()} />
+      : readOnly(task.position ?? "—"))}
+    {field("Event", manage
+      ? <EditableCell label={`Event for ${task.title}`} row={task} edit="select" value={task.eventId ?? ""}
+        options={[{ value: "", label: "No event" }, ...events.map((event) => ({ value: event.id, label: event.title }))]}
+        save={(_row, value) => save({ eventId: value || null })()} />
+      : readOnly(task.eventTitle ?? "—"))}
+  </small>;
 }
 
 // Claim and complete, where they apply. onChanged reloads the list.
@@ -800,7 +883,7 @@ export function TaskList() {
       ) : list.data.length ? (
         <ul className="task-lines" aria-label="Tasks">
           {list.data.map((task) => (
-            <TaskLine key={task.id} task={task} onChanged={list.reload}>
+            <TaskLine key={task.id} task={task} onChanged={list.reload} choices={{ staff, events }}>
               <TaskActions task={task} onChanged={list.reload} onError={setError} />
             </TaskLine>
           ))}
@@ -820,6 +903,7 @@ export function TaskList() {
 // task template (FLOW-62) for people who delegate.
 export function EventTasksSection({ event }: { event: FlowEvent }) {
   const { actor, can } = usePermissions();
+  const staff = useActiveStaff();
   const communal = actor ? taskScope(actor) === "all" : false;
   const filter: TaskFilter = {
     eventId: event.id,
@@ -903,7 +987,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
       ) : list.data.length ? (
         <ul className="task-lines" aria-label="Event tasks">
           {list.data.map((task) => (
-            <TaskLine key={task.id} task={task}>
+            <TaskLine key={task.id} task={task} onChanged={list.reload} choices={{ staff, events: [event] }}>
               <TaskActions task={task} onChanged={list.reload} onError={setError} />
             </TaskLine>
           ))}

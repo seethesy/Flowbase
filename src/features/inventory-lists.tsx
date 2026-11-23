@@ -19,7 +19,7 @@ import {
   type ItemKind,
   type SectionKind,
 } from "../../shared/inventory";
-import { unitLabel } from "../../shared/units";
+import { unitLabel, unitSchema } from "../../shared/units";
 import { inventoryApi, sectionsApi } from "../services/core";
 import { inventoryCategoriesApi } from "../services/inventory-categories";
 import { useResource } from "../app/useResource";
@@ -42,7 +42,6 @@ import {
   purchaseLabel,
   quantityLabel,
   subtypeLabel,
-  variantLabel,
 } from "./inventory-labels";
 import "./inventory.css";
 import { RoundCheck } from "../components/ui/round-check";
@@ -107,6 +106,67 @@ function ClassificationFilters({ kind, categoryId, typeId, onCategory, onType }:
         .map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
     </Dropdown>
   </>;
+}
+
+// How a consumable is bought, sized and stored, one stored field per column
+// (FLOW-275): purchase unit, pack count, each size and its unit, recipe unit, and
+// storage section. Each saves through the inline endpoint.
+const unitOptions = unitSchema.options.map((unit) => ({ value: unit, label: unitLabel(unit) }));
+function consumableColumns(
+  save: (item: InventoryItem, field: string, value: string) => Promise<void>,
+  canEdit: (item: InventoryItem) => boolean,
+  storage: { id: string; name: string }[],
+  parts: ("purchase" | "recipeUnit" | "storage")[],
+): ColumnDef<InventoryItem, unknown>[] {
+  const editable = (item: InventoryItem) => canEdit(item) && Boolean(item.consumable);
+  const include = { purchase: parts.includes("purchase"), recipeUnit: parts.includes("recipeUnit"), storage: parts.includes("storage") };
+  const purchase: ColumnDef<InventoryItem, unknown>[] = [
+    {
+      id: "purchase",
+      header: "Bought as",
+      accessorFn: (item) => purchaseLabel(item.consumable),
+      meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.purchaseUnit ?? "",
+        editOptions: unitOptions, onEdit: (item, value) => save(item, "consumable.purchaseUnit", value) },
+    },
+    {
+      id: "packCount",
+      header: "Pack count",
+      accessorFn: (item) => item.consumable?.packCount ?? "",
+      meta: { edit: "number", canEdit: editable, onEdit: (item, value) => save(item, "consumable.packCount", value) },
+    },
+    {
+      id: "eachSize",
+      header: "Each size",
+      accessorFn: (item) => item.consumable?.eachSize ? Number(item.consumable.eachSize.quantity) : "",
+      meta: { edit: "number", canEdit: editable, onEdit: (item, value) => save(item, "consumable.eachSize.quantity", value) },
+    },
+    {
+      id: "eachUnit",
+      header: "Each unit",
+      accessorFn: (item) => item.consumable?.eachSize ? unitLabel(item.consumable.eachSize.unit) : "",
+      meta: { edit: "select", canEdit: editable, editValue: (item) => item.consumable?.eachSize?.unit ?? "",
+        editOptions: unitOptions, onEdit: (item, value) => save(item, "consumable.eachSize.unit", value) },
+    },
+  ];
+  return [
+    ...(include.purchase ? purchase : []),
+    ...(include.recipeUnit ? [{
+      id: "recipeUnit",
+      header: "Recipe unit",
+      accessorFn: (item: InventoryItem) => item.consumable?.recipeUnit ? unitLabel(item.consumable.recipeUnit) : "—",
+      meta: { edit: "select" as const, canEdit: editable, editValue: (item: InventoryItem) => item.consumable?.recipeUnit ?? "",
+        editOptions: [{ value: "", label: "None" }, ...unitOptions],
+        onEdit: (item: InventoryItem, value: string) => save(item, "consumable.recipeUnit", value) },
+    }] : []),
+    ...(include.storage ? [{
+      id: "storage",
+      header: "Storage",
+      accessorFn: (item: InventoryItem) => item.consumable?.storageSectionName ?? "—",
+      meta: { edit: "select" as const, canEdit: editable, editValue: (item: InventoryItem) => item.consumable?.storageSectionId ?? "",
+        editOptions: [{ value: "", label: "None" }, ...storage.map((section) => ({ value: section.id, label: section.name }))],
+        onEdit: (item: InventoryItem, value: string) => save(item, "consumable.storageSectionId", value) },
+    }] : []),
+  ];
 }
 
 function classificationColumns(
@@ -215,7 +275,13 @@ export function InventoryList() {
     },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
     { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
-    { id: "variant", header: "Group / variant", accessorFn: variantLabel },
+    // Group, tier and color are stored separately; each is edited on its own (FLOW-275).
+    { id: "variant", header: "Group", accessorFn: (item) => item.group,
+      meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "group", value) } },
+    { id: "tier", header: "Tier", accessorFn: (item) => item.tier,
+      meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "tier", value) } },
+    { id: "color", header: "Color", accessorFn: (item) => item.color,
+      meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "color", value) } },
     {
       id: "quantity",
       header: "On hand",
@@ -375,6 +441,9 @@ export function IngredientList({
   const deletable = useDeletable("inventory_item", () => items.reload());
   const catalog = useResource(["inventory-categories"], inventoryCategoriesApi.list, { reference: true });
   const canEdit = () => can("inventory.write");
+  // Storage sections for the Storage column (FLOW-275).
+  const consumableSections = useResource(["sections", { kind: "consumable" }],
+    () => sectionsApi.list({ kind: "consumable" }), { reference: true });
   const save = async (item: InventoryItem, field: string, value: string) => {
     await inventoryApi.inline(item.id, field, value, item.updatedAt);
     items.reload();
@@ -392,19 +461,7 @@ export function IngredientList({
     { accessorKey: "name", header: supplies ? "Supply" : "Ingredient", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "name", value) } },
     ...classificationColumns(catalog.data, save, canEdit, can("inventory.sections"), () => catalog.refresh()),
     { accessorKey: "category", header: "Legacy category", meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "legacyCategory", value) } },
-    {
-      id: "purchase",
-      header: "Bought as",
-      accessorFn: (item) => purchaseLabel(item.consumable),
-    },
-    {
-      id: "recipeUnit",
-      header: "Recipe unit",
-      accessorFn: (item) =>
-        item.consumable?.recipeUnit
-          ? unitLabel(item.consumable.recipeUnit)
-          : "—",
-    },
+    ...consumableColumns(save, canEdit, consumableSections.data ?? [], ["purchase", "recipeUnit"]),
     {
       id: "cost",
       header: "Unit cost",
@@ -420,11 +477,7 @@ export function IngredientList({
       accessorFn: (item) => item.consumable?.preferredVendor ?? "",
       meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "consumable.preferredVendor", value) },
     },
-    {
-      id: "storage",
-      header: "Storage",
-      accessorFn: (item) => item.consumable?.storageSectionName ?? "—",
-    },
+    ...consumableColumns(save, canEdit, consumableSections.data ?? [], ["storage"]),
     {
       id: "onHand",
       header: "On hand",
@@ -616,37 +669,27 @@ export function BarList() {
       id: "tier",
       header: "Tier",
       accessorFn: (item) => barTierLabel(item.tier) || "—",
+      meta: { edit: "select", canEdit, editValue: (item) => item.tier,
+        editOptions: [{ value: "", label: "None" }, ...barTierSchema.options.map((tier) => ({ value: tier, label: barTierLabels[tier] }))],
+        onEdit: (item, value) => save(item, "tier", value) },
     },
     {
       id: "container",
       header: "Container",
-      accessorFn: (item) =>
-        [
-          item.bar?.container ? barContainerLabels[item.bar.container] : "",
-          item.consumable?.eachSize
-            ? `${Number(item.consumable.eachSize.quantity)} ${unitLabel(item.consumable.eachSize.unit)}`
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" ") || "—",
-      cell: ({ row }) => {
-        const item = row.original;
-        const size = item.consumable?.eachSize
-          ? `${Number(item.consumable.eachSize.quantity)} ${unitLabel(item.consumable.eachSize.unit)}`
-          : "";
-        if (!item.bar?.container) return size || "—";
-        return joined([<LabelT id="labels.bar-container" value={item.bar.container}>{barContainerLabels[item.bar.container]}</LabelT>, size], " ");
-      },
+      accessorFn: (item) => item.bar?.container ? barContainerLabels[item.bar.container] : "—",
+      cell: ({ row }) => row.original.bar?.container
+        ? <LabelT id="labels.bar-container" value={row.original.bar.container}>{barContainerLabels[row.original.bar.container]}</LabelT>
+        : "—",
+      meta: { edit: "select", canEdit, editValue: (item) => item.bar?.container ?? "",
+        editOptions: [{ value: "", label: "None" }, ...(Object.keys(barContainerLabels) as (keyof typeof barContainerLabels)[]).map((value) => ({ value, label: barContainerLabels[value] }))],
+        onEdit: (item, value) => save(item, "bar.container", value) },
     },
-    {
-      id: "pack",
-      header: "Bought as",
-      accessorFn: (item) => purchaseLabel(item.consumable),
-    },
+    ...consumableColumns(save, canEdit, [], ["purchase"]),
     {
       id: "distributor",
       header: "Distributor",
-      accessorFn: (item) => item.consumable?.preferredVendor || "—",
+      accessorFn: (item) => item.consumable?.preferredVendor ?? "",
+      meta: { edit: "text", canEdit, onEdit: (item, value) => save(item, "consumable.preferredVendor", value) },
     },
     {
       id: "cost",
