@@ -18,6 +18,7 @@ import { cleanupAttachments } from "../attachments/cleanup";
 import { cleanupJobs } from "./cleanup";
 import { emitAddendumReminders } from "../records/contracts";
 import { scanProductionAlerts } from "../records/production-alerts";
+import { registerGoogleCalendar, sweepGoogleCalendars } from "../records/google-calendar";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.
@@ -32,6 +33,8 @@ export function createJobRegistry(options: NotificationOptions = {}) {
   registerPlanning(registry);
   // Notifications (FLOW-43): one subscriber per notification type, plus email.
   registerNotifications(registry, options);
+  // Per-user Google Calendar copies (FLOW-268).
+  registerGoogleCalendar(registry);
   registry.register("production.scan", async (job, { db }) => {
     const payload = job.payload as { eventId?: string } | null;
     await scanProductionAlerts(db, new Date(), payload?.eventId);
@@ -63,6 +66,7 @@ export async function runScheduledJobs(
     const productionAlerts = await scanProductionAlerts(db, now);
     await scanCollectorHealth(db, now);
     await refreshUsage(db, now);
+    const googleSyncs = await sweepGoogleCalendars(db, now);
     const ran = await runDueJobs(db, registry, { ...options, env });
     // Housekeeping runs after the batch so it never delays real work (FLOW-184,
     // FLOW-188). A failure is logged and retried on the next run.
@@ -80,7 +84,7 @@ export async function runScheduledJobs(
         }),
       );
     }
-    return { tasksDue, tasksDueSoon, addendumsDue, paymentReminders, productionAlerts, ...ran, ...cleaned };
+    return { tasksDue, tasksDueSoon, addendumsDue, paymentReminders, productionAlerts, googleSyncs, ...ran, ...cleaned };
   });
   console.log(JSON.stringify({ event: "jobs_run", ...summary }));
   return summary;

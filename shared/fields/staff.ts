@@ -1,4 +1,6 @@
 import { isFtPlus } from "../access";
+import { can } from "../policy";
+import { payTypeLabels } from "../staff-pay";
 import { canSeeField } from "../visibility";
 import { type SourceDef } from "./types";
 
@@ -56,5 +58,15 @@ export const staffFields: SourceDef = {
     { key: "active", label: "Active", type: "boolean", filterable: true },
     // Notes about a staff member: FT+ only.
     { key: "notes", label: "Notes", type: "text", read: isFtPlus },
+    // Staff pay (FLOW-270): unreadable to everyone without the Staff pay area
+    // (Admin and Technical by default); the API never sends it to them.
+    {
+      key: "payType",
+      label: "Pay type",
+      type: "status",
+      options: { labels: payTypeLabels, copyId: "labels.pay-type" },
+      read: (actor) => can(actor, "staff.pay.read"),
+    },
+    { key: "payRate", label: "Rate", type: "text", read: (actor) => can(actor, "staff.pay.read") },
   ],
 };

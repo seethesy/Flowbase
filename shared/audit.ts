@@ -28,6 +28,10 @@ export type AuditEntity =
   | "payment_schedule_item"
   | "payment"
   | "user"
+  // Staff pay and per-event / per-project pay exceptions (FLOW-270).
+  | "staff_pay"
+  | "staff_pay_exception"
+  | "sop"
   | "setting"
   | "list_value"
   | "recipe"

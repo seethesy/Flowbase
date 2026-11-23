@@ -82,6 +82,7 @@ import {
   settingsHistoryEntrySchema,
 } from "../../shared/settings";
 import { staffMemberSchema } from "../../shared/staff";
+import { payExceptionSchema, payrollSchema, staffPaySchema } from "../../shared/staff-pay";
 import {
   notificationInboxSchema,
   notificationPreferenceSchema,
@@ -97,6 +98,11 @@ import {
 } from "../../shared/tasks";
 import { approvalRequestSchema } from "../../shared/approvals";
 import { calendarSchema } from "../../shared/calendar";
+import {
+  googleCalendarStatusSchema,
+  googleConnectSchema,
+  googleEventsSchema,
+} from "../../shared/google-calendar";
 import { inventoryChangeResultSchema, pendingInventoryChangeSchema } from "../../shared/inventory-changes";
 import { orderListSchema } from "../../shared/order-lists";
 import { salesClientSchema, salesDataSchema, salesReportSchema, salesViewSchema } from "../../shared/sales";
@@ -316,7 +322,13 @@ export function responseSchema(
     return !id && method === "GET" ? importLogSchema.array() : importLogSchema;
   }
   if (resource === "staff")
-    return !id ? staffMemberSchema.array() : staffMemberSchema;
+    return !id && method === "GET" ? staffMemberSchema.array() : staffMemberSchema;
+  // Staff pay and the Payroll tab (FLOW-270).
+  if (resource === "staff-pay") {
+    if (id === "exceptions")
+      return method === "DELETE" ? z.object({ archived: z.string() }) : payExceptionSchema;
+    return method === "GET" ? payrollSchema : staffPaySchema;
+  }
   // Notification center and email settings (FLOW-43).
   if (resource === "notifications") {
     if (id === "preferences") return notificationPreferenceSchema.array();
@@ -338,6 +350,12 @@ export function responseSchema(
     return !id && method === "GET" ? sopSummarySchema.array() : sopSchema;
   // Basic calendar (FLOW-63).
   if (resource === "calendar") return calendarSchema;
+  // The viewer's own Google Calendar (FLOW-268).
+  if (resource === "google-calendar") {
+    if (id === "events") return googleEventsSchema;
+    if (id === "connect") return googleConnectSchema;
+    return googleCalendarStatusSchema;
+  }
   // Approval requests (FLOW-44): every decision answers with the whole request.
   if (resource === "approvals")
     return !id ? approvalRequestSchema.array() : approvalRequestSchema;

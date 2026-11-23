@@ -23,6 +23,12 @@ export type Bindings = {
   // both, notifications stay in the app and emails are skipped.
   EMAIL_API_KEY?: string;
   EMAIL_FROM?: string;
+  // Per-user Google Calendar sync (FLOW-268): the OAuth client (Worker secrets)
+  // and GOOGLE_TOKEN_KEY, 32 random bytes in base64 that encrypt refresh tokens.
+  // Without all three, Calendar shows Google Calendar as not set up.
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_TOKEN_KEY?: string;
   // Optional R2 binding to the same bucket: confirms uploads arrived and removes
   // abandoned or long-archived files (FLOW-188).
   FILES?: {

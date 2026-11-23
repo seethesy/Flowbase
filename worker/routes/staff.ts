@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { id as uuid } from "../../shared/schema-primitives";
-import { staffUpdateSchema } from "../../shared/staff";
+import { staffCreateSchema, staffUpdateSchema } from "../../shared/staff";
 import { requirePermission } from "../auth";
 import {
   notFound,
@@ -11,6 +11,7 @@ import {
   type RunWithDb,
 } from "../hono";
 import {
+  createStaffMember,
   getStaffMember,
   listStaff,
   updateStaffMember,
@@ -29,6 +30,11 @@ export function staffRoutes(options: { withDb?: RunWithDb }) {
   routes.get("/", requirePermission("staff.read"), async (c) =>
     c.json(await record(c, (db, actor) => listStaff(db, actor))),
   );
+  // A staff member without a Flowbase account (FLOW-270 A3): Admin only.
+  routes.post("/", requirePermission("users.manage"), async (c) => {
+    const input = await parseBody(c, staffCreateSchema);
+    return c.json(await record(c, (db, actor) => createStaffMember(db, actor, input)), 201);
+  });
   routes.get("/:id", requirePermission("staff.read"), async (c) => {
     const id = param(c);
     return c.json(await record(c, (db, actor) => getStaffMember(db, actor, id)));

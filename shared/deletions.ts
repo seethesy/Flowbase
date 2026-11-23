@@ -13,6 +13,9 @@ export const deletableEntities = [
   "vendor",
   "inventory_item",
   "recipe",
+  // The staff directory and SOPs tabs (FLOW-270).
+  "staff_member",
+  "sop",
 ] as const;
 export const deletableEntitySchema = z.enum(deletableEntities);
 export type DeletableEntity = z.infer<typeof deletableEntitySchema>;
@@ -25,6 +28,8 @@ export const deletableLabels: Record<DeletableEntity, string> = {
   vendor: "Vendor",
   inventory_item: "Inventory item",
   recipe: "Recipe",
+  staff_member: "Staff member",
+  sop: "SOP",
 };
 
 // Anyone who can edit a record can delete it (Art, 2026-11-20).
@@ -36,6 +41,8 @@ export const deletePermission: Record<DeletableEntity, Action> = {
   vendor: "inventory.write",
   inventory_item: "inventory.write",
   recipe: "recipes.write",
+  staff_member: "users.manage",
+  sop: "sops.write",
 };
 
 export const MAX_BULK_DELETE = 100;

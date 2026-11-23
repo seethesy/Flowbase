@@ -93,6 +93,9 @@ const StaffDetail = lazy(() =>
 const StaffDirectory = lazy(() =>
   import("../features/staff").then((module) => ({ default: module.StaffDirectory })),
 );
+const PayrollPage = lazy(() =>
+  import("../features/payroll").then((module) => ({ default: module.PayrollPage })),
+);
 const StaffProfile = lazy(() =>
   import("../features/staff").then((module) => ({ default: module.StaffProfile })),
 );
@@ -302,6 +305,8 @@ export const getRouter = () =>
         { path: "/staff", element: <StaffDirectory /> },
         { path: "/staff/:id", element: <StaffDetail /> },
         { path: "/staffing/schedule", element: <ComingSoon title="Schedule" /> },
+        // Payroll (FLOW-270): Admin and Technical; the API refuses everyone else.
+        { path: "/staffing/payroll", element: <PayrollPage /> },
         { path: "/marketing", element: <MarketingPhotosPage /> },
         { path: "/kitchen/photos", element: <KitchenPhotosPage /> },
         { path: "/inventory/photos", element: <InventoryPhotosPage /> },

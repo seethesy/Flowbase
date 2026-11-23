@@ -575,9 +575,10 @@ function LeadsForm({
     roster.assistantLeads.map((lead) => lead.id),
   );
   const [error, setError] = useState("");
-  // Part-time Staff cannot be the primary Production Lead.
+  // Part-time Staff cannot be the primary Production Lead, and staff without a
+  // Flowbase account can't receive its alerts (FLOW-270 A3).
   const fullTime = staff.filter(
-    (member) => member.role !== "part_time_staff",
+    (member) => member.hasAccount && member.role !== "part_time_staff",
   );
   return (
     <DetailDrawer

@@ -89,11 +89,10 @@ const adminOnly = [
   // Admin live layout editing (FLOW-253): change page layouts, columns, field
   // boxes, custom cards and their colors. Every Admin has it (FLOW-269).
   "layout.edit",
-  // Staff pay (FLOW-269): an area of the roles editor. Admin only until an
-  // Admin grants it; nothing reads it yet.
-  "staff.pay.read",
-  "staff.pay.write",
 ] as const;
+// Staff pay (FLOW-269 area, FLOW-270 A1): the Payroll tab and every pay field.
+// Admin and Technical read and edit it; other roles only when an Admin grants it.
+const staffPay = ["staff.pay.read", "staff.pay.write"] as const;
 export const actions = [
   ...new Set([
     ...common,
@@ -101,6 +100,10 @@ export const actions = [
     ...inventory,
     ...kitchen,
     ...adminOnly,
+    ...staffPay,
+    // Changing a staff member's role from the staff directory, one by one or in
+    // bulk (FLOW-270 A5): Admin and Technical. Only an Admin grants or removes Admin.
+    "staff.roles",
     "events.status",
     // Naming an event's Production Leads (FLOW-140 Q-40): Admin and Sales Manager.
     "events.production_leads",
@@ -140,7 +143,8 @@ const grants = (
 export const permissionMap: Record<Role, Partial<Record<Action, Rule>>> = {
   admin: grants(actions),
   technical: {
-    ...grants(common, sales, inventory, [
+    ...grants(common, sales, inventory, staffPay, [
+      "staff.roles",
       "recipes.write",
       "attachments.write",
       "inventory.consumables.count",

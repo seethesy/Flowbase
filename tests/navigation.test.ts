@@ -35,7 +35,7 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Day-of", "Approvals"]);
     expect(tabs(admin, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
     expect(tabs(admin, "Events")).toEqual(["Calendar", "BEOs", "Production", "Day-of"]);
-    expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
+    expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos", "Imports"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Recipes", "Ingredients", "Menus", "Photos"]);
     expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
@@ -51,6 +51,10 @@ describe("navigation groups", () => {
     expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues"]);
     expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar", "Purchasing", "Vendors", "Photos"]);
     expect(tabs(staff, "Reports")).toEqual(["Overview", "Time tracking"]);
+    // Payroll is Admin and Technical only (FLOW-270 AC2).
+    expect(tabs(staff, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
+    expect(tabs(salesperson, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
+    expect(tabs(actor("technical"), "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
     expect(headings(staff)).toHaveLength(9);
     // Signed out, only pages that need no permission remain.
     expect(visibleGroups(null).map((group) => group.name)).toEqual(["Dashboard", "Documents"]);
