@@ -975,6 +975,24 @@ tbody tr:last-child td {
   color: var(--text);
   font-weight: 500;
 }
+/* FLOW-296: a row that opens its record on click. */
+tbody tr.table-row-openable {
+  cursor: pointer;
+}
+/* FLOW-296: a date with its time beneath, smaller and muted. */
+.date-time-cell {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.date-time-cell__time {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.table-edit-datetime {
+  display: inline-flex;
+  gap: 4px;
+}
 .table-link:hover {
   color: var(--primary);
   text-decoration: underline;

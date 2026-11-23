@@ -10,6 +10,7 @@ import { pipelineStatusSchema } from "../../shared/pipeline";
 import { BUSINESS_TIME_ZONE } from "../../shared/time";
 import { staffApi } from "../services/staff";
 import { StatusPill } from "./ui/status-pill";
+import { DateTimeCell, instantLabels } from "./shared/date-time-cell";
 
 // Values and labels of registry fields (FLOW-253), rendered by type: status as
 // a StatusPill (FLOW-251) or its label, person as a name, money as currency,
@@ -74,8 +75,11 @@ export function FieldValue({ source, field, row }: { source: SourceKey; field: s
       return <>{money(Number(value))}</>;
     case "date":
       return <>{day(String(value))}</>;
-    case "datetime":
-      return <>{stamp(String(value))}</>;
+    case "datetime": {
+      // FLOW-296: the date with the time beneath it.
+      const parts = instantLabels(String(value));
+      return parts ? <DateTimeCell date={parts.date} time={parts.time} /> : <>{stamp(String(value))}</>;
+    }
     case "boolean":
       return value ? <T id="fields.value.yes">Yes</T> : <T id="fields.value.no">No</T>;
     case "status":

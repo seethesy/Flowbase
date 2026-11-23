@@ -25,6 +25,8 @@ import {
   Select,
   useTableSelection,
   ColumnResizeHandle,
+  DateTimeCell,
+  fromRowControl,
 } from "../components/shared";
 import { LoadError } from "../components/record-display";
 import { useListLabels } from "./list-fields";
@@ -124,9 +126,10 @@ export function LeadInbox() {
         .map((value) => <option key={value} value={value}>{leadStatusLabels[value]}</option>)}</Dropdown>
     </>,
   }, shown.map((lead) => lead.id));
-  // A click anywhere on a row opens the lead, except on the Status cell and links.
+  // A click anywhere on a row opens the lead, except on the Status cell and the
+  // row's controls, including a dropdown menu they opened (FLOW-296).
   const openRow = (lead: Lead, event: MouseEvent<HTMLTableRowElement>) => {
-    if ((event.target as HTMLElement).closest("a, button, input, [role='combobox'], .lead-status-cell")) return;
+    if (fromRowControl(event) || (event.target as HTMLElement).closest(".lead-status-cell")) return;
     navigate(`/leads/${lead.id}`);
   };
   // The table's code columns (FLOW-254) remain configurable while row
@@ -141,7 +144,8 @@ export function LeadInbox() {
     { key: "email", heading: "Email", cell: (lead) => lead.email || "—" },
     { key: "eventDate", heading: "Time & Date", cell: (lead) => {
       const startsAt = lead.latestEvent ? utcToBusinessTime(new Date(lead.latestEvent.startsAt)) : null;
-      return startsAt ? `${startsAt.date} ${startsAt.time}` : lead.eventDate ?? "—";
+      // FLOW-296: the date with the time beneath it.
+      return startsAt ? <DateTimeCell date={startsAt.date} time={startsAt.time} /> : lead.eventDate ?? "—";
     } },
     { key: "notes", heading: "Notes", cell: (lead) => notesText(lead.notes) || "—" },
     { key: "source", heading: "Source", cell: (lead) => lead.source },
@@ -186,7 +190,7 @@ export function LeadInbox() {
                   return <tr key={lead.id} {...row}
                     className={[row.className, "lead-row", lead.needsReview || lead.possibleDuplicate ? "lead-needs-review" : ""].filter(Boolean).join(" ")}
                     onClick={(event) => openRow(lead, event)}
-                    onAuxClick={(event) => { if (event.button === 1 && !(event.target as HTMLElement).closest("a")) window.open(`#/leads/${lead.id}`, "_blank", "noopener"); }}>
+                    onAuxClick={(event) => { if (event.button === 1 && !fromRowControl(event)) window.open(`#/leads/${lead.id}`, "_blank", "noopener"); }}>
                     {visible.map((column) => <td key={column.key} className={column.key === "status" ? "lead-status-cell" : column.key === "notes" ? "lead-notes-cell" : undefined}>
                       {code(column.key)?.cell(lead) ?? <FieldValue source="leads" field={column.key} row={lead as unknown as Record<string, unknown>} />}
                     </td>)}
