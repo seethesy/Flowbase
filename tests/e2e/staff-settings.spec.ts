@@ -45,7 +45,7 @@ test("filters the staff directory by position and exports the filtered list", as
     .trimEnd()
     .split("\r\n");
   // Employment type left with Part-time Staff becoming a role (FLOW-249).
-  expect(lines[0]).toBe("Name,Positions,Role,Mobile,Email,Status");
+  expect(lines[0]).toBe("Name,Positions,Role,Phone,Email,Status");
   expect(lines).toHaveLength(3);
   expect(lines.join("\n")).toContain(server.email);
   expect(lines.join("\n")).toContain(inactiveServer.email);

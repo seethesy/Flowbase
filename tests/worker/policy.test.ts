@@ -100,8 +100,11 @@ const expected: Record<Action, string> = {
   "beos.read": "1111111",
   "vendors.read": "1111111",
   "vendors.write": "1110100",
-  "staff.pay.read": "1000000",
-  "staff.pay.write": "1000000",
+  // Staff pay (FLOW-270 A1): Admin and Technical read and edit it.
+  "staff.pay.read": "1100000",
+  "staff.pay.write": "1100000",
+  // Changing staff roles from the directory (FLOW-270 A5): Admin and Technical.
+  "staff.roles": "1100000",
   // Marketing photos (FLOW-271): everyone reads, Sales roles and Admin write.
   "marketing.read": "1111111",
   "marketing.write": "1111000",

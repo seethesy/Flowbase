@@ -86,9 +86,10 @@ describe("the stored matrix", () => {
     const response = await staff("GET", "/api/permissions");
     expect(response.status).toBe(200);
     expect((await response.json()).matrix).toEqual(defaultMatrix);
-    // Staff pay: Admin only (AC5).
+    // Staff pay: Admin and Technical (FLOW-270 A1).
     expect(await storedLevel("staff", "staff_pay")).toBe("none");
     expect(await storedLevel("sales_manager", "staff_pay")).toBe("none");
+    expect(await storedLevel("technical", "staff_pay")).toBe("write");
     expect(await storedLevel("admin", "staff_pay")).toBe("write");
     expect((await staff("GET", "/api/inventory/items")).status).toBe(200);
   });

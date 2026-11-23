@@ -79,6 +79,8 @@ export const navigationGroups: NavGroup[] = [
       { copyId: "schedule", name: "Schedule", to: "/staffing/schedule", visible: "staff.read" },
       { copyId: "staff-directory", name: "Staff directory", to: "/staff", visible: "staff.read" },
       { copyId: "sops", name: "SOPs", to: "/sops", visible: "sops.read" },
+      // Pay (FLOW-270): Admin and Technical by default (the Staff pay area).
+      { copyId: "payroll", name: "Payroll", to: "/staffing/payroll", visible: "staff.pay.read" },
     ],
   },
   {

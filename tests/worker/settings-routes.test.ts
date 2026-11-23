@@ -172,6 +172,7 @@ const member: StaffMember = {
   secondaryEmail: null,
   mobile: "2025550123",
   role: "staff",
+  hasAccount: true,
   status: "active",
   active: true,
   positions: ["Server"],

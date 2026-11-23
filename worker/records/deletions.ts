@@ -24,6 +24,8 @@ import { getEvent, setEventArchived } from "./events";
 import { findItem, getItem, setItemArchived } from "./inventory-items";
 import { findVisibleLead, setLeadArchived } from "./leads";
 import { getRecipe, setRecipeArchived } from "./recipes";
+import { findSop, setSopArchived } from "./sops";
+import { setStaffArchived, staffDeleteBlocked, staffDeleteName } from "./staff";
 import { getVendor, setVendorArchived } from "./vendors";
 import { getVenue, setVenueArchived } from "./venues";
 
@@ -110,6 +112,17 @@ const entities: Record<DeletableEntity, Entity> = {
   recipe: {
     name: async (db, actor, id) => (await getRecipe(db, actor, id)).name,
     archive: setRecipeArchived,
+  },
+  // The staff directory (FLOW-270): your own account and people on upcoming
+  // shifts are skipped.
+  staff_member: {
+    name: staffDeleteName,
+    blocked: staffDeleteBlocked,
+    archive: setStaffArchived,
+  },
+  sop: {
+    name: async (db, _actor, id) => (await findSop(db, id)).title,
+    archive: setSopArchived,
   },
 };
 

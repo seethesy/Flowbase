@@ -14,6 +14,7 @@ import { emptyRichText } from "../components/rich-text/extensions";
 import { sopsApi } from "../services/sops";
 import { Attachments } from "./attachments";
 import { T, useCopy } from "../app/copy";
+import { useDeletable } from "../app/deletable";
 
 export function SopLibrary() {
   const allCategoriesPlaceholder = useCopy("sops.sop-library.all-categories.placeholder", "All categories");
@@ -22,18 +23,24 @@ export function SopLibrary() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const sops = useResource(["sops", search, category], () => sopsApi.list(search, category));
+  const deletable = useDeletable("sop", () => sops.reload());
   const edit = async (row: SopSummary, change: { title?: string; category?: string }) => {
     const current = await sopsApi.get(row.id);
     await sopsApi.update(row.id, { title: change.title ?? current.title,
       category: change.category ?? current.category, content: current.content, version: current.version });
     sops.reload();
   };
+  // Staffing › SOPs (FLOW-270): Open, Title, Area, Owner, Updated, with inline
+  // edits and delete. The Area is the SOP's category.
   const columns: ColumnDef<SopSummary, unknown>[] = [
     { accessorKey: "title", header: "Title", meta: { edit: "text", canEdit: () => can("sops.write"),
       onEdit: (row, value) => edit(row, { title: value }) } },
-    { accessorKey: "category", header: "Category", meta: { edit: "text", canEdit: () => can("sops.write"),
+    { accessorKey: "category", header: "Area", meta: { edit: "text", canEdit: () => can("sops.write"),
       onEdit: (row, value) => edit(row, { category: value }) } },
-    { accessorKey: "version", header: "Version", meta: { edit: "none" } },
+    { id: "owner", header: "Owner", accessorFn: (row) => row.owner ?? "—" },
+    { id: "updated", header: "Updated", accessorFn: (row) => new Date(row.updatedAt).toLocaleDateString(),
+      sortingFn: (a, b) => a.original.updatedAt.localeCompare(b.original.updatedAt),
+      meta: { csv: (row) => row.updatedAt } },
   ];
   if (sops.error) return <LoadError message={sops.error} />;
   return <>
@@ -51,7 +58,8 @@ export function SopLibrary() {
     <Section title={<T id="sops.sop-library.procedures">Procedures</T>}>
       {!sops.data ? <LoadingSkeleton /> : sops.data.length ?
         <DataTable copyKey="sops.library" data={sops.data} columns={columns}
-          onRow={(row) => navigate(`/sops/${row.id}`)} openColumn />
+          onRow={(row) => navigate(`/sops/${row.id}`)} openColumn
+          selection={{ rowId: (row) => row.id, ...deletable }} />
         : <p><T id="sops.sop-library.no-sops-found">No SOPs found.</T></p>}
     </Section>
     </Block>

@@ -31,7 +31,7 @@ test("a heading opens its first tab; placeholders say Coming soon", async ({ pag
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Staffing", exact: true }).click();
   await expect(page).toHaveURL(/#\/staffing\/schedule$/);
   await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
-  await expect(tabs(page, "Staffing")).toHaveText(["Schedule", "Staff directory", "SOPs"]);
+  await expect(tabs(page, "Staffing")).toHaveText(["Schedule", "Staff directory", "SOPs", "Payroll"]);
   // Marketing is the Photos gallery since FLOW-271, no longer a placeholder.
   await page.goto("/#/marketing");
   await expect(page.getByRole("heading", { name: "Photos", level: 1 })).toBeVisible();

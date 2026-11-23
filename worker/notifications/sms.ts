@@ -50,7 +50,7 @@ export async function routeSms(
       isNull(notificationPreferences.archivedAt)));
   const optedIn = new Set(selected.map((row) => row.userId));
   const recipients = await db.select({ id: users.id, mobile: users.mobile, consent: users.smsConsentAt })
-    .from(users).where(and(eq(users.status, "active"), isNull(users.archivedAt)));
+    .from(users).where(and(eq(users.status, "active"), eq(users.hasAccount, true), isNull(users.archivedAt)));
   const eligible = new Map(recipients.filter((u) => optedIn.has(u.id) && u.consent && u.mobile.trim())
     .map((u) => [u.id, u.mobile]));
   const { start, end } = monthBounds(now);

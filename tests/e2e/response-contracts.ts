@@ -83,6 +83,7 @@ import {
   settingsHistoryEntrySchema,
 } from "../../shared/settings";
 import { staffMemberSchema } from "../../shared/staff";
+import { payExceptionSchema, payrollSchema, staffPaySchema } from "../../shared/staff-pay";
 import {
   notificationInboxSchema,
   notificationPreferenceSchema,
@@ -324,7 +325,13 @@ export function responseSchema(
     return !id && method === "GET" ? importLogSchema.array() : importLogSchema;
   }
   if (resource === "staff")
-    return !id ? staffMemberSchema.array() : staffMemberSchema;
+    return !id && method === "GET" ? staffMemberSchema.array() : staffMemberSchema;
+  // Staff pay and the Payroll tab (FLOW-270).
+  if (resource === "staff-pay") {
+    if (id === "exceptions")
+      return method === "DELETE" ? z.object({ archived: z.string() }) : payExceptionSchema;
+    return method === "GET" ? payrollSchema : staffPaySchema;
+  }
   // Notification center and email settings (FLOW-43).
   if (resource === "notifications") {
     if (id === "preferences") return notificationPreferenceSchema.array();

@@ -1,5 +1,5 @@
 {
-  "id": "c694a7d4-719c-4a7d-bc63-eff83de6d8ac",
+  "id": "6952383b-1720-4427-b52a-716d2868b042",
   "prevId": "1411a487-769b-48a1-b79f-96fad2e37dce",
   "version": "7",
   "dialect": "postgresql",
@@ -3458,7 +3458,7 @@
       "checkConstraints": {
         "deletions_entity_type_check": {
           "name": "deletions_entity_type_check",
-          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe')"
+          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop')"
         }
       },
       "isRLSEnabled": true
@@ -11297,84 +11297,6 @@
       },
       "isRLSEnabled": true
     },
-    "public.role_nav_hidden": {
-      "name": "role_nav_hidden",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "hidden": {
-          "name": "hidden",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "role_nav_hidden_role_unique": {
-          "name": "role_nav_hidden_role_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "role"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "role_nav_hidden_role_check": {
-          "name": "role_nav_hidden_role_check",
-          "value": "\"role_nav_hidden\".\"role\" in ('admin', 'technical', 'sales_manager', 'salesperson', 'kitchen_lead', 'kitchen_staff', 'staff', 'part_time_staff')"
-        }
-      },
-      "isRLSEnabled": true
-    },
     "public.role_permissions": {
       "name": "role_permissions",
       "schema": "",
@@ -11990,6 +11912,225 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.staff_pay": {
+      "name": "staff_pay",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "staff_full_name": {
+          "name": "staff_full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pay_type": {
+          "name": "pay_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rate_cents": {
+          "name": "rate_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rate_unit": {
+          "name": "rate_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "second_rate_cents": {
+          "name": "second_rate_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "second_rate_label": {
+          "name": "second_rate_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "staff_pay_name_idx": {
+          "name": "staff_pay_name_idx",
+          "columns": [
+            {
+              "expression": "lower(\"staff_full_name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"staff_pay\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "staff_pay_pay_type_check": {
+          "name": "staff_pay_pay_type_check",
+          "value": "\"staff_pay\".\"pay_type\" in ('hourly', 'per_event', 'salary')"
+        },
+        "staff_pay_rate_unit_check": {
+          "name": "staff_pay_rate_unit_check",
+          "value": "\"staff_pay\".\"rate_unit\" in ('hour', 'event', 'year')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.staff_pay_exceptions": {
+      "name": "staff_pay_exceptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "staff_full_name": {
+          "name": "staff_full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "project": {
+          "name": "project",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {
+        "staff_pay_exceptions_name_idx": {
+          "name": "staff_pay_exceptions_name_idx",
+          "columns": [
+            {
+              "expression": "lower(\"staff_full_name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "staff_pay_exceptions_target_check": {
+          "name": "staff_pay_exceptions_target_check",
+          "value": "(\"staff_pay_exceptions\".\"event_id\" is null) <> (\"staff_pay_exceptions\".\"project\" is null)"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.stock_count_lines": {
@@ -14032,6 +14173,13 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "has_account": {
+          "name": "has_account",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         }
       },
       "indexes": {
@@ -14046,6 +14194,7 @@
             }
           ],
           "isUnique": true,
+          "where": "\"users\".\"email\" <> ''",
           "concurrently": false,
           "method": "btree",
           "with": {}

@@ -42,6 +42,7 @@ import { lastMatrix, loadMatrix } from "./records/permissions";
 import { setPolicyMatrix } from "../shared/role-permissions";
 import { fieldProjection } from "./fields";
 import { staffRoutes } from "./routes/staff";
+import { staffPayRoutes } from "./routes/staff-pay";
 import { eventStaffRoutes } from "./routes/event-staff";
 import { eventTimelineRoutes } from "./routes/event-timeline";
 import { preparationRoutes } from "./routes/preparation";
@@ -333,6 +334,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/layout", layoutRoutes(options));
   app.route("/api/permissions", permissionRoutes(options));
   app.route("/api/staff", staffRoutes(options));
+  app.route("/api/staff-pay", staffPayRoutes(options));
   app.route("/api/events", eventStaffRoutes(options));
   app.route("/api/events", eventTimelineRoutes(options));
   app.route("/api/events", preparationRoutes(options));
