@@ -45,9 +45,11 @@ test("an Admin adds a card to the Sales overview that everyone sees (AC2)", asyn
   await expect(page.getByLabel("Statuses", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit screen text" }).click();
   await page.getByRole("button", { name: "Add card" }).click();
-  // The page grid has no blocks yet: Add card asks for its one cell (FLOW-321).
-  await page.getByRole("button", { name: "Place here: Empty cell, row 1, column 1" }).click();
+  // The leads table fills the page grid (FLOW-328), so there is no empty cell to
+  // pick: Add card goes straight to a new row at the bottom (FLOW-319).
+  await expect(page.getByRole("button", { name: /^Place here:/ })).toHaveCount(0);
   const builder = page.getByRole("dialog", { name: "Card builder" });
+  await expect(builder).toBeVisible();
   await builder.getByLabel("Title").fill("Pipeline at a glance");
   // A table card needs at least one column before Done.
   await choose(builder.getByRole("combobox", { name: "Source" }), "list:leads");
