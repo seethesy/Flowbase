@@ -8,6 +8,7 @@ import { Button, DetailDrawer, FormField, ErrorText } from "../../components/sha
 import { eventsApi } from "../../services/core";
 import { staffApi } from "../../services/staff";
 import { tasksApi } from "../../services/tasks";
+import { useBusinessSettings } from "../../services/settings";
 import { sopsApi } from "../../services/sops";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T } from "../../app/copy";
@@ -19,7 +20,7 @@ import "./tasks.css";
 export const names = (people: { name: string }[]) =>
   people.map((person) => person.name).join(", ") || "Unassigned";
 
-// Active staff, for assignee and overseer pickers.
+// Active staff, for assignee and manager pickers.
 export function useActiveStaff(enabled = true) {
   const staff = useResource(["staff"], () => staffApi.list(), { reference: true, enabled });
   return (staff.data ?? []).filter((member) => member.active);
@@ -35,8 +36,8 @@ export function useUpcomingEvents() {
   return events.data ?? [];
 }
 
-// The new-task form. Someone who may delegate assigns anyone and is the overseer
-// by default when assigning others (FLOW-60); everyone else assigns themselves.
+// The new-task form. Managers start with the configured defaults and may be edited
+// by someone who may delegate.
 export function NewTaskDrawer({
   open,
   onClose,
@@ -50,6 +51,7 @@ export function NewTaskDrawer({
 }) {
   const { actor, can } = usePermissions();
   const staff = useActiveStaff();
+  const defaults = useBusinessSettings().defaults.defaultTaskManagers;
   const events = useUpcomingEvents();
   const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const delegates = can("tasks.delegate");
@@ -61,11 +63,14 @@ export function NewTaskDrawer({
   const [event, setEvent] = useState(eventId ?? "");
   const [sopId, setSopId] = useState("");
   const [assignees, setAssignees] = useState<string[]>([]);
-  const [overseer, setOverseer] = useState("");
+  const [managers, setManagers] = useState<string[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   if (!actor) return null;
-  const others = assignees.some((id) => id !== actor.userId);
+  const defaultManagers = defaults.mode === "all_admins"
+    ? staff.filter((member) => member.role === "admin").map((member) => member.id)
+    : defaults.userIds.filter((id) => staff.some((member) => member.id === id));
+  const selectedManagers = managers ?? defaultManagers;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
@@ -85,12 +90,12 @@ export function NewTaskDrawer({
         eventId: event || null,
         sopId: sopId || null,
         assigneeIds: assignees,
-        overseerId: overseer || (others ? actor.userId : null),
+        ...(delegates && (managers !== null || staff.length) ? { managerIds: selectedManagers } : {}),
       });
       setTitle("");
       setSopId("");
       setAssignees([]);
-      setOverseer("");
+      setManagers(null);
       onCreated();
       onClose();
     } catch (err) {
@@ -179,11 +184,10 @@ export function NewTaskDrawer({
               </Dropdown>
             </FormField>
             <FormField
-              label={<T id="task-lists.new-task-drawer.overseer">Overseer</T>}
-              hint={<T id="task-lists.new-task-drawer.when-you-assign-someone-else">When you assign someone else, you oversee it unless you pick someone.</T>}
+              label={<T id="task-lists.new-task-drawer.overseer">Managers</T>}
+              hint={<T id="task-lists.new-task-drawer.when-you-assign-someone-else">Choose the people who manage this task.</T>}
             >
-              <Dropdown value={overseer} onChange={(e) => setOverseer(e.target.value)}>
-                <option value="">{others ? "Me" : "No overseer"}</option>
+              <Dropdown multiple value={selectedManagers} onChange={(e) => setManagers(Array.from(e.target.selectedOptions, (option) => option.value))}>
                 {staff.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.name}

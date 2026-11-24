@@ -41,6 +41,7 @@ it("validates the company profile, accepting only small inline raster logos", ()
 
 it("fills defaults and bounds every business default", () => {
   expect(businessDefaultsSchema.parse({})).toEqual({
+    defaultTaskManagers: { mode: "all_admins", userIds: [] },
     rentalBufferDaysBefore: 1,
     rentalBufferDaysAfter: 1,
     ratioDefaults: [],
@@ -78,6 +79,8 @@ it("fills defaults and bounds every business default", () => {
     { ratioDefaults: [{ category: "Linen", quantity: 0, basis: "per_guest" }] },
     { ratioDefaults: [{ category: "Linen", quantity: 1, basis: "per_hour" }] },
     { urgentNotificationTypes: [""] },
+    { defaultTaskManagers: { mode: "people", userIds: ["bad-id"] } },
+    { defaultTaskManagers: { mode: "people", userIds: ["c5900000-0000-4000-8000-000000000001", "c5900000-0000-4000-8000-000000000001"] } },
     // No tax rates in the MVP.
     { taxRate: 6 },
   ])

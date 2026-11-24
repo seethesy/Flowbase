@@ -277,7 +277,7 @@ export const timeReportScope = (actor: Actor): "all" | "own" =>
 // else sees the tasks they are assigned to, oversee or created.
 export const taskScope = (actor: Actor): "all" | "own" =>
   isFtPlus(actor) ? "all" : "own";
-// Changing a task's details, assignees or overseer: its creator, its overseer, or
+// Changing a task's details, assignees or managers: its creator, a manager, or
 // anyone who may delegate. Assignees who can't still update status, checklist and
 // comments.
 // Approval requests (FLOW-44): people see the requests they made and those their
@@ -288,11 +288,11 @@ export const mayDecideApproval = (actor: Actor, approverRole: Role) =>
   actor.role === "admin" || actor.role === approverRole;
 export const mayManageTask = (
   actor: Actor,
-  task: { createdBy: string | null; overseerId: string | null },
+  task: { createdBy: string | null; managerIds: string[] },
 ) =>
   can(actor, "tasks.delegate") ||
   task.createdBy === actor.userId ||
-  task.overseerId === actor.userId;
+  task.managerIds.includes(actor.userId);
 export const mayOverrideStatus = (
   actor: Actor,
   event: { assignedSalespersonId: string | null },
