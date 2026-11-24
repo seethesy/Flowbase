@@ -1,6 +1,6 @@
 {
-  "id": "4c225e1c-3b53-49ac-b962-95f932c7fd5a",
-  "prevId": "e114629b-e7db-4715-aede-667e05001b52",
+  "id": "000bb2e2-e80f-4745-a671-896a83deaa6d",
+  "prevId": "b266d241-af3c-4d6c-8198-35d5239bd8d2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -14288,6 +14288,122 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.task_managers": {
+      "name": "task_managers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "task_managers_task_user_idx": {
+          "name": "task_managers_task_user_idx",
+          "columns": [
+            {
+              "expression": "task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"task_managers\".\"archived_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_managers_user_idx": {
+          "name": "task_managers_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "task_managers_task_id_tasks_id_fk": {
+          "name": "task_managers_task_id_tasks_id_fk",
+          "tableFrom": "task_managers",
+          "tableTo": "tasks",
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.task_template_items": {
       "name": "task_template_items",
       "schema": "",
@@ -14719,12 +14835,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "overseer_id": {
-          "name": "overseer_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "event_id": {
           "name": "event_id",
           "type": "uuid",
@@ -14829,21 +14939,6 @@
           "columns": [
             {
               "expression": "event_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "tasks_overseer_idx": {
-          "name": "tasks_overseer_idx",
-          "columns": [
-            {
-              "expression": "overseer_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
