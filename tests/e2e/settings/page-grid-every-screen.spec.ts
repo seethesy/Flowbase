@@ -17,9 +17,10 @@ const screens = [
   "/recipes", "/kitchen/overview", "/kitchen/menus", "/recipes/client", "/events", "/events/overview", "/calendar",
   "/beos", "/day-of", "/production", "/venues", "/vendors", "/staff", "/staffing/schedule", "/staffing/payroll",
   "/marketing", "/kitchen/photos", "/documents", "/profile", "/tasks", "/tasks/all", "/tasks/templates", "/sops",
-  "/reports", "/reports/operations", "/settings", "/settings/imports", "/settings/inventory-categories",
-  // Not /settings/collector: its SMS outbox endpoint has no shared response
-  // contract yet, which the fixture rejects on any visit.
+  "/reports", "/settings", "/settings/imports", "/settings/inventory-categories",
+  // Not /settings/collector or /reports/operations (which shows the collector's
+  // health): their SMS outbox endpoint has no shared response contract yet,
+  // which the fixture rejects on any visit.
   "/settings/locations", "/settings/usage", "/settings/operations", "/settings/users",
   "/settings/permissions", "/settings/archived",
 ];
