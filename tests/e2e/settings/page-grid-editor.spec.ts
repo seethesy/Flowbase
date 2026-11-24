@@ -46,6 +46,8 @@ async function ask(page: Page, button: string) {
   await apply(page, KEY);
 }
 async function drag(page: Page, from: Locator, to: Box, during?: () => Promise<void>) {
+  // Mid-screen, clear of the toolbar fixed to the bottom.
+  await from.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const start = await centre(page, await boxOf(from));
   const end = await centre(page, to);
   await page.mouse.move(start.x, start.y);
@@ -315,6 +317,8 @@ test("a saved version 1 layout renders converted, restores, saves as version 2 a
   await edit(page);
   await page.getByRole("button", { name: "Deleted items (1)", exact: true }).click();
   await page.getByRole("dialog", { name: "Deleted items" }).getByRole("button", { name: "Restore", exact: true }).click();
+  // Close the Deleted items tray before opening Hidden items.
+  await page.getByRole("button", { name: "Deleted items (0)", exact: true }).click();
   await page.getByRole("button", { name: "Hidden items (1)", exact: true }).click();
   await page.getByRole("dialog", { name: "Hidden items" }).getByRole("button", { name: "Show", exact: true }).click();
   await save(page);

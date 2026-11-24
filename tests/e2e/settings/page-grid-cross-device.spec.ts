@@ -215,6 +215,8 @@ test("layouts saved before the page grid convert, keep hidden and deleted items,
   await expect(page.getByRole("button", { name: "Hidden items (1)", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Deleted items (1)", exact: true }).click();
   await page.getByRole("dialog", { name: "Deleted items" }).getByRole("button", { name: "Restore", exact: true }).click();
+  // Close the Deleted items tray before opening Hidden items.
+  await page.getByRole("button", { name: "Deleted items (0)", exact: true }).click();
   await page.getByRole("button", { name: "Hidden items (1)", exact: true }).click();
   await page.getByRole("dialog", { name: "Hidden items" }).getByRole("button", { name: "Show", exact: true }).click();
   await save(page);
