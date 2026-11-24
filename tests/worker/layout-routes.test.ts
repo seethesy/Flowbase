@@ -35,8 +35,9 @@ const send = (path: string, method = "GET", body?: unknown) =>
     { ASSETS: { fetch } },
   );
 const layout = {
-  version: 1,
-  blocks: [{ kind: "builtin", id: "notes", x: 0, y: 0, w: 6, h: 8, style: { background: "#edf3ee" } }],
+  version: 2,
+  grid: { cols: [5000, 5000], rows: [10000], regions: [] },
+  blocks: [{ kind: "builtin", id: "notes", x: 0, y: 0, w: 1, h: 1, style: { background: "#edf3ee" } }],
   tables: {},
   fieldBoxes: {},
 };
@@ -95,6 +96,38 @@ it("rejects low contrast, unknown fields and bad keys with nothing saved", async
   }
   expect((await send("/api/layout/Not%20A%20Key", "PUT", layout)).status).toBe(400);
   expect(saveLayout).not.toHaveBeenCalled();
+});
+
+// The page grid (FLOW-319 AC1, FLOW-321 AC7): every broken invariant is a 400
+// naming its path, and version 1 is no longer saved.
+it("refuses a page grid that breaks its invariants, naming the path, and refuses version 1", async () => {
+  const grid = (patch: Record<string, unknown>) => ({ ...layout, grid: { ...layout.grid, ...patch } });
+  const block = (patch: Record<string, unknown>, id = "notes") => ({ kind: "builtin", id, x: 0, y: 0, w: 1, h: 1, ...patch });
+  const cases: [unknown, string][] = [
+    [grid({ cols: [5000, 4000] }), "grid.cols"],
+    [grid({ cols: [9950, 50] }), "grid.cols.1"],
+    [grid({ cols: Array.from({ length: 13 }, (_, i) => (i < 12 ? 769 : 772)) }), "grid.cols"],
+    [grid({ rows: Array.from({ length: 41 }, (_, i) => (i < 40 ? 243 : 280)) }), "grid.rows"],
+    [{ ...grid({ rows: [5000, 5000], regions: [{ x: 0, y: 0, w: 2, h: 1 }, { x: 1, y: 0, w: 1, h: 2 }] }), blocks: [] }, "grid.regions.1"],
+    [{ ...grid({ regions: [{ x: 1, y: 0, w: 2, h: 1 }] }), blocks: [] }, "grid.regions.0"],
+    [{ ...layout, blocks: [block({}), block({}, "event-notes")] }, "blocks.1"],
+    [{ ...grid({ rows: [5000, 5000], regions: [{ x: 0, y: 0, w: 1, h: 2 }] }), blocks: [block({ y: 1 })] }, "blocks.0"],
+    [{ ...layout, blocks: [block({ x: 2 })] }, "blocks.0"],
+  ];
+  for (const [body, path] of cases) {
+    const response = await send("/api/layout/leads.detail", "PUT", body);
+    expect(response.status, path).toBe(400);
+    const json = (await response.json()) as { problems?: { path: string }[] };
+    expect(json.problems?.map((problem) => problem.path), path).toContain(path);
+  }
+  const v1 = { version: 1, blocks: [{ kind: "builtin", id: "notes", x: 0, y: 0, w: 6, h: 8 }], tables: {}, fieldBoxes: {} };
+  const refused = await send("/api/layout/leads.detail", "PUT", v1);
+  expect(refused.status).toBe(400);
+  expect(((await refused.json()) as { problems: { path: string }[] }).problems[0].path).toBe("version");
+  expect(saveLayout).not.toHaveBeenCalled();
+  // A merged area with its block at the top-left cell saves.
+  const merged = { ...grid({ rows: [3000, 7000], regions: [{ x: 0, y: 0, w: 2, h: 2 }] }), blocks: [block({ w: 2, h: 2 })] };
+  expect((await send("/api/layout/leads.detail", "PUT", merged)).status).toBe(200);
 });
 
 // fields= and card queries, on a stand-in for the list and detail endpoints.

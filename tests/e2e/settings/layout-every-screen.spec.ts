@@ -4,28 +4,22 @@ import type { Page } from "@playwright/test";
 import { seedUsers } from "../../../worker/db/seed";
 import { fallGala, juniper } from "../fixtures";
 import { browserDb, seedRecords } from "../database";
+import { halfWidthAndDown } from "./page-grid-helpers";
 import * as s from "../../../worker/db/schema";
 
-// FLOW-278 against the real Worker and database: the newly wrapped screens move
-// and resize (width presets and the arrow keys), the new style options save for
-// everyone, and phones stack blocks and drop the ones hidden on phone.
+// FLOW-278 against the real Worker and database, on the page grid (FLOW-321):
+// the newly wrapped screens get a second column (every block half width) and
+// a block moves with the keyboard, the new style options save for everyone,
+// and phones keep the arrangement while dropping the blocks hidden on phone.
 const salesperson = seedUsers.find((user) => user.role === "salesperson")!;
 const manager = seedUsers.find((user) => user.role === "sales_manager") ?? salesperson;
 
-// Six columns wide, as the inline style the browser serializes (grid-area or
-// grid-column).
-const halfWidth = /grid-column: \d+ \/ span 6|grid-area: [^;]*\/ span 6;/;
+// One cell of the left column of two, as the inline style the browser
+// serializes.
+const halfWidth = /grid-area: \d+ \/ 1 \/ span 1 \/ span 1;/;
 
 const block = (page: Page, pageKey: string, id: string) =>
   page.locator(`[data-page-layout="${pageKey}"] > [data-block-id="${id}"]`);
-
-async function halfWidthAndDown(page: Page, name: string) {
-  await page.getByRole("button", { name: `Half width: ${name}` }).click();
-  // The arrow keys move a focused block one row (AC2).
-  const item = page.getByLabel(`${name}: arrow keys move, Shift and arrow keys resize`);
-  await item.focus();
-  await item.press("ArrowDown");
-}
 
 async function save(page: Page) {
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -43,10 +37,10 @@ const screens = [
 
 for (const screen of screens)
   test(`moves and resizes a card on ${screen.title} for everyone (FLOW-278 AC1, AC2)`, async ({ page, browser, isMobile }) => {
-    test.skip(isMobile, "Phones stack blocks full width (AC5 has its own 390px test).");
+    test.skip(isMobile, "The phone has its own 390px test (AC5).");
     await page.goto(screen.path);
     await page.getByRole("button", { name: "Edit screen text" }).click();
-    await halfWidthAndDown(page, screen.name);
+    await halfWidthAndDown(page, screen.pageKey, screen.name);
     await save(page);
     await expect(block(page, screen.pageKey, screen.id)).toHaveAttribute("style", halfWidth);
     const placed = await block(page, screen.pageKey, screen.id).getAttribute("style");
@@ -62,13 +56,13 @@ for (const screen of screens)
   });
 
 test("moves a card on an event tab without moving the tab (FLOW-278 AC1)", async ({ page, isMobile }) => {
-  test.skip(isMobile, "Phones stack blocks full width (AC5 has its own 390px test).");
+  test.skip(isMobile, "The phone has its own 390px test (AC5).");
   await seedRecords({ clients: [juniper()], events: [fallGala()] });
   await browserDb((db) => db.update(s.events).set({ status: "preparation" }).where(eq(s.events.id, fallGala().id)));
   await page.goto(`/#/events/${fallGala().id}`);
   await expect(page.getByRole("heading", { name: "Closeout and returns" })).toBeVisible();
   await page.getByRole("button", { name: "Edit screen text" }).click();
-  await halfWidthAndDown(page, "Final notes");
+  await halfWidthAndDown(page, "events.closeout", "Final notes");
   await save(page);
   await expect(block(page, "events.closeout", "finish")).toHaveAttribute("style", halfWidth);
   await page.reload();
@@ -112,12 +106,14 @@ test("saves the new style options and Default look restores the card (FLOW-278 A
   await expect(block(page, "recipes.list", "list")).not.toHaveClass(/layout-radius|layout-styled/);
 });
 
-test.describe("on a phone (FLOW-278 AC5)", () => {
-  test("stacks blocks in saved order and drops only the ones hidden on phone", async ({ page, browser }) => {
+test.describe("on a phone (FLOW-278 AC5, FLOW-320 AC4)", () => {
+  test("keeps the saved arrangement and drops only the blocks hidden on phone, their cells left empty", async ({ page, browser }) => {
     await page.goto("/#/tasks");
     await page.getByRole("button", { name: "Edit screen text" }).click();
-    // Half width on desktop; a phone still shows it full width.
-    await page.getByRole("button", { name: "Half width: My tasks" }).click();
+    // Two columns: every block half width on desktop and on a phone alike.
+    const grid = page.locator('[data-page-layout="tasks.dashboard"]');
+    await grid.getByRole("button", { name: "Add column right of column 1", exact: true }).click();
+    await grid.locator("> [role=toolbar]").getByRole("button", { name: "Apply", exact: true }).click();
     await page.getByRole("button", { name: "Hide on phone: Overseeing" }).click();
     await save(page);
     await expect(block(page, "tasks.dashboard", "overseeing")).toBeVisible();
@@ -128,13 +124,13 @@ test.describe("on a phone (FLOW-278 AC5)", () => {
     await phone.goto("/#/tasks");
     await expect(block(phone, "tasks.dashboard", "my-tasks")).toBeVisible();
     await expect(block(phone, "tasks.dashboard", "overseeing")).toBeHidden();
-    // Saved reading order, one column.
-    const ids = await phone.locator('[data-page-layout="tasks.dashboard"] > [data-block-id]').evaluateAll((nodes) =>
-      nodes.map((node) => node.getAttribute("data-block-id")),
-    );
-    expect(ids.slice(0, 2)).toEqual(["my-tasks", "overseeing"]);
+    // No stacking: the left column of two, as on desktop.
+    const gridBox = await phone.locator('.page-grid[data-page-layout="tasks.dashboard"]').boundingBox();
     const box = await block(phone, "tasks.dashboard", "my-tasks").boundingBox();
-    expect(box!.width).toBeGreaterThan(300);
+    expect(Math.abs(box!.width - (gridBox!.width - 12) / 2)).toBeLessThanOrEqual(1);
+    expect(await block(phone, "tasks.dashboard", "my-tasks").getAttribute("style")).toBe(
+      await block(page, "tasks.dashboard", "my-tasks").getAttribute("style"),
+    );
     await context.close();
   });
 });

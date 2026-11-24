@@ -2604,13 +2604,14 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 .undo-toast__undo { display: inline-flex; align-items: center; gap: 5px; color: #b8e0c6; font-weight: 600; }
 .undo-toast__close { display: inline-flex; color: #c9d4cd; }
 
-/* Page layouts (FLOW-253 to 256). With no saved layout pages render as before. */
+/* Page layouts (FLOW-253 to 256). With no saved layout pages render as before.
+   A saved layout is a page grid (FLOW-319/320): its tracks (inline
+   grid-template-*) keep their shares of the usable area at every width, so
+   phones keep the arrangement too; content larger than its cell scrolls inside
+   the cell. */
 .page-grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: minmax(24px, auto);
   gap: 12px;
-  align-items: start;
 }
 .detail-grid > .page-grid,
 .detail-grid > .page-grid-editing,
@@ -2624,19 +2625,18 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 }
 .page-grid-block {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 .page-grid-block > .panel,
 .page-grid-block > .dashboard-card,
 .page-grid-block > section {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
+  box-sizing: border-box;
 }
+/* Card box grids still stack on phones (FLOW-278). */
 @media (max-width: 899px) {
-  .page-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  /* Phones stack blocks in reading order (the DOM order). */
-  .page-grid > .page-grid-block,
   .layout-boxes > .layout-box {
     grid-column: 1 / -1 !important;
     grid-row: auto !important;
@@ -2720,11 +2720,7 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 .layout-title-large > :is(.panel, .dashboard-card, section) > :is(h2, h3):first-child {
   font-size: 1.5rem;
 }
-/* "Fit content" (FLOW-278): the block's height follows what it shows. */
-.page-grid-block.layout-fit > :is(.panel, .dashboard-card, section) {
-  height: auto;
-}
-/* "Hide on phone" (FLOW-278). */
+/* "Hide on phone" (FLOW-278): its cell stays empty (FLOW-319 A4). */
 @media (max-width: 899px) {
   .page-grid > .layout-hide-phone {
     display: none !important;
@@ -2782,15 +2778,22 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   white-space: pre-wrap;
 }
 
-/* Edit mode. */
+/* Edit mode (FLOW-321). The toolbar is fixed to the bottom of the screen and
+   the guides are overlaid, so the frame keeps
+   view mode's size and place. Guides are dotted blue lines, unlike any block
+   border. */
 .page-grid-editing {
-  display: grid;
-  gap: 12px;
+  --layout-guide: #3b6fb6;
+  position: relative;
 }
 .layout-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 24px);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2799,6 +2802,200 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   background: var(--surface);
   border: 1px dashed var(--primary);
   border-radius: var(--radius);
+  box-shadow: 0 8px 24px #0002;
+}
+/* A grid inside another grid's cell (an event tab) would be clipped by that
+   cell: its toolbar is fixed near the top of the screen instead, and its track
+   labels sit inside its frame. */
+.page-grid-editing--nested > .layout-toolbar {
+  top: 80px;
+  bottom: auto;
+  z-index: 59;
+}
+.layout-toolbar .layout-tray-list {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+.page-grid-editing--nested > .layout-toolbar .layout-tray-list {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+.page-grid-editing--nested .layout-track-label.is-col,
+.page-grid-editing--nested .layout-track-label.is-row {
+  transform: none;
+}
+.layout-toolbar-spacer {
+  height: 96px;
+}
+.layout-grid-message {
+  flex-basis: 100%;
+  margin: 0;
+  min-height: 1em;
+  font-size: 12px;
+  color: var(--muted);
+}
+.layout-grid-message:empty {
+  display: none;
+}
+.layout-grid-message.is-refused {
+  color: var(--danger, #b42318);
+}
+.layout-picker,
+.layout-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.page-grid-frame {
+  position: relative;
+}
+.layout-grid-cell {
+  min-width: 0;
+  min-height: 0;
+  outline: 1px dotted var(--layout-guide);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--layout-guide) 4%, transparent);
+  cursor: pointer;
+}
+.layout-grid-cell.is-merged {
+  outline-width: 2px;
+}
+.layout-grid-cell.is-pickable {
+  background: color-mix(in srgb, var(--layout-guide) 14%, transparent);
+}
+.layout-grid-cell:focus-visible {
+  outline: 2px solid var(--layout-guide);
+}
+.layout-grid-cell[data-selected="true"],
+.layout-block-frame[data-selected="true"] {
+  box-shadow: inset 0 0 0 2px var(--layout-guide);
+}
+.layout-grid-highlight {
+  position: relative;
+  z-index: 5;
+  pointer-events: none;
+  border: 2px solid var(--layout-guide);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--layout-guide) 12%, transparent);
+}
+.layout-grid-highlight.is-refused {
+  border-color: var(--danger, #b42318);
+  background: color-mix(in srgb, #b42318 10%, transparent);
+}
+.layout-grid-highlight.is-selection {
+  border-style: dashed;
+  background: transparent;
+}
+.layout-grid-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+}
+.layout-track-label {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+/* Just outside the frame: above each column, left of each row. */
+.layout-track-label.is-col {
+  top: 0;
+  transform: translateY(calc(-100% - 1px));
+}
+.layout-track-label.is-row {
+  left: 0;
+  align-items: center;
+  transform: translateX(calc(-100% - 1px));
+}
+.layout-track-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px;
+  pointer-events: auto;
+  font-size: 11px;
+  color: var(--layout-guide);
+  background: var(--surface);
+  border: 1px dotted var(--layout-guide);
+  border-radius: 999px;
+}
+.layout-track-label.is-row .layout-track-controls {
+  flex-direction: column;
+  padding: 2px 1px;
+  border-radius: 10px;
+}
+.layout-track-label.is-row .layout-track-share input {
+  width: 3.4em;
+  font-size: 10px;
+  text-align: center;
+}
+.layout-track-label.is-row .layout-track-share > span {
+  display: none;
+}
+.layout-track-controls button {
+  display: inline-flex;
+  padding: 1px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.layout-track-controls button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.layout-track-share {
+  display: inline-flex;
+  align-items: center;
+}
+.layout-track-share input {
+  width: 4.2em;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+}
+.layout-divider {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+}
+.layout-divider.is-col {
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
+  background-image: repeating-linear-gradient(to bottom, var(--layout-guide) 0 3px, transparent 3px 6px);
+  background-position: center;
+  background-repeat: repeat-y;
+  background-size: 2px 6px;
+}
+.layout-divider.is-row {
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: row-resize;
+  background-image: repeating-linear-gradient(to right, var(--layout-guide) 0 3px, transparent 3px 6px);
+  background-position: center;
+  background-repeat: repeat-x;
+  background-size: 6px 2px;
+}
+.layout-divider:hover,
+.layout-divider:focus-visible,
+.layout-divider.is-dragging {
+  outline: none;
+  background-color: color-mix(in srgb, var(--layout-guide) 25%, transparent);
+}
+.layout-block-frame.is-carried {
+  opacity: 0.6;
+}
+.layout-absent-note {
+  margin: 8px;
+  font-size: 12px;
 }
 .layout-tray {
   position: relative;
@@ -2850,6 +3047,8 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   border: 1px dashed var(--border-dark);
   border-radius: var(--radius);
   background: var(--surface);

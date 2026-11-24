@@ -1,16 +1,23 @@
 import { LayoutBlockContext } from "./layout-deletion";
-import { Children, isValidElement, lazy, Suspense, type ReactElement, type ReactNode } from "react";
 import {
-  builtinCard,
-  layoutItemGone,
-  GRID_COLUMNS,
-  type LayoutBlock,
-} from "../../../shared/layout";
+  Children,
+  createContext,
+  isValidElement,
+  lazy,
+  Suspense,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { builtinCard, GRID_COLUMNS, type LayoutBlock, type LayoutDoc } from "../../../shared/layout";
+import { blockShown, GRID_FLOOR, gridHeight, gridTemplate, keptPlace, keptTracks } from "../../../shared/page-grid";
 import { CustomCard } from "../../components/custom-card";
-import { boxPosition } from "../../components/layout-boxes";
 import { variantNames } from "./box-editor";
 import {
-  defaultBlocks,
+  codeDefault,
   PageLayoutProvider,
   readingOrder,
   usePageLayout,
@@ -36,17 +43,64 @@ const PageGridEditor = lazy(() => import("./page-grid-editor"));
 // A page's arrangeable layout (FLOW-253). Each <Block> is one of the page's
 // built-in sections. With no saved layout and outside edit mode the page renders
 // its children exactly as before, with no wrapper. With a saved layout the
-// blocks sit on a 12-column CSS grid (one column below 900px, in reading order),
-// with the layout's custom cards and text blocks among them. In edit mode an
-// Admin drags and resizes blocks, hides built-ins, adds cards and text, sets
-// colors and resets the page. The edit chrome's wording isn't wrapped in <T>.
+// blocks sit on the page grid (FLOW-319/320): rows and columns that keep their
+// shares of the usable area on every device, each block filling its cell or
+// merged region, empty cells keeping their space. In edit mode an Admin edits
+// that grid (FLOW-321). The edit chrome's wording isn't wrapped in <T>.
 
+// Set inside a page grid's cell: a PageGrid there (an event tab's grid) takes
+// its height from that cell, not from the viewport (FLOW-320 A4).
+export const GridNesting = createContext(false);
+// Gap between tracks, px (matches .page-grid).
+export const GRID_GAP = 12;
+
+// The usable grid area (FLOW-320 A1): the frame's width is the content width;
+// its height is the viewport below the grid's top less the main area's bottom
+// padding, or, nested, the containing cell's content height below the grid;
+// never under the 480px floor. Recomputed on resize. The editor draws in the
+// same frame, so edit and view agree.
+export function useGridFrame() {
+  const nested = useContext(GridNesting);
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: GRID_FLOOR });
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const cell = nested ? element.parentElement?.closest<HTMLElement>(".page-grid-block, .layout-block-body") ?? null : null;
+    const main = element.closest("main");
+    const measure = () => {
+      const top = element.getBoundingClientRect().top;
+      let available: number;
+      if (cell) {
+        const box = cell.getBoundingClientRect();
+        const padding = parseFloat(getComputedStyle(cell).paddingBottom) || 0;
+        available = box.bottom - padding - top - cell.scrollTop;
+      } else {
+        const padding = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
+        available = window.innerHeight - (top + window.scrollY) - padding;
+      }
+      const next = { width: element.clientWidth, height: gridHeight(available) };
+      setSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(cell ?? main ?? document.body);
+    observer?.observe(element);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [nested]);
+  return { ref, ...size };
+}
 
 type BlockProps = {
   id: string;
   // The block's name in the edit chrome and the Hidden items tray.
   name: string;
-  // Default width (of 12) and height (in 24px rows) in edit mode.
+  // Height of its row in the code default grid, relative to the others (FLOW-319).
+  // w is kept for existing call sites; the code default is one column.
   w?: number;
   h?: number;
   children: ReactNode;
@@ -82,15 +136,10 @@ export function blockVisible(pageKey: string, block: LayoutBlock, role: Role | u
   return true;
 }
 
-// A block's wrapper classes and grid place as everyone sees it (FLOW-278):
-// "Fit content" spans one auto-height row from its saved row, "Hide on phone"
-// hides it below 900px.
+// A block's wrapper classes as everyone sees it (FLOW-278): "Hide on phone"
+// hides it below 900px and its cell stays empty (FLOW-319 A4).
 export function blockClass(block: LayoutBlock) {
-  return [styleClass(block.style), block.fit && "layout-fit", block.hidePhone && "layout-hide-phone"].filter(Boolean).join(" ");
-}
-export function blockPlace(block: LayoutBlock) {
-  const place = boxPosition(block);
-  return block.fit ? { ...place, gridRow: `${block.y + 1} / span 1` } : place;
+  return [styleClass(block.style), block.hidePhone && "layout-hide-phone"].filter(Boolean).join(" ");
 }
 
 function TextBlock({ block }: { block: Extract<LayoutBlock, { kind: "text" }> }) {
@@ -141,26 +190,65 @@ export function PageGrid({
         )}
       </PageLayoutProvider>
     );
-  const blocks = layout.doc ? withBuiltins(layout.doc, builtins) : defaultBlocks(builtins);
+  const doc = layout.doc ? withBuiltins(layout.doc, builtins) : codeDefault(builtins);
   return (
     <PageLayoutProvider value={layout}>
       {layout.editing ? (
-        <Suspense fallback={null}><PageGridEditor layout={layout} blocks={blocks} builtins={builtins} content={content} /></Suspense>
+        <Suspense fallback={null}><PageGridEditor layout={layout} doc={doc} builtins={builtins} content={content} /></Suspense>
       ) : (
-        <div className="page-grid" data-page-layout={pageKey}>
-          {readingOrder(blocks.filter((block) => !layoutItemGone(block) && !(block.kind === "builtin" && block.hidden) && blockVisible(pageKey, block, actor?.role))).map((block) => (
-            <div
-              key={block.id}
-              className={`page-grid-block ${blockClass(block)}`}
-              style={{ ...blockPlace(block), ...styleVars(block.style) }}
-              data-block-id={block.id}
-            >
-              <BlockContent pageKey={pageKey} block={block} content={content} record={layout.record} />
-            </div>
-          ))}
-        </div>
+        <GridView pageKey={pageKey} doc={doc} content={content} record={layout.record} role={actor?.role} />
       )}
     </PageLayoutProvider>
+  );
+}
+
+// View mode (FLOW-320): no guides, labels or controls. A block the code didn't
+// render this time (another tab, a permission) or that this role can't see is
+// absent: a row or column holding only absent blocks collapses and the others
+// keep their ratios; tracks authored empty keep their space (FLOW-320 A3).
+function GridView({
+  pageKey,
+  doc,
+  content,
+  record,
+  role,
+}: {
+  pageKey: string;
+  doc: LayoutDoc;
+  content: Map<string, ReactNode>;
+  record: PageLayout["record"];
+  role: Role | undefined;
+}) {
+  const frame = useGridFrame();
+  const shown = doc.blocks.filter(blockShown);
+  const present = shown.filter(
+    (block) => blockVisible(pageKey, block, role) && (block.kind !== "builtin" || content.has(block.id)),
+  );
+  const kept = keptTracks(doc.grid, shown, present);
+  return (
+    <div
+      ref={frame.ref}
+      className="page-grid"
+      data-page-layout={pageKey}
+      style={{
+        gridTemplateColumns: gridTemplate(kept.cols.map((index) => doc.grid.cols[index])),
+        gridTemplateRows: gridTemplate(kept.rows.map((index) => doc.grid.rows[index])),
+        height: kept.rows.length ? frame.height : undefined,
+      }}
+    >
+      {readingOrder(present).map((block) => (
+        <div
+          key={block.id}
+          className={`page-grid-block ${blockClass(block)}`}
+          style={{ ...keptPlace(block, kept), ...styleVars(block.style) }}
+          data-block-id={block.id}
+        >
+          <GridNesting.Provider value={true}>
+            <BlockContent pageKey={pageKey} block={block} content={content} record={record} />
+          </GridNesting.Provider>
+        </div>
+      ))}
+    </div>
   );
 }
 

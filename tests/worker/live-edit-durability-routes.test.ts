@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest";
+import { asV2 } from "../../shared/page-grid";
 import { createApp } from "../../worker/app";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
@@ -70,7 +71,8 @@ beforeEach(() => {
   ]);
   vi.mocked(getLayout).mockResolvedValue({
     pageKey: "events.detail",
-    layout: layout([{ id: "old-details" }, { id: "gone-section" }]),
+    // A saved version 1 row reads as a page grid (FLOW-321).
+    layout: asV2(layout([{ id: "old-details" }, { id: "gone-section" }])),
     updatedAt: "2026-11-22T00:00:00.000Z",
     updatedBy: userId,
   });
@@ -87,9 +89,11 @@ it("shows an override saved under a renamed key for everyone (AC1)", async () =>
   expect(body["nav.approvals"]).toBe("Today");
 });
 
-it("reads a renamed block under its new id", async () => {
+it("reads a renamed block under its new id, leaving out a built-in the code dropped (FLOW-319)", async () => {
   const body = (await (await send("/api/layout/events.detail")).json()) as { layout: { blocks: { id: string }[] } };
-  expect(body.layout.blocks.map((block) => block.id)).toEqual(["details", "gone-section"]);
+  // "gone-section" is in no screen's code: its cell stays empty. The orphan
+  // report still lists it from the saved row.
+  expect(body.layout.blocks.map((block) => block.id)).toEqual(["details"]);
 });
 
 it("lists saved edits no screen matches, for the Admin only (AC3)", async () => {

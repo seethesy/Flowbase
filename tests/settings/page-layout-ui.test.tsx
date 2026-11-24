@@ -133,7 +133,11 @@ describe("PageGrid", () => {
     const blocks = [...grid.querySelectorAll<HTMLElement>(".page-grid-block")];
     expect(blocks.map((block) => block.dataset.blockId)).toEqual(["heading-1", "second"]);
     expect(blocks[1].style.getPropertyValue("--layout-bg")).toBe("#edf3ee");
-    expect(blocks[1].style.gridColumn).toBe("7 / span 6");
+    // A saved version 1 layout reads as a page grid (FLOW-319): two 50% columns,
+    // "second" filling the right column's two rows.
+    expect(blocks[1].style.gridColumn).toBe("2 / span 1");
+    expect(blocks[1].style.gridRow).toBe("1 / span 2");
+    expect(grid.getAttribute("style")).toContain("grid-template-columns: minmax(0, 5000fr) minmax(0, 5000fr)");
   });
 
   it("shows no layout chrome to a role without layout.edit", async () => {
@@ -191,7 +195,7 @@ describe("Columns (FLOW-254)", () => {
     expect(writes[0]).toMatchObject({
       method: "PUT",
       path: "/api/layout/venues.list",
-      body: { version: 1, tables: { "venues.venue-list": { columns: [{ key: "name" }] } } },
+      body: { version: 2, tables: { "venues.venue-list": { columns: [{ key: "name" }] } } },
     });
   });
 
