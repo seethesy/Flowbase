@@ -50,6 +50,8 @@ export type AuditEntity =
   | "role_permissions"
   // Which roles see each sidebar heading and tab (FLOW-284): one row per save.
   | "role_nav_hidden"
+  // Sales › Pricing's price list (FLOW-329).
+  | "price_list_item"
   // Proposals and their stage changes and versions (FLOW-122/123).
   | "proposal"
   | "contract"
