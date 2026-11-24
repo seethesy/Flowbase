@@ -27,8 +27,8 @@ export const leadFields: SourceDef = {
     { key: "eventName", label: "Event", type: "text", editable: true, sortable: true, filterable: true },
     { key: "eventDate", label: "Event date", type: "date", editable: true, sortable: true, filterable: true },
     { key: "guestCount", label: "Guests", type: "number", editable: true, sortable: true, filterable: true },
-    { key: "eventType", label: "Event type", type: "text", sortable: true, filterable: true },
-    { key: "location", label: "Location", type: "text", sortable: true, filterable: true },
+    { key: "eventType", label: "Event type", type: "text", editable: true, sortable: true, filterable: true },
+    { key: "location", label: "Location", type: "text", editable: true, sortable: true, filterable: true },
     {
       key: "email",
       label: "Email",
@@ -49,6 +49,7 @@ export const leadFields: SourceDef = {
       key: "budgetCents",
       label: "Budget",
       type: "money",
+      editable: true,
       // Financials: managers, and a salesperson on their own leads.
       read: (actor, row) =>
         canSeeField(actor, "financials", {
@@ -56,17 +57,18 @@ export const leadFields: SourceDef = {
         }),
       sortable: true,
     },
-    { key: "source", label: "Source", type: "text", sortable: true, filterable: true },
+    { key: "source", label: "Source", type: "text", editable: true, sortable: true, filterable: true },
     {
       key: "channel",
       label: "Channel",
       type: "status",
       options: { labels: leadChannelLabels, copyId: "labels.lead-channel" },
+      editable: true,
       sortable: true,
       filterable: true,
     },
     { key: "assignedSalespersonId", label: "Owner", type: "person", sortable: true, filterable: true },
-    { key: "message", label: "Message", type: "text" },
+    { key: "message", label: "Message", type: "text", editable: true },
     {
       key: "latestProposal",
       label: "Proposal",
@@ -83,9 +85,9 @@ export const leadFields: SourceDef = {
       href: (row) => (nested(row, "latestEvent") ? `/events/${nested(row, "latestEvent")}` : null),
     },
     { key: "needsReview", label: "Needs review", type: "boolean", filterable: true },
-    { key: "receivedAt", label: "Received", type: "datetime", sortable: true, filterable: true },
+    { key: "receivedAt", label: "Received", type: "datetime", editable: true, sortable: true, filterable: true },
     { key: "firstRespondedAt", label: "First response", type: "datetime", sortable: true, filterable: true },
-    { key: "lostReason", label: "Lost reason", type: "text" },
+    { key: "lostReason", label: "Lost reason", type: "text", editable: true },
     { key: "createdAt", label: "Created", type: "datetime", sortable: true, filterable: true },
     { key: "updatedAt", label: "Last updated", type: "datetime", sortable: true, filterable: true },
   ],

@@ -14,12 +14,15 @@ import { StatusSelect } from "../../components/ui/status-pill";
 
 // The event create/edit form (FLOW-25).
 
-type Draft = Omit<EventInput, "guestCount" | "servingsCount"> & {
+// Also the event page's in-place Edit mode (FLOW-335).
+export type EventDraft = Omit<EventInput, "guestCount" | "servingsCount"> & {
   guestCount: string;
   servingsCount: string;
 };
 
-const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
+type Draft = EventDraft;
+
+export const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
   title: event?.title ?? "",
   date: event?.date ?? "",
   startTime: event?.startTime ?? "",
@@ -40,7 +43,7 @@ const draftOf = (event?: FlowEvent, clientId = ""): Draft => ({
   status: event?.status ?? "inquiry",
 });
 
-const countOf = (value: string) =>
+export const countOf = (value: string) =>
   value.trim() === "" ? null : Math.max(0, Math.round(Number(value)));
 
 type EventFormProps = {

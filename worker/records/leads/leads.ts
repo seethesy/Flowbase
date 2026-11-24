@@ -1,4 +1,4 @@
-import { redactFieldHistory, serializeFields } from "../../../shared/visibility";
+import { canSeeField, redactFieldHistory, serializeFields } from "../../../shared/visibility";
 import {
   and,
   asc,
@@ -23,6 +23,7 @@ import {
   leadStatusLabels,
   leadStatusSchema,
   leadStatusTransitions,
+  lostReasonRequired,
   openLeadStatuses,
   type Lead,
   type LeadConversion,
@@ -579,9 +580,16 @@ export async function createLeadEvent(
 
 export async function updateLead(db: Db, actor: Actor, id: string, input: LeadUpdateInput) {
   await db.transaction(async (tx) => {
-    await lockVisibleLead(tx, actor, id);
+    const row = await lockVisibleLead(tx, actor, id);
+    // FLOW-334: the budget is a financial; whoever can't see it can't set it.
+    if (input.budgetCents !== undefined &&
+      !canSeeField(actor, "financials", { assignedSalespersonId: row.assignedSalespersonId })) throw forbidden();
+    if (input.lostReason !== undefined) {
+      if (row.status !== "lost") throw new ApiError(400, "INVALID_REQUEST", "Only a lost lead has a lost reason.");
+      if (!input.lostReason) throw new ApiError(400, "INVALID_REQUEST", lostReasonRequired);
+    }
     const before = await leadSnapshot(tx, id);
-    const { eventTime, ...leadInput } = input;
+    const { eventTime, receivedAt, ...leadInput } = input;
     if (input.eventName !== undefined || input.eventDate !== undefined || eventTime !== undefined) {
       const [linked] = await tx.select({ id: events.id }).from(events)
         .where(and(eq(events.leadId, id), isNull(events.archivedAt)))
@@ -593,6 +601,7 @@ export async function updateLead(db: Db, actor: Actor, id: string, input: LeadUp
       });
     }
     await tx.update(leads).set({ ...leadInput,
+      ...(receivedAt !== undefined && { receivedAt: new Date(receivedAt) }),
       ...(input.phone !== undefined && { phoneDigits: phoneDigits(input.phone) }),
       updatedBy: actor.userId,
     }).where(eq(leads.id, id));

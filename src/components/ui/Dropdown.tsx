@@ -65,6 +65,13 @@ type Common = {
   autoFocus?: boolean;
   openOnMount?: boolean;
   placeholder?: ReactNode;
+  // FLOW-332: what the trigger shows in place of the chosen labels, e.g. "Show:
+  // 2 layers" for a multiple-choice filter. Leave out to list the labels.
+  summary?: ReactNode;
+  // FLOW-332: each option starts with a rounded-square checkbox, checked when
+  // the option is chosen (for a multiple-choice filter), in place of the
+  // trailing check mark.
+  checkboxes?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
@@ -176,6 +183,8 @@ export function Dropdown(props: DropdownProps) {
     autoFocus,
     openOnMount,
     placeholder,
+    summary,
+    checkboxes = false,
     creatable,
     onBlur,
     onOpenChange,
@@ -361,7 +370,9 @@ export function Dropdown(props: DropdownProps) {
     const toneClass = tone(option.value);
     return toneClass ? <span className={clsx("fb-select-pill", toneClass)}>{option.label}</span> : option.label;
   };
-  const shown = multiple
+  const shown = summary !== undefined
+    ? summary
+    : multiple
     ? values.length
       ? options.filter((option) => values.includes(option.value)).map((option, i) => (
           <Fragment key={option.value}>
@@ -445,13 +456,23 @@ export function Dropdown(props: DropdownProps) {
                       role="option"
                       aria-selected={isSelected}
                       aria-disabled={option.disabled || undefined}
-                      className={clsx("fb-select-option", index === active && "is-active", isSelected && "is-selected")}
+                      className={clsx(
+                        "fb-select-option",
+                        checkboxes && "fb-select-option--checkbox",
+                        index === active && "is-active",
+                        isSelected && "is-selected",
+                      )}
                       onPointerMove={() => !option.disabled && setActive(index)}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => choose(option)}
                     >
+                      {checkboxes && (
+                        <span aria-hidden="true" className={clsx("fb-select-option__box", isSelected && "is-checked")}>
+                          {isSelected && <Check size={11} strokeWidth={3} />}
+                        </span>
+                      )}
                       {toneClass ? <span className={clsx("fb-select-pill", toneClass)}>{option.label}</span> : <span>{option.label}</span>}
-                      {isSelected && <Check aria-hidden="true" size={14} className="fb-select-option__check" />}
+                      {isSelected && !checkboxes && <Check aria-hidden="true" size={14} className="fb-select-option__check" />}
                     </div>
                   );
                 });

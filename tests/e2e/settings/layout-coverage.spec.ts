@@ -160,10 +160,10 @@ test("event page: hide a field with Edit mode matching, required fields have no 
   await expect(page.getByRole("heading", { name: "Gala facts" })).toBeVisible();
   await expect(page.getByText("Confirm the load-in window")).toBeVisible();
 
-  // Edit mode matches: no Dress code input, Guest count stays.
+  // Edit mode matches: no Dress code input, Guests stays (in place, FLOW-335).
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByLabel("Dress code")).toHaveCount(0);
-  await expect(page.getByLabel("Guest count")).toBeVisible();
+  await expect(page.getByRole("spinbutton", { name: "Guests" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
 
   // Delete both texts.

@@ -401,6 +401,22 @@ describe("events", () => {
     expect(history.map((e) => e.id)).toEqual([event.id]);
   });
 
+  // FLOW-335 AC4: the event page's Edit mode saves through PUT /api/events/:id,
+  // which a user without events.write can't call.
+  it("refuses an event edit from a user without events.write, and keeps the event", async () => {
+    const owner = await admin.post<Client>("/api/clients", newClient());
+    const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id), 201);
+    for (const who of [helper, lead])
+      expect(
+        (await who.call("PUT", `/api/events/${event.id}`, {
+          ...newEvent(owner.id),
+          address: "Somewhere else",
+          updatedAt: event.updatedAt,
+        })).status,
+      ).toBe(403);
+    expect((await admin.get<FlowEvent>(`/api/events/${event.id}`)).address).toBe(event.address);
+  });
+
   it("answers 404, not 403, for another salesperson's event", async () => {
     const owner = await sue.post<Client>("/api/clients", newClient());
     const event = await sue.post<FlowEvent>("/api/events", newEvent(owner.id));

@@ -37,6 +37,11 @@
 .fb-select-option.is-selected { font-weight: 600; }
 .fb-select-option[aria-disabled="true"] { cursor: not-allowed; opacity: 0.45; }
 .fb-select-option__check { flex: none; color: var(--primary); }
+/* FLOW-332: options with a rounded-square checkbox on the left (multiple-choice filters). */
+.fb-select-option--checkbox { justify-content: flex-start; }
+.fb-select-option--checkbox.is-selected { font-weight: inherit; }
+.fb-select-option__box { flex: none; display: inline-grid; place-content: center; width: 16px; height: 16px; border: 1.5px solid var(--border-dark); border-radius: 4px; background: #fff; color: #fff; }
+.fb-select-option__box.is-checked { background: var(--primary); border-color: var(--primary); }
 .fb-select-group { padding: 8px 9px 3px; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 .fb-select-create { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; padding-top: 6px; border-top: 1px solid var(--border); }
 .fb-select-create input { flex: 1; min-width: 0; min-height: 30px; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
@@ -1142,6 +1147,17 @@ tbody tr.table-row-openable {
   font-size: 12px;
   display: block;
 }
+/* In-place editing on a record page (FLOW-334/335): an input where the value
+   was; a calculated value stays as muted text. */
+.info-grid .info-item--editing { display: flex; flex-direction: column; min-width: 0; }
+.info-grid .info-item--editing > input,
+.info-grid .info-item--editing > textarea,
+.info-grid .info-item--editing > .fb-select { width: 100%; }
+.info-grid .info-item--readonly strong { color: var(--muted); font-weight: 500; }
+.info-item--wide { grid-column: 1 / -1; }
+.info-item-inputs { display: flex; flex-wrap: wrap; gap: 6px; }
+.info-item-inputs > * { flex: 1 1 120px; min-width: 0; }
+.record-heading h1 .record-title-input { width: 100%; font: inherit; }
 .info-row {
   display: flex;
   align-items: center;

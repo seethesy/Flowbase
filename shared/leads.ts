@@ -248,6 +248,9 @@ export const leadEventInputSchema = z.object({
   startTime: localTime,
 });
 export type LeadEventInput = z.infer<typeof leadEventInputSchema>;
+// The lead page's Edit mode (FLOW-334): every stored field the page shows. The
+// status moves through POST /:id/status; calculated values (first response,
+// needs review, linked events) are never accepted: .strict() answers 400.
 export const leadUpdateSchema = z.object({
   name: text(200).optional(),
   email: email.optional(),
@@ -255,8 +258,19 @@ export const leadUpdateSchema = z.object({
   eventName: text(200).optional(),
   eventDate: localDate.nullable().optional(),
   eventTime: localTime.optional(),
-  // Added as a field box on the lead page (FLOW-273): its Edit mode shows an input.
   guestCount: z.number().int().min(0).max(100_000).nullable().optional(),
+  eventType: text(100).optional(),
+  location: text(500).optional(),
+  // Financials: only someone who may see the lead's budget may set it.
+  budgetCents: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
+  message: text(10_000).optional(),
+  source: z.string().trim().min(1, "Source is required.").max(100).optional(),
+  channel: leadChannelSchema.optional(),
+  receivedAt: timestamp.optional(),
+  sourceLeadId: text(200).optional(),
+  sourceLeadUrl: z.union([z.literal(""), z.string().trim().url("Enter a full link, starting with https://.").max(2000)]).optional(),
+  // Only on a lost lead, and never empty there.
+  lostReason: text(1000).optional(),
   notes: sopContentSchema.nullable().optional(),
 }).strict();
 export type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;

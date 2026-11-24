@@ -166,6 +166,46 @@ describe("Dropdown", () => {
     expect(trigger).toHaveTextContent("Bo");
   });
 
+  // FLOW-332: a multiple-choice filter with a rounded-square checkbox on each
+  // option's left and a summary on the trigger.
+  it("draws a checkbox before each option and a summary on the trigger when asked", async () => {
+    const user = userEvent.setup();
+    function Layers() {
+      const [on, setOn] = useState<string[]>(["holds"]);
+      return (
+        <Dropdown multiple checkboxes aria-label="Layers" value={on} summary={`Show: ${on.length} layers`} onValueChange={setOn}>
+          <option value="production">Production tasks</option>
+          <option value="holds">Tentative holds</option>
+        </Dropdown>
+      );
+    }
+    render(<Layers />);
+    const trigger = screen.getByRole("combobox", { name: "Layers" });
+    expect(trigger).toHaveTextContent("Show: 1 layers");
+    await user.click(trigger);
+    const holds = screen.getByRole("option", { name: "Tentative holds" });
+    const production = screen.getByRole("option", { name: "Production tasks" });
+    // The box comes first, checked for a chosen option, and there's no trailing check mark.
+    expect(holds.firstElementChild).toHaveClass("fb-select-option__box", "is-checked");
+    expect(production.firstElementChild).toHaveClass("fb-select-option__box");
+    expect(production.firstElementChild).not.toHaveClass("is-checked");
+    expect(holds.querySelector(".fb-select-option__check")).toBeNull();
+    await user.click(production);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(production).toHaveAttribute("aria-selected", "true");
+    expect(production.firstElementChild).toHaveClass("is-checked");
+    expect(trigger).toHaveTextContent("Show: 2 layers");
+  });
+
+  it("keeps the trailing check mark and no box without checkboxes", async () => {
+    const user = userEvent.setup();
+    render(<Fruit />);
+    await user.click(screen.getByRole("combobox", { name: "Fruit" }));
+    const apple = screen.getByRole("option", { name: "Apple" });
+    expect(apple.querySelector(".fb-select-option__box")).toBeNull();
+    expect(apple.querySelector(".fb-select-option__check")).not.toBeNull();
+  });
+
   it("shows <optgroup> labels as headings over their options", async () => {
     const user = userEvent.setup();
     render(

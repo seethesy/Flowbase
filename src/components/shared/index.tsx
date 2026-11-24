@@ -36,6 +36,7 @@ export { DateTimeCell, dateTimeSortKey, instantLabels, instantParts } from "./da
 export { fromRowControl, rowOpenProps, ROW_CONTROLS } from "./row-open";
 import { ErrorText } from "./error-text";
 export { ErrorText };
+export { InfoItem, UnsavedLeaveGuard } from "./record-edit";
 import { canSeeField, type FieldGroup } from "../../../shared/visibility";
 import type { Actor } from "../../../shared/access";
 import { usePermissions } from "../../app/permissions";

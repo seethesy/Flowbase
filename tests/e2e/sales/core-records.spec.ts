@@ -84,12 +84,15 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await expect(page.getByText("100 Garden Way, Arlington, VA")).toBeVisible();
   await expect(page.getByText("Inside Tent, Outside Tent")).toBeVisible();
 
+  // Edit mode edits the event in place (FLOW-335), not in a drawer.
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Guest count", { exact: true }).fill("120");
-  // Status changes on the event page, not in the edit form (FLOW-56).
-  await expect(dialog.getByLabel(/^Status/)).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Save event" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("spinbutton", { name: "Guests" }).fill("120");
+  // Status changes in its own panel, not in Edit mode (FLOW-56).
+  const details = page.locator("section.panel", { has: page.getByRole("heading", { name: "Event details" }) });
+  await expect(details.locator("[data-readonly]", { hasText: "Status" }).getByRole("combobox")).toHaveCount(0);
+  await page.locator(".record-heading").getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("spinbutton", { name: "Guests" })).toHaveCount(0);
   await expect(page.getByText("120", { exact: true })).toBeVisible();
 
   // The status is a pill picker (FLOW-251).
