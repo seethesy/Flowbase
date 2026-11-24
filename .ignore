@@ -1,0 +1,9 @@
+# Open these files by path when a task needs them.
+drizzle/meta/
+shared/generated/
+package-lock.json
+collector/fixtures/
+docs/source-data/
+dist/
+test-results/
+playwright-report/

@@ -56,6 +56,13 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-310: the event hub's former log section.
+      "day-of.event-day-of-section.day-of-log",
+      "day-of.event-day-of-section.export-csv",
+      "day-of.event-day-of-section.no-day-of-updates-yet",
+      "day-of.event-day-of-section.showing-the-latest-updates",
+      "day-of.event-day-of-section.system",
+      "day-of.event-day-of-section.urgent",
       // FLOW-301: the client recipe book is a stored PDF now, not a fixed card.
       "kitchen-screen.menus.client-recipe-book",
       "kitchen-screen.menus.generated-from-the-recipes",
@@ -242,6 +249,7 @@ export const liveEditRenames: LiveEditRenames = {
       "stock-counts.low-stock-list.stock-supplies",
     ],
     blocks: [
+      "events.detail/day-of",
       "day-of.board/urgent",
       "day-of.board/events",
       // FLOW-291/292: the pages and the shortcut cards that are gone.

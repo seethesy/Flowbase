@@ -336,24 +336,6 @@ const staffUnassigned: Subscriber = async (job, db) => {
   }];
 };
 
-const eventDayChange: Subscriber = async (job, db) => {
-  // A manager's urgent board update (FLOW-155) names its recipients and message;
-  // an edit to the event itself (event.day_of_changed from the events record) doesn't.
-  if (Array.isArray(payloadOf(job).recipientIds)) return fromPayload(job, db);
-  const eventId = payloadOf(job).entityId;
-  if (typeof eventId !== "string") return [];
-  const [event] = await db.select({ title: events.title }).from(events)
-    .where(eq(events.id, eventId));
-  if (!event) return [];
-  const slots = await db.select({ userId: eventStaffSlots.assigneeId })
-    .from(eventStaffSlots).innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
-    .where(and(eq(eventShifts.eventId, eventId), isNull(eventStaffSlots.archivedAt),
-      isNull(eventShifts.archivedAt)));
-  return [...new Set(slots.map((slot) => slot.userId).filter((id): id is string => !!id))]
-    .map((userId) => ({ userId, title: `Event-day change: ${event.title}`,
-      body: "Event details changed today. Review the current plan.", link: `/events/${eventId}` }));
-};
-
 // beo.changed_after_approval (FLOW-144, 227): the people assigned to the event's
 // roster and the active Admins, except whoever made the change. In-app and email always; SMS too when the event
 // is within 48 hours (AC3), through the urgent-types and consent rules of routeSms.
@@ -407,7 +389,6 @@ const subscribers: Partial<Record<NotificationType, Subscriber>> = {
   lead_assigned: leadAssigned,
   staff_assigned: staffAssigned,
   staff_unassigned: staffUnassigned,
-  event_day_change: eventDayChange,
   beo_changed: beoChanged,
 };
 

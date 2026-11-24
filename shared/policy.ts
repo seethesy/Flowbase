@@ -30,11 +30,10 @@ const common = [
   // the engine checks who may see, decide or withdraw each request.
   "approvals.read",
   "approvals.write",
-  // Production, Day-of, BEOs and Vendors are their own areas in the roles and
+  // Production, BEOs and Vendors are their own areas in the roles and
   // permissions editor (FLOW-269). Everyone reads them today, as they did when
   // these screens were guarded by events.read and inventory.read.
   "production.read",
-  "dayof.read",
   "beos.read",
   "vendors.read",
   // Marketing › Photos (FLOW-271): everyone looks; Sales roles and Admin change.

@@ -68,7 +68,7 @@ const groupIcons: Record<string, LucideIcon> = {
 };
 // Headings, tabs and crumbs share one key per name (nav.<name>, FLOW-240), so an
 // edited name reads the same in the sidebar, the tabs and the breadcrumb.
-// Day-of sits under Dashboard and Events. Links say which heading they came from,
+// Navigation links say which heading they came from,
 // so the sidebar, tabs and breadcrumb stay on it.
 type NavState = { navGroup?: string } | null;
 function useNavMatch() {

@@ -145,8 +145,8 @@ describe("the scanner", () => {
     expect(result.copy.map((usage) => usage.key)).toEqual(["example.page.hello"]);
     expect(result.prefixes).toEqual(["labels.example.", "example.table."]);
     expect(result.problems).toEqual([]);
-    const nav = scanSource("src/app/navigation.ts", `const tabs = [{ copyId: "day-of", name: "Day-of", to: "/day-of" }];`);
-    expect(nav.copy).toEqual([expect.objectContaining({ key: "nav.day-of", text: "Day-of" })]);
+    const nav = scanSource("src/app/navigation.ts", `const tabs = [{ copyId: "legacy", name: "Legacy", to: "/legacy" }];`);
+    expect(nav.copy).toEqual([expect.objectContaining({ key: "nav.legacy", text: "Legacy" })]);
   });
 
   it("refuses a block it can't name", () => {

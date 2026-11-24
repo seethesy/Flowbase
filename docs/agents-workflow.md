@@ -35,7 +35,7 @@ Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. C
 Never:
 - change a Jira status or create statuses or issue types;
 - merge a PR, or commit to `main` or your base branch;
-- run tests or checks locally: no `npm run lint|typecheck|test|test:e2e|build`, no `npx vitest|playwright|tsc|eslint`. One exception (FLOW-286): when a change touches the mobile nav drawer, the `AppShell` responsive layout or phone-only screens, run `npx playwright test --project=mobile` locally, because CI no longer runs that project;
+- run the full suite, DB tests or build locally. One exception (FLOW-286): when a change touches the mobile nav drawer, the `AppShell` responsive layout or phone-only screens, run `npx playwright test --project=mobile` locally, because CI no longer runs that project;
 - run `git reset --hard`, `git clean`, `git stash`, `git checkout -- <path>`, `git rebase`, or `git push --force*` (only exception: §5.3);
 - discard, overwrite, or commit changes you did not make;
 - invent product decisions, file paths, APIs, or issue keys;
@@ -78,13 +78,15 @@ Start only when the developer prompts you with a ticket key (or several keys, se
 
 ### 4.3 Implement
 - Deliver the ticket's ACs and requirements. Nothing else: no unrelated refactors, renames, or reformatting.
-- Follow the existing patterns in the files you touch (README → Architecture).
+- Follow the existing patterns in the files you touch. Read only `docs/features/<area>.md` for the feature area you change and update its notes there instead of in the README. Use `docs/development.md` for build, database and deploy details.
 - Make routine technical decisions yourself. Ask only about product decisions (behavior, scope, security, cost, architecture).
 - Add a dependency only when the ticket requires it, with `npm install <pkg>` (the only npm command you may run), and justify it in the PR.
 - Screen wording is editable live by the Admin (FLOW-240): wrap new or changed screen text in `<T id="area.screen.element">`, `<Plural>` or `useCopy` (placeholders), never a bare string. `npm run lint` fails on unwrapped text (FLOW-244). Key convention and exceptions: `docs/live-text-editing.md`.
 - Every routed page must render a `PageGrid` with stable `Block` ids around its sections (FLOW-283). `tests/page-layout-coverage.test.ts` follows routed components and fails for uncovered pages. Print views, sign-in and offline BEO screens are exempt; redirects render no page. Keep record data in its own editor.
 - The Admin's saved wording and layouts are matched by key (FLOW-277). Renaming or removing a wording key, a layout `Block` id or a field-card id needs an entry in `shared/live-edit-renames.ts` (rename or `removed`); never rename a nav `copyId`. Regenerate `shared/generated/live-edit-keys.json` with `npm run live-edit:keys` (a generator, not a check) and commit it. CI fails on a stale manifest or a key lost without an entry. Details: `docs/live-text-editing.md`.
-- Write or update tests for every delivered AC and for edge cases and regressions the change risks: Vitest in `tests/`, Playwright in `tests/e2e/`. Write them; do not run them.
+- Write or update tests for every delivered AC and for edge cases and regressions the change risks: Vitest in `tests/`, Playwright in `tests/e2e/`.
+- Before pushing, agents may run `npm run typecheck`, `npm run typecheck:worker`, `npx eslint <changed files>`, and `npx vitest run <changed or related unit/worker test files>`. DB tests and Playwright stay CI-only, except the mobile case above. CI remains the authority.
+- Exclude generated files when reading diffs: `git diff origin/main... -- . ':!drizzle/meta' ':!package-lock.json' ':!shared/generated'`. Filter `gh pr diff` the same way; never read a snapshot diff.
 - Commit message: `FLOW-123: <imperative summary>`. Stage only files you changed for this ticket.
 
 ### 4.4 Before the PR

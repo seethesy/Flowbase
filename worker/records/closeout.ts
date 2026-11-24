@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import {
   closeoutLineProblem,
@@ -188,6 +188,8 @@ export async function closeOutEvent(
       .returning();
 
     const link = { type: "event" as const, id: eventId };
+    const completedLines: (typeof closeoutLines.$inferInsert)[] = [];
+    const returnedLineIds: string[] = [];
     for (const { line, sub, kind } of rows) {
       const entry = given.get(line.id)!;
       const consumable = kind === "consumable" || line.group === "supplies";
@@ -235,7 +237,7 @@ export async function closeOutEvent(
             });
         }
       }
-      await tx.insert(closeoutLines).values({
+      completedLines.push({
         closeoutId: closeout.id,
         pullLineId: line.id,
         itemId: line.itemId,
@@ -249,11 +251,12 @@ export async function closeOutEvent(
         createdBy: actor.userId,
         updatedBy: actor.userId,
       });
-      await tx
-        .update(pullListLines)
-        .set({ status: "returned", statusBy: actor.userId, statusAt: new Date(), updatedBy: actor.userId })
-        .where(eq(pullListLines.id, line.id));
+      returnedLineIds.push(line.id);
     }
+    if (completedLines.length) await tx.insert(closeoutLines).values(completedLines);
+    if (returnedLineIds.length) await tx.update(pullListLines)
+      .set({ status: "returned", statusBy: actor.userId, statusAt: new Date(), updatedBy: actor.userId })
+      .where(inArray(pullListLines.id, returnedLineIds));
 
     // Vendor returns: the request's status moves to returned.
     if (returnedNow.size) {

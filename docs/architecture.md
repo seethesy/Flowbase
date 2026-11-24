@@ -155,13 +155,11 @@ An open screen shows another user's committed change without navigating.
   and `usePagedList` stop returning cached data once a refetch answers 403 or 404,
   so a record the reader lost stays hidden.
 - **Consumers.** Every `useResource` / `usePagedList` screen takes part with no
-  extra code. A new screen (e.g. the FLOW-155 day-of board) loads its data with
-  `useResource` under a key that names it, and adds the key's first segment to
-  `QUERY_AREAS` (until then it refetches on every change); it must not open its own
-  Realtime channel or timer. A new write route adds its mount path to `ROUTE_AREAS`.
-  Something outside the query cache that must react (e.g. a board's own "last
-  updated" note) can listen with `onDataChanged`, which fires after each visible
-  refresh with the areas that changed. Data with its own expiry, such as signed attachment
+  extra code. A new screen loads its data with
+  `useResource` under a key that names it; it must not open its own Realtime
+  channel or timer. Something outside the query cache that must react (e.g. a
+  board's own "last updated" note) can listen with `onDataChanged`, which fires
+  after each visible refresh. Data with its own expiry, such as signed attachment
   links (FLOW-201), uses `useResource`'s `expiresAt` option instead.
 
 ## Request pipeline and isolate caches (FLOW-305, FLOW-306)

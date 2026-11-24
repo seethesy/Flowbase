@@ -51,7 +51,6 @@ import {
 } from "../db/schema";
 import { ApiError, forbidden, notFound, requireVersion } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
-import { changedOnEventDay } from "../notifications/event-day";
 import { can, clientScope, eventScope } from "../policy";
 import type { productionLeadsInputSchema } from "../../shared/event-staff";
 import { setArchived } from "./archive";
@@ -293,8 +292,6 @@ const builtSections: HubSection[] = [
   "pull_list",
   "trucks",
   "kitchen_menu",
-  // The day-of update log (FLOW-156).
-  "day_of",
   // Post-event closeout and returns (FLOW-157).
   "closeout",
   // The banquet event order (FLOW-143, 144, 148).
@@ -575,8 +572,6 @@ export async function updateEvent(
       current.serviceType !== input.serviceType && "Service type changed",
     ].filter((value): value is string => Boolean(value));
     if (causes.length) await markPlanningStale(tx, actor, id, causes.join(", "));
-    if (changedOnEventDay(current.startsAt, new Date(), before, after))
-      await emitDomainEvent(tx, { name: "event.day_of_changed", entityId: id });
     // A new date, venue buffer or guest count moves holds and per-guest needs.
     await syncEventHolds(tx, id);
     await requestEventRecompute(tx, id);

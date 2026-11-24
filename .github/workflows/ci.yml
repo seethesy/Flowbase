@@ -47,6 +47,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - run: npm run docs:check-links
       # `build` type-checks the app and the Worker before bundling, so CI no
       # longer runs `typecheck` / `typecheck:worker` separately.
       - run: npm run build

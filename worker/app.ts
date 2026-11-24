@@ -55,7 +55,6 @@ import { taskRoutes } from "./routes/tasks";
 import { sopRoutes } from "./routes/sops";
 import { approvalRoutes } from "./routes/approvals";
 import { calendarRoutes } from "./routes/calendar";
-import { dayOfRoutes } from "./routes/day-of";
 import { productionRoutes } from "./routes/production";
 import { kitchenRoutes } from "./routes/kitchen";
 import { enqueueJob } from "./jobs/queue";
@@ -372,7 +371,6 @@ export function createApp(options: Options = {}) {
   app.route("/api/order-lists", orderListRoutes(options));
   app.route("/api/calendar", calendarRoutes(options));
   app.route("/api/google-calendar", googleCalendarRoutes(options));
-  app.route("/api/day-of", dayOfRoutes(options));
   app.route("/api/production", productionRoutes(options));
   // Kitchen › Overview (FLOW-293).
   app.route("/api/kitchen", kitchenRoutes(options));

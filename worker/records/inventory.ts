@@ -18,6 +18,7 @@ export {
   createItem,
   findItem,
   getItem,
+  getItemsByIds,
   itemHistory,
   listItems,
   setItemArchived,

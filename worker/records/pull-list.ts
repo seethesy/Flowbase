@@ -330,17 +330,10 @@ export async function generatePullList(
   const now = new Date();
   const audits: Parameters<typeof writeAuditMany>[2] = [];
 
-  for (const line of plan.add) {
-    const [row] = await tx
-      .insert(pullListLines)
-      .values({
-        pullListId: list.id,
-        ...line.value,
-        sourceKey: line.sourceKey,
-        createdBy: by,
-        updatedBy: by,
-      })
-      .returning();
+  const addedRows = plan.add.length ? await tx.insert(pullListLines)
+    .values(plan.add.map((line) => ({ pullListId: list.id, ...line.value,
+      sourceKey: line.sourceKey, createdBy: by, updatedBy: by }))).returning() : [];
+  for (const row of addedRows) {
     audits.push({
       entityType: "pull_list_line",
       entityId: row.id,
@@ -364,14 +357,16 @@ export async function generatePullList(
       after: snapshot(row),
     });
   }
-  for (const line of plan.remove) {
-    const [before] = await tx.select().from(pullListLines).where(eq(pullListLines.id, line.id));
-    // The key is freed so a later regeneration can add the line again.
-    const [row] = await tx
-      .update(pullListLines)
+  if (plan.remove.length) {
+    const ids = plan.remove.map((line) => line.id);
+    const beforeRows = await tx.select().from(pullListLines).where(inArray(pullListLines.id, ids));
+    const beforeById = new Map(beforeRows.map((row) => [row.id, row]));
+    // Free all source keys in one statement for future regeneration.
+    const removedRows = await tx.update(pullListLines)
       .set({ archivedAt: now, sourceKey: null, updatedBy: by })
-      .where(eq(pullListLines.id, line.id))
-      .returning();
+      .where(inArray(pullListLines.id, ids)).returning();
+    for (const row of removedRows) {
+    const before = beforeById.get(row.id)!;
     audits.push({
       entityType: "pull_list_line",
       entityId: row.id,
@@ -379,6 +374,7 @@ export async function generatePullList(
       before: snapshot(before),
       after: snapshot(row),
     });
+    }
   }
   await writeAuditMany(tx, actor, audits);
   await tx.update(pullLists).set({ generatedAt: now, updatedBy: by }).where(eq(pullLists.id, list.id));
