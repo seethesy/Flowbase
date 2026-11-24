@@ -2,15 +2,26 @@ import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 import type { Actor } from "../shared/access";
+import type { ChangeArea } from "../shared/realtime";
 import type { Bindings } from "./bindings";
 import type { Db } from "./db/client";
 import { DatabaseNotConfiguredError } from "./db/errors";
-import type { Page, PageRequest } from "./records/paging";
+import type { CardSql, Page, PageRequest } from "./records/paging";
 
 export type AppEnv = {
   Bindings: Bindings;
   // actor is set only behind requireActor (worker/auth.ts).
-  Variables: { requestId: string; actor: Actor };
+  Variables: {
+    requestId: string;
+    actor: Actor;
+    // Areas a write also changed, and a write that changed nothing (FLOW-304,
+    // worker/realtime.ts: touches, unchanged).
+    areas?: ChangeArea[];
+    unchanged?: boolean;
+    // A custom card's filters, sort and limit for the list query (FLOW-308,
+    // worker/fields.ts); pageRequest hands it to the list's keyset paging.
+    card?: CardSql;
+  };
 };
 export type AppContext = Context<AppEnv>;
 
@@ -42,6 +53,8 @@ export const recordRunner =
 // List paging (FLOW-179): ?cursor=&limit= in, the page's rows as the JSON body
 // (unchanged shape) with X-Has-More and, when there is one, X-Next-Cursor.
 export function pageRequest(c: AppContext): PageRequest {
+  const card = c.get("card");
+  if (card) return { card };
   const limit = Number(c.req.query("limit"));
   return {
     cursor: c.req.query("cursor") || undefined,

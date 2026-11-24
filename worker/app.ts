@@ -70,6 +70,7 @@ import { vendorRoutes } from "./routes/vendors";
 import { deletionRoutes } from "./routes/deletions";
 import { orderListRoutes } from "./routes/order-lists";
 import { announceChanges } from "./realtime";
+import type { ChangeArea } from "../shared/realtime";
 import * as fixtures from "../src/data/mock/fixtures";
 import { incrementUsage } from "./records/usage";
 
@@ -86,8 +87,9 @@ type Options = {
   ingestSources?: Map<string, IngestSource>;
   // Module importers (FLOW-47); the registered ones by default.
   importModules?: ImportModule[];
-  // Sends the "changed" ping after a write (FLOW-206); Supabase Realtime by default.
-  publishChanged?: (env: Bindings | undefined) => Promise<void>;
+  // Sends the "changed" ping after a write (FLOW-206), with the areas it
+  // changed (FLOW-304); Supabase Realtime by default.
+  publishChanged?: (env: Bindings | undefined, areas: ChangeArea[] | null) => Promise<void>;
   // Loads the Admin-edited roles and permissions matrix (FLOW-269) before each
   // request. On by default wherever the database is bound (Hyperdrive); the
   // database tests turn it on for the real API.
@@ -213,7 +215,7 @@ export function createApp(options: Options = {}) {
     await next();
   });
   // fields= and card queries on list and detail endpoints (FLOW-253/256).
-  app.use("/api/*", fieldProjection(() => app));
+  app.use("/api/*", fieldProjection());
   // BEO change tracking (FLOW-144) runs after every write under /api/events/<id>.
   app.use("/api/events/*", beoSync(options.withDb));
   app.use("/api/events/*", async (c, next) => {
