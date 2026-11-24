@@ -163,9 +163,10 @@ export function useLeadTable({ statuses, shownByDefault = statuses }: LeadTableO
   const table = <>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="leads.inbox.search-placeholder" />
-        <label><T id="leads.inbox.owners">Owners </T><Dropdown aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
+        {/* FLOW-332: the same filter dropdown as Statuses and Sources (Select), with owner ids as values. */}
+        <Dropdown variant="filter" aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
           <option value="">All owners</option><option value="unassigned">Unassigned</option>{owners.data?.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-        </Dropdown></label>
+        </Dropdown>
         <Select label="Statuses" value={status ? leadStatusLabels[status as Lead["status"]] : ""} onChange={(label) => setStatus(valueOf(leadStatusLabels, label) ?? "")}
           options={statuses.map((value) => leadStatusLabels[value])} />
         <Select label="Sources" value={source} onChange={setSource} options={sources} />

@@ -23,9 +23,8 @@ import { useDeletable } from "../../app/live-edit/deletable";
 import { usePermissions } from "../../app/permissions";
 import { Button, FilterBar, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
-import { RoundCheck } from "../../components/ui/round-check";
 import { StatusPill, statusLabel } from "../../components/ui/status-pill";
-import { T, LabelT } from "../../app/copy";
+import { T, LabelT, Plural } from "../../app/copy";
 import { CalendarEventPanel } from "./calendar-panel";
 import { toCalendarEntries } from "./calendar-entries";
 import { EventTable, saveEventFields } from "./event-list";
@@ -135,15 +134,10 @@ function toGoogleEntries(events: GoogleEvent[]) {
   }));
 }
 
-// Connect, show or hide, and disconnect the viewer's own Google Calendar. Hidden
-// until Google sign-in is set up for Flowbase.
-function GoogleCalendarControls({
-  on,
-  onToggle,
-}: {
-  on: boolean;
-  onToggle: (on: boolean) => void;
-}) {
+// Connect, reconnect and disconnect the viewer's own Google Calendar. Hidden
+// until Google sign-in is set up for Flowbase. Showing or hiding it is an option
+// in the layers dropdown (FLOW-332).
+function GoogleCalendarControls() {
   const status = useResource(["google-calendar"], googleCalendarApi.status);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -173,12 +167,6 @@ function GoogleCalendarControls({
   };
   return (
     <span className="calendar-google-controls">
-      {data.connected && !data.needsReconnect && (
-        <label className="calendar-layer-toggle calendar-layer-google">
-          <RoundCheck checked={on} onChange={(e) => onToggle(e.target.checked)} />
-          <T id="calendar.google.my-google-calendar">My Google Calendar</T>
-        </label>
-      )}
       {!data.connected && (
         <Button variant="outline" disabled={busy} onClick={() => void connect()}>
           <T id="calendar.google.connect">Connect Google Calendar</T>
@@ -235,6 +223,8 @@ export function CalendarPage() {
   // keeps it off.
   const googleResult = params.get("google") ?? "";
   const [googleOn, setGoogleOn] = useState(() => googleResult === "connected" || params.get("gcal") !== "0");
+  const google = useResource(["google-calendar"], googleCalendarApi.status);
+  const googleConnected = Boolean(google.data?.connected && !google.data.needsReconnect);
   const set = (changes: Record<string, string>) =>
     setParams(
       (current) => {
@@ -247,16 +237,14 @@ export function CalendarPage() {
       },
       { replace: true },
     );
-  const toggleGoogle = (on: boolean) => {
-    setGoogleOn(on);
-    set({ gcal: on ? "" : "0", google: "" });
-  };
-  const toggle = (layer: CalendarLayer, on: boolean) => {
-    const next = new Set(layers);
-    if (on) next.add(layer);
-    else next.delete(layer);
+  // The layers dropdown (FLOW-332): the calendar layers, and My Google Calendar
+  // when it is connected. Google keeps its own "?gcal=0" switch.
+  const chooseLayers = (chosen: string[]) => {
+    const next = new Set(calendarLayers.filter((layer) => chosen.includes(layer)));
     setLayers(next);
-    set({ layers: calendarLayers.filter((entry) => next.has(entry)).join(",") });
+    const gcal: Record<string, string> = googleConnected ? { gcal: chosen.includes("google") ? "" : "0", google: "" } : {};
+    if (googleConnected) setGoogleOn(chosen.includes("google"));
+    set({ layers: calendarLayers.filter((entry) => next.has(entry)).join(","), ...gcal });
   };
 
   const { can } = usePermissions();
@@ -277,13 +265,13 @@ export function CalendarPage() {
   const shown = (calendar.data?.events ?? []).filter(
     (event) => (!owner || event.salespersonId === owner) && (!status || event.status === status),
   );
-  const google = useResource(["google-calendar"], googleCalendarApi.status);
-  const googleShown = googleOn && Boolean(google.data?.connected && !google.data.needsReconnect);
+  const googleShown = googleOn && googleConnected;
   const googleEvents = useResource(
     ["google-calendar", "events", grid.from, grid.to],
     () => googleCalendarApi.events(grid.from, grid.to),
     { enabled: googleShown, keepPrevious: true },
   );
+  const chosenLayers = [...calendarLayers.filter((layer) => layers.has(layer)), ...(googleShown ? ["google"] : [])];
   const entries = [
     ...(calendar.data ? toCalendarEntries({ ...calendar.data, events: shown }, layers) : []),
     ...(googleShown && googleEvents.data ? toGoogleEntries(googleEvents.data.events) : []),
@@ -339,16 +327,29 @@ export function CalendarPage() {
           ]}
           onValueChange={(next) => set({ status: next })}
         />
-        <fieldset className="calendar-layers">
-          <legend className="sr-only"><T id="calendar.calendar-page.layers">Layers</T></legend>
-          {calendarLayers.map((layer) => (
-            <label key={layer} className={`calendar-layer-toggle calendar-layer-${layer}`}>
-              <RoundCheck checked={layers.has(layer)} onChange={(e) => toggle(layer, e.target.checked)} />
-              <LabelT id="labels.calendar-layer" value={layer}>{calendarLayerLabels[layer]}</LabelT>
-            </label>
-          ))}
-        </fieldset>
-        <GoogleCalendarControls on={googleOn} onToggle={toggleGoogle} />
+        <Dropdown
+          multiple
+          checkboxes
+          variant="filter"
+          aria-label="Layers"
+          data-testid="calendar-layers"
+          value={chosenLayers}
+          summary={
+            <Plural id="calendar.calendar-page.show-layers" count={chosenLayers.length} one="Show: {count} layer" other="Show: {count} layers" />
+          }
+          options={[
+            ...calendarLayers.map((layer) => ({
+              value: layer,
+              label: <LabelT id="labels.calendar-layer" value={layer}>{calendarLayerLabels[layer]}</LabelT>,
+              text: calendarLayerLabels[layer],
+            })),
+            ...(googleConnected
+              ? [{ value: "google", label: <T id="calendar.google.my-google-calendar">My Google Calendar</T>, text: "My Google Calendar" }]
+              : []),
+          ]}
+          onValueChange={chooseLayers}
+        />
+        <GoogleCalendarControls />
       </FilterBar>
       {googleResults[googleResult] && (
         <p role="status" className="muted">{googleResults[googleResult]}</p>

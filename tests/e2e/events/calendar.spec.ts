@@ -200,15 +200,26 @@ test("the events table lists the events in view and follows navigation and filte
   await expect(page).toHaveURL(new RegExp(`#/events/${fallGala().id}$`));
 });
 
-test("toggles calendar layers without reloading the page (FLOW-67)", async ({ page }) => {
+test("toggles calendar layers through the layers dropdown without reloading the page (FLOW-67, FLOW-332)", async ({ page }) => {
   await seedSchedules();
   await page.goto("/#/events/overview?date=2026-09-17");
   const setupDay = page.locator('.fc-daygrid-day[data-date="2026-09-16"]');
   const eventDay = page.locator('.fc-daygrid-day[data-date="2026-09-17"]');
   await expect(eventDay).toContainText("Fall gala");
-  // AC2 (FLOW-265): every layer starts unchecked.
-  for (const layer of ["Production tasks", "Tentative holds", "Staff shifts"])
-    await expect(page.getByRole("checkbox", { name: layer })).not.toBeChecked();
+  // FLOW-332 AC1: the layers are one dropdown, not a row of check toggles.
+  const layers = page.getByRole("combobox", { name: "Layers" });
+  await expect(layers).toHaveText("Show: 0 layers");
+  await expect(page.locator(".calendar-layer-toggle")).toHaveCount(0);
+  // AC2 (FLOW-265): every layer starts off.
+  await layers.click();
+  const list = page.getByRole("listbox");
+  await expect(list).toHaveAttribute("aria-multiselectable", "true");
+  for (const layer of ["Production tasks", "Tentative holds", "Staff shifts"]) {
+    const option = list.getByRole("option", { name: layer });
+    await expect(option).toHaveAttribute("aria-selected", "false");
+    await expect(option.locator(".fb-select-option__box")).toBeVisible();
+  }
+  await page.keyboard.press("Escape");
   await expect(page.locator(".calendar-layer")).toHaveCount(0);
   // Marks this page load: a reload would clear it.
   await page.evaluate(() => {
@@ -216,29 +227,30 @@ test("toggles calendar layers without reloading the page (FLOW-67)", async ({ pa
   });
 
   // AC2: the setup shift is on the day before, at its New York times.
-  await page.getByRole("checkbox", { name: "Staff shifts" }).check();
+  await choose(layers, ["Staff shifts"]);
   const shift = setupDay.locator(".calendar-shift");
   await expect(shift).toContainText("Setup day: Fall gala · 1/2 staffed");
   await expect(shift).toContainText(/2:00/);
   await expect(eventDay.locator(".calendar-shift")).toHaveCount(0);
 
-  await page.getByRole("checkbox", { name: "Production tasks" }).check();
+  // FLOW-332 AC1: several layers can be on at once, and they show at once.
+  await choose(layers, ["Staff shifts", "Production tasks", "Tentative holds"]);
   await expect(eventDay.locator(".calendar-production")).toContainText(
     "Production: Prep crudités",
   );
-  await page.getByRole("checkbox", { name: "Tentative holds" }).check();
   await expect(page.locator(".calendar-hold")).toContainText(
     "Tentative hold: Fall gala · 1 item",
   );
+  await expect(layers).toHaveText("Show: 3 layers");
   await expect(page).toHaveURL(/layers=production%2Cholds%2Cshifts/);
 
   // AC1: turning a layer off hides only its entries.
-  await page.getByRole("checkbox", { name: "Staff shifts" }).uncheck();
+  await choose(layers, ["Production tasks", "Tentative holds"]);
   await expect(page.locator(".calendar-shift")).toHaveCount(0);
   await expect(page.locator(".calendar-production")).toHaveCount(1);
   await expect(page.locator(".calendar-hold")).toHaveCount(1);
-  await page.getByRole("checkbox", { name: "Production tasks" }).uncheck();
-  await page.getByRole("checkbox", { name: "Tentative holds" }).uncheck();
+  await expect(layers).toHaveText("Show: 2 layers");
+  await choose(layers, []);
   await expect(page.locator(".calendar-layer")).toHaveCount(0);
   await expect(eventDay).toContainText("Fall gala");
   expect(
@@ -246,9 +258,23 @@ test("toggles calendar layers without reloading the page (FLOW-67)", async ({ pa
   ).toBe("first");
 
   // The address keeps the layers that are on.
-  await page.getByRole("checkbox", { name: "Staff shifts" }).check();
+  await choose(layers, ["Staff shifts"]);
   await expect(page).toHaveURL(/layers=shifts/);
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: "Staff shifts" })).toBeChecked();
+  await expect(layers).toHaveText("Show: 1 layer");
   await expect(setupDay.locator(".calendar-shift")).toBeVisible();
+});
+
+// FLOW-332 AC2: a link with ?layers= opens with those layers checked.
+test("opens with the layers in the address checked in the layers dropdown (FLOW-332)", async ({ page }) => {
+  await seedSchedules();
+  await page.goto("/#/events/overview?date=2026-09-17&layers=holds");
+  const layers = page.getByRole("combobox", { name: "Layers" });
+  await expect(layers).toHaveText("Show: 1 layer");
+  await expect(page.locator(".calendar-hold")).toContainText("Tentative hold: Fall gala");
+  await layers.click();
+  const list = page.getByRole("listbox");
+  await expect(list.getByRole("option", { name: "Tentative holds" })).toHaveAttribute("aria-selected", "true");
+  await expect(list.getByRole("option", { name: "Production tasks" })).toHaveAttribute("aria-selected", "false");
+  await expect(list.getByRole("option", { name: "Staff shifts" })).toHaveAttribute("aria-selected", "false");
 });
