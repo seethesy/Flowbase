@@ -21,10 +21,26 @@ test("time accrues only while the tab is visible and the user is active", async 
   page,
 }) => {
   // About 18 fake minutes in 15-second steps (~70 clock.runFor calls), each waiting
-  // for the event hub's API requests to settle, takes more than 30 s of real time in
+  // for the event hub's API requests to settle, took more than 30 s of real time in
   // CI. The default 30 s timeout cut it off part-way (FLOW-287), so give it room.
   test.setTimeout(90 * SECOND);
   await page.clock.install({ time: new Date(Date.now() - 60 * MIN) });
+  // Most of that real time was the hub refetching every section from the Worker
+  // each 30 fake seconds (no Realtime here), ~36 rounds that change nothing. Only
+  // time tracking writes, so each GET is fetched once and its repeats are answered
+  // in the browser (FLOW-287); time tracking's own requests still reach the Worker.
+  // Response contracts are checked by every other spec that loads the hub.
+  const loaded = new Map<string, { status: number; headers: Record<string, string>; body: Buffer }>();
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    if (request.method() !== "GET") return route.fallback();
+    const cached = loaded.get(request.url());
+    if (cached) return route.fulfill(cached);
+    const response = await route.fetch();
+    const copy = { status: response.status(), headers: response.headers(), body: await response.body() };
+    if (response.ok()) loaded.set(request.url(), copy);
+    return route.fulfill(copy);
+  });
   const requests: ActivitySessionInput[][] = [];
   const pending: Promise<unknown>[] = [];
   page.on("request", (request) => {
