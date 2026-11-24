@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { copyKeySchema } from "./copy";
-import type { LayoutDoc } from "./layout";
+import type { StoredLayoutDoc } from "./layout";
 import { liveEditRenames, resolveBlockId, resolveCopyKey, type LiveEditRenames } from "./live-edit-renames";
 
 // Saved edits that no longer match a screen (FLOW-277): wording rows whose key
@@ -51,7 +51,7 @@ export function copyKeyKnown(key: string, manifest: LiveEditManifest): boolean {
 
 export function findOrphans(
   copy: Record<string, string>,
-  layouts: { pageKey: string; layout: LayoutDoc }[],
+  layouts: { pageKey: string; layout: StoredLayoutDoc }[],
   manifest: LiveEditManifest,
   renames: LiveEditRenames = liveEditRenames,
 ): Orphans {
@@ -78,12 +78,12 @@ export function findOrphans(
 
 // A saved layout with one orphaned block or field card removed, or moved to an
 // id the page has (replacing what was saved under that id).
-export function withoutOrphan(doc: LayoutDoc, id: string): LayoutDoc {
+export function withoutOrphan<D extends StoredLayoutDoc>(doc: D, id: string): D {
   const fieldBoxes = { ...doc.fieldBoxes };
   delete fieldBoxes[id];
   return { ...doc, blocks: doc.blocks.filter((block) => !(block.kind === "builtin" && block.id === id)), fieldBoxes };
 }
-export function moveOrphan(doc: LayoutDoc, id: string, to: string): LayoutDoc {
+export function moveOrphan<D extends StoredLayoutDoc>(doc: D, id: string, to: string): D {
   const block = doc.blocks.find((b) => b.kind === "builtin" && b.id === id);
   if (block)
     return {

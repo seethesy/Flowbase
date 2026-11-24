@@ -9,7 +9,7 @@ import {
   resolveCopyKey,
   type LiveEditRenames,
 } from "../../shared/live-edit-renames";
-import type { LayoutDoc } from "../../shared/layout";
+import type { LayoutDocV1 } from "../../shared/layout";
 
 // FLOW-277: saved wording and layouts follow keys renamed in code.
 const renames: LiveEditRenames = {
@@ -28,7 +28,7 @@ const block = (id: string, kind: "builtin" | "text" = "builtin") =>
   kind === "builtin"
     ? ({ kind, id, x: 0, y: 0, w: 12, h: 8 } as const)
     : ({ kind, id, x: 0, y: 0, w: 12, h: 2, variant: "text", text: "Hi" } as const);
-const doc = (blocks: LayoutDoc["blocks"], fieldBoxes: LayoutDoc["fieldBoxes"] = {}): LayoutDoc => ({
+const doc = (blocks: LayoutDocV1["blocks"], fieldBoxes: LayoutDocV1["fieldBoxes"] = {}): LayoutDocV1 => ({
   version: 1,
   blocks,
   tables: {},

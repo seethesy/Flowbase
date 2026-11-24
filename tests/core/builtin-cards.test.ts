@@ -3,7 +3,6 @@ import {
   builtinCard,
   builtinCards,
   cardConfigSchema,
-  emptyLayout,
   layoutDocSchema,
   layoutProblems,
   layoutTables,
@@ -12,10 +11,11 @@ import {
 import { switchCardSource } from "../../src/app/live-edit/card-builder";
 
 // FLOW-279: editing what built-in cards show, the inventory tables made
-// layout-aware, and a source switch that keeps shared fields.
+// layout-aware, and a source switch that keeps shared fields. Blocks are placed
+// as a saved version 1 document, read as a page grid (FLOW-319).
 
 const doc = (blocks: unknown[], tables: Record<string, unknown> = {}) =>
-  layoutDocSchema.parse({ ...emptyLayout(), blocks, tables });
+  layoutDocSchema.parse({ version: 1, blocks, tables });
 const myLeads = (data: unknown) => ({ kind: "builtin", id: "my-leads", x: 0, y: 0, w: 6, h: 12, data });
 
 describe("built-in cards (AC1, AC2)", () => {

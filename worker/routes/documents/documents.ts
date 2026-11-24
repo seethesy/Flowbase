@@ -4,7 +4,7 @@ import { recordTypeSchema } from "../../../shared/attachments";
 import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import { ApiError, archiveRoutes, idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
-import { archiveDocument, changeDocument, completeDocumentUpload, getDocument, listDocuments, startDocumentUpload } from "../../records/documents/documents";
+import { archiveDocument, cancelDocumentUpload, changeDocument, completeDocumentUpload, getDocument, listDocuments, startDocumentUpload } from "../../records/documents/documents";
 
 export function documentRoutes(options: { withDb?: RunWithDb; resolveActor?: ResolveActor }) {
   const routes = new Hono<AppEnv>();
@@ -32,6 +32,8 @@ export function documentRoutes(options: { withDb?: RunWithDb; resolveActor?: Res
     c.json(await record(c, (db, actor) => getDocument(db, actor, c.env ?? {}, idParam(c, "Document")))));
   routes.post("/:id/complete", requirePermission("attachments.write"), async (c) =>
     c.json(await record(c, (db, actor) => completeDocumentUpload(db, actor, c.env ?? {}, idParam(c, "Document")))));
+  routes.post("/:id/cancel", requirePermission("attachments.write"), async (c) =>
+    c.json(await record(c, (db, actor) => cancelDocumentUpload(db, actor, c.env ?? {}, idParam(c, "Document upload")))));
   routes.patch("/:id", requirePermission("attachments.write"), async (c) => {
     const change = await parseBody(c, documentChangeSchema);
     return c.json(await record(c, (db, actor) => changeDocument(db, actor, c.env ?? {}, idParam(c, "Document"), change)));

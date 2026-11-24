@@ -100,7 +100,8 @@ test("switches between list and grid views and remembers the choice", async ({ p
 
 test("the Sales tracker lives at /sales and its tab opens it", async ({ page }) => {
   await seedLibrary();
-  await page.goto("/#/proposals");
+  // Proposals sit under Leads since FLOW-328; the tracker stays under Sales.
+  await page.goto("/#/sales/overview");
   await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Sales tracker" }).click();
   await expect(page).toHaveURL(/#\/sales$/);
   await expect(page.getByRole("heading", { name: "Sales tracker", exact: true })).toBeVisible();

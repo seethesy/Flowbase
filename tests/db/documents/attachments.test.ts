@@ -29,6 +29,9 @@ const env = {
   FILES: {
     head: async (key: string) =>
       stored.has(key) ? { size: stored.get(key) ?? 0 } : null,
+    delete: async (keys: string | string[]) => {
+      for (const key of [keys].flat()) stored.delete(key);
+    },
   },
 };
 const signedIn = (userId: string, role: Role) => {
@@ -208,4 +211,29 @@ it("lists only visible documents, keeps upload versions and blocks BEO deletion"
   expect((await admin("POST", `/api/documents/${protectedId}/archive`)).status).toBe(409);
   expect((await sam("PATCH", `/api/documents/${protectedId}`, { docType: "template" })).status).toBe(403);
   expect((await admin("GET", `/api/documents/${protectedId}`)).status).toBe(200);
+});
+
+it("a cancelled upload leaves no document or version behind (FLOW-331)", async () => {
+  const input = { name: "Synthetic menu", docType: "other", recordType: "document",
+    fileName: "menu.pdf", contentType: "application/pdf", size: 500 };
+  const ticket = await (await admin("POST", "/api/documents", input)).json() as { id: string; url: string };
+  // Another person can't cancel it.
+  expect((await sue("POST", `/api/documents/${ticket.id}/cancel`)).status).toBe(404);
+  const cancelled = await admin("POST", `/api/documents/${ticket.id}/cancel`);
+  expect(cancelled.status).toBe(200);
+  expect(await cancelled.json()).toEqual({ id: ticket.id, cancelled: true });
+  expect(await db.select().from(schema.attachments)).toHaveLength(0);
+  expect((await (await admin("GET", "/api/documents")).json()) as unknown[]).toHaveLength(0);
+
+  // A failed new version: the document keeps only its uploaded version.
+  const first = await (await admin("POST", "/api/documents", input)).json() as { id: string; url: string };
+  stored.set(decodeURIComponent(new URL(first.url).pathname.replace("/flowbase-files/", "")), 500);
+  const document = await (await admin("POST", `/api/documents/${first.id}/complete`)).json() as { id: string };
+  const retry = await (await admin("POST", "/api/documents", { ...input, documentId: document.id, fileName: "menu-v2.pdf" })).json() as { id: string };
+  // Before it is cancelled, the pending version isn't shown.
+  expect((await (await admin("GET", `/api/documents/${document.id}`)).json() as { versions: unknown[] }).versions).toHaveLength(1);
+  await admin("POST", `/api/documents/${retry.id}/cancel`);
+  expect((await (await admin("GET", `/api/documents/${document.id}`)).json() as { versions: { number: number }[] }).versions).toEqual([expect.objectContaining({ number: 1 })]);
+  // A completed upload can't be cancelled.
+  expect((await admin("POST", `/api/documents/${first.id}/cancel`)).status).toBe(409);
 });

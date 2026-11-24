@@ -119,13 +119,34 @@ export async function uploadAttachment(
   });
   for (const upload of ticket.uploads) {
     const variant = variants.find((candidate) => candidate.name === upload.name);
-    const response = await fetch(upload.url, {
-      method: "PUT",
-      headers: upload.headers,
-      body: variant?.blob,
-    });
-    if (!response.ok)
-      throw new Error(`The upload failed (${response.status}). Please retry.`);
+    await putToStorage(upload.url, upload.headers, variant?.blob);
   }
   return attachmentsApi.complete(ticket.attachment.id);
+}
+
+export const STORAGE_UNREACHABLE =
+  "The file couldn't reach storage. Try again, or ask an Admin to check file storage settings.";
+
+// The browser couldn't reach file storage at all (FLOW-331): offline, or the
+// bucket's CORS rule doesn't allow this origin, method or header. Screens show
+// STORAGE_UNREACHABLE (editable wording) for it.
+export class StorageUnreachableError extends Error {
+  constructor() {
+    super(STORAGE_UNREACHABLE);
+    this.name = "StorageUnreachableError";
+  }
+}
+
+// PUTs a file to its signed R2 URL. Only PUT and the ticket's headers (just
+// Content-Type), which the bucket's CORS rule allows (docs/features/attachments.md);
+// no credentials, so the rule needs no Allow-Credentials.
+export async function putToStorage(url: string, headers: Record<string, string>, body: Blob | undefined) {
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "PUT", headers, body, credentials: "omit" });
+  } catch {
+    throw new StorageUnreachableError();
+  }
+  if (!response.ok)
+    throw new Error(`The upload failed (${response.status}). Please retry.`);
 }

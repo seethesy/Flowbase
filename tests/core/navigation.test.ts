@@ -27,28 +27,35 @@ const trail = (path: string, who: Actor | null = admin, from?: string) =>
   breadcrumbTrail(path, who, from).map((crumb) => (crumb.to ? `${crumb.label}>${crumb.to}` : crumb.label));
 
 describe("navigation groups", () => {
-  it("lists exactly the nine headings with their tabs in order (AC1)", () => {
+  it("lists exactly the ten headings with their tabs in order (AC1)", () => {
     expect(navigationGroups.map((group) => group.name)).toEqual([
-      "Dashboard", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
+      "Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
     ]);
-    expect(headings(admin)).toHaveLength(9);
+    expect(headings(admin)).toHaveLength(10);
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Approvals"]);
-    expect(tabs(admin, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+    // FLOW-328: Leads (early stages) and Sales (late stages); FLOW-329: Pricing.
+    expect(tabs(admin, "Leads")).toEqual(["Overview", "Proposals"]);
+    expect(tabs(admin, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
     expect(tabs(admin, "Events")).toEqual(["Overview", "BEOs", "Production"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Overview", "Recipes", "Ingredients", "Menus", "Photos"]);
     expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
-    expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents"]);
+    // FLOW-330: Templates after Documents.
+    expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
     expect(tabs(admin, "Reports")).toEqual(["Overview", "Time tracking", "Operational reports"]);
   });
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
-    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+    expect(tabs(salesperson, "Leads")).toEqual(["Overview", "Proposals"]);
+    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
     expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(salesperson, "Reports")).toEqual(["Overview", "Time tracking"]);
-    // Staff can't read leads, clients or proposals, run imports or see operational reports.
+    // Staff can't read leads, clients or proposals (so no Leads heading or
+    // Pricing tab), run imports or see operational reports.
+    expect(headings(staff)).not.toContain("Leads");
     expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues"]);
+    expect(tabs(staff, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
     expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(staff, "Reports")).toEqual(["Overview", "Time tracking"]);
     // Payroll is Admin and Technical only (FLOW-270 AC2).
@@ -67,10 +74,14 @@ describe("navigation groups", () => {
     };
     expect(at("/")).toBe("Dashboard › Overview");
     expect(at("/tasks/all")).toBe("Dashboard › Tasks");
-    expect(at("/leads")).toBe("Sales › Leads");
-    expect(at("/leads/abc")).toBe("Sales › Leads");
+    // FLOW-328: the leads table is Leads › Overview; Proposals moved to Leads.
+    expect(at("/leads")).toBe("Leads › Overview");
+    expect(at("/leads/abc")).toBe("Leads › Overview");
+    expect(at("/leads/dashboard")).toBe("Leads › Overview");
     expect(at("/clients/cli-1")).toBe("Sales › Clients");
-    expect(at("/proposals")).toBe("Sales › Proposals");
+    expect(at("/proposals")).toBe("Leads › Proposals");
+    expect(at("/sales/pricing")).toBe("Sales › Pricing");
+    expect(at("/documents/templates")).toBe("Documents › Templates");
     expect(at("/sales/reports")).toBe("Sales › Sales tracker");
     expect(at("/events/e-1/beo/b-1")).toBe("Events › Overview");
     // FLOW-294: the calendar is Events › Overview; FLOW-293: Kitchen › Overview.
@@ -109,7 +120,11 @@ describe("breadcrumb trail", () => {
   it("builds Workspace / Heading / Tab with every segment but the last linked", () => {
     expect(trail("/approvals")).toEqual(["Workspace>/", "Dashboard>/", "Approvals"]);
     expect(trail("/")).toEqual(["Workspace>/", "Dashboard>/", "Overview"]);
-    expect(trail("/leads")).toEqual(["Workspace>/", "Sales>/sales/overview", "Leads"]);
+    expect(trail("/leads")).toEqual(["Workspace>/", "Leads>/leads", "Overview"]);
+    expect(trail("/proposals")).toEqual(["Workspace>/", "Leads>/leads", "Proposals"]);
+    expect(trail("/sales/overview")).toEqual(["Workspace>/", "Sales>/sales/overview", "Overview"]);
+    expect(trail("/sales/pricing")).toEqual(["Workspace>/", "Sales>/sales/overview", "Pricing"]);
+    expect(trail("/documents/templates")).toEqual(["Workspace>/", "Documents>/documents/overview", "Templates"]);
     expect(trail("/kitchen/ingredients")).toEqual(["Workspace>/", "Kitchen>/kitchen/overview", "Ingredients"]);
     expect(trail("/marketing")).toEqual(["Workspace>/", "Marketing>/marketing/overview", "Photos"]);
     expect(trail("/reports/overview")).toEqual(["Workspace>/", "Reports>/reports/overview", "Overview"]);
@@ -122,7 +137,7 @@ describe("breadcrumb trail", () => {
       label: "Lead",
       record: { kind: "leads", id: "lead-1" },
     });
-    expect(trail("/leads/lead-1")).toEqual(["Workspace>/", "Sales>/sales/overview", "Leads>/leads", "Lead"]);
+    expect(trail("/leads/lead-1")).toEqual(["Workspace>/", "Leads>/leads", "Overview>/leads", "Lead"]);
     for (const [path, kind] of [
       ["/clients/c-1", "clients"],
       ["/venues/v-1", "venues"],

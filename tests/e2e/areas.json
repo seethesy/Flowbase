@@ -69,11 +69,13 @@
         "src/services/payments.ts",
         "src/services/proposals.ts",
         "src/services/sales.ts",
+        "src/services/pricing.ts",
         "shared/communications.ts",
         "shared/contracts.ts",
         "shared/core-records.ts",
         "shared/payments.ts",
         "shared/pipeline.ts",
+        "shared/pricing.ts",
         "shared/proposal-mapping.ts",
         "shared/proposals.ts",
         "shared/sales.ts"
@@ -232,6 +234,7 @@
         "shared/live-edit-renames.ts",
         "shared/nav-visibility-schema.ts",
         "shared/nav-visibility.ts",
+        "shared/page-grid.ts",
         "shared/role-permissions.ts",
         "shared/settings.ts",
         "shared/users.ts"

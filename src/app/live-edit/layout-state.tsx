@@ -2,7 +2,8 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
 import { queryClient } from "../queryClient";
-import { emptyLayout, GRID_COLUMNS, type LayoutBlock, type LayoutDoc, type SavedLayout } from "../../../shared/layout";
+import { emptyLayout, type LayoutDoc, type SavedLayout } from "../../../shared/layout";
+import { codeDefaultGrid, withCodeBlocks } from "../../../shared/page-grid";
 import { layoutApi } from "../../services/layout";
 import { layoutQueryKey, useLiveEdit } from "../copy";
 import { PageLayoutProvider, usePageLayoutContext, type PageLayout } from "./layout-context";
@@ -10,49 +11,26 @@ import { PageLayoutProvider, usePageLayoutContext, type PageLayout } from "./lay
 export { PageLayoutProvider, usePageLayoutContext, type PageLayout };
 
 // A page's layout (FLOW-253): the saved document, the session's unsaved one, and
-// how page parts (blocks, tables, field cards) change it.
+// how page parts (blocks, tables, field cards) change it. Documents are page
+// grids (FLOW-319); a saved version 1 document arrives converted.
 
 const LAYOUT_STALE_MS = 30 * 60_000;
 
 // A built-in block as the page's code declares it: its id, a name for the edit
-// chrome, and its default size in grid units.
+// chrome, and its height in the code default (its row's share).
 export type BuiltinBlock = { id: string; name: string; w: number; h: number };
 
-// The code default's blocks: built-in blocks stacked full width in code order.
-export function defaultBlocks(builtins: BuiltinBlock[]): LayoutBlock[] {
-  let y = 0;
-  return builtins.map((block) => {
-    const placed: LayoutBlock = { kind: "builtin", id: block.id, x: 0, y, w: Math.min(block.w, GRID_COLUMNS), h: block.h };
-    y += block.h;
-    return placed;
-  });
-}
+// The code default (FLOW-319 20): one column, one row per built-in block in
+// code order, each row's share proportional to its height.
+export const codeDefault = (builtins: BuiltinBlock[]): LayoutDoc => ({ ...emptyLayout(), ...codeDefaultGrid(builtins) });
 
-// A saved document against the blocks the code has now: built-ins the code
-// dropped are left out. A built-in the code added since the save goes where its
-// code order puts it (FLOW-278): just above the next saved built-in that follows
-// it in code, pushing the blocks from there down; with none, at the bottom. So a
-// toolbar split out of a saved list stays above the list.
-export function withBuiltins(doc: LayoutDoc, builtins: BuiltinBlock[]): LayoutBlock[] {
-  const known = new Set(builtins.map((block) => block.id));
-  let blocks = doc.blocks.filter((block) => block.kind !== "builtin" || known.has(block.id));
-  const placed = new Set(blocks.map((block) => block.id));
-  builtins.forEach((block, index) => {
-    if (placed.has(block.id)) return;
-    const w = Math.min(block.w, GRID_COLUMNS);
-    const next = builtins.slice(index + 1).map((later) => blocks.find((b) => b.kind === "builtin" && b.id === later.id)).find(Boolean);
-    let y: number;
-    if (next) {
-      y = next.y;
-      blocks = blocks.map((b) => (b.y >= y ? { ...b, y: b.y + block.h } : b));
-    } else y = Math.max(0, ...blocks.map((b) => b.y + b.h));
-    blocks = [...blocks, { kind: "builtin", id: block.id, x: 0, y, w, h: block.h }];
-    placed.add(block.id);
-  });
-  return blocks;
-}
+// A saved document against the blocks the code has now: a built-in the code
+// added since the save goes into a new row where its code order puts it.
+// Built-ins the code didn't render this time (another tab, another role) stay,
+// in their cells (FLOW-320 A3).
+export const withBuiltins = (doc: LayoutDoc, builtins: BuiltinBlock[]): LayoutDoc => withCodeBlocks(doc, builtins);
 
-// Reading order: top to bottom, then left to right. Phones stack in this order.
+// Reading order: top to bottom, then left to right (card boxes; FLOW-255).
 export const readingOrder = <T extends { x: number; y: number }>(items: T[]) =>
   [...items].sort((a, b) => a.y - b.y || a.x - b.x);
 
@@ -74,18 +52,15 @@ export function usePageLayout(
   const doc = pending === undefined ? saved : pending;
   const editing = live.editing && live.canEditLayout;
   const { stageLayout } = live;
-  const builtinKey = builtins.map((block) => `${block.id}:${block.w}:${block.h}`).join(",");
+  const builtinKey = builtins.map((block) => `${block.id}:${block.h}`).join(",");
   const update = useCallback(
     (change: (doc: LayoutDoc) => LayoutDoc) => {
-      const base: LayoutDoc = doc
-        ? { ...doc, blocks: builtins.length ? withBuiltins(doc, builtins) : doc.blocks }
-        : { ...emptyLayout(), blocks: defaultBlocks(builtins) };
+      // A part with no blocks of its own (a page subtitle) leaves the grid as it is.
+      const base: LayoutDoc = doc ? (builtins.length ? withBuiltins(doc, builtins) : doc) : codeDefault(builtins);
       const next = change(base);
       // Back to what is saved, or to the code default with nothing saved:
       // nothing to save for this page.
-      const unchanged = saved
-        ? same(next, saved)
-        : same(next, { ...emptyLayout(), blocks: defaultBlocks(builtins) });
+      const unchanged = saved ? same(next, saved) : same(next, codeDefault(builtins));
       stageLayout(pageKey, unchanged ? undefined : next);
     },
     // builtins is rebuilt each render; builtinKey stands for it.

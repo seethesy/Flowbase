@@ -1,5 +1,6 @@
 import { test, expect, mockBrowserAuth } from "../auth-fixture";
 import { seedUsers } from "../../../worker/db/seed";
+import { editGrid, halfWidthAndDown, namedBlock } from "./page-grid-helpers";
 
 for (const entry of [
   { path: "/#/documents", key: "documents.library", block: "filters", name: "Document filters" },
@@ -28,26 +29,29 @@ for (const entry of [
       path = page.url();
     } else await page.goto(path);
     await page.getByRole("button", { name: "Edit screen text" }).click();
-    await page.getByRole("button", { name: `Half width: ${entry.name}`, exact: true }).click();
-    const item = page.getByLabel(`${entry.name}: arrow keys move, Shift and arrow keys resize`, { exact: true });
-    await item.focus();
+    // A second column: the block is half width, then moves (FLOW-321).
+    await halfWidthAndDown(page, entry.key, entry.name);
     if (entry.path === "sop") {
-      await page.getByRole("button", { name: "Half width: Procedure", exact: true }).click();
-      await item.focus();
-      for (let n = 0; n < 26; n++) await item.press("ArrowUp");
-      for (let n = 0; n < 6; n++) await item.press("ArrowRight");
+      // Edit history goes up beside Procedure, into the new column's top cell.
+      const item = namedBlock(page, entry.key, entry.name);
+      await item.press("Enter");
+      for (let n = 0; n < 10; n++) await item.press("ArrowUp");
+      await item.press("ArrowRight");
+      await item.press("Enter");
+      await expect(item).toHaveAttribute("data-slot", "1,0");
+      await expect(editGrid(page, entry.key)).toBeVisible();
       await page.getByRole("button", { name: "Delete SOP facts", exact: true }).click();
       await page.getByRole("dialog", { name: "Delete SOP facts?", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
-    } else await item.press("ArrowDown");
+    }
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
     const selector = `[data-page-layout="${entry.key}"] > [data-block-id="${entry.block}"]`;
-    await expect(page.locator(selector)).toHaveCSS("grid-column-end", "span 6");
+    await expect(page.locator(selector)).toHaveCSS("grid-column-end", "span 1");
     const context = await browser.newContext();
     const other = await context.newPage();
     await mockBrowserAuth(other, { userId: seedUsers.find((u) => u.role === "sales_manager")!.id });
     await other.goto(path);
-    await expect(other.locator(selector)).toHaveCSS("grid-column-end", "span 6");
+    await expect(other.locator(selector)).toHaveCSS("grid-column-end", "span 1");
     if (entry.path === "sop") {
       await expect(other.locator('[data-block-id="sop-header-facts"]')).toHaveCount(0);
       await expect(other.getByText("Keep this record text intact.", { exact: true })).toBeVisible();
@@ -67,7 +71,7 @@ for (const entry of [
       await page.getByRole("button", { name: "Save SOP" }).click();
       await expect(page.getByRole("heading", { name: "Another procedure", exact: true })).toBeVisible();
       await expect(page.locator('[data-block-id="sop-header-facts"]')).toHaveCount(0);
-      await expect(page.locator(selector)).toHaveCSS("grid-column-end", "span 6");
+      await expect(page.locator(selector)).toHaveCSS("grid-column-end", "span 1");
     }
     if (entry.path === "task") {
       await page.getByLabel("New checklist item").fill("Check sample crate");

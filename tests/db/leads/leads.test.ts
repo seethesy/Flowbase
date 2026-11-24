@@ -180,6 +180,21 @@ describe("inbox (FLOW-100)", () => {
     });
   });
 
+  it("lists several statuses at once for each heading's Overview (FLOW-328)", async () => {
+    await seed({ name: "Early" });
+    const late = await seed({ name: "Late" });
+    const gone = await seed({ name: "Gone" });
+    await admin.post<Lead>(`/api/leads/${late}/status`, { status: "negotiation" });
+    await admin.post<Lead>(`/api/leads/${gone}/status`, { status: "lost", reason: "Booked elsewhere" });
+    const listed = async (status: string) =>
+      names(await admin.get<Lead[]>(`/api/leads?status=${status}`)).sort();
+    expect(await listed("inquiry,pitching,p_creation,p_sent")).toEqual(["Early"]);
+    expect(await listed("inquiry,pitching,p_creation,p_sent,lost")).toEqual(["Early", "Gone"]);
+    expect(await listed("negotiation,closing,closed")).toEqual(["Late"]);
+    // An unknown status lists nothing rather than everything.
+    expect(await listed("negotiation,nonsense")).toEqual([]);
+  });
+
   it("puts a lead with no event date or no contact method in needs review", async () => {
     await seed({ name: "Complete" });
     await seed({ name: "No date", eventDate: null });

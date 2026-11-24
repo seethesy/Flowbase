@@ -1,6 +1,6 @@
 {
-  "id": "6789054e-d8c7-445a-9996-f05b19e716b9",
-  "prevId": "b3d2b935-1225-49bb-b50a-09510afc9cd3",
+  "id": "b266d241-af3c-4d6c-8198-35d5239bd8d2",
+  "prevId": "e114629b-e7db-4715-aede-667e05001b52",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4218,6 +4218,102 @@
         "payments_amount_positive": {
           "name": "payments_amount_positive",
           "value": "\"payments\".\"amount_cents\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.price_list_items": {
+      "name": "price_list_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis": {
+          "name": "basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "price_list_items_category_check": {
+          "name": "price_list_items_category_check",
+          "value": "\"price_list_items\".\"category\" in ('package', 'per_guest_rate', 'minimum', 'fee')"
+        },
+        "price_list_items_basis_check": {
+          "name": "price_list_items_basis_check",
+          "value": "\"price_list_items\".\"basis\" in ('per_event', 'per_guest', 'per_hour', 'per_item', 'percent')"
+        },
+        "price_list_items_amount_check": {
+          "name": "price_list_items_amount_check",
+          "value": "\"price_list_items\".\"amount\" >= 0"
         }
       },
       "isRLSEnabled": true

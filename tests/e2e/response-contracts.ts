@@ -63,12 +63,13 @@ import {
 import { deletedRecordSchema, deleteResultSchema } from "../../shared/deletions";
 import { searchResultSchema } from "../../shared/search";
 import { vendorDetailSchema, vendorSchema } from "../../shared/vendors";
+import { priceItemSchema } from "../../shared/pricing";
 import {
   timeReportSchema,
   activityRecordedSchema,
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
-import { documentSchema, documentUploadTicketSchema } from "../../shared/documents";
+import { documentSchema, documentUploadCancelSchema, documentUploadTicketSchema } from "../../shared/documents";
 import { photoSchema } from "../../shared/photos";
 import { communicationSchema } from "../../shared/communications";
 import { sopSchema, sopSummarySchema } from "../../shared/sops";
@@ -182,6 +183,7 @@ export function responseSchema(
   if (resource === "documents")
     return !id && method === "GET" ? documentSchema.array()
       : !id && method === "POST" ? documentUploadTicketSchema
+        : action === "cancel" ? documentUploadCancelSchema
         : action === "archive" || action === "restore"
           ? z.object({ id: z.string(), restored: z.boolean() }) : documentSchema;
   // Photo galleries (FLOW-271, FLOW-298).
@@ -240,6 +242,8 @@ export function responseSchema(
     if (action === "scale") return scaledRecipeSchema;
     return !id && method === "GET" ? recipeSchema.array() : recipeSchema;
   }
+  // Sales › Pricing's price list (FLOW-329): the list, otherwise one price.
+  if (resource === "pricing") return !id && method === "GET" ? priceItemSchema.array() : priceItemSchema;
   // Vendor directory (FLOW-84): the list, otherwise the vendor with its items.
   if (resource === "vendors") {
     if (action === "history") return historyEntrySchema.array();

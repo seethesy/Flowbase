@@ -9,6 +9,7 @@ import { useResource } from "../../app/useResource";
 import { usePermissions } from "../../app/permissions";
 import { T, useCopy } from "../../app/copy";
 import { documentsApi, uploadDocument } from "../../services/documents";
+import { STORAGE_UNREACHABLE, StorageUnreachableError } from "../../services/attachments";
 import { searchApi } from "../../services/search";
 import { sopsApi } from "../../services/sops";
 import { documentTypeLabels, documentTypes, type Document, type DocumentType } from "../../../shared/documents";
@@ -84,11 +85,20 @@ function LinkedCell({ row, writable, save }: { row: Document; writable: boolean;
   </div>;
 }
 
-export function DocumentsPage() {
+// Documents › Templates (FLOW-330): the library limited to Template documents.
+// Uploading from it makes a Template.
+export function TemplatesPage() {
+  return <DocumentsPage onlyType="template" />;
+}
+
+// The Documents library (FLOW-263). With `onlyType` it lists that type only and
+// leaves out the type buttons (Documents › Templates).
+export function DocumentsPage({ onlyType }: { onlyType?: DocumentType } = {}) {
   const searchPlaceholder = useCopy("documents.library.search.placeholder", "Search files…");
   const { actor, can } = usePermissions();
   const files = useResource(["documents"], documentsApi.list);
-  const [type, setType] = useState<DocumentType | "">("");
+  const [pickedType, setType] = useState<DocumentType | "">("");
+  const type = onlyType ?? pickedType;
   const [search, setSearch] = useState("");
   const [linked, setLinked] = useState("");
   const [uploader, setUploader] = useState("");
@@ -143,32 +153,18 @@ export function DocumentsPage() {
     { accessorKey: "updatedAt", header: "Updated", cell: ({ row }) => new Date(row.original.updatedAt).toLocaleDateString() },
     { id: "size", header: "Size", accessorFn: (row) => latest(row)?.size ?? 0, cell: ({ row }) => sizeText(latest(row.original)?.size ?? 0) },
   ];
+  const unreachable = useCopy("documents.upload.storage-unreachable", STORAGE_UNREACHABLE);
   const uploadVersion = async (event: ChangeEvent<HTMLInputElement>) => {
     const picked = event.target.files?.[0];
     if (!picked || !selected) return;
     setError("");
     try { await uploadDocument(picked, { name: selected.name, docType: selected.docType,
       recordType: selected.recordType, recordId: selected.recordId, documentId: selected.id }); reload(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    catch (cause) { setError(uploadError(cause, unreachable)); }
     event.target.value = "";
   };
-  return <>
-    <PageHeader pageKey="documents.library" title={<T id="documents.library.title">Documents</T>}
-      subtitle={<T id="documents.library.subtitle">Files linked to the work they belong to.</T>}>
-      {can("attachments.write") && <Button onClick={() => setUploadOpen(true)}><Upload size={16} /><T id="documents.library.upload">Upload</T></Button>}
-    </PageHeader>
-    <ErrorText message={error} />
-    <PageGrid pageKey="documents.library">
-    <Block id="types" name="Document types" h={4}>
-    <div className="document-type-tabs">
-      <Button variant={type === "" ? "default" : "outline"} onClick={() => setType("")}><T id="documents.library.all">All</T> {all.length}</Button>
-      {documentTypes.map((entry) => <Button key={entry} variant={type === entry ? "default" : "outline"} onClick={() => setType(entry)}>
-        {documentTypeLabels[entry]} {all.filter((row) => row.docType === entry).length}
-      </Button>)}
-    </div>
-    </Block>
-    <Block id="filters" name="Document filters" h={5}>
-    <FilterBar>
+  const upload = can("attachments.write") && <Button onClick={() => setUploadOpen(true)}><Upload size={16} /><T id="documents.library.upload">Upload</T></Button>;
+  const filters = <FilterBar>
       <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="documents.library.search.placeholder" />
       <Dropdown aria-label="Linked to" value={linked} onValueChange={setLinked}><option value="">Any link</option>
         {linkTypes.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}
@@ -180,15 +176,43 @@ export function DocumentsPage() {
       <Dropdown aria-label="Updated" value={updated} onValueChange={setUpdated}>
         <option value="">Any time</option><option value="7">Last 7 days</option><option value="90">Last 90 days</option>
       </Dropdown>
-    </FilterBar>
-    </Block>
-    <Block id="documents-table" name="Documents" h={20}>
+    </FilterBar>;
+  const table = <>
     <ErrorText message={files.error} />
-    {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" exportName="documents" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
+    {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" exportName={onlyType ? "templates" : "documents"} data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
       selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
         onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
-    </Block>
-    </PageGrid>
+  </>;
+  return <>
+    {onlyType ? <>
+      <PageHeader pageKey="documents.templates" title={<T id="documents.templates.title">Templates</T>}
+        subtitle={<T id="documents.templates.subtitle">Proposal, BEO and other blank forms to start from.</T>}>
+        {upload}
+      </PageHeader>
+      <ErrorText message={error} />
+      <PageGrid pageKey="documents.templates">
+        <Block id="filters" name="Document filters" h={5}>{filters}</Block>
+        <Block id="documents-table" name="Templates" h={20}>{table}</Block>
+      </PageGrid>
+    </> : <>
+      <PageHeader pageKey="documents.library" title={<T id="documents.library.title">Documents</T>}
+        subtitle={<T id="documents.library.subtitle">Files linked to the work they belong to.</T>}>
+        {upload}
+      </PageHeader>
+      <ErrorText message={error} />
+      <PageGrid pageKey="documents.library">
+        <Block id="types" name="Document types" h={4}>
+          <div className="document-type-tabs">
+            <Button variant={type === "" ? "default" : "outline"} onClick={() => setType("")}><T id="documents.library.all">All</T> {all.length}</Button>
+            {documentTypes.map((entry) => <Button key={entry} variant={type === entry ? "default" : "outline"} onClick={() => setType(entry)}>
+              {documentTypeLabels[entry]} {all.filter((row) => row.docType === entry).length}
+            </Button>)}
+          </div>
+        </Block>
+        <Block id="filters" name="Document filters" h={5}>{filters}</Block>
+        <Block id="documents-table" name="Documents" h={20}>{table}</Block>
+      </PageGrid>
+    </>}
     {selected && <DetailDrawer open onClose={() => setSelectedId("")} title={selected.name}
       description={<T id="documents.preview.description">File details and earlier versions</T>} wide>
       {latest(selected)?.contentType === "application/pdf" && latest(selected)?.url
@@ -214,9 +238,13 @@ export function DocumentsPage() {
     {undoId && <div role="status" className="table-undo-toast"><T id="documents.library.deleted">Document deleted.</T>
       <Button variant="outline" onClick={() => void documentsApi.restore(undoId).then(() => { setUndoId(""); reload(); })}><T id="documents.library.undo">Undo</T></Button>
     </div>}
-    {uploadOpen && <DocumentUpload onClose={() => setUploadOpen(false)} onSaved={reload} />}
+    {uploadOpen && <DocumentUpload onClose={() => setUploadOpen(false)} onSaved={reload} presetType={onlyType} />}
   </>;
 }
+
+// A storage upload that never reached R2 shows the editable message (FLOW-331).
+const uploadError = (cause: unknown, unreachable: string) =>
+  cause instanceof StorageUnreachableError ? unreachable : cause instanceof Error ? cause.message : String(cause);
 
 // Also the Kitchen screen's "+ Upload menu" (FLOW-267), with the type preset.
 export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onClose: () => void; onSaved: () => void; presetType?: DocumentType }) {
@@ -226,6 +254,7 @@ export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onC
   const [link, setLink] = useState<{ type: AttachmentRecordType; id: string; name: string }>({ type: "document", id: "", name: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const unreachable = useCopy("documents.upload.storage-unreachable", STORAGE_UNREACHABLE);
   const save = async () => {
     if (!file) return setError("Choose a file.");
     if (link.type !== "document" && !link.id) return setError("Pick a linked record.");
@@ -234,7 +263,7 @@ export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onC
       await uploadDocument(file, { name: name.trim() || file.name, docType: type, recordType: link.type,
         recordId: link.id || undefined });
       onSaved(); onClose();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { setError(uploadError(cause, unreachable)); }
     finally { setBusy(false); }
   };
   return <DetailDrawer open onClose={onClose} title={<T id="documents.upload.title">Upload document</T>}

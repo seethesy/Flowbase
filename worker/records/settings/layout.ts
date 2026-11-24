@@ -1,19 +1,21 @@
 import { layoutLifecycleChanges } from "../../../shared/layout-deletion";
 import { emptyLayout } from "../../../shared/layout";
+import { asV2 } from "../../../shared/page-grid";
 import { eq, sql } from "drizzle-orm";
 import type { Actor } from "../../../shared/access";
-import type { LayoutDoc, SavedLayout } from "../../../shared/layout";
+import type { LayoutDoc, SavedLayout, StoredLayoutDoc } from "../../../shared/layout";
 import { writeAudit } from "../../audit/log";
 import type { Db, DbLike } from "../../db/client";
 import { uiLayout } from "../../db/schema";
 
 // Saved page layouts (FLOW-253): one row per page, shared by everyone. No row
-// means the page's code default. Save and reset are audit-logged.
+// means the page's code default. Save and reset are audit-logged. A row saved
+// as version 1 reads as version 2 (FLOW-321); its next Save stores version 2.
 
 type Row = typeof uiLayout.$inferSelect;
 const saved = (row: Row): NonNullable<SavedLayout> => ({
   pageKey: row.pageKey,
-  layout: row.layout,
+  layout: asV2(row.layout),
   updatedAt: row.updatedAt.toISOString(),
   updatedBy: row.updatedBy,
 });
@@ -24,7 +26,7 @@ export async function getLayout(db: DbLike, pageKey: string): Promise<SavedLayou
 }
 
 // Every saved page layout (FLOW-277 orphan report).
-export async function listLayouts(db: DbLike): Promise<{ pageKey: string; layout: LayoutDoc }[]> {
+export async function listLayouts(db: DbLike): Promise<{ pageKey: string; layout: StoredLayoutDoc }[]> {
   return db.select({ pageKey: uiLayout.pageKey, layout: uiLayout.layout }).from(uiLayout);
 }
 

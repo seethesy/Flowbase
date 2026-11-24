@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { emptyLayout, layoutDocSchema, layoutProblems, MAX_BLOCKS, styleContrastOk, styleSchema } from "../../shared/layout";
 import { keyboardStep, widthPresets, withWidth } from "../../src/app/live-edit/layout-sizes";
 import { cleanStyle, styleClass, stylePresets, styleVars } from "../../src/app/live-edit/layout-style";
-import { blockClass, blockPlace } from "../../src/app/live-edit/page-grid";
+import { blockClass } from "../../src/app/live-edit/page-grid";
 
-// FLOW-278: size controls besides drag, more appearance options, fit content
-// and hide on phone.
+// FLOW-278: size controls besides drag (card boxes; page blocks use the page
+// grid since FLOW-321), more appearance options, and hide on phone. Fit content
+// is dropped on the page grid (FLOW-319 A4).
 
 const item = { id: "list", x: 2, y: 4, w: 6, h: 8 };
 
@@ -37,23 +38,23 @@ describe("width presets (AC2)", () => {
   });
 });
 
-describe("fit content and hide on phone (AC2, AC5)", () => {
+describe("fit content and hide on phone (AC2, AC5; FLOW-319 A4)", () => {
   const block = { kind: "builtin" as const, id: "list", x: 0, y: 3, w: 6, h: 10 };
-  it("lets a fit block take its content's height", () => {
-    expect(blockPlace(block).gridRow).toBe("4 / span 10");
-    expect(blockPlace({ ...block, fit: true }).gridRow).toBe("4 / span 1");
-    expect(blockClass({ ...block, fit: true, hidePhone: true })).toBe("layout-fit layout-hide-phone");
+  it("hides a block on phones and no longer lets it fit its content", () => {
+    expect(blockClass({ ...block, hidePhone: true })).toBe("layout-hide-phone");
+    expect(blockClass({ ...block, fit: true })).toBe("");
     expect(blockClass(block)).toBe("");
   });
-  it("saves both options on every block kind", () => {
+  it("keeps Hide on phone on every block kind and drops Fit content when a saved layout converts", () => {
     const doc = layoutDocSchema.parse({
-      ...emptyLayout(),
+      version: 1,
       blocks: [
         { ...block, fit: true, hidePhone: true },
         { kind: "text", id: "text-1", x: 0, y: 0, w: 12, h: 2, variant: "note", text: "Hi", hidePhone: true },
       ],
     });
-    expect(doc.blocks[0]).toMatchObject({ fit: true, hidePhone: true });
+    expect(doc.blocks[0]).toMatchObject({ hidePhone: true });
+    expect(doc.blocks[0]).not.toHaveProperty("fit");
     expect(doc.blocks[1]).toMatchObject({ hidePhone: true });
   });
   it("holds 40 blocks for pages with many sections", () => {
@@ -106,7 +107,7 @@ describe("appearance options (AC3)", () => {
   it("refuses low-contrast colors on the server", () => {
     const doc = layoutDocSchema.parse({
       ...emptyLayout(),
-      blocks: [{ kind: "builtin", id: "list", x: 0, y: 0, w: 12, h: 8, style: { text: "#eeeeee", background: "#ffffff", radius: "large" } }],
+      blocks: [{ kind: "builtin", id: "list", x: 0, y: 0, w: 1, h: 1, style: { text: "#eeeeee", background: "#ffffff", radius: "large" } }],
     });
     expect(layoutProblems("recipes.list", doc).map((problem) => problem.path)).toContain("blocks.0.style");
   });

@@ -5,6 +5,7 @@ import { paymentMethods, scheduleKinds } from "../../../shared/payments";
 import { proposalStages } from "../../../shared/proposals";
 import { type ProposalMapping } from "../../../shared/proposal-mapping";
 import { communicationKinds } from "../../../shared/communications";
+import { priceBases, priceCategories } from "../../../shared/pricing";
 import { baseColumns, moneyCents, oneOf, timestamptz } from "../conventions";
 import { trigram } from "./common";
 import { events } from "./events";
@@ -328,3 +329,23 @@ export const salesViews = pgTable("sales_views", {
   name: text("name").notNull(),
   filter: jsonb("filter").$type<import("../../../shared/sales").SalesFilter>().notNull(),
 }, (table) => [index("sales_views_user_idx").on(table.userId, table.createdAt)]).enableRLS();
+
+// Sales › Pricing (FLOW-329): the Admin's price list of packages, per-guest
+// rates, minimums and fees. `amount` is cents, or hundredths of a percent when
+// the basis is "percent".
+export const priceListItems = pgTable(
+  "price_list_items",
+  {
+    ...baseColumns(),
+    name: text("name").notNull(),
+    category: text("category", { enum: priceCategories }).notNull(),
+    basis: text("basis", { enum: priceBases }).notNull(),
+    amount: integer("amount").notNull(),
+    description: text("description").notNull().default(""),
+  },
+  (table) => [
+    oneOf("price_list_items_category_check", table.category, priceCategories),
+    oneOf("price_list_items_basis_check", table.basis, priceBases),
+    check("price_list_items_amount_check", sql`${table.amount} >= 0`),
+  ],
+).enableRLS();

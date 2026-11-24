@@ -14,9 +14,11 @@ import { fileStorage } from "../../attachments/storage";
 type Row = typeof attachments.$inferSelect;
 const accepted = [...DOCUMENT_TYPES, ...IMAGE_TYPES];
 
+// A document's uploaded versions, newest first. An upload that never reached
+// storage stays pending and is not a version (FLOW-331).
 async function rowsFor(db: DbLike, id: string) {
   const rows = await db.select().from(attachments)
-    .where(and(eq(attachments.documentId, id), isNull(attachments.archivedAt)))
+    .where(and(eq(attachments.documentId, id), eq(attachments.status, "ready"), isNull(attachments.archivedAt)))
     .orderBy(desc(attachments.versionNumber));
   if (!rows.length) throw notFound("Document");
   return rows;
@@ -133,6 +135,22 @@ export async function completeDocumentUpload(db: Db, actor: Actor, env: Partial<
   }
   await db.update(attachments).set({ status: "ready", updatedBy: actor.userId }).where(eq(attachments.id, id));
   return getDocument(db, actor, env, row.documentId);
+}
+
+// The browser couldn't upload the file (FLOW-331): the pending upload is
+// removed, so no half-created document or version is left behind.
+export async function cancelDocumentUpload(db: Db, actor: Actor, env: Partial<Bindings>, id: string) {
+  const [row] = await db.select().from(attachments).where(and(eq(attachments.id, id), isNull(attachments.archivedAt)));
+  if (!row || !row.documentId || row.createdBy !== actor.userId) throw notFound("Document upload");
+  if (row.status !== "pending") throw new ApiError(409, "ALREADY_COMPLETE", "This upload is already complete.");
+  // A partly arrived object; the cleanup cron also removes it if this fails.
+  try {
+    await env.FILES?.delete(row.variants.map((variant) => variant.key));
+  } catch {
+    // Left for the cleanup cron.
+  }
+  await db.delete(attachments).where(and(eq(attachments.id, id), eq(attachments.status, "pending")));
+  return { id, cancelled: true as const };
 }
 
 export async function changeDocument(db: Db, actor: Actor, env: Partial<Bindings>, id: string, change: z.output<typeof documentChangeSchema>) {
