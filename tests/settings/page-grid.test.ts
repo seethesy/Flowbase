@@ -313,9 +313,12 @@ describe("rendering (FLOW-320)", () => {
     expect(trackPixels(500, [10000], 12)).toEqual([500]);
   });
 
-  it("fills the available height, with a 480px floor", () => {
+  it("fills the available height, with a 480px floor and no row under 56px", () => {
     expect(gridHeight(700.6)).toBe(700);
     expect(gridHeight(300)).toBe(480);
+    expect(gridHeight(700, [3000, 7000])).toBe(700);
+    // 17 equal rows: 17 × 56px plus 16 gaps.
+    expect(gridHeight(700, Array(17).fill(100))).toBe(17 * 56 + 16 * 12);
   });
 
   it("collapses a track whose only occupants are absent and keeps tracks authored empty", () => {

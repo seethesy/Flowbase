@@ -100,13 +100,17 @@ export function expectSameBox(actual: Box, expected: Box, label: string) {
     expect(Math.abs(actual[key] - expected[key]), `${label} ${key}: ${actual[key]} vs ${expected[key]}`).toBeLessThanOrEqual(1);
 }
 // The usable height (FLOW-320 A1): the viewport below the grid's top, less the
-// main area's bottom padding, never under 480px.
+// main area's bottom padding, never under 480px nor so short that a row goes
+// under 56px.
 export async function usableHeight(grid: Locator) {
   return grid.evaluate((element) => {
     const main = element.closest("main");
     const padding = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
     const top = element.getBoundingClientRect().top + window.scrollY;
-    return Math.max(480, Math.floor(window.innerHeight - top - padding));
+    const rows = getComputedStyle(element).gridTemplateRows.split(" ").filter(Boolean).map((part) => parseFloat(part));
+    const total = rows.reduce((a, b) => a + b, 0);
+    const forRows = rows.length ? Math.ceil((56 * total) / Math.min(...rows) + 12 * (rows.length - 1)) : 0;
+    return Math.max(480, Math.floor(window.innerHeight - top - padding), forRows);
   });
 }
 // A track's share of the usable size (gaps excluded).

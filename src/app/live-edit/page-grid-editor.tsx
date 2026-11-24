@@ -40,7 +40,7 @@ const CardBuilder = lazy(() => import("./card-builder").then((module) => ({ defa
 
 // The page grid editor (FLOW-321). It draws in the same sizing frame as view
 // mode (useGridFrame), so each cell's box is the same in both; the toolbar is
-// fixed to the bottom of the screen (a nested grid's near the top) and the
+// fixed to the bottom of the screen (a nested grid's follows its frame) and the
 // guides, labels and handles are overlaid, so none of them moves or resizes
 // the frame. Every row and column
 // boundary, empty cell and merged area is drawn. Tracks resize by dragging a
@@ -98,7 +98,8 @@ export default function PageGridEditor({
   content: Map<string, ReactNode>;
 }) {
   const nested = useContext(GridNesting);
-  const frame = useGridFrame();
+  // Sized by the committed rows, so a divider drag doesn't resize the frame.
+  const frame = useGridFrame(doc.grid.rows);
   // The card being built: a new one (id null) going to `target`, or an existing
   // card block's. A built-in card's values (FLOW-279) are edited the same way.
   const [building, setBuilding] = useState<{ id: string | null; card: CardConfig; builtin?: boolean; target?: Target } | null>(null);

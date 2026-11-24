@@ -564,9 +564,16 @@ export function keptPlace(r: Rect, kept: Record<Axis, number[]>) {
 }
 
 // The grid's usable height (FLOW-320 A1): the viewport below the grid's top,
-// less the main area's bottom padding, never under the floor.
+// less the main area's bottom padding, never under the 480px floor; nor so
+// short that the smallest row would go under 56px (a page with many rows): past
+// either floor the page scrolls instead of shrinking rows further.
 export const GRID_FLOOR = 480;
-export const gridHeight = (available: number, floor = GRID_FLOOR) => Math.max(floor, Math.floor(available));
+export const MIN_ROW_PX = 56;
+export function gridHeight(available: number, rows: number[] = [], gap = 12, floor = GRID_FLOOR) {
+  const smallest = rows.length ? Math.min(...rows) : 0;
+  const forRows = smallest > 0 ? Math.ceil((MIN_ROW_PX * sum(rows)) / smallest + gap * (rows.length - 1)) : 0;
+  return Math.max(floor, Math.floor(available), forRows);
+}
 // Each track's pixel size: (usable size − gaps) × share.
 export function trackPixels(size: number, shares: number[], gap: number): number[] {
   const free = Math.max(0, size - gap * (shares.length - 1));

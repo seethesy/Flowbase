@@ -57,12 +57,13 @@ export const GRID_GAP = 12;
 // The usable grid area (FLOW-320 A1): the frame's width is the content width;
 // its height is the viewport below the grid's top less the main area's bottom
 // padding, or, nested, the containing cell's content height below the grid;
-// never under the 480px floor. Recomputed on resize. The editor draws in the
-// same frame, so edit and view agree.
-export function useGridFrame() {
+// never under the 480px floor or so short that a row (of `rows`, shares) goes
+// under 56px. Recomputed on resize. The editor draws in the same frame, so edit
+// and view agree.
+export function useGridFrame(rows: number[]) {
   const nested = useContext(GridNesting);
   const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 0, height: GRID_FLOOR });
+  const [size, setSize] = useState({ width: 0, available: GRID_FLOOR });
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -79,8 +80,8 @@ export function useGridFrame() {
         const padding = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
         available = window.innerHeight - (top + window.scrollY) - padding;
       }
-      const next = { width: element.clientWidth, height: gridHeight(available) };
-      setSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+      const next = { width: element.clientWidth, available: Math.floor(available) };
+      setSize((current) => (current.width === next.width && current.available === next.available ? current : next));
     };
     measure();
     window.addEventListener("resize", measure);
@@ -92,7 +93,7 @@ export function useGridFrame() {
       observer?.disconnect();
     };
   }, [nested]);
-  return { ref, ...size };
+  return { ref, width: size.width, height: gridHeight(size.available, rows, GRID_GAP) };
 }
 
 type BlockProps = {
@@ -219,12 +220,12 @@ function GridView({
   record: PageLayout["record"];
   role: Role | undefined;
 }) {
-  const frame = useGridFrame();
   const shown = doc.blocks.filter(blockShown);
   const present = shown.filter(
     (block) => blockVisible(pageKey, block, role) && (block.kind !== "builtin" || content.has(block.id)),
   );
   const kept = keptTracks(doc.grid, shown, present);
+  const frame = useGridFrame(kept.rows.map((index) => doc.grid.rows[index]));
   return (
     <div
       ref={frame.ref}

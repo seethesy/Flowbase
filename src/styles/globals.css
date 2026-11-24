@@ -2778,8 +2778,8 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   white-space: pre-wrap;
 }
 
-/* Edit mode (FLOW-321). The toolbar is fixed to the bottom of the screen and
-   the guides are overlaid, so the frame keeps
+/* Edit mode (FLOW-321). The toolbar is fixed to the bottom of the screen (a
+   nested grid's follows its frame) and the guides are overlaid, so the frame keeps
    view mode's size and place. Guides are dotted blue lines, unlike any block
    border. */
 .page-grid-editing {
@@ -2805,20 +2805,25 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   box-shadow: 0 8px 24px #0002;
 }
 /* A grid inside another grid's cell (an event tab) would be clipped by that
-   cell: its toolbar is fixed near the top of the screen instead, and its track
-   labels sit inside its frame. */
+   cell, and an event page shows several: its toolbar follows its frame in the
+   cell instead (the frame keeps its place), and its track labels sit inside
+   the frame. */
+.page-grid-editing--nested {
+  display: flex;
+  flex-direction: column;
+}
 .page-grid-editing--nested > .layout-toolbar {
-  top: 80px;
-  bottom: auto;
-  z-index: 59;
+  order: 1;
+  position: static;
+  transform: none;
+  width: auto;
+  max-width: none;
+  margin-top: 8px;
+  box-shadow: none;
 }
 .layout-toolbar .layout-tray-list {
   top: auto;
   bottom: calc(100% + 4px);
-}
-.page-grid-editing--nested > .layout-toolbar .layout-tray-list {
-  top: calc(100% + 4px);
-  bottom: auto;
 }
 .page-grid-editing--nested .layout-track-label.is-col,
 .page-grid-editing--nested .layout-track-label.is-row {

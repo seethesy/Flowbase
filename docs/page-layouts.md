@@ -283,13 +283,14 @@ a restore hint; a permanently removed block has none. `gridProblems`
   cell the Admin picks.
 - **View mode** (`page-grid.tsx`): the grid fills the usable area, the content
   width and the viewport below the grid's top less the main area's bottom
-  padding, with a 480px floor below which the page scrolls; a grid nested in
+  padding, with a 480px floor below which the page scrolls (the grid also grows
+  so that no row is under 56px, for pages with many rows); a grid nested in
   another grid's cell fills that cell. Tracks are `minmax(0, <share>fr)`, so
   each is (usable size − gaps) × share at every width, phones included. Content
   larger than its cell scrolls inside it. No guides or controls render.
 - **Edit mode** (`page-grid-editor.tsx`) draws in the same frame (edit and view
   boxes match): the toolbar is fixed to the bottom of the screen (a nested
-  grid's near the top) and the guides are overlaid. Every boundary is a dotted
+  grid's follows its frame in its cell) and the guides are overlaid. Every boundary is a dotted
   blue divider (`role="separator"`, `aria-valuenow` the percentage; arrow keys
   1%, Shift 5%; drag shows both percentages); every empty cell and merged area
   is outlined. Each track's label has its exact percentage and add and remove
