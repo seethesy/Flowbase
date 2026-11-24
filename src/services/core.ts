@@ -1,7 +1,7 @@
 import { documentSchema } from "../../shared/documents";
 import type { z } from "zod";
 import { queryClient } from "../app/queryClient";
-import { affectedBy } from "../app/queryAreas";
+import { markStale } from "../app/queryAreas";
 import { CHANGED_AREAS_HEADER, parseAreas } from "../../shared/realtime";
 import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
@@ -94,11 +94,7 @@ async function send(path: string, method = "GET", body?: unknown) {
   // area covers) everything is marked stale. Screens on view reload what they
   // show themselves, as before.
   if (method !== "GET") {
-    const areas = parseAreas(response.headers.get(CHANGED_AREAS_HEADER));
-    void queryClient.invalidateQueries({
-      predicate: (query) => affectedBy(query.queryKey, areas),
-      refetchType: "none",
-    });
+    markStale(queryClient, parseAreas(response.headers.get(CHANGED_AREAS_HEADER)));
   }
   return { json, response };
 }

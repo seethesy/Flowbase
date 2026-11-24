@@ -1,4 +1,4 @@
-import type { QueryKey } from "@tanstack/react-query";
+import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type { ChangeArea } from "../../shared/realtime";
 import type { SourceKey } from "../../shared/fields";
 
@@ -138,4 +138,18 @@ export function affectedBy(key: QueryKey, areas: readonly ChangeArea[] | null): 
   if (!areas || areas.includes("settings")) return true;
   const shown = queryAreas(key);
   return !shown || shown.some((area) => areas.includes(area));
+}
+
+// Marks the cached queries these areas cover stale without refetching them, so
+// each refetches the next time a screen opens it. A load already under way may
+// have read before the change committed, and when it lands it would count as
+// fresh for the whole staleTime: mark those stale again once they settle.
+export function markStale(client: QueryClient, areas: readonly ChangeArea[] | null) {
+  const predicate = (query: { queryKey: QueryKey }) => affectedBy(query.queryKey, areas);
+  void client.invalidateQueries({ predicate, refetchType: "none" });
+  for (const query of client.getQueryCache().findAll({ predicate, fetchStatus: "fetching" }))
+    void query.promise?.then(
+      () => query.invalidate(),
+      () => undefined,
+    );
 }

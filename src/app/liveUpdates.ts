@@ -9,7 +9,7 @@ import {
   type ChangeArea,
 } from "../../shared/realtime";
 import { queryClient } from "./queryClient";
-import { affectedBy } from "./queryAreas";
+import { affectedBy, markStale } from "./queryAreas";
 
 // Shared freshness (ADR-11, FLOW-206): an open screen shows another user's
 // committed change without navigating. A "changed" ping from Supabase Realtime
@@ -101,7 +101,7 @@ function createLiveUpdates(transport: ChangeTransport, options: Options = {}) {
     const predicate = (query: { queryKey: readonly unknown[] }) => affectedBy(query.queryKey, areas);
     if (hidden()) {
       // Nothing on view to update: mark it stale and catch up on return.
-      void client.invalidateQueries({ predicate, refetchType: "none" });
+      markStale(client, areas);
       return;
     }
     missed = undefined;
