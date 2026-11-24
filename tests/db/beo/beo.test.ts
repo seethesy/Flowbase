@@ -865,3 +865,17 @@ describe("FLOW-288: deleting BEOs from the BEOs tab", () => {
     expect((await jamie.call("POST", "/api/deletions/beo", { ids: [beo.id] })).status).toBe(403);
   });
 });
+
+// FLOW-336 AC4: the New event, New proposal and New BEO buttons reuse these
+// create APIs, which refuse a role without the permission.
+describe("FLOW-336: creating from the list pages needs the permission", () => {
+  it("refuses events, lead events, proposals and BEOs for staff", async () => {
+    const event = await seed();
+    const someLead = "c1500000-0000-4000-8000-0000000003a6";
+    expect((await casey.call("POST", "/api/events", { title: "Walk-in", date: later, startTime: "12:00", clientId: event.client!.id })).status).toBe(403);
+    expect((await casey.call("POST", `/api/leads/${someLead}/events`, { title: "Walk-in", date: later, startTime: "12:00" })).status).toBe(403);
+    expect((await casey.call("POST", "/api/proposals", { eventId: event.id, title: "Proposal" })).status).toBe(403);
+    expect((await casey.call("POST", `/api/events/${event.id}/beo`, {})).status).toBe(403);
+    expect(await db.select().from(schema.proposals)).toHaveLength(0);
+  });
+});

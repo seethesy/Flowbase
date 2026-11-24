@@ -9,11 +9,12 @@ import { T, useCopy } from "../../app/copy";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { proposalsApi } from "../../services/proposals";
 import type { ProposalLibraryFile } from "../../../shared/proposals";
+import { NewProposalButton } from "./new-proposal";
 import "./proposal-library.css";
 
 // The Proposals library (FLOW-276): one file per event, its latest uploaded
-// proposal version, as a list or a grid. No event details beyond its name. Read
-// only: a proposal is renamed on its event page.
+// proposal version, as a list or a grid. No event details beyond its name. A
+// proposal is renamed on its event page; New proposal adds one (FLOW-336).
 type View = "list" | "grid";
 const viewKey = (userId: string | undefined) => `flowbase.proposals.view.${userId ?? "anonymous"}`;
 // Browser storage can be missing or blocked; the list view is the fallback.
@@ -62,6 +63,7 @@ export function ProposalLibrary() {
   return <>
     <PageHeader title={<T id="proposals.library.title">Proposals</T>}
       subtitle={<T id="proposals.library.subtitle">The latest proposal file for each event.</T>}>
+      <NewProposalButton onCreated={() => files.reload()} />
       <div className="proposal-view-toggle" role="group" aria-label="View">
         <Button variant={view === "list" ? "default" : "outline"} aria-pressed={view === "list"} onClick={() => choose("list")}>
           <List size={16} /><T id="proposals.library.list-view">List</T>

@@ -30,6 +30,7 @@ import { CalendarEventPanel } from "./calendar-panel";
 import { toCalendarEntries } from "./calendar-entries";
 import { EventTable, saveEventFields } from "./event-list";
 import { EventsHeading } from "./events-heading";
+import { NewEventButton } from "./new-event";
 import "./calendar.css";
 
 // The Events screen's Overview tab (FLOW-294; FLOW-265, FLOW-63, ADR-19). Only
@@ -311,7 +312,7 @@ export function CalendarPage() {
 
   return (
     <>
-      <EventsHeading tab="overview" />
+      <EventsHeading tab="overview"><NewEventButton /></EventsHeading>
       <PageGrid pageKey="calendar.page">
       <Block id="layers" name="Filters and layers" h={3}>
       <FilterBar>
