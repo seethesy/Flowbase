@@ -13,7 +13,7 @@ import { inventoryApi, inventoryChangesApi, sectionsApi } from "../../services/c
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
 import { Button, DetailDrawer, FormField } from "../../components/shared";
-import { toNumber } from "./inventory-item-form";
+import { toNumber } from "./inventory-item-input";
 import { changeLabel, dateTimeLabel } from "./inventory-labels";
 import { T, LabelT } from "../../app/copy";
 
