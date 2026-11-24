@@ -13,6 +13,8 @@ export type LiveEditManifest = {
   copyPrefixes: string[];
   layout: Record<string, { blocks: string[]; fieldCards: string[] }>;
   tables: string[];
+  // Every sidebar heading and tab key (FLOW-284).
+  nav?: string[];
 };
 // The manifest itself (shared/generated/live-edit-keys.json) is read by the
 // Worker only, so the app's bundle doesn't carry it.

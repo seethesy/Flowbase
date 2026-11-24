@@ -43,6 +43,8 @@ export default defineConfig({
           if (id.includes("@supabase")) return "auth";
           // Table and query libraries, so the app chunk stays under the 500 kB budget.
           if (id.includes("@tanstack")) return "tanstack";
+          // Validation schemas (shared with the Worker), for the same reason (FLOW-284).
+          if (/node_modules\/zod\//.test(id)) return "zod";
         },
       },
     },

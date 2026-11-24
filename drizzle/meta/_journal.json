@@ -530,29 +530,36 @@
     {
       "idx": 75,
       "version": "7",
-      "when": 1795472030608,
-      "tag": "0075_flow_289_clear_inventory",
+      "when": 1795464096081,
+      "tag": "0075_flow_284_role_nav_hidden",
       "breakpoints": true
     },
     {
       "idx": 76,
       "version": "7",
-      "when": 1795472083194,
-      "tag": "0076_flow_289_inventory_lists",
+      "when": 1795472030608,
+      "tag": "0076_flow_289_clear_inventory",
       "breakpoints": true
     },
     {
       "idx": 77,
       "version": "7",
-      "when": 1795472092904,
-      "tag": "0077_flow_289_default_locations",
+      "when": 1795472083194,
+      "tag": "0077_flow_289_inventory_lists",
       "breakpoints": true
     },
     {
       "idx": 78,
       "version": "7",
+      "when": 1795472092904,
+      "tag": "0078_flow_289_default_locations",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
       "when": 1795472094327,
-      "tag": "0078_flow_289_drop_inventory_items",
+      "tag": "0079_flow_289_drop_inventory_items",
       "breakpoints": true
     }
   ]

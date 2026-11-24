@@ -1,5 +1,6 @@
 import type { Actor } from "../../shared/access";
 import { can, type Action } from "../../shared/policy";
+import { navHidden, navHides } from "../../shared/nav-visibility";
 
 // The app's navigation map (FLOW-246). The sidebar headings, the tabs at the top
 // of each heading's pages and the header breadcrumb (FLOW-247) all read it, so a
@@ -25,9 +26,15 @@ export const navKey = (copyId: string) => `nav.${copyId}`;
 
 // The Overview tab that opens a heading (FLOW-295): shown to anyone who may
 // open another tab under it, so a heading with nothing else for a role stays
-// hidden. Its copyId is the Dashboard's, so the name is edited in one place.
-const withOverview = (to: string, tabs: NavTab[]): NavTab[] => [
-  { copyId: "overview", name: "Overview", to, visible: (actor) => tabs.some((tab) => canSee(tab, actor)) },
+// hidden. That counts the role's hidden tabs (FLOW-284) as closed. Its copyId is
+// the Dashboard's, so the name is edited in one place.
+const withOverview = (groupId: string, to: string, tabs: NavTab[]): NavTab[] => [
+  {
+    copyId: "overview",
+    name: "Overview",
+    to,
+    visible: (actor) => tabs.some((tab) => canSee(tab, actor) && !navHides(navHidden(), actor.role, groupId, tab.copyId)),
+  },
   ...tabs,
 ];
 
@@ -44,7 +51,7 @@ export const navigationGroups: NavGroup[] = [
   {
     copyId: "sales",
     name: "Sales",
-    tabs: withOverview("/sales/overview", [
+    tabs: withOverview("sales", "/sales/overview", [
       { copyId: "leads", name: "Leads", to: "/leads", visible: "leads.read" },
       { copyId: "clients", name: "Clients", to: "/clients", visible: "clients.read" },
       { copyId: "proposals", name: "Proposals", to: "/proposals", visible: "proposals.read" },
@@ -82,8 +89,9 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       // FLOW-291: Inventory | Bar Inventory | Order | Vendors (and Photos, FLOW-298).
       { copyId: "inventory", name: "Inventory", to: "/inventory", visible: "inventory.read" },
-      // Bar stock's tab keeps its address, /inventory/bar.
-      { copyId: "bar-inventory", name: "Bar Inventory", to: "/inventory/bar", visible: "inventory.read" },
+      // Bar stock's tab keeps its address, /inventory/bar, and its key "bar"
+      // (saved wording and who sees it, FLOW-284) now it reads Bar Inventory.
+      { copyId: "bar", name: "Bar Inventory", to: "/inventory/bar", visible: "inventory.read" },
       // Ordering (FLOW-292): order lists, approvals and what needs reordering.
       // Replaces Purchasing and Low stock.
       { copyId: "order", name: "Order", to: "/inventory/order", also: ["/inventory/orders"], visible: "inventory.read" },
@@ -111,17 +119,17 @@ export const navigationGroups: NavGroup[] = [
   {
     copyId: "marketing",
     name: "Marketing",
-    tabs: withOverview("/marketing/overview", [{ copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" }]),
+    tabs: withOverview("marketing", "/marketing/overview", [{ copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" }]),
   },
   {
     copyId: "documents",
     name: "Documents",
-    tabs: withOverview("/documents/overview", [{ copyId: "documents", name: "Documents", to: "/documents" }]),
+    tabs: withOverview("documents", "/documents/overview", [{ copyId: "documents", name: "Documents", to: "/documents" }]),
   },
   {
     copyId: "reports",
     name: "Reports",
-    tabs: withOverview("/reports/overview", [
+    tabs: withOverview("reports", "/reports/overview", [
       { copyId: "time-tracking", name: "Time tracking", to: "/reports", visible: "time.read" },
       { copyId: "operational-reports", name: "Operational reports", to: "/reports/operations", visible: "reports.operations.read" },
     ]),
@@ -200,18 +208,29 @@ const passThrough = new Set(["/inventory/counts"]);
 // Pages below a record, e.g. an event's BEO.
 const recordChildren: Record<string, NavLabel> = { beo: { copyId: "beo", label: "BEO" } };
 
+// The tab's own rule: its area permission or `visible` check.
 export function canSee(tab: NavTab, actor: Actor | null) {
   if (!tab.visible) return true;
   if (!actor) return false;
   return typeof tab.visible === "function" ? tab.visible(actor) : can(actor, tab.visible);
 }
+// Whether the Admin hid this tab, or its heading, from the actor's role in
+// Settings › Roles & permissions (FLOW-284). It only narrows: a tab that isn't
+// hidden still needs canSee.
+export const navHiddenFor = (group: NavGroup, tab: NavTab, actor: Actor | null) =>
+  !!actor && navHides(navHidden(), actor.role, group.copyId, tab.copyId);
 export const visibleTabs = (group: NavGroup, actor: Actor | null) =>
-  group.tabs.filter((tab) => canSee(tab, actor));
+  group.tabs.filter((tab) => canSee(tab, actor) && !navHiddenFor(group, tab, actor));
 // Headings with no tab the user may open are hidden (FLOW-246 AC4).
 export const visibleGroups = (actor: Actor | null) =>
   navigationGroups
     .map((group) => ({ ...group, tabs: visibleTabs(group, actor) }))
     .filter((group) => group.tabs.length > 0);
+
+// The first page a role may open: its landing page when the Dashboard's
+// Overview is hidden from it (FLOW-284).
+export const firstVisiblePage = (actor: Actor | null): string | null =>
+  visibleGroups(actor)[0]?.tabs[0]?.to ?? null;
 
 const owns = (prefix: string, pathname: string) =>
   prefix === "/" ? pathname === "/" : pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -235,6 +254,18 @@ export function matchNavigation(pathname: string, preferredGroup?: string): NavM
   return best;
 }
 
+// Whether every heading and tab that owns a page is hidden from the actor's role
+// (FLOW-284). A page under two headings stays open while one still shows it.
+export function pageHiddenFrom(match: NavMatch, actor: Actor | null) {
+  if (!actor) return false;
+  const owners = navigationGroups.flatMap((group) =>
+    group.tabs
+      .filter((tab) => [tab.to, ...(tab.also ?? [])].includes(match.prefix))
+      .map((tab) => ({ group, tab })),
+  );
+  return owners.every(({ group, tab }) => navHiddenFor(group, tab, actor));
+}
+
 export type Crumb = {
   label: string;
   // The label's wording key is nav.<copyId> (FLOW-277).
@@ -256,6 +287,9 @@ export function breadcrumbTrail(
   const crumbs: Crumb[] = [{ copyId: "workspace", label: "Workspace", to: "/" }];
   const match = matchNavigation(path, preferredGroup);
   let covered: string;
+  // A page hidden from the role names no heading or tab (FLOW-284).
+  if (match && pageHiddenFrom(match, actor))
+    return finish([...crumbs, { copyId: "not-available", label: "Not available" }]);
   if (match) {
     // Without a signed-in user (tests, sign-in) every tab is listed.
     const tabs = actor ? visibleTabs(match.group, actor) : match.group.tabs;

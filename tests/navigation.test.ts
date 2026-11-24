@@ -168,7 +168,8 @@ describe("nav wording keys", () => {
     // the saved nav.* rows (e.g. a "Today" label on nav.day-of) still match.
     for (const group of navigationGroups) {
       expect(group.copyId).toBe(copySlug(group.name));
-      for (const tab of group.tabs) expect(tab.copyId).toBe(copySlug(tab.name));
+      // Bar became Bar Inventory (FLOW-291) and kept its key.
+      for (const tab of group.tabs) expect(tab.copyId).toBe(tab.copyId === "bar" ? "bar" : copySlug(tab.name));
     }
     expect(navKey("day-of")).toBe("nav.day-of");
   });
