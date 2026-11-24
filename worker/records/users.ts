@@ -133,6 +133,15 @@ export async function resolveUser(
   db: Db,
   identity: GoogleIdentity,
 ): Promise<Actor | null> {
+  // Every request of an active, linked account: one plain select, no lock
+  // (FLOW-306). Anything else (first sign-in, an invitation to activate, an
+  // inactive account or a mismatched identity) takes the locked path below.
+  const [linked] = await db.select({ id: users.id, role: users.role, status: users.status, authId: users.authId })
+    .from(users)
+    .where(and(eq(users.authId, identity.sub), eq(users.hasAccount, true), isNull(users.archivedAt)))
+    .limit(1);
+  if (linked?.status === "active" && linked.authId === identity.sub)
+    return { userId: linked.id, role: linked.role };
   return db.transaction(async (tx) => {
     // Lock the invitation: concurrent first requests cannot claim it twice, and
     // revocation/deactivation cannot be overwritten by a sign-in.

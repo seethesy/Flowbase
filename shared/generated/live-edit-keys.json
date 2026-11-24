@@ -2694,6 +2694,8 @@
     "usage.usage-page.free-tier-usage": [],
     "usage.usage-page.save-limits": [],
     "usage.usage-page.sms-uses-the-monthly-cap": [],
+    "usage.usage-page.source-cloudflare": [],
+    "usage.usage-page.source-estimate": [],
     "usage.usage-page.unable-to-load-usage": [],
     "usage.usage-page.worker-and-query-counts-are": [],
     "users.user-list.cancel-email": [],

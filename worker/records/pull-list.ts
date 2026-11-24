@@ -94,6 +94,36 @@ export async function eventProposalLines(
   return match ? match.data.lines : null;
 }
 
+// eventProposalLines for many events in one query (FLOW-307), by event id.
+export async function eventsProposalLines(
+  db: DbLike,
+  eventIds: string[],
+): Promise<Map<string, ProposalLine[]>> {
+  const result = new Map<string, ProposalLine[]>();
+  if (!eventIds.length) return result;
+  const rows = await db
+    .select({
+      eventId: proposals.eventId,
+      data: proposalMappings.data,
+      mappedVersionId: proposalMappings.versionId,
+      currentVersionId: proposals.currentVersionId,
+    })
+    .from(proposals)
+    .innerJoin(proposalMappings, eq(proposalMappings.proposalId, proposals.id))
+    .where(
+      and(
+        inArray(proposals.eventId, eventIds),
+        isNull(proposals.archivedAt),
+        ne(proposals.stage, "lost"),
+      ),
+    )
+    .orderBy(sql`${proposals.createdAt} desc`);
+  for (const row of rows)
+    if (row.eventId && !result.has(row.eventId) && row.mappedVersionId === row.currentVersionId)
+      result.set(row.eventId, row.data.lines);
+  return result;
+}
+
 const untrackedGroup = (kind: ProposalLine["kind"]): PullGroup =>
   kind === "decor" ? "decor" : kind === "supply" ? "supplies" : "kitchen_equipment";
 
