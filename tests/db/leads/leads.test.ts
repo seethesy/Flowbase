@@ -817,3 +817,78 @@ describe("manual entry (FLOW-101)", () => {
     expect(await db.select().from(leads)).toHaveLength(0);
   });
 });
+
+describe("lead page edits (FLOW-334)", () => {
+  const put = (who: typeof admin, id: string, body: unknown) => who.call("PUT", `/api/leads/${id}`, body);
+  const edits = {
+    name: "Maya O.",
+    email: "maya.o@example.com",
+    phone: "(202) 555-0199",
+    eventName: "Ortiz rehearsal",
+    eventDate: "2026-11-21",
+    guestCount: 60,
+    eventType: "Rehearsal dinner",
+    location: "Queens, NY",
+    budgetCents: 900_000,
+    message: "Buffet for 60.",
+    source: "Referral",
+    channel: "manual",
+    receivedAt: "2026-10-19T13:00:00.000Z",
+    sourceLeadId: "ref-7",
+    sourceLeadUrl: "https://referrals.example/7",
+  } as const;
+
+  it("accepts every editable field and keeps them after a reload (AC1)", async () => {
+    const id = await seed();
+    const response = await put(admin, id, edits);
+    expect(response.status).toBe(200);
+    const after = await admin.get<Lead>(`/api/leads/${id}`);
+    expect(after).toMatchObject(edits);
+  });
+
+  it("refuses calculated values and the status (AC2)", async () => {
+    const id = await seed();
+    for (const body of [
+      { firstResponseSeconds: 60 },
+      { firstRespondedAt: "2026-10-20T15:00:00.000Z" },
+      { needsReview: false },
+      { status: "pitching" },
+    ])
+      expect((await put(admin, id, body)).status).toBe(400);
+    expect((await admin.get<Lead>(`/api/leads/${id}`)).status).toBe("inquiry");
+  });
+
+  it("edits a lost lead's reason, never an empty one, and no reason on an open lead", async () => {
+    const id = await seed();
+    expect((await put(admin, id, { lostReason: "Budget" })).status).toBe(400);
+    await admin.post<Lead>(`/api/leads/${id}/status`, { status: "lost", reason: "Went elsewhere" });
+    expect((await put(admin, id, { lostReason: "" })).status).toBe(400);
+    expect((await put(admin, id, { lostReason: "Budget" })).status).toBe(200);
+    expect((await admin.get<Lead>(`/api/leads/${id}`)).lostReason).toBe("Budget");
+  });
+
+  it("refuses a user without leads.update in the API (AC4)", async () => {
+    const id = await seed();
+    expect((await put(kitchen, id, { location: "Elsewhere" })).status).toBe(403);
+    expect((await admin.get<Lead>(`/api/leads/${id}`)).location).toBe("Brooklyn, NY");
+  });
+
+  it("lets a salesperson edit only the leads they can see", async () => {
+    const id = await seed({ name: "Sam lead" });
+    await admin.post(`/api/leads/${id}/assign`, { assignedSalespersonId: people.sam });
+    expect((await put(sam, id, { budgetCents: 500_000, source: "Phone" })).status).toBe(200);
+    expect((await put(sue, id, { location: "Elsewhere" })).status).toBe(404);
+  });
+
+  it("audits Source, Channel and Received changes (AC5, FLOW-185)", async () => {
+    const id = await seed();
+    expect((await put(admin, id, { source: "Referral", channel: "manual", receivedAt: "2026-10-19T13:00:00.000Z" })).status).toBe(200);
+    const history = await admin.get<{ action: string; changes: Record<string, { before: unknown; after: unknown }> }[]>(`/api/leads/${id}/history`);
+    const update = history.find((entry) => entry.action === "update");
+    expect(update?.changes).toMatchObject({
+      source: { before: "Bark", after: "Referral" },
+      channel: { before: "webhook", after: "manual" },
+      receivedAt: { after: "2026-10-19T13:00:00.000Z" },
+    });
+  });
+});

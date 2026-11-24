@@ -1,4 +1,4 @@
-import { choose } from "../dropdown";
+import { choose, optionTexts } from "../dropdown";
 import { test, expect } from "../auth-fixture";
 import { seedUsers } from "../../../worker/db/seed";
 import { lead } from "../fixtures";
@@ -28,6 +28,89 @@ test("pipeline inbox filters by source, owner and status", async ({ page }) => {
   await choose(page.getByLabel("Statuses", { exact: true }), "Pitching");
   await expect(leadRow(page, "Priya Shah")).toBeVisible();
   await expect(leadRow(page, "Maya Ortiz")).toHaveCount(0);
+});
+
+// FLOW-332 AC3: the owner filter is a filter dropdown like Statuses and Sources,
+// with no "Owners" label in front of it, and still filters.
+test("the owner filter has the same shape as Statuses and Sources and no label text (FLOW-332)", async ({ page }) => {
+  await seedLeads([maya(), priya()]);
+  await page.goto("/#/leads");
+  await expect(leadRow(page, "Maya Ortiz")).toBeVisible();
+  const filters = page.locator(".filter-bar").first();
+  await expect(filters.getByText("Owners", { exact: true })).toHaveCount(0);
+  const owners = page.getByRole("combobox", { name: "Owners", exact: true });
+  const statuses = page.getByRole("combobox", { name: "Statuses", exact: true });
+  const sources = page.getByRole("combobox", { name: "Sources", exact: true });
+  await expect(owners).toHaveText("All owners");
+  for (const filter of [owners, statuses, sources]) await expect(filter).toHaveClass(/fb-select--filter/);
+  const [owner, status, source] = await Promise.all([owners, statuses, sources].map((filter) => filter.boundingBox()));
+  expect(owner!.height).toBe(status!.height);
+  expect(owner!.height).toBe(source!.height);
+  const style = (filter: typeof owners) => filter.evaluate((element) => {
+    const css = getComputedStyle(element);
+    return [css.borderRadius, css.fontSize, css.borderColor, css.backgroundColor].join("|");
+  });
+  expect(await style(owners)).toBe(await style(statuses));
+  expect(await optionTexts(owners)).toEqual(expect.arrayContaining(["All owners", "Unassigned"]));
+  await choose(owners, "unassigned");
+  await expect(leadRow(page, "Priya Shah")).toHaveCount(0);
+  await expect(leadRow(page, "Maya Ortiz")).toBeVisible();
+});
+
+// FLOW-334: Edit turns every stored field the lead page shows into an input in
+// its own card, saved with one Save; calculated values stay text.
+test("edits a field in each card of the lead page in place and keeps it after a reload (FLOW-334)", async ({ page }) => {
+  const seeded = lead({ name: "Maya Ortiz", source: "Bark", eventName: "Ortiz wedding", budgetCents: 1_200_000, message: "Plated dinner." });
+  await seedLeads([seeded]);
+  await page.goto(`/#/leads/${seeded.id}`);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  // No separate "Edit lead" card: the inputs are where the values were.
+  await expect(page.getByRole("heading", { name: "Edit lead" })).toHaveCount(0);
+  const card = (name: string) => page.locator("section.panel", { has: page.getByRole("heading", { name, exact: true }) });
+  // AC2: First response is calculated: text, no input.
+  await expect(card("Source").locator("[data-readonly]", { hasText: "First response" })).toBeVisible();
+  await expect(card("Source").locator("[data-readonly]", { hasText: "First response" }).locator("input")).toHaveCount(0);
+
+  await card("Contact").getByRole("textbox", { name: "Email" }).fill("maya.o@example.com");
+  await card("Event").getByRole("textbox", { name: "Location" }).fill("Queens, NY");
+  await card("Event").getByRole("spinbutton", { name: "Budget" }).fill("15000");
+  await card("Event").getByRole("textbox", { name: "Message" }).fill("Buffet for 60.");
+  await choose(card("Source").getByRole("combobox", { name: "Source" }), { label: "Referral" });
+  await choose(card("Source").getByRole("combobox", { name: "Channel" }), { label: "Manual" });
+  await card("Source").getByLabel("Received").fill("2026-10-05T09:30");
+  await card("Source").getByRole("textbox", { name: "Source lead", exact: true }).fill("ref-7");
+  await card("Notes").getByRole("textbox", { name: "Lead notes" }).fill("Call back Friday.");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(card("Contact")).toContainText("maya.o@example.com");
+  await expect(card("Event")).toContainText("Queens, NY");
+  await expect(card("Event")).toContainText("$15,000");
+  await expect(card("Event")).toContainText("Buffet for 60.");
+  await expect(card("Source")).toContainText("Referral");
+  await expect(card("Source")).toContainText("Manual");
+  await expect(card("Source")).toContainText("Oct 5, 2026");
+  await expect(card("Source")).toContainText("ref-7");
+  await expect(card("Notes")).toContainText("Call back Friday.");
+});
+
+test("Cancel on the lead page discards the changes in every card (FLOW-334 AC3)", async ({ page }) => {
+  const seeded = lead({ name: "Maya Ortiz", source: "Bark", location: "Brooklyn, NY" });
+  await seedLeads([seeded]);
+  await page.goto(`/#/leads/${seeded.id}`);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Someone else");
+  await page.getByRole("textbox", { name: "Location" }).fill("Elsewhere");
+  await choose(page.getByRole("combobox", { name: "Channel" }), { label: "Import" });
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Maya Ortiz", level: 1 })).toBeVisible();
+  await expect(page.getByText("Brooklyn, NY")).toBeVisible();
+  await expect(page.getByText("Elsewhere")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Maya Ortiz", level: 1 })).toBeVisible();
+  await expect(page.getByText("Webhook")).toBeVisible();
 });
 
 test("bulk assigns selected unassigned leads", async ({ page }) => {

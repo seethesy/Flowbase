@@ -4,11 +4,17 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { TriangleAlert } from "lucide-react";
 import {
   assignedElsewhereMessage,
+  defaultLeadSources,
   leadChannelLabels,
+  leadChannelSchema,
   leadDuplicateReasonLabels,
+  lostReasonRequired,
   type Lead,
+  type LeadChannel,
   type LeadStatus,
+  type LeadUpdateInput,
 } from "../../../shared/leads";
+import { businessTimeToUtc, utcToBusinessTime } from "../../../shared/time";
 import { leadsApi } from "../../services/leads";
 import { useResource } from "../../app/useResource";
 import { beoStatusLabels } from "../../../shared/beo";
@@ -17,10 +23,14 @@ import {
   Button,
   Section,
   FormField,
+  InfoItem,
   LoadingSkeleton,
   ErrorText,
+  UnsavedLeaveGuard,
 } from "../../components/shared";
 import { StatusSelect } from "../../components/ui/status-pill";
+import { Dropdown } from "../../components/ui/Dropdown";
+import { useListLabels } from "../common/list-fields";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
 import { CommunicationLog } from "../common/communications";
@@ -35,11 +45,85 @@ import {
 } from "./lead-shared";
 import { T, LabelT } from "../../app/copy";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
-import { FieldCard, useFieldBoxes, useShownFields } from "../../app/live-edit/field-card";
+import { FieldCard, useShownFields } from "../../app/live-edit/field-card";
 import type { JSONContent } from "@tiptap/core";
 import { RichTextEditor } from "../../components/rich-text/RichTextEditor";
 import { RichTextView } from "../../components/rich-text/RichTextView";
 import { emptyRichText } from "../../components/rich-text/extensions";
+
+// The lead page's Edit mode (FLOW-334): every stored field the page shows, as
+// typed. Saved together; only what changed is sent.
+type LeadDraft = {
+  name: string;
+  email: string;
+  phone: string;
+  eventName: string;
+  eventDate: string;
+  eventTime: string;
+  guestCount: string;
+  eventType: string;
+  location: string;
+  budget: string;
+  message: string;
+  source: string;
+  channel: LeadChannel;
+  // "YYYY-MM-DDTHH:mm", New York time.
+  received: string;
+  sourceLeadId: string;
+  sourceLeadUrl: string;
+  lostReason: string;
+  status: LeadStatus;
+  notes: JSONContent | null;
+};
+const wallClock = (iso: string) => {
+  const { date, time } = utcToBusinessTime(new Date(iso));
+  return { date, time };
+};
+export const leadDraft = (lead: Lead): LeadDraft => {
+  const received = wallClock(lead.receivedAt);
+  return {
+    name: lead.name,
+    email: lead.email ?? "",
+    phone: lead.phone ?? "",
+    eventName: lead.eventName ?? "",
+    eventDate: lead.eventDate ?? "",
+    eventTime: lead.latestEvent ? wallClock(lead.latestEvent.startsAt).time : "",
+    guestCount: lead.guestCount === null ? "" : String(lead.guestCount),
+    eventType: lead.eventType,
+    location: lead.location,
+    budget: lead.budgetCents === null ? "" : String(lead.budgetCents / 100),
+    message: lead.message,
+    source: lead.source,
+    channel: lead.channel,
+    received: `${received.date}T${received.time}`,
+    sourceLeadId: lead.sourceLeadId,
+    sourceLeadUrl: lead.sourceLeadUrl,
+    lostReason: lead.lostReason,
+    status: lead.status,
+    notes: lead.notes ?? null,
+  };
+};
+// The fields that changed, as PUT /api/leads/:id takes them. The status is
+// saved through its own route.
+export function leadChanges(before: LeadDraft, after: LeadDraft): LeadUpdateInput {
+  const changed = (key: keyof LeadDraft) => JSON.stringify(before[key]) !== JSON.stringify(after[key]);
+  const input: LeadUpdateInput = {};
+  for (const key of ["name", "email", "phone", "eventName", "eventType", "location", "message", "source", "sourceLeadId", "sourceLeadUrl"] as const)
+    if (changed(key)) input[key] = after[key].trim();
+  if (changed("channel")) input.channel = after.channel;
+  if (changed("eventDate")) input.eventDate = after.eventDate || null;
+  if (changed("eventTime") && after.eventTime) input.eventTime = after.eventTime;
+  if (changed("guestCount")) input.guestCount = after.guestCount.trim() === "" ? null : Number(after.guestCount);
+  if (changed("budget")) input.budgetCents = after.budget.trim() === "" ? null : Math.round(Number(after.budget) * 100);
+  if (changed("received") && after.received) {
+    const [date, time] = after.received.split("T");
+    input.receivedAt = businessTimeToUtc(date, time).toISOString();
+  }
+  // A lost lead's reason; a lead moving to Lost takes it with the status.
+  if (changed("lostReason") && before.status === "lost") input.lostReason = after.lostReason.trim();
+  if (changed("notes")) input.notes = after.notes;
+  return input;
+}
 
 export function LeadDetail() {
   const { id = "" } = useParams();
@@ -50,9 +134,8 @@ export function LeadDetail() {
   );
   const [error, setError] = useStateFor(id, "");
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [newEvent, setNewEvent] = useState(false);
-  const [draft, setDraft] = useState({ name: "", email: "", phone: "", eventName: "", eventDate: "", guestCount: "" });
+  const [draft, setDraft] = useState<LeadDraft | null>(null);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState<JSONContent>(emptyRichText);
   const [convert, setConvert] = useOpenFor(id);
@@ -62,12 +145,10 @@ export function LeadDetail() {
   const [eventTime, setEventTime] = useStateFor(`${id}-event-time`, "");
   const events = useResource(["lead-events", id], () => leadsApi.events(id));
   const beos = useResource(["lead-beos", id], () => leadsApi.beos(id));
-  // Edit shows the fields the page shows (FLOW-255).
+  // Edit shows the fields the page shows (FLOW-255): every one with the code
+  // default, else the card's visible boxes.
   const shows = useShownFields("leads.detail", "lead-facts");
-  // Fields added as boxes get an Edit input too (FLOW-273); the code default
-  // adds none, so Edit there is as it was.
-  const factBoxes = useFieldBoxes("leads.detail", "lead-facts");
-  const adds = (field: string) => !!factBoxes?.some((box) => box.kind === "field" && box.field === field);
+  const listedSources = useListLabels("lead_source");
   if (lead.error)
     return (
       <>
@@ -79,6 +160,48 @@ export function LeadDetail() {
     );
   const l = lead.data;
   if (!l) return <LoadingSkeleton />;
+  const editing = draft !== null;
+  const original = leadDraft(l);
+  const dirty = editing && JSON.stringify(draft) !== JSON.stringify(original);
+  const set = <K extends keyof LeadDraft>(key: K, value: LeadDraft[K]) =>
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
+  // A text input bound to a draft field.
+  const field = (key: "name" | "email" | "phone" | "eventName" | "eventType" | "location" | "sourceLeadId", label: string, type = "text") => (
+    <input aria-label={label} type={type} value={draft?.[key] ?? ""} onChange={(event) => set(key, event.target.value)} />
+  );
+  // Contact details the viewer may not see come back empty (null): not editable.
+  const contactHidden = (l.email as string | null) === null || (l.phone as string | null) === null;
+  const sources = [...new Set([...(listedSources.length ? listedSources : defaultLeadSources), l.source, ...(draft ? [draft.source] : [])])];
+  const startEditing = () => {
+    setError("");
+    setDraft(leadDraft(l));
+  };
+  const cancelEditing = () => {
+    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
+    setDraft(null);
+  };
+  const saveEditing = async () => {
+    if (!draft) return;
+    const movesTo = draft.status !== l.status ? draft.status : null;
+    if (movesTo === "lost" && !draft.lostReason.trim()) return setError(lostReasonRequired);
+    if ((draft.status === "lost" && l.status === "lost") && !draft.lostReason.trim()) return setError(lostReasonRequired);
+    setBusy(true);
+    setError("");
+    try {
+      const changes = leadChanges(original, draft);
+      let saved = Object.keys(changes).length ? await leadsApi.update(l.id, changes) : l;
+      if (movesTo && movesTo !== "closing")
+        saved = await leadsApi.setStatus(l.id, { status: movesTo, reason: movesTo === "lost" ? draft.lostReason.trim() : "" });
+      lead.replace(saved);
+      setDraft(null);
+      // Closing creates the client and event: its own dialog takes over.
+      if (movesTo === "closing") setConvert(true);
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   const move = async (status: LeadStatus, why = "") => {
     if (status === "closing") { setConvert(true); return; }
     if (status === "lost" && !why) {
@@ -111,6 +234,36 @@ export function LeadDetail() {
     }
   };
   const duplicates = l.duplicates ?? [];
+  const factCards = (
+      <>
+        <Section title={<T id="lead-detail.lead-detail.contact">Contact</T>}>
+          <div className="info-grid">
+            <InfoItem label={<T id="lead-detail.lead-detail.name">Name</T>} editing={editing} input={field("name", "Name")}>{l.name || "—"}</InfoItem>
+            {shows("email") && <InfoItem label={<T id="lead-detail.lead-detail.email">Email</T>} editing={editing} input={contactHidden ? undefined : field("email", "Email", "email")}>{l.email || "—"}</InfoItem>}
+            {shows("phone") && <InfoItem label={<T id="lead-detail.lead-detail.phone">Phone</T>} editing={editing} input={contactHidden ? undefined : field("phone", "Phone", "tel")}>{l.phone || "—"}</InfoItem>}
+          </div>
+        </Section>
+        <Section title={<T id="lead-detail.lead-detail.event">Event</T>}>
+          <div className="info-grid">
+            {shows("eventName") && <InfoItem label={<T id="lead-detail.lead-detail.event-name">Event name</T>} editing={editing} input={field("eventName", "Event name")}>{l.eventName || "—"}</InfoItem>}
+            {shows("eventDate") && <InfoItem label={<T id="lead-detail.lead-detail.event-date">Event date</T>} editing={editing}
+              input={<input aria-label="Event date" type="date" value={draft?.eventDate ?? ""} onChange={(event) => set("eventDate", event.target.value)} />}>{eventDay(l.eventDate)}</InfoItem>}
+            {/* The time is the start time of the lead's latest event, when it has one. */}
+            {l.latestEvent && shows("eventDate") && <InfoItem label={<T id="lead-detail.lead-detail.event-time">Event time</T>} editing={editing}
+              input={<input aria-label="Event time" type="time" value={draft?.eventTime ?? ""} onChange={(event) => set("eventTime", event.target.value)} />}>{original.eventTime || "—"}</InfoItem>}
+            {shows("guestCount") && <InfoItem label={<T id="lead-detail.lead-detail.guests">Guests</T>} editing={editing}
+              input={<input aria-label="Guests" type="number" min={0} value={draft?.guestCount ?? ""} onChange={(event) => set("guestCount", event.target.value)} />}>{l.guestCount ?? "—"}</InfoItem>}
+            {shows("eventType") && <InfoItem label={<T id="lead-detail.lead-detail.event-type">Event type</T>} editing={editing} input={field("eventType", "Event type")}>{l.eventType || "—"}</InfoItem>}
+            {shows("location") && <InfoItem label={<T id="lead-detail.lead-detail.location">Location</T>} editing={editing} input={field("location", "Location")}>{l.location || "—"}</InfoItem>}
+            {shows("budgetCents") && <InfoItem label={<T id="lead-detail.lead-detail.budget">Budget</T>} editing={editing}
+              input={<input aria-label="Budget" type="number" min={0} step="0.01" value={draft?.budget ?? ""} onChange={(event) => set("budget", event.target.value)} />}>{money(l.budgetCents)}</InfoItem>}
+            {shows("message") && <InfoItem wide label={<T id="lead-detail.lead-detail.message">Message</T>} editing={editing}
+              input={<textarea aria-label="Message" rows={4} value={draft?.message ?? ""} onChange={(event) => set("message", event.target.value)} />}>
+              {l.message || <T id="lead-detail.lead-detail.no-message">No message.</T>}</InfoItem>}
+          </div>
+        </Section>
+      </>
+  );
   return (
     <>
       <Link to="/leads" className="back-link">
@@ -118,10 +271,11 @@ export function LeadDetail() {
       </Link>
       <div className="record-heading">
         <div>
-          <h1>{editing ? <input aria-label="Lead name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /> : leadTitle(l)}</h1>
+          <h1>{draft ? draft.name || leadTitle(l) : leadTitle(l)}</h1>
           <p>
-            <StatusSelect label="Lead status" value={l.status}
-              onChange={(value) => void move(value as LeadStatus)} disabled={busy} />
+            {/* In Edit mode the status is part of the draft, saved with the rest. */}
+            <StatusSelect label="Lead status" value={draft?.status ?? l.status}
+              onChange={(value) => (draft ? set("status", value as LeadStatus) : void move(value as LeadStatus))} disabled={busy} />
             {l.needsReview && (
               <span className="badge warning"><T id="lead-detail.lead-detail.needs-review">Needs review</T></span>
             )}
@@ -130,22 +284,14 @@ export function LeadDetail() {
         </div>
         <div className="page-actions">
           <Allowed action="leads.update">{editing ? <>
-            <Button variant="outline" onClick={() => {
-              const original = { name: l.name, email: l.email, phone: l.phone,
-                eventName: l.eventName ?? "", eventDate: l.eventDate ?? "",
-                guestCount: l.guestCount === null ? "" : String(l.guestCount) };
-              if (JSON.stringify(draft) !== JSON.stringify(original) && !window.confirm("Discard changes?")) return;
-              setEditing(false);
-            }}><T id="lead-detail.edit.cancel">Cancel</T></Button>
-            <Button type="submit" form="lead-edit-form" disabled={busy}><T id="lead-detail.edit.save">Save</T></Button>
-          </> : <Button variant="outline" onClick={() => { setDraft({ name: l.name,
-            email: l.email, phone: l.phone, eventName: l.eventName ?? "", eventDate: l.eventDate ?? "",
-            guestCount: l.guestCount === null ? "" : String(l.guestCount) });
-            setEditing(true); }}><T id="lead-detail.edit.edit">Edit</T></Button>}</Allowed>
+            <Button variant="outline" onClick={cancelEditing}><T id="lead-detail.edit.cancel">Cancel</T></Button>
+            <Button disabled={busy} onClick={() => void saveEditing()}><T id="lead-detail.edit.save">Save</T></Button>
+          </> : <Button variant="outline" onClick={startEditing}><T id="lead-detail.edit.edit">Edit</T></Button>}</Allowed>
           <Allowed action="leads.update"><Button onClick={() => setNewEvent(true)}><T id="lead-detail.edit.new-event">New event</T></Button></Allowed>
         </div>
       </div>
       <ErrorText message={error} />
+      {editing && <UnsavedLeaveGuard dirty={dirty} />}
       {l.assignedElsewhere && (
         <p role="note" className="demo-callout">
           <TriangleAlert size={14} /> {assignedElsewhereMessage}
@@ -234,23 +380,6 @@ export function LeadDetail() {
         </p>
       )}
       <div className="detail-grid">
-        {editing && <Section title={<T id="lead-detail.edit.title">Edit lead</T>}>
-          <form id="lead-edit-form" className="form-grid" onSubmit={async (event) => {
-            event.preventDefault();
-            setBusy(true); setError("");
-            const { guestCount, ...basics } = draft;
-            try { lead.replace(await leadsApi.update(id, { ...basics, eventDate: draft.eventDate || null,
-              ...(adds("guestCount") && { guestCount: guestCount === "" ? null : Number(guestCount) }) })); setEditing(false); }
-            catch (cause) { setError((cause as Error).message); }
-            finally { setBusy(false); }
-          }}>
-            {shows("eventName") && <FormField label="Event"><input value={draft.eventName} onChange={(event) => setDraft({ ...draft, eventName: event.target.value })} /></FormField>}
-            {shows("phone") && <FormField label="Phone"><input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></FormField>}
-            {shows("email") && <FormField label="Email"><input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></FormField>}
-            {shows("eventDate") && <FormField label="Time & Date"><input type="date" value={draft.eventDate} onChange={(event) => setDraft({ ...draft, eventDate: event.target.value })} /></FormField>}
-            {adds("guestCount") && <FormField label="Guests"><input type="number" min={0} value={draft.guestCount} onChange={(event) => setDraft({ ...draft, guestCount: event.target.value })} /></FormField>}
-          </form>
-        </Section>}
         <PageGrid pageKey="leads.detail" record={{ source: "leads", id: l.id, row: l as unknown as Record<string, unknown> }}>
         <Block id="linked-events" name="Linked events" w={6} h={8}>
         <Section title={<T id="lead-detail.events.title">Linked events</T>}>
@@ -273,7 +402,8 @@ export function LeadDetail() {
         </Block>
         <Block id="notes" name="Notes" w={6} h={10}>
         <section id="notes"><Section title={<T id="lead-detail.notes.title">Notes</T>}>
-          {editingNotes ? <form onSubmit={async (event) => {
+          {draft ? <RichTextEditor label="Lead notes" value={draft.notes ?? emptyRichText} onChange={(value) => set("notes", value)} />
+          : editingNotes ? <form onSubmit={async (event) => {
             event.preventDefault(); setBusy(true); setError("");
             try { lead.replace(await leadsApi.update(id, { notes })); setEditingNotes(false); }
             catch (cause) { setError((cause as Error).message); }
@@ -286,95 +416,63 @@ export function LeadDetail() {
         </Section></section>
         </Block>
         <Block id="lead-facts" name="Contact and event" h={14}>
+        {/* In Edit mode the facts show as inputs whatever the card's saved boxes;
+            only the fields the card shows (FLOW-255). */}
+        {editing ? factCards : (
         <FieldCard cardKey="lead-facts" source="leads" row={l as unknown as Record<string, unknown>}
           title={<T id="lead-detail.lead-facts.title">Lead details</T>}
-          fields={["name", "email", "phone", "eventDate", "guestCount", "eventType", "location", "budgetCents", "source", "message"]}>
-        <Section title={<T id="lead-detail.lead-detail.contact">Contact</T>}>
-          <div className="info-grid">
-            <div>
-              <small><T id="lead-detail.lead-detail.name">Name</T></small>
-              <strong>{l.name || "—"}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.email">Email</T></small>
-              <strong>{l.email || "—"}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.phone">Phone</T></small>
-              <strong>{l.phone || "—"}</strong>
-            </div>
-          </div>
-        </Section>
-        <Section title={<T id="lead-detail.lead-detail.event">Event</T>}>
-          <div className="info-grid">
-            <div>
-              <small><T id="lead-detail.lead-detail.event-date">Event date</T></small>
-              <strong>{eventDay(l.eventDate)}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.guests">Guests</T></small>
-              <strong>{l.guestCount ?? "—"}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.event-type">Event type</T></small>
-              <strong>{l.eventType || "—"}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.location">Location</T></small>
-              <strong>{l.location || "—"}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.budget">Budget</T></small>
-              <strong>{money(l.budgetCents)}</strong>
-            </div>
-          </div>
-          <h3 className="form-subheading"><T id="lead-detail.lead-detail.message">Message</T></h3>
-          <p>{l.message || <T id="lead-detail.lead-detail.no-message">No message.</T>}</p>
-        </Section>
+          fields={["name", "email", "phone", "eventName", "eventDate", "guestCount", "eventType", "location", "budgetCents", "source", "message"]}>
+          {factCards}
         </FieldCard>
+        )}
         </Block>
         <Block id="source" name="Source" w={6} h={10}>
         <Section title={<T id="lead-detail.lead-detail.source">Source</T>}>
           <div className="info-grid">
-            <div>
-              <small><T id="lead-detail.lead-detail.source">Source</T></small>
-              <strong>{l.source}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.channel">Channel</T></small>
-              <strong><LabelT id="labels.lead-channel" value={l.channel}>{leadChannelLabels[l.channel]}</LabelT></strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.received">Received</T></small>
-              <strong>{businessDate(l.receivedAt)}</strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.first-response">First response</T></small>
-              <strong>
-                {l.firstResponseSeconds === null
-                  ? <T id="lead-detail.lead-detail.not-yet">Not yet</T>
-                  : duration(l.firstResponseSeconds)}
-              </strong>
-            </div>
-            <div>
-              <small><T id="lead-detail.lead-detail.source-lead">Source lead</T></small>
-              <strong>
-                {l.sourceLeadUrl ? (
-                  <a href={l.sourceLeadUrl} target="_blank" rel="noreferrer">
-                    {l.sourceLeadId || <T id="lead-detail.lead-detail.open-on-source">Open on source</T>}
-                  </a>
-                ) : (
-                  l.sourceLeadId || "—"
-                )}
-              </strong>
-            </div>
+            <InfoItem label={<T id="lead-detail.lead-detail.source">Source</T>} editing={editing}
+              input={<Dropdown aria-label="Source" variant="field" value={draft?.source ?? l.source}
+                options={sources.map((value) => ({ value, label: value }))} onValueChange={(value) => set("source", value)} />}>{l.source}</InfoItem>
+            <InfoItem label={<T id="lead-detail.lead-detail.channel">Channel</T>} editing={editing}
+              input={<Dropdown aria-label="Channel" variant="field" value={draft?.channel ?? l.channel}
+                options={leadChannelSchema.options.map((value) => ({
+                  value,
+                  label: <LabelT id="labels.lead-channel" value={value}>{leadChannelLabels[value]}</LabelT>,
+                  text: leadChannelLabels[value],
+                }))}
+                onValueChange={(value) => set("channel", value as LeadChannel)} />}>
+              <LabelT id="labels.lead-channel" value={l.channel}>{leadChannelLabels[l.channel]}</LabelT>
+            </InfoItem>
+            <InfoItem label={<T id="lead-detail.lead-detail.received">Received</T>} editing={editing}
+              input={<input aria-label="Received" type="datetime-local" value={draft?.received ?? ""} onChange={(event) => set("received", event.target.value)} />}>
+              {businessDate(l.receivedAt)}
+            </InfoItem>
+            {/* Calculated from Received and the first move to Contacted: never an input. */}
+            <InfoItem label={<T id="lead-detail.lead-detail.first-response">First response</T>} editing={editing}>
+              {l.firstResponseSeconds === null
+                ? <T id="lead-detail.lead-detail.not-yet">Not yet</T>
+                : duration(l.firstResponseSeconds)}
+            </InfoItem>
+            <InfoItem label={<T id="lead-detail.lead-detail.source-lead">Source lead</T>} editing={editing}
+              input={field("sourceLeadId", "Source lead")}>
+              {l.sourceLeadUrl ? (
+                <a href={l.sourceLeadUrl} target="_blank" rel="noreferrer">
+                  {l.sourceLeadId || <T id="lead-detail.lead-detail.open-on-source">Open on source</T>}
+                </a>
+              ) : (
+                l.sourceLeadId || "—"
+              )}
+            </InfoItem>
+            {editing && <InfoItem label={<T id="lead-detail.lead-detail.source-lead-link">Source lead link</T>} editing
+              input={<input aria-label="Source lead link" type="url" value={draft?.sourceLeadUrl ?? ""} onChange={(event) => set("sourceLeadUrl", event.target.value)} />}>
+              {l.sourceLeadUrl || "—"}
+            </InfoItem>}
+            {(draft?.status ?? l.status) === "lost" && (
+              <InfoItem wide label={<T id="lead-detail.lead-detail.lost-reason-2">Lost reason</T>} editing={editing}
+                input={<textarea aria-label="Lost reason" rows={2} value={draft?.lostReason ?? ""} onChange={(event) => set("lostReason", event.target.value)} />}>
+                {l.lostReason}
+              </InfoItem>
+            )}
           </div>
-          {l.status === "lost" && (
-            <>
-              <h3 className="form-subheading"><T id="lead-detail.lead-detail.lost-reason-2">Lost reason</T></h3>
-              <p>{l.lostReason}</p>
-            </>
-          )}
         </Section>
         </Block>
         {(l.sourceLinks?.length ?? 0) > 1 && (

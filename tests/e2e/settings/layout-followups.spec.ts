@@ -47,13 +47,14 @@ test("adds Guests, hides Source and resizes a column on Leads, for everyone (FLO
   await context.close();
 });
 
-test("a field added as a box on the lead page gets an input in Edit mode (FLOW-255 AC1)", async ({ page }) => {
-  const seeded = lead({ name: "Maya Ortiz", guestCount: 80 });
+test("the lead page's Edit mode shows an input for each field box the card shows (FLOW-255 AC1, FLOW-334)", async ({ page }) => {
+  const seeded = lead({ name: "Maya Ortiz", guestCount: 80, location: "Brooklyn, NY" });
   await seedLeads([seeded]);
   await page.goto(`/#/leads/${seeded.id}`);
-  // Edit as it is: no Guests input until a Guests box exists.
+  // The code default: every field the page shows is an input, Guests and Location too (FLOW-334).
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(page.getByLabel("Guests")).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: "Guests" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Location" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
 
   // Customize the facts in layout edit mode (hide Location): the card now has saved
@@ -63,9 +64,10 @@ test("a field added as a box on the lead page gets an input in Edit mode (FLOW-2
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
 
-  // Now Edit mode matches: a Guests input with the stored value, which saves.
+  // Now Edit mode matches: no Location input; a Guests input with the stored value, which saves.
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  const guests = page.getByLabel("Guests");
+  await expect(page.getByRole("textbox", { name: "Location" })).toHaveCount(0);
+  const guests = page.getByRole("spinbutton", { name: "Guests" });
   await expect(guests).toHaveValue("80");
   await guests.fill("95");
   await page.getByRole("button", { name: "Save", exact: true }).click();
