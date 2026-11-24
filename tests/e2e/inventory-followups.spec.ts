@@ -4,6 +4,9 @@ import { browserDb } from "./database";
 import { importLogs, orderLists, vendorContacts, vendors } from "../../worker/db/schema";
 import { seedUsers } from "../../worker/db/seed";
 
+// The signed-in admin, seeded as seedUsers[0] under this name (tests/e2e/database.ts).
+const adminName = "Test Admin";
+
 // The Inventory screen's Purchasing, Vendors and Imports tabs, finished to match
 // the preview (FLOW-300).
 
@@ -33,7 +36,7 @@ test("Purchasing shows Created by and saves a list's notes inline (AC1)", async 
     return row.id;
   });
   await page.goto("/#/purchasing");
-  await expect(await cellOf(page, /Draft/, "Created by")).toHaveText(admin.name);
+  await expect(await cellOf(page, /Draft/, "Created by")).toHaveText(adminName);
   await expect(page.locator("thead th").filter({ hasText: "Est. total" })).toBeVisible();
   await (await cellOf(page, /Draft/, "Notes")).getByRole("button").click();
   await saveInline(page, `/api/order-lists/${listId}`, "PATCH", "Deliver to the back door");
@@ -84,21 +87,23 @@ test("a vendor's phone is edited from the Vendors table and persists (AC2)", asy
 
 test("Imports shows all five importer cards and the Recent imports table of the preview (AC3)", async ({ page }) => {
   const admin = seedUsers[0];
-  await browserDb((db) => db.insert(importLogs).values({ module: "master_inventory", fileName: "synthetic-rentals.csv",
+  await browserDb((db) => db.insert(importLogs).values({ module: "test_rentals", fileName: "synthetic-rentals.csv",
     status: "completed", rowCount: 4, created: 2, updated: 1, skipped: 0, failed: 1,
     createdBy: admin.id, updatedBy: admin.id }));
   await page.goto("/#/imports");
   const cards = page.getByRole("list", { name: "Importers" });
+  // The registered importers (in e2e, the test importer stands in for Master and
+  // Bar Inventory), then the three planned ones.
   await expect(cards.getByRole("heading", { level: 3 }))
-    .toHaveText(["Master Inventory", "Bar Inventory", "Kitchen ingredients", "Recipe book", "Leads"]);
-  await expect(cards.getByRole("listitem").filter({ hasText: "Master Inventory" })).toContainText(`by ${admin.name}`);
+    .toHaveText(["Test rentals", "Kitchen ingredients", "Recipe book", "Leads"]);
+  await expect(cards.getByRole("listitem").filter({ hasText: "Test rentals" })).toContainText(`by ${adminName}`);
   await expect(cards.getByRole("listitem").filter({ hasText: "Leads" })).toContainText("Never run");
 
   const table = page.getByRole("table", { name: "Recent imports" });
   await expect(table.locator("thead th")).toHaveText(["Open", "Date", "Importer", "File", "New", "Updated", "Errors", "By"]);
   const row = table.getByRole("row", { name: /synthetic-rentals\.csv/ });
-  await expect(row).toContainText("Master Inventory");
-  await expect(row).toContainText(admin.name);
+  await expect(row).toContainText("Test rentals");
+  await expect(row).toContainText(adminName);
   await row.getByRole("button", { name: "Open" }).click();
   const record = page.getByRole("dialog", { name: "synthetic-rentals.csv" });
   await expect(record.getByRole("definition")).toHaveCount(9);
