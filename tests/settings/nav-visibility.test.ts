@@ -43,11 +43,30 @@ describe("navigation by role", () => {
 
   it("only narrows: showing a tab a role can't open does nothing (AC3)", () => {
     setNavHidden(emptyNavHidden());
-    expect(tabs(partTime, "Sales")).not.toContain("Leads");
-    expect(tabBlocked(group("sales"), tab("sales", "leads"), "part_time_staff")).toBe("No access to Leads");
+    expect(headings(partTime)).not.toContain("Leads");
+    expect(tabBlocked(group("leads"), tab("leads", "overview"), "part_time_staff")).toBe("No access to Leads");
     expect(tabBlocked(group("sales"), tab("sales", "venues"), "part_time_staff")).toBeNull();
-    expect(tabBlocked(group("sales"), tab("sales", "leads"), "admin")).toBeNull();
+    expect(tabBlocked(group("leads"), tab("leads", "overview"), "admin")).toBeNull();
     expect(headingBlocked(group("sales"), "part_time_staff")).toBeNull();
+  });
+
+  it("hides the moved Leads tabs by their new keys (FLOW-328 AC4)", () => {
+    const salesperson = actor("salesperson");
+    expect(tabs(salesperson, "Leads")).toEqual(["Overview", "Proposals"]);
+    setNavHidden({ ...emptyNavHidden(), salesperson: ["leads.proposals"] });
+    expect(tabs(salesperson, "Leads")).toEqual(["Overview"]);
+    setNavHidden({ ...emptyNavHidden(), salesperson: ["leads"] });
+    expect(headings(salesperson)).not.toContain("Leads");
+    expect(headings(salesperson)).toContain("Sales");
+  });
+
+  it("hides Documents › Templates from a role the Documents tab is hidden from (FLOW-330 AC3)", () => {
+    expect(tabs(partTime, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
+    setNavHidden(hiding(["documents.documents"]));
+    expect(headings(partTime)).not.toContain("Documents");
+    setNavHidden(hiding(["documents.templates"]));
+    expect(tabs(partTime, "Documents")).toEqual(["Overview", "Documents"]);
+    expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
   });
 
   it("lands a role on its first visible page when the Dashboard is hidden", () => {

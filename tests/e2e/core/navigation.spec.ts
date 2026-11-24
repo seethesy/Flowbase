@@ -7,7 +7,7 @@ import { seedUsers } from "../../../worker/db/seed";
 const salesperson = seedUsers.find((u) => u.role === "salesperson")!;
 const partTimeStaff = seedUsers.find((u) => u.role === "part_time_staff")!;
 
-const allHeadings = ["Dashboard", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports"];
+const allHeadings = ["Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports"];
 async function headings(page: Page, isMobile: boolean) {
   if (isMobile) await page.getByRole("button", { name: "Open navigation" }).click();
   return page.getByRole("navigation", { name: "Main" }).getByRole("link").allTextContents();
@@ -40,10 +40,14 @@ test("a heading opens its first tab; placeholders say Coming soon", async ({ pag
   await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
 });
 
-databaseTest("a salesperson sees Sales but not operational reports", async ({ page, isMobile }) => {
+databaseTest("a salesperson sees Leads and Sales but not operational reports", async ({ page, isMobile }) => {
   await mockBrowserAuth(page, { userId: salesperson.id });
+  // FLOW-328: the leads table is Leads › Overview; FLOW-329: Sales › Pricing.
   await page.goto("/#/leads");
-  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+  await expect(tabs(page, "Leads")).toHaveText(["Overview", "Proposals"]);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Workspace\s*\/\s*Leads\s*\/\s*Overview/);
+  await page.goto("/#/sales/overview");
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await page.goto("/#/reports");
   await expect(tabs(page, "Reports")).toHaveText(["Overview", "Time tracking"]);
@@ -57,7 +61,8 @@ databaseTest("part-time staff only see the tabs they can open", async ({ page, i
   await expect(tabs(page, "Sales")).toHaveText(["Overview", "Venues"]);
   await page.goto("/#/inventory");
   await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
-  expect(await headings(page, isMobile)).toEqual(allHeadings);
+  // No leads or proposals, so no Leads heading (FLOW-328).
+  expect(await headings(page, isMobile)).toEqual(allHeadings.filter((heading) => heading !== "Leads"));
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/sales/overview");
 });
 

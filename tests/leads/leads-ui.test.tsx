@@ -127,11 +127,12 @@ it("asks for owner and status filters from the API", async () => {
   await screen.findByText("0 leads");
   await choose(user, screen.getByLabelText("Owners"), "unassigned");
   await choose(user, screen.getByLabelText("Statuses"), "Pitching");
-  // The inbox also loads business settings (lead sources, FLOW-45).
+  // The inbox also loads business settings (lead sources, FLOW-45). With no
+  // status picked, Leads › Overview asks for its early stages, Lost aside (FLOW-328).
   expect(requested.filter((path) => path.startsWith("/api/leads"))).toEqual([
     "/api/leads/owners",
-    "/api/leads",
-    "/api/leads?assigned=unassigned",
+    "/api/leads?status=inquiry%2Cpitching%2Cp_creation%2Cp_sent",
+    "/api/leads?status=inquiry%2Cpitching%2Cp_creation%2Cp_sent&assigned=unassigned",
     "/api/leads?status=pitching&assigned=unassigned",
   ]);
 });

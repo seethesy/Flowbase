@@ -1,0 +1,18 @@
+/* Sales › Pricing (FLOW-329). */
+.price-group + .price-group {
+  margin-top: 24px;
+}
+.price-group h2 {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+.price-amount {
+  white-space: nowrap;
+}
+.price-details {
+  max-width: 480px;
+}
+.price-actions {
+  text-align: right;
+  white-space: nowrap;
+}

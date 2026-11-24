@@ -49,6 +49,7 @@ Screens and CSS live in `src/features/<area>/`, with shared screen pieces in `sr
 - [Vendors](docs/features/vendors.md)
 - [Recipe book](docs/features/recipe-book.md)
 - [Leads](docs/features/leads.md)
+- [Pricing](docs/features/pricing.md)
 - [Global search](docs/features/global-search.md)
 - [Time tracking](docs/features/time-tracking.md)
 - [Staff directory](docs/features/staff-directory.md)

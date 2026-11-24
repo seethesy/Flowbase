@@ -31,10 +31,10 @@ function mount(path = "/", role: Role = "admin") {
 }
 const mainNav = () => screen.getByRole("navigation", { name: "Main" });
 
-it("shows the nine headings, Settings and Help, and no demo note or bottom collapse button", () => {
+it("shows the ten headings, Settings and Help, and no demo note or bottom collapse button", () => {
   mount();
   expect(within(mainNav()).getAllByRole("link").map((link) => link.textContent)).toEqual([
-    "Dashboard", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
+    "Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
   ]);
   const secondary = screen.getByRole("navigation", { name: "Settings and help" });
   expect(within(secondary).getAllByRole("link").map((link) => link.textContent)).toEqual(["Settings", "Help & resources"]);
@@ -50,7 +50,7 @@ it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   await user.click(within(mainNav()).getByRole("link", { name: "Sales" }));
   expect(screen.getByText("Sales overview screen")).toBeInTheDocument();
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Leads", "Clients", "Proposals", "Sales tracker", "Venues"]);
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
   expect(within(tabs).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   await user.click(within(tabs).getByRole("link", { name: "Clients" }));
   expect(screen.getByText("Clients screen")).toBeInTheDocument();

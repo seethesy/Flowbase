@@ -13,9 +13,10 @@ const tabs = (page: Page, heading: string) =>
 
 test("each heading opens on its Overview, and the old tabs keep their URLs (AC1, AC3)", async ({ page, isMobile }) => {
   for (const [heading, url, rest] of [
-    ["Sales", "/sales/overview", ["Leads", "Clients", "Proposals", "Sales tracker", "Venues"]],
+    // FLOW-328/329: Leads and Proposals moved to the Leads heading; Pricing is new.
+    ["Sales", "/sales/overview", ["Clients", "Sales tracker", "Venues", "Pricing"]],
     ["Marketing", "/marketing/overview", ["Photos"]],
-    ["Documents", "/documents/overview", ["Documents"]],
+    ["Documents", "/documents/overview", ["Documents", "Templates"]],
     ["Reports", "/reports/overview", ["Time tracking", "Operational reports"]],
   ] as const) {
     await page.goto("/");
@@ -24,7 +25,9 @@ test("each heading opens on its Overview, and the old tabs keep their URLs (AC1,
     await expect(page).toHaveURL(new RegExp(`#${url}$`));
     await expect(tabs(page, heading)).toHaveText(["Overview", ...rest]);
     await expect(tabs(page, heading).filter({ hasText: "Overview" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { name: "Nothing here yet" })).toBeVisible();
+    // Sales › Overview lists the late-stage leads (FLOW-328); the others start empty.
+    if (heading === "Sales") await expect(page.getByLabel("Statuses", { exact: true })).toBeVisible();
+    else await expect(page.getByRole("heading", { name: "Nothing here yet" })).toBeVisible();
   }
   await page.goto("/#/sales");
   await expect(tabs(page, "Sales").filter({ hasText: "Sales tracker" })).toHaveAttribute("aria-current", "page");
@@ -38,7 +41,8 @@ test("each heading opens on its Overview, and the old tabs keep their URLs (AC1,
 
 test("an Admin adds a card to the Sales overview that everyone sees (AC2)", async ({ page, browser }) => {
   await page.goto("/#/sales/overview");
-  await expect(page.getByRole("heading", { name: "Nothing here yet" })).toBeVisible();
+  // The leads table is there from the start (FLOW-328); the card goes around it.
+  await expect(page.getByLabel("Statuses", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit screen text" }).click();
   await page.getByRole("button", { name: "Add card" }).click();
   // The page grid has no blocks yet: Add card asks for its one cell (FLOW-321).
@@ -52,7 +56,7 @@ test("an Admin adds a card to the Sales overview that everyone sees (AC2)", asyn
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pipeline at a glance" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nothing here yet" })).toHaveCount(0);
+  await expect(page.getByLabel("Statuses", { exact: true })).toBeVisible();
 
   const context = await browser.newContext();
   const other = await context.newPage();
