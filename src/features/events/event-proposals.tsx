@@ -29,6 +29,7 @@ import {
 import { proposalsApi, uploadProposalVersion } from "../../services/proposals";
 import { uploadAttachment } from "../../services/attachments";
 import { ProposalReview } from "../sales/proposal-review";
+import { GenerateBeoButton } from "../beo/generate-from-proposal";
 import "./event-proposals.css";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T, LabelT } from "../../app/copy";
@@ -362,6 +363,9 @@ function ProposalDrawer({
               {p.stage === "lost" && (
                 <p className="demo-callout"><T id="event-proposals.proposal-drawer.lost" values={{ lostReason: p.lostReason }}>{"Lost: {lostReason}"}</T></p>
               )}
+              {/* FLOW-337: at Closing or Closed; an unreviewed version goes to its review first. */}
+              <GenerateBeoButton proposal={p}
+                onNeedsReview={() => document.getElementById(`proposal-review-${id}`)?.scrollIntoView({ block: "start" })} />
               {p.approval && <p><T id="event-proposals.proposal-drawer.current-version-approval" values={{ status: p.approval.status }}>{"Current version approval: {status}"}</T></p>}
               {p.sentAt && <p><T id="event-proposals.proposal-drawer.sent-by" values={{ stamp: stamp(p.sentAt), sentMethod: p.sentMethod }}>{"Sent {stamp} by {sentMethod}"}</T></p>}
               {p.changeLog.length > 0 && <section aria-label="Proposal change log"><h3><T id="event-proposals.proposal-drawer.change-log">Change log</T></h3><ul>{p.changeLog.map((change) => <li key={change.id}><T id="event-proposals.proposal-drawer.version-2">{"Version "}</T>{p.versions.find((version) => version.id === change.versionId)?.number}: {change.path}: {JSON.stringify(change.oldValue)} → {JSON.stringify(change.newValue)} · {change.actor?.name || <T id="event-proposals.proposal-drawer.someone">Someone</T>} · {stamp(change.at)}</li>)}</ul></section>}
@@ -534,6 +538,7 @@ function ProposalDrawer({
                 <p className="muted"><T id="event-proposals.proposal-drawer.no-versions-uploaded-yet">No versions uploaded yet.</T></p>
               )}
               {currentVersion && (
+                <div id={`proposal-review-${id}`}>
                 <ProposalReview
                   key={currentVersion.id}
                   id={id}
@@ -542,6 +547,7 @@ function ProposalDrawer({
                   guestCount={guestCount}
                   onSubmitted={() => { detail.reload(); onChanged(); }}
                 />
+                </div>
               )}
               <h3 className="spaced"><T id="event-proposals.proposal-drawer.stage-history">Stage history</T></h3>
               <ul className="proposal-history" aria-label="Stage history">

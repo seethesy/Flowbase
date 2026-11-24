@@ -472,6 +472,9 @@ export const beoViewSchema = z.object({
   canRequestApproval: z.boolean(),
   // Anyone who can open the event checks cleanup items off during breakdown.
   canCheckOff: z.boolean(),
+  // The proposal and version it was generated from (FLOW-337), for readers who
+  // may see proposals. Older cached copies have none.
+  source: z.object({ proposalId: id, title: z.string(), version: z.number().int().nullable() }).nullable().default(null),
 });
 export type BeoView = z.infer<typeof beoViewSchema>;
 

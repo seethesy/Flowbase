@@ -26,6 +26,8 @@ import {
   eventShifts,
   events,
   eventStaffSlots,
+  proposals,
+  proposalVersions,
   users,
   venueContacts,
   venues,
@@ -349,7 +351,20 @@ export async function getBeo(db: DbLike, actor: Actor, eventId: string): Promise
     canApprove: can(actor, "beos.approve"),
     canRequestApproval: canEdit && beo?.status === "working_on",
     canCheckOff: Boolean(beo),
+    source: await beoSource(db, actor, beo),
   };
+}
+
+// The BEO page's "From proposal: <title> v<n>" (FLOW-337 AC3), for readers who
+// may see proposals.
+async function beoSource(db: DbLike, actor: Actor, beo: BeoRow | undefined) {
+  if (!beo?.sourceProposalId || !can(actor, "proposals.read")) return null;
+  const [row] = await db.select({ title: proposals.title }).from(proposals).where(eq(proposals.id, beo.sourceProposalId));
+  if (!row) return null;
+  const [version] = beo.sourceVersionId
+    ? await db.select({ number: proposalVersions.number }).from(proposalVersions).where(eq(proposalVersions.id, beo.sourceVersionId))
+    : [];
+  return { proposalId: beo.sourceProposalId, title: row.title, version: version?.number ?? null };
 }
 
 // FLOW-143: generates the BEO. It starts as "working on". Asking again answers

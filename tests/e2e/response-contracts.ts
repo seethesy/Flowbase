@@ -305,6 +305,8 @@ export function responseSchema(
     if (action === "previous-mapping") return proposalMappingSchema.nullable();
     if (action === "catalog") return proposalCatalogSchema;
     if (action === "contracts") return contractSchema;
+    // Generate BEO from a proposal (FLOW-337).
+    if (action === "beo") return beoViewSchema;
     if (action === "versions" && !path.split("/")[5])
       return proposalUploadTicketSchema;
     return proposalDetailSchema;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FileText, LayoutGrid, List } from "lucide-react";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { Button, EmptyState, FilterBar, LoadingSkeleton, PageHeader, SearchInput, ErrorText } from "../../components/shared";
@@ -10,6 +10,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { proposalsApi } from "../../services/proposals";
 import type { ProposalLibraryFile } from "../../../shared/proposals";
 import { NewProposalButton } from "./new-proposal";
+import { GenerateBeoButton } from "../beo/generate-from-proposal";
 import "./proposal-library.css";
 
 // The Proposals library (FLOW-276): one file per event, its latest uploaded
@@ -41,6 +42,14 @@ function FileLinks({ row }: { row: ProposalLibraryFile }) {
     {row.pdf && <a href={row.pdf.url} target="_blank" rel="noreferrer"
       aria-label={`Open ${row.title} (PDF)`}><T id="proposals.library.pdf">PDF</T></a>}
   </span>;
+}
+
+// FLOW-337: at Closing or Closed. An unreviewed version opens on its event, where
+// the review is (A1).
+function GenerateBeo({ row }: { row: ProposalLibraryFile }) {
+  const navigate = useNavigate();
+  return <GenerateBeoButton proposal={{ id: row.proposalId, eventId: row.event.id, stage: row.stage }}
+    onNeedsReview={() => navigate(`/events/${row.event.id}?proposal=${row.proposalId}`)} />;
 }
 
 const EventLink = ({ row }: { row: ProposalLibraryFile }) =>
@@ -93,6 +102,7 @@ export function ProposalLibrary() {
             <th><T id="proposals.library.file">File</T></th>
             <th><T id="proposals.library.uploaded">Uploaded</T></th>
             <th><T id="proposals.library.event">Event</T></th>
+            <th><span className="sr-only"><T id="proposals.library.actions">Actions</T></span></th>
           </tr></thead>
           <tbody>{rows.map((row) => <tr key={row.proposalId}>
             {/* Renamed only on the event page, never here. */}
@@ -100,6 +110,7 @@ export function ProposalLibrary() {
             <td><FileLinks row={row} /></td>
             <td>{uploadedOn(row)}</td>
             <td><EventLink row={row} /></td>
+            <td><GenerateBeo row={row} /></td>
           </tr>)}</tbody>
         </table></div>
         : <ul className="proposal-file-grid" aria-label="Proposal files">{rows.map((row) => <li key={row.proposalId} className="proposal-file-card">
@@ -109,6 +120,7 @@ export function ProposalLibrary() {
           <FileLinks row={row} />
           <span className="proposal-file-date">{uploadedOn(row)}</span>
           <EventLink row={row} />
+          <GenerateBeo row={row} />
         </li>)}</ul>}
     </Block>
     </PageGrid>

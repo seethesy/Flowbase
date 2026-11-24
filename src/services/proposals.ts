@@ -12,6 +12,7 @@ import {
   type ProposalSentInput,
 } from "../../shared/proposals";
 import { at, query, request } from "./core";
+import { beoViewSchema } from "../../shared/beo";
 import { proposalCatalogSchema, proposalMappingSchema, type ProposalMapping } from "../../shared/proposal-mapping";
 import { contractSchema, addendumSchema, openAddendumSchema, type RecordContractInput } from "../../shared/contracts";
 
@@ -25,6 +26,8 @@ export const proposalsApi = {
   previousMapping: (id: string) => request(proposalMappingSchema.nullable(), at("proposals", id, "previous-mapping")),
   catalog: (id: string) => request(proposalCatalogSchema, at("proposals", id, "catalog")),
   saveMapping: (id: string, input: ProposalMapping) => request(proposalMappingSchema, at("proposals", id, "mapping"), "PUT", input),
+  // FLOW-337: the event's BEO from this proposal (Closing or Closed).
+  generateBeo: (id: string) => request(beoViewSchema, at("proposals", id, "beo"), "POST", {}),
   submit: (id: string) => request(proposalDetailSchema, at("proposals", id, "submit"), "POST", {}),
   recordSent: (id: string, input: ProposalSentInput) => request(proposalDetailSchema, at("proposals", id, "sent"), "POST", input),
   contracts: (eventId: string) => request(contractSchema.array(), `/api/proposals/event/${encodeURIComponent(eventId)}/contracts`),

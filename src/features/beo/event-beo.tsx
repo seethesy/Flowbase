@@ -299,6 +299,12 @@ export function EventBeoSection({
           {data.approvedBy && <T id="event-beo.event-beo-section.by" values={{ name: data.approvedBy.name }}>{" by {name}"}</T>}.
         </p>
       )}
+      {/* FLOW-337: the proposal it was generated from. */}
+      {data.source && (
+        <p className="muted">
+          <T id="event-beo.event-beo-section.from-proposal" values={{ title: data.source.title, version: data.source.version ?? "–" }}>{"From proposal: {title} v{version}"}</T>
+        </p>
+      )}
       </Block>
       {beoSections.map((section) => <Block key={section} id={section.replaceAll("_", "-")} name={beoSectionLabels[section]} h={12}>{part(section, sectionBodies[section])}</Block>)}
       <Block id="edit-notes" name="Edit BEO notes" h={8}>
