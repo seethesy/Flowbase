@@ -15,6 +15,7 @@ import { documentsApi } from "../services/documents";
 import { weekday } from "./calendar-entries";
 import { DocumentUpload } from "./documents";
 import { centsLabel } from "./inventory-labels";
+import { useMenuCover } from "./menu-cover";
 import "./kitchen-screen.css";
 
 // The Kitchen screen's heading (FLOW-267), the same on its tabs (Overview from
@@ -195,7 +196,7 @@ export function MenusPage() {
                       by: latest.uploaderName ? ` · ${latest.uploaderName}` : "",
                     }}>{"v{version} · {date}{by}"}</T>
                   ) : null}
-                  pdf={latest?.url ?? null}
+                  version={latest}
                   documentId={document.id}
                   tone={cardKind}
                 />
@@ -226,24 +227,41 @@ function EventKicker({ eventId }: { eventId: string }) {
   );
 }
 
-function MenuCard({ title, kicker, detail, pdf, documentId, tone }: {
+// FLOW-301 AC1: the cover is the PDF's first page with its page count; until it
+// renders (or when the file can't be read) the card draws a cover from the title.
+function MenuCard({ title, kicker, detail, version, documentId, tone }: {
   title: ReactNode;
   kicker: ReactNode;
   detail: ReactNode;
-  pdf: string | null;
+  version: { id: string; url: string | null } | undefined;
   documentId: string;
   tone: MenuKind;
 }) {
+  const cover = useMenuCover(version);
+  const pdf = version?.url ?? null;
   return (
     <li className="menu-card">
-      <div className={`menu-card-cover menu-card-cover--${tone}`} aria-hidden="true">
-        <strong>{title}</strong>
-        <small>{kicker}</small>
-        <span className="badge error"><T id="kitchen-screen.menus.pdf">PDF</T></span>
-      </div>
+      {cover ? (
+        <div className="menu-card-cover menu-card-cover--page" aria-hidden="true">
+          <img src={cover.image} alt="" />
+        </div>
+      ) : (
+        <div className={`menu-card-cover menu-card-cover--${tone}`} aria-hidden="true">
+          <strong>{title}</strong>
+          <small>{kicker}</small>
+          <span className="badge error"><T id="kitchen-screen.menus.pdf">PDF</T></span>
+        </div>
+      )}
       <div className="menu-card-body">
         <strong>{title}</strong>
         <small>{detail}</small>
+        {cover && (
+          <small className="menu-card-pages">
+            {cover.pages === 1
+              ? <T id="kitchen-screen.menus.one-page">1 page</T>
+              : <T id="kitchen-screen.menus.page-count" values={{ pages: cover.pages }}>{"{pages} pages"}</T>}
+          </small>
+        )}
         <div className="panel-actions">
           {pdf && (
             <Button variant="outline" asChild>

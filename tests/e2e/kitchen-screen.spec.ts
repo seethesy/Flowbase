@@ -8,6 +8,7 @@ import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared
 import { createRecipe } from "../../worker/records/recipes";
 import { recipeInputSchema } from "../../shared/recipes";
 import * as s from "../../worker/db/schema";
+import { PDFDocument } from "pdf-lib";
 
 // The Kitchen screen's tabs (FLOW-267).
 async function seedDish() {
@@ -148,4 +149,28 @@ test("the Ingredients tab filters by storage (FLOW-301 AC3)", async ({ page }) =
   await choose(page.getByRole("combobox", { name: /^Storage/ }), { label: "Kitchen – Dry Storage" });
   await expect(page.getByRole("row", { name: /Synthetic flour/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /Synthetic cream/ })).toHaveCount(0);
+});
+
+// FLOW-301 AC1: each Menus card shows the PDF's first page as its cover, with the
+// page count.
+test("a menu card shows the PDF's first page and its page count (FLOW-301 AC1)", async ({ page }) => {
+  const pdf = await PDFDocument.create();
+  for (let index = 0; index < 3; index += 1) pdf.addPage([612, 792]).drawText(`Synthetic menu page ${index + 1}`, { x: 72, y: 700 });
+  const body = Buffer.from(await pdf.save());
+  await page.route("**/r2-mock/**", (route) => route.fulfill({ status: 200, body, contentType: "application/pdf" }));
+  const now = new Date().toISOString();
+  await page.route("**/api/documents**", (route) => route.fulfill({ json: [{
+    id: "f3010000-0000-4000-8000-000000000011", name: "Synthetic winter menu", docType: "menu", recordType: "document",
+    recordId: "f3010000-0000-4000-8000-000000000011", group: "", protected: false, updatedAt: now,
+    versions: [{ id: "f3010000-0000-4000-8000-000000000012", number: 1, fileName: "winter.pdf", size: body.byteLength,
+      contentType: "application/pdf", url: `${new URL(route.request().url()).origin}/r2-mock/winter.pdf`, createdAt: now,
+      uploadedBy: null, uploaderName: null }],
+  }] }));
+  await page.goto("/#/kitchen/menus");
+  const card = page.getByRole("list", { name: "Menus" }).getByRole("listitem").filter({ hasText: "Synthetic winter menu" });
+  await expect(card).toContainText("3 pages");
+  const cover = card.locator(".menu-card-cover img");
+  await expect(cover).toBeVisible();
+  expect(await cover.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(card.getByRole("link", { name: "Open PDF" })).toHaveAttribute("href", /r2-mock\/winter\.pdf$/);
 });

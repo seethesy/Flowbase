@@ -91,6 +91,20 @@
 .menu-card-cover--event { background: #f7efe6; }
 .menu-card-cover--seasonal { background: #eef2f6; }
 .menu-card-cover--recipe_book { background: #f3f3ef; }
+/* FLOW-301: the PDF's first page as the cover. */
+.menu-card-cover--page {
+  height: 180px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  align-content: start;
+  background: #f4f4f2;
+}
+.menu-card-cover--page img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
 .menu-card-body {
   display: grid;
   gap: 4px;

@@ -1512,7 +1512,11 @@
     "kitchen-screen.menus.in-documents": [],
     "kitchen-screen.menus.no-menu-documents-yet": [],
     "kitchen-screen.menus.no-recipe-books-yet": [],
+    "kitchen-screen.menus.one-page": [],
     "kitchen-screen.menus.open-pdf": [],
+    "kitchen-screen.menus.page-count": [
+      "pages"
+    ],
     "kitchen-screen.menus.pdf": [],
     "kitchen-screen.menus.upload-menu": [],
     "kitchen-screen.menus.version-detail": [
