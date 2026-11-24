@@ -8,6 +8,8 @@ import {
   apply,
   boxOf,
   cellBox,
+  centre,
+  dividers,
   edit,
   editBlock,
   editGrid,
@@ -44,10 +46,11 @@ async function ask(page: Page, button: string) {
   await apply(page, KEY);
 }
 async function drag(page: Page, from: Locator, to: Box, during?: () => Promise<void>) {
-  const start = await boxOf(from);
-  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  const start = await centre(page, await boxOf(from));
+  const end = await centre(page, to);
+  await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await page.mouse.move(end.x, end.y, { steps: 8 });
   if (during) await during();
   await page.mouse.up();
 }
@@ -63,12 +66,12 @@ test("guides show every boundary, empty cell and merged area in live edit only (
   await edit(page);
   const grid = editGrid(page, KEY);
   // The code default: one column, Filters and List in a row each.
-  await expect(grid.getByRole("separator")).toHaveCount(1);
+  await expect(dividers(grid)).toHaveCount(1);
   await expect(input(page, "Row 1 height (%)")).toHaveValue("11.11");
   await expect(input(page, "Row 2 height (%)")).toHaveValue("88.89");
   await ask(page, "Add column right of column 1");
   await ask(page, "Add row below row 2");
-  await expect(grid.getByRole("separator")).toHaveCount(3);
+  await expect(dividers(grid)).toHaveCount(3);
   await expect(grid.locator("[data-empty-cell]")).toHaveCount(4);
   // Merge the bottom row: one merged area.
   await emptyCell(page, 0, 2).click();
@@ -154,14 +157,14 @@ test("adds and removes rows and columns, merges and unmerges, previewing each an
   // Remove column 2 and row 4.
   await ask(page, "Remove column 2");
   await ask(page, "Remove row 4");
-  await expect(grid.getByRole("separator")).toHaveCount(2);
+  await expect(dividers(grid)).toHaveCount(2);
 
   // Refusals change nothing: Filters sits only in row 1.
   await page.getByRole("button", { name: "Remove row 1", exact: true }).click();
   await expect(status(page)).toHaveText("Move Filters out of row 1 first.");
   await expect(toolbar(page, KEY).getByRole("button", { name: "Apply", exact: true })).toHaveCount(0);
   await toolbar(page, KEY).getByRole("button", { name: "OK", exact: true }).click();
-  await expect(grid.getByRole("separator")).toHaveCount(2);
+  await expect(dividers(grid)).toHaveCount(2);
   await expect(editBlock(page, KEY, "filters")).toBeVisible();
 });
 

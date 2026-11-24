@@ -66,6 +66,8 @@ export async function halfWidthAndDown(page: Page, pageKey: string, name: string
   await item.press("Enter");
 }
 
+// Boxes are in page coordinates, so a grid taller than the viewport (rows of
+// at least 56px) measures the same however far the page has scrolled.
 export type Box = { x: number; y: number; width: number; height: number };
 // The grid's box and its resolved track sizes in px.
 export async function measure(grid: Locator) {
@@ -74,7 +76,11 @@ export async function measure(grid: Locator) {
     const style = getComputedStyle(element);
     const px = (value: string) => value.split(" ").filter(Boolean).map((part) => parseFloat(part));
     const box = element.getBoundingClientRect();
-    return { box: { x: box.x, y: box.y, width: box.width, height: box.height }, cols: px(style.gridTemplateColumns), rows: px(style.gridTemplateRows) };
+    return {
+      box: { x: box.x + window.scrollX, y: box.y + window.scrollY, width: box.width, height: box.height },
+      cols: px(style.gridTemplateColumns),
+      rows: px(style.gridTemplateRows),
+    };
   });
 }
 // A rectangle of tracks as a box, from a grid's measure.
@@ -90,10 +96,18 @@ export function cellBox(grid: Awaited<ReturnType<typeof measure>>, r: { x: numbe
 }
 export async function boxOf(locator: Locator): Promise<Box> {
   await locator.scrollIntoViewIfNeeded();
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  return box!;
+  return locator.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return { x: box.x + window.scrollX, y: box.y + window.scrollY, width: box.width, height: box.height };
+  });
 }
+// A page-coordinate box's centre in the viewport, for the mouse.
+export async function centre(page: Page, box: Box) {
+  const [x, y] = await page.evaluate(() => [window.scrollX, window.scrollY]);
+  return { x: box.x + box.width / 2 - x, y: box.y + box.height / 2 - y };
+}
+// The grid's own boundaries (a table's column handles are separators too).
+export const dividers = (grid: Locator) => grid.locator("> .layout-grid-guides > .layout-divider");
 // Two boxes within 1px on every edge.
 export function expectSameBox(actual: Box, expected: Box, label: string) {
   for (const key of ["x", "y", "width", "height"] as const)

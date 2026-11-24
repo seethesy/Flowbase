@@ -3009,7 +3009,8 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 .layout-columns-popover,
 .layout-style-popover {
   position: absolute;
-  z-index: 40;
+  /* Above the page grid's fixed toolbar (FLOW-321). */
+  z-index: 70;
   top: calc(100% + 4px);
   left: 0;
   min-width: 260px;
