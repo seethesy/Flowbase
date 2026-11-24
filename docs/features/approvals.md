@@ -1,0 +1,23 @@
+## Approvals
+
+One approval engine for every module (FLOW-44, design principle 4; `shared/approvals.ts`, engine `worker/records/approvals.ts`, API `worker/routes/approvals.ts`). Rental Master changes (FLOW-73), finalized proposals (FLOW-127), order lists (FLOW-86) and BEOs (FLOW-144) each register a subject type and create requests through it; there are no approval tables per module. Proposal versions use the `proposal_version` subject and move to Approved or Revisions through the engine's decision hooks.
+
+Ordering and receiving (FLOW-87, FLOW-88; `shared/order-lists.ts`, `worker/records/vendor-orders.ts`). After Admin approves an order list, Admin places each vendor's order on the vendor's portal and records it in Flowbase (portal order number, order date, expected delivery date, total, and any quantities that changed). A `vendor_orders` row holds one vendor's order with its lines and deliveries; the list's status follows its orders (`ordered → partially_received → received | cancelled`). What is still to arrive counts as on order in projected stock from the expected delivery date (`vendorOrdersOnOrder` in `worker/records/allocations.ts`). Receiving converts each line's purchase units to the item's stock unit and records a `receive` movement into its storage section, linked to the order; an actual unit cost updates the item's cost with a `receiving` cost-history entry. Admin records and cancels orders; Admin and Kitchen Lead receive.
+
+Bar plan (FLOW-170; `allocatePool` in `shared/allocation.ts`, `recomputeBarPool` in `worker/records/allocations.ts`). An event plans bar quantities by item (event requirements with source `bar`) or by tier (`event_bar_tiers`: category, optional subcategory, tier, fixed or per guest). Bar items of one category and tier are allocated together as a pool: in booking order, each event takes its item lines first, then its tier lines (narrowest first) from whichever matching active items have the most projected stock. What a tier line can't get is short on the tier's house pick (a flag on the bar item), or the first item by name, so the order list reorders that item. Tier quantities are in the items' stock unit (bottles).
+
+- **Request:** `approval_requests` holds the subject type and id, a one-line summary, an in-app link, the proposed change (field → `{from, to}`, or null when the subject is approved as a whole), the requester, the approver role (from the subject's registration), the status (`pending | approved | rejected | withdrawn`), the decision comment, who decided and when.
+- **Module API:** `registerApprovalSubject(type, {approverRole, readFields, applyChange, onApproved, onRejected, onWithdrawn})` once at import; `requestApproval(tx, actor, {subjectType, subjectId, summary, link, proposedChange})` in the module's own transaction. A change subject supplies `readFields` (current values, read under a row lock) and `applyChange` (writes the approved values). The module checks that the actor may ask.
+- **Approving (AC1):** in one transaction, the engine locks the request, compares each changed field's current value with its `from` value, writes exactly the `to` values, runs `onApproved` and records the decision. If any field changed since the request (or the record is gone), approval fails with 409 `APPROVAL_CONFLICT`, nothing is written and the request stays pending.
+- **Rejecting (AC2):** needs a comment, writes nothing to the subject and runs `onRejected`. A decided or withdrawn request answers 409 `APPROVAL_CLOSED`.
+- **Who (AC3):** only the subject's approver role or Admin can approve or reject; the requester gets 403. A requester withdraws their own pending request. People see the requests they made and those their role approves (Admin sees all); anything else is 404. Technical approves nothing.
+- **Notifications and audit:** a new request emits `approval.requested` to every active user with the approver role (not the requester); approving or rejecting emits `approval.decided` to the requester with the comment. Withdrawing notifies no one. Every request and decision writes an audit row (`approval_request`).
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/approvals?queue=true` | The caller's pending-approvals queue, oldest first: pending requests for their role, or all of them for Admin |
+| `GET /api/approvals?mine=true&status=&subjectType=&subjectId=` | Requests the caller can see, newest first, paged |
+| `GET /api/approvals/<id>` | One request, with `canDecide` and `canWithdraw` |
+| `POST /api/approvals/<id>/approve` `{comment?}`, `POST …/reject` `{comment}` | Decide it |
+| `POST /api/approvals/<id>/withdraw` | The requester takes it back |
+

@@ -443,6 +443,16 @@ export async function getItem(db: DbLike, actor: Actor, id: string) {
   return item;
 }
 
+// Hydrate a vendor's item list together instead of fetching each row separately.
+export async function getItemsByIds(db: DbLike, actor: Actor, ids: string[]) {
+  if (!ids.length) return [];
+  const rows = await db.select().from(allInventoryItems)
+    .where(inArray(allInventoryItems.id, ids));
+  const items = await toItems(db, actor, rows);
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return ids.map((id) => byId.get(id)).filter((item): item is InventoryItem => !!item);
+}
+
 // The item as an audit snapshot (FLOW-185): every field, whoever is writing.
 // Stock is left out; it changes only through movements, which the ledger audits
 // (FLOW-168).

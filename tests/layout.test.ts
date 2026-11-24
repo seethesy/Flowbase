@@ -201,6 +201,15 @@ describe("block placement (FLOW-253)", () => {
     ]);
   });
 
+  it("loads a saved event layout after its removed board block disappears", () => {
+    const saved = doc({ blocks: [
+      { kind: "builtin", id: "day-of", x: 0, y: 0, w: 12, h: 8, removed: true },
+      { kind: "builtin", id: "closeout", x: 0, y: 8, w: 12, h: 8 },
+    ] });
+    expect(withBuiltins(saved, [{ id: "closeout", name: "Closeout", w: 12, h: 8 }]).map((block) => block.id))
+      .toEqual(["closeout"]);
+  });
+
   it("orders blocks top to bottom, then left to right, for phones", () => {
     expect(readingOrder([{ id: "r", x: 6, y: 0 }, { id: "l", x: 0, y: 0 }, { id: "d", x: 0, y: 2 }]).map((b) => b.id)).toEqual([
       "l",

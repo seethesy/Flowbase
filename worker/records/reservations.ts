@@ -268,6 +268,12 @@ async function upsertHold(
     windowEnd: window.end,
     updatedBy: actor.userId,
   };
+  if (existing && existing.quantity === values.quantity && existing.status === values.status &&
+    existing.windowStart === values.windowStart &&
+    existing.windowEnd === values.windowEnd) {
+    await syncKitParts(tx, actor, event, existing);
+    return existing.id;
+  }
   let holdId: string;
   if (existing) {
     holdId = existing.id;
@@ -325,6 +331,7 @@ async function syncKitParts(
   }
   const buffers = await bufferDays(tx, [...wanted.keys()]);
   const touched = new Set(existing.map((row) => row.itemId));
+  const newParts: (typeof reservations.$inferInsert)[] = [];
   for (const [itemId, quantity] of [...wanted].sort(([a], [b]) => a.localeCompare(b))) {
     touched.add(itemId);
     const window = windowFor(event, buffers(itemId));
@@ -352,23 +359,16 @@ async function syncKitParts(
         change: "quantity",
       });
     } else {
-      const [created] = await tx
-        .insert(reservations)
-        .values({
-          eventId: event.id,
-          itemId,
-          kitReservationId: hold.id,
-          createdBy: actor.userId,
-          ...values,
-        })
-        .returning({ id: reservations.id });
-      await emitReservationChanged(tx, {
-        reservationId: created.id,
-        eventId: event.id,
-        itemId,
-        change: "created",
-      });
+      newParts.push({ eventId: event.id, itemId, kitReservationId: hold.id,
+        createdBy: actor.userId, ...values });
     }
+  }
+  if (newParts.length) {
+    const createdRows = await tx.insert(reservations).values(newParts)
+      .returning({ id: reservations.id, itemId: reservations.itemId });
+    for (const created of createdRows) await emitReservationChanged(tx, {
+      reservationId: created.id, eventId: event.id, itemId: created.itemId, change: "created",
+    });
   }
   for (const row of existing)
     if (!wanted.has(row.itemId))

@@ -267,7 +267,7 @@ async function syncContacts(
 ) {
   if (!input.contacts) return;
   const live = await tx
-    .select({ id: vendorContacts.id })
+    .select()
     .from(vendorContacts)
     .where(
       and(
@@ -276,13 +276,13 @@ async function syncContacts(
       ),
     );
   await syncChildren(
-    live.map((contact) => contact.id),
+    live,
     input.contacts,
+    ({ name, role, email, phone }, sortOrder) => ({ name, role, email, phone, sortOrder }),
     {
-      insert: ({ name, role, email, phone }, sortOrder) =>
-        tx
-          .insert(vendorContacts)
-          .values({ vendorId, name, role, email, phone, sortOrder }),
+      insert: (rows) =>
+        tx.insert(vendorContacts).values(rows.map(({ input: { name, role, email, phone }, sortOrder }) =>
+          ({ vendorId, name, role, email, phone, sortOrder }))),
       update: (id, { name, role, email, phone }, sortOrder) =>
         tx
           .update(vendorContacts)

@@ -6,7 +6,7 @@ import { id, localDate, text, timestamp } from "./schema-primitives";
 // schedule across every day it involves, matching the timeline on today's BEO.
 // An entry is a time range on one day with an activity, who does it and where.
 // `production` entries are pre-event milestones (build the arch, pull the rentals)
-// and `event` entries the day-of schedule; both carry through to the BEO
+// and `event` entries the event schedule; both carry through to the BEO
 // (FLOW-143).
 
 export const timelineKinds = ["production", "event"] as const;

@@ -136,7 +136,7 @@ An open screen shows another user's committed change without navigating.
   the cache (FLOW-189). `useResource` and `usePagedList` stop returning cached data
   once a refetch answers 403 or 404, so a record the reader lost stays hidden.
 - **Consumers.** Every `useResource` / `usePagedList` screen takes part with no
-  extra code. A new screen (e.g. the FLOW-155 day-of board) loads its data with
+  extra code. A new screen loads its data with
   `useResource` under a key that names it; it must not open its own Realtime
   channel or timer. Something outside the query cache that must react (e.g. a
   board's own "last updated" note) can listen with `onDataChanged`, which fires

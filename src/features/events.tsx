@@ -44,7 +44,6 @@ import { date, time } from "./event-format";
 import { calendarWhen, calendarWhenParts } from "./calendar-entries";
 import { EventPlanningSection } from "./event-planning";
 import { EventTruckSection } from "./event-trucks";
-import { EventDayOfSection } from "./day-of";
 import { EventProductionSection } from "./production";
 import { EventCloseoutSection } from "./event-closeout";
 import { EventBeoSection } from "./event-beo";
@@ -795,7 +794,6 @@ const hubSectionNames: Record<HubSection, string> = {
   timeline: "Timeline",
   staff: "Staff",
   trucks: "Trucks",
-  day_of: "Day of",
   closeout: "Closeout",
   files: "Files",
   history: "History",
@@ -949,7 +947,6 @@ export function EventDetail() {
     ),
     pull_list: () => <EventPullListSection key={`pull-list:${e.id}`} event={e} />,
     trucks: () => <EventTruckSection key={`trucks:${e.id}`} event={e} />,
-    day_of: () => <EventDayOfSection key={`day-of:${e.id}`} event={e} />,
     closeout: () => <EventCloseoutSection key={`closeout:${e.id}`} event={e} />,
     kitchen_menu: () => (
       <EventKitchenMenuSection key={`kitchen-menu:${e.id}`} event={e} />
@@ -1019,7 +1016,7 @@ export function EventDetail() {
         pageKey="events.detail"
         record={{ source: "events", id: e.id, row: e as unknown as Record<string, unknown> }}
         // The hub's sections, as block ids (FLOW-277 key manifest).
-        blockIds={["details", "client", "proposal", "booking", "payments", "beo", "planning", "pull-list", "kitchen-menu", "inventory", "tasks", "production", "timeline", "staff", "trucks", "day-of", "closeout", "files", "history"]}
+        blockIds={["details", "client", "proposal", "booking", "payments", "beo", "planning", "pull-list", "kitchen-menu", "inventory", "tasks", "production", "timeline", "staff", "trucks", "closeout", "files", "history"]}
       >
         {sections.filter((section) => render[section]).map((section) => (
           <Block key={section} id={section.replace(/_/g, "-")} name={hubSectionNames[section]} h={section === "details" ? 18 : 12}>

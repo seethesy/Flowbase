@@ -51,7 +51,7 @@ it("fills defaults and bounds every business default", () => {
     productionEscalationHours: 24,
     beoApprovalDays: 3,
     balanceWarningDays: 3,
-    urgentNotificationTypes: ["staff_assigned", "event_day_change", "collector_failure", "beo_changed", "production_urgent"],
+    urgentNotificationTypes: ["staff_assigned", "collector_failure", "beo_changed", "production_urgent"],
     monthlySmsCap: 1000,
     hideCompletedTasksAfterDays: 7,
     freeTierLimits: { workerRequests: 100_000, dbQueries: 100_000,

@@ -278,14 +278,6 @@
     "dashboard.home.view-all-staff": [],
     "dashboard.home.view-all-tasks": [],
     "dashboard.home.working-staff": [],
-    "day-of.event-day-of-section.day-of-log": [],
-    "day-of.event-day-of-section.export-csv": [],
-    "day-of.event-day-of-section.no-day-of-updates-yet": [],
-    "day-of.event-day-of-section.showing-the-latest-updates": [
-      "entriesCount"
-    ],
-    "day-of.event-day-of-section.system": [],
-    "day-of.event-day-of-section.urgent": [],
     "documents.library.all": [],
     "documents.library.cancel-link": [],
     "documents.library.deleted": [],
@@ -3015,7 +3007,6 @@
         "booking",
         "client",
         "closeout",
-        "day-of",
         "details",
         "files",
         "history",

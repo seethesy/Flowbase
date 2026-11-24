@@ -37,9 +37,9 @@ const doc = (blocks: LayoutDoc["blocks"], fieldBoxes: LayoutDoc["fieldBoxes"] = 
 
 describe("wording renames (AC1)", () => {
   it("shows an override saved under the old key under the new one", () => {
-    expect(renameCopyOverrides({ "staff.staff-form.save-profile": "Save staff", "nav.day-of": "Today" }, renames)).toEqual({
+    expect(renameCopyOverrides({ "staff.staff-form.save-profile": "Save staff", "nav.legacy": "Today" }, renames)).toEqual({
       "staff.staff-form.save": "Save staff",
-      "nav.day-of": "Today",
+      "nav.legacy": "Today",
     });
   });
 
@@ -83,7 +83,7 @@ describe("block renames", () => {
 describe("orphans (AC3)", () => {
   const manifest: LiveEditManifest = {
     version: 1,
-    copy: { "staff.staff-form.save": [], "nav.day-of": [] },
+    copy: { "staff.staff-form.save": [], "nav.legacy": [] },
     copyPrefixes: ["labels.task-status."],
     layout: { "events.detail": { blocks: ["event-notes", "files"], fieldCards: ["event-facts"] } },
     tables: [],
@@ -94,7 +94,7 @@ describe("orphans (AC3)", () => {
       findOrphans(
         {
           "staff.staff-form.save-profile": "Save staff",
-          "nav.day-of": "Today",
+          "nav.legacy": "Today",
           "labels.task-status.done": "Finished",
           "retired.screen.title": "Old",
         },
