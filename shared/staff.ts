@@ -4,7 +4,7 @@ import { id, text } from "./schema-primitives";
 import { userStatuses } from "./users";
 
 // Staff directory and profiles (FLOW-40): one list of staff with the positions they
-// can work, used by tasks, staffing, the truck log and the day-of board. A staff
+// can work, used by tasks, staffing and the truck log. A staff
 // member is a user (shared/users.ts); revoked invitations aren't listed.
 //
 // Staff without accounts (FLOW-270 A3): an Admin adds them with a name, phone and

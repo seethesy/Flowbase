@@ -104,7 +104,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -112,6 +112,24 @@ afterAll(async () => {
 });
 
 describe("clients", () => {
+  it("keeps unchanged contact rows on a repeated save and inserts five contacts together", async () => {
+    const created = await admin.post<Client>("/api/clients", newClient());
+    const contact = created.contacts[0];
+    const [before] = await client`select xmin::text as version from client_contacts where id = ${contact.id}`;
+    const response = await admin.call("PUT", `/api/clients/${created.id}`, {
+      ...newClient(), contacts: [contact], updatedAt: created.updatedAt,
+    });
+    expect(response.status).toBe(200);
+    const [after] = await client`select xmin::text as version from client_contacts where id = ${contact.id}`;
+    expect(after.version).toBe(before.version);
+
+    const five = await admin.post<Client>("/api/clients", newClient({
+      name: "Five contacts", contacts: Array.from({ length: 5 }, (_, index) => ({
+        name: `Contact ${index}`, role: "billing" as const,
+      })),
+    }));
+    expect(five.contacts).toHaveLength(5);
+  });
   it("assigns a salesperson's new client to them and lists only their own", async () => {
     const own = await sam.post<Client>("/api/clients", newClient());
     expect(own.assignedSalespersonId).toBe(people.sam);

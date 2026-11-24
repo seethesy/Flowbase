@@ -17,7 +17,7 @@ import { APP_VERSION } from "../shared/version";
 import type { Bindings } from "./bindings";
 import { createActorResolver, requireActor, type ResolveActor } from "./auth";
 import { authRoutes, userRoutes } from "./routes/settings/users";
-import { ApiError, type AppEnv, type RunWithDb } from "./hono";
+import { afterResponse, ApiError, type AppEnv, type RunWithDb } from "./hono";
 import type { IngestSource } from "./ingest/sources";
 import { googleCalendarRoutes } from "./routes/events/google-calendar";
 import type { ImportModule } from "./records/settings/imports";
@@ -38,7 +38,7 @@ import { settingsRoutes } from "./routes/settings/settings";
 import { copyRoutes } from "./routes/settings/copy";
 import { layoutRoutes } from "./routes/settings/layout";
 import { permissionRoutes } from "./routes/settings/permissions";
-import { lastMatrix, loadMatrix } from "./records/settings/permissions";
+import { invalidatePolicy, lastMatrix, loadMatrix } from "./records/settings/permissions";
 import { setPolicyMatrix } from "../shared/role-permissions";
 import { fieldProjection } from "./fields";
 import { staffRoutes } from "./routes/staff/staff";
@@ -55,7 +55,6 @@ import { taskRoutes } from "./routes/tasks/tasks";
 import { sopRoutes } from "./routes/tasks/sops";
 import { approvalRoutes } from "./routes/inventory/approvals";
 import { calendarRoutes } from "./routes/events/calendar";
-import { dayOfRoutes } from "./routes/events/day-of";
 import { productionRoutes } from "./routes/events/production";
 import { kitchenRoutes } from "./routes/kitchen/kitchen";
 import { enqueueJob } from "./jobs/queue";
@@ -72,7 +71,9 @@ import { orderListRoutes } from "./routes/inventory/order-lists";
 import { announceChanges } from "./realtime";
 import type { ChangeArea } from "../shared/realtime";
 import * as fixtures from "../src/data/mock/fixtures";
-import { incrementUsage } from "./records/settings/usage";
+import { countUsage, flushUsage, providerMetricsConfigured, usageFlushDue } from "./records/settings/usage";
+import { requestDb } from "./db/request";
+import { productionScanJob } from "./jobs/production-scan";
 
 type DbCheck = {
   list: (env: Bindings) => Promise<ConnectionCheck[]>;
@@ -94,6 +95,10 @@ type Options = {
   // request. On by default wherever the database is bound (Hyperdrive); the
   // database tests turn it on for the real API.
   loadPolicy?: boolean;
+  // Per-isolate copies of the matrix and the business settings, 60 s (FLOW-306).
+  // On wherever the database is bound; the browser tests turn them off because
+  // they reset the database under a running Worker.
+  isolateCaches?: boolean;
 };
 export function createApp(options: Options = {}) {
   const app = new Hono<AppEnv>();
@@ -101,11 +106,23 @@ export function createApp(options: Options = {}) {
     const requestId = crypto.randomUUID();
     c.set("requestId", requestId);
     c.header("X-Request-ID", requestId);
-    await next();
-    if (options.withDb && c.env?.HYPERDRIVE) try {
-      await options.withDb(c.env, (db) => incrementUsage(db, "worker_requests", 1));
-    } catch (error) {
-      console.error("usage_request_count_failed", error);
+    // One lazy database client for the whole request (FLOW-306), closed after
+    // the response.
+    const scope = options.withDb ? requestDb(options.withDb, c.env) : undefined;
+    if (scope) c.set("db", scope.run);
+    try {
+      await next();
+    } finally {
+      if (scope?.opened) await afterResponse(c, scope.close());
+    }
+    // Usage (FLOW-305): no database write per request. Without the Cloudflare
+    // token the isolate counts and flushes at most once a minute.
+    const withDb = options.withDb;
+    if (withDb && c.env?.HYPERDRIVE && !providerMetricsConfigured(c.env)) {
+      countUsage("worker_requests", 1);
+      if (usageFlushDue())
+        await afterResponse(c, withDb(c.env, (db) => flushUsage(db)).catch((error: unknown) =>
+          console.error("usage_flush_failed", error)));
     }
     console.log(
       JSON.stringify({
@@ -203,8 +220,9 @@ export function createApp(options: Options = {}) {
   // The matrix is cached in memory and re-read when it ages out or after a save.
   // If it can't be read, the last one stands, else the built-in rules.
   app.use("/api/*", async (c, next) => {
-    const withDb = options.withDb;
+    const withDb = c.get("db") ?? options.withDb;
     if (withDb && c.get("actor") && (options.loadPolicy ?? Boolean(c.env?.HYPERDRIVE))) {
+      if (options.isolateCaches === false) invalidatePolicy();
       try {
         setPolicyMatrix(await withDb(c.env, (db) => loadMatrix(db)));
       } catch (error) {
@@ -218,21 +236,23 @@ export function createApp(options: Options = {}) {
   app.use("/api/*", fieldProjection());
   // BEO change tracking (FLOW-144) runs after every write under /api/events/<id>.
   app.use("/api/events/*", beoSync(options.withDb));
+  // Writes queue a scan of their event for the next cron tick; edits before that
+  // tick share one job (FLOW-307).
   app.use("/api/events/*", async (c, next) => {
     await next();
     const eventId = c.req.path.split("/")[3];
-    if (c.req.method !== "GET" && c.res.status < 400 && c.env?.HYPERDRIVE && uuid.safeParse(eventId).success && options.withDb)
-      await options.withDb(c.env, (db) => enqueueJob(db, { type: "production.scan", payload: { eventId },
-        idempotencyKey: `production.scan:${eventId}:${crypto.randomUUID()}` }).then(() => undefined));
+    const withDb = c.get("db") ?? options.withDb;
+    if (c.req.method !== "GET" && c.res.status < 400 && c.env?.HYPERDRIVE && uuid.safeParse(eventId).success && withDb)
+      await withDb(c.env, (db) => enqueueJob(db, productionScanJob(eventId)).then(() => undefined));
   });
   app.use("/api/tasks/*", async (c, next) => {
     await next();
     const taskId = c.req.path.split("/")[3];
-    if (c.req.method === "GET" || c.res.status >= 400 || !c.env?.HYPERDRIVE || !uuid.safeParse(taskId).success || !options.withDb) return;
-    await options.withDb(c.env, async (db) => {
+    const withDb = c.get("db") ?? options.withDb;
+    if (c.req.method === "GET" || c.res.status >= 400 || !c.env?.HYPERDRIVE || !uuid.safeParse(taskId).success || !withDb) return;
+    await withDb(c.env, async (db) => {
       const [task] = await db.select({ eventId: tasks.eventId }).from(tasks).where(eq(tasks.id, taskId));
-      if (task?.eventId) await enqueueJob(db, { type: "production.scan", payload: { eventId: task.eventId },
-        idempotencyKey: `production.scan:${task.eventId}:${crypto.randomUUID()}` });
+      if (task?.eventId) await enqueueJob(db, productionScanJob(task.eventId));
     });
   });
   app.route("/api/auth", authRoutes(options));
@@ -351,7 +371,6 @@ export function createApp(options: Options = {}) {
   app.route("/api/order-lists", orderListRoutes(options));
   app.route("/api/calendar", calendarRoutes(options));
   app.route("/api/google-calendar", googleCalendarRoutes(options));
-  app.route("/api/day-of", dayOfRoutes(options));
   app.route("/api/production", productionRoutes(options));
   // Kitchen › Overview (FLOW-293).
   app.route("/api/kitchen", kitchenRoutes(options));

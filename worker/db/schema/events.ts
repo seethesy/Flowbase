@@ -1,4 +1,4 @@
-// Events, staffing, timeline, planning, trucks, pull lists, closeout, Day-of and Google Calendar copies.
+// Events, staffing, timeline, planning, trucks, pull lists, closeout and Google Calendar copies.
 import { sql } from "drizzle-orm";
 import { boolean, check, index, integer, jsonb, pgTable, text, uniqueIndex, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { eventStatuses } from "../../../shared/core-records";
@@ -8,7 +8,6 @@ import { planningStepStatuses, planningSteps } from "../../../shared/planning";
 import { pullGroups, pullStatuses } from "../../../shared/pull-list";
 import { type RentalRequestSettings } from "../../../shared/rental-requests";
 import { truckStatuses } from "../../../shared/trucks";
-import { dayOfCheckpointKeys, dayOfStaffStatuses, dayOfUpdateKinds } from "../../../shared/day-of";
 import { baseColumns, oneOf, timestamptz } from "../conventions";
 import { users } from "./access";
 import { quantity, trigram } from "./common";
@@ -231,8 +230,6 @@ export const trucks = pgTable("trucks", {
   ...baseColumns(),
   name: text("name").notNull().unique(),
   status: text("status", { enum: truckStatuses }).notNull().default("available"),
-  // Where the truck is now, typed by hand on the day-of board (FLOW-155; no GPS).
-  location: text("location").notNull().default(""),
 }, (table) => [oneOf("trucks_status_check", table.status, truckStatuses)]).enableRLS();
 export const truckAssignments = pgTable("truck_assignments", {
   ...baseColumns(),
@@ -265,69 +262,6 @@ export const readinessResponses = pgTable("readiness_responses", {
   uniqueIndex("readiness_responses_event_key_idx").on(table.eventId, table.checkKey),
   oneOf("readiness_responses_state_check", table.state, ["answered", "dismissed"]),
 ]).enableRLS();
-// Day-of board (FLOW-155): where a staff member is and how their day is going, set
-// by hand. One row per staffing slot, created by the first update; a slot with no
-// row reads as scheduled with no location.
-export const dayOfStaffStates = pgTable(
-  "day_of_staff_states",
-  {
-    ...baseColumns(),
-    slotId: uuid("slot_id")
-      .notNull()
-      .unique()
-      .references(() => eventStaffSlots.id),
-    status: text("status", { enum: dayOfStaffStatuses }).notNull().default("scheduled"),
-    location: text("location").notNull().default(""),
-  },
-  (table) => [oneOf("day_of_staff_states_status_check", table.status, dayOfStaffStatuses)],
-).enableRLS();
-// Timeline checkpoints of an event day (food left kitchen, arrived at venue, ...).
-// One row per event and checkpoint; reached_at is null while it hasn't happened
-// (or after a mark made by mistake is cleared).
-export const dayOfCheckpoints = pgTable(
-  "day_of_checkpoints",
-  {
-    ...baseColumns(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => events.id),
-    key: text("key", { enum: dayOfCheckpointKeys }).notNull(),
-    reachedAt: timestamptz("reached_at"),
-    reachedBy: uuid("reached_by"),
-  },
-  (table) => [
-    uniqueIndex("day_of_checkpoints_event_key_idx").on(table.eventId, table.key),
-    oneOf("day_of_checkpoints_key_check", table.key, dayOfCheckpointKeys),
-  ],
-).enableRLS();
-// The day-of update log (FLOW-156): one append-only row per board update, with
-// who (created_by), what (summary, changes) and when (created_at), per event and
-// truck. A database trigger rejects updates and deletes (migration 0050).
-export const dayOfUpdates = pgTable(
-  "day_of_updates",
-  {
-    ...baseColumns(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => events.id),
-    kind: text("kind", { enum: dayOfUpdateKinds }).notNull(),
-    truckId: uuid("truck_id").references(() => trucks.id),
-    slotId: uuid("slot_id").references(() => eventStaffSlots.id),
-    // The staff member, truck or checkpoint as named when it changed.
-    subjectName: text("subject_name").notNull(),
-    summary: text("summary").notNull(),
-    changes: jsonb("changes")
-      .$type<Record<string, { before: unknown; after: unknown }>>()
-      .notNull()
-      .default({}),
-    urgent: boolean("urgent").notNull().default(false),
-  },
-  (table) => [
-    index("day_of_updates_event_idx").on(table.eventId, table.createdAt),
-    index("day_of_updates_truck_idx").on(table.truckId, table.createdAt),
-    oneOf("day_of_updates_kind_check", table.kind, dayOfUpdateKinds),
-  ],
-).enableRLS();
 // The pull list (FLOW-134): one per event, with a scheduled pull time and a puller.
 export const pullLists = pgTable("pull_lists", {
   ...baseColumns(),

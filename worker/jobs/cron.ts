@@ -13,7 +13,7 @@ import { registerBeoDocuments } from "../records/beo/beo-documents";
 import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks/tasks";
 import { emitPaymentReminders } from "../records/sales/payments";
 import { scanCollectorHealth } from "../records/home/collector-health";
-import { refreshUsage } from "../records/settings/usage";
+import { flushUsage, providerMetricsConfigured, refreshUsage, storeProviderMetrics } from "../records/settings/usage";
 import { cleanupAttachments } from "../attachments/cleanup";
 import { cleanupJobs } from "./cleanup";
 import { emitAddendumReminders } from "../records/sales/contracts";
@@ -42,13 +42,37 @@ export function createJobRegistry(options: NotificationOptions = {}) {
   return registry;
 }
 
-// The single Cron Trigger (wrangler.jsonc) announces tasks that came due
-// (FLOW-58) or will soon (FLOW-60), runs one batch of due jobs, then prunes old
-// jobs, ingest bodies and abandoned or archived files.
+// Which sweeps a tick runs (FLOW-307), from the tick's scheduled time, never the
+// clock: every 5 minutes the due-task sweeps, the job batch and the Google
+// Calendar sweep; at :00, :15, :30 and :45 also the full production-alert scan;
+// at :00 also reminders, collector health, usage and cleanup. Every sweep is
+// state-based and idempotent, so a slower cadence only delays it. `everything`
+// (tests, manual runs, and any run without a scheduled time) runs them all.
+export type TickWork = { productionScan: boolean; hourly: boolean };
+export function tickWork(scheduledTime?: number, everything = false): TickWork {
+  if (everything || scheduledTime === undefined || !Number.isFinite(scheduledTime))
+    return { productionScan: true, hourly: true };
+  const minute = new Date(Math.round(scheduledTime / 60_000) * 60_000).getUTCMinutes();
+  return { productionScan: minute % 15 === 0, hourly: minute === 0 };
+}
+
+export type ScheduledOptions = RunOptions & {
+  withDb?: RunWithDb;
+  // The Cron Trigger's controller.scheduledTime (ms).
+  scheduledTime?: number;
+  everything?: boolean;
+  // The Cloudflare Analytics read (FLOW-305); global fetch by default.
+  fetch?: typeof fetch;
+};
+
+// The single Cron Trigger (wrangler.jsonc). Queued jobs run right after the
+// due-task sweeps, before any scan, and each sweep has its own try/catch so one
+// failure never blocks the job batch or the other sweeps (FLOW-307). A failed
+// sweep is logged and runs again on its next tick.
 export async function runScheduledJobs(
   env: Bindings,
   registry: JobRegistry,
-  options: RunOptions & { withDb?: RunWithDb } = {},
+  options: ScheduledOptions = {},
 ) {
   if (!env.HYPERDRIVE) {
     console.log(
@@ -57,35 +81,53 @@ export async function runScheduledJobs(
     return;
   }
   const run: RunWithDb = options.withDb ?? withDb;
+  const work = tickWork(options.scheduledTime, options.everything);
   const summary = await run(env, async (db) => {
     const now = options.now?.() ?? new Date();
-    const tasksDue = await emitDueTaskEvents(db, now);
-    const tasksDueSoon = await emitDueSoonTaskEvents(db, now);
-    const addendumsDue = await emitAddendumReminders(db, now);
-    const paymentReminders = await emitPaymentReminders(db, now);
-    const productionAlerts = await scanProductionAlerts(db, now);
-    await scanCollectorHealth(db, now);
-    await refreshUsage(db, now);
-    const googleSyncs = await sweepGoogleCalendars(db, now);
-    const ran = await runDueJobs(db, registry, { ...options, env });
-    // Housekeeping runs after the batch so it never delays real work (FLOW-184,
-    // FLOW-188). A failure is logged and retried on the next run.
-    let cleaned = {};
-    try {
-      cleaned = {
+    const failedSweeps: string[] = [];
+    const sweep = async <T>(name: string, task: () => Promise<T>): Promise<T | undefined> => {
+      try {
+        return await task();
+      } catch (error) {
+        failedSweeps.push(name);
+        console.log(
+          JSON.stringify({
+            event: "sweep_failed",
+            sweep: name,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+        return undefined;
+      }
+    };
+    const tasksDue = await sweep("tasks_due", () => emitDueTaskEvents(db, now));
+    const tasksDueSoon = await sweep("tasks_due_soon", () => emitDueSoonTaskEvents(db, now));
+    const ran = await sweep("jobs", () => runDueJobs(db, registry, { ...options, env }));
+    const googleSyncs = await sweep("google_calendar", () => sweepGoogleCalendars(db, now));
+    const productionAlerts = work.productionScan
+      ? await sweep("production_alerts", () => scanProductionAlerts(db, now)) : undefined;
+    let hourly = {};
+    const provider = providerMetricsConfigured(env);
+    if (work.hourly) {
+      const addendumsDue = await sweep("addendum_reminders", () => emitAddendumReminders(db, now));
+      const paymentReminders = await sweep("payment_reminders", () => emitPaymentReminders(db, now));
+      await sweep("collector_health", () => scanCollectorHealth(db, now));
+      // Today's requests and queries from Cloudflare, or this isolate's estimate.
+      if (provider) await sweep("provider_usage", () => storeProviderMetrics(db, env, now, options.fetch));
+      else await sweep("usage_flush", () => flushUsage(db));
+      await sweep("usage", () => refreshUsage(db, now, { provider }));
+      // Housekeeping (FLOW-184, FLOW-188).
+      const cleaned = await sweep("cleanup", async () => ({
         ...(await cleanupJobs(db, now)),
         ...(await cleanupAttachments(db, env, now)),
-      };
-    } catch (error) {
-      console.log(
-        JSON.stringify({
-          event: "cleanup_failed",
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
+      }));
+      hourly = { addendumsDue, paymentReminders, ...cleaned };
     }
-    return { tasksDue, tasksDueSoon, addendumsDue, paymentReminders, productionAlerts, googleSyncs, ...ran, ...cleaned };
+    // Every run ends by writing the isolate's pending counts (FLOW-305).
+    if (!provider) await sweep("usage_flush", () => flushUsage(db));
+    return { tasksDue, tasksDueSoon, googleSyncs, productionAlerts, ...hourly, ...ran,
+      ...(failedSweeps.length ? { failedSweeps } : {}) };
   });
-  console.log(JSON.stringify({ event: "jobs_run", ...summary }));
+  console.log(JSON.stringify({ event: "jobs_run", ...work, ...summary }));
   return summary;
 }

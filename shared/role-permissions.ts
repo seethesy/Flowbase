@@ -37,7 +37,6 @@ export type AreaKey =
   | "events"
   | "beos"
   | "production"
-  | "day_of"
   | "tasks"
   | "staff_directory"
   | "staff_pay"
@@ -70,7 +69,6 @@ export const areas: readonly AreaDef[] = [
   { key: "events", label: "Events", own: true, read: ["events.read", "venues.read"], write: ["events.write", "venues.write", "events.status", "events.production_leads"] },
   { key: "beos", label: "BEOs", own: true, read: ["beos.read"], write: ["beos.approve"] },
   { key: "production", label: "Production", read: ["production.read"], write: ["home.kitchen"] },
-  { key: "day_of", label: "Day-of", read: ["dayof.read"], write: [] },
   { key: "tasks", label: "Tasks", read: ["tasks.read"], write: ["tasks.write", "tasks.delegate", "tasks.triage", "tasks.templates"] },
   { key: "staff_directory", label: "Staff directory", read: ["staff.read"], write: [] },
   { key: "staff_pay", label: "Staff pay", read: ["staff.pay.read"], write: ["staff.pay.write"] },

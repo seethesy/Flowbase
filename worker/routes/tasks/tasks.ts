@@ -48,6 +48,7 @@ import {
   updateTaskTemplate,
 } from "../../records/tasks/task-templates";
 import { createTaskView, deleteTaskView, listTaskViews } from "../../records/tasks/task-views";
+import { productionScanJob } from "../../jobs/production-scan";
 
 // Tasks (FLOW-58), mounted at /api/tasks. Every write answers with the whole
 // task. Tasks the user can't see answer 404. The dashboard (FLOW-61), saved views
@@ -158,8 +159,7 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
       await record(c, async (db, actor) => {
         const id = await db.transaction((tx) => createTask(tx, actor, input));
         if (c.env?.HYPERDRIVE && input.eventId && ["production", "kitchen", "truck_load"].includes(input.type))
-          await enqueueJob(db, { type: "production.scan", payload: { eventId: input.eventId },
-            idempotencyKey: `production.scan:${input.eventId}:${crypto.randomUUID()}` });
+          await enqueueJob(db, productionScanJob(input.eventId));
         return getTask(db, actor, id);
       }),
       201,

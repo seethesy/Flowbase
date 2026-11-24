@@ -19,6 +19,7 @@ import {
 } from "../../hono";
 import {
   addListValue,
+  getCachedSettings,
   getSettings,
   orderListValues,
   renameListValue,
@@ -30,7 +31,7 @@ import {
 const orderSchema = z.object({ ids: z.array(uuid).max(1000) });
 
 // Business settings and configurable lists (FLOW-45), mounted at /api/settings.
-export function settingsRoutes(options: { withDb?: RunWithDb }) {
+export function settingsRoutes(options: { withDb?: RunWithDb; isolateCaches?: boolean }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   const listKey = (c: AppContext) => {
@@ -44,8 +45,12 @@ export function settingsRoutes(options: { withDb?: RunWithDb }) {
     return parsed.data;
   };
 
+  // Deployed Workers serve the isolate's copy (FLOW-306); without Hyperdrive
+  // (tests, local runs) or with isolateCaches off, every read goes to the
+  // database, like the matrix.
+  const cached = (c: AppContext) => options.isolateCaches ?? Boolean(c.env?.HYPERDRIVE);
   routes.get("/", requirePermission("settings.read"), async (c) =>
-    c.json(await record(c, (db) => getSettings(db))),
+    c.json(await record(c, (db) => cached(c) ? getCachedSettings(db) : getSettings(db))),
   );
   routes.get("/history", requirePermission("settings.manage"), async (c) =>
     c.json(await record(c, (db) => settingsHistory(db))),

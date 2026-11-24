@@ -20,7 +20,7 @@ export const beoSync =
     const actor = c.get("actor");
     if (!actor) return;
     try {
-      await withDb(c.env, (db) => db.transaction((tx) => syncBeo(tx, actor, match[1])));
+      await (c.get("db") ?? withDb)(c.env, (db) => db.transaction((tx) => syncBeo(tx, actor, match[1])));
     } catch (error) {
       console.error(
         JSON.stringify({

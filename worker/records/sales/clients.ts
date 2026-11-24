@@ -255,7 +255,7 @@ async function syncContacts(
   inputs: ContactInput[],
 ) {
   const existing = await tx
-    .select({ id: clientContacts.id })
+    .select()
     .from(clientContacts)
     .where(
       and(
@@ -264,14 +264,14 @@ async function syncContacts(
       ),
     );
   await syncChildren(
-    existing.map((row) => row.id),
+    existing,
     inputs,
+    contactValues,
     {
-      insert: (input, sortOrder) =>
-        tx.insert(clientContacts).values({
-          clientId,
-          ...contactValues(input, sortOrder),
-        }),
+      insert: (rows) =>
+        tx.insert(clientContacts).values(rows.map(({ input, sortOrder }) => ({
+          clientId, ...contactValues(input, sortOrder),
+        }))),
       update: (id, input, sortOrder) =>
         tx
           .update(clientContacts)

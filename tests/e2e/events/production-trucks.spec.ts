@@ -36,7 +36,7 @@ test("shows unassigned production work on the event hub", async ({ page }) => {
   await browserDb((db) => db.insert(s.tasks).values({ eventId: fallGala().id,
     title: "Build balloon arch", type: "production", dueAt: new Date("2026-11-12T14:00:00.000Z") }));
   await page.goto(`/#/events/${fallGala().id}`);
-  await expect(page.getByRole("heading", { name: "Tasks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tasks", exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toContainText("Who is building the balloon arch?");
   await expect(page.getByRole("link", { name: "Build balloon arch" })).toBeVisible();
 });

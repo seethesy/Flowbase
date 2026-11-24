@@ -208,23 +208,16 @@ export async function generateKitchenMenu(
     notes: value.notes,
   });
 
-  for (const line of plan.add) {
-    const [row] = await tx
-      .insert(kitchenMenuLines)
-      .values({
-        menuId: menu.id,
-        ...set(line.value),
-        sourceKey: line.sourceKey,
-        createdBy: by,
-        updatedBy: by,
-      })
-      .returning();
+  const addedRows = plan.add.length ? await tx.insert(kitchenMenuLines)
+    .values(plan.add.map((line) => ({ menuId: menu.id, ...set(line.value),
+      sourceKey: line.sourceKey, createdBy: by, updatedBy: by }))).returning() : [];
+  for (const [index, row] of addedRows.entries()) {
     audits.push({
       entityType: "kitchen_menu_line",
       entityId: row.id,
       action: "create",
       before: null,
-      after: snapshot(row, line.value.name),
+      after: snapshot(row, plan.add[index].value.name),
     });
   }
   for (const line of plan.update) {
@@ -247,19 +240,22 @@ export async function generateKitchenMenu(
       after: snapshot(row, line.value.name),
     });
   }
-  for (const line of plan.remove) {
-    const [row] = await tx
-      .update(kitchenMenuLines)
+  if (plan.remove.length) {
+    const ids = plan.remove.map((line) => line.id);
+    const beforeById = new Map(plan.remove.map((line) => [line.id, line.before]));
+    const removedRows = await tx.update(kitchenMenuLines)
       .set({ archivedAt: now, sourceKey: null, updatedBy: by })
-      .where(eq(kitchenMenuLines.id, line.id))
-      .returning();
+      .where(inArray(kitchenMenuLines.id, ids)).returning();
+    for (const row of removedRows) {
+    const before = beforeById.get(row.id)!;
     audits.push({
       entityType: "kitchen_menu_line",
       entityId: row.id,
       action: "archive",
-      before: snapshot({ ...row, archivedAt: null }, line.before.name),
-      after: snapshot(row, line.before.name),
+      before: snapshot({ ...row, archivedAt: null }, before.name),
+      after: snapshot(row, before.name),
     });
+    }
   }
   await writeAuditMany(tx, actor, audits);
   await tx.update(kitchenMenus).set({ generatedAt: now, updatedBy: by }).where(eq(kitchenMenus.id, menu.id));

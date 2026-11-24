@@ -97,7 +97,6 @@ const expected: Record<Action, string> = {
   "sops.write": "1010100",
   // Areas of the roles editor (FLOW-269) that were guarded by other actions.
   "production.read": "1111111",
-  "dayof.read": "1111111",
   "beos.read": "1111111",
   "vendors.read": "1111111",
   "vendors.write": "1110100",

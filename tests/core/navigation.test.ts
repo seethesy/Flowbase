@@ -168,13 +168,13 @@ describe("breadcrumb trail", () => {
 describe("nav wording keys", () => {
   it("keeps the keys the Admin's saved nav wording already uses", () => {
     // Every copyId was the slug of its name when keys moved to fixed ids, so
-    // the saved nav.* rows (e.g. a "Today" label on nav.day-of) still match.
+    // saved nav.* rows still match.
     for (const group of navigationGroups) {
       expect(group.copyId).toBe(copySlug(group.name));
       // Bar became Bar Inventory (FLOW-291) and kept its key.
       for (const tab of group.tabs) expect(tab.copyId).toBe(tab.copyId === "bar" ? "bar" : copySlug(tab.name));
     }
-    expect(navKey("day-of")).toBe("nav.day-of");
+    expect(navKey("legacy")).toBe("nav.legacy");
   });
 
   it("gives one name per key", () => {

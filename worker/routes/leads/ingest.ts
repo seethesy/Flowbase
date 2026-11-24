@@ -110,7 +110,7 @@ export function ingestRoutes(options: {
       clientKey = await clientKeyOf(c.req.raw.headers);
       body = JSON.stringify({ ...(json as object), clientKey });
     }
-    const stored = await runDb(options.withDb, c.env, async (db) => {
+    const stored = await runDb(options.withDb, c, async (db) => {
       if (limit) {
         const counts = await recentReceiptCounts(db, {
           source: name,

@@ -9,7 +9,7 @@ import { listReceipts, replayReceipt } from "../../ingest/receipts";
 import { listJobs, retryFailedJob } from "../../jobs/queue";
 import { collectorSites, smsOutbox } from "../../db/schema";
 import { collectorSiteNames, listCollectorHealth } from "../../records/home/collector-health";
-import { refreshUsage } from "../../records/settings/usage";
+import { flushUsage, providerMetricsConfigured, refreshUsage } from "../../records/settings/usage";
 
 // Admin-only operations for background work (FLOW-27) and ingestion (FLOW-28).
 export function adminRoutes(options: {
@@ -19,16 +19,22 @@ export function adminRoutes(options: {
   const admin = new Hono<AppEnv>();
   admin.use("*", requireActor(options.resolveActor));
 
-  admin.get("/usage", requirePermission("operations.read"), async (c) =>
-    c.json(await runDb(options.withDb, c.env, (db) => refreshUsage(db))),
-  );
+  // Requests and queries come from Cloudflare when its token is set; otherwise
+  // this isolate's pending estimate is written first (FLOW-305).
+  admin.get("/usage", requirePermission("operations.read"), async (c) => {
+    const provider = providerMetricsConfigured(c.env);
+    return c.json(await runDb(options.withDb, c, async (db) => {
+      if (!provider) await flushUsage(db).catch((error: unknown) => console.error("usage_flush_failed", error));
+      return refreshUsage(db, new Date(), { provider });
+    }));
+  });
 
   admin.get("/sms-outbox", requirePermission("settings.manage"), async (c) =>
-    c.json(await runDb(options.withDb, c.env, (db) => db.select().from(smsOutbox)
+    c.json(await runDb(options.withDb, c, (db) => db.select().from(smsOutbox)
       .orderBy(desc(smsOutbox.createdAt)).limit(100))),
   );
   admin.get("/collector-health", requirePermission("operations.read"), async (c) =>
-    c.json(await runDb(options.withDb, c.env, listCollectorHealth)),
+    c.json(await runDb(options.withDb, c, listCollectorHealth)),
   );
   admin.put("/collector-health/:site", requirePermission("settings.manage"), async (c) => {
     const site = c.req.param("site");
@@ -37,7 +43,7 @@ export function adminRoutes(options: {
     const parsed = z.object({ noLeadsGapHours: z.number().int().min(1).max(720),
       failureThreshold: z.number().int().min(1).max(20) }).safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return fail(c, 400, "INVALID_REQUEST", "Invalid collector limits.");
-    await runDb(options.withDb, c.env, (db) => db.insert(collectorSites)
+    await runDb(options.withDb, c, (db) => db.insert(collectorSites)
       .values({ site, ...parsed.data })
       .onConflictDoUpdate({ target: collectorSites.site, set: parsed.data }));
     return c.json({ saved: true });
@@ -48,14 +54,14 @@ export function adminRoutes(options: {
     if (!status.success)
       return fail(c, 400, "INVALID_REQUEST", "Invalid request.");
     return c.json(
-      await runDb(options.withDb, c.env, (db) => listJobs(db, status.data)),
+      await runDb(options.withDb, c, (db) => listJobs(db, status.data)),
     );
   });
   admin.post("/jobs/:id/retry", requirePermission("jobs.manage"), async (c) => {
     const id = idSchema.safeParse(c.req.param("id"));
     const job =
       id.success &&
-      (await runDb(options.withDb, c.env, (db) => retryFailedJob(db, id.data)));
+      (await runDb(options.withDb, c, (db) => retryFailedJob(db, id.data)));
     if (!job) return fail(c, 404, "NOT_FOUND", "No failed job has that id.");
     return c.json(job);
   });
@@ -68,7 +74,7 @@ export function adminRoutes(options: {
       if (status !== "all" && status !== "failed" && status !== "unprocessed")
         return fail(c, 400, "INVALID_REQUEST", "Invalid request.");
       return c.json(
-        await runDb(options.withDb, c.env, (db) =>
+        await runDb(options.withDb, c, (db) =>
           listReceipts(db, {
             source: c.req.query("source"),
             status,
@@ -84,7 +90,7 @@ export function adminRoutes(options: {
       const id = idSchema.safeParse(c.req.param("id"));
       const receipt =
         id.success &&
-        (await runDb(options.withDb, c.env, (db) => replayReceipt(db, id.data)));
+        (await runDb(options.withDb, c, (db) => replayReceipt(db, id.data)));
       if (!receipt)
         return fail(
           c,

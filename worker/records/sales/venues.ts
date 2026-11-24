@@ -146,11 +146,12 @@ async function syncVenueChildren(
 ) {
   const liveAreas = await liveAreaIds(tx, venueId);
   await syncChildren(
-    liveAreas.map((area) => area.id),
+    liveAreas,
     input.areas,
+    (area, sortOrder) => ({ name: area.name, sortOrder }),
     {
-      insert: (area, sortOrder) =>
-        tx.insert(venueAreas).values({ venueId, name: area.name, sortOrder }),
+      insert: (rows) =>
+        tx.insert(venueAreas).values(rows.map(({ input: area, sortOrder }) => ({ venueId, name: area.name, sortOrder }))),
       update: (id, area, sortOrder) =>
         tx
           .update(venueAreas)
@@ -166,19 +167,19 @@ async function syncVenueChildren(
   if (!input.contacts) return;
   if (!canSeeField(actor, "venue_contact")) throw forbidden();
   const liveContacts = await tx
-    .select({ id: venueContacts.id })
+    .select()
     .from(venueContacts)
     .where(
       and(eq(venueContacts.venueId, venueId), isNull(venueContacts.archivedAt)),
     );
   await syncChildren(
-    liveContacts.map((contact) => contact.id),
+    liveContacts,
     input.contacts,
+    ({ name, role, email, phone }, sortOrder) => ({ name, role, email, phone, sortOrder }),
     {
-      insert: ({ name, role, email, phone }, sortOrder) =>
-        tx
-          .insert(venueContacts)
-          .values({ venueId, name, role, email, phone, sortOrder }),
+      insert: (rows) =>
+        tx.insert(venueContacts).values(rows.map(({ input: { name, role, email, phone }, sortOrder }) =>
+          ({ venueId, name, role, email, phone, sortOrder }))),
       update: (id, { name, role, email, phone }, sortOrder) =>
         tx
           .update(venueContacts)
@@ -195,7 +196,7 @@ async function syncVenueChildren(
 
 const liveAreaIds = (db: DbLike, venueId: string) =>
   db
-    .select({ id: venueAreas.id })
+    .select()
     .from(venueAreas)
     .where(and(eq(venueAreas.venueId, venueId), isNull(venueAreas.archivedAt)));
 

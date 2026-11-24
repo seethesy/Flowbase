@@ -7,7 +7,7 @@ import type { DbLike } from "../../db/client";
 import { consumableAllocations, eventShifts, eventStaffSlots, events, allInventoryItems, kitchenMenus, kitchenMenuLines, orderLists, pullListLines, pullLists, reservationConflicts, taskAssignees, tasks, truckAssignments, trucks, vendorOrders } from "../../db/schema";
 import { forbidden, notFound } from "../../hono";
 import { visibleEvents } from "./events";
-import { getReadiness } from "./readiness";
+import { getReadiness, getReadinessForEvents } from "./readiness";
 
 async function primaryLead(db: DbLike, actor: Actor) {
   const [row] = await db.select({ id: events.id }).from(events)
@@ -16,82 +16,130 @@ async function primaryLead(db: DbLike, actor: Actor) {
 }
 
 export async function getProductionList(db: DbLike, actor: Actor, eventId: string, now = new Date()): Promise<ProductionList> {
+  const list = (await getProductionLists(db, actor, [eventId], now)).get(eventId);
+  if (!list) throw notFound("Event");
+  return list;
+}
+
+const byKey = <T, K>(rows: T[], key: (row: T) => K) => {
+  const map = new Map<K, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const list = map.get(k);
+    if (list) list.push(row);
+    else map.set(k, [row]);
+  }
+  return map;
+};
+
+// Production lists for many events with set-based queries keyed by event id
+// (FLOW-307): a fixed number of queries per call instead of about ten per event.
+// Events the actor can't see, or that are archived or missing, are left out.
+export async function getProductionLists(db: DbLike, actor: Actor, eventIds: string[], now = new Date()): Promise<Map<string, ProductionList>> {
+  const result = new Map<string, ProductionList>();
+  const wanted = [...new Set(eventIds)];
+  if (!wanted.length) return result;
   const all = mayViewAllProduction(actor) || await primaryLead(db, actor);
-  const [event] = await db.select().from(events).where(and(eq(events.id, eventId), isNull(events.archivedAt),
+  const eventRows = await db.select().from(events).where(and(inArray(events.id, wanted), isNull(events.archivedAt),
     all ? undefined : visibleEvents(actor)));
-  if (!event) throw notFound("Event");
-  const eventDate = utcToBusinessTime(event.startsAt).date;
-  const due = event.startsAt.toISOString();
-  const base = { eventId, eventTitle: event.title, eventDate };
-  const items: ProductionItem[] = [];
-  const taskRows = await db.select({ task: tasks, assigneeId: taskAssignees.userId }).from(tasks)
-    .leftJoin(taskAssignees, and(eq(taskAssignees.taskId, tasks.id), isNull(taskAssignees.archivedAt)))
-    .where(and(eq(tasks.eventId, eventId), inArray(tasks.type, ["production", "kitchen", "truck_load"]), isNull(tasks.archivedAt)));
-  const taskMap = new Map<string, { task: typeof tasks.$inferSelect; assignees: string[] }>();
-  for (const row of taskRows) {
-    if (!taskMap.has(row.task.id)) taskMap.set(row.task.id, { task: row.task, assignees: [] });
-    if (row.assigneeId) taskMap.get(row.task.id)!.assignees.push(row.assigneeId);
-  }
-  for (const { task, assignees } of taskMap.values()) items.push({ ...base, id: `task:${task.id}:${task.updatedAt.toISOString()}`,
-    type: task.type === "kitchen" ? "kitchen" : "task", title: task.title,
-    due: (task.dueAt ?? event.startsAt).toISOString(), complete: task.status === "done",
-    team: task.type === "kitchen" ? "Kitchen" : "Production", assignedUserIds: assignees });
-  const [pull] = await db.select().from(pullLists).where(and(eq(pullLists.eventId, eventId), isNull(pullLists.archivedAt)));
-  if (pull) {
-    items.push({ ...base, id: `pull-schedule:${pull.id}:${pull.updatedAt.toISOString()}`, type: "pull", title: "Schedule inventory pull",
-      due, complete: pull.scheduledAt !== null, team: "Production", assignedUserIds: pull.pullerId ? [pull.pullerId] : [] });
-    const lines = await db.select().from(pullListLines).where(and(eq(pullListLines.pullListId, pull.id), isNull(pullListLines.archivedAt)));
-    for (const line of lines) for (const [stage, complete] of [
-      ["pulled", ["pulled", "loaded", "returned"].includes(line.status)],
-      ["loaded", ["loaded", "returned"].includes(line.status)],
-    ] as const) items.push({ ...base, id: `pull:${line.id}:${stage}:${line.updatedAt.toISOString()}`, type: "pull",
-      title: `${line.name || "Inventory item"} ${stage}`, due: (pull.scheduledAt ?? event.startsAt).toISOString(),
-      complete, team: "Production", assignedUserIds: pull.pullerId ? [pull.pullerId] : [] });
-  }
-  const [menu] = await db.select().from(kitchenMenus).where(and(eq(kitchenMenus.eventId, eventId), isNull(kitchenMenus.archivedAt)));
-  if (menu) {
-    const dishes = await db.select({ id: kitchenMenuLines.id, quantity: kitchenMenuLines.plannedQuantity })
-      .from(kitchenMenuLines).where(and(eq(kitchenMenuLines.menuId, menu.id), isNull(kitchenMenuLines.archivedAt)));
-    for (const dish of dishes) items.push({ ...base, id: `dish:${dish.id}`, type: "kitchen", title: "Set dish quantity",
+  if (!eventRows.length) return result;
+  const ids = eventRows.map((event) => event.id);
+  const eventDates = eventRows.map((event) => utcToBusinessTime(event.startsAt).date).sort();
+  const [taskRows, pullRows, menuRows, slotRows, assignmentRows, conflictRows, shortageRows, listRows, readiness] = await Promise.all([
+    db.select({ task: tasks, assigneeId: taskAssignees.userId }).from(tasks)
+      .leftJoin(taskAssignees, and(eq(taskAssignees.taskId, tasks.id), isNull(taskAssignees.archivedAt)))
+      .where(and(inArray(tasks.eventId, ids), inArray(tasks.type, ["production", "kitchen", "truck_load"]), isNull(tasks.archivedAt))),
+    db.select().from(pullLists).where(and(inArray(pullLists.eventId, ids), isNull(pullLists.archivedAt))),
+    db.select().from(kitchenMenus).where(and(inArray(kitchenMenus.eventId, ids), isNull(kitchenMenus.archivedAt))),
+    db.select({ slot: eventStaffSlots, shift: eventShifts }).from(eventStaffSlots)
+      .innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
+      .where(and(inArray(eventShifts.eventId, ids), isNull(eventShifts.archivedAt), isNull(eventStaffSlots.archivedAt))),
+    db.select({ assignment: truckAssignments, name: trucks.name }).from(truckAssignments)
+      .innerJoin(trucks, eq(trucks.id, truckAssignments.truckId))
+      .where(and(inArray(truckAssignments.eventId, ids), isNull(truckAssignments.archivedAt))),
+    db.select({ id: reservationConflicts.id, eventId: reservationConflicts.eventId, state: reservationConflicts.state, updatedAt: reservationConflicts.updatedAt })
+      .from(reservationConflicts).where(and(inArray(reservationConflicts.eventId, ids), isNull(reservationConflicts.archivedAt))),
+    db.select({ allocation: consumableAllocations, itemName: allInventoryItems.name })
+      .from(consumableAllocations).innerJoin(allInventoryItems, eq(allInventoryItems.id, consumableAllocations.itemId))
+      .where(inArray(consumableAllocations.eventId, ids)),
+    db.select().from(orderLists).where(and(isNull(orderLists.archivedAt),
+      lte(orderLists.fromDate, eventDates[eventDates.length - 1]), gte(orderLists.toDate, eventDates[0]))),
+    getReadinessForEvents(db, actor, ids, now),
+  ]);
+  // One pull list and one kitchen menu per event, as before: the first found.
+  const pullByEvent = new Map<string, typeof pullRows[number]>();
+  for (const row of pullRows) if (!pullByEvent.has(row.eventId)) pullByEvent.set(row.eventId, row);
+  const menuByEvent = new Map<string, typeof menuRows[number]>();
+  for (const row of menuRows) if (!menuByEvent.has(row.eventId)) menuByEvent.set(row.eventId, row);
+  const pullIds = [...pullByEvent.values()].map((pull) => pull.id);
+  const menuIds = [...menuByEvent.values()].map((menu) => menu.id);
+  const relevantLists = listRows.filter((list) => list.lines.some((line) => line.eventIds.some((id) => ids.includes(id))));
+  const [lineRows, dishRows, orderRows] = await Promise.all([
+    pullIds.length ? db.select().from(pullListLines).where(and(inArray(pullListLines.pullListId, pullIds), isNull(pullListLines.archivedAt))) : [],
+    menuIds.length ? db.select({ id: kitchenMenuLines.id, menuId: kitchenMenuLines.menuId, quantity: kitchenMenuLines.plannedQuantity })
+      .from(kitchenMenuLines).where(and(inArray(kitchenMenuLines.menuId, menuIds), isNull(kitchenMenuLines.archivedAt))) : [],
+    relevantLists.length ? db.select().from(vendorOrders).where(and(inArray(vendorOrders.orderListId, relevantLists.map((list) => list.id)), isNull(vendorOrders.archivedAt))) : [],
+  ]);
+  const tasksByEvent = byKey(taskRows, (row) => row.task.eventId);
+  const linesByPull = byKey(lineRows, (row) => row.pullListId);
+  const dishesByMenu = byKey(dishRows, (row) => row.menuId);
+  const slotsByEvent = byKey(slotRows, (row) => row.shift.eventId);
+  const trucksByEvent = byKey(assignmentRows, (row) => row.assignment.eventId);
+  const conflictsByEvent = byKey(conflictRows, (row) => row.eventId);
+  const shortagesByEvent = byKey(shortageRows, (row) => row.allocation.eventId);
+  for (const event of eventRows) {
+    const eventId = event.id;
+    const eventDate = utcToBusinessTime(event.startsAt).date;
+    const due = event.startsAt.toISOString();
+    const base = { eventId, eventTitle: event.title, eventDate };
+    const items: ProductionItem[] = [];
+    const taskMap = new Map<string, { task: typeof tasks.$inferSelect; assignees: string[] }>();
+    for (const row of tasksByEvent.get(eventId) ?? []) {
+      if (!taskMap.has(row.task.id)) taskMap.set(row.task.id, { task: row.task, assignees: [] });
+      if (row.assigneeId) taskMap.get(row.task.id)!.assignees.push(row.assigneeId);
+    }
+    for (const { task, assignees } of taskMap.values()) items.push({ ...base, id: `task:${task.id}:${task.updatedAt.toISOString()}`,
+      type: task.type === "kitchen" ? "kitchen" : "task", title: task.title,
+      due: (task.dueAt ?? event.startsAt).toISOString(), complete: task.status === "done",
+      team: task.type === "kitchen" ? "Kitchen" : "Production", assignedUserIds: assignees });
+    const pull = pullByEvent.get(eventId);
+    if (pull) {
+      items.push({ ...base, id: `pull-schedule:${pull.id}:${pull.updatedAt.toISOString()}`, type: "pull", title: "Schedule inventory pull",
+        due, complete: pull.scheduledAt !== null, team: "Production", assignedUserIds: pull.pullerId ? [pull.pullerId] : [] });
+      for (const line of linesByPull.get(pull.id) ?? []) for (const [stage, complete] of [
+        ["pulled", ["pulled", "loaded", "returned"].includes(line.status)],
+        ["loaded", ["loaded", "returned"].includes(line.status)],
+      ] as const) items.push({ ...base, id: `pull:${line.id}:${stage}:${line.updatedAt.toISOString()}`, type: "pull",
+        title: `${line.name || "Inventory item"} ${stage}`, due: (pull.scheduledAt ?? event.startsAt).toISOString(),
+        complete, team: "Production", assignedUserIds: pull.pullerId ? [pull.pullerId] : [] });
+    }
+    const menu = menuByEvent.get(eventId);
+    if (menu) for (const dish of dishesByMenu.get(menu.id) ?? []) items.push({ ...base, id: `dish:${dish.id}`, type: "kitchen", title: "Set dish quantity",
       due, complete: dish.quantity !== null, team: "Kitchen", assignedUserIds: [] });
-  }
-  const slots = await db.select({ slot: eventStaffSlots, shift: eventShifts }).from(eventStaffSlots)
-    .innerJoin(eventShifts, eq(eventShifts.id, eventStaffSlots.shiftId))
-    .where(and(eq(eventShifts.eventId, eventId), isNull(eventShifts.archivedAt), isNull(eventStaffSlots.archivedAt)));
-  for (const { slot, shift } of slots) items.push({ ...base, id: `slot:${slot.id}:${slot.updatedAt.toISOString()}`, type: "staff",
-    title: `${slot.position} staffed`, due: shift.startsAt.toISOString(), complete: slot.assigneeId !== null,
-    team: slot.department, assignedUserIds: slot.assigneeId ? [slot.assigneeId] : [] });
-  for (const shift of new Map(slots.map(({ shift }) => [shift.id, shift])).values())
-    if (utcToBusinessTime(shift.startsAt).date !== eventDate)
-      items.push({ ...base, id: `setup:${shift.id}`, type: "setup", title: "Setup shift",
-        due: shift.startsAt.toISOString(), complete: slots.filter(({ slot }) => slot.shiftId === shift.id).every(({ slot }) => slot.assigneeId !== null),
-        team: "Production", assignedUserIds: slots.filter(({ slot }) => slot.shiftId === shift.id).map(({ slot }) => slot.assigneeId).filter((id): id is string => Boolean(id)) });
-  const assignments = await db.select({ assignment: truckAssignments, name: trucks.name }).from(truckAssignments)
-    .innerJoin(trucks, eq(trucks.id, truckAssignments.truckId))
-    .where(and(eq(truckAssignments.eventId, eventId), isNull(truckAssignments.archivedAt)));
-  for (const { assignment, name } of assignments) items.push({ ...base, id: `truck:${assignment.id}:${assignment.updatedAt.toISOString()}`,
-    type: "truck", title: `${name}: driver and loaders`, due: assignment.departsAt.toISOString(),
-    complete: Boolean(assignment.driverId && assignment.loaderIds.length), team: "Production",
-    assignedUserIds: [assignment.driverId, ...assignment.loaderIds].filter((id): id is string => Boolean(id)) });
-  const conflicts = await db.select({ id: reservationConflicts.id, state: reservationConflicts.state, updatedAt: reservationConflicts.updatedAt })
-    .from(reservationConflicts).where(and(eq(reservationConflicts.eventId, eventId), isNull(reservationConflicts.archivedAt)));
-  for (const conflict of conflicts) items.push({ ...base, id: `shortage:${conflict.id}:${conflict.updatedAt.toISOString()}`, type: "shortage",
-    title: "Resolve inventory shortage or conflict", due, complete: conflict.state === "resolved",
-    team: "Production", assignedUserIds: [] });
-  const shortages = await db.select({ allocation: consumableAllocations, itemName: allInventoryItems.name })
-    .from(consumableAllocations).innerJoin(allInventoryItems, eq(allInventoryItems.id, consumableAllocations.itemId))
-    .where(eq(consumableAllocations.eventId, eventId));
-  for (const { allocation, itemName } of shortages.filter(({ allocation }) => allocation.shortage > 0))
-    items.push({ ...base, id: `ordering:${allocation.id}:${allocation.updatedAt.toISOString()}`, type: "shortage",
-      title: `Order ${allocation.shortage} ${itemName}`, due: allocation.orderBy ? businessTimeToUtc(allocation.orderBy, "09:00").toISOString() : due,
-      complete: false, team: "Purchasing", assignedUserIds: [] });
-  const lists = await db.select().from(orderLists).where(and(isNull(orderLists.archivedAt),
-    lte(orderLists.fromDate, eventDate), gte(orderLists.toDate, eventDate)));
-  const relevant = lists.filter((list) => list.lines.some((line) => line.eventIds.includes(eventId)));
-  if (relevant.length) {
-    const orders = await db.select().from(vendorOrders).where(and(inArray(vendorOrders.orderListId, relevant.map((list) => list.id)), isNull(vendorOrders.archivedAt)));
+    const slots = slotsByEvent.get(eventId) ?? [];
+    for (const { slot, shift } of slots) items.push({ ...base, id: `slot:${slot.id}:${slot.updatedAt.toISOString()}`, type: "staff",
+      title: `${slot.position} staffed`, due: shift.startsAt.toISOString(), complete: slot.assigneeId !== null,
+      team: slot.department, assignedUserIds: slot.assigneeId ? [slot.assigneeId] : [] });
+    for (const shift of new Map(slots.map(({ shift }) => [shift.id, shift])).values())
+      if (utcToBusinessTime(shift.startsAt).date !== eventDate)
+        items.push({ ...base, id: `setup:${shift.id}`, type: "setup", title: "Setup shift",
+          due: shift.startsAt.toISOString(), complete: slots.filter(({ slot }) => slot.shiftId === shift.id).every(({ slot }) => slot.assigneeId !== null),
+          team: "Production", assignedUserIds: slots.filter(({ slot }) => slot.shiftId === shift.id).map(({ slot }) => slot.assigneeId).filter((id): id is string => Boolean(id)) });
+    for (const { assignment, name } of trucksByEvent.get(eventId) ?? []) items.push({ ...base, id: `truck:${assignment.id}:${assignment.updatedAt.toISOString()}`,
+      type: "truck", title: `${name}: driver and loaders`, due: assignment.departsAt.toISOString(),
+      complete: Boolean(assignment.driverId && assignment.loaderIds.length), team: "Production",
+      assignedUserIds: [assignment.driverId, ...assignment.loaderIds].filter((id): id is string => Boolean(id)) });
+    for (const conflict of conflictsByEvent.get(eventId) ?? []) items.push({ ...base, id: `shortage:${conflict.id}:${conflict.updatedAt.toISOString()}`, type: "shortage",
+      title: "Resolve inventory shortage or conflict", due, complete: conflict.state === "resolved",
+      team: "Production", assignedUserIds: [] });
+    for (const { allocation, itemName } of (shortagesByEvent.get(eventId) ?? []).filter(({ allocation }) => allocation.shortage > 0))
+      items.push({ ...base, id: `ordering:${allocation.id}:${allocation.updatedAt.toISOString()}`, type: "shortage",
+        title: `Order ${allocation.shortage} ${itemName}`, due: allocation.orderBy ? businessTimeToUtc(allocation.orderBy, "09:00").toISOString() : due,
+        complete: false, team: "Purchasing", assignedUserIds: [] });
+    const relevant = relevantLists.filter((list) => list.fromDate <= eventDate && list.toDate >= eventDate
+      && list.lines.some((line) => line.eventIds.includes(eventId)));
     for (const list of relevant) for (const line of list.lines.filter((line) => line.eventIds.includes(eventId))) {
-      const order = orders.find((candidate) => candidate.orderListId === list.id && candidate.lines.some((entry) => entry.itemId === line.itemId));
+      const order = orderRows.find((candidate) => candidate.orderListId === list.id && candidate.lines.some((entry) => entry.itemId === line.itemId));
       items.push({ ...base, id: `order:${list.id}:${line.itemId}`, type: "order", title: `Order ${line.itemName}`,
         due: line.orderBy ? businessTimeToUtc(line.orderBy, "09:00").toISOString() : due,
         complete: Boolean(order), team: "Purchasing", assignedUserIds: [] });
@@ -100,12 +148,13 @@ export async function getProductionList(db: DbLike, actor: Actor, eventId: strin
         complete: (order.lines.find((entry) => entry.itemId === line.itemId)?.received ?? 0) >= (order.lines.find((entry) => entry.itemId === line.itemId)?.ordered ?? Infinity),
         team: "Purchasing", assignedUserIds: [] });
     }
+    for (const check of readiness.get(eventId) ?? [])
+      if (check.state === "open") items.push({ ...base, id: `readiness:${check.key}`, type: "readiness",
+        title: check.question, due, complete: false, team: "Production", assignedUserIds: [] });
+    const visible = all ? items : items.filter((item) => item.assignedUserIds.includes(actor.userId));
+    result.set(eventId, { eventId, eventTitle: event.title, eventDate, items: visible.sort((a, b) => a.due.localeCompare(b.due)), ...completion(visible) });
   }
-  for (const check of await getReadiness(db, actor, eventId, now))
-    if (check.state === "open") items.push({ ...base, id: `readiness:${check.key}`, type: "readiness",
-      title: check.question, due, complete: false, team: "Production", assignedUserIds: [] });
-  const visible = all ? items : items.filter((item) => item.assignedUserIds.includes(actor.userId));
-  return { eventId, eventTitle: event.title, eventDate, items: visible.sort((a, b) => a.due.localeCompare(b.due)), ...completion(visible) };
+  return result;
 }
 
 export async function getProductionOverview(db: DbLike, actor: Actor, days: ProductionWindow, now = new Date()): Promise<ProductionOverview> {

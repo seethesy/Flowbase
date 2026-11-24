@@ -187,7 +187,7 @@ export const businessDefaultsSchema = z.object({
   balanceWarningDays: days.default(3),
   // Notification types (shared/notifications.ts keys, FLOW-43) sent by SMS as
   // well as in the app and by email.
-  urgentNotificationTypes: keyList.default(["staff_assigned", "event_day_change", "collector_failure", "beo_changed", "production_urgent"]),
+  urgentNotificationTypes: keyList.default(["staff_assigned", "collector_failure", "beo_changed", "production_urgent"]),
   // SMS messages the app may send in a calendar month; 0 sends none.
   monthlySmsCap: z.number().int().min(0).max(100_000).default(1000),
   hideCompletedTasksAfterDays: z.number().int().min(0).max(90).default(7),

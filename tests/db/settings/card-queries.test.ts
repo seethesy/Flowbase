@@ -3,12 +3,12 @@ import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import * as schema from "../../worker/db/schema";
-import { createApp } from "../../worker/app";
-import { applyCardQuery, parseCardQuery } from "../../worker/fields";
-import type { RunWithDb } from "../../worker/hono";
-import type { Actor, Role } from "../../shared/access";
-import { projectRecord } from "../../shared/fields";
+import * as schema from "../../../worker/db/schema";
+import { createApp } from "../../../worker/app";
+import { applyCardQuery, parseCardQuery } from "../../../worker/fields";
+import type { RunWithDb } from "../../../worker/hono";
+import type { Actor, Role } from "../../../shared/access";
+import { projectRecord } from "../../../shared/fields";
 
 // FLOW-308: a custom card runs as one list query with its filters, sort and
 // LIMIT in SQL, and returns the rows the in-memory card query returned before.

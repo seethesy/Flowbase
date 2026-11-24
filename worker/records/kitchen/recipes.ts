@@ -354,15 +354,14 @@ async function saveLines(
     }),
   });
   await syncChildren(
-    stored.map((line) => line.id),
+    stored,
     input.lines,
+    values,
     {
-      insert: (line, sortOrder) =>
-        tx.insert(recipeLines).values({
-          recipeId,
-          ...values(line, sortOrder),
-          createdBy: actor.userId,
-        }),
+      insert: (rows) =>
+        tx.insert(recipeLines).values(rows.map(({ input: line, sortOrder }) => ({
+          recipeId, ...values(line, sortOrder), createdBy: actor.userId,
+        }))),
       update: (id, line, sortOrder) =>
         tx
           .update(recipeLines)

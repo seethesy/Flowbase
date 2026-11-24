@@ -16,9 +16,10 @@ import { rolePermissions } from "../../db/schema";
 // per role and area, seeded from the built-in rules (shared/policy.ts) so
 // day-one behavior is unchanged. The Worker keeps it in memory: a save in this
 // isolate drops the copy at once, and every other isolate re-reads it after
-// POLICY_TTL_MS, so a change is live on the next request.
+// POLICY_TTL_MS, so other isolates can show a change up to a minute late
+// (FLOW-306, docs/architecture.md).
 
-export const POLICY_TTL_MS = 5_000;
+export const POLICY_TTL_MS = 60_000;
 let cached: { matrix: Matrix; at: number } | null = null;
 export const invalidatePolicy = () => {
   cached = null;
