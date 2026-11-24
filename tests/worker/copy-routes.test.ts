@@ -40,7 +40,7 @@ beforeEach(() => {
   vi.mocked(saveCopy).mockImplementation(async (_db, _actor, edits) =>
     Object.fromEntries(edits.map((edit) => [edit.key, edit.text])),
   );
-  vi.mocked(resetCopy).mockResolvedValue();
+  vi.mocked(resetCopy).mockResolvedValue(true);
 });
 
 it("gives every signed-in role the saved wording", async () => {

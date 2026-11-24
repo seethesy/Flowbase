@@ -39,9 +39,14 @@ export async function saveCopy(
 }
 
 // Reset to the default in code, old (renamed) keys included, or the alias
-// would bring the override back. Resetting a key with no override is a no-op.
-export async function resetCopy(db: DbLike, key: string, renames: LiveEditRenames = liveEditRenames): Promise<void> {
-  await db.delete(uiCopy).where(inArray(uiCopy.key, [key, ...copyAliases(key, renames)]));
+// would bring the override back. Resetting a key with no override is a no-op:
+// false (FLOW-304 sends no ping for it).
+export async function resetCopy(db: DbLike, key: string, renames: LiveEditRenames = liveEditRenames): Promise<boolean> {
+  const removed = await db
+    .delete(uiCopy)
+    .where(inArray(uiCopy.key, [key, ...copyAliases(key, renames)]))
+    .returning({ key: uiCopy.key });
+  return removed.length > 0;
 }
 
 // An orphaned row (FLOW-277): delete it as it is.

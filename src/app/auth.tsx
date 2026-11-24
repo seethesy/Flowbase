@@ -17,7 +17,7 @@ import { navHidden, setNavHidden, type NavHidden } from "../../shared/nav-visibi
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
-import { onDataChanged, useLiveUpdates } from "./liveUpdates";
+import { onDataChanged, sessionRechecks, useLiveUpdates } from "./liveUpdates";
 import { cachedProfile, clearOfflineData, isNetworkError, rememberProfile } from "../offline/db";
 import { syncOfflineBeos } from "../offline/sync";
 
@@ -202,28 +202,35 @@ export function AuthGate({ children }: { children: ReactNode }) {
           }
         });
         // Another user's change may be to this user's own role or status:
-        // re-check the profile whenever open screens refresh (FLOW-206).
+        // re-check the profile when users change (FLOW-206, FLOW-304), and the
+        // roles and permissions matrix when settings change. A refresh that
+        // names no areas (a poll, lost pings) re-checks both.
         // A refused account is signed out by authFetch; other failures keep
         // the current profile until the next check.
-        const stopWatching = onDataChanged(() => {
+        const stopWatching = onDataChanged((areas) => {
           const current = revision;
+          const recheck = sessionRechecks(areas);
           // An Admin may have changed what roles can do: show it without a reload.
-          void refreshPolicy().then((changed) => {
-            if (changed && active && current === revision) {
-              setUser((shown) => (shown ? { ...shown } : shown));
-              void queryClient.resetQueries();
-            }
-          });
+          if (recheck.policy)
+            void refreshPolicy().then((changed) => {
+              if (changed && active && current === revision) {
+                setUser((shown) => (shown ? { ...shown } : shown));
+                void queryClient.resetQueries();
+              }
+            });
+          if (!recheck.profile) return;
           void authFetch("/api/auth/me")
             .then(async (response) => {
               if (!response.ok) return;
               const profile = userSchema.parse(await response.json());
               if (active && current === revision)
-                setUser((shown) =>
-                  JSON.stringify(shown) === JSON.stringify(profile)
-                    ? shown
-                    : profile,
-                );
+                setUser((shown) => {
+                  if (JSON.stringify(shown) === JSON.stringify(profile)) return shown;
+                  // A new role or status changes what every screen may show:
+                  // refetch them all, not only the users area.
+                  if (shown) queueMicrotask(() => void queryClient.invalidateQueries());
+                  return profile;
+                });
             })
             .catch(() => undefined);
         });
