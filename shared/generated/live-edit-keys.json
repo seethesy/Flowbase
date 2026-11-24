@@ -302,6 +302,8 @@
       "number"
     ],
     "documents.preview.versions": [],
+    "documents.templates.subtitle": [],
+    "documents.templates.title": [],
     "documents.upload.description": [],
     "documents.upload.drop": [],
     "documents.upload.name": [],
@@ -1700,6 +1702,7 @@
     "nav.page-not-found": [],
     "nav.payroll": [],
     "nav.photos": [],
+    "nav.pricing": [],
     "nav.production": [],
     "nav.proposals": [],
     "nav.recipe": [],
@@ -2224,6 +2227,34 @@
       "dollars3"
     ],
     "sales.client-sales-tracker.versions": [],
+    "sales.pricing.archive": [],
+    "sales.pricing.category.fees": [],
+    "sales.pricing.category.minimums": [],
+    "sales.pricing.category.packages": [],
+    "sales.pricing.category.per-guest-rates": [],
+    "sales.pricing.column.actions": [],
+    "sales.pricing.column.details": [],
+    "sales.pricing.column.name": [],
+    "sales.pricing.column.price": [],
+    "sales.pricing.edit": [],
+    "sales.pricing.empty.admin": [],
+    "sales.pricing.empty.description": [],
+    "sales.pricing.empty.title": [],
+    "sales.pricing.eyebrow": [],
+    "sales.pricing.form.amount": [],
+    "sales.pricing.form.cancel": [],
+    "sales.pricing.form.category": [],
+    "sales.pricing.form.charged": [],
+    "sales.pricing.form.details": [],
+    "sales.pricing.form.edit-price": [],
+    "sales.pricing.form.name": [],
+    "sales.pricing.form.new-price": [],
+    "sales.pricing.form.percent": [],
+    "sales.pricing.form.save": [],
+    "sales.pricing.new-price": [],
+    "sales.pricing.search-placeholder": [],
+    "sales.pricing.subtitle": [],
+    "sales.pricing.title": [],
     "sales.sales-reports.booked-total-by-event-month": [],
     "sales.sales-reports.count": [],
     "sales.sales-reports.decided": [],
@@ -2971,6 +3002,13 @@
       ],
       "fieldCards": []
     },
+    "documents.templates": {
+      "blocks": [
+        "documents-table",
+        "filters"
+      ],
+      "fieldCards": []
+    },
     "events.activity": {
       "blocks": [
         "history"
@@ -3313,6 +3351,18 @@
       ],
       "fieldCards": []
     },
+    "sales.overview": {
+      "blocks": [
+        "lead-table"
+      ],
+      "fieldCards": []
+    },
+    "sales.pricing": {
+      "blocks": [
+        "price-list"
+      ],
+      "fieldCards": []
+    },
     "sales.reports": {
       "blocks": [
         "actions",
@@ -3524,6 +3574,7 @@
     "documents",
     "documents.documents",
     "documents.overview",
+    "documents.templates",
     "events",
     "events.beos",
     "events.overview",
@@ -3540,6 +3591,9 @@
     "kitchen.overview",
     "kitchen.photos",
     "kitchen.recipes",
+    "leads",
+    "leads.overview",
+    "leads.proposals",
     "marketing",
     "marketing.overview",
     "marketing.photos",
@@ -3549,9 +3603,8 @@
     "reports.time-tracking",
     "sales",
     "sales.clients",
-    "sales.leads",
     "sales.overview",
-    "sales.proposals",
+    "sales.pricing",
     "sales.sales-tracker",
     "sales.venues",
     "staffing",

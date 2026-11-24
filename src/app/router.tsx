@@ -64,7 +64,8 @@ const SalesTracker = lazy(() =>
   import("../features/sales/sales").then((module) => ({ default: module.SalesTracker })),
 );
 const SalesReports = lazy(() => import("../features/sales/sales").then((module) => ({ default: module.SalesReports })));
-const SalesOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.SalesOverview })));
+const SalesOverview = lazy(() => import("../features/sales/sales-overview").then((module) => ({ default: module.SalesOverview })));
+const PricingPage = lazy(() => import("../features/sales/pricing").then((module) => ({ default: module.PricingPage })));
 const MarketingOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingOverview })));
 const DocumentsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
 const ReportsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.ReportsOverview })));
@@ -78,6 +79,8 @@ const InventoryCategoriesPage = lazy(() => import("../features/inventory/invento
   .then((module) => ({ default: module.InventoryCategoriesPage })));
 const DocumentsPage = lazy(() => import("../features/documents/documents")
   .then((module) => ({ default: module.DocumentsPage })));
+const TemplatesPage = lazy(() => import("../features/documents/documents")
+  .then((module) => ({ default: module.TemplatesPage })));
 // Photo galleries (FLOW-271, FLOW-298).
 const MarketingPhotosPage = lazy(() => import("../features/documents/photos").then((module) => ({ default: module.MarketingPhotosPage })));
 const KitchenPhotosPage = lazy(() => import("../features/documents/photos").then((module) => ({ default: module.KitchenPhotosPage })));
@@ -261,6 +264,7 @@ export const getRouter = () =>
         { path: "/reports/overview", element: <ReportsOverview /> },
         { path: "/sales", element: <SalesTracker /> },
         { path: "/sales/reports", element: <SalesReports /> },
+        { path: "/sales/pricing", element: <PricingPage /> },
         { path: "/inventory", element: <InventoryList /> },
         // FLOW-292: ordering is Inventory › Order. Purchasing, the order lists'
         // old address, Low stock and Kitchen orders land there.
@@ -312,6 +316,7 @@ export const getRouter = () =>
         { path: "/kitchen/photos", element: <KitchenPhotosPage /> },
         { path: "/inventory/photos", element: <InventoryPhotosPage /> },
         { path: "/documents", element: <DocumentsPage /> },
+        { path: "/documents/templates", element: <TemplatesPage /> },
         { path: "/profile", element: <Profile /> },
         { path: "/tasks", element: <TaskDashboardPage /> },
         { path: "/tasks/all", element: <TaskList /> },

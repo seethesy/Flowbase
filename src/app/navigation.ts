@@ -48,16 +48,28 @@ export const navigationGroups: NavGroup[] = [
       { copyId: "approvals", name: "Approvals", to: "/approvals", visible: "approvals.read" },
     ],
   },
+  // FLOW-328: getting and pitching leads (Leads) and closing them (Sales) have
+  // their own headings. Leads › Overview is the leads table at /leads, limited to
+  // the early stages; Sales › Overview lists the late ones. Who saw the old
+  // Sales › Leads and Sales › Proposals tabs moved with them (migration 0083).
+  {
+    copyId: "leads",
+    name: "Leads",
+    tabs: [
+      { copyId: "overview", name: "Overview", to: "/leads", visible: "leads.read" },
+      { copyId: "proposals", name: "Proposals", to: "/proposals", visible: "proposals.read" },
+    ],
+  },
   {
     copyId: "sales",
     name: "Sales",
     tabs: withOverview("sales", "/sales/overview", [
-      { copyId: "leads", name: "Leads", to: "/leads", visible: "leads.read" },
       { copyId: "clients", name: "Clients", to: "/clients", visible: "clients.read" },
-      { copyId: "proposals", name: "Proposals", to: "/proposals", visible: "proposals.read" },
       // The Sales tracker moved off /proposals (FLOW-276); its reports sit below it.
       { copyId: "sales-tracker", name: "Sales tracker", to: "/sales", visible: "proposals.read" },
       { copyId: "venues", name: "Venues", to: "/venues", visible: "venues.read" },
+      // The price list salespeople quote from (FLOW-329).
+      { copyId: "pricing", name: "Pricing", to: "/sales/pricing", visible: "proposals.read" },
     ]),
   },
   {
@@ -124,7 +136,13 @@ export const navigationGroups: NavGroup[] = [
   {
     copyId: "documents",
     name: "Documents",
-    tabs: withOverview("documents", "/documents/overview", [{ copyId: "documents", name: "Documents", to: "/documents" }]),
+    tabs: withOverview("documents", "/documents/overview", [
+      { copyId: "documents", name: "Documents", to: "/documents" },
+      // Template documents only (FLOW-330): hidden from a role the Admin hid the
+      // Documents tab from (FLOW-284), and can be hidden on its own too.
+      { copyId: "templates", name: "Templates", to: "/documents/templates",
+        visible: (actor) => !navHides(navHidden(), actor.role, "documents", "documents") },
+    ]),
   },
   {
     copyId: "reports",
