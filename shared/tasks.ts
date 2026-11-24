@@ -5,7 +5,7 @@ import { addLocalDays, businessTimeToUtc, isBusinessTime, utcToBusinessTime } fr
 // Task engine (FLOW-58): one task model that every module uses (design principle
 // 3). Kitchen, production and truck-loading tasks are rows of the same table with
 // their own type, so they appear in the same task lists. Other modules create and
-// update tasks through the service in worker/records/tasks.ts, never through
+// update tasks through the service in worker/records/tasks/tasks.ts, never through
 // tables of their own.
 
 export const taskTypes = [

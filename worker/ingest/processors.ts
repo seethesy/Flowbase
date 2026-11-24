@@ -1,12 +1,12 @@
 import { collectedLeadSchema, collectorRunSchema } from "../../shared/collector";
 import { collectorRuns } from "../db/schema";
-import { createLead } from "../records/leads";
-import { registerCollectorSite, scanCollectorHealth } from "../records/collector-health";
+import { createLead } from "../records/leads/leads";
+import { registerCollectorSite, scanCollectorHealth } from "../records/home/collector-health";
 import type { IngestProcessor } from "./receipts";
 import { thumbtackLead } from "./thumbtack";
 import { websiteInquirySchema } from "../../shared/website-inquiry";
 import { z } from "zod";
-import { recordGithubUsage } from "../records/usage";
+import { recordGithubUsage } from "../records/settings/usage";
 
 // Turns stored receipts into records, by ingest source (FLOW-28). A receipt that
 // doesn't parse fails its job, so it shows in the admin receipts list for replay.

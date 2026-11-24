@@ -185,7 +185,7 @@ function unguarded(app: ReturnType<typeof createApp>) {
       continue;
     if (
       // The Google OAuth callback is Google's browser redirect: it trusts only
-      // the signed state (FLOW-268, tests/db/google-calendar.test.ts).
+      // the signed state (FLOW-268, tests/db/events/google-calendar.test.ts).
       ["/api/health", "/api/auth/config", "/api/google-calendar/callback"].includes(route.path) ||
       /^\/api\/(demo|dev|ingest)\//.test(route.path)
     )
@@ -208,9 +208,10 @@ it("detects an unguarded route added beneath an existing signed-in resource", ()
   expect(unguarded(app)).toContain("POST /api/events/unprotected");
 });
 it("keeps field decisions out of record modules", () => {
-  for (const file of readdirSync("worker/records").filter((file) =>
-    file.endsWith(".ts"),
-  )) {
+  // Record modules sit in area folders (FLOW-312).
+  const files = readdirSync("worker/records", { recursive: true, encoding: "utf8" });
+  expect(files.length).toBeGreaterThan(50);
+  for (const file of files.filter((file) => file.endsWith(".ts"))) {
     const source = readFileSync(`worker/records/${file}`, "utf8");
     expect(source, file).not.toMatch(
       /isFtPlus|actor\.role\s*(?:===|!==)|\[.*?\]\.includes\(actor\.role\)/,

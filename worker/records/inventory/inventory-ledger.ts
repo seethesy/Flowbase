@@ -1,0 +1,478 @@
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import type { Actor } from "../../../shared/access";
+import {
+  barCountStep,
+  countDifference,
+  fitsCountStep,
+  movementDirection,
+  sectionKindFor,
+  type InventoryItem,
+  type MovementType,
+  type StockMovement,
+} from "../../../shared/inventory";
+import { writeAudit } from "../../audit/log";
+import type { Db, DbLike } from "../../db/client";
+import {
+  events,
+  inventoryLocations,
+  inventoryRentalDetails,
+  inventoryStock,
+  stockMovements,
+} from "../../db/schema";
+import { ApiError, forbidden, notFound } from "../../hono";
+import { emitDomainEvent } from "../../jobs/queue";
+import { canCountItem, canMoveItem } from "../../policy";
+import {
+  conflict,
+  lockItemRow,
+  type CorrectionInput,
+  type CountInput,
+  type ItemRow,
+  type MovementInput,
+  round,
+  type TransferInput,
+} from "./inventory-common";
+import { findItem, getItem } from "./inventory-items";
+import { requireStockSection } from "./inventory-sections";
+import { keyset, type Page, type PageRequest } from "../core/paging";
+
+// ---- Stock ledger (FLOW-71) ----
+
+export type Movement = {
+  color?: string;
+  type: MovementType;
+  // One signed change per section; a transfer has two.
+  changes: { sectionId: string; quantity: number }[];
+  reason: string;
+  correctsId?: string | null;
+  link?: { type: "event" | "order" | "import"; id: string } | null;
+};
+
+// The only way stock changes: appends the movements and updates every section's
+// cached on-hand in the caller's transaction, so the cache always equals the sum of
+// movements. Services never have stock (FLOW-69 AC2), and no section may go below
+// zero. Returns the new movement ids, in the order of the changes.
+export async function recordMovement(
+  tx: DbLike,
+  actor: Actor,
+  item: Pick<ItemRow, "id" | "kind" | "subtype" | "archivedAt">,
+  movement: Movement,
+): Promise<string[]> {
+  const lockedItem = await lockItemRow(tx, item.id);
+  const sectionKind = sectionKindFor(item);
+  if (!sectionKind)
+    throw conflict(
+      "SERVICE_HAS_NO_STOCK",
+      "Service items don't have stock, so they can't be moved or counted.",
+    );
+  if (!lockedItem || lockedItem.archivedAt)
+    throw conflict(
+      "ITEM_ARCHIVED",
+      "Restore the item before changing its stock.",
+    );
+  const color = movement.color ?? "";
+  if (color) {
+    const [rental] = await tx
+      .select()
+      .from(inventoryRentalDetails)
+      .where(eq(inventoryRentalDetails.itemId, item.id));
+    // Historic colors remain correctable after they have been removed from the catalog.
+    if (!rental?.colors.includes(color) && !movement.correctsId)
+      throw conflict(
+        "INVALID_COLOR",
+        "Pick a color from this item's color list.",
+      );
+  }
+  // Use a stable lock order for transfers; archive takes the same section lock.
+  const sectionById = new Map<string, Awaited<ReturnType<typeof requireStockSection>>>();
+  for (const id of [...new Set(movement.changes.map((change) => change.sectionId))].sort())
+    sectionById.set(id, await requireStockSection(tx, id, sectionKind));
+  const sections = movement.changes.map((change) => sectionById.get(change.sectionId)!);
+  const sectionIds = movement.changes.map((change) => change.sectionId);
+  await tx
+    .insert(inventoryStock)
+    .values(
+      sectionIds.map((sectionId) => ({ itemId: item.id, sectionId, color })),
+    )
+    .onConflictDoNothing();
+  const levels = await tx
+    .select()
+    .from(inventoryStock)
+    .where(
+      and(
+        eq(inventoryStock.itemId, item.id),
+        inArray(inventoryStock.sectionId, sectionIds),
+        eq(inventoryStock.color, color),
+      ),
+    )
+    .for("update");
+  for (const [index, change] of movement.changes.entries()) {
+    const level = levels.find((row) => row.sectionId === change.sectionId);
+    const next = round((level?.quantity ?? 0) + change.quantity);
+    if (next < 0)
+      throw conflict(
+        "INSUFFICIENT_STOCK",
+        `${sections[index].name} only has ${level?.quantity ?? 0}.`,
+      );
+    await tx
+      .update(inventoryStock)
+      .set({ quantity: next, updatedBy: actor.userId })
+      .where(
+        and(
+          eq(inventoryStock.itemId, item.id),
+          eq(inventoryStock.sectionId, change.sectionId),
+          eq(inventoryStock.color, color),
+        ),
+      );
+  }
+  const transferId = movement.type === "transfer" ? crypto.randomUUID() : null;
+  const rows = await tx
+    .insert(stockMovements)
+    .values(
+      movement.changes.map((change) => ({
+        itemId: item.id,
+        sectionId: change.sectionId,
+        type: movement.type,
+        quantity: round(change.quantity),
+        reason: movement.reason,
+        color,
+        transferId,
+        correctsId: movement.correctsId ?? null,
+        linkType: movement.link?.type ?? null,
+        linkId: movement.link?.id ?? null,
+        createdBy: actor.userId,
+        updatedBy: actor.userId,
+      })),
+    )
+    .returning({ id: stockMovements.id });
+  const ids = rows.map((row) => row.id);
+  // One audit row per movement, in the movement's transaction (FLOW-168 AC2).
+  for (const [index, change] of movement.changes.entries())
+    await writeAudit(tx, actor, {
+      entityType: "stock_movement",
+      entityId: ids[index],
+      action: "create",
+      before: null,
+      after: {
+        itemId: item.id,
+        sectionId: change.sectionId,
+        ...(color && { color }),
+        type: movement.type,
+        quantity: round(change.quantity),
+        reason: movement.reason,
+        transferId,
+        correctsId: movement.correctsId ?? null,
+        link: movement.link ?? null,
+      },
+    });
+  await emitDomainEvent(tx, {
+    name: "stock.moved",
+    entityId: item.id,
+    data: { movementIds: ids, type: movement.type },
+  });
+  return ids;
+}
+
+// Imported quantities (FLOW-168 AC1). A module importer calls this inside its row's
+// transaction: the file's quantity becomes the section's on-hand through a count
+// movement for the difference, linked to the import's log entry, never as a set
+// quantity. Re-running an import sets the section back to the file's quantity,
+// even if stock moved since; a quantity that already matches records nothing.
+// Returns the movement id, or null when nothing was recorded.
+export async function recordImportedStock(
+  tx: DbLike,
+  actor: Actor,
+  item: ItemRow,
+  input: {
+    sectionId: string;
+    quantity: number;
+    importId: string;
+    fileName: string;
+  },
+): Promise<string | null> {
+  await lockItemRow(tx, item.id);
+  requireCountStep(item, input.quantity);
+  const [level] = await tx
+    .select({ quantity: inventoryStock.quantity })
+    .from(inventoryStock)
+    .where(
+      and(
+        eq(inventoryStock.itemId, item.id),
+        eq(inventoryStock.sectionId, input.sectionId),
+        eq(inventoryStock.color, ""),
+      ),
+    )
+    .for("update");
+  const difference = countDifference(input.quantity, level?.quantity ?? 0);
+  if (difference === 0) return null;
+  const [movementId] = await recordMovement(tx, actor, item, {
+    type: "count",
+    changes: [{ sectionId: input.sectionId, quantity: difference }],
+    reason: `Imported from ${input.fileName}`,
+    link: { type: "import", id: input.importId },
+  });
+  return movementId;
+}
+
+export async function listMovements(
+  db: Db,
+  itemId: string,
+  page: PageRequest = {},
+): Promise<Page<StockMovement>> {
+  await findItem(db, itemId);
+  type Row = { movement: typeof stockMovements.$inferSelect; sectionName: string };
+  const paging = keyset<Row>(
+    [
+      { column: stockMovements.createdAt, type: "timestamp", desc: true, of: (row) => row.movement.createdAt },
+      { column: stockMovements.quantity, type: "number", of: (row) => row.movement.quantity },
+      { column: stockMovements.id, type: "uuid", of: (row) => row.movement.id },
+    ],
+    page,
+  );
+  const rows = await db
+    .select({ movement: stockMovements, sectionName: inventoryLocations.name })
+    .from(stockMovements)
+    .innerJoin(
+      inventoryLocations,
+      eq(stockMovements.sectionId, inventoryLocations.id),
+    )
+    .where(and(eq(stockMovements.itemId, itemId), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, async (kept) => {
+    // Corrections of these movements, oldest first, wherever they fall in the list.
+    const ids = kept.map((row) => row.movement.id);
+    const corrections = ids.length
+      ? await db
+          .select({ id: stockMovements.id, correctsId: stockMovements.correctsId })
+          .from(stockMovements)
+          .where(inArray(stockMovements.correctsId, ids))
+          .orderBy(asc(stockMovements.createdAt), asc(stockMovements.id))
+      : [];
+    const correctedBy = new Map<string, string[]>();
+    for (const correction of corrections) {
+      if (!correction.correctsId) continue;
+      const list = correctedBy.get(correction.correctsId) ?? [];
+      list.push(correction.id);
+      correctedBy.set(correction.correctsId, list);
+    }
+    return kept.map(({ movement: m, sectionName }) => ({
+      id: m.id,
+      itemId: m.itemId,
+      sectionId: m.sectionId,
+      sectionName,
+      ...(m.color && { color: m.color }),
+      type: m.type,
+      quantity: m.quantity,
+      reason: m.reason,
+      transferId: m.transferId,
+      correctsId: m.correctsId,
+      correctedBy: correctedBy.get(m.id) ?? [],
+      link: m.linkType && m.linkId ? { type: m.linkType, id: m.linkId } : null,
+      createdBy: m.createdBy,
+      createdAt: m.createdAt.toISOString(),
+    }));
+  });
+}
+
+// FLOW-70 AC2: one transfer, both sections updated.
+export async function transferStock(
+  db: Db,
+  actor: Actor,
+  itemId: string,
+  input: TransferInput,
+): Promise<InventoryItem> {
+  const item = await findItem(db, itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
+  await db.transaction((tx) =>
+    recordMovement(tx, actor, item, {
+      type: "transfer",
+      color: input.color,
+      changes: [
+        { sectionId: input.fromSectionId, quantity: -input.quantity },
+        { sectionId: input.toSectionId, quantity: input.quantity },
+      ],
+      reason: input.reason,
+    }),
+  );
+  return getItem(db, actor, itemId);
+}
+
+// Bar stock is counted in steps: beer and wine to 0.5, liquor to 0.25 (FLOW-90).
+function requireCountStep(item: ItemRow, quantity: number) {
+  const step =
+    item.kind === "consumable" && item.subtype === "bar"
+      ? barCountStep(item.category)
+      : null;
+  if (!fitsCountStep(quantity, step))
+    throw new ApiError(
+      400,
+      "COUNT_STEP",
+      step === 0.5
+        ? "Count beer and wine to the nearest 0.5."
+        : "Count liquor to the nearest 0.25.",
+    );
+}
+
+// Records a counted quantity as a count movement for the difference (FLOW-82 AC1:
+// counting 12 where the section holds 15 writes -3). A count that matches still
+// writes a zero movement, so the ledger shows when it was counted.
+export async function recordCount(
+  tx: DbLike,
+  actor: Actor,
+  item: ItemRow,
+  sectionId: string,
+  counted: number,
+  reason: string,
+  color = "",
+) {
+  if (!canCountItem(actor, item)) throw forbidden();
+  await lockItemRow(tx, item.id);
+  requireCountStep(item, counted);
+  await tx.insert(inventoryStock).values({ itemId: item.id, sectionId, color }).onConflictDoNothing();
+  const [level] = await tx
+    .select({ quantity: inventoryStock.quantity })
+    .from(inventoryStock)
+    .where(
+      and(
+        eq(inventoryStock.itemId, item.id),
+        eq(inventoryStock.sectionId, sectionId),
+        eq(inventoryStock.color, color),
+      ),
+    )
+    .for("update");
+  const difference = countDifference(counted, level?.quantity ?? 0);
+  const [movementId] = await recordMovement(tx, actor, item, {
+    type: "count",
+    color,
+    changes: [{ sectionId, quantity: difference }],
+    reason,
+  });
+  return { movementId, difference };
+}
+
+export async function countStock(
+  db: Db,
+  actor: Actor,
+  itemId: string,
+  input: CountInput,
+): Promise<InventoryItem> {
+  const item = await findItem(db, itemId);
+  await db.transaction((tx) =>
+    recordCount(
+      tx,
+      actor,
+      item,
+      input.sectionId,
+      input.quantity,
+      input.reason,
+      input.color,
+    ),
+  );
+  return getItem(db, actor, itemId);
+}
+
+// Receipts, adjustments, damage or loss, usage, pulls and returns entered by hand.
+export async function addMovement(
+  db: Db,
+  actor: Actor,
+  itemId: string,
+  input: MovementInput,
+): Promise<InventoryItem> {
+  const item = await findItem(db, itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
+  if (input.eventId) {
+    const [event] = await db
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.id, input.eventId));
+    if (!event) throw notFound("Event");
+  }
+  const direction = movementDirection[input.type];
+  await db.transaction((tx) =>
+    recordMovement(tx, actor, item, {
+      type: input.type,
+      color: input.color,
+      changes: [
+        {
+          sectionId: input.sectionId,
+          quantity:
+            direction === 0 ? input.quantity : direction * input.quantity,
+        },
+      ],
+      reason: input.reason,
+      link: input.eventId ? { type: "event", id: input.eventId } : null,
+    }),
+  );
+  return getItem(db, actor, itemId);
+}
+
+// FLOW-71 AC3: a correction is a new movement of the difference, linked to the
+// original, which stays untouched. Corrections always point at the original, and
+// a transfer is corrected by transferring back.
+export async function correctMovement(
+  db: Db,
+  actor: Actor,
+  movementId: string,
+  input: CorrectionInput,
+): Promise<StockMovement[]> {
+  const [original] = await db
+    .select()
+    .from(stockMovements)
+    .where(eq(stockMovements.id, movementId));
+  if (!original) throw notFound("Movement");
+  if (original.correctsId)
+    throw conflict(
+      "CORRECTS_A_CORRECTION",
+      "Correct the original movement instead.",
+    );
+  if (original.type === "transfer")
+    throw conflict(
+      "TRANSFER_CORRECTION",
+      "A transfer can't be corrected. Transfer the stock back instead.",
+    );
+  const direction = movementDirection[original.type];
+  if (direction * input.quantity < 0)
+    throw conflict(
+      "WRONG_DIRECTION",
+      direction > 0
+        ? "This movement adds stock; enter what it should have added."
+        : "This movement removes stock; enter what it should have removed as a negative number.",
+    );
+  const item = await findItem(db, original.itemId);
+  if (!canMoveItem(actor, item)) throw forbidden();
+  await db.transaction(async (tx) => {
+    await lockItemRow(tx, item.id);
+    await tx.select({ id: stockMovements.id }).from(stockMovements)
+      .where(eq(stockMovements.id, original.id)).for("update");
+    const [{ total }] = await tx
+      .select({
+        total: sql<string>`coalesce(sum(${stockMovements.quantity}), 0)`,
+      })
+      .from(stockMovements)
+      .where(
+        or(
+          eq(stockMovements.id, original.id),
+          eq(stockMovements.correctsId, original.id),
+        ),
+      );
+    const difference = round(input.quantity - Number(total));
+    if (difference === 0)
+      throw conflict(
+        "NO_CHANGE",
+        "That's already what the movement adds up to.",
+      );
+    await recordMovement(tx, actor, item, {
+      type: original.type,
+      color: original.color,
+      changes: [{ sectionId: original.sectionId, quantity: difference }],
+      reason: input.reason,
+      correctsId: original.id,
+      link:
+        original.linkType && original.linkId
+          ? { type: original.linkType, id: original.linkId }
+          : null,
+    });
+  });
+  return (await listMovements(db, original.itemId)).rows;
+}

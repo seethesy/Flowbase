@@ -4,13 +4,13 @@ import { createApp } from "../../worker/app";
 import { verifyGoogleToken } from "../../worker/auth";
 import type { RunWithDb } from "../../worker/hono";
 import type { Db } from "../../worker/db/client";
-import { resolveUser } from "../../worker/records/users";
+import { resolveUser } from "../../worker/records/settings/users";
 import { roleSchema } from "../../shared/access";
 import { nextUserStatus } from "../../shared/users";
 import { testSigningKey } from "../e2e/test-auth";
 
-vi.mock("../../worker/records/users", async (original) => ({
-  ...(await original<typeof import("../../worker/records/users")>()),
+vi.mock("../../worker/records/settings/users", async (original) => ({
+  ...(await original<typeof import("../../worker/records/settings/users")>()),
   resolveUser: vi.fn(),
 }));
 const env = {

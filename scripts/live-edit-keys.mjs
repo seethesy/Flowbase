@@ -3,7 +3,7 @@
 // time, every page layout's built-in block and field-card ids and
 // layout-aware table keys, and every sidebar heading and tab key (FLOW-284). Committed as shared/generated/live-edit-keys.json;
 // the Worker reads it to find saved edits that no longer match a screen, and
-// tests/live-edit-keys.test.ts fails CI when a key disappears without an entry
+// tests/settings/live-edit-keys.test.ts fails CI when a key disappears without an entry
 // in shared/live-edit-renames.ts.
 //
 // Regenerate: node scripts/live-edit-keys.mjs   (npm run live-edit:keys)
@@ -53,7 +53,7 @@ const attribute = (node, name) =>
   attributesOf(node)?.properties.find((p) => ts.isJsxAttribute(p) && p.name.getText() === name)?.initializer;
 
 // Every <T id>, <Plural id> and useCopy(id, text) with literal arguments under
-// src/ (the scan tests/copy-keys.test.ts checks), and the prefixes of keys built
+// src/ (the scan tests/settings/copy-keys.test.ts checks), and the prefixes of keys built
 // at run time.
 export function scanSource(file, text) {
   const kind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
@@ -201,7 +201,7 @@ export function scanNavigation(text) {
 
 const sortedObject = (object) => Object.fromEntries(Object.entries(object).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
-// Every usage, for the per-key checks in tests/copy-keys.test.ts.
+// Every usage, for the per-key checks in tests/settings/copy-keys.test.ts.
 export function copyUsages(root = ".") {
   return files(join(root, "src")).flatMap((file) =>
     scanSource(relative(root, file), readFileSync(file, "utf8")).copy,

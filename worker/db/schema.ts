@@ -1400,7 +1400,7 @@ export const activitySessions = pgTable(
 ).enableRLS();
 
 // Task engine (FLOW-58): the one task table every module writes through the task
-// service (worker/records/tasks.ts). created_by is the creator; completed_by and
+// service (worker/records/tasks/tasks.ts). created_by is the creator; completed_by and
 // completed_at say who marked it done and when. User, event, client and item ids
 // have no foreign keys, like created_by: the DB suite truncates those tables
 // without CASCADE, and the service checks the ids instead.
@@ -1692,7 +1692,7 @@ export const usageCounters = pgTable(
 
 // Approval requests (FLOW-44): one table for every module's approvals. The
 // subject type is the requesting module's own name, registered with the engine
-// in worker/records/approvals.ts, so it has no CHECK list here.
+// in worker/records/inventory/approvals.ts, so it has no CHECK list here.
 export const approvalRequests = pgTable(
   "approval_requests",
   {

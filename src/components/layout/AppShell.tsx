@@ -35,10 +35,10 @@ import {
 } from "lucide-react";
 import { DetailDrawer, RoleText } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
-import { GlobalSearch } from "../../features/search";
-import { NotificationBell } from "../../features/notifications";
+import { GlobalSearch } from "../../features/home/search";
+import { NotificationBell } from "../../features/home/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
-import { LiveEditControls, LiveEditLayer } from "../../app/live-edit";
+import { LiveEditControls, LiveEditLayer } from "../../app/live-edit/live-edit";
 import { T, useLiveEdit } from "../../app/copy";
 import { useAuth } from "../../app/auth";
 import {
@@ -303,13 +303,13 @@ function SectionTabs() {
 }
 // What a hidden page shows (FLOW-284), loaded only when one is opened.
 const HiddenPage = lazy(() =>
-  import("../../app/nav-visibility-editor").then((module) => ({ default: module.HiddenPage })),
+  import("../../app/live-edit/nav-visibility-editor").then((module) => ({ default: module.HiddenPage })),
 );
 
 // The live-edit "Who sees this" popover (FLOW-284), loaded only in edit mode so
 // it stays out of the first load.
 const NavWhoSeesEditor = lazy(() =>
-  import("../../app/nav-visibility-editor").then((module) => ({ default: module.NavWhoSees })),
+  import("../../app/live-edit/nav-visibility-editor").then((module) => ({ default: module.NavWhoSees })),
 );
 function NavWhoSees(props: { group: NavGroup; tab?: NavTab }) {
   const { editing } = useLiveEdit();

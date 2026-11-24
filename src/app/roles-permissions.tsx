@@ -1,4 +1,4 @@
-import { Block, PageGrid } from "./page-grid";
+import { Block, PageGrid } from "./live-edit/page-grid";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dropdown } from "../components/ui/Dropdown";
@@ -26,11 +26,11 @@ import { request } from "../services/core";
 import { roleLabel } from "../services/users";
 import { useResource } from "./useResource";
 import { usePermissions } from "./permissions";
-import { defaultBlocks, withBuiltins, type BuiltinBlock } from "./layout-state";
+import { defaultBlocks, withBuiltins, type BuiltinBlock } from "./live-edit/layout-state";
 import { layoutQueryKey } from "./copy";
 import { queryClient } from "./queryClient";
 import { navigationGroups, type NavGroup, type NavTab } from "./navigation";
-import { headingBlocked, keyOf, tabBlocked, withCell } from "./nav-visibility-editor";
+import { headingBlocked, keyOf, tabBlocked, withCell } from "./live-edit/nav-visibility-editor";
 import { RoundCheck } from "../components/ui/round-check";
 import "./roles-permissions.css";
 

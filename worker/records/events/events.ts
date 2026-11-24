@@ -1,0 +1,843 @@
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
+import type { z } from "zod";
+import type { Version } from "../../../shared/schema-primitives";
+import type { Actor } from "../../../shared/access";
+import { canSeePayments } from "../../../shared/visibility";
+import {
+  eventStatusDetailLabels,
+  type EventStatus,
+  type EventStatusChange,
+  type FlowEvent,
+  type eventInputSchema,
+} from "../../../shared/core-records";
+import {
+  automaticNextStatuses,
+  isAutomaticTransition,
+  mayOverrideStatus,
+} from "../../../shared/event-lifecycle";
+import type { EventHub, HubSection } from "../../../shared/event-hub";
+import {
+  addLocalDays,
+  businessTimeToUtc,
+  isBusinessTime,
+  utcToBusinessTime,
+} from "../../../shared/time";
+import { listHistoryPage, writeAudit } from "../../audit/log";
+import type { Db, DbLike } from "../../db/client";
+import { markPlanningStale } from "./planning-stale";
+import {
+  clientContacts,
+  clients,
+  eventAreas,
+  events,
+  eventShifts,
+  eventStaffSlots,
+  eventStatusHistory,
+  users,
+  venues,
+} from "../../db/schema";
+import { ApiError, forbidden, notFound, requireVersion } from "../../hono";
+import { emitDomainEvent } from "../../jobs/queue";
+import { changedOnEventDay } from "../../notifications/event-day";
+import { can, clientScope, eventScope } from "../../policy";
+import type { productionLeadsInputSchema } from "../../../shared/event-staff";
+import { setArchived } from "../settings/archive";
+import { requestEventRecompute } from "../inventory/allocations";
+import { syncEventHolds } from "./holds";
+import {
+  groupBy,
+  indexBy,
+  keyset,
+  type Page,
+  type PageRequest,
+} from "../core/paging";
+import { findVisibleClient, getClient } from "../sales/clients";
+import { findVenue, venueAreaNames } from "../sales/venues";
+import { notDeleted } from "../settings/deleted";
+
+// Events (FLOW-55), the record everything else attaches to. A salesperson sees the
+// events assigned to them; other staff see events they lead or assist (F-01-03) and
+// events with a shift they are assigned to (FLOW-140).
+type EventRow = typeof events.$inferSelect;
+type EventInput = z.output<typeof eventInputSchema>;
+
+export function visibleEvents(actor: Actor): SQL | undefined {
+  const scope = eventScope(actor);
+  if (scope === "all") return undefined;
+  if (scope === "own") return eq(events.assignedSalespersonId, actor.userId);
+  return or(
+    eq(events.productionLeadId, actor.userId),
+    sql`${events.assistantLeadIds} @> ${JSON.stringify([actor.userId])}::jsonb`,
+    sql`exists (select 1 from ${eventStaffSlots} join ${eventShifts} on ${eventShifts.id} = ${eventStaffSlots.shiftId} where ${eventShifts.eventId} = ${events.id} and ${eventStaffSlots.assigneeId} = ${actor.userId} and ${eventStaffSlots.archivedAt} is null and ${eventShifts.archivedAt} is null)`,
+  );
+}
+
+// A New York wall-clock time as a UTC instant; a time that doesn't happen (skipped
+// when clocks spring forward) is a validation error, not a silently moved hour.
+export function businessInstant(date: string, time: string) {
+  if (!isBusinessTime(date, time))
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      `${time} doesn't exist on ${date} in New York: clocks skip that hour. Pick another time.`,
+    );
+  return businessTimeToUtc(date, time);
+}
+
+// Stored as UTC instants from New York wall-clock times. An end time earlier than
+// the start runs past midnight, so it is that time on the next calendar date.
+export function instants(input: {
+  date: string;
+  startTime: string;
+  endTime: string | null;
+}) {
+  const startsAt = businessInstant(input.date, input.startTime);
+  if (!input.endTime) return { startsAt, endsAt: null };
+  const endDate =
+    input.endTime < input.startTime ? addLocalDays(input.date, 1) : input.date;
+  return { startsAt, endsAt: businessInstant(endDate, input.endTime) };
+}
+
+async function toEvents(db: DbLike, rows: EventRow[]): Promise<FlowEvent[]> {
+  if (!rows.length) return [];
+  const ids = rows.map((row) => row.id);
+  const clientIds = [...new Set(rows.map((row) => row.clientId).filter((id): id is string => !!id))];
+  const venueIds = [
+    ...new Set(rows.map((row) => row.venueId).filter((id): id is string => !!id)),
+  ];
+  const [clientNames, venueNames, areas] = await Promise.all([
+    clientIds.length ? db
+      .select({ id: clients.id, name: clients.name })
+      .from(clients)
+      .where(inArray(clients.id, clientIds)) : Promise.resolve([]),
+    venueIds.length
+      ? db
+          .select({ id: venues.id, name: venues.name })
+          .from(venues)
+          .where(inArray(venues.id, venueIds))
+      : Promise.resolve([]),
+    db
+      .select()
+      .from(eventAreas)
+      .where(and(inArray(eventAreas.eventId, ids), isNull(eventAreas.archivedAt)))
+      .orderBy(asc(eventAreas.sortOrder)),
+  ]);
+  const clientById = indexBy(clientNames, (client) => client.id);
+  const venueById = indexBy(venueNames, (venue) => venue.id);
+  const areasByEvent = groupBy(areas, (area) => area.eventId);
+  return rows.map((row) => {
+    const start = utcToBusinessTime(row.startsAt);
+    return {
+      id: row.id,
+      title: row.title,
+      date: start.date,
+      startTime: start.time,
+      endTime: row.endsAt ? utcToBusinessTime(row.endsAt).time : null,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt?.toISOString() ?? null,
+      client: row.clientId ? clientById.get(row.clientId) ?? { id: row.clientId, name: "" } : null,
+      leadId: row.leadId,
+      pocContactId: row.pocContactId,
+      venue: (row.venueId && venueById.get(row.venueId)) || null,
+      address: row.address,
+      areas: (areasByEvent.get(row.id) ?? []).map(({ id, name }) => ({
+        id,
+        name,
+      })),
+      eventType: row.eventType,
+      serviceType: row.serviceType,
+      foodServiceStyle: row.foodServiceStyle,
+      guestCount: row.guestCount,
+      servingsCount: row.servingsCount,
+      assignedSalespersonId: row.assignedSalespersonId,
+      productionLeadId: row.productionLeadId,
+      assistantLeadIds: row.assistantLeadIds,
+      dressCode: row.dressCode,
+      arrivalTime: row.arrivesAt ? utcToBusinessTime(row.arrivesAt).time : null,
+      transportationNotes: row.transportationNotes,
+      internalNotes: row.internalNotes,
+      status: row.status,
+      bookedAt: row.bookedAt?.toISOString() ?? null,
+      planningStaleAt: row.planningStaleAt?.toISOString() ?? null,
+      archivedAt: row.archivedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  });
+}
+
+export async function listEvents(
+  db: Db,
+  actor: Actor,
+  filter: {
+    archived?: boolean;
+    clientId?: string;
+    venueId?: string;
+    // New York dates, inclusive.
+    from?: string;
+    to?: string;
+    // Title, client or venue name (FLOW-179).
+    search?: string;
+    // Any of these statuses (one label can cover several).
+    statuses?: EventStatus[];
+  },
+  page: PageRequest = {},
+): Promise<Page<FlowEvent>> {
+  const paging = keyset<EventRow>(
+    [
+      { column: events.startsAt, type: "timestamp", of: (row) => row.startsAt },
+      { column: events.id, type: "uuid", of: (row) => row.id },
+    ],
+    page,
+  );
+  const term = filter.search ? `%${filter.search}%` : undefined;
+  const rows = await db
+    .select()
+    .from(events)
+    .where(
+      and(
+        visibleEvents(actor),
+        filter.archived ? and(isNotNull(events.archivedAt), notDeleted("event", events.id)) : isNull(events.archivedAt),
+        filter.clientId ? eq(events.clientId, filter.clientId) : undefined,
+        filter.venueId ? eq(events.venueId, filter.venueId) : undefined,
+        filter.statuses?.length
+          ? inArray(events.status, filter.statuses)
+          : undefined,
+        filter.from
+          ? gte(events.startsAt, businessTimeToUtc(filter.from, "00:00"))
+          : undefined,
+        filter.to
+          ? lt(events.startsAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00"))
+          : undefined,
+        term
+          ? or(
+              ilike(events.title, term),
+              sql`exists (select 1 from ${clients} where ${clients.id} = ${events.clientId} and ${clients.name} ilike ${term})`,
+              sql`exists (select 1 from ${venues} where ${venues.id} = ${events.venueId} and ${venues.name} ilike ${term})`,
+            )
+          : undefined,
+        paging.where,
+      ),
+    )
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) => toEvents(db, kept));
+}
+
+export async function findVisibleEvent(db: DbLike, actor: Actor, id: string) {
+  const [row] = await db
+    .select()
+    .from(events)
+    .where(and(eq(events.id, id), visibleEvents(actor)));
+  if (!row) throw notFound("Event");
+  return row;
+}
+
+export async function getEvent(db: Db, actor: Actor, id: string) {
+  const [event] = await toEvents(db, [await findVisibleEvent(db, actor, id)]);
+  return event;
+}
+
+// The event as an audit snapshot (FLOW-161). Areas are compared by name because
+// saving the form replaces their rows; startsAt/endsAt repeat date and times.
+export async function eventSnapshot(db: DbLike, id: string) {
+  const [row] = await db.select().from(events).where(eq(events.id, id));
+  const [event] = await toEvents(db, [row]);
+  const snapshot: Record<string, unknown> = {
+    ...event,
+    areas: event.areas.map((area) => area.name),
+  };
+  delete snapshot.startsAt;
+  delete snapshot.endsAt;
+  return snapshot;
+}
+
+// Everyone who can open an event sees all of its fields, so nothing is hidden.
+export async function eventHistory(db: DbLike, actor: Actor, id: string, page: PageRequest = {}) {
+  await findVisibleEvent(db, actor, id);
+  return listHistoryPage(db, "event", id, (changes) => changes, page);
+}
+
+// Hub sections whose module exists (FLOW-57), in display order. Each module ticket
+// adds its section here: booking and payments, BEO, pull list, timeline and
+// trucks.
+const builtSections: HubSection[] = [
+  "details",
+  "client",
+  // Proposals and their versions (FLOW-122/123), for those who read proposals.
+  "proposal",
+  // Equipment holds, conflicts and consumable needs (FLOW-76/77/85).
+  "inventory",
+  // The event's tasks and its task templates (FLOW-59/62). Everyone reads tasks;
+  // the list itself keeps part-time staff to their own.
+  "tasks",
+  "production",
+  "staff",
+  // The event timeline and production schedule (FLOW-126).
+  "timeline",
+  // Start planning, the pull list and the kitchen menu (FLOW-133/134/137).
+  "planning",
+  "pull_list",
+  "trucks",
+  "kitchen_menu",
+  // The day-of update log (FLOW-156).
+  "day_of",
+  // Post-event closeout and returns (FLOW-157).
+  "closeout",
+  // The banquet event order (FLOW-143, 144, 148).
+  "beo",
+  // The payment schedule and log (FLOW-131), for FT+ users who may see financials.
+  "payments",
+  "files",
+  // The event's change history (FLOW-166, from FLOW-161's audit rows).
+  "history",
+];
+
+// Everything the event hub shows, limited to what the actor may see. The client
+// section needs access to the client record itself: staff who only work the event
+// see the client's name in the details, not the client.
+export async function getEventHub(
+  db: Db,
+  actor: Actor,
+  id: string,
+): Promise<EventHub> {
+  const event = await getEvent(db, actor, id);
+  const client =
+    clientScope(actor) === "none" || !event.client
+      ? null
+      : await getClient(db, actor, event.client.id).catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        });
+  return {
+    event,
+    client,
+    sections: builtSections.filter(
+      (section) =>
+        (section !== "client" || client !== null) &&
+        (section !== "proposal" || can(actor, "proposals.read")) &&
+        (section !== "payments" ||
+          canSeePayments(actor, {
+            assignedSalespersonId: event.assignedSalespersonId,
+          })),
+    ),
+    canEdit: can(actor, "events.write"),
+    canChangeStatus: mayOverrideStatus(actor, event),
+  };
+}
+
+// Checks the references in an event and works out what it inherits from them.
+async function resolveReferences(
+  db: DbLike,
+  actor: Actor,
+  input: EventInput,
+  current?: EventRow,
+) {
+  // Locked for share (FLOW-199): the client can't be reassigned away from the
+  // actor between this check and the event's commit.
+  const client = await findVisibleClient(db, actor, input.clientId, "share").catch(
+    () => {
+      throw new ApiError(400, "INVALID_REQUEST", "Choose a client you can see.");
+    },
+  );
+  if (input.pocContactId) {
+    const [contact] = await db
+      .select({ id: clientContacts.id })
+      .from(clientContacts)
+      .where(
+        and(
+          eq(clientContacts.id, input.pocContactId),
+          eq(clientContacts.clientId, client.id),
+          isNull(clientContacts.archivedAt),
+        ),
+      );
+    if (!contact)
+      throw new ApiError(
+        400,
+        "INVALID_REQUEST",
+        "The point of contact must be one of the client's contacts.",
+      );
+  }
+  const venue = input.venueId
+    ? await findVenue(db, input.venueId).catch(() => {
+        throw new ApiError(400, "INVALID_REQUEST", "Choose an existing venue.");
+      })
+    : undefined;
+  const venueChanged = input.venueId !== (current?.venueId ?? null);
+  // Areas carry over from a newly picked venue unless the form sends its own.
+  const areas =
+    input.areas ??
+    (venue && venueChanged
+      ? (await venueAreaNames(db, venue.id)).map((area) => area.name)
+      : undefined);
+  const salesperson =
+    eventScope(actor) === "all"
+      ? input.assignedSalespersonId === undefined
+        ? (current?.assignedSalespersonId ?? client.assignedSalespersonId)
+        : input.assignedSalespersonId
+      : actor.userId;
+  return {
+    address: input.address || venue?.address || "",
+    areas,
+    salesperson,
+  };
+}
+
+const eventValues = (input: EventInput, actor: Actor) => ({
+  title: input.title,
+  ...instants(input),
+  clientId: input.clientId,
+  pocContactId: input.pocContactId,
+  venueId: input.venueId,
+  eventType: input.eventType,
+  serviceType: input.serviceType,
+  foodServiceStyle: input.foodServiceStyle,
+  guestCount: input.guestCount,
+  servingsCount: input.servingsCount,
+  dressCode: input.dressCode,
+  arrivesAt: input.arrivalTime
+    ? businessInstant(input.date, input.arrivalTime)
+    : null,
+  transportationNotes: input.transportationNotes,
+  internalNotes: input.internalNotes,
+  // Status is set on create and then only by the status changes below.
+  updatedBy: actor.userId,
+});
+
+async function replaceAreas(tx: DbLike, eventId: string, names: string[]) {
+  await tx
+    .update(eventAreas)
+    .set({ archivedAt: new Date() })
+    .where(and(eq(eventAreas.eventId, eventId), isNull(eventAreas.archivedAt)));
+  if (names.length)
+    await tx
+      .insert(eventAreas)
+      .values(names.map((name, sortOrder) => ({ eventId, name, sortOrder })));
+}
+
+// Inserts the event, its areas, its first status history row, its audit row and the
+// event.created outbox row inside the caller's transaction (lead conversion shares
+// it); returns the new id.
+export async function insertEvent(
+  tx: DbLike,
+  actor: Actor,
+  input: EventInput,
+): Promise<string> {
+  const resolved = await resolveReferences(tx, actor, input);
+  const [row] = await tx
+    .insert(events)
+    .values({
+      ...eventValues(input, actor),
+      status: input.status,
+      address: resolved.address,
+      assignedSalespersonId: resolved.salesperson,
+      createdBy: actor.userId,
+    })
+    .returning({ id: events.id });
+  await replaceAreas(tx, row.id, resolved.areas ?? []);
+  await tx.insert(eventStatusHistory).values({
+    eventId: row.id,
+    fromStatus: null,
+    toStatus: input.status,
+    createdBy: actor.userId,
+    updatedBy: actor.userId,
+  });
+  await writeAudit(tx, actor, {
+    entityType: "event",
+    entityId: row.id,
+    action: "create",
+    before: null,
+    after: await eventSnapshot(tx, row.id),
+  });
+  await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
+  return row.id;
+}
+
+// A lead may have events and proposals before Closing creates its client.
+export async function insertLeadEvent(
+  tx: DbLike,
+  actor: Actor,
+  lead: {
+    id: string; convertedClientId: string | null; assignedSalespersonId: string | null;
+    location: string; eventType: string; guestCount: number | null; message: string;
+  },
+  input: { title: string; date: string; startTime: string },
+): Promise<string> {
+  const [row] = await tx.insert(events).values({
+    title: input.title,
+    ...instants({ date: input.date, startTime: input.startTime, endTime: null }),
+    clientId: lead.convertedClientId,
+    leadId: lead.id,
+    assignedSalespersonId: lead.assignedSalespersonId,
+    address: lead.location.slice(0, 500),
+    eventType: lead.eventType,
+    guestCount: lead.guestCount,
+    internalNotes: lead.message.slice(0, 5000),
+    status: "inquiry",
+    createdBy: actor.userId,
+    updatedBy: actor.userId,
+  }).returning({ id: events.id });
+  await tx.insert(eventStatusHistory).values({
+    eventId: row.id, fromStatus: null, toStatus: "inquiry", createdBy: actor.userId,
+    updatedBy: actor.userId,
+  });
+  await writeAudit(tx, actor, { entityType: "event", entityId: row.id,
+    action: "create", before: null, after: await eventSnapshot(tx, row.id) });
+  await emitDomainEvent(tx, { name: "event.created", entityId: row.id });
+  return row.id;
+}
+
+export async function updateLeadEventBasics(tx: DbLike, actor: Actor, id: string,
+  input: { title?: string; date?: string | null; startTime?: string }) {
+  const current = await lockEvent(tx, id);
+  const before = await eventSnapshot(tx, id);
+  const local = utcToBusinessTime(current.startsAt);
+  const startsAt = input.date || input.startTime
+    ? businessTimeToUtc(input.date ?? local.date, input.startTime ?? local.time)
+    : current.startsAt;
+  const duration = current.endsAt ? current.endsAt.getTime() - current.startsAt.getTime() : null;
+  await tx.update(events).set({
+    ...(input.title !== undefined && { title: input.title }),
+    startsAt,
+    endsAt: duration === null ? null : new Date(startsAt.getTime() + duration),
+    updatedBy: actor.userId,
+  }).where(eq(events.id, id));
+  await writeAudit(tx, actor, { entityType: "event", entityId: id,
+    action: "update", before, after: await eventSnapshot(tx, id) });
+  await emitDomainEvent(tx, { name: "event.updated", entityId: id });
+  if (startsAt.getTime() !== current.startsAt.getTime()) {
+    await markPlanningStale(tx, actor, id, "Event date or time changed");
+    await syncEventHolds(tx, id);
+    await requestEventRecompute(tx, id);
+  }
+}
+
+export async function createEvent(
+  db: Db,
+  actor: Actor,
+  input: EventInput,
+): Promise<FlowEvent> {
+  const id = await db.transaction((tx) => insertEvent(tx, actor, input));
+  return getEvent(db, actor, id);
+}
+
+export async function updateEvent(
+  db: Db,
+  actor: Actor,
+  id: string,
+  input: EventInput & Partial<Version>,
+): Promise<FlowEvent> {
+  // input.status is ignored here: status changes go through overrideEventStatus.
+  await db.transaction(async (tx) => {
+    // Authorized and version-checked against the current row, locked until this
+    // save commits (FLOW-199, FLOW-186).
+    const current = await lockVisibleEvent(tx, actor, id);
+    requireVersion(current.updatedAt, input.updatedAt, "event");
+    const resolved = await resolveReferences(tx, actor, input, current);
+    const before = await eventSnapshot(tx, id);
+    await tx
+      .update(events)
+      .set({
+        ...eventValues(input, actor),
+        address: resolved.address,
+        assignedSalespersonId: resolved.salesperson,
+      })
+      .where(eq(events.id, id));
+    if (resolved.areas) await replaceAreas(tx, id, resolved.areas);
+    const after = await eventSnapshot(tx, id);
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: "update",
+      before,
+      after,
+    });
+    await emitDomainEvent(tx, { name: "event.updated", entityId: id });
+    const causes = [
+      current.guestCount !== input.guestCount && "Guest count changed",
+      current.servingsCount !== input.servingsCount && "Servings count changed",
+      current.venueId !== input.venueId && "Venue changed",
+      current.startsAt.getTime() !== new Date(eventValues(input, actor).startsAt).getTime() && "Event date or time changed",
+      current.eventType !== input.eventType && "Event type changed",
+      current.serviceType !== input.serviceType && "Service type changed",
+    ].filter((value): value is string => Boolean(value));
+    if (causes.length) await markPlanningStale(tx, actor, id, causes.join(", "));
+    if (changedOnEventDay(current.startsAt, new Date(), before, after))
+      await emitDomainEvent(tx, { name: "event.day_of_changed", entityId: id });
+    // A new date, venue buffer or guest count moves holds and per-guest needs.
+    await syncEventHolds(tx, id);
+    await requestEventRecompute(tx, id);
+  });
+  return getEvent(db, actor, id);
+}
+
+export async function setEventArchived(
+  db: Db,
+  actor: Actor,
+  id: string,
+  archived: boolean,
+): Promise<FlowEvent> {
+  await setArchived(db, actor, id, archived, {
+    lock: (tx) => lockVisibleEvent(tx, actor, id),
+    update: async (tx, values) => {
+      await tx.update(events).set(values).where(eq(events.id, id));
+      // An archived event stops holding equipment and drawing on stock; a
+      // restored one starts again.
+      await syncEventHolds(tx, id, { reevaluateAll: true });
+      await requestEventRecompute(tx, id);
+    },
+    audit: { entityType: "event", snapshot: eventSnapshot },
+    event: "event",
+  });
+  return getEvent(db, actor, id);
+}
+
+// Status changes (FLOW-56). Every change, automatic or manual, records who, when and
+// why in event_status_history, writes the audit row and emits exactly one domain
+// event, event.<new status>, all in one transaction.
+async function changeStatus(
+  tx: DbLike,
+  current: EventRow,
+  change: {
+    to: EventStatus;
+    reason: string;
+    manual: boolean;
+    // null when the system made the change.
+    actor: Actor | null;
+  },
+) {
+  const from = current.status;
+  const { to, reason, manual, actor } = change;
+  const before = await eventSnapshot(tx, current.id);
+  await tx
+    .update(events)
+    .set({
+      status: to,
+      updatedBy: actor?.userId ?? null,
+    })
+    .where(eq(events.id, current.id));
+  await tx.insert(eventStatusHistory).values({
+    eventId: current.id,
+    fromStatus: from,
+    toStatus: to,
+    reason,
+    manual,
+    createdBy: actor?.userId ?? null,
+    updatedBy: actor?.userId ?? null,
+  });
+  await writeAudit(tx, actor, {
+    entityType: "event",
+    entityId: current.id,
+    action: "update",
+    before,
+    after: await eventSnapshot(tx, current.id),
+  });
+  await emitDomainEvent(tx, {
+    name: `event.${to}`,
+    entityId: current.id,
+    data: { from, to, reason, manual },
+  });
+  // Holds follow the event's status (FLOW-76); closing or finishing an event
+  // changes what it draws from consumable stock (FLOW-85).
+  await syncEventHolds(tx, current.id, { reevaluateAll: true });
+  await requestEventRecompute(tx, current.id);
+}
+
+// Locked so two changes to the same event can't both succeed.
+async function lockEvent(tx: DbLike, id: string) {
+  const [row] = await tx
+    .select()
+    .from(events)
+    .where(eq(events.id, id))
+    .for("update");
+  if (!row) throw notFound("Event");
+  return row;
+}
+
+// Locks the event, then checks visibility on the current row (FLOW-199). The
+// lock waits for any concurrent reassignment to commit, and the next statement
+// sees it, so a change authorized against the previous owner can't commit.
+// Not visible answers 404, as before.
+export async function lockVisibleEvent(tx: DbLike, actor: Actor, id: string) {
+  await lockEvent(tx, id);
+  return findVisibleEvent(tx, actor, id);
+}
+
+const sameStatus = (status: EventStatus) =>
+  new ApiError(
+    409,
+    "INVALID_TRANSITION",
+    `The event is already ${eventStatusDetailLabels[status]}.`,
+  );
+
+// A person changing the status (A1: any status, at any time). Admin, or the
+// salesperson assigned to the event (A2).
+export async function overrideEventStatus(
+  db: Db,
+  actor: Actor,
+  id: string,
+  input: { status: EventStatus; reason: string },
+): Promise<FlowEvent> {
+  await findVisibleEvent(db, actor, id);
+  await db.transaction(async (tx) => {
+    const current = await lockEvent(tx, id);
+    if (!mayOverrideStatus(actor, current)) throw forbidden();
+    if (current.status === input.status) throw sameStatus(input.status);
+    await changeStatus(tx, current, {
+      to: input.status,
+      reason: input.reason,
+      manual: true,
+      actor,
+    });
+  });
+  return getEvent(db, actor, id);
+}
+
+// The system moving an event along the forward chain (A1), for the features that
+// drive it (proposals, contracts, payments). Call it inside the transaction that
+// makes the triggering change. Anything but the next status, or Lost, is refused.
+export async function advanceEventStatus(
+  tx: DbLike,
+  id: string,
+  to: EventStatus,
+  reason = "",
+) {
+  const current = await lockEvent(tx, id);
+  if (!isAutomaticTransition(current.status, to)) {
+    if (current.status === to) throw sameStatus(to);
+    const allowed = automaticNextStatuses(current.status);
+    throw new ApiError(
+      409,
+      "INVALID_TRANSITION",
+      `An event can't move automatically from ${eventStatusDetailLabels[current.status]} to ${eventStatusDetailLabels[to]}. ` +
+        (allowed.length
+          ? `Allowed next statuses: ${allowed.map((status) => eventStatusDetailLabels[status]).join(", ")}.`
+          : `${eventStatusDetailLabels[current.status]} is final.`),
+      { allowed },
+    );
+  }
+  await changeStatus(tx, current, { to, reason, manual: false, actor: null });
+}
+
+// The event's status changes, newest first.
+export async function eventStatusChanges(
+  db: DbLike,
+  actor: Actor,
+  id: string,
+  page: PageRequest = {},
+): Promise<Page<EventStatusChange>> {
+  await findVisibleEvent(db, actor, id);
+  type Row = typeof eventStatusHistory.$inferSelect;
+  const paging = keyset<Row>(
+    [
+      { column: eventStatusHistory.createdAt, type: "timestamp", desc: true, of: (row) => row.createdAt },
+      { column: eventStatusHistory.id, type: "uuid", desc: true, of: (row) => row.id },
+    ],
+    page,
+  );
+  const rows = await db
+    .select()
+    .from(eventStatusHistory)
+    .where(and(eq(eventStatusHistory.eventId, id), paging.where))
+    .orderBy(...paging.orderBy)
+    .limit(paging.limit);
+  return paging.page(rows, (kept) =>
+    kept.map(
+      (row): EventStatusChange => ({
+        id: row.id,
+        manual: row.manual,
+        from: row.fromStatus,
+        to: row.toStatus,
+        reason: row.reason,
+        actorId: row.createdBy,
+        at: row.createdAt.toISOString(),
+      }),
+    ),
+  );
+}
+
+// Names the event's Production Leads (FLOW-140, Q-40): one primary, who must be
+// full-time (AC4), and optional assistants, who need a primary (AC3; checked by
+// productionLeadsInputSchema). Everyone named must be active staff. Emits
+// event.production_leads_changed, which production alerts (FLOW-153) follow.
+export async function setProductionLeads(
+  db: Db,
+  actor: Actor,
+  id: string,
+  input: z.output<typeof productionLeadsInputSchema>,
+): Promise<FlowEvent> {
+  if (!can(actor, "events.production_leads")) throw forbidden();
+  await findVisibleEvent(db, actor, id);
+  const named = [
+    ...(input.productionLeadId ? [input.productionLeadId] : []),
+    ...input.assistantLeadIds,
+  ];
+  const people = named.length
+    ? await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(
+          and(
+            inArray(users.id, named),
+            eq(users.status, "active"),
+            isNull(users.archivedAt),
+          ),
+        )
+    : [];
+  if (people.length !== named.length)
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      "Production Leads must be active staff members.",
+    );
+  const primary = people.find((person) => person.id === input.productionLeadId);
+  if (primary && primary.role === "part_time_staff")
+    throw new ApiError(
+      400,
+      "INVALID_REQUEST",
+      "Part-time Staff cannot be the primary Production Lead.",
+    );
+  await db.transaction(async (tx) => {
+    const current = await lockEvent(tx, id);
+    const before = await eventSnapshot(tx, id);
+    await tx
+      .update(events)
+      .set({
+        productionLeadId: input.productionLeadId,
+        assistantLeadIds: input.assistantLeadIds,
+        updatedBy: actor.userId,
+      })
+      .where(eq(events.id, id));
+    await writeAudit(tx, actor, {
+      entityType: "event",
+      entityId: id,
+      action: "update",
+      before,
+      after: await eventSnapshot(tx, id),
+    });
+    await emitDomainEvent(tx, {
+      name: "event.production_leads_changed",
+      entityId: id,
+      data: {
+        productionLeadId: input.productionLeadId,
+        assistantLeadIds: input.assistantLeadIds,
+        previousProductionLeadId: current.productionLeadId,
+        previousAssistantLeadIds: current.assistantLeadIds,
+      },
+    });
+  });
+  return getEvent(db, actor, id);
+}

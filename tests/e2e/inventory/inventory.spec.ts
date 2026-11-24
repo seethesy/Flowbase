@@ -1,0 +1,370 @@
+import { choose } from "../dropdown";
+import { test, expect } from "../auth-fixture";
+import { chairs } from "../fixtures";
+import { seedInventory } from "../database";
+
+test("edits rental details and maintains separate color stock on one item", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto(`/#/inventory/${chairs().id}`);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel("Dimensions", { exact: true })
+    .fill("18 × 18 × 36 inches");
+  await dialog
+    .getByLabel("Assembly notes", { exact: true })
+    .fill("Attach cushion");
+  await dialog.getByLabel("Buffer days before", { exact: true }).fill("2");
+  await dialog.getByLabel("Internal cost ($)", { exact: true }).fill("12.50");
+  await dialog.getByLabel("Replacement cost ($)", { exact: true }).fill("80");
+  await dialog.getByLabel(/^Colors/).fill("Gold\nSilver");
+  await expect(
+    dialog.getByLabel("Price ($ per unit)", { exact: true }),
+  ).toBeEnabled();
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByText("18 × 18 × 36 inches", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Attach cushion", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Record movement" }).click();
+  await choose(dialog
+    .getByRole("combobox", { name: "Color", exact: true }), "Silver");
+  await choose(dialog
+    .getByRole("combobox", { name: "Location", exact: true }), { label: "Warehouse" });
+  await dialog.getByLabel("Quantity in (each)").fill("6");
+  await dialog.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page
+      .locator(".stock-table")
+      .first()
+      .getByRole("row", { name: "Warehouse · Silver 6 each" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".stock-table")
+      .first()
+      .getByRole("row", { name: "Total 56 each" }),
+  ).toBeVisible();
+});
+
+test("creates and edits fixed, per-person and quoted services with includes and add-ons", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  for (const [name, basis] of [
+    ["Balloon arch", "per_event"],
+    ["Plasticware package", "per_guest"],
+    ["Florals", "quote"],
+  ]) {
+    await page.goto("/#/inventory");
+    await page.getByRole("button", { name: "New Item", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Name *", { exact: true }).fill(name);
+    // Master items read "Rental"; Stock tracking makes one a service (FLOW-289).
+    await choose(dialog
+      .getByRole("combobox", { name: "Stock tracking", exact: true }), "not_stocked");
+    if (basis === "quote")
+      await dialog.getByLabel("Priced by quote", { exact: true }).check();
+    else {
+      await dialog.getByLabel("Price ($)", { exact: true }).fill("3.50");
+      await choose(dialog
+        .getByRole("combobox", { name: "Priced", exact: true }), basis);
+    }
+    await dialog
+      .getByRole("button", { name: "Add component", exact: true })
+      .click();
+    await choose(dialog
+      .getByRole("combobox", { name: "Component 1", exact: true }), chairs().id);
+    await dialog.getByLabel("Component 1 quantity", { exact: true }).fill("2");
+    await dialog
+      .getByRole("button", { name: "Add per-person add-on", exact: true })
+      .click();
+    await dialog.getByLabel("Add-on 1 name", { exact: true }).fill("Upgrade");
+    await dialog
+      .getByLabel("Add-on 1 price ($ per guest)", { exact: true })
+      .fill("0.50");
+    await dialog.getByRole("button", { name: "Save item" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Services aren't stocked.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Chiavari Chair", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await dialog
+      .getByLabel("Description", { exact: true })
+      .fill("Updated offering");
+    await dialog.getByRole("button", { name: "Save item" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByText("Updated offering", { exact: true }),
+    ).toBeVisible();
+    if (basis === "quote")
+      await expect(
+        page.getByText("Priced by quote", { exact: true }),
+      ).toBeVisible();
+  }
+});
+
+test("creates a decor kit and a used-up Master item, filters below par and counts it (FLOW-289)", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto("/#/inventory");
+  await page.getByRole("button", { name: "New Item", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Candles");
+  await choose(dialog.getByRole("combobox", { name: "Stock tracking", exact: true }), "used_up");
+  await expect(dialog.getByRole("combobox", { name: "Subtype", exact: true })).toHaveCount(0);
+  await dialog.getByLabel(/^Par level/).fill("10");
+  await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  // Saving opens the new item's page.
+  await expect(page.getByRole("heading", { name: "Candles", level: 1 })).toBeVisible();
+  await page.goto("/#/inventory");
+  await expect(page.getByRole("row", { name: /Candles/ })).toContainText("Rental");
+  await page.getByLabel("Below par only").check();
+  await expect(
+    page.getByRole("button", { name: "Candles", exact: true }),
+  ).toBeVisible();
+  await choose(page.getByRole("combobox", { name: "Start stock count" }), { label: "Warehouse" });
+  await expect(page).toHaveURL(/#\/inventory\/counts\/[0-9a-f-]{36}$/);
+  await expect(page.getByText("Candles", { exact: true })).toBeVisible();
+  await page.goto("/#/inventory");
+  await page.getByRole("button", { name: "New Item", exact: true }).click();
+  await dialog
+    .getByLabel("Name *", { exact: true })
+    .fill("Centerpiece Candle Set");
+  await choose(dialog
+    .getByRole("combobox", { name: "Subtype", exact: true }), "decor");
+  await dialog
+    .getByRole("button", { name: "Add component", exact: true })
+    .click();
+  await choose(dialog
+    .getByRole("combobox", { name: "Component 1", exact: true }), chairs().id);
+  await dialog
+    .getByRole("button", { name: "Add component", exact: true })
+    .click();
+  await choose(dialog
+    .getByRole("combobox", { name: "Component 2", exact: true }), { label: "Candles" });
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Kit components", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Candles", exact: true }),
+  ).toBeVisible();
+});
+
+test("transfers stock between locations from the item page", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto("/#/inventory");
+  await choose(page
+    .getByRole("combobox", { name: "Location", exact: true }), { label: "Cozy Cafe" });
+  await page
+    .getByRole("row", { name: /Chiavari Chair/ })
+    .getByRole("button", { name: "Open", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Chiavari Chair", level: 1 }),
+  ).toBeVisible();
+  const stock = page.locator(".stock-table");
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 40 each" }),
+  ).toBeVisible();
+  await expect(stock.getByRole("row", { name: "Cozy Cafe 10 each" })).toBeVisible();
+  await expect(stock.getByRole("row", { name: "Total 50 each" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Transfer", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await choose(dialog.getByLabel(/^From location/), { label: "Warehouse" });
+  await choose(dialog.getByLabel(/^To location/), { label: "Jamie's - Garage" });
+  await dialog.getByLabel("Quantity (each)").fill("10");
+  await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 30 each" }),
+  ).toBeVisible();
+  await expect(
+    stock.getByRole("row", { name: "Jamie's - Garage 10 each" }),
+  ).toBeVisible();
+  await expect(stock.getByRole("row", { name: "Total 50 each" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Transfer", exact: true }).click();
+  await choose(dialog.getByLabel(/^From location/), { label: "Cozy Cafe" });
+  await choose(dialog.getByLabel(/^To location/), { label: "Vendor" });
+  await dialog.getByLabel("Quantity (each)").fill("11");
+  await dialog.getByRole("button", { name: "Transfer", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Cozy Cafe only has 10");
+});
+
+test("creates, edits and filters ingredients", async ({ page }) => {
+  await seedInventory();
+  await page.goto("/#/kitchen/ingredients");
+  await page
+    .getByRole("button", { name: "New Ingredient", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Heavy Cream");
+  await dialog.getByLabel("Legacy category", { exact: true }).fill("Dairy");
+  await choose(dialog.getByLabel(/^Stock unit/), "qt");
+  await choose(dialog.getByLabel(/^Purchase unit/), "case");
+  await dialog.getByLabel("Items per case", { exact: true }).fill("6");
+  await dialog.getByLabel(/^One each is about/).fill("1");
+  await choose(dialog.getByLabel(/^Each size unit/), "qt");
+  // A recipe unit the cream can't be converted to is flagged.
+  await choose(dialog.getByLabel(/^Recipe unit/), "lb");
+  await expect(dialog.getByRole("status")).toContainText(
+    "Can't convert lb to case for this item.",
+  );
+  await choose(dialog.getByLabel(/^Recipe unit/), "cup");
+  await expect(dialog.getByRole("status")).toHaveCount(0);
+  await dialog.getByLabel(/^Unit cost/).fill("24");
+  await dialog.getByLabel(/^Par level/).fill("6");
+  await choose(dialog.getByLabel(/^Storage area/), { label: "Fridge" });
+  // Allergens are set on dishes, not ingredients (FLOW-95).
+  await expect(dialog.getByRole("group", { name: "Allergens" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("case of 6 × 1 qt")).toBeVisible();
+  await expect(page.getByText("$24.00")).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "New Ingredient", exact: true })
+    .click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Romaine");
+  await dialog.getByLabel("Legacy category", { exact: true }).fill("Produce");
+  await choose(dialog.getByLabel(/^Purchase unit/), "lb");
+  await dialog.getByLabel("Preferred vendor", { exact: true }).fill("Farm Co");
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await choose(page.getByLabel("Category", { exact: true }), "Dairy");
+  await expect(page.getByRole("button", { name: "Heavy Cream" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Romaine" })).toHaveCount(0);
+  await choose(page.getByLabel("Category", { exact: true }), "");
+  await page.getByLabel("Below par only").check();
+  await expect(page.getByRole("button", { name: "Heavy Cream" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Romaine" })).toHaveCount(0);
+  await page.getByLabel("Below par only").uncheck();
+  await page.getByLabel("Vendor", { exact: true }).fill("farm");
+  await expect(page.getByRole("button", { name: "Romaine" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Heavy Cream" })).toHaveCount(
+    0,
+  );
+  await page.getByLabel("Vendor", { exact: true }).fill("");
+
+  await page
+    .getByRole("row", { name: /Heavy Cream/ })
+    .getByRole("button", { name: "Open", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Heavy Cream", level: 1 }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Preferred vendor", { exact: true }).fill("Sysco");
+  await dialog.getByRole("button", { name: "Save item" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("Sysco", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fridge", { exact: true })).toBeVisible();
+  await expect(page.getByText("$24.00 per case")).toBeVisible();
+});
+
+test("records and corrects a stock movement from the item page", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto(`/#/inventory/${chairs().id}`);
+  const stock = page.locator(".stock-table").first();
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 40 each" }),
+  ).toBeVisible();
+  await expect(page.getByText("No stock movements yet.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Record movement" }).click();
+  const dialog = page.getByRole("dialog");
+  await choose(dialog.getByLabel(/^Type/), "damage_loss");
+  await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
+  await dialog.getByLabel("Quantity out (each)").fill("2");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Broken legs");
+  await dialog.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 38 each" }),
+  ).toBeVisible();
+  const history = page.locator(".movement-table");
+  await expect(history.getByRole("row")).toHaveCount(2);
+  await expect(history.getByRole("row").nth(1)).toContainText("Damage / loss");
+  await expect(history.getByRole("row").nth(1)).toContainText("−2");
+  await expect(history.getByRole("row").nth(1)).toContainText("Broken legs");
+
+  // AC3: the correction is a new, linked movement; the original stays.
+  await history.getByRole("button", { name: /^Correct the damage/ }).click();
+  await expect(dialog.getByLabel(/^Should have been/)).toHaveValue("-2");
+  await dialog.getByLabel(/^Should have been/).fill("-3");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "Give a reason for the correction.",
+  );
+  await dialog.getByLabel("Reason *").fill("Found a third");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    stock.getByRole("row", { name: "Warehouse 37 each" }),
+  ).toBeVisible();
+  await expect(history.getByRole("row")).toHaveCount(3);
+  await expect(history.getByRole("row").nth(1)).toContainText("Correction");
+  await expect(history.getByRole("row").nth(1)).toContainText("−1");
+  await expect(history.getByRole("row").nth(2)).toContainText("Corrected");
+  await expect(history.getByRole("row").nth(2)).toContainText("−2");
+});
+
+// FLOW-198 AC3: once stock has moved, the item form explains why the stock unit
+// can't change, and nothing is saved.
+test("explains that an item with stock history can't change its stock unit", async ({
+  page,
+}) => {
+  await seedInventory({ items: [chairs()] });
+  await page.goto(`/#/inventory/${chairs().id}`);
+  await page.getByRole("button", { name: "Record movement" }).click();
+  const dialog = page.getByRole("dialog");
+  await choose(dialog.getByLabel(/^Type/), "damage_loss");
+  await choose(dialog.getByLabel(/^Location/), { label: "Warehouse" });
+  await dialog.getByLabel("Quantity out (each)").fill("1");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Broken leg");
+  await dialog.getByRole("button", { name: "Record", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await choose(dialog.getByLabel(/^Stock unit/), "dozen");
+  // On the mobile project, Playwright's hit test after picking from the native
+  // select reports the form over the Save button (the other item edits in this
+  // file click it normally), so press it directly.
+  await dialog
+    .getByRole("button", { name: "Save item" })
+    .evaluate((button: HTMLButtonElement) => button.click());
+  await expect(dialog.getByRole("alert")).toContainText(
+    "stock history is recorded in each, so its stock unit can't change",
+  );
+  // Nothing was saved. (Other edits still saving is covered in
+  // tests/db/core/concurrency.test.ts.)
+  await page.reload();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(dialog.getByLabel(/^Stock unit/)).toHaveAttribute("data-value", "each");
+});

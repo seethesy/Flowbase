@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { Actor } from "../../shared/access";
 import type { AuditEntity, HistoryEntry } from "../../shared/audit";
 import type { DbLike } from "../db/client";
-import { keyset, type Page, type PageRequest } from "../records/paging";
+import { keyset, type Page, type PageRequest } from "../records/core/paging";
 import {
   auditLog,
   users,

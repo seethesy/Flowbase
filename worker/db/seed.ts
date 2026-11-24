@@ -182,7 +182,7 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
         // Rentals and supplies are Master items, the rest Kitchen Ingredients.
         await tx
           .insert(
-            // The two tables share their columns (worker/records/inventory-common.ts).
+            // The two tables share their columns (worker/records/inventory/inventory-common.ts).
             (rental || supply
               ? schema.masterInventoryItems
               : schema.kitchenIngredients) as typeof schema.masterInventoryItems,

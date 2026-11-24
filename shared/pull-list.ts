@@ -134,7 +134,7 @@ export const pullListSchema = z.object({
 });
 export type PullList = z.infer<typeof pullListSchema>;
 
-// What generation produces and regeneration compares (worker/records/pull-list.ts).
+// What generation produces and regeneration compares (worker/records/events/pull-list.ts).
 export type PullLineValue = {
   group: PullGroup;
   itemId: string | null;

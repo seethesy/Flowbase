@@ -20,7 +20,7 @@ import { clsx } from "clsx";
 import { T, useCopy } from "../../app/copy";
 
 // The app's only dropdown (FLOW-259). Every screen draws its menus with it, never
-// the browser's native select element: tests/dropdown.test.tsx and the lint rule fail
+// the browser's native select element: tests/core/dropdown.test.tsx and the lint rule fail
 // on a raw one. Options come from `options` or from native-style <option> children (their
 // text stays plain, as native option labels are out of live-copy scope), and
 // onChange gets a select-like event, so `onChange={(e) => set(e.target.value)}`

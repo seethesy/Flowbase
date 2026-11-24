@@ -5,7 +5,7 @@ import type { Actor } from "../shared/access";
 import type { Bindings } from "./bindings";
 import type { Db } from "./db/client";
 import { DatabaseNotConfiguredError } from "./db/errors";
-import type { Page, PageRequest } from "./records/paging";
+import type { Page, PageRequest } from "./records/core/paging";
 
 export type AppEnv = {
   Bindings: Bindings;

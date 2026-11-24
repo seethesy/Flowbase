@@ -41,7 +41,7 @@ export const dayOfTruckStatusLabels: Record<TruckStatus, string> = {
 };
 
 // The checkpoints of an event day, in the order they happen. Each has a planned
-// time taken from the event itself (see worker/records/day-of.ts) and an actual
+// time taken from the event itself (see worker/records/events/day-of.ts) and an actual
 // time a manager records.
 export const dayOfCheckpointKeys = [
   "food_left_kitchen",

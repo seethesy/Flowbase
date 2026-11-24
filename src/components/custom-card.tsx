@@ -1,4 +1,4 @@
-import { LayoutHeader } from "../app/layout-deletion";
+import { LayoutHeader } from "../app/live-edit/layout-deletion";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).

@@ -4,10 +4,10 @@ import { createApp } from "../../worker/app";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
 import type { Actor } from "../../shared/access";
-import { listCopy, resetCopy, saveCopy } from "../../worker/records/copy";
+import { listCopy, resetCopy, saveCopy } from "../../worker/records/settings/copy";
 
 // Admin live text editing (FLOW-240): routes, permission and placeholder checks.
-vi.mock("../../worker/records/copy", () => ({
+vi.mock("../../worker/records/settings/copy", () => ({
   listCopy: vi.fn(),
   saveCopy: vi.fn(),
   resetCopy: vi.fn(),

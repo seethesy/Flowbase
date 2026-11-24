@@ -2,8 +2,8 @@ import type { CSSProperties } from "react";
 import { canReadField, type SourceKey } from "../../shared/fields";
 import { layoutItemGone, type LayoutBox } from "../../shared/layout";
 import { usePermissions } from "../app/permissions";
-import { readingOrder } from "../app/layout-state";
-import { styleClass, styleVars } from "../app/layout-style-view";
+import { readingOrder } from "../app/live-edit/layout-state";
+import { styleClass, styleVars } from "../app/live-edit/layout-style-view";
 import { FieldLabel, FieldValue } from "./layout-fields";
 
 // Field boxes (label + value) and free-text boxes on a card's inner 12-column

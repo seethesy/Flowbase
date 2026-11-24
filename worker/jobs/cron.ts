@@ -6,19 +6,19 @@ import {
   registerNotifications,
   type NotificationOptions,
 } from "../notifications/fanout";
-import { registerInventoryPlanning } from "../records/allocations";
-import { registerPlanning } from "../records/planning";
-import { registerRecipeCostChanges } from "../records/recipes";
-import { registerBeoDocuments } from "../records/beo-documents";
-import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks";
-import { emitPaymentReminders } from "../records/payments";
-import { scanCollectorHealth } from "../records/collector-health";
-import { refreshUsage } from "../records/usage";
+import { registerInventoryPlanning } from "../records/inventory/allocations";
+import { registerPlanning } from "../records/events/planning";
+import { registerRecipeCostChanges } from "../records/kitchen/recipes";
+import { registerBeoDocuments } from "../records/beo/beo-documents";
+import { emitDueSoonTaskEvents, emitDueTaskEvents } from "../records/tasks/tasks";
+import { emitPaymentReminders } from "../records/sales/payments";
+import { scanCollectorHealth } from "../records/home/collector-health";
+import { refreshUsage } from "../records/settings/usage";
 import { cleanupAttachments } from "../attachments/cleanup";
 import { cleanupJobs } from "./cleanup";
-import { emitAddendumReminders } from "../records/contracts";
-import { scanProductionAlerts } from "../records/production-alerts";
-import { registerGoogleCalendar, sweepGoogleCalendars } from "../records/google-calendar";
+import { emitAddendumReminders } from "../records/sales/contracts";
+import { scanProductionAlerts } from "../records/events/production-alerts";
+import { registerGoogleCalendar, sweepGoogleCalendars } from "../records/events/google-calendar";
 import { JobRegistry, runDueJobs, type RunOptions } from "./queue";
 
 // Every job handler the Worker knows. New handlers register here.

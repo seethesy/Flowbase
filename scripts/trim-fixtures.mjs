@@ -3,7 +3,7 @@
 // links and metadata, inline styles, and the class names and data-* attributes
 // that no collector selector or test names, plus framework
 // (`_ngcontent-*`) and rendering attributes. Run it after replacing a fixture
-// with a newly saved page, then run tests/e2e/collector-sites.spec.ts and
+// with a newly saved page, then run tests/e2e/leads/collector-sites.spec.ts and
 // tests/leads/collector.test.ts. Bark's pages also drop everything outside
 // the lead list and detail (KEEP).
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";

@@ -5,7 +5,7 @@ import type { LayoutDoc } from "./layout";
 // (ui_copy) and page layouts (ui_layout) are matched to the code by key: a
 // wording key, or a block or field-card id inside a page's layout. When code
 // renames one, list it here so the saved edit follows it. When code drops one
-// for good, list it under `removed`. The CI guard (tests/live-edit-keys.test.ts)
+// for good, list it under `removed`. The CI guard (tests/settings/live-edit-keys.test.ts)
 // fails when a key or block id disappears from shared/generated/live-edit-keys.json
 // without either entry. See docs/live-text-editing.md.
 
