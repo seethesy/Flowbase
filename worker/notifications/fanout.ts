@@ -17,6 +17,7 @@ import {
   notificationPreferences,
   notifications,
   taskAssignees,
+  taskManagers,
   tasks,
   users,
 } from "../db/schema";
@@ -185,12 +186,19 @@ async function assigneesOf(db: DbLike, taskId: string) {
     .where(and(eq(taskAssignees.taskId, taskId), isNull(taskAssignees.archivedAt)));
   return rows.map((row) => row.userId);
 }
+async function managersOf(db: DbLike, taskId: string) {
+  const rows = await db.select({ userId: taskManagers.userId }).from(taskManagers)
+    .innerJoin(users, eq(users.id, taskManagers.userId))
+    .where(and(eq(taskManagers.taskId, taskId), isNull(taskManagers.archivedAt),
+      eq(users.status, "active"), isNull(users.archivedAt)));
+  return rows.map((row) => row.userId);
+}
 
-// task.claimed (FLOW-59 AC2): the task's overseer, unless they claimed it.
+// task.claimed (FLOW-59 AC2): every active manager except the claimant.
 const taskClaimed: Subscriber = async (job, db) => {
   const payload = payloadOf(job);
   const task = await openTask(db, payload.entityId);
-  if (!task?.overseerId || task.overseerId === payload.actorId) return [];
+  if (!task) return [];
   const [who] =
     typeof payload.actorId === "string"
       ? await db
@@ -198,14 +206,12 @@ const taskClaimed: Subscriber = async (job, db) => {
           .from(users)
           .where(eq(users.id, payload.actorId))
       : [];
-  return [
-    {
-      userId: task.overseerId,
+  return (await managersOf(db, task.id)).filter((userId) => userId !== payload.actorId).map((userId) => ({
+      userId,
       title: `Task claimed: ${task.title}`,
       body: who ? `${who.name || who.email} took this task.` : "",
       link: `/tasks/${task.id}`,
-    },
-  ];
+    }));
 };
 
 // task.due_soon (FLOW-60): the assignees of a task that is still open.
@@ -221,13 +227,13 @@ const taskDueSoon: Subscriber = async (job, db) => {
 };
 
 // task.due (FLOW-58's due-time scan): the task is overdue. Its assignees and
-// overseer are told once (FLOW-60 AC2) if it is still open.
+// managers are told once (FLOW-60 AC2) if it is still open.
 const taskDue: Subscriber = async (job, db) => {
   const task = await openTask(db, payloadOf(job).entityId);
   if (!task || task.status === "done" || !task.dueAt) return [];
   const people = new Set([
     ...(await assigneesOf(db, task.id)),
-    ...(task.overseerId ? [task.overseerId] : []),
+    ...(await managersOf(db, task.id)),
   ]);
   return [...people].map((userId) => ({
     userId,
@@ -237,7 +243,7 @@ const taskDue: Subscriber = async (job, db) => {
   }));
 };
 
-// task.completed (FLOW-60): the overseer and the creator, except whoever
+// task.completed (FLOW-60): every manager and the creator, except whoever
 // completed it.
 const taskCompleted: Subscriber = async (job, db) => {
   const payload = payloadOf(job);
@@ -245,7 +251,7 @@ const taskCompleted: Subscriber = async (job, db) => {
   // Reopened before the job ran: nothing to announce.
   if (!task || task.status !== "done") return [];
   const people = new Set(
-    [task.overseerId, task.createdBy].filter(
+    [...(await managersOf(db, task.id)), task.createdBy].filter(
       (userId): userId is string => !!userId && userId !== payload.actorId,
     ),
   );

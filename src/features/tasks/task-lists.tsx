@@ -47,7 +47,7 @@ function TaskLine({
   const [error, setError] = useState("");
   const cancelled = useRef(false);
   const editable = Boolean(onChanged && actor && mayManageTask(actor, {
-    createdBy: task.creator?.id ?? null, overseerId: task.overseer?.id ?? null }));
+    createdBy: task.creator?.id ?? null, managerIds: task.managers.map((person) => person.id) }));
   const save = async () => {
     if (cancelled.current || draft === display) { setEditing(false); return; }
     const before = display;
@@ -64,9 +64,10 @@ function TaskLine({
   // FLOW-275: the Due field reads as it does elsewhere ("Due 2026-09-03 18:00").
   const dueText = useCopy("task-lists.task-line.due", "Due {date}", { date: task.dueAt ? dateTimeLabel(task.dueAt) : "" });
   const noDueText = useCopy("task-lists.task-line.no-due-date", "No due date");
+  const managersLabel = useCopy("task-lists.task-line.managers", "Managers");
   const people = [
     ...staff,
-    ...[...task.assignees, ...(task.overseer ? [task.overseer] : [])]
+    ...[...task.assignees, ...task.managers]
       .filter((person) => !staff.some((member) => member.id === person.id)),
   ].map((person) => ({ value: person.id, label: person.name }));
   const eventOptions = [
@@ -97,9 +98,9 @@ function TaskLine({
         <EditableCell label="Assignees" row={task} edit="select" multiple options={people}
           value={task.assignees.map((person) => person.id).join(",")}
           save={(_row, value) => patch({ assigneeIds: value.split(",").filter(Boolean) })} />
-        <EditableCell label="Overseer" row={task} edit="select" value={task.overseer?.id ?? ""}
-          options={[{ value: "", label: "No overseer" }, ...people]}
-          save={(_row, value) => patch({ overseerId: value || null })} />
+        <EditableCell label={managersLabel} row={task} edit="select" multiple value={task.managers.map((person) => person.id).join(",")}
+          options={people}
+          save={(_row, value) => patch({ managerIds: value.split(",").filter(Boolean) })} />
         <EditableCell label="Position" row={task} edit="text" value={task.position ?? ""}
           save={(_row, value) => patch({ position: value.trim() || null })} />
         <EditableCell label="Event" row={task} edit="select" value={task.eventId ?? ""} options={eventOptions}
@@ -241,6 +242,7 @@ function filterFrom(params: URLSearchParams): TaskFilter {
 // those plus the open unassigned tasks (FLOW-272).
 export function TaskList() {
   const nameTheseFiltersToSavePlaceholder = useCopy("task-lists.task-list.name-these-filters-to-save.placeholder", "Name these filters to save them as a view");
+  const managerFilterLabel = useCopy("task-lists.task-list.manager-filter", "Manager");
   const { actor } = usePermissions();
   const [params, setParams] = useSearchParams();
   const staff = useActiveStaff();
@@ -353,6 +355,14 @@ export function TaskList() {
               {member.name}
             </option>
           ))}
+        </Dropdown>
+        <Dropdown
+          aria-label={managerFilterLabel}
+          value={filter.overseerId ?? ""}
+          onChange={(e) => change("overseerId", e.target.value)}
+        >
+          <option value="">Any manager</option>
+          {staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
         </Dropdown>
         <Dropdown
           aria-label="Event"
@@ -473,7 +483,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
   );
   const pull = useResource(["event-pull-list", event.id], () => preparationApi.pullList(event.id));
   // FLOW-275: task fields are edited in place here too, as on All tasks. Staff
-  // (the assignee and overseer choices) load only once the event has tasks, so an
+  // (the assignee and manager choices) load only once the event has tasks, so an
   // event page without tasks makes no extra request.
   const staff = useActiveStaff(Boolean(list.data?.length));
   const tbdPullLines = pull.data?.groups.flatMap((group) => group.lines).filter((line) => line.tbd) ?? [];

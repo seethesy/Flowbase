@@ -208,7 +208,7 @@ test("Inventory Bar: a card added in the cell below List starts on the previewed
   const builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Reorder soon");
   await builder.getByRole("checkbox", { name: /^Show / }).first().click();
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   const card = editGrid(page, KEY).locator("[data-block-id^=card-]");
   expect(Math.abs((await boxOf(card)).y - previewed.y)).toBeLessThanOrEqual(1);
   await save(page);
@@ -273,7 +273,7 @@ test("keyboard only: resize, exact percentage, move, merge, unmerge and add a ca
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("Keyboard card");
   await press(builder.getByRole("checkbox", { name: /^Show / }).first(), "Space");
-  await press(builder.getByRole("button", { name: "Done" }), "Enter");
+  await press(builder.getByRole("button", { name: "Save card" }), "Enter");
   await expect(editGrid(page, KEY).locator("[data-block-id^=card-]")).toHaveAttribute("data-slot", "1,1");
   await press(page.getByRole("button", { name: "Save", exact: true }), "Enter");
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();

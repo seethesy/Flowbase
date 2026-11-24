@@ -115,6 +115,16 @@ for (const role of roles)
         serializeFields(who, "staff_member", self, { subjectUserId: userId }),
       ).toEqual({ ...self, notes: ft ? self.notes : null });
       expect(canSeeField(who, "staff_contact", { subjectUserId: userId })).toBe(true);
+      // FLOW-333: address and staff ID follow the mobile number's rule.
+      const details = { id: "someone-else", address: "12 Example Lane", employeeId: "0123", drives: true, hasCar: null };
+      expect(serializeFields(who, "staff_member", details, { subjectUserId: details.id })).toEqual({
+        ...details,
+        address: ft ? details.address : null,
+        employeeId: ft ? details.employeeId : null,
+      });
+      expect(
+        serializeFields(who, "staff_member", { ...details, id: userId }, { subjectUserId: userId }),
+      ).toEqual({ ...details, id: userId });
       expect(canSeeField(who, "staff_contact", { subjectUserId: null })).toBe(ft);
       expect(
         serializeFields(

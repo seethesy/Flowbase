@@ -5,10 +5,10 @@ In-app and email notifications (FLOW-43, ADR-12; catalog in `shared/notification
 | Type | Domain event | Who is told |
 | --- | --- | --- |
 | `task_assigned` | `task.assigned` | People added as assignees, and people taken off ("Task reassigned", FLOW-60), except whoever made the change |
-| `task_claimed` | `task.claimed` (FLOW-59) | The task's overseer, unless they claimed it |
+| `task_claimed` | `task.claimed` (FLOW-59) | Every active task manager except the claimant |
 | `task_due_soon` | `task.due_soon` (FLOW-60) | The task's assignees, while it is still open |
-| `task_due` | `task.due` | "Task overdue": the task's assignees and overseer, while it is still open |
-| `task_completed` | `task.completed` (FLOW-60) | The task's overseer and creator, except whoever completed it |
+| `task_due` | `task.due` | "Task overdue": the task's assignees and active managers, while it is still open |
+| `task_completed` | `task.completed` (FLOW-60) | The task's active managers and creator, except whoever completed it |
 | `staff_assigned` | `event.staff_assigned` (FLOW-140) | The person put on the roster slot |
 | `approval_requested`, `approval_decided`, `inventory_conflict`, `production_alert`, `proposal_approved`, `payment_due`, `payment_overdue`, `collector_failure` | `approval.requested`, `approval.decided`, `inventory.conflict_detected`, `production.alert_raised`, `proposal.approved`, `payment.due`, `payment.overdue`, `collector.failed` | The producing module decides: its event's data carries `recipientIds`, `title`, `body` and an in-app `link` (`notifyPayloadSchema`). A payload without them fails the job so an admin sees it |
 

@@ -101,17 +101,21 @@ export function BoxEditorList({
   source,
   boxes,
   onChange,
+  textOnly = false,
 }: {
   source: SourceKey;
   boxes: LayoutBox[];
   onChange: (boxes: LayoutBox[]) => void;
+  // The card builder picks field boxes in its Fields picker (FLOW-327): here
+  // only text boxes are listed and added.
+  textOnly?: boolean;
 }) {
   const deletion = useDeletion();
   const remove = (id: string) => onChange(boxes.filter((box) => box.id !== id));
   return (
     <div className="layout-box-editor">
       <ul>
-        {boxes.filter((box) => !layoutItemGone(box)).map((box) => (
+        {boxes.filter((box) => !layoutItemGone(box) && !(textOnly && box.kind === "field")).map((box) => (
           <li key={box.id}>
             {box.kind === "field" ? (
               <>
@@ -139,7 +143,7 @@ export function BoxEditorList({
         ))}
       </ul>
       <div className="layout-box-adds">
-        <AddFieldMenu source={source} boxes={boxes} onAdd={(field) => onChange(addFieldBox(boxes, field))} />
+        {!textOnly && <AddFieldMenu source={source} boxes={boxes} onAdd={(field) => onChange(addFieldBox(boxes, field))} />}
         <AddTextMenu onAdd={(kind) => onChange(addTextBox(boxes, kind))} />
       </div>
     </div>

@@ -12,6 +12,8 @@ import type { Client, FlowEvent } from "../../../shared/core-records";
 import type { Task, TaskInput, TaskSummary } from "../../../shared/tasks";
 import { completion } from "../../../shared/tasks";
 import { createTask, emitDueTaskEvents, updateTask } from "../../../worker/records/tasks/tasks";
+import { defaultBusinessDefaults } from "../../../shared/settings";
+import { updateSetting } from "../../../worker/records/settings/settings";
 
 // Task engine (FLOW-58) through the real API and database: one task model for
 // every module (AC1), the service API, status rules, and auditing with
@@ -32,6 +34,7 @@ const people = {
   pat: "c5800000-0000-4000-8000-000000000004",
   casey: "c5800000-0000-4000-8000-000000000005",
   gone: "c5800000-0000-4000-8000-000000000006",
+  alex: "c5800000-0000-4000-8000-000000000007",
 };
 const directory: [keyof typeof people, Role, EmploymentType][] = [
   ["admin", "admin", "full_time"],
@@ -41,6 +44,7 @@ const directory: [keyof typeof people, Role, EmploymentType][] = [
   ["pat", "staff", "part_time"],
   ["casey", "staff", "full_time"],
   ["gone", "staff", "full_time"],
+  ["alex", "staff", "part_time"],
 ];
 const actorOf = (who: keyof typeof people) => {
   const [, role, employmentType] = directory.find(([name]) => name === who)!;
@@ -77,8 +81,9 @@ const lead = signedInAs("lead");
 const sam = signedInAs("sam");
 const pat = signedInAs("pat");
 const casey = signedInAs("casey");
+const alex = signedInAs("alex");
 
-const tables = sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, task_comments, task_checklist_items, task_assignees, tasks, notifications, notification_preferences, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, task_comments, task_checklist_items, task_assignees, task_managers, tasks, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -101,7 +106,7 @@ afterAll(async () => {
 });
 
 const newTask = (input: TaskInput, as = admin) =>
-  as.send<Task>("POST", "/api/tasks", input);
+  as.send<Task>("POST", "/api/tasks", "managerIds" in input || "overseerId" in input ? input : { ...input, managerIds: [] });
 const assignedEvents = () =>
   db
     .select()
@@ -109,6 +114,27 @@ const assignedEvents = () =>
     .where(eq(schema.jobs.type, "event:task.assigned"));
 
 describe("service API", () => {
+  it("FLOW-324: copies active Admins or configured people onto each new task", async () => {
+    const first = await pat.send<Task>("POST", "/api/tasks", { title: "Set out glasses" });
+    expect(first.managers.map((person) => person.id)).toEqual([people.admin]);
+    await updateSetting(db, actorOf("admin"), "defaults", {
+      ...defaultBusinessDefaults,
+      defaultTaskManagers: { mode: "people", userIds: [people.casey, people.lead] },
+    });
+    const second = await pat.send<Task>("POST", "/api/tasks", { title: "Set out plates" });
+    expect(second.managers.map((person) => person.id).sort()).toEqual([people.casey, people.lead].sort());
+    expect(first.managers.map((person) => person.id)).toEqual([people.admin]);
+  });
+
+  it("FLOW-324: every manager may edit and reassign, while a non-manager cannot", async () => {
+    const task = await newTask({ title: "Lay tablecloths", assigneeIds: [people.alex], managerIds: [people.pat, people.lead] });
+    expect((await alex.call("PATCH", `/api/tasks/${task.id}`, { title: "Changed" })).status).toBe(403);
+    await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { assigneeIds: [people.sam] });
+    const changed = await lead.send<Task>("PATCH", `/api/tasks/${task.id}`, { title: "Lay white tablecloths" });
+    expect(changed.title).toBe("Lay white tablecloths");
+    expect(changed.managers.map((person) => person.id).sort()).toEqual([people.pat, people.lead].sort());
+  });
+
   it("creates a task with assignees, overseer, checklist and links, and audits it", async () => {
     const task = await newTask({
       title: "Polish the chafing dishes",
@@ -126,7 +152,8 @@ describe("service API", () => {
       status: "todo",
       priority: "high",
       dueAt: "2026-11-13T15:00:00.000Z",
-      overseer: { id: people.lead, name: "Lead" },
+      overseer: [{ id: people.lead, name: "Lead" }],
+      managers: [{ id: people.lead, name: "Lead" }],
       creator: { id: people.admin, name: "Admin" },
       checklistDone: 0,
       checklistTotal: 2,
@@ -329,7 +356,7 @@ describe("visibility and delegation", () => {
       { title: "Pat, restock the bar", type: "delegated", assigneeIds: [people.pat], overseerId: people.casey },
       casey,
     );
-    expect(delegated.overseer).toEqual({ id: people.casey, name: "Casey" });
+    expect(delegated.managers).toEqual([{ id: people.casey, name: "Casey" }]);
   });
 });
 

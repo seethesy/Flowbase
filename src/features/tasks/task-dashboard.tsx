@@ -10,14 +10,14 @@ import { useResource } from "../../app/useResource";
 import { Button, DataTable, DateTimeCell, instantParts, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { tasksApi } from "../../services/tasks";
 import { dateTimeLabel } from "../inventory/inventory-labels";
-import { T, LabelT } from "../../app/copy";
+import { T, LabelT, useCopy } from "../../app/copy";
 import { copySlug } from "../../../shared/copy";
 import { NewTaskDrawer, names, useActiveStaff } from "./task-form";
 import { TaskActions } from "./task-lists";
 import "./tasks.css";
 
 // The task dashboard at /tasks (FLOW-60): my tasks by when they're due, the tasks
-// I oversee, and "Needs delegation" for managers.
+// I manage, and "Needs delegation" for managers.
 
 // A link to the task list showing exactly the tasks a dashboard section counts.
 const listLink = (filter: TaskFilter) =>
@@ -202,7 +202,7 @@ function QuickAssign({
         try {
           await tasksApi.update(task.id, {
             assigneeIds: [person],
-            ...(task.overseer ? {} : { overseerId: actor.userId }),
+            ...(task.managers.length ? {} : { managerIds: [actor.userId] }),
           });
           onChanged();
         } catch (err) {
@@ -231,8 +231,9 @@ function QuickAssign({
   );
 }
 
-// /tasks: each person's home for their own work and the work they oversee.
+// /tasks: each person's home for their own work and the work they manage.
 export function TaskDashboardPage() {
+  const managingTitle = useCopy("task-lists.task-dashboard-page.tasks-i-manage", "Tasks I manage");
   const { actor, can } = usePermissions();
   const dashboard = useResource(["tasks", "dashboard"], () => tasksApi.dashboard());
   const staff = useActiveStaff();
@@ -252,7 +253,7 @@ export function TaskDashboardPage() {
   });
   return (
     <>
-      <PageHeader pageKey="tasks.dashboard" title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you oversee.</T>}>
+      <PageHeader pageKey="tasks.dashboard" title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you manage.</T>}>
         <Button asChild variant="outline">
           <Link to="/tasks/all">
             {taskScope(actor) === "all" ? <T id="task-lists.task-dashboard-page.team-tasks">Team tasks</T> : <T id="task-lists.task-dashboard-page.all-tasks">All tasks</T>}
@@ -301,15 +302,15 @@ export function TaskDashboardPage() {
         </DashboardGroup>
       </Section>
 </Block>
-      <Block id="overseeing" name="Overseeing" h={8}>
-<Section title={<T id="task-lists.task-dashboard-page.overseeing">Overseeing</T>}>
+      <Block id="overseeing" name="Managing" h={8}>
+<Section title={<T id="task-lists.task-dashboard-page.overseeing">Managing</T>}>
         <DashboardGroup
           onChanged={reload}
           onError={setError}
-          title="Tasks I oversee"
+          title={managingTitle}
           section={data.overseeing}
           filter={{ mine: "true", overseerId: actor.userId }}
-          empty={<T id="task-lists.task-dashboard-page.you-don-t-oversee-any">{"You don't oversee any open tasks."}</T>}
+          empty={<T id="task-lists.task-dashboard-page.you-don-t-oversee-any">{"You don't manage any open tasks."}</T>}
         >
           {() => null}
         </DashboardGroup>

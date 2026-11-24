@@ -73,6 +73,7 @@ export const taskInputSchema = z.object({
   dueAt: timestamp.nullable().default(null),
   assigneeIds: uniqueIds(20, "List each assignee once.").default([]),
   overseerId: id.nullable().default(null),
+  managerIds: uniqueIds(20, "List each manager once.").optional(),
   eventId: id.nullable().default(null),
   clientId: id.nullable().default(null),
   inventoryItemId: id.nullable().default(null),
@@ -95,6 +96,7 @@ export const taskUpdateSchema = z
     dueAt: timestamp.nullable(),
     assigneeIds: uniqueIds(20, "List each assignee once."),
     overseerId: id.nullable(),
+    managerIds: uniqueIds(20, "List each manager once."),
     eventId: id.nullable(),
     clientId: id.nullable(),
     inventoryItemId: id.nullable(),
@@ -210,7 +212,9 @@ export const taskSummarySchema = z.object({
   priority: taskPrioritySchema,
   dueAt: timestamp.nullable(),
   assignees: z.array(person),
-  overseer: person.nullable(),
+  // The historical field key remains for Admin-saved layouts.
+  overseer: z.array(person),
+  managers: z.array(person),
   creator: person.nullable(),
   eventId: id.nullable(),
   // Null when the event is gone or the viewer can't open it.
@@ -236,7 +240,7 @@ export const taskSchema = taskSummarySchema.extend({
   description: z.string(),
   checklist: z.array(checklistItemSchema),
   comments: z.array(taskCommentSchema),
-  // May change the details, assignees and overseer (mayManageTask).
+  // May change the details, assignees and managers (mayManageTask).
   canManage: z.boolean(),
 });
 export type Task = z.infer<typeof taskSchema>;

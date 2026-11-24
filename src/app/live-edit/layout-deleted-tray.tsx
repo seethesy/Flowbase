@@ -12,7 +12,7 @@ export function DeletedItemsTray({ onRestoreBlock }: { onRestoreBlock?: (id: str
   if (!layout?.editing) return null;
   const items = layout.doc ? layoutItems(layout.doc).filter((item) => item.state.deleted && !item.state.removed) : [];
   return <div className="layout-tray">
-    <Button variant="outline" aria-expanded={open} onClick={() => setOpen(!open)}>{`Deleted items (${items.length})`}</Button>
+    <Button variant="ghost" className="layout-btn-muted" aria-expanded={open} onClick={() => setOpen(!open)}>{`Deleted items (${items.length})`}</Button>
     {open && <div className="layout-tray-list" role="dialog" aria-label="Deleted items">
       {!items.length ? <p>Nothing is deleted.</p> : <ul>{items.map((item) => <li key={item.key}>
         <span>{item.state.deleted!.name} · {item.kind} · Deleted by {item.state.deleted!.by} at {new Date(item.state.deleted!.at).toLocaleString()}</span>

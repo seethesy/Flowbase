@@ -114,7 +114,7 @@ test("Inventory Bar: a card added below List starts on the previewed boundary at
   const builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Below the list");
   await builder.getByRole("checkbox", { name: /^Show / }).first().click();
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   expect(Math.abs((await boxOf(editGrid(page, KEY).locator("> [data-block-id^=card-]"))).y - previewed.y)).toBeLessThanOrEqual(1);
   await save(page);
   for (const viewport of viewports) {

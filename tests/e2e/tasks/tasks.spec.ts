@@ -25,7 +25,7 @@ const seedTasks = (inputs: TaskInput[]) =>
   browserDb(async (db) => {
     const ids: string[] = [];
     for (const input of inputs)
-      ids.push(await createTask(db, null, taskInputSchema.parse(input)));
+      ids.push(await createTask(db, null, taskInputSchema.parse("managerIds" in input || "overseerId" in input ? input : { ...input, managerIds: [] })));
     return ids;
   });
 const today = () => utcToBusinessTime(new Date()).date;
@@ -74,6 +74,29 @@ test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", as
   await expect(page.getByText("No tasks match these filters.")).toBeVisible();
   await choose(page.getByLabel("Status"), { label: "Done" });
   await expect(tasks.getByRole("link")).toHaveText(["Polish chafing dishes"]);
+});
+
+test("FLOW-324: new tasks prefill Admins, then use the saved named managers", async ({ page }) => {
+  const admins = seedUsers.filter((user) => user.role === "admin");
+  await page.goto("/#/tasks/all");
+  await page.getByRole("button", { name: "New task" }).click();
+  const drawer = page.getByRole("dialog");
+  const managers = drawer.getByLabel("Managers");
+  await expect.poll(async () => (await managers.getAttribute("data-value"))?.split(",").sort())
+    .toEqual(admins.map((user) => user.id).sort());
+  await drawer.getByRole("button", { name: "Cancel" }).click();
+
+  await page.goto("/#/settings");
+  await choose(page.getByLabel("Default task managers"), { label: "Specific people" });
+  const named = [seedUsers.find((user) => user.role === "kitchen_lead")!, seedUsers.find((user) => user.role === "sales_manager")!];
+  await choose(page.getByLabel("Specific task managers"), named.map((user) => user.id));
+  await page.getByRole("button", { name: "Save defaults" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Defaults saved." })).toBeVisible();
+
+  await page.goto("/#/tasks/all");
+  await page.getByRole("button", { name: "New task" }).click();
+  await expect.poll(async () => (await page.getByRole("dialog").getByLabel("Managers").getAttribute("data-value"))?.split(",").sort())
+    .toEqual(named.map((user) => user.id).sort());
 });
 
 databaseTest("part-time staff see their own and unassigned tasks, and pick one up (FLOW-59 AC1, FLOW-272)", async ({ page }) => {
@@ -129,7 +152,7 @@ test("delegates from Needs delegation, then reassigns on the task (FLOW-60/61)",
   await needs.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(needs).toContainText("Every task coming up has someone on it.");
   // The Admin assigned it, so the Admin oversees it (AC1).
-  const overseeing = page.getByRole("region", { name: "Tasks I oversee" });
+  const overseeing = page.getByRole("region", { name: "Tasks I manage" });
   await expect(overseeing).toContainText("Build the bar");
   await expect(overseeing).toContainText(fullTimeStaff.name);
 

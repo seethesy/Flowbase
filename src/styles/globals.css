@@ -3411,3 +3411,84 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   margin: 0;
   flex: 1;
 }
+
+/* FLOW-327: the card builder's Display as switch, Fields picker, preview, and
+   colored live-edit controls from existing tokens: primary for Add card and
+   Save card (default Button), neutral outlines for Add text and sizes with the
+   pressed one filled, red (--error) for delete, blue (--info) for hide and
+   Hidden items, muted for Deleted items and Reset page layout. Each pairing
+   meets WCAG AA (4.5:1) on white. */
+.segmented-control {
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px;
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.segmented-control button:hover:not(:disabled):not(.is-selected) { background: var(--soft); }
+.segmented-control button.is-selected { background: var(--primary); color: #fff; }
+.segmented-control button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.segmented-control__icon { display: inline-flex; }
+.layout-field-help { color: var(--muted); font-size: 11px; }
+.layout-card-builder .form-field > .layout-field-help { display: block; margin-top: 2px; }
+.layout-field-help--below { margin-top: -8px; }
+.layout-field-picker { display: grid; gap: 6px; }
+.layout-field-picker input[type="search"] { width: 100%; }
+.layout-field-picked,
+.layout-field-options {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layout-field-options { max-height: 220px; overflow-y: auto; }
+.layout-field-picked li,
+.layout-field-options li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  font-size: 13px;
+}
+.layout-field-picked li { border-radius: 6px; background: var(--soft); }
+.layout-field-picked label,
+.layout-field-options label { display: inline-flex; flex: 1; align-items: center; gap: 6px; }
+.layout-field-order {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+.layout-card-preview { display: grid; gap: 4px; padding: 8px; border: 1px dashed var(--border-dark); border-radius: 8px; }
+.layout-card-preview h3 { margin: 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.layout-card-preview .layout-card { margin: 0; box-shadow: none; }
+.layout-card-preview .layout-card-scroll { max-height: 200px; }
+.layout-size-presets button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: #fff; }
+button.layout-delete { color: var(--error); }
+button.layout-delete--permanent { padding: 2px 8px; border: 1px solid var(--error); border-radius: 6px; background: var(--surface); font-size: 12px; cursor: pointer; }
+button.layout-delete--permanent:hover { background: var(--error); color: #fff; }
+button.layout-action-hide,
+button.layout-box-remove { color: var(--info); }
+.btn-outline.layout-btn-accent { border-color: var(--info); color: var(--info); }
+.btn-outline.layout-btn-accent:hover { background: #eef3fd; }
+.btn-ghost.layout-btn-muted { color: var(--muted); }
+.btn-ghost.layout-btn-muted:hover { background: var(--soft); color: var(--text); }
