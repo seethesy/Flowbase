@@ -52,7 +52,8 @@ test("edits the event's fields in place in each card and keeps them after a relo
   await card("Event details").getByLabel("End time").fill("22:30");
   await card("Event details").getByRole("textbox", { name: "Address" }).fill("1 Elm St, Arlington, VA");
   await card("Event details").getByRole("spinbutton", { name: "Guests" }).fill("150");
-  await card("Event details").getByRole("textbox", { name: "Dress code" }).fill("Black tie");
+  // An input with suggestions (a datalist) is a combobox.
+  await card("Event details").getByRole("combobox", { name: "Dress code" }).fill("Black tie");
   await card("Event details").getByLabel("Arrival at venue").fill("15:00");
   await card("Event details").getByRole("textbox", { name: "Areas, one per line" }).fill("Ballroom\nTerrace");
   await card("Notes").getByRole("textbox", { name: "Internal" }).fill("Loading dock on the left.");
@@ -82,9 +83,11 @@ test("Cancel on the event page discards the changes in every card (FLOW-335 AC3)
   page.once("dialog", (dialog) => dialog.accept());
   await heading.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Fall gala", level: 1 })).toBeVisible();
-  await expect(page.getByText("100 Garden Way, Arlington, VA")).toBeVisible();
+  const details = page.locator("section.panel", { has: page.getByRole("heading", { name: "Event details", exact: true }) });
+  await expect(details.getByText("100 Garden Way, Arlington, VA", { exact: true })).toBeVisible();
   await expect(page.getByText("Elsewhere")).toHaveCount(0);
+  await expect(page.getByText("Truck", { exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Fall gala", level: 1 })).toBeVisible();
-  await expect(page.getByText("100 Garden Way, Arlington, VA")).toBeVisible();
+  await expect(details.getByText("100 Garden Way, Arlington, VA", { exact: true })).toBeVisible();
 });
