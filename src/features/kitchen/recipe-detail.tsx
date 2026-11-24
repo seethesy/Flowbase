@@ -6,6 +6,7 @@ import { AlertTriangle, Archive, Pencil, RotateCcw } from "lucide-react";
 import { lineCostSourceLabels, type Recipe, type ScaledRecipe } from "../../../shared/recipes";
 import { recipesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
+import { queryClient } from "../../app/queryClient";
 import { useOpenFor } from "../../app/useOpenFor";
 import { Button, ConfirmationDialog, FormField, LoadingSkeleton, Section } from "../../components/shared";
 import { LoadError } from "../../components/record-display";
@@ -245,9 +246,10 @@ export function RecipeDetail() {
             {r.archivedAt ? (
               <Button
                 variant="outline"
-                onClick={async () =>
-                  recipe.replace(await recipesApi.setArchived(r.id, false))
-                }
+                onClick={async () => {
+                  recipe.replace(await recipesApi.setArchived(r.id, false));
+                  void queryClient.invalidateQueries({ queryKey: ["recipes"] });
+                }}
               >
                 <RotateCcw size={14} />
                 <T id="recipes.recipe-detail.restore">Restore</T>
@@ -321,6 +323,7 @@ export function RecipeDetail() {
         title={<T id="recipes.recipe-detail.archive-this-recipe">Archive this recipe?</T>}
         onConfirm={async () => {
           await recipesApi.setArchived(r.id, true);
+          void queryClient.invalidateQueries({ queryKey: ["recipes"] });
           setArchive(false);
           navigate("/recipes");
         }}

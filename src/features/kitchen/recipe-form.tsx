@@ -9,6 +9,7 @@ import { unitLabel, unitSchema, type Unit } from "../../../shared/units";
 import { canSeeField } from "../../../shared/visibility";
 import { allPages, inventoryApi, recipesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
+import { queryClient } from "../../app/queryClient";
 import { Button, DetailDrawer, FormField } from "../../components/shared";
 import { useBusinessSettings } from "../../services/settings";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -212,11 +213,11 @@ export function RecipeForm({
     setSaving(true);
     setError("");
     try {
-      onSaved(
-        recipe
-          ? await recipesApi.update(recipe.id, input)
-          : await recipesApi.create(input),
-      );
+      const saved = recipe
+        ? await recipesApi.update(recipe.id, input)
+        : await recipesApi.create(input);
+      void queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      onSaved(saved);
       onClose();
     } catch (e) {
       setError((e as Error).message);
