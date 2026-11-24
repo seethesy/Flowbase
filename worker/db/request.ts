@@ -39,16 +39,21 @@ export function requestDb(withDb: RunWithDb, env: Bindings) {
         },
       );
     }));
-  const run: RunWithDb = <T>(_env: Bindings, task: (db: Db) => Promise<T>) =>
-    open().then(task, (error: unknown) => {
-      if (error !== unshared) return Promise.reject(error);
+  const run: RunWithDb = async <T>(_env: Bindings, task: (db: Db) => Promise<T>): Promise<T> => {
+    let db: Db;
+    try {
+      db = await open();
+    } catch (error) {
+      if (error !== unshared) throw error;
       if (answer) {
         const { value } = answer;
         answer = undefined;
         return value as T;
       }
       return withDb(env, task);
-    });
+    }
+    return task(db);
+  };
   return {
     run,
     get opened() {
