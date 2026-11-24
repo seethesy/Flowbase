@@ -589,6 +589,13 @@
       "when": 1795517841880,
       "tag": "0083_flow_328_leads_heading_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1795547996735,
+      "tag": "0084_flow_333_staff_profile_details",
+      "breakpoints": true
     }
   ]
 }

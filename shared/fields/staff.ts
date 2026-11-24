@@ -56,6 +56,27 @@ export const staffFields: SourceDef = {
       filterable: true,
     },
     { key: "active", label: "Active", type: "boolean", filterable: true },
+    // Profile details (FLOW-333): address and staff ID follow the mobile
+    // number's rule; drives and has a car are readable by everyone.
+    {
+      key: "address",
+      label: "Address",
+      type: "text",
+      read: (actor, row) =>
+        canSeeField(actor, "staff_contact", { subjectUserId: row ? (row.id as string) : null }),
+      filterable: true,
+    },
+    {
+      key: "employeeId",
+      label: "Staff ID",
+      type: "text",
+      read: (actor, row) =>
+        canSeeField(actor, "staff_contact", { subjectUserId: row ? (row.id as string) : null }),
+      sortable: true,
+      filterable: true,
+    },
+    { key: "drives", label: "Drives", type: "boolean", filterable: true },
+    { key: "hasCar", label: "Has a car", type: "boolean", filterable: true },
     // Notes about a staff member: FT+ only.
     { key: "notes", label: "Notes", type: "text", read: isFtPlus },
     // Staff pay (FLOW-270): unreadable to everyone without the Staff pay area

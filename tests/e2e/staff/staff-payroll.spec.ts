@@ -26,7 +26,7 @@ test("the directory shows Name, Positions, Role, Phone, Email and Status, and a 
   await browserDb((db) => db.update(s.users).set({ positions: ["Server"] }).where(eq(s.users.id, server.id)));
   await page.goto("/#/staff");
   await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();
-  expect(await headers(page)).toEqual(["Name", "Positions", "Role", "Phone", "Email", "Status"]);
+  expect(await headers(page)).toEqual(["Name", "Positions", "Role", "Phone", "Email", "Status", "Staff ID", "Address", "Drives", "Has a car"]);
   await expect(page.getByRole("columnheader", { name: "Open" })).toHaveCount(0);
   const row = page.getByRole("row", { name: new RegExp(server.name.replace(/[()]/g, "\\$&")) });
   // Positions show as chips; the Part-time Staff role is listed too.
