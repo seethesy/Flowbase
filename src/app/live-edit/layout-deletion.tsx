@@ -13,7 +13,7 @@ export function useDeletion() {
 export function DeleteLayoutButton({ name, onDelete, permanent = false }: { name: string; onDelete: () => void; permanent?: boolean }) {
   const [open, setOpen] = useState(false);
   return <>
-    <button type="button" aria-label={`${permanent ? "Delete permanently" : "Delete"} ${name}`} onClick={() => setOpen(true)}>
+    <button type="button" className={permanent ? "layout-delete layout-delete--permanent" : "layout-delete"} aria-label={`${permanent ? "Delete permanently" : "Delete"} ${name}`} onClick={() => setOpen(true)}>
       {permanent ? "Delete permanently" : <Trash2 size={14} />}
     </button>
     <ConfirmationDialog confirmLabel="Confirm" cancelLabel="Cancel" description="Changes apply when you save the layout." open={open} onClose={() => setOpen(false)} title={`${permanent ? "Delete permanently" : "Delete"} ${name}?`}

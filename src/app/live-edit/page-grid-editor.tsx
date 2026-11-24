@@ -399,7 +399,6 @@ export default function PageGridEditor({
           </span>
         )}
         <Button
-          variant="outline"
           disabled={full || cards >= MAX_CARDS}
           title={full ? `A page holds at most ${MAX_BLOCKS} blocks.` : cards >= MAX_CARDS ? `A page holds at most ${MAX_CARDS} cards.` : undefined}
           onClick={() => startPlacing({ kind: "card" })}
@@ -439,7 +438,7 @@ export default function PageGridEditor({
           Unmerge
         </Button>
         <div className="layout-tray">
-          <Button variant="outline" aria-expanded={tray} onClick={() => setTray(!tray)}>
+          <Button variant="outline" className="layout-btn-accent" aria-expanded={tray} onClick={() => setTray(!tray)}>
             {`Hidden items (${hidden.length})`}
           </Button>
           {tray && (
@@ -486,7 +485,7 @@ export default function PageGridEditor({
             </Button>
           </span>
         ) : (
-          <Button variant="ghost" disabled={!layout.saved && !layout.dirty} onClick={() => setResetting(true)}>
+          <Button variant="ghost" className="layout-btn-muted" disabled={!layout.saved && !layout.dirty} onClick={() => setResetting(true)}>
             Reset page layout
           </Button>
         )}
@@ -593,7 +592,7 @@ export default function PageGridEditor({
                     <Palette size={14} />
                   </button>
                   {block.kind === "builtin" && (
-                    <button type="button" aria-label={`Hide ${name}`} title="Hide" onClick={() => patch(block.id, { hidden: true })}>
+                    <button type="button" className="layout-action-hide" aria-label={`Hide ${name}`} title="Hide" onClick={() => patch(block.id, { hidden: true })}>
                       <EyeOff size={14} />
                     </button>
                   )}
@@ -711,6 +710,7 @@ export default function PageGridEditor({
           <CardBuilder
             initial={building.card}
             recordSource={recordSource}
+            record={layout.record ? { source: layout.record.source, id: layout.record.id } : null}
             lockSource={building.builtin}
             onReset={
               building.builtin && building.id
