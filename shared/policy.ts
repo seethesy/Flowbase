@@ -89,6 +89,9 @@ const adminOnly = [
   // Admin live layout editing (FLOW-253): change page layouts, columns, field
   // boxes, custom cards and their colors. Every Admin has it (FLOW-269).
   "layout.edit",
+  // Settings › Imports (FLOW-290): every spreadsheet importer. Outside the Roles &
+  // permissions areas, so the matrix can't grant it to another role.
+  "imports.run",
 ] as const;
 // Staff pay (FLOW-269 area, FLOW-270 A1): the Payroll tab and every pay field.
 // Admin and Technical read and edit it; other roles only when an Admin grants it.

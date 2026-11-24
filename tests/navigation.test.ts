@@ -150,6 +150,9 @@ describe("breadcrumb trail", () => {
     expect(trail("/sops/new").at(-1)).toBe("New SOP");
     expect(trail("/events")).toEqual(["Workspace>/", "Events>/events/overview", "Overview>/events/overview", "All events"]);
     expect(trail("/settings/users")).toEqual(["Workspace>/", "Settings>/settings", "Users"]);
+    // Settings › Imports and an importer under it (FLOW-290).
+    expect(trail("/settings/imports")).toEqual(["Workspace>/", "Settings>/settings", "Imports"]);
+    expect(trail("/settings/imports/kitchen_inventory")).toEqual(["Workspace>/", "Settings>/settings", "Imports>/settings/imports", "Import"]);
     expect(breadcrumbTrail("/inventory/bar", admin).some((crumb) => crumb.record)).toBe(false);
   });
 

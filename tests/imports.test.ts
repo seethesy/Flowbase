@@ -2,14 +2,24 @@ import { describe, expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import {
   applyTransforms,
+  applyTransformsWithNotes,
   autoMap,
   batches,
   IMPORT_BATCH_SIZE,
+  headingIndex,
   importBatchSchema,
   mapRows,
   type ImportField,
 } from "../shared/imports";
-import { parseCsv, parseXlsx } from "../src/services/import-files";
+import { parseCsv, parseXlsx, parseXlsxSheets } from "../src/services/import-files";
+import {
+  barInventoryFields,
+  kitchenInventoryFields,
+  masterInventoryFields,
+} from "../shared/import-inventory";
+import { barInventoryCsv } from "./fixtures/bar-inventory";
+import { kitchenInventoryCsv } from "./fixtures/kitchen-inventory";
+import { masterInventoryCsv } from "./fixtures/master-inventory";
 
 // Data import framework (FLOW-47): file parsing, column mapping, row transforms
 // and batching, all in the browser.
@@ -80,6 +90,69 @@ describe("parseXlsx", () => {
     expect(() => parseXlsx(strToU8("Code,Name"))).toThrow(
       "This file isn't a readable .xlsx workbook.",
     );
+  });
+});
+
+// A workbook of inline-string sheets, as a spreadsheet app saves a CSV it opened:
+// empty cells are left out.
+const column = (index: number): string =>
+  (index >= 26 ? column(Math.floor(index / 26) - 1) : "") + String.fromCharCode(65 + (index % 26));
+const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function workbookOf(sheets: { name: string; rows: string[][] }[]) {
+  const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  return zipSync({
+    "xl/workbook.xml": strToU8(
+      `<?xml version="1.0"?><workbook ${ns}><sheets>${sheets.map((sheet, index) => `<sheet name="${escape(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("")}</sheets></workbook>`,
+    ),
+    "xl/_rels/workbook.xml.rels": strToU8(
+      `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("")}</Relationships>`,
+    ),
+    ...Object.fromEntries(
+      sheets.map((sheet, index) => [
+        `xl/worksheets/sheet${index + 1}.xml`,
+        strToU8(
+          `<?xml version="1.0"?><worksheet ${ns}><sheetData>${sheet.rows
+            .map((cells, row) => `<row r="${row + 1}">${cells
+              .map((cell, col) => (cell === "" ? "" : `<c r="${column(col)}${row + 1}" t="inlineStr"><is><t xml:space="preserve">${escape(cell)}</t></is></c>`))
+              .join("")}</row>`)
+            .join("")}</sheetData></worksheet>`,
+        ),
+      ]),
+    ),
+  });
+}
+
+describe("workbooks with several sheets (FLOW-290 AC3)", () => {
+  it("reads every sheet with its tab name, each like its own CSV", () => {
+    const sheets = parseXlsxSheets(
+      workbookOf([
+        { name: "Bar", rows: [["Item", "Qty"], ["Sample Gin", "2"]] },
+        { name: "Kitchen", rows: [["Item"], ["Sample Basil"]] },
+      ]),
+    );
+    expect(sheets).toEqual([
+      { name: "Bar", sheet: [["Item", "Qty"], ["Sample Gin", "2"]] },
+      { name: "Kitchen", sheet: [["Item"], ["Sample Basil"]] },
+    ]);
+    expect(parseXlsx(workbookOf([{ name: "Only", rows: [["A"]] }]))).toEqual([["A"]]);
+  });
+
+  it("imports an .xlsx the same as its .csv export for Master, Bar and Kitchen", () => {
+    for (const [csv, fields, layout] of [
+      [masterInventoryCsv, masterInventoryFields, "master"],
+      [barInventoryCsv, barInventoryFields, "bar"],
+      [kitchenInventoryCsv, kitchenInventoryFields, "kitchen"],
+    ] as const) {
+      const fromCsv = parseCsv(csv);
+      const [fromXlsx] = parseXlsxSheets(workbookOf([{ name: layout, rows: fromCsv }]));
+      const prepare = (sheet: string[][]) =>
+        applyTransformsWithNotes(
+          mapRows(sheet, autoMap(sheet[headingIndex(sheet)], fields)),
+          [{ type: "inventory_rows", layout }],
+        );
+      expect(prepare(fromXlsx.sheet), layout).toEqual(prepare(fromCsv));
+      expect(prepare(fromCsv).rows.length, layout).toBeGreaterThan(5);
+    }
   });
 });
 

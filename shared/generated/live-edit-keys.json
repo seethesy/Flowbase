@@ -1005,15 +1005,23 @@
     ],
     "imports.import-flow.check-rows": [],
     "imports.import-flow.choose-a-column-for": [],
+    "imports.import-flow.choose-sheet": [
+      "count",
+      "name"
+    ],
     "imports.import-flow.columns": [],
     "imports.import-flow.file": [],
     "imports.import-flow.required": [],
+    "imports.import-flow.sheet": [],
     "imports.import-flow.to-import": [
       "name",
       "plural"
     ],
+    "imports.import-list.admin-only": [],
     "imports.import-list.bar-inventory-description": [],
+    "imports.import-list.events-description": [],
     "imports.import-list.import-file": [],
+    "imports.import-list.kitchen-inventory-description": [],
     "imports.import-list.last-run": [
       "date",
       "name"
@@ -1021,6 +1029,7 @@
     "imports.import-list.master-inventory-description": [],
     "imports.import-list.never-run": [],
     "imports.import-list.no-importers-are-available-to": [],
+    "imports.import-list.not-available-yet": [],
     "imports.import-list.settings-imports": [],
     "imports.import-log-table.by": [],
     "imports.import-log-table.created": [],
