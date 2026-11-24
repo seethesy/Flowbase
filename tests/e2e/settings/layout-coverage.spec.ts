@@ -80,8 +80,9 @@ test("an Admin colors a custom card and a field box, everyone sees them, Default
   await builder.getByLabel("Title").fill("Client snapshot");
   await choose(builder.getByRole("combobox", { name: "Source" }), "record");
   await builder.getByRole("radio", { name: "Boxes" }).check();
-  await choose(builder.getByRole("combobox", { name: "Add field" }), { label: "Name" });
-  await builder.getByRole("button", { name: "Done" }).click();
+  // One Fields picker for Table and Boxes (FLOW-327).
+  await builder.getByRole("checkbox", { name: "Show Name", exact: true }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await page.getByRole("button", { name: "Style Client snapshot" }).click();
   const cardStyle = page.getByRole("dialog", { name: "Style" });
   await cardStyle.getByRole("button", { name: "Background color: Soft green" }).click();
@@ -206,7 +207,7 @@ test("Dashboard: an Unassigned leads card works for an Admin and a Salesperson (
   await choose(builder.getByRole("combobox", { name: "Filter field" }), { label: "Owner" });
   await choose(builder.getByRole("combobox", { name: "Filter operator" }), { label: "is empty" });
   await builder.getByRole("checkbox", { name: "Show Client" }).click();
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await save(page);
   const card = page.locator("[data-card-id]").filter({ has: page.getByRole("heading", { name: "Unassigned leads" }) });
   await expect(card.getByText("Nobody Owns Me")).toBeVisible();
@@ -229,12 +230,9 @@ test("a This record 2 × 2 Boxes card and an event's Tasks related list: add, ed
   await builder.getByLabel("Title").fill("This client");
   await choose(builder.getByRole("combobox", { name: "Source" }), "record");
   await builder.getByRole("radio", { name: "Boxes" }).check();
-  const add = builder.getByRole("combobox", { name: "Add field" });
-  await choose(add, { label: "Name" });
-  await choose(add, { label: "Type" });
-  await choose(add, { label: "Notes" });
-  await choose(add, { label: "Created" });
-  await builder.getByRole("button", { name: "Done" }).click();
+  for (const field of ["Name", "Type", "Notes", "Created"])
+    await builder.getByRole("checkbox", { name: `Show ${field}`, exact: true }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await save(page);
   const card = page.locator("[data-card-id]").filter({ has: page.getByRole("heading", { name: "This client" }) });
   await expect(card.getByText(juniper().name)).toBeVisible();
@@ -250,7 +248,7 @@ test("a This record 2 × 2 Boxes card and an event's Tasks related list: add, ed
   await page.getByRole("button", { name: "Edit This client" }).click();
   builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Our client");
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await save(page);
   await expect(page.getByRole("heading", { name: "Our client" })).toBeVisible();
 
@@ -269,7 +267,7 @@ test("a This record 2 × 2 Boxes card and an event's Tasks related list: add, ed
   await builder.getByLabel("Title").fill("Event tasks");
   await choose(builder.getByRole("combobox", { name: "Source" }), "related:tasks");
   await builder.getByRole("checkbox", { name: /^Show / }).first().click();
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await save(page);
   await expect(page.getByRole("heading", { name: "Event tasks" })).toBeVisible();
 });
