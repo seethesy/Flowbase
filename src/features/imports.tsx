@@ -16,6 +16,7 @@ import {
 import { useResource } from "../app/useResource";
 import {
   Button,
+  DetailDrawer,
   LoadingSkeleton,
   PageHeader,
   Section,
@@ -557,6 +558,11 @@ function RowTable({
 }
 
 // The import log (FLOW-47): who imported which file, when, and the row counts.
+// FLOW-300: the preview's columns (Open, Date, Importer, File, New, Updated,
+// Errors, By). Records are a history: Open shows one, read-only; none is deleted.
+const importerLabel = (key: string, modules: ImportModuleInfo[] | undefined) =>
+  modules?.find((module) => module.key === key)?.label
+    ?? plannedImporters.find((planned) => planned.key === key)?.label ?? key;
 function ImportLogTable({
   module,
   version = 0,
@@ -570,6 +576,8 @@ function ImportLogTable({
     () => importsApi.list(module),
     { keepPrevious: true },
   );
+  const modules = useResource(["imports", "modules"], () => importsApi.modules());
+  const [open, setOpen] = useState<ImportLog | null>(null);
   return (
     <Section title={<T id="imports.import-log-table.recent-imports">Recent imports</T>}>
       {logs.error ? (
@@ -583,33 +591,64 @@ function ImportLogTable({
           <table className="stock-table" aria-label="Recent imports">
             <thead>
               <tr>
-                <th><T id="imports.import-log-table.when">When</T></th>
+                <th><T id="imports.import-log-table.open">Open</T></th>
+                <th><T id="imports.import-log-table.date">Date</T></th>
+                <th><T id="imports.import-log-table.importer">Importer</T></th>
                 <th><T id="imports.import-log-table.file">File</T></th>
-                <th><T id="imports.import-log-table.by">By</T></th>
-                <th><T id="imports.import-log-table.created">Created</T></th>
+                <th><T id="imports.import-log-table.new">New</T></th>
                 <th><T id="imports.import-log-table.updated">Updated</T></th>
-                <th><T id="imports.import-log-table.unchanged">Unchanged</T></th>
-                <th><T id="imports.import-log-table.failed">Failed</T></th>
-                <th><T id="imports.import-log-table.status">Status</T></th>
+                <th><T id="imports.import-log-table.errors">Errors</T></th>
+                <th><T id="imports.import-log-table.by">By</T></th>
               </tr>
             </thead>
             <tbody>
               {logs.data.map((log) => (
                 <tr key={log.id}>
+                  <td>
+                    <button type="button" className="table-link" onClick={() => setOpen(log)}>
+                      <T id="imports.import-log-table.open-record">Open</T>
+                    </button>
+                  </td>
                   <td>{dateTimeLabel(log.createdAt)}</td>
+                  <td>{importerLabel(log.module, modules.data)}</td>
                   <td>{log.fileName}</td>
-                  <td>{log.createdByName ?? "—"}</td>
                   <td>{log.created}</td>
                   <td>{log.updated}</td>
-                  <td>{log.skipped}</td>
                   <td>{log.failed}</td>
-                  <td>{log.status === "completed" ? <T id="imports.import-log-table.done">Done</T> : <T id="imports.import-log-table.not-finished">Not finished</T>}</td>
+                  <td>{log.createdByName ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {open && <ImportLogDetail log={open} importer={importerLabel(open.module, modules.data)} onClose={() => setOpen(null)} />}
     </Section>
+  );
+}
+
+// One import record, read-only (FLOW-300).
+function ImportLogDetail({ log, importer, onClose }: { log: ImportLog; importer: string; onClose: () => void }) {
+  const rows: [ReactNode, ReactNode][] = [
+    [<T id="imports.import-log-detail.importer">Importer</T>, importer],
+    [<T id="imports.import-log-detail.date">Date</T>, dateTimeLabel(log.createdAt)],
+    [<T id="imports.import-log-detail.by">By</T>, log.createdByName ?? "—"],
+    [<T id="imports.import-log-detail.rows">Rows</T>, log.rowCount],
+    [<T id="imports.import-log-detail.new">New</T>, log.created],
+    [<T id="imports.import-log-detail.updated">Updated</T>, log.updated],
+    [<T id="imports.import-log-detail.unchanged">Unchanged</T>, log.skipped],
+    [<T id="imports.import-log-detail.errors">Errors</T>, log.failed],
+    [<T id="imports.import-log-detail.status">Status</T>, log.status === "completed"
+      ? <T id="imports.import-log-table.done">Done</T> : <T id="imports.import-log-table.not-finished">Not finished</T>],
+  ];
+  return (
+    <DetailDrawer open onClose={onClose} title={log.fileName}
+      description={<T id="imports.import-log-detail.read-only">Import records are kept as history and can't be edited or deleted.</T>}>
+      <dl className="import-log-detail" aria-label="Import record">
+        {rows.map(([label, value], index) => (
+          <div key={index}><dt>{label}</dt><dd>{value}</dd></div>
+        ))}
+      </dl>
+    </DetailDrawer>
   );
 }

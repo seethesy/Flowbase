@@ -1,12 +1,14 @@
 import { eq } from "drizzle-orm";
 import { test, expect } from "./auth-fixture";
+import { choose } from "./dropdown";
 import { browserDb, seedInventory, seedRecords } from "./database";
-import { consumable, fallGala, juniper } from "./fixtures";
+import { consumable, defaultSections, fallGala, juniper } from "./fixtures";
 import { seedUsers } from "../../worker/db/seed";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../shared/time";
 import { createRecipe } from "../../worker/records/recipes";
 import { recipeInputSchema } from "../../shared/recipes";
 import * as s from "../../worker/db/schema";
+import { PDFDocument } from "pdf-lib";
 
 // The Kitchen screen's tabs (FLOW-267).
 async function seedDish() {
@@ -64,7 +66,6 @@ test("the Menus tab lists every Menu document, and Open PDF and In Documents lea
   const menus = page.getByRole("list", { name: "Menus" });
   await expect(menus.getByRole("listitem").filter({ hasText: "Fall gala menu" })).toContainText(/Event menu/i);
   await expect(menus.getByRole("listitem").filter({ hasText: "Fall seasonal menu" })).toContainText(/Seasonal/i);
-  await expect(menus.getByRole("listitem").filter({ hasText: "Client recipe book" })).toBeVisible();
   await menus.getByRole("listitem").filter({ hasText: "Fall seasonal menu" }).getByRole("link", { name: "In Documents" }).click();
   await expect(page).toHaveURL(/#\/documents\?document=/);
   await expect(page.getByRole("dialog", { name: "Fall seasonal menu" })).toBeVisible();
@@ -112,4 +113,64 @@ test("Kitchen opens on the Overview, one row per menu item, and In charge saves 
   await expect(page).toHaveURL(/#\/kitchen\/overview$/);
   await page.reload();
   await expect(page.getByRole("row", { name: /Braised short rib/ })).toContainText(cook.name);
+});
+
+// FLOW-301: a stored client recipe book is a Menu document in the recipe book
+// group, listed under the Recipe books filter with In Documents.
+test("stored client recipe books appear on Menus under the Recipe books filter (FLOW-301 AC2)", async ({ page }) => {
+  await browserDb(async (db) => {
+    const book = "f3010000-0000-4000-8000-000000000001";
+    await db.insert(s.attachments).values([
+      { documentId: book, recordType: "document", recordId: book, group: "recipe_book", fileName: "Client-recipe-book.pdf",
+        displayName: "Client recipe book", docType: "menu", status: "ready", variants: [] },
+      { recordType: "document", recordId: "f3010000-0000-4000-8000-000000000002", documentId: "f3010000-0000-4000-8000-000000000002",
+        fileName: "spring.pdf", displayName: "Spring seasonal menu", docType: "menu", status: "ready", variants: [] },
+    ]);
+  });
+  await page.goto("/#/kitchen/menus");
+  const menus = page.getByRole("list", { name: "Menus" });
+  const book = menus.getByRole("listitem").filter({ hasText: "Client recipe book" });
+  await expect(book).toContainText(/Recipe book/i);
+  await expect(book.getByRole("link", { name: "In Documents" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Generate recipe book" })).toBeVisible();
+  await choose(page.getByRole("combobox", { name: /^Menus/ }), "recipe_book");
+  await expect(book).toBeVisible();
+  await expect(menus.getByRole("listitem").filter({ hasText: "Spring seasonal menu" })).toHaveCount(0);
+});
+
+test("the Ingredients tab filters by storage (FLOW-301 AC3)", async ({ page }) => {
+  const pantry = defaultSections.find((section) => section.name === "Pantry")!;
+  await seedInventory({ items: [
+    consumable("Synthetic flour", { details: { storageSectionId: pantry.id } }),
+    consumable("Synthetic cream"),
+  ] });
+  await page.goto("/#/inventory/ingredients");
+  await expect(page.getByRole("row", { name: /Synthetic cream/ })).toBeVisible();
+  await choose(page.getByRole("combobox", { name: /^Storage area/ }), { label: "Pantry" });
+  await expect(page.getByRole("row", { name: /Synthetic flour/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Synthetic cream/ })).toHaveCount(0);
+});
+
+// FLOW-301 AC1: each Menus card shows the PDF's first page as its cover, with the
+// page count.
+test("a menu card shows the PDF's first page and its page count (FLOW-301 AC1)", async ({ page }) => {
+  const pdf = await PDFDocument.create();
+  for (let index = 0; index < 3; index += 1) pdf.addPage([612, 792]).drawText(`Synthetic menu page ${index + 1}`, { x: 72, y: 700 });
+  const body = Buffer.from(await pdf.save());
+  await page.route("**/r2-mock/**", (route) => route.fulfill({ status: 200, body, contentType: "application/pdf" }));
+  const now = new Date().toISOString();
+  await page.route("**/api/documents**", (route) => route.fulfill({ json: [{
+    id: "f3010000-0000-4000-8000-000000000011", name: "Synthetic winter menu", docType: "menu", recordType: "document",
+    recordId: "f3010000-0000-4000-8000-000000000011", group: "", protected: false, updatedAt: now,
+    versions: [{ id: "f3010000-0000-4000-8000-000000000012", number: 1, fileName: "winter.pdf", size: body.byteLength,
+      contentType: "application/pdf", url: `${new URL(route.request().url()).origin}/r2-mock/winter.pdf`, createdAt: now,
+      uploadedBy: null, uploaderName: null }],
+  }] }));
+  await page.goto("/#/kitchen/menus");
+  const card = page.getByRole("list", { name: "Menus" }).getByRole("listitem").filter({ hasText: "Synthetic winter menu" });
+  await expect(card).toContainText("3 pages");
+  const cover = card.locator(".menu-card-cover img");
+  await expect(cover).toBeVisible();
+  expect(await cover.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(card.getByRole("link", { name: "Open PDF" })).toHaveAttribute("href", /r2-mock\/winter\.pdf$/);
 });

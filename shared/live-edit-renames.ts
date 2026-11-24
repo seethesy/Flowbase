@@ -31,6 +31,12 @@ export const liveEditRenames: LiveEditRenames = {
     // FLOW-267: the Kitchen screen's shared heading and its Recipes line.
     "recipes.recipe-list.every-dish-with-its-ingredients": "kitchen-screen.recipes.every-dish-with-its",
     "recipes.recipe-list.kitchen": "kitchen-screen.kitchen-heading.kitchen",
+    // FLOW-300: the Recent imports table's columns as in the preview.
+    "imports.import-log-table.when": "imports.import-log-table.date",
+    "imports.import-log-table.created": "imports.import-log-table.new",
+    "imports.import-log-table.failed": "imports.import-log-table.errors",
+    "imports.import-log-table.unchanged": "imports.import-log-detail.unchanged",
+    "imports.import-log-table.status": "imports.import-log-detail.status",
     // FLOW-289/291: Sections are Settings › Locations, and Start stock count
     // picks a location on the Inventory and Bar Inventory tabs.
     "inventory-sections.section-list.archive": "inventory-sections.locations-page.archive",
@@ -50,6 +56,9 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-301: the client recipe book is a stored PDF now, not a fixed card.
+      "kitchen-screen.menus.client-recipe-book",
+      "kitchen-screen.menus.generated-from-the-recipes",
       // FLOW-294: the Day-of board page and tab, and the calendar's List view,
       // are gone; the calendar is Events › Overview.
       "calendar.calendar-page.list",

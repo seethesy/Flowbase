@@ -26,6 +26,8 @@ export const documentSchema = z.object({
   docType: documentTypeSchema,
   recordType: recordTypeSchema,
   recordId: id,
+  // The file's group: "recipe_book" for a stored client recipe book (FLOW-301).
+  group: z.string().default(""),
   protected: z.boolean(),
   updatedAt: timestamp,
   versions: documentVersionSchema.array(),

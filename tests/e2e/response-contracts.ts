@@ -235,6 +235,8 @@ export function responseSchema(
   }
   if (resource === "recipes") {
     if (id === "client") return clientRecipeSchema.array();
+    // The stored client recipe book (FLOW-301).
+    if (id === "client-book") return documentSchema;
     if (action === "history") return historyEntrySchema.array();
     if (action === "scale") return scaledRecipeSchema;
     return !id && method === "GET" ? recipeSchema.array() : recipeSchema;

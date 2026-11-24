@@ -18,6 +18,8 @@ export const deletableEntities = [
   "sop",
   // The Events screen's BEOs tab (FLOW-288): approved BEOs are skipped.
   "beo",
+  // The Purchasing tab (FLOW-300): only Draft, Rejected and Cancelled lists.
+  "order_list",
 ] as const;
 export const deletableEntitySchema = z.enum(deletableEntities);
 export type DeletableEntity = z.infer<typeof deletableEntitySchema>;
@@ -33,6 +35,7 @@ export const deletableLabels: Record<DeletableEntity, string> = {
   staff_member: "Staff member",
   sop: "SOP",
   beo: "BEO",
+  order_list: "Order list",
 };
 
 // Anyone who can edit a record can delete it (Art, 2026-11-20).
@@ -48,6 +51,7 @@ export const deletePermission: Record<DeletableEntity, Action> = {
   sop: "sops.write",
   // Editing a BEO needs events.write, as on the BEO page.
   beo: "events.write",
+  order_list: "order_lists.write",
 };
 
 export const MAX_BULK_DELETE = 100;

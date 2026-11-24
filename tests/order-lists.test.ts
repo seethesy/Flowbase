@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
-import { applyReceipt, listStatusFromOrders, listVendors, outstanding, recordOrderInputSchema,
+import { applyReceipt, estimatedTotalCents, isDeletableList, listStatusFromOrders, listVendors,
+  orderListNotesSchema, orderListStatuses, outstanding, recordOrderInputSchema,
   suggestOrderLines } from "../shared/order-lists";
 
 it("rounds a ten bottle shortage up to one twelve-bottle case", () => {
@@ -93,4 +94,24 @@ it("closes a short order when nothing more is coming, and never counts over-deli
   expect(outstanding(orderLine(wine, 3, 4))).toBe(0);
   expect(applyReceipt([orderLine(wine, 0.5)], [{ itemId: wine, quantity: 0.25, note: "" }], false).lines[0].received)
     .toBe(0.25);
+});
+
+// FLOW-300: the Purchasing tab's Est. total, notes and which lists can be deleted.
+it("sums quantity × unit cost per line, skipping lines without a cost", () => {
+  const a = "00000000-0000-4000-8000-0000000000a1";
+  const b = "00000000-0000-4000-8000-0000000000b1";
+  const costs = new Map<string, number | null>([[a, 1250], [b, null]]);
+  expect(estimatedTotalCents([{ itemId: a, quantity: 3 }, { itemId: b, quantity: 5 }], costs)).toBe(3750);
+  expect(estimatedTotalCents([{ itemId: a, quantity: 0.5 }], new Map([[a, 333]]))).toBe(167);
+  expect(estimatedTotalCents([{ itemId: b, quantity: 2 }], costs)).toBeNull();
+  expect(estimatedTotalCents([], costs)).toBeNull();
+});
+
+it("lets only Draft, Rejected and Cancelled lists be deleted", () => {
+  expect(orderListStatuses.filter(isDeletableList)).toEqual(["draft", "rejected", "cancelled"]);
+});
+
+it("trims a list's notes and caps them at 2000 characters", () => {
+  expect(orderListNotesSchema.parse({ notes: "  Back door  " }).notes).toBe("Back door");
+  expect(orderListNotesSchema.safeParse({ notes: "x".repeat(2001) }).success).toBe(false);
 });

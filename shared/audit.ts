@@ -34,6 +34,8 @@ export type AuditEntity =
   | "sop"
   // A BEO deleted from the BEOs tab and restored (FLOW-288).
   | "beo"
+  // An order list deleted from the Purchasing tab and restored (FLOW-300).
+  | "order_list"
   | "setting"
   | "list_value"
   | "recipe"

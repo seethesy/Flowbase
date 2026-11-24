@@ -31,7 +31,7 @@ const as = (who: keyof typeof people) => {
 const admin = as("admin");
 const lead = as("lead");
 const staff = as("staff");
-const tables = sql`truncate table order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
+const tables = sql`truncate table deletions, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
   await db.execute(tables);
@@ -111,4 +111,57 @@ it("adds below-par items to the newest draft list with what they need, replacing
   const again = await (await add(lead, [wine.id])).json();
   expect(again.id).toBe(draft.id);
   expect(again.lines).toHaveLength(1);
+});
+
+// FLOW-300: the Purchasing tab's Notes, Est. total and Created by, and which
+// lists can be deleted.
+it("saves a list's notes, sums its estimated cost and names its creator (FLOW-300 AC1)", async () => {
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "ingredient",
+    name: "Synthetic flour", unit: "lb" });
+  await db.insert(schema.inventoryConsumableDetails).values({ itemId: item.id, purchaseUnit: "bag", unitCostCents: 1250 });
+  const [uncosted] = await insertItems(db, { kind: "consumable", subtype: "ingredient",
+    name: "Synthetic salt", unit: "lb" });
+  await db.insert(schema.inventoryConsumableDetails).values({ itemId: uncosted.id, purchaseUnit: "bag" });
+  const list = await (await lead.call("POST", "/api/order-lists", { from: "2026-12-01", to: "2026-12-31" })).json();
+  const line = (itemId: string, name: string, quantity: number) => ({ itemId, itemName: name, vendorId: null,
+    vendorName: "Synthetic vendor", orderingInstructions: "", quantity, purchaseUnit: "bag", shortage: 0,
+    orderBy: null, eventIds: [], eventTitles: [], note: "" });
+  await lead.call("PUT", `/api/order-lists/${list.id}`, { lines: [line(item.id, "Synthetic flour", 3), line(uncosted.id, "Synthetic salt", 2)] });
+
+  const saved = await lead.call("PATCH", `/api/order-lists/${list.id}`, { notes: "  Deliver to the back door  " });
+  expect(saved.status).toBe(200);
+  expect((await saved.json()).notes).toBe("Deliver to the back door");
+  expect((await staff.call("PATCH", `/api/order-lists/${list.id}`, { notes: "No" })).status).toBe(403);
+
+  const [row] = await (await admin.call("GET", "/api/order-lists")).json();
+  expect(row.notes).toBe("Deliver to the back door");
+  // 3 bags × $12.50; the uncosted line adds nothing.
+  expect(row.estTotalCents).toBe(3750);
+  expect(row.createdBy).toEqual({ id: people.lead, name: "lead" });
+});
+
+it("deletes only Draft, Rejected and Cancelled lists and skips the rest with a reason (FLOW-300 AC1)", async () => {
+  const make = async (status: typeof schema.orderLists.$inferInsert.status) => {
+    const [row] = await db.insert(schema.orderLists).values({ fromDate: "2026-12-01", toDate: "2026-12-31", status,
+      createdBy: people.lead, updatedBy: people.lead }).returning();
+    return row.id;
+  };
+  const draft = await make("draft");
+  const rejected = await make("rejected");
+  const cancelled = await make("cancelled");
+  const submitted = await make("submitted");
+  const ordered = await make("ordered");
+  const response = await lead.call("POST", "/api/deletions/order_list", { ids: [draft, rejected, cancelled, submitted, ordered] });
+  expect(response.status).toBe(200);
+  const result = await response.json();
+  expect(result.deleted.sort()).toEqual([draft, rejected, cancelled].sort());
+  expect(result.skipped.map((entry: { id: string }) => entry.id).sort()).toEqual([submitted, ordered].sort());
+  expect(result.skipped[0].reason).toMatch(/only Draft, Rejected and Cancelled/);
+  const left = await (await lead.call("GET", "/api/order-lists")).json();
+  expect(left.map((list: { id: string }) => list.id).sort()).toEqual([submitted, ordered].sort());
+
+  // Undo brings a deleted list back.
+  expect((await lead.call("POST", "/api/deletions/order_list/restore", { ids: [draft] })).status).toBe(200);
+  expect((await lead.call("GET", `/api/order-lists/${draft}`)).status).toBe(200);
+  expect((await staff.call("POST", "/api/deletions/order_list", { ids: [rejected] })).status).toBe(403);
 });

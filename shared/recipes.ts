@@ -214,6 +214,13 @@ export const clientRecipeSchema = recipeSchema.pick({
   photo: z.string().url().nullable(),
 }).strict();
 export type ClientRecipe = z.infer<typeof clientRecipeSchema>;
+// POST /api/recipes/client-book (FLOW-301): store the client recipe book as a PDF
+// on the Menus tab. All dishes, one category, or the chosen dishes.
+export const clientRecipeBookInputSchema = z.object({
+  category: z.string().trim().max(100).optional(),
+  ids: z.array(z.string().uuid()).max(500).optional(),
+}).strict();
+export type ClientRecipeBookInput = z.infer<typeof clientRecipeBookInputSchema>;
 export function clientRecipe(recipe: Recipe, photo: string | null = null): ClientRecipe {
   return {
     id: recipe.id, name: recipe.name, category: recipe.category,

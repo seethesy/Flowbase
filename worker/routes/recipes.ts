@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import {
+  clientRecipeBookInputSchema,
   recipeInputSchema,
   scaleQuerySchema,
 } from "../../shared/recipes";
+import { saveClientRecipeBook } from "../records/recipe-book-pdf";
 import { id as uuid } from "../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../auth";
 import {
@@ -53,6 +55,11 @@ export function recipeRoutes(options: {
   routes.get("/client", requirePermission("recipes.read"), async (c) =>
     c.json(await record(c, (db, actor) => listClientRecipes(db, actor, c.env ?? {}, filters(c)))),
   );
+  // FLOW-301: the client recipe book, stored as a PDF on Kitchen › Menus.
+  routes.post("/client-book", requirePermission("recipes.read"), async (c) => {
+    const input = await parseBody(c, clientRecipeBookInputSchema);
+    return c.json(await record(c, (db, actor) => saveClientRecipeBook(db, actor, c.env ?? {}, input)), 201);
+  });
   routes.get("/", requirePermission("recipes.read"), async (c) => {
     return c.json(
       await record(c, (db, actor) =>

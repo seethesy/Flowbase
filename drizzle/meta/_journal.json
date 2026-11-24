@@ -561,6 +561,13 @@
       "when": 1795472094327,
       "tag": "0079_flow_289_drop_inventory_items",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1795480757855,
+      "tag": "0080_flow_300_order_list_notes",
+      "breakpoints": true
     }
   ]
 }
