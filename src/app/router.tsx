@@ -1,4 +1,4 @@
-import { Block, PageGrid } from "./page-grid";
+import { Block, PageGrid } from "./live-edit/page-grid";
 import { lazy, Suspense } from "react";
 import {
   createHashRouter,
@@ -9,159 +9,159 @@ import {
 } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 const Dashboard = lazy(() =>
-  import("../features/dashboard").then((module) => ({ default: module.Dashboard })),
+  import("../features/home/dashboard").then((module) => ({ default: module.Dashboard })),
 );
-const OperationalReports = lazy(() => import("../features/operational-reports").then((module) => ({ default: module.OperationalReports })));
-const ArchivedPage = lazy(() => import("../features/archived").then((module) => ({ default: module.ArchivedPage })));
+const OperationalReports = lazy(() => import("../features/home/operational-reports").then((module) => ({ default: module.OperationalReports })));
+const ArchivedPage = lazy(() => import("../features/settings/archived").then((module) => ({ default: module.ArchivedPage })));
 const RolesPermissionsPage = lazy(() => import("./roles-permissions").then((module) => ({ default: module.RolesPermissionsPage })));
-const OperationsPage = lazy(() => import("../features/operations").then((module) => ({ default: module.OperationsPage })));
+const OperationsPage = lazy(() => import("../features/events/operations").then((module) => ({ default: module.OperationsPage })));
 const ClientList = lazy(() =>
-  import("../features/clients").then((module) => ({ default: module.ClientList })),
+  import("../features/sales/clients").then((module) => ({ default: module.ClientList })),
 );
 const ClientDetail = lazy(() =>
-  import("../features/clients").then((module) => ({ default: module.ClientDetail })),
+  import("../features/sales/clients").then((module) => ({ default: module.ClientDetail })),
 );
 const LeadInbox = lazy(() =>
-  import("../features/leads").then((module) => ({ default: module.LeadInbox })),
+  import("../features/leads/leads").then((module) => ({ default: module.LeadInbox })),
 );
 const LeadDetail = lazy(() =>
-  import("../features/leads").then((module) => ({ default: module.LeadDetail })),
+  import("../features/leads/leads").then((module) => ({ default: module.LeadDetail })),
 );
 const LeadDashboardPage = lazy(() =>
-  import("../features/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })),
+  import("../features/leads/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })),
 );
 const EventList = lazy(() =>
-  import("../features/events").then((module) => ({ default: module.EventList })),
+  import("../features/events/event-list").then((module) => ({ default: module.EventList })),
 );
 const EventDetail = lazy(() =>
-  import("../features/events").then((module) => ({ default: module.EventDetail })),
+  import("../features/events/event-detail").then((module) => ({ default: module.EventDetail })),
 );
 const EventBeoPage = lazy(() =>
-  import("../features/event-beo").then((module) => ({ default: module.EventBeoPage })),
+  import("../features/beo/event-beo").then((module) => ({ default: module.EventBeoPage })),
 );
 const OfflineBeoList = lazy(() =>
-  import("../features/offline-beos").then((module) => ({ default: module.OfflineBeoList })),
+  import("../features/beo/offline-beos").then((module) => ({ default: module.OfflineBeoList })),
 );
 const OfflineBeoPage = lazy(() =>
-  import("../features/offline-beos").then((module) => ({ default: module.OfflineBeoPage })),
+  import("../features/beo/offline-beos").then((module) => ({ default: module.OfflineBeoPage })),
 );
 const BeoPrint = lazy(() =>
-  import("../features/beo-print").then((module) => ({ default: module.BeoPrint })),
+  import("../features/beo/beo-print").then((module) => ({ default: module.BeoPrint })),
 );
 const VenueList = lazy(() =>
-  import("../features/venues").then((module) => ({ default: module.VenueList })),
+  import("../features/sales/venues").then((module) => ({ default: module.VenueList })),
 );
 const VenueDetail = lazy(() =>
-  import("../features/venues").then((module) => ({ default: module.VenueDetail })),
+  import("../features/sales/venues").then((module) => ({ default: module.VenueDetail })),
 );
 const PrintSample = lazy(() =>
-  import("../features/print-sample").then((module) => ({ default: module.PrintSample })),
+  import("../features/beo/print-sample").then((module) => ({ default: module.PrintSample })),
 );
 const ProposalLibrary = lazy(() =>
-  import("../features/proposal-library").then((module) => ({ default: module.ProposalLibrary })),
+  import("../features/sales/proposal-library").then((module) => ({ default: module.ProposalLibrary })),
 );
 const SalesTracker = lazy(() =>
-  import("../features/sales").then((module) => ({ default: module.SalesTracker })),
+  import("../features/sales/sales").then((module) => ({ default: module.SalesTracker })),
 );
-const SalesReports = lazy(() => import("../features/sales").then((module) => ({ default: module.SalesReports })));
-const SalesOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.SalesOverview })));
-const MarketingOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.MarketingOverview })));
-const DocumentsOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
-const ReportsOverview = lazy(() => import("../features/heading-overview").then((module) => ({ default: module.ReportsOverview })));
+const SalesReports = lazy(() => import("../features/sales/sales").then((module) => ({ default: module.SalesReports })));
+const SalesOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.SalesOverview })));
+const MarketingOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingOverview })));
+const DocumentsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
+const ReportsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.ReportsOverview })));
 const TimeReports = lazy(() =>
-  import("../features/time-tracking").then((module) => ({ default: module.TimeReports })),
+  import("../features/staff/time-tracking").then((module) => ({ default: module.TimeReports })),
 );
 const SettingsPage = lazy(() =>
-  import("../features/settings").then((module) => ({ default: module.SettingsPage })),
+  import("../features/settings/settings").then((module) => ({ default: module.SettingsPage })),
 );
-const InventoryCategoriesPage = lazy(() => import("../features/inventory-categories")
+const InventoryCategoriesPage = lazy(() => import("../features/inventory/inventory-categories")
   .then((module) => ({ default: module.InventoryCategoriesPage })));
-const DocumentsPage = lazy(() => import("../features/documents")
+const DocumentsPage = lazy(() => import("../features/documents/documents")
   .then((module) => ({ default: module.DocumentsPage })));
 // Photo galleries (FLOW-271, FLOW-298).
-const MarketingPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.MarketingPhotosPage })));
-const KitchenPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.KitchenPhotosPage })));
-const InventoryPhotosPage = lazy(() => import("../features/photos").then((module) => ({ default: module.InventoryPhotosPage })));
-const CollectorHealthPage = lazy(() => import("../features/collector-health")
+const MarketingPhotosPage = lazy(() => import("../features/documents/photos").then((module) => ({ default: module.MarketingPhotosPage })));
+const KitchenPhotosPage = lazy(() => import("../features/documents/photos").then((module) => ({ default: module.KitchenPhotosPage })));
+const InventoryPhotosPage = lazy(() => import("../features/documents/photos").then((module) => ({ default: module.InventoryPhotosPage })));
+const CollectorHealthPage = lazy(() => import("../features/home/collector-health")
   .then((module) => ({ default: module.CollectorHealthPage })));
-const UsagePage = lazy(() => import("../features/usage")
+const UsagePage = lazy(() => import("../features/settings/usage")
   .then((module) => ({ default: module.UsagePage })));
 const StaffDetail = lazy(() =>
-  import("../features/staff").then((module) => ({ default: module.StaffDetail })),
+  import("../features/staff/staff").then((module) => ({ default: module.StaffDetail })),
 );
 const StaffDirectory = lazy(() =>
-  import("../features/staff").then((module) => ({ default: module.StaffDirectory })),
+  import("../features/staff/staff").then((module) => ({ default: module.StaffDirectory })),
 );
 const PayrollPage = lazy(() =>
-  import("../features/payroll").then((module) => ({ default: module.PayrollPage })),
+  import("../features/staff/payroll").then((module) => ({ default: module.PayrollPage })),
 );
 const StaffProfile = lazy(() =>
-  import("../features/staff").then((module) => ({ default: module.StaffProfile })),
+  import("../features/staff/staff").then((module) => ({ default: module.StaffProfile })),
 );
 const InventoryList = lazy(() =>
-  import("../features/inventory").then((module) => ({ default: module.InventoryList })),
+  import("../features/inventory/inventory").then((module) => ({ default: module.InventoryList })),
 );
-const OrderTab = lazy(() => import("../features/inventory-order").then((module) => ({ default: module.OrderTab })));
-const OrderListDetail = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderListDetail })));
-const ApprovalQueue = lazy(() => import("../features/approval-queue").then((module) => ({ default: module.ApprovalQueue })));
+const OrderTab = lazy(() => import("../features/inventory/inventory-order").then((module) => ({ default: module.OrderTab })));
+const OrderListDetail = lazy(() => import("../features/inventory/order-lists").then((module) => ({ default: module.OrderListDetail })));
+const ApprovalQueue = lazy(() => import("../features/inventory/approval-queue").then((module) => ({ default: module.ApprovalQueue })));
 const InventoryDetail = lazy(() =>
-  import("../features/inventory").then((module) => ({ default: module.InventoryDetail })),
+  import("../features/inventory/inventory").then((module) => ({ default: module.InventoryDetail })),
 );
 const IngredientList = lazy(() =>
-  import("../features/inventory").then((module) => ({ default: module.IngredientList })),
+  import("../features/inventory/inventory").then((module) => ({ default: module.IngredientList })),
 );
 const BarList = lazy(() =>
-  import("../features/inventory").then((module) => ({ default: module.BarList })),
+  import("../features/inventory/inventory").then((module) => ({ default: module.BarList })),
 );
 const LocationsPage = lazy(() =>
-  import("../features/inventory").then((module) => ({ default: module.LocationsPage })),
+  import("../features/inventory/inventory").then((module) => ({ default: module.LocationsPage })),
 );
 const CountMode = lazy(() =>
-  import("../features/stock-counts").then((module) => ({ default: module.CountMode })),
+  import("../features/inventory/stock-counts").then((module) => ({ default: module.CountMode })),
 );
-const ImportList = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportList })));
-const ImportPage = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportPage })));
-const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeList })));
-const RecipeDetail = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeDetail })));
-const ClientRecipeBook = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
-const ClientRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
-const KitchenOverviewPage = lazy(() => import("../features/kitchen-overview").then((module) => ({ default: module.KitchenOverviewPage })));
-const MenusPage = lazy(() => import("../features/kitchen-screen").then((module) => ({ default: module.MenusPage })));
-const KitchenRecipePrint = lazy(() => import("../features/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
+const ImportList = lazy(() => import("../features/settings/imports").then((module) => ({ default: module.ImportList })));
+const ImportPage = lazy(() => import("../features/settings/imports").then((module) => ({ default: module.ImportPage })));
+const RecipeList = lazy(() => import("../features/kitchen/recipe-list").then((module) => ({ default: module.RecipeList })));
+const RecipeDetail = lazy(() => import("../features/kitchen/recipe-detail").then((module) => ({ default: module.RecipeDetail })));
+const ClientRecipeBook = lazy(() => import("../features/kitchen/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
+const ClientRecipePrint = lazy(() => import("../features/kitchen/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
+const KitchenOverviewPage = lazy(() => import("../features/kitchen/kitchen-overview").then((module) => ({ default: module.KitchenOverviewPage })));
+const MenusPage = lazy(() => import("../features/kitchen/kitchen-screen").then((module) => ({ default: module.MenusPage })));
+const KitchenRecipePrint = lazy(() => import("../features/kitchen/recipe-books").then((module) => ({ default: module.KitchenRecipePrint })));
 import { Button, EmptyState, PageHeader, Section } from "../components/shared";
 import { Leaf } from "lucide-react";
 import { useAuth } from "./auth";
 const NotificationSettings = lazy(() =>
-  import("../features/notifications").then((module) => ({ default: module.NotificationSettings })),
+  import("../features/home/notifications").then((module) => ({ default: module.NotificationSettings })),
 );
 // FullCalendar lives in this chunk only (FLOW-63).
 const CalendarPage = lazy(() =>
-  import("../features/calendar").then((module) => ({ default: module.CalendarPage })),
+  import("../features/events/calendar").then((module) => ({ default: module.CalendarPage })),
 );
 const BeoListPage = lazy(() =>
-  import("../features/beo-list").then((module) => ({ default: module.BeoListPage })),
+  import("../features/beo/beo-list").then((module) => ({ default: module.BeoListPage })),
 );
 const ProductionOverviewPage = lazy(() =>
-  import("../features/production").then((module) => ({ default: module.ProductionOverviewPage })),
+  import("../features/events/production").then((module) => ({ default: module.ProductionOverviewPage })),
 );
 const TaskDetail = lazy(() =>
-  import("../features/tasks").then((module) => ({ default: module.TaskDetail })),
+  import("../features/tasks/tasks").then((module) => ({ default: module.TaskDetail })),
 );
 const TaskDashboardPage = lazy(() =>
-  import("../features/task-lists").then((module) => ({ default: module.TaskDashboardPage })),
+  import("../features/tasks/task-dashboard").then((module) => ({ default: module.TaskDashboardPage })),
 );
 const TaskList = lazy(() =>
-  import("../features/task-lists").then((module) => ({ default: module.TaskList })),
+  import("../features/tasks/task-lists").then((module) => ({ default: module.TaskList })),
 );
 const TaskTemplates = lazy(() =>
-  import("../features/task-templates").then((module) => ({ default: module.TaskTemplates })),
+  import("../features/tasks/task-templates").then((module) => ({ default: module.TaskTemplates })),
 );
-const SopLibrary = lazy(() => import("../features/sops").then((module) => ({ default: module.SopLibrary })));
-const SopDetail = lazy(() => import("../features/sops").then((module) => ({ default: module.SopDetail })));
-const VendorList = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorList })));
-const VendorDetail = lazy(() => import("../features/vendors").then((module) => ({ default: module.VendorDetail })));
+const SopLibrary = lazy(() => import("../features/tasks/sops").then((module) => ({ default: module.SopLibrary })));
+const SopDetail = lazy(() => import("../features/tasks/sops").then((module) => ({ default: module.SopDetail })));
+const VendorList = lazy(() => import("../features/inventory/vendors").then((module) => ({ default: module.VendorList })));
+const VendorDetail = lazy(() => import("../features/inventory/vendors").then((module) => ({ default: module.VendorDetail })));
 const UserManagement = lazy(() =>
-  import("../features/users").then((module) => ({ default: module.UserManagement })),
+  import("../features/settings/users").then((module) => ({ default: module.UserManagement })),
 );
 function Placeholder() {
   return (

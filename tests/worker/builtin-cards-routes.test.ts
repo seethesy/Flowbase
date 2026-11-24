@@ -7,11 +7,11 @@ import { ApiError, type AppEnv, type RunWithDb } from "../../worker/hono";
 import type { Actor } from "../../shared/access";
 import { builtinCard } from "../../shared/layout";
 import { fieldProjection } from "../../worker/fields";
-import { getLayout, saveLayout } from "../../worker/records/layout";
+import { getLayout, saveLayout } from "../../worker/records/settings/layout";
 
 // FLOW-279: an edited built-in card is saved through the layout route with its
 // fields checked, and a viewer gets only the card's fields they may read (AC4).
-vi.mock("../../worker/records/layout", () => ({
+vi.mock("../../worker/records/settings/layout", () => ({
   getLayout: vi.fn(),
   listLayouts: vi.fn(),
   saveLayout: vi.fn(),

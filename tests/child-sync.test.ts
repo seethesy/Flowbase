@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { diffChildren, syncChildren } from "../worker/records/sync";
+import { diffChildren, syncChildren } from "../worker/records/core/sync";
 
 const values = (row: { name: string }, sortOrder: number) => ({ name: row.name, sortOrder });
 

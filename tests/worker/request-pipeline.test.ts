@@ -6,8 +6,8 @@ import { createActorResolver } from "../../worker/auth";
 import { requestDb } from "../../worker/db/request";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
-import { invalidatePolicy } from "../../worker/records/permissions";
-import { flushUsage, pendingUsage, resetPendingUsage } from "../../worker/records/usage";
+import { invalidatePolicy } from "../../worker/records/settings/permissions";
+import { flushUsage, pendingUsage, resetPendingUsage } from "../../worker/records/settings/usage";
 import { fakeDb } from "./fake-db";
 
 const sub = "30600000-0000-4000-8000-000000000001";

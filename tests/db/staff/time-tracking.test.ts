@@ -1,0 +1,607 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import postgres from "postgres";
+import { eq, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import * as schema from "../../../worker/db/schema";
+import { activitySessions } from "../../../worker/db/schema";
+import { createApp } from "../../../worker/app";
+import type { RunWithDb } from "../../../worker/hono";
+import type { Actor, EmploymentType, Role } from "../../../shared/access";
+import type { Client, EventInput, FlowEvent } from "../../../shared/core-records";
+import type { EventHub } from "../../../shared/event-hub";
+import type { ProposalDetail } from "../../../shared/proposals";
+import type { TimeReport } from "../../../shared/time-tracking";
+import { utcToBusinessTime } from "../../../shared/time";
+
+// The event hub (FLOW-57) and activity time tracking (FLOW-119) against Postgres.
+const url = process.env.DATABASE_URL;
+if (!url)
+  throw new Error(
+    "DATABASE_URL must point to the disposable CI Postgres service.",
+  );
+const client = postgres(url, { max: 1 });
+const db = drizzle(client, { schema });
+const withDb: RunWithDb = (_env, run) => run(db);
+const env = { ASSETS: { fetch } };
+
+const people = {
+  admin: "a0000000-0000-4000-8000-000000000001",
+  manager: "a0000000-0000-4000-8000-000000000002",
+  sam: "a0000000-0000-4000-8000-000000000003",
+  sue: "a0000000-0000-4000-8000-000000000004",
+  helper: "a0000000-0000-4000-8000-000000000006",
+};
+const signedInAs = (
+  userId: string,
+  role: Role,
+  employmentType: EmploymentType = "full_time",
+) => {
+  const actor: Actor = { userId, role: employmentType === "part_time" ? "part_time_staff" : role, employmentType };
+  const app = createApp({ withDb, resolveActor: async () => actor });
+  const call = (method: string, path: string, body?: unknown) =>
+    app.request(
+      path,
+      {
+        method,
+        ...(body !== undefined && {
+          body: JSON.stringify(body),
+          headers: { "Content-Type": "application/json" },
+        }),
+      },
+      env,
+    );
+  return {
+    call,
+    get: async <T>(path: string) => {
+      const response = await call("GET", path);
+      expect(response.status).toBe(200);
+      return (await response.json()) as T;
+    },
+    post: async <T>(path: string, body: unknown, status = 201) => {
+      const response = await call("POST", path, body);
+      expect(response.status).toBe(status);
+      return (await response.json()) as T;
+    },
+  };
+};
+const admin = signedInAs(people.admin, "admin");
+const manager = signedInAs(people.manager, "sales_manager");
+const sam = signedInAs(people.sam, "salesperson");
+const partTimeSam = signedInAs(people.sam, "salesperson", "part_time");
+const sue = signedInAs(people.sue, "salesperson");
+const helper = signedInAs(people.helper, "staff", "part_time");
+
+// Juniper belongs to Sam; the gala is Sam's, with the helper assisting.
+async function seed() {
+  const juniper = await admin.post<Client>("/api/clients", {
+    name: "Juniper & Co.",
+    kind: "organization",
+    assignedSalespersonId: people.sam,
+    contacts: [
+      {
+        name: "Olivia Bennett",
+        role: "primary_poc",
+        email: "olivia@juniper.example",
+        phone: "(202) 555-0101",
+      },
+    ],
+  });
+  const event = (title: string, overrides: Partial<EventInput> = {}) =>
+    admin.post<FlowEvent>("/api/events", {
+      title,
+      date: "2026-11-14",
+      startTime: "18:00",
+      clientId: juniper.id,
+      assignedSalespersonId: people.sam,
+      ...overrides,
+    });
+  const gala = await event("Fall gala");
+  // Stored directly: naming leads through the API needs real users (FLOW-140).
+  await db
+    .update(schema.events)
+    .set({ productionLeadId: people.admin, assistantLeadIds: [people.helper] })
+    .where(eq(schema.events.id, gala.id));
+  return {
+    juniper,
+    gala,
+    brunch: await event("Board brunch", {
+      assignedSalespersonId: people.sue,
+    }),
+  };
+}
+
+const MIN = 60_000;
+// One fixed "now" so session lengths are exact.
+const base = Date.now();
+const ago = (minutes: number) => new Date(base - minutes * MIN).toISOString();
+let ids = 0;
+const sessionId = () =>
+  `00000000-0000-4000-8000-${String(++ids).padStart(12, "0")}`;
+const onEvent = (
+  eventId: string,
+  from: number,
+  to: number,
+  id = sessionId(),
+) => ({
+  id,
+  startedAt: ago(from),
+  endedAt: ago(to),
+  recordType: "event",
+  recordId: eventId,
+  activity: "event_planning",
+});
+// Yesterday to today, so sessions from just before midnight still count.
+const range = `?from=${utcToBusinessTime(new Date(base - 24 * 60 * MIN)).date}&to=${utcToBusinessTime(new Date(base)).date}`;
+
+beforeAll(async () => {
+  await migrate(db, { migrationsFolder: "drizzle" });
+});
+beforeEach(async () => {
+  await db.execute(
+    sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, activity_sessions, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, task_comments, task_checklist_items, task_assignees, tasks, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+  );
+});
+afterAll(async () => {
+  await client.end();
+});
+
+describe("event hub", () => {
+  // AC1
+  it("loads the details, client and files sections for Admin", async () => {
+    const { gala, juniper } = await seed();
+    const hub = await admin.get<EventHub>(`/api/events/${gala.id}/hub`);
+    expect(hub.sections).toEqual(["details", "client", "proposal", "inventory", "tasks", "production", "staff", "timeline", "planning", "pull_list", "trucks", "kitchen_menu", "closeout", "beo", "payments", "files", "history"]);
+    expect(hub.event.title).toBe("Fall gala");
+    expect(hub.client?.id).toBe(juniper.id);
+    expect(hub.client?.contacts[0].email).toBe("olivia@juniper.example");
+    expect(hub.canEdit).toBe(true);
+  });
+
+  // AC2
+  it("keeps an event's hub from part-time staff who aren't on it", async () => {
+    const { gala } = await seed();
+    // Part-time Staff (FLOW-249) open only the events they're staffed on.
+    const response = await partTimeSam.call("GET", `/api/events/${gala.id}/hub`);
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain("olivia@juniper.example");
+  });
+
+  // AC2
+  it("shows part-time staff only the event, without the client or editing", async () => {
+    const { gala, brunch } = await seed();
+    const hub = await helper.get<EventHub>(`/api/events/${gala.id}/hub`);
+    expect(hub.sections).toEqual(["details", "inventory", "tasks", "production", "staff", "timeline", "planning", "pull_list", "trucks", "kitchen_menu", "closeout", "beo", "files", "history"]);
+    expect(hub.client).toBeNull();
+    expect(hub.event.client!.name).toBe("Juniper & Co.");
+    expect(hub.canEdit).toBe(false);
+    expect(
+      (await helper.call("GET", `/api/events/${brunch.id}/hub`)).status,
+    ).toBe(404);
+  });
+
+  it("drops the client section when the salesperson can't see the client", async () => {
+    const { brunch } = await seed();
+    const hub = await sue.get<EventHub>(`/api/events/${brunch.id}/hub`);
+    expect(hub.sections).toEqual(["details", "proposal", "inventory", "tasks", "production", "staff", "timeline", "planning", "pull_list", "trucks", "kitchen_menu", "closeout", "beo", "payments", "files", "history"]);
+    expect(hub.client).toBeNull();
+    expect(hub.canEdit).toBe(true);
+  });
+
+  it("answers 404 for an event the user can't see", async () => {
+    const { gala } = await seed();
+    expect((await sue.call("GET", `/api/events/${gala.id}/hub`)).status).toBe(
+      404,
+    );
+  });
+});
+
+describe("time tracking", () => {
+  it("keeps one row per session, which only grows when resent", async () => {
+    const { gala } = await seed();
+    const id = sessionId();
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 8, id)] },
+      200,
+    );
+    await sam.post(
+      "/api/time/sessions",
+      // The same open session twice in one batch, then an older copy.
+      { sessions: [onEvent(gala.id, 10, 6, id), onEvent(gala.id, 10, 5, id)] },
+      200,
+    );
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 9, id)] },
+      200,
+    );
+    const rows = await db.select().from(activitySessions);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      userId: people.sam,
+      recordType: "event",
+      recordId: gala.id,
+      activity: "event_planning",
+      createdBy: people.sam,
+    });
+    expect(rows[0].endedAt.getTime() - rows[0].startedAt.getTime()).toBe(
+      5 * MIN,
+    );
+  });
+
+  it("keeps the same session id from different users apart", async () => {
+    const { gala } = await seed();
+    const id = sessionId();
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 8, id)] },
+      200,
+    );
+    await helper.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 10, 7, id)] },
+      200,
+    );
+    expect(await db.select().from(activitySessions)).toHaveLength(2);
+  });
+
+  it("rejects a session that ends in the future", async () => {
+    const { gala } = await seed();
+    const response = await sam.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(gala.id, 1, -30)],
+    });
+    expect(response.status).toBe(400);
+    expect(await db.select().from(activitySessions)).toHaveLength(0);
+  });
+
+  it("reports effort per event and workload, scoped by role", async () => {
+    const { gala, brunch } = await seed();
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          onEvent(gala.id, 30, 20),
+          {
+            id: sessionId(),
+            startedAt: ago(20),
+            endedAt: ago(15),
+            recordType: null,
+            recordId: null,
+            activity: "proposal_work",
+          },
+        ],
+      },
+      200,
+    );
+    await helper.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(gala.id, 15, 10)] },
+      200,
+    );
+    // A session can only be attached to a record Sue may open.
+    expect((await sue.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(gala.id, 28, 25)],
+    })).status).toBe(400);
+    expect((await sam.call("POST", "/api/time/sessions", {
+      sessions: [onEvent(crypto.randomUUID(), 28, 25)],
+    })).status).toBe(400);
+    await sue.post(
+      "/api/time/sessions",
+      { sessions: [onEvent(brunch.id, 30, 28)] },
+      200,
+    );
+
+    const all = await manager.get<TimeReport>(`/api/time/report${range}`);
+    expect(all.scope).toBe("all");
+    expect(all.effort).toEqual([
+      {
+        eventId: gala.id,
+        title: "Fall gala",
+        date: "2026-11-14",
+        clientName: "Juniper & Co.",
+        bookedTotalCents: null,
+        seconds: 15 * 60,
+        people: 2,
+      },
+      {
+        eventId: brunch.id,
+        title: "Board brunch",
+        date: "2026-11-14",
+        clientName: "Juniper & Co.",
+        bookedTotalCents: null,
+        seconds: 2 * 60,
+        people: 1,
+      },
+    ]);
+    expect(all.workload).toHaveLength(4);
+    expect(all.workload).toContainEqual({
+      userId: people.sam,
+      userName: people.sam,
+      activity: "proposal_work",
+      seconds: 5 * 60,
+    });
+
+    const own = await sam.get<TimeReport>(
+      `/api/time/report${range}&userId=${people.helper}`,
+    );
+    expect(own.scope).toBe("own");
+    expect(own.effort.map((row) => [row.title, row.seconds])).toEqual([
+      ["Fall gala", 10 * 60],
+    ]);
+    expect(own.workload.map((row) => [row.activity, row.seconds])).toEqual([
+      ["event_planning", 10 * 60],
+      ["proposal_work", 5 * 60],
+    ]);
+
+    const sues = await sue.get<TimeReport>(`/api/time/report${range}`);
+    expect(sues.effort.map((row) => row.title)).toEqual(["Board brunch"]);
+    expect(sues.workload).toEqual([
+      {
+        userId: people.sue,
+        userName: people.sue,
+        activity: "event_planning",
+        seconds: 2 * 60,
+      },
+    ]);
+
+    const helpers = await manager.get<TimeReport>(
+      `/api/time/report${range}&userId=${people.helper}`,
+    );
+    expect(helpers.workload).toEqual([
+      {
+        userId: people.helper,
+        userName: people.helper,
+        activity: "event_planning",
+        seconds: 5 * 60,
+      },
+    ]);
+
+    const before = await manager.get<TimeReport>(
+      "/api/time/report?from=2020-01-01&to=2020-01-31",
+    );
+    expect(before).toEqual({
+      scope: "all",
+      effort: [],
+      proposals: [],
+      workload: [],
+    });
+  });
+
+  // FLOW-167 AC1 (server side) and AC2 (time per proposal).
+  it("reports time per proposal and counts proposal and task time toward the event", async () => {
+    const { gala, brunch } = await seed();
+    const dinner = await admin.post<ProposalDetail>("/api/proposals", {
+      eventId: gala.id,
+      title: "Gala dinner",
+    });
+    const cocktails = await admin.post<ProposalDetail>("/api/proposals", {
+      eventId: gala.id,
+      title: "Cocktail hour",
+    });
+    const brunchMenu = await admin.post<ProposalDetail>("/api/proposals", {
+      eventId: brunch.id,
+      title: "Brunch menu",
+    });
+    const [task] = await db
+      .insert(schema.tasks)
+      .values({ title: "Call the florist", eventId: gala.id })
+      .returning();
+    const on = (
+      recordType: "proposal" | "task",
+      recordId: string,
+      from: number,
+      to: number,
+    ) => ({
+      id: sessionId(),
+      startedAt: ago(from),
+      endedAt: ago(to),
+      recordType,
+      recordId,
+      activity: recordType === "task" ? "assigning" : "proposal_work",
+    });
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          onEvent(gala.id, 60, 50),
+          on("proposal", dinner.id, 50, 40),
+          on("proposal", cocktails.id, 40, 37),
+          on("task", task.id, 37, 35),
+        ],
+      },
+      200,
+    );
+    await manager.post(
+      "/api/time/sessions",
+      { sessions: [on("proposal", dinner.id, 30, 25)] },
+      200,
+    );
+    await sue.post(
+      "/api/time/sessions",
+      { sessions: [on("proposal", brunchMenu.id, 30, 26)] },
+      200,
+    );
+
+    const all = await manager.get<TimeReport>(`/api/time/report${range}`);
+    // The gala's row counts its own page, both proposals and its task.
+    expect(all.effort.map((row) => [row.title, row.seconds, row.people])).toEqual([
+      ["Fall gala", 30 * 60, 2],
+      ["Board brunch", 4 * 60, 1],
+    ]);
+    expect(all.proposals).toEqual([
+      {
+        proposalId: dinner.id,
+        title: "Gala dinner",
+        eventId: gala.id,
+        eventTitle: "Fall gala",
+        seconds: 15 * 60,
+        people: 2,
+      },
+      {
+        proposalId: brunchMenu.id,
+        title: "Brunch menu",
+        eventId: brunch.id,
+        eventTitle: "Board brunch",
+        seconds: 4 * 60,
+        people: 1,
+      },
+      {
+        proposalId: cocktails.id,
+        title: "Cocktail hour",
+        eventId: gala.id,
+        eventTitle: "Fall gala",
+        seconds: 3 * 60,
+        people: 1,
+      },
+    ]);
+    expect(all.workload).toContainEqual({
+      userId: people.sam,
+      userName: people.sam,
+      activity: "assigning",
+      seconds: 2 * 60,
+    });
+
+    // Sam sees only his own time, on proposals of events he can open.
+    const sams = await sam.get<TimeReport>(`/api/time/report${range}`);
+    expect(sams.proposals.map((row) => [row.title, row.seconds])).toEqual([
+      ["Gala dinner", 10 * 60],
+      ["Cocktail hour", 3 * 60],
+    ]);
+    // Sue can't open the gala, so her report never names its proposals.
+    const sues = await sue.get<TimeReport>(`/api/time/report${range}`);
+    expect(sues.proposals.map((row) => row.title)).toEqual(["Brunch menu"]);
+    // Roles that can't read proposals get no proposal rows at all.
+    const helpers = await helper.get<TimeReport>(`/api/time/report${range}`);
+    expect(helpers.proposals).toEqual([]);
+  });
+
+  it("reports exactly the requested New York dates across daylight saving (FLOW-200)", async () => {
+    const minuteFrom = (startedAt: string) => ({
+      id: sessionId(),
+      startedAt,
+      endedAt: new Date(Date.parse(startedAt) + MIN).toISOString(),
+      recordType: null,
+      recordId: null,
+      activity: "general",
+    });
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          // March 8, 2026 runs 05:00Z to 04:00Z the next day (23 hours).
+          "2026-03-08T04:59:00.000Z",
+          "2026-03-08T05:00:00.000Z",
+          "2026-03-09T03:59:00.000Z",
+          "2026-03-09T04:00:00.000Z",
+          // November 2, 2025 runs 04:00Z to 05:00Z the next day (25 hours).
+          "2025-11-02T03:59:00.000Z",
+          "2025-11-02T04:00:00.000Z",
+          "2025-11-03T04:30:00.000Z",
+          "2025-11-03T05:00:00.000Z",
+        ].map(minuteFrom),
+      },
+      200,
+    );
+    for (const day of ["2026-03-08", "2025-11-02"]) {
+      const report = await sam.get<TimeReport>(`/api/time/report?from=${day}&to=${day}`);
+      expect(report.workload).toEqual([
+        { userId: people.sam, userName: people.sam, activity: "general", seconds: 2 * 60 },
+      ]);
+    }
+  });
+});
+
+describe("BEO time and booked totals (FLOW-221)", () => {
+  const beoSession = (beoId: string, from: number, to: number) => ({
+    id: sessionId(),
+    startedAt: ago(from),
+    endedAt: ago(to),
+    recordType: "beo",
+    recordId: beoId,
+    activity: "beo_editing",
+  });
+  const schedule = (eventId: string, amountCents: number, archived = false) =>
+    db.insert(schema.paymentScheduleItems).values({
+      eventId,
+      kind: "balance",
+      amountCents,
+      dueDate: "2026-12-20",
+      ...(archived && { archivedAt: new Date() }),
+    });
+
+  it("credits a BEO's time to that BEO's event (AC1)", async () => {
+    const { gala } = await seed();
+    const [beo] = await db.insert(schema.beos).values({ eventId: gala.id }).returning();
+    await sam.post(
+      "/api/time/sessions",
+      {
+        sessions: [
+          { ...onEvent(gala.id, 30, 20), activity: "event_planning" },
+          beoSession(beo.id, 20, 8),
+        ],
+      },
+      200,
+    );
+    const stored = await db.select().from(activitySessions);
+    expect(
+      stored
+        .map((row) => [row.recordType, row.activity])
+        .sort(),
+    ).toEqual([
+      ["beo", "beo_editing"],
+      ["event", "event_planning"],
+    ]);
+    const report = await sam.get<TimeReport>(`/api/time/report${range}`);
+    expect(report.effort).toHaveLength(1);
+    // 10 minutes on the event plus 12 on its BEO.
+    expect(report.effort[0]).toMatchObject({ eventId: gala.id, seconds: 22 * 60, people: 1 });
+    expect(report.workload.map((row) => [row.activity, row.seconds]).sort()).toEqual([
+      ["beo_editing", 12 * 60],
+      ["event_planning", 10 * 60],
+    ]);
+  });
+
+  it("refuses time on a BEO that doesn't exist or belongs to an event the user can't open", async () => {
+    const { brunch } = await seed();
+    const [others] = await db.insert(schema.beos).values({ eventId: brunch.id }).returning();
+    await sam.post("/api/time/sessions", { sessions: [beoSession(others.id, 10, 5)] }, 400);
+    await sam.post(
+      "/api/time/sessions",
+      { sessions: [beoSession("b0000000-0000-4000-8000-0000000000ff", 10, 5)] },
+      400,
+    );
+    expect(await db.select().from(activitySessions)).toHaveLength(0);
+    await sue.post("/api/time/sessions", { sessions: [beoSession(others.id, 10, 5)] }, 200);
+  });
+
+  it("shows each booking's booked total next to its time, from its payment schedule (AC2)", async () => {
+    const { gala, brunch } = await seed();
+    await schedule(gala.id, 100_000);
+    await schedule(gala.id, 50_000);
+    // An archived item doesn't count.
+    await schedule(gala.id, 99_999, true);
+    await sam.post("/api/time/sessions", { sessions: [onEvent(gala.id, 30, 20)] }, 200);
+    await sue.post("/api/time/sessions", { sessions: [onEvent(brunch.id, 30, 25)] }, 200);
+    const all = await manager.get<TimeReport>(`/api/time/report${range}`);
+    expect(
+      Object.fromEntries(all.effort.map((row) => [row.title, row.bookedTotalCents])),
+    ).toEqual({ "Fall gala": 150_000, "Board brunch": null });
+    const own = await sam.get<TimeReport>(`/api/time/report${range}`);
+    expect(own.effort.map((row) => [row.title, row.bookedTotalCents])).toEqual([
+      ["Fall gala", 150_000],
+    ]);
+  });
+
+  it("hides the booked total from users who may not see the event's money", async () => {
+    const { gala } = await seed();
+    await schedule(gala.id, 100_000);
+    await helper.post("/api/time/sessions", { sessions: [onEvent(gala.id, 20, 15)] }, 200);
+    const own = await helper.get<TimeReport>(`/api/time/report${range}`);
+    expect(own.effort).toHaveLength(1);
+    expect(own.effort[0].bookedTotalCents).toBeNull();
+    // The same event, seen by someone who may see its money.
+    const report = await admin.get<TimeReport>(`/api/time/report${range}`);
+    expect(report.effort[0]).toMatchObject({ bookedTotalCents: 100_000, people: 1 });
+  });
+});

@@ -12,13 +12,13 @@ wording. With no saved layout a page renders exactly as its code does.
 | Field registry: every field a layout may show, per source, with its read rule | `shared/fields/` |
 | `LayoutDoc` schema, limits, contrast check, server validation (`layoutProblems`) | `shared/layout.ts` |
 | `fields=` projection and card queries (`where`, `orderBy`, `take`) | `worker/fields.ts`; card filters, sort and limit in the list's own SQL query (FLOW-308) in `worker/card-sql.ts` |
-| `GET/PUT/DELETE /api/layout/:pageKey` (`layout.edit`, Admin), audit-logged | `worker/routes/layout.ts`, `worker/records/layout.ts` |
-| Page grid, edit toolbar, Hidden items, Reset page layout | `src/app/page-grid.tsx` |
-| Drag-and-resize grid (lazy-loaded `react-grid-layout`) | `src/app/layout-grid-editor.tsx` |
-| Style popover (text and background colors, 4.5:1 guard) | `src/app/layout-style.tsx` |
-| Columns editor and layout-aware tables | `src/app/column-picker.tsx`, `src/app/table-layout.tsx`, `DataTable` |
-| Field boxes on record pages | `src/app/field-card.tsx` |
-| Custom cards and their builder | `src/components/custom-card.tsx`, `src/app/card-builder.tsx` |
+| `GET/PUT/DELETE /api/layout/:pageKey` (`layout.edit`, Admin), audit-logged | `worker/routes/settings/layout.ts`, `worker/records/settings/layout.ts` |
+| Page grid, edit toolbar, Hidden items, Reset page layout | `src/app/live-edit/page-grid.tsx` |
+| Drag-and-resize grid (lazy-loaded `react-grid-layout`) | `src/app/live-edit/layout-grid-editor.tsx` |
+| Style popover (text and background colors, 4.5:1 guard) | `src/app/live-edit/layout-style.tsx` |
+| Columns editor and layout-aware tables | `src/app/live-edit/column-picker.tsx`, `src/app/live-edit/table-layout.tsx`, `DataTable` |
+| Field boxes on record pages | `src/app/live-edit/field-card.tsx` |
+| Custom cards and their builder | `src/components/custom-card.tsx`, `src/app/live-edit/card-builder.tsx` |
 
 ## Added in FLOW-273
 
@@ -43,7 +43,7 @@ wording. With no saved layout a page renders exactly as its code does.
 - The record's Edit form hides an optional field whose box was hidden (client
   notes; venue address, jurisdiction and notes; vendor ordering fields; item code,
   group and description; staff phone). Creating a record always shows every field.
-- Playwright coverage: `tests/e2e/layout-coverage.spec.ts`.
+- Playwright coverage: `tests/e2e/settings/layout-coverage.spec.ts`.
 
 ## Added in FLOW-278
 
@@ -60,7 +60,7 @@ wording. With no saved layout a page renders exactly as its code does.
 - Size without dragging: each block's bar has width presets (¼, ⅓, ½, ⅔, Full),
   "Fit content" (`fit`: the height follows what the card shows) and "Hide on
   phone" (`hidePhone`). A focused block or box moves with the arrow keys and
-  resizes with Shift and the arrow keys (`src/app/layout-sizes.ts`).
+  resizes with Shift and the arrow keys (`src/app/live-edit/layout-sizes.ts`).
 - Style popover: presets (Plain, Card, Highlight, Warning), "Default look",
   text and background colors, no border or a border color, an accent stripe,
   corners, padding, title size and "Hide title bar". The 4.5:1 text/background
@@ -69,7 +69,7 @@ wording. With no saved layout a page renders exactly as its code does.
   drop blocks set to hide on phone.
 - A record page's toolbar says the layout applies to every record of that type.
 - A page holds up to 40 blocks.
-- Playwright coverage: `tests/e2e/layout-every-screen.spec.ts`.
+- Playwright coverage: `tests/e2e/settings/layout-every-screen.spec.ts`.
 
 ## Added in FLOW-279
 
@@ -89,7 +89,7 @@ wording. With no saved layout a page renders exactly as its code does.
   `inventory.low-stock`.
 - Switching a custom card's source keeps the columns, boxes, filters and sort
   whose field the new source has, and names the ones it dropped.
-- Playwright coverage: `tests/e2e/layout-builtin-cards.spec.ts`.
+- Playwright coverage: `tests/e2e/settings/layout-builtin-cards.spec.ts`.
 
 ## Navigation by role (FLOW-284)
 
@@ -180,7 +180,7 @@ optional fields to show.
   drawers remain outside the inner grids.
 - Staff and Inventory filters are separate blocks. The table retains `list`,
   including when loading or reporting an error, so existing saved layouts work.
-- Browser coverage: `tests/e2e/layout-event-tabs.spec.ts`.
+- Browser coverage: `tests/e2e/settings/layout-event-tabs.spec.ts`.
 
 ## Added in FLOW-281
 
@@ -210,11 +210,11 @@ optional fields to show.
 - Documents' DataTable is layout-aware. SOP library column support is FLOW-281;
   FLOW-283 verifies it rather than adding a second implementation. Remaining
   inventory planning/history tables are plain HTML and keep their organizers.
-- `tests/page-layout-coverage.test.ts` follows every router component through
+- `tests/settings/page-layout-coverage.test.ts` follows every router component through
   local imports and re-exports, and rejects a route with no PageGrid. Printable,
   sign-in and offline BEO pages are exempt. Redirects do not render pages.
-- Browser coverage: `tests/e2e/layout-remaining-pages.spec.ts`; inventory coverage
-  continues in `tests/e2e/layout-coverage.spec.ts`.
+- Browser coverage: `tests/e2e/settings/layout-remaining-pages.spec.ts`; inventory coverage
+  continues in `tests/e2e/settings/layout-coverage.spec.ts`.
 
 ## Added in FLOW-282
 
@@ -232,7 +232,7 @@ optional fields to show.
   record inputs remain available. Stored record values, SOP content and table data
   never change. Deleted cards leave Roles & permissions; restoring retains roles.
 - Layout audit snapshots include explicit delete/restore/permanent-delete actions.
-- Coverage: `tests/layout-deletion.test.ts`, `tests/e2e/layout-deletion.spec.ts`,
-  and the SOP lifecycle checks in `tests/e2e/layout-remaining-pages.spec.ts`.
+- Coverage: `tests/settings/layout-deletion.test.ts`, `tests/e2e/settings/layout-deletion.spec.ts`,
+  and the SOP lifecycle checks in `tests/e2e/settings/layout-remaining-pages.spec.ts`.
 
 Integration with main preserves FLOW-296 aggregate column resizing (no registry field chooser), FLOW-266 inventory filters and shortcuts, and the Documents `documents-table` id.

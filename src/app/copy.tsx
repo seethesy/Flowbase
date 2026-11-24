@@ -204,7 +204,7 @@ export function CopyProvider({
         }
       }
     }
-    if (navPending) await (await import("./nav-visibility-editor")).saveNavHidden(navPending);
+    if (navPending) await (await import("./live-edit/nav-visibility-editor")).saveNavHidden(navPending);
     setPending({});
     setLayoutPending({});
     stageNav(null);

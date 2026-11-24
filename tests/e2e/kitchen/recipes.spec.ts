@@ -1,0 +1,203 @@
+import { choose } from "../dropdown";
+import { test, expect } from "../auth-fixture";
+import { consumableDetailsInputSchema } from "../../../shared/inventory";
+import { tuscanIngredients } from "../../fixtures/tuscan-chicken";
+import { seedInventory } from "../database";
+import { consumable } from "../fixtures";
+
+// The Tuscan Chicken ingredients in the catalog, with no unit costs yet.
+const tuscanCatalogItems = () =>
+  Object.values(tuscanIngredients).map((input) =>
+    consumable(input.name, {
+      unit: input.unit,
+      category: input.category,
+      details: {
+        ...consumableDetailsInputSchema.parse(input.consumable),
+        unitCostCents: null,
+      },
+    }),
+  );
+
+// FLOW-93/94/95/98: enter Tuscan Chicken with its allergens, see its cost, scale
+// it, then edit it.
+test("creates, costs, scales and edits a recipe", async ({ page, isMobile }) => {
+  await seedInventory({ items: tuscanCatalogItems() });
+  await page.goto("/");
+  if (isMobile)
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  // Kitchen opens its first tab, Overview (FLOW-246, FLOW-293); Recipes is next.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Kitchen", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Kitchen", exact: true, level: 1 }),
+  ).toBeVisible();
+  await page.getByRole("navigation", { name: "Kitchen pages" }).getByRole("link", { name: "Recipes", exact: true }).click();
+
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Tuscan Chicken");
+  await dialog.getByLabel(/^Yield/).fill("100");
+  const lines: [string, string, string][] = [
+    ["Chicken Breast", "10", "50"],
+    ["Heavy Cream", "1", "1.80"],
+    ["Tomatoes", "5", "1.10"],
+    ["Spinach", "3", "1.25"],
+    ["Italian Seasoning", "", ""],
+    ["Salt and Pepper", "", ""],
+  ];
+  for (const [index, [name, quantity, cost]] of lines.entries()) {
+    await dialog.getByRole("button", { name: "Add ingredient" }).click();
+    const line = dialog.getByRole("group", {
+      name: `Ingredient line ${index + 1}`,
+    });
+    await choose(line
+      .getByRole("combobox", { name: `Ingredient ${index + 1}`, exact: true }), { label: name });
+    if (quantity) await line.getByLabel(/^Quantity/).fill(quantity);
+    if (cost) await line.getByLabel(/^Entered cost/).fill(cost);
+  }
+  // The unit comes from each ingredient's recipe unit.
+  await expect(
+    dialog
+      .getByRole("group", { name: "Ingredient line 2" })
+      .getByRole("combobox", { name: "Unit", exact: true }),
+  ).toHaveAttribute("data-value", "cup");
+  await dialog
+    .getByLabel(/^Steps/)
+    .fill("1. Sear the chicken.\n2. Simmer the sauce.");
+  await dialog.getByLabel(/^Finishing note/).fill("garnish with basil");
+  // FLOW-95: allergens and dietary tags are set on the dish.
+  await dialog
+    .getByRole("group", { name: "Allergens" })
+    .getByLabel("Milk", { exact: true })
+    .check();
+  await dialog.getByRole("button", { name: "Save recipe" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await expect(
+    page.getByRole("heading", { name: "Tuscan Chicken", level: 1 }),
+  ).toBeVisible();
+  // FLOW-94 AC1/AC2: $54.15, $0.54 a serving, two lines with no cost.
+  await expect(page.getByRole("row", { name: /^Batch cost \$54\.15/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /^Per serving \$0\.54/ })).toBeVisible();
+  await expect(page.getByText("2 lines have no cost and count as $0.")).toBeVisible();
+  await expect(page.getByText("As needed")).toHaveCount(2);
+  const tags = page.locator("section", {
+    has: page.getByRole("heading", { name: "Allergens and dietary tags" }),
+  });
+  await expect(tags.getByText("Milk", { exact: true })).toBeVisible();
+  const method = page.locator("section", {
+    has: page.getByRole("heading", { name: "Method" }),
+  });
+  await expect(method.getByRole("listitem")).toHaveText([
+    "Sear the chicken.",
+    "Simmer the sauce.",
+  ]);
+
+  // FLOW-98 AC1.
+  await page.getByLabel("Servings", { exact: true }).fill("120");
+  await page.getByRole("button", { name: "Scale", exact: true }).click();
+  const scaled = page.getByRole("table", { name: "Scaled ingredients" });
+  await expect(
+    scaled.getByRole("row", { name: "Chicken Breast 12 each 6 lb" }),
+  ).toBeVisible();
+  await expect(
+    scaled.getByRole("row", { name: "Heavy Cream 1.2 cup 0.05 case" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog
+    .getByRole("group", { name: "Allergens" })
+    .getByLabel("Tree nuts", { exact: true })
+    .check();
+  const dietary = dialog.getByRole("group", { name: "Dietary tags" });
+  await expect(dietary.getByText("No ingredient contains meat.")).toBeVisible();
+  await dietary.getByLabel("Gluten-free", { exact: true }).check();
+  // FLOW-93 AC2: a recipe saves without a yield.
+  await dialog.getByLabel(/^Yield/).fill("");
+  await dialog.getByRole("button", { name: "Save recipe" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(tags).toContainText("Milk, Tree nuts");
+  await expect(tags).toContainText("Gluten-free");
+  await expect(page.getByRole("row", { name: /^Per serving Needs a yield/ })).toBeVisible();
+
+  // FLOW-98 AC2: no yield, no quantities.
+  await page.getByLabel("Servings", { exact: true }).fill("120");
+  await page.getByRole("button", { name: "Scale", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "no yield" })).toBeVisible();
+
+  await page.getByRole("link", { name: "← Recipe book" }).click();
+  await expect(page.getByRole("button", { name: "Tuscan Chicken" })).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: /Tuscan Chicken/ }),
+  ).toContainText("No yield");
+});
+
+// FLOW-218 AC1/AC2: an allergen and a category Admin adds in Settings are offered on
+// the recipe form and shown on the recipe, with no deploy.
+test("an allergen and a category added in Settings are used on a recipe", async ({ page }) => {
+  await page.goto("/#/settings");
+  for (const [list, value] of [
+    ["Allergens", "Coconut"],
+    ["Recipe categories", "Brunch"],
+  ]) {
+    await choose(page.getByLabel(/^List/), { label: list });
+    await page.getByLabel(`Add to ${list}`).fill(value);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByText(`${value} added.`, { exact: true })).toBeVisible();
+  }
+
+  await page.goto("/#/recipes");
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Coconut Pancakes");
+  await choose(dialog.getByLabel("Category", { exact: true }), { label: "Brunch" });
+  await dialog
+    .getByRole("group", { name: "Allergens" })
+    .getByLabel("Coconut", { exact: true })
+    .check();
+  await dialog.getByRole("button", { name: "Save recipe" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await expect(
+    page.getByRole("heading", { name: "Coconut Pancakes", level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator(".badge.neutral", { hasText: "Brunch" })).toBeVisible();
+  const tags = page.locator("section", {
+    has: page.getByRole("heading", { name: "Allergens and dietary tags" }),
+  });
+  await expect(tags.getByText("Coconut", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "← Recipe book" }).click();
+  await choose(page.getByLabel("Category", { exact: true }), "Brunch");
+  await expect(page.getByRole("button", { name: "Coconut Pancakes" })).toBeVisible();
+});
+
+test("an archived dietary tag stays marked on a recipe but leaves the new recipe picker", async ({ page }) => {
+  await page.goto("/#/settings");
+  await choose(page.getByLabel(/^List/), { label: "Dietary tags" });
+  await page.getByLabel("Add to Dietary tags").fill("Nut-free");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText("Nut-free added.", { exact: true })).toBeVisible();
+
+  await page.goto("/#/recipes");
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name *", { exact: true }).fill("Nut-free Salad");
+  await dialog.getByRole("group", { name: "Dietary tags" }).getByLabel("Nut-free").check();
+  await dialog.getByRole("button", { name: "Save recipe" }).click();
+  await expect(dialog).toHaveCount(0);
+  const recipeUrl = page.url();
+
+  await page.goto("/#/settings");
+  await choose(page.getByLabel(/^List/), { label: "Dietary tags" });
+  await page.getByRole("list", { name: "Dietary tags" })
+    .getByRole("listitem").filter({ hasText: "Nut-free" })
+    .getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByText("Nut-free archived.", { exact: true })).toBeVisible();
+
+  await page.goto(recipeUrl);
+  await expect(page.getByText("Nut-free (archived)", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "← Recipe book" }).click();
+  await page.getByRole("button", { name: "New Recipe", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("group", { name: "Dietary tags" })
+    .getByLabel("Nut-free", { exact: true })).toHaveCount(0);
+});

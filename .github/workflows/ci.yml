@@ -1,6 +1,8 @@
 name: Platform quality
 on:
   pull_request:
+    # ready_for_review: a draft PR marked ready runs the full Playwright suite (FLOW-315).
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,27 +16,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      code: ${{ steps.changes.outputs.code }}
+      mode: ${{ steps.select.outputs.mode }}
+      specs: ${{ steps.select.outputs.specs }}
+      shards: ${{ steps.select.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Detect Markdown-only PR
-        id: changes
+      # FLOW-315: a draft PR runs the smoke specs plus the areas it changed; a PR
+      # that is ready for review (and a manual run) runs every spec; Markdown,
+      # docs and unit/DB-test-only changes run none (scripts/select-e2e.mjs).
+      - name: Choose the Playwright specs
+        id: select
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          node --input-type=module <<'JS'
-          import { execFileSync } from 'node:child_process';
-          import { appendFileSync } from 'node:fs';
-          const { BASE_SHA, HEAD_SHA, GITHUB_OUTPUT } = process.env;
-          const files = BASE_SHA && HEAD_SHA
-            ? execFileSync('git', ['diff', '--name-only', `${BASE_SHA}...${HEAD_SHA}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
-            : ['manual-run'];
-          const code = files.some(path => !path.toLowerCase().endsWith('.md'));
-          appendFileSync(GITHUB_OUTPUT, `code=${code}\n`);
-          JS
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: node scripts/select-e2e.mjs >> "$GITHUB_OUTPUT"
 
   static:
     runs-on: ubuntu-latest
@@ -100,13 +98,13 @@ jobs:
 
   e2e:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.mode != 'skip'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     # Each shard has its own database and its own `wrangler dev`, so the
     # one-database / one-Worker assumption in playwright.config.ts holds per shard.
     services:
@@ -149,9 +147,12 @@ jobs:
         run: |
           echo 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
           npx playwright install-deps chromium webkit
-      # FLOW-286: the `mobile` project is not run in CI for now.
-      - name: Playwright desktop and webkit-offline, shard ${{ matrix.shard }}/4
-        run: npm run test:e2e:ci -- --shard=${{ matrix.shard }}/4
+      # FLOW-286: the `mobile` project is not run in CI for now. SPECS is empty for
+      # the full suite; --pass-with-no-tests covers a project with no selected spec.
+      - name: Playwright desktop and webkit-offline, shard ${{ matrix.shard }}/${{ strategy.job-total }}
+        env:
+          SPECS: ${{ needs.changes.outputs.specs }}
+        run: npm run test:e2e:ci -- --shard=${{ matrix.shard }}/${{ strategy.job-total }} --pass-with-no-tests $SPECS
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

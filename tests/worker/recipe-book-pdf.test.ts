@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { recipeBookName, renderClientRecipeBookPdf } from "../../worker/records/recipe-book-pdf";
+import { recipeBookName, renderClientRecipeBookPdf } from "../../worker/records/kitchen/recipe-book-pdf";
 
 // FLOW-301 AC2: the client recipe book stored as a PDF.
 const dish = (name: string) => ({

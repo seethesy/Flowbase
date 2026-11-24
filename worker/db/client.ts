@@ -9,7 +9,7 @@ import type { PgDatabase } from "drizzle-orm/pg-core";
 import * as schema from "./schema";
 import type { Bindings } from "../bindings";
 import { DatabaseNotConfiguredError } from "./errors";
-import { countUsage, providerMetricsConfigured } from "../records/usage";
+import { countUsage, providerMetricsConfigured } from "../records/settings/usage";
 
 export type Db = PostgresJsDatabase<typeof schema>;
 // A database or an open transaction: code that must join the caller's transaction

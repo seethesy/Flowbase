@@ -1,4 +1,4 @@
-import { LayoutHeader, PageSubtitle, useLayoutBlockId } from "../../app/layout-deletion";
+import { LayoutHeader, PageSubtitle, useLayoutBlockId } from "../../app/live-edit/layout-deletion";
 import { isValidElement } from "react";
 import { Dropdown } from "../ui/Dropdown";
 import { lazy, Suspense, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
@@ -46,7 +46,7 @@ import {
 import { LabelT, Plural, T, useCopy } from "../../app/copy";
 import { roleLabel } from "../../services/users";
 import { copySlug } from "../../../shared/copy";
-import { usePageLayoutContext } from "../../app/layout-context";
+import { usePageLayoutContext } from "../../app/live-edit/layout-context";
 export { Button };
 
 // List export (FLOW-48). A column's CSV value is its accessor's value unless meta.csv

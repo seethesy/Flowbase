@@ -65,7 +65,7 @@ hyphens (`shared/copy.ts` validates it):
   placeholders end in `.placeholder`.
 
 One key per distinct string: the same key always has the same default.
-`tests/copy-keys.test.ts` scans every `<T>`, `<Plural>` and `useCopy` and fails on a
+`tests/settings/copy-keys.test.ts` scans every `<T>`, `<Plural>` and `useCopy` and fails on a
 key used with two defaults or a key that breaks the convention. A different string
 needs a different key (add `-2`). Changing a default's wording keeps the key only
 when the meaning stays the same; an Admin's override of it then still applies.
@@ -111,7 +111,7 @@ Admin's edit silently: the row stays in the database and nothing reads it.
   (with its default's placeholder names), the prefixes of keys built at run time
   (`LabelT` maps, `DataTable`/`Tabs` `copyKey`s, template ids), every page layout's
   block and field-card ids and the layout-aware tables. `npm run live-edit:keys`
-  (`scripts/live-edit-keys.mjs`, the same scan as `tests/copy-keys.test.ts`)
+  (`scripts/live-edit-keys.mjs`, the same scan as `tests/settings/copy-keys.test.ts`)
   regenerates it; commit it with the change. CI fails when it is out of date.
 - **Renames.** When you rename a key, a block id or a field-card id, add the old
   and new one to `shared/live-edit-renames.ts`: `copy: { "old.key": "new.key" }`,
@@ -121,7 +121,7 @@ Admin's edit silently: the row stays in the database and nothing reads it.
   the old row; resetting it removes both. Drop the entry a release later.
 - **Removed.** A key or id that is gone on purpose goes in `removed.copy` or
   `removed.blocks` (`"page.key/id"`).
-- **CI guard.** `tests/live-edit-keys.test.ts` compares the manifest with the PR
+- **CI guard.** `tests/settings/live-edit-keys.test.ts` compares the manifest with the PR
   base branch's (from git) and fails, naming the file to update, when a key or
   block id disappears without a rename or removed entry. It needs no access to
   production.

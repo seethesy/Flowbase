@@ -177,7 +177,7 @@ export function applyCardQuery(actor: Actor, source: SourceKey, rows: Row[], que
 
 // Proposals have no list across events; as a main list a card reads the sales
 // tracker's proposal rows (FLOW-157), which already apply the viewer's scope.
-// The proposals list endpoint answers a card with these (worker/routes/proposals.ts).
+// The proposals list endpoint answers a card with these (worker/routes/sales/proposals.ts).
 export function salesProposals(body: unknown): Row[] {
   const rows = (body as { rows?: Row[] } | null)?.rows ?? [];
   return rows

@@ -1,0 +1,211 @@
+import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import postgres from "postgres";
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import * as schema from "../../../worker/db/schema";
+import { createApp } from "../../../worker/app";
+import type { RunWithDb } from "../../../worker/hono";
+import type { Actor, Role } from "../../../shared/access";
+import type { Attachment, UploadTicket } from "../../../shared/attachments";
+import type { Client, Venue } from "../../../shared/core-records";
+
+const url = process.env.DATABASE_URL;
+if (!url)
+  throw new Error(
+    "DATABASE_URL must point to the disposable CI Postgres service.",
+  );
+const client = postgres(url, { max: 1 });
+const db = drizzle(client, { schema });
+const withDb: RunWithDb = (_env, run) => run(db);
+const stored = new Map<string, number>();
+const env = {
+  ASSETS: { fetch },
+  R2_ACCOUNT_ID: "acct",
+  R2_BUCKET: "flowbase-files",
+  R2_ACCESS_KEY_ID: "key",
+  R2_SECRET_ACCESS_KEY: "secret",
+  // Stands in for the R2 binding: what has "arrived" in the bucket.
+  FILES: {
+    head: async (key: string) =>
+      stored.has(key) ? { size: stored.get(key) ?? 0 } : null,
+  },
+};
+const signedIn = (userId: string, role: Role) => {
+  const actor: Actor = { userId, role };
+  const app = createApp({ withDb, resolveActor: async () => actor });
+  return (method: string, path: string, body?: unknown) =>
+    app.request(
+      path,
+      { method, ...(body !== undefined && { body: JSON.stringify(body) }) },
+      env,
+    );
+};
+const admin = signedIn("a0000000-0000-4000-8000-000000000001", "admin");
+const sam = signedIn("a0000000-0000-4000-8000-000000000003", "salesperson");
+const sue = signedIn("a0000000-0000-4000-8000-000000000004", "salesperson");
+
+const photo = (recordType: string, recordId: string, group = "") => ({
+  recordType,
+  recordId,
+  group,
+  fileName: "IMG_0042.HEIC",
+  variants: [
+    { name: "thumb", contentType: "image/jpeg", size: 18_000 },
+    { name: "display", contentType: "image/jpeg", size: 240_000 },
+  ],
+});
+// Pretends the browser PUT each variant to its signed URL.
+const arrive = (ticket: UploadTicket) => {
+  for (const upload of ticket.uploads) {
+    const key = decodeURIComponent(
+      new URL(upload.url).pathname.replace("/flowbase-files/", ""),
+    );
+    stored.set(key, upload.name === "thumb" ? 18_000 : 240_000);
+  }
+};
+
+beforeAll(async () => {
+  await migrate(db, { migrationsFolder: "drizzle" });
+});
+beforeEach(async () => {
+  stored.clear();
+  await db.execute(
+    sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, attachments, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+  );
+});
+afterAll(async () => {
+  await client.end();
+});
+
+const newVenue = async () =>
+  (await (
+    await admin("POST", "/api/venues", { name: "The Glasshouse" })
+  ).json()) as Venue;
+
+it("stores only the resized photo variants and lists them once uploaded", async () => {
+  const venue = await newVenue();
+  const started = await admin(
+    "POST",
+    "/api/attachments",
+    photo("venue", venue.id, "floor_plan"),
+  );
+  expect(started.status).toBe(201);
+  const ticket = (await started.json()) as UploadTicket;
+  expect(ticket.uploads.map((upload) => upload.name).sort()).toEqual([
+    "display",
+    "thumb",
+  ]);
+  for (const upload of ticket.uploads) {
+    const signed = new URL(upload.url);
+    expect(signed.searchParams.get("X-Amz-Expires")).toBe("300");
+    // Keys are generated; the user's file name never becomes a storage path.
+    expect(signed.pathname).not.toContain("IMG_0042");
+  }
+  const list = `/api/attachments?recordType=venue&recordId=${venue.id}`;
+  expect(await (await admin("GET", list)).json()).toEqual([]);
+
+  // Completing before the files arrive fails.
+  expect(
+    (await admin("POST", `/api/attachments/${ticket.attachment.id}/complete`))
+      .status,
+  ).toBe(404);
+  arrive(ticket);
+  const done = await admin(
+    "POST",
+    `/api/attachments/${ticket.attachment.id}/complete`,
+  );
+  expect(done.status).toBe(200);
+  const [listed] = (await (await admin("GET", list)).json()) as Attachment[];
+  expect(listed).toMatchObject({
+    group: "floor_plan",
+    kind: "photo",
+    fileName: "IMG_0042.HEIC",
+  });
+  expect(Object.keys(listed.urls).sort()).toEqual(["display", "thumb"]);
+  expect(new URL(listed.urls.display ?? "").searchParams.get("X-Amz-Expires")).toBe(
+    "300",
+  );
+  expect(listed.urlsExpireAt).not.toBeNull();
+});
+
+it("hides another salesperson's client files", async () => {
+  const owned = (await (
+    await sue("POST", "/api/clients", { name: "Sue's client", kind: "person" })
+  ).json()) as Client;
+  expect(
+    (await sam("POST", "/api/attachments", photo("client", owned.id))).status,
+  ).toBe(404);
+  const ticket = (await (
+    await sue("POST", "/api/attachments", photo("client", owned.id))
+  ).json()) as UploadTicket;
+  arrive(ticket);
+  await sue("POST", `/api/attachments/${ticket.attachment.id}/complete`);
+  expect(
+    (
+      await sam(
+        "GET",
+        `/api/attachments?recordType=client&recordId=${owned.id}`,
+      )
+    ).status,
+  ).toBe(404);
+  expect(
+    (await sam("POST", `/api/attachments/${ticket.attachment.id}/archive`))
+      .status,
+  ).toBe(404);
+});
+
+it("updates captions and archives files", async () => {
+  const venue = await newVenue();
+  const ticket = (await (
+    await admin("POST", "/api/attachments", photo("venue", venue.id))
+  ).json()) as UploadTicket;
+  arrive(ticket);
+  await admin("POST", `/api/attachments/${ticket.attachment.id}/complete`);
+  const captioned = (await (
+    await admin("PATCH", `/api/attachments/${ticket.attachment.id}`, {
+      caption: "Tent layout",
+    })
+  ).json()) as Attachment;
+  expect(captioned.caption).toBe("Tent layout");
+  await admin("POST", `/api/attachments/${ticket.attachment.id}/archive`);
+  expect(
+    await (
+      await admin("GET", `/api/attachments?recordType=venue&recordId=${venue.id}`)
+    ).json(),
+  ).toEqual([]);
+});
+
+it("lists only visible documents, keeps upload versions and blocks BEO deletion", async () => {
+  const owned = (await (await sue("POST", "/api/clients", { name: "Synthetic client", kind: "person" })).json()) as Client;
+  const input = { name: "Synthetic contract", docType: "contract", recordType: "client", recordId: owned.id,
+    fileName: "contract.pdf", contentType: "application/pdf", size: 500 };
+  const started = await sue("POST", "/api/documents", input);
+  expect(started.status).toBe(201);
+  const ticket = await started.json() as { id: string; url: string };
+  stored.set(decodeURIComponent(new URL(ticket.url).pathname.replace("/flowbase-files/", "")), 500);
+  expect((await sue("POST", `/api/documents/${ticket.id}/complete`)).status).toBe(200);
+  const documents = await (await sue("GET", "/api/documents")).json() as { id: string; versions: { number: number }[] }[];
+  const document = documents.find((row) => row.versions.some((version) => version.number === 1))!;
+  expect(document).toBeDefined();
+  expect((await (await sam("GET", "/api/documents")).json()) as unknown[]).toHaveLength(0);
+  expect((await sam("GET", `/api/documents/${document.id}`)).status).toBe(404);
+
+  const second = await sue("POST", "/api/documents", { ...input, documentId: document.id, fileName: "contract-v2.pdf" });
+  const next = await second.json() as { id: string; url: string };
+  stored.set(decodeURIComponent(new URL(next.url).pathname.replace("/flowbase-files/", "")), 500);
+  await sue("POST", `/api/documents/${next.id}/complete`);
+  const renamed = await sue("PATCH", `/api/documents/${document.id}`, { name: "Revised contract", docType: "template" });
+  expect((await renamed.json() as { name: string; docType: string; versions: unknown[] })).toMatchObject({ name: "Revised contract", docType: "template", versions: [{ number: 2 }, { number: 1 }] });
+
+  const venue = await newVenue();
+  const relinked = await admin("PATCH", `/api/documents/${document.id}`, { recordType: "venue", recordId: venue.id });
+  expect((await relinked.json() as { recordType: string; recordId: string })).toMatchObject({ recordType: "venue", recordId: venue.id });
+  const protectedId = crypto.randomUUID();
+  await db.insert(schema.attachments).values({ id: protectedId, documentId: protectedId,
+    recordType: "venue", recordId: venue.id, group: "generated", fileName: "beo.pdf", displayName: "BEO",
+    docType: "beo", protected: true, status: "ready", variants: [{ name: "original", key: "synthetic/beo.pdf", contentType: "application/pdf", size: 100 }] });
+  expect((await admin("POST", `/api/documents/${protectedId}/archive`)).status).toBe(409);
+  expect((await sam("PATCH", `/api/documents/${protectedId}`, { docType: "template" })).status).toBe(403);
+  expect((await admin("GET", `/api/documents/${protectedId}`)).status).toBe(200);
+});

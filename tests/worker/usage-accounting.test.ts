@@ -11,7 +11,7 @@ import {
   storeProviderMetrics,
   USAGE_FLUSH_MS,
   usageFlushDue,
-} from "../../worker/records/usage";
+} from "../../worker/records/settings/usage";
 import { fakeDb } from "./fake-db";
 
 beforeEach(() => resetPendingUsage());

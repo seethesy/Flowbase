@@ -6,7 +6,7 @@ import type { ChangeArea } from "../shared/realtime";
 import type { Bindings } from "./bindings";
 import type { Db } from "./db/client";
 import { DatabaseNotConfiguredError } from "./db/errors";
-import type { CardSql, Page, PageRequest } from "./records/paging";
+import type { CardSql, Page, PageRequest } from "./records/core/paging";
 
 export type AppEnv = {
   Bindings: Bindings;

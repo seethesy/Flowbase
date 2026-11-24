@@ -4,19 +4,19 @@ import { createApp } from "../../worker/app";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
 import type { Actor } from "../../shared/access";
-import { deleteCopyRow, listCopy, moveCopy } from "../../worker/records/copy";
-import { getLayout, listLayouts, saveLayout } from "../../worker/records/layout";
+import { deleteCopyRow, listCopy, moveCopy } from "../../worker/records/settings/copy";
+import { getLayout, listLayouts, saveLayout } from "../../worker/records/settings/layout";
 
 // FLOW-277: a key renamed in code keeps the Admin's override (AC1), and saved
 // edits that no longer match a screen can be listed, deleted or moved (AC3).
-vi.mock("../../worker/records/copy", () => ({
+vi.mock("../../worker/records/settings/copy", () => ({
   listCopy: vi.fn(),
   saveCopy: vi.fn(),
   resetCopy: vi.fn(),
   deleteCopyRow: vi.fn(),
   moveCopy: vi.fn(),
 }));
-vi.mock("../../worker/records/layout", () => ({
+vi.mock("../../worker/records/settings/layout", () => ({
   getLayout: vi.fn(),
   listLayouts: vi.fn(),
   saveLayout: vi.fn(),

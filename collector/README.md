@@ -72,5 +72,5 @@ move the tag. Steps: [Update the scripts the ops repo runs](../docs/restore.md#u
 ## Tests
 
 Flowbase CI tests the framework against sanitized fixture pages in
-`collector/fixtures/<site>/` only (`tests/e2e/collector.spec.ts`,
-`tests/collector.test.ts`); it never signs in to a live site or uses a secret.
+`collector/fixtures/<site>/` only (`tests/e2e/leads/collector.spec.ts`,
+`tests/leads/collector.test.ts`); it never signs in to a live site or uses a secret.

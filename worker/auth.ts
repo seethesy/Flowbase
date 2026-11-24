@@ -10,7 +10,7 @@ import {
   type JWTPayload,
 } from "jose";
 import { createClient } from "@supabase/supabase-js";
-import { identitySchema, resolveUser } from "./records/users";
+import { identitySchema, resolveUser } from "./records/settings/users";
 import { ApiError, runDb, type RunWithDb } from "./hono";
 import type { Bindings } from "./bindings";
 

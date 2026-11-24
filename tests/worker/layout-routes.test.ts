@@ -6,11 +6,11 @@ import type { Db } from "../../worker/db/client";
 import { ApiError, type AppEnv, type RunWithDb } from "../../worker/hono";
 import type { Actor } from "../../shared/access";
 import { fieldProjection } from "../../worker/fields";
-import { getLayout, resetLayout, saveLayout } from "../../worker/records/layout";
+import { getLayout, resetLayout, saveLayout } from "../../worker/records/settings/layout";
 
 // Page layouts (FLOW-253): routes, the layout.edit permission and server-side
 // validation; fields= projection and card queries (FLOW-256).
-vi.mock("../../worker/records/layout", () => ({
+vi.mock("../../worker/records/settings/layout", () => ({
   getLayout: vi.fn(),
   listLayouts: vi.fn(),
   saveLayout: vi.fn(),

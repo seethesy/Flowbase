@@ -27,7 +27,8 @@ Worktrees sit beside the main checkout in `C:\Coding-Projects\Flowbase-Repo\`. C
 - **Done** = the ticket's PR has merged into `main`. A blocker in Done is satisfied: its code is in `main`.
 - **Automation** (GitHub–Jira) performs every status transition: to In Progress when linked development starts, to Done when the PR merges into `main`. If a status looks wrong, report it to the developer. Do not fix it.
 - **Issue key linking**: automation matches work to tickets by key, so every branch name, PR title, and commit message contains the key (`FLOW-123`).
-- **CI** (`.github/workflows/ci.yml`) is the only test authority. It runs lint, typecheck, Vitest, build, and Playwright on every PR, as parallel jobs `static`, `unit`, `db` and four Playwright shards `e2e (N)` (FLOW-285). `ci-ok` is the one required check; read a failure from the job it names. Playwright in CI runs only the `desktop` and `webkit-offline` projects; `mobile` is off in CI for now (FLOW-286). One shard locally: `npx playwright test --project=desktop --project=webkit-offline --shard=1/4`.
+- **CI** (`.github/workflows/ci.yml`) is the only test authority. It runs lint, typecheck, Vitest, build, and Playwright on every PR, as parallel jobs `static`, `unit`, `db` and Playwright shards `e2e (N)` (FLOW-285). `ci-ok` is the one required check; read a failure from the job it names. Playwright in CI runs only the `desktop` and `webkit-offline` projects; `mobile` is off in CI for now (FLOW-286). One shard locally: `npx playwright test --project=desktop --project=webkit-offline --shard=1/4`.
+- **Which Playwright specs run** (FLOW-315, `scripts/select-e2e.mjs`): on a **draft** PR, the smoke specs plus the specs of each area the PR changes (`tests/e2e/areas.json`), usually on one shard; a changed shared foundation (`src/app/`, `src/components/`, `worker/*.ts`, `worker/db/`, config) or a file in no area runs everything. A PR **ready for review**, and every push to it, runs the full suite on four shards. Markdown, `docs/`, and unit- or DB-test-only changes run no Playwright. Put new screens, routes, record modules and specs in their area's folder (README → Folder map); a file added to a flat folder (`src/services/`, `shared/`) goes into its area's `paths` in `tests/e2e/areas.json`. `tests/core/select-e2e.test.ts` fails on a spec in no area or a path that no longer exists.
 - **Developer-only actions**: merging PRs (squash merge), closing rejected PRs, deciding what happens to their tickets.
 
 ## 3. Hard rules
@@ -82,7 +83,7 @@ Start only when the developer prompts you with a ticket key (or several keys, se
 - Make routine technical decisions yourself. Ask only about product decisions (behavior, scope, security, cost, architecture).
 - Add a dependency only when the ticket requires it, with `npm install <pkg>` (the only npm command you may run), and justify it in the PR.
 - Screen wording is editable live by the Admin (FLOW-240): wrap new or changed screen text in `<T id="area.screen.element">`, `<Plural>` or `useCopy` (placeholders), never a bare string. `npm run lint` fails on unwrapped text (FLOW-244). Key convention and exceptions: `docs/live-text-editing.md`.
-- Every routed page must render a `PageGrid` with stable `Block` ids around its sections (FLOW-283). `tests/page-layout-coverage.test.ts` follows routed components and fails for uncovered pages. Print views, sign-in and offline BEO screens are exempt; redirects render no page. Keep record data in its own editor.
+- Every routed page must render a `PageGrid` with stable `Block` ids around its sections (FLOW-283). `tests/settings/page-layout-coverage.test.ts` follows routed components and fails for uncovered pages. Print views, sign-in and offline BEO screens are exempt; redirects render no page. Keep record data in its own editor.
 - The Admin's saved wording and layouts are matched by key (FLOW-277). Renaming or removing a wording key, a layout `Block` id or a field-card id needs an entry in `shared/live-edit-renames.ts` (rename or `removed`); never rename a nav `copyId`. Regenerate `shared/generated/live-edit-keys.json` with `npm run live-edit:keys` (a generator, not a check) and commit it. CI fails on a stale manifest or a key lost without an entry. Details: `docs/live-text-editing.md`.
 - Write or update tests for every delivered AC and for edge cases and regressions the change risks: Vitest in `tests/`, Playwright in `tests/e2e/`.
 - Before pushing, agents may run `npm run typecheck`, `npm run typecheck:worker`, `npx eslint <changed files>`, and `npx vitest run <changed or related unit/worker test files>`. DB tests and Playwright stay CI-only, except the mobile case above. CI remains the authority.
@@ -95,12 +96,12 @@ Start only when the developer prompts you with a ticket key (or several keys, se
 3. List manual checks the developer must do for anything automated tests cannot cover.
 
 ### 4.5 Open the PR
-Push once, when all commits are ready. Every push to an open PR re-runs CI.
+Push once, when all commits are ready. Every push to an open PR re-runs CI. Open it as a **draft**, so CI runs only the Playwright specs your change affects while you fix failures (FLOW-315).
 ```sh
 git push -u origin <branch>
-gh pr create --base main --title "FLOW-123: <summary>" --body-file <file>
+gh pr create --draft --base main --title "FLOW-123: <summary>" --body-file <file>
 ```
-Body (omit empty sections; never open a draft PR):
+Body (omit empty sections):
 ```markdown
 Jira: [FLOW-123](https://sybertechlabs.atlassian.net/browse/FLOW-123)
 
@@ -124,7 +125,8 @@ Jira: [FLOW-123](https://sybertechlabs.atlassian.net/browse/FLOW-123)
 ### 4.6 CI and hand-off
 1. `gh pr checks <pr> --watch`
 2. On failure: `gh run view <run-id> --log-failed`, fix, commit, push once. After 5 failed fix attempts, stop and report.
-3. Report to the developer: PR link, CI result, follow-up tickets, manual checks. Then stop.
+3. When the draft's CI passes and every AC is delivered, mark the PR ready: `gh pr ready <pr>`. That runs the full Playwright suite; watch it as in steps 1–2. A fix pushed after this runs the full suite again.
+4. Report to the developer: PR link, CI result (full suite), follow-up tickets, manual checks. Then stop.
 
 ### 4.7 After hand-off
 - Changes requested: same branch, same PR, then §4.6.

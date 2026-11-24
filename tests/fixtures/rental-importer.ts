@@ -6,13 +6,13 @@ import {
   inventoryLocations,
   inventoryStock,
 } from "../../worker/db/schema";
-import { defineImportModule } from "../../worker/records/imports";
+import { defineImportModule } from "../../worker/records/settings/imports";
 import {
   createItem,
   findItem,
   recordImportedStock,
   updateItem,
-} from "../../worker/records/inventory";
+} from "../../worker/records/inventory/inventory";
 
 // A test-only module importer for the import framework (FLOW-47) and imported
 // stock (FLOW-168): rental items keyed by code, with a quantity in a named

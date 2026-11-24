@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { fieldDef } from "../../shared/fields";
 import { layoutTables } from "../../shared/layout";
-import { useTableLayout } from "../app/table-layout";
+import { useTableLayout } from "../app/live-edit/table-layout";
 import { FieldValue, fieldText } from "./layout-fields";
 
 // A layout-aware table's columns (FLOW-254), loaded only when the page has a

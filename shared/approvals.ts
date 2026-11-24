@@ -5,7 +5,7 @@ import { id, text, timestamp } from "./schema-primitives";
 // Approval workflow engine (FLOW-44): one approval mechanism (design principle 4)
 // for rental Master changes, finalized proposals, order lists and BEO approval.
 // Each of those modules registers its subject type with the engine
-// (worker/records/approvals.ts) and creates requests through it; there are no
+// (worker/records/inventory/approvals.ts) and creates requests through it; there are no
 // approval tables per module.
 
 export const approvalStatuses = [

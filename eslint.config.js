@@ -50,9 +50,9 @@ export default ts.config(
     files: ["src/features/**/*.tsx", "src/components/**/*.tsx"],
     ignores: [
       "src/components/print/**",
-      "src/features/print-sample.tsx",
-      "src/features/beo-print.tsx",
-      "src/features/offline-beos.tsx",
+      "src/features/beo/print-sample.tsx",
+      "src/features/beo/beo-print.tsx",
+      "src/features/beo/offline-beos.tsx",
     ],
     plugins: { "live-copy": liveCopy },
     rules: { "live-copy/no-literal-text": "error" },

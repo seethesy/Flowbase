@@ -4,7 +4,7 @@ import { clsx } from "clsx";
 // The app's only checkbox (FLOW-245): a small round check. It is a native
 // <input type="checkbox"> restyled in CSS, so labels, the Space key, forms and
 // screen readers work as before. `indeterminate` shows a dash (e.g. "select all"
-// with some rows selected). tests/round-check.test.tsx fails on raw checkboxes.
+// with some rows selected). tests/events/round-check.test.tsx fails on raw checkboxes.
 export type RoundCheckProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
   indeterminate?: boolean;
 };

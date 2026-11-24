@@ -4,7 +4,7 @@ import { fieldDef, type SourceKey } from "../shared/fields";
 import type { CardFilter } from "../shared/layout";
 import { BUSINESS_TIME_ZONE } from "../shared/time";
 import { clients, events, leads, tasks, vendors, venues } from "./db/schema";
-import type { CardSql } from "./records/paging";
+import type { CardSql } from "./records/core/paging";
 
 // Custom cards in SQL (FLOW-308). A card's filters, sort and row limit become
 // conditions on the list's own table, added to the list endpoint's own query

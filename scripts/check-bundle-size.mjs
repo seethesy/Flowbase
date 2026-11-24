@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 // The one exception is the layout annotation editor (FLOW-147): Excalidraw is
 // large, loads only when someone opens that screen, and splits into several
 // chunks. A chunk is exempt only if the editor's chunk (the one holding the
-// "layout-plan" marker in src/features/beo-layout-editor.tsx) pulls it in and it
+// "layout-plan" marker in src/features/beo/beo-layout-editor.tsx) pulls it in and it
 // is NOT part of the first load (the entry script and what it imports statically).
 const dir = "dist/assets";
 const files = readdirSync(dir).filter((name) => name.endsWith(".js"));

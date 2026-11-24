@@ -8,7 +8,7 @@ import {
 
 // FLOW-289: items live in three tables with the same columns. Tests insert
 // through these helpers, which pick the table from the item's kind and subtype
-// as the API does (worker/records/inventory-common.ts).
+// as the API does (worker/records/inventory/inventory-common.ts).
 export type ItemValues = typeof masterInventoryItems.$inferInsert;
 type ItemTable = typeof masterInventoryItems;
 

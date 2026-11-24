@@ -2,14 +2,14 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { createApp } from "../../worker/app";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
-import { changeUser, inviteUser, listUsers } from "../../worker/records/users";
+import { changeUser, inviteUser, listUsers } from "../../worker/records/settings/users";
 
 const sendInvite = vi.hoisted(() => vi.fn());
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({ auth: { admin: { inviteUserByEmail: sendInvite } } }),
 }));
-vi.mock("../../worker/records/users", async (original) => ({
-  ...(await original<typeof import("../../worker/records/users")>()),
+vi.mock("../../worker/records/settings/users", async (original) => ({
+  ...(await original<typeof import("../../worker/records/settings/users")>()),
   inviteUser: vi.fn(),
   changeUser: vi.fn(),
   listUsers: vi.fn(),

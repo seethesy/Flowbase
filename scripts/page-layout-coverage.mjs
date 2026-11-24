@@ -44,7 +44,7 @@ export function layoutCoverage(root, overrides = {}) {
     const { symbols, imports } = parse(file);
     if (imports.has(name)) {
       const [target, symbol] = imports.get(name);
-      if (name === "PageGrid" && target?.replaceAll("\\", "/").endsWith("/app/page-grid.tsx")) return true;
+      if (name === "PageGrid" && target?.replaceAll("\\", "/").endsWith("/app/live-edit/page-grid.tsx")) return true;
       return covered(target, symbol, seen);
     }
     const node = symbols.get(name);

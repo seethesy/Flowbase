@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "./shared";
 import { useBusinessSettings } from "../services/settings";
 import { T } from "../app/copy";
-import "../features/time-tracking.css";
+import "../features/staff/time-tracking.css";
 
 // The idle cutoff is a business setting (FLOW-45).
 export const trackingNoticeText = (idleMinutes: number) =>

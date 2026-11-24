@@ -19,15 +19,15 @@ import {
   setListValueArchived,
   settingsHistory,
   updateSetting,
-} from "../../worker/records/settings";
+} from "../../worker/records/settings/settings";
 import {
   getStaffMember,
   listStaff,
   updateStaffMember,
-} from "../../worker/records/staff";
+} from "../../worker/records/staff/staff";
 
-vi.mock("../../worker/records/settings", async (original) => ({
-  ...(await original<typeof import("../../worker/records/settings")>()),
+vi.mock("../../worker/records/settings/settings", async (original) => ({
+  ...(await original<typeof import("../../worker/records/settings/settings")>()),
   getSettings: vi.fn(),
   updateSetting: vi.fn(),
   addListValue: vi.fn(),
@@ -36,8 +36,8 @@ vi.mock("../../worker/records/settings", async (original) => ({
   setListValueArchived: vi.fn(),
   settingsHistory: vi.fn(),
 }));
-vi.mock("../../worker/records/staff", async (original) => ({
-  ...(await original<typeof import("../../worker/records/staff")>()),
+vi.mock("../../worker/records/staff/staff", async (original) => ({
+  ...(await original<typeof import("../../worker/records/staff/staff")>()),
   listStaff: vi.fn(),
   getStaffMember: vi.fn(),
   updateStaffMember: vi.fn(),

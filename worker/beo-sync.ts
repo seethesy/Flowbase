@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import type { AppEnv, RunWithDb } from "./hono";
-import { syncBeo } from "./records/beo";
+import { syncBeo } from "./records/beo/beo";
 
 // FLOW-144: after any successful write under /api/events/<id> (the event itself,
 // its kitchen menu, roster, timeline or pull list), compares the event's BEO with

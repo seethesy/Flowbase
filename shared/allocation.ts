@@ -7,7 +7,7 @@ import { addLocalDays } from "./time";
 // Consumable allocation and projected stock (FLOW-85). When several events need
 // the same ingredient, bottle or supply, the event booked first gets the stock
 // and the others are short. The rules are pure; the Worker reads stock, events
-// and orders and stores the result (worker/records/allocations.ts).
+// and orders and stores the result (worker/records/inventory/allocations.ts).
 
 // Events at Closed or later whose requirements become allocations (FLOW-85, FLOW-56):
 // Closed and Preparation. A Finished or Lost event no longer needs stock set aside.
