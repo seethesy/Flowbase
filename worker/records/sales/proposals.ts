@@ -256,6 +256,7 @@ export async function listProposalFiles(
     .select({
       proposalId: proposals.id,
       title: proposals.title,
+      stage: proposals.stage,
       eventId: events.id,
       eventName: events.title,
       versionId: proposalVersions.id,
@@ -288,6 +289,7 @@ export async function listProposalFiles(
   return Promise.all(latest.map(async (row): Promise<ProposalLibraryFile> => ({
     proposalId: row.proposalId,
     title: row.title,
+    stage: row.stage,
     event: { id: row.eventId, name: row.eventName },
     versionId: row.versionId,
     versionNumber: row.number!,

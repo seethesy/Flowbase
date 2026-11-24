@@ -56,6 +56,9 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-336: Events › Overview has New event now, so its line no longer
+      // says events start from a lead.
+      "events-screen.calendar.events-at-negotiation-or-later",
       // FLOW-310: the event hub's former log section.
       "day-of.event-day-of-section.day-of-log",
       "day-of.event-day-of-section.export-csv",

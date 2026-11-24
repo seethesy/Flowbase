@@ -189,6 +189,8 @@ export type ProposalDetail = z.infer<typeof proposalDetailSchema>;
 export const proposalLibraryFileSchema = z.object({
   proposalId: id,
   title: z.string(),
+  // Generate BEO is offered at Closing or Closed (FLOW-337).
+  stage: proposalStageSchema,
   event: z.object({ id, name: z.string() }),
   versionId: id,
   versionNumber: z.number().int().positive(),

@@ -4,6 +4,7 @@ import { boolean, index, integer, jsonb, pgTable, text, uniqueIndex, uuid } from
 import { beoAreaKinds, beoStatuses, runOfShowModes } from "../../../shared/beo";
 import { baseColumns, oneOf, timestamptz } from "../conventions";
 import { events } from "./events";
+import { proposals, proposalVersions } from "./sales";
 
 // The banquet event order (FLOW-143/144): one per event. Its content is assembled
 // live from the event's records; the row keeps the approval state, the free-text
@@ -28,6 +29,10 @@ export const beos = pgTable(
     snapshot: jsonb("snapshot").$type<Record<string, string>>().notNull().default({}),
     // Whether the run of show is on: by guest count (auto) or by hand (FLOW-145).
     runOfShowMode: text("run_of_show_mode", { enum: runOfShowModes }).notNull().default("auto"),
+    // The proposal and version it was last generated from (FLOW-337), shown on
+    // the BEO page. Null for a BEO generated from the event alone.
+    sourceProposalId: uuid("source_proposal_id").references(() => proposals.id),
+    sourceVersionId: uuid("source_version_id").references(() => proposalVersions.id),
   },
   (table) => [
     uniqueIndex("beos_event_live_idx").on(table.eventId).where(sql`${table.archivedAt} is null`),

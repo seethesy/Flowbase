@@ -54,8 +54,9 @@ export const beoSectionLabels: Record<BeoSection, string> = {
 // routes below (FLOW-145, 146, 147).
 export const beoNotesInputSchema = z
   .object({
-    setupDetails: text(5000),
-    additionalNotes: text(5000),
+    // Room for a whole imported BEO's notes (FLOW-338).
+    setupDetails: text(20_000),
+    additionalNotes: text(20_000),
   })
   .partial()
   .strict();
@@ -472,6 +473,9 @@ export const beoViewSchema = z.object({
   canRequestApproval: z.boolean(),
   // Anyone who can open the event checks cleanup items off during breakdown.
   canCheckOff: z.boolean(),
+  // The proposal and version it was generated from (FLOW-337), for readers who
+  // may see proposals. Older cached copies have none.
+  source: z.object({ proposalId: id, title: z.string(), version: z.number().int().nullable() }).nullable().default(null),
 });
 export type BeoView = z.infer<typeof beoViewSchema>;
 

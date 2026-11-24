@@ -1,6 +1,6 @@
 {
-  "id": "000bb2e2-e80f-4745-a671-896a83deaa6d",
-  "prevId": "b266d241-af3c-4d6c-8198-35d5239bd8d2",
+  "id": "ab32c5b5-d097-4159-8897-3bfd7ee33d30",
+  "prevId": "000bb2e2-e80f-4745-a671-896a83deaa6d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -9003,6 +9003,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'auto'"
+        },
+        "source_proposal_id": {
+          "name": "source_proposal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_version_id": {
+          "name": "source_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -9030,6 +9042,32 @@
           "tableTo": "events",
           "columnsFrom": [
             "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "beos_source_proposal_id_proposals_id_fk": {
+          "name": "beos_source_proposal_id_proposals_id_fk",
+          "tableFrom": "beos",
+          "tableTo": "proposals",
+          "columnsFrom": [
+            "source_proposal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "beos_source_version_id_proposal_versions_id_fk": {
+          "name": "beos_source_version_id_proposal_versions_id_fk",
+          "tableFrom": "beos",
+          "tableTo": "proposal_versions",
+          "columnsFrom": [
+            "source_version_id"
           ],
           "columnsTo": [
             "id"

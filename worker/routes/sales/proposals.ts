@@ -12,6 +12,7 @@ import { recordContractSchema, recordAddendumSchema, signAddendumSchema } from "
 import { requirePermission } from "../../auth";
 import { salesProposals } from "../../fields";
 import { salesDataset } from "../../records/sales/sales";
+import { generateBeoFromProposal } from "../../records/beo/beo-from-proposal";
 import {
   ApiError,
   idParam,
@@ -112,6 +113,10 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
     const input = await parseBody(c, proposalMappingSchema);
     return c.json(await record(c, (db, actor) => saveProposalMapping(db, actor, id, input)));
   });
+  // FLOW-337: the event's BEO from this proposal at Closing or Closed.
+  routes.post("/:id/beo", requirePermission("events.write"), async (c) =>
+    c.json(await record(c, (db, actor) => generateBeoFromProposal(db, actor, proposalId(c)))),
+  );
   routes.post("/:id/submit", requirePermission("proposals.write"), async (c) =>
     c.json(await record(c, (db, actor) => submitProposalForApproval(db, actor, env(c), proposalId(c)))),
   );

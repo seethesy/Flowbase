@@ -9,6 +9,7 @@ import {
   type RunOfShowInput,
 } from "../../shared/beo";
 import { beoListRowSchema, type BeoListQuery } from "../../shared/beo-list";
+import { beoImportResultSchema, type BeoImportInput } from "../../shared/beo-import";
 import { cachedBeo, isNetworkError } from "../offline/db";
 import { at, query, request } from "./core";
 
@@ -34,6 +35,8 @@ export const beoApi = {
     }
   },
   generate: (eventId: string) => view(beo(eventId), "POST"),
+  // Import BEO (FLOW-338): the reviewed values of a Word or PDF BEO.
+  importFile: (input: BeoImportInput) => request(beoImportResultSchema, "/api/beos/import", "POST", input),
   saveNotes: (eventId: string, input: BeoNotesInput) => view(beo(eventId), "PATCH", input),
   requestApproval: (eventId: string) => view(beo(eventId, "/request-approval"), "POST"),
   approve: (eventId: string) => view(beo(eventId, "/approve"), "POST"),
