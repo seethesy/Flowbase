@@ -154,7 +154,7 @@ export function OrderListsTable() {
               <T id="purchasing.page.delete-rule">Only Draft, Rejected and Cancelled lists can be deleted.</T>
             </p>
           )}
-      {creating && <NewOrderList onClose={() => setCreating(false)} onCreated={(list) => navigate(`/inventory/orders/${list.id}`)} />}
+      {creating && <NewOrderList onClose={() => setCreating(false)} onCreated={(list) => { setCreating(false); navigate(`/inventory/orders/${list.id}`); }} />}
     </>
   );
 }

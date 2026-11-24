@@ -139,14 +139,14 @@ test("stored client recipe books appear on Menus under the Recipe books filter (
 });
 
 test("the Ingredients tab filters by storage (FLOW-301 AC3)", async ({ page }) => {
-  const dry = defaultSections.find((section) => section.name === "Kitchen – Dry Storage")!;
+  const pantry = defaultSections.find((section) => section.name === "Pantry")!;
   await seedInventory({ items: [
-    consumable("Synthetic flour", { details: { storageSectionId: dry.id } }),
+    consumable("Synthetic flour", { details: { storageSectionId: pantry.id } }),
     consumable("Synthetic cream"),
   ] });
   await page.goto("/#/inventory/ingredients");
   await expect(page.getByRole("row", { name: /Synthetic cream/ })).toBeVisible();
-  await choose(page.getByRole("combobox", { name: /^Storage area/ }), { label: "Kitchen – Dry Storage" });
+  await choose(page.getByRole("combobox", { name: /^Storage area/ }), { label: "Pantry" });
   await expect(page.getByRole("row", { name: /Synthetic flour/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /Synthetic cream/ })).toHaveCount(0);
 });

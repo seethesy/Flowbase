@@ -35,7 +35,7 @@ test("Purchasing shows Created by and saves a list's notes inline (AC1)", async 
       createdBy: admin.id, updatedBy: admin.id }).returning();
     return row.id;
   });
-  await page.goto("/#/purchasing");
+  await page.goto("/#/inventory/order");
   await expect(await cellOf(page, /Draft/, "Created by")).toHaveText(adminName);
   await expect(page.locator("thead th").filter({ hasText: "Est. total" })).toBeVisible();
   await (await cellOf(page, /Draft/, "Notes")).getByRole("button").click();
@@ -43,7 +43,7 @@ test("Purchasing shows Created by and saves a list's notes inline (AC1)", async 
   await page.reload();
   await expect(await cellOf(page, /Draft/, "Notes")).toHaveText("Deliver to the back door");
   // Editing the note didn't open the list.
-  await expect(page).toHaveURL(/#\/purchasing$/);
+  await expect(page).toHaveURL(/#\/inventory\/order$/);
 });
 
 test("Purchasing deletes a Draft list and skips an Ordered one with a reason (AC1)", async ({ page }) => {
@@ -51,7 +51,7 @@ test("Purchasing deletes a Draft list and skips an Ordered one with a reason (AC
     { fromDate: "2026-11-01", toDate: "2026-11-30", status: "draft" },
     { fromDate: "2026-12-01", toDate: "2026-12-31", status: "ordered" },
   ]));
-  await page.goto("/#/purchasing");
+  await page.goto("/#/inventory/order");
   const draftRow = page.getByRole("row", { name: /Draft/ });
   const orderedRow = page.getByRole("row", { name: /Ordered/ });
   await expect(draftRow).toBeVisible();
