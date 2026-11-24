@@ -240,6 +240,9 @@ export default function PageGridEditor({
   const carryResult = carry?.to ? moveBlock(doc, carry.id, carry.to.x, carry.to.y, names) : null;
   const carryTarget = carry?.to ? slotAt(doc.grid, carry.to.x, carry.to.y) : null;
   useEffect(() => {
+    // Still over its own cell (just picked up): keep the pick-up message.
+    const own = carry && doc.blocks.find((block) => block.id === carry.id);
+    if (own && carryTarget && sameRect(own, carryTarget)) return;
     if (carry && carryResult) setMessage(carryResult.ok ? carryResult.outcome.message : carryResult.reason);
     // carryResult follows carry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
