@@ -6,8 +6,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import type { JSONContent } from "@tiptap/core";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, DataTable, FormField, LoadingSkeleton, PageHeader, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DataTable, FormField, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { RichTextEditor } from "../../components/rich-text/RichTextEditor";
 import { RichTextView } from "../../components/rich-text/RichTextView";
 import { emptyRichText } from "../../components/rich-text/extensions";
@@ -42,7 +41,7 @@ export function SopLibrary() {
       sortingFn: (a, b) => a.original.updatedAt.localeCompare(b.original.updatedAt),
       meta: { csv: (row) => row.updatedAt } },
   ];
-  if (sops.error) return <LoadError message={sops.error} />;
+  if (sops.error) return <ErrorText message={sops.error} />;
   return <>
     <PageHeader pageKey="sops.library" title={<T id="sops.sop-library.sop-library">SOP library</T>} subtitle={<T id="sops.sop-library.standard-procedures-for-production-and">Standard procedures for production and kitchen work.</T>}>
       {can("sops.write") && <Button asChild><Link to="/sops/new"><T id="sops.sop-library.new-sop">New SOP</T></Link></Button>}
@@ -86,8 +85,8 @@ function SopRecord({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [shownVersion, setShownVersion] = useState<number | null>(null);
-  if (creating && !can("sops.write")) return <LoadError message="You cannot create SOPs." />;
-  if (sop.error) return <LoadError message={sop.error} />;
+  if (creating && !can("sops.write")) return <ErrorText message="You cannot create SOPs." />;
+  if (sop.error) return <ErrorText message={sop.error} />;
   if (!creating && !sop.data) return <LoadingSkeleton />;
   const data = sop.data;
   const beginEdit = () => {
@@ -113,7 +112,7 @@ function SopRecord({ id }: { id: string }) {
     <PageHeader pageKey="sops.detail" title={creating ? <T id="sops.sop-detail.new-sop">New SOP</T> : data?.title ?? <T id="sops.sop-detail.sop">SOP</T>}>
       {data && can("sops.write") && !editing && <Button onClick={beginEdit}><T id="sops.sop-detail.edit-sop">Edit SOP</T></Button>}
     </PageHeader>
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     <PageGrid pageKey="sops.detail">
     <Block id="sop-header-facts" name="SOP facts" h={3}><p>{data ? <T id="sops.sop-detail.version" values={{ category: data.category, version: data.version }}>{"{category} · Version {version}"}</T> : <T id="sops.sop-detail.standard-procedure">Standard procedure</T>}</p></Block>
     <Block id="procedure" name="Procedure" h={18}>

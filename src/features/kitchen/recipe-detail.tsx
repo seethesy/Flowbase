@@ -8,8 +8,7 @@ import { recipesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
 import { queryClient } from "../../app/queryClient";
 import { useOpenFor } from "../../app/useOpenFor";
-import { Button, ConfirmationDialog, FormField, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, ConfirmationDialog, FormField, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { Attachments } from "../common/attachments";
 import { centsLabel, quantityLabel } from "../inventory/inventory-labels";
 import { useArchivedMarks } from "../common/list-fields";
@@ -159,11 +158,7 @@ function ScaleSection({ recipe, requestedServings }: { recipe: Recipe; requested
           <T id="recipes.scale-section.scale">Scale</T>
         </Button>
       </form>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {result && !result.ok && (
         <p role="status" className="error-message">
           <AlertTriangle size={14} /> {result.message}
@@ -218,7 +213,7 @@ export function RecipeDetail() {
     return (
       <>
         {back}
-        <LoadError message={recipe.error} />
+        <ErrorText message={recipe.error} />
       </>
     );
   const r = recipe.data;

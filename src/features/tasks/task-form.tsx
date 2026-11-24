@@ -4,7 +4,7 @@ import { taskPriorities, taskPriorityLabels, taskTypeLabels, taskTypes, type Tas
 import { businessTimeToUtc, isBusinessTime } from "../../../shared/time";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { eventsApi } from "../../services/core";
 import { staffApi } from "../../services/staff";
 import { tasksApi } from "../../services/tasks";
@@ -107,11 +107,7 @@ export function NewTaskDrawer({
       description={<T id="task-lists.new-task-drawer.add-a-task-for-yourself">Add a task for yourself or the team.</T>}
     >
       <form className="task-form" onSubmit={submit}>
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="task-lists.new-task-drawer.title">Title</T>}>
           <input
             required

@@ -23,8 +23,9 @@ import {
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
+  FormDrawer,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { proposalsApi, uploadProposalVersion } from "../../services/proposals";
 import { uploadAttachment } from "../../services/attachments";
 import { ProposalReview } from "../sales/proposal-review";
@@ -85,7 +86,7 @@ export function EventProposalsSection({
   if (list.error)
     return (
       <Section title={<T id="event-proposals.event-proposals-section.proposals">Proposals</T>}>
-        <LoadError message={list.error} />
+        <ErrorText message={list.error} />
       </Section>
     );
   if (!list.data) return <LoadingSkeleton />;
@@ -223,52 +224,38 @@ function ProposalForm({
   const [draft, setDraft] = useState({ title, notes });
   const [error, setError] = useState("");
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={heading}
       description={<T id="event-proposals.proposal-form.the-proposal-itself-is-written">The proposal itself is written in Google Docs; Flowbase tracks its stages and versions.</T>}
+      onSubmit={async () => {
+        if (!draft.title.trim()) return setError("Title is required.");
+        try {
+          setError("");
+          await onSave(draft);
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-proposals.proposal-form.save-proposal">Save proposal</T>}
+      cancelLabel={<T id="event-proposals.proposal-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!draft.title.trim()) return setError("Title is required.");
-          try {
-            setError("");
-            await onSave(draft);
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <FormField label={<T id="event-proposals.proposal-form.title">Title *</T>}>
-          <input
-            value={draft.title}
-            maxLength={200}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          />
-        </FormField>
-        <FormField label={<T id="event-proposals.proposal-form.notes">Notes</T>}>
-          <textarea
-            value={draft.notes}
-            maxLength={5000}
-            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-          />
-        </FormField>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="event-proposals.proposal-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-proposals.proposal-form.save-proposal">Save proposal</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+      <FormField label={<T id="event-proposals.proposal-form.title">Title *</T>}>
+        <input
+          value={draft.title}
+          maxLength={200}
+          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+        />
+      </FormField>
+      <FormField label={<T id="event-proposals.proposal-form.notes">Notes</T>}>
+        <textarea
+          value={draft.notes}
+          maxLength={5000}
+          onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+        />
+      </FormField>
+    </FormDrawer>
   );
 }
 
@@ -335,7 +322,7 @@ function ProposalDrawer({
       title={title}
       description={<T id="event-proposals.proposal-drawer.stages-after-revisions-are-set">Stages after Revisions are set by uploading, approving, sending and booking the proposal.</T>}
     >
-      {detail.error && <LoadError message={detail.error} />}
+      <ErrorText message={detail.error} />
       {!detail.data && !detail.error && <LoadingSkeleton />}
       {detail.data &&
         (() => {
@@ -347,11 +334,7 @@ function ProposalDrawer({
           const currentVersion = p.versions.find((version) => version.current);
           return (
             <div className="proposal-detail">
-              {error && (
-                <p role="alert" className="error-message">
-                  {error}
-                </p>
-              )}
+              <ErrorText message={error} />
               <PageGrid pageKey="proposals.detail" record={{ source: "proposals", id: p.id, row: p as unknown as Record<string, unknown> }}>
                 <Block id="proposal-facts" name="Proposal details" w={12} h={6}>
                   <FieldCard cardKey="proposal-facts" source="proposals" row={p as unknown as Record<string, unknown>}

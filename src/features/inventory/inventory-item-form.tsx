@@ -1,121 +1,31 @@
 import { Dropdown } from "../../components/ui/Dropdown";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { isFtPlus } from "../../../shared/access";
-import { AlertTriangle } from "lucide-react";
 import {
-  barCategories,
-  barContainerLabels,
-  barContainerSchema,
-  barSubcategories,
-  barTierLabels,
-  barTierSchema,
-  kindForTracking,
   ratioBasisLabels,
   ratioBasisSchema,
-  recipeUnitProblem,
-  classificationKind,
-  stockTrackingLabels,
-  stockTrackingOf,
-  stockTrackingSchema,
-  subtypesByKind,
-  type BarContainer,
   type InventoryItem,
-  type ItemInput,
   type ItemKind,
-  type RatioBasis,
   type Section as StockSection,
-  type StockTracking,
 } from "../../../shared/inventory";
-import { unitLabel, unitSchema, type Unit } from "../../../shared/units";
 import { allPages, inventoryApi, inventoryChangesApi, sectionsApi } from "../../services/core";
-import { inventoryCategoriesApi } from "../../services/inventory-categories";
 import { StaleReload, isStale } from "../../components/stale-reload";
 import { vendorsApi } from "../../services/vendors";
 import { useResource } from "../../app/useResource";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { FormField, ErrorText, FormDrawer } from "../../components/shared";
 import { useShownFields } from "../../app/live-edit/field-card";
-import { subtypeLabel } from "./inventory-labels";
-import { ListSuggestions } from "../common/list-fields";
 import { useBusinessSettings } from "../../services/settings";
-import { inventoryCategoryList } from "../../../shared/settings";
 import { usePermissions } from "../../app/permissions";
 import { canSeeRentalCosts } from "../../../shared/visibility";
 import { CatalogIncludes } from "./inventory-includes";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T, LabelT } from "../../app/copy";
-
-const dollars = (cents: number | null | undefined) =>
-  cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
-const toCents = (value: string) =>
-  value.trim() === "" ? null : Math.round(Number(value) * 100);
-export const toNumber = (value: string) =>
-  value.trim() === "" ? null : Number(value);
-const numberText = (value: number | null | undefined) =>
-  value === null || value === undefined ? "" : String(value);
-
-function UnitSelect({
-  label,
-  value,
-  onChange,
-  optional,
-}: {
-  label: ReactNode;
-  value: string;
-  onChange: (value: string) => void;
-  optional?: string;
-}) {
-  return (
-    <FormField label={label}>
-      <Dropdown value={value} onChange={(e) => onChange(e.target.value)}>
-        {optional && <option value="">{optional}</option>}
-        {unitSchema.options.map((unit) => (
-          <option key={unit} value={unit}>
-            {unitLabel(unit)}
-          </option>
-        ))}
-      </Dropdown>
-    </FormField>
-  );
-}
-
-type FieldName =
-  | "code"
-  | "name"
-  | "category"
-  | "description"
-  | "unit"
-  | "group"
-  | "color"
-  | "tier"
-  | "ratioQuantity"
-  | "ratioBasis"
-  | "price"
-  | "priceBasis"
-  | "internalCost"
-  | "replacementCost"
-  | "rentalVendorId"
-  | "vendorCost"
-  | "leadTimeDays"
-  | "dimensions"
-  | "notes"
-  | "assemblyNotes"
-  | "bufferDaysBefore"
-  | "bufferDaysAfter"
-  | "colors"
-  | "purchaseUnit"
-  | "packCount"
-  | "eachSizeQuantity"
-  | "eachSizeUnit"
-  | "recipeUnit"
-  | "unitCost"
-  | "preferredVendor"
-  | "preferredVendorId"
-  | "parLevel"
-  | "storageSectionId"
-  | "storageOrder"
-  | "brand"
-  | "subcategory"
-  | "container";
+import { buildItemInput, initialItemFields, type FieldName, type ItemFields } from "./inventory-item-input";
+import { FieldInput, type ItemFieldsProps } from "./inventory-item-form-parts";
+import { ItemClassificationSection } from "./inventory-item-classification";
+import { ItemRentalSection } from "./inventory-item-rental";
+import { ItemServiceSection } from "./inventory-item-service";
+import { ItemConsumableSection } from "./inventory-item-consumable";
 
 type ItemFormProps = {
   item?: InventoryItem;
@@ -146,6 +56,8 @@ export function ItemForm(props: ItemFormProps) {
   );
 }
 
+// The form's state and save. Each item kind's fields are a section component,
+// and the API input is built by buildItemInput (FLOW-317).
 function ItemFormFields({
   item,
   preset,
@@ -164,45 +76,7 @@ function ItemFormFields({
   );
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? "");
   const [typeId, setTypeId] = useState(item?.typeId ?? "");
-  const [fields, setFields] = useState<Record<FieldName, string>>(() => ({
-    code: item?.code ?? "",
-    name: item?.name ?? "",
-    category: item?.category ?? "",
-    description: item?.description ?? "",
-    unit: item?.unit ?? "each",
-    group: item?.group ?? "",
-    color: item?.color ?? "",
-    tier: item?.tier ?? "",
-    ratioQuantity: numberText(item?.ratio?.quantity),
-    ratioBasis: item?.ratio?.basis ?? "per_guest",
-    price: dollars(item?.rental?.priceCents ?? item?.service?.priceCents),
-    priceBasis: item?.service?.priceBasis ?? "per_event",
-    internalCost: dollars(item?.rental?.internalCostCents),
-    replacementCost: dollars(item?.rental?.replacementCostCents),
-    rentalVendorId: item?.rental?.vendorId ?? "",
-    vendorCost: dollars(item?.rental?.vendorCostCents),
-    leadTimeDays: numberText(item?.rental?.leadTimeDays),
-    dimensions: item?.rental?.dimensions ?? "",
-    notes: item?.rental?.notes ?? "",
-    assemblyNotes: item?.rental?.assemblyNotes ?? "",
-    bufferDaysBefore: String(item?.rental?.bufferDaysBefore ?? 1),
-    bufferDaysAfter: String(item?.rental?.bufferDaysAfter ?? 1),
-    colors: item?.rental?.colors.join("\n") ?? "",
-    purchaseUnit: item?.consumable?.purchaseUnit ?? "each",
-    packCount: numberText(item?.consumable?.packCount),
-    eachSizeQuantity: numberText(item?.consumable?.eachSize?.quantity),
-    eachSizeUnit: item?.consumable?.eachSize?.unit ?? "",
-    recipeUnit: item?.consumable?.recipeUnit ?? "",
-    unitCost: dollars(item?.consumable?.unitCostCents),
-    preferredVendor: item?.consumable?.preferredVendor ?? "",
-    preferredVendorId: item?.consumable?.preferredVendorId ?? "",
-    parLevel: numberText(item?.consumable?.parLevel),
-    storageSectionId: item?.consumable?.storageSectionId ?? "",
-    storageOrder: numberText(item?.consumable?.storageOrder),
-    brand: item?.bar?.brand ?? "",
-    subcategory: item?.bar?.subcategory ?? "",
-    container: item?.bar?.container ?? "",
-  }));
+  const [fields, setFields] = useState<ItemFields>(() => initialItemFields(item));
   // The item reordered when its tier runs short (FLOW-170).
   const [housePick, setHousePick] = useState(item?.bar?.housePick ?? false);
   // Allergens are set on dishes, not ingredients (FLOW-95); an item keeps any it
@@ -229,10 +103,6 @@ function ItemFormFields({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
-  const classification = useResource(["inventory-categories"], inventoryCategoriesApi.list, { reference: true });
-  const catalogKind = classificationKind({ kind, subtype: kind === "service" ? null : subtype });
-  const categories = (classification.data?.categories ?? []).filter((entry) => entry.kind === catalogKind);
-  const types = (classification.data?.types ?? []).filter((entry) => entry.categoryId === categoryId);
   // Ingredients are kept in kitchen storage, everything else at a location
   // (FLOW-289).
   const storageKind = subtype === "ingredient" ? "storage" : "location";
@@ -258,135 +128,19 @@ function ItemFormFields({
   );
   const set = (key: FieldName) => (value: string) =>
     setFields((current) => ({ ...current, [key]: value }));
-  const isBar = kind === "consumable" && subtype === "bar";
-  // Category suggestions and per-category ratio defaults (FLOW-45).
+  const form: ItemFieldsProps = { fields, set, setFields };
+  // Per-category ratio defaults (FLOW-45).
   const settings = useBusinessSettings();
-  const categoryList = inventoryCategoryList({
-    kind,
-    subtype: kind === "service" ? null : subtype,
-  });
-  const pickCategory = set("category");
   const defaultRatio = settings.defaults.ratioDefaults.find(
     (row) =>
       row.category.toLowerCase() === fields.category.trim().toLowerCase(),
   );
-  // Bar stock has no storage on screen (FLOW-291).
-  const storageSectionId = isBar ? "" : fields.storageSectionId;
-  const input = (key: FieldName, props: { type?: string } = {}) => (
-    <input
-      type={props.type ?? "text"}
-      step={props.type === "number" ? "any" : undefined}
-      value={fields[key]}
-      onChange={(e) => set(key)(e.target.value)}
-    />
-  );
-  const eachSize =
-    fields.eachSizeQuantity && fields.eachSizeUnit
-      ? {
-          quantity: Number(fields.eachSizeQuantity),
-          unit: fields.eachSizeUnit as Unit,
-        }
-      : null;
-  const consumableDraft = {
-    purchaseUnit: fields.purchaseUnit as Unit,
-    packCount: toNumber(fields.packCount),
-    eachSize,
-  };
-  // FLOW-81 AC2: flag a recipe unit this ingredient can't be converted to.
-  const conversionProblem =
-    kind === "consumable" && fields.recipeUnit
-      ? recipeUnitProblem(
-          { unit: fields.unit as Unit, consumable: consumableDraft },
-          fields.recipeUnit as Unit,
-        )
-      : null;
   const save = async () => {
     if (!fields.name.trim()) return setError("Name is required.");
-    const ratioQuantity = toNumber(fields.ratioQuantity);
-    const payload: ItemInput = {
-      kind,
-      subtype: kind === "service" ? null : subtype,
-      code: fields.code,
-      name: fields.name,
-      category: fields.category,
-      categoryId: categoryId || null,
-      typeId: typeId || null,
-      description: fields.description,
-      unit: fields.unit as Unit,
-      group: fields.group,
-      color: fields.color,
-      tier: fields.tier,
-      ratio: ratioQuantity
-        ? { quantity: ratioQuantity, basis: fields.ratioBasis as RatioBasis }
-        : null,
-      active,
-      ...(kind === "rental" && {
-        rental: {
-          priceCents: toCents(fields.price),
-          ...(rentalCostsVisible && {
-            internalCostCents: toCents(fields.internalCost),
-            replacementCostCents: toCents(fields.replacementCost),
-          }),
-          dimensions: fields.dimensions,
-          notes: fields.notes,
-          assemblyNotes: fields.assemblyNotes,
-          bufferDaysBefore: Number(fields.bufferDaysBefore),
-          bufferDaysAfter: Number(fields.bufferDaysAfter),
-          // Sub-rental (FLOW-75).
-          vendorId: fields.rentalVendorId || null,
-          leadTimeDays: fields.rentalVendorId
-            ? toNumber(fields.leadTimeDays)
-            : null,
-          ...(rentalCostsVisible && {
-            vendorCostCents: fields.rentalVendorId
-              ? toCents(fields.vendorCost)
-              : null,
-          }),
-          colors: fields.colors
-            .split("\n")
-            .map((color) => color.trim())
-            .filter(Boolean),
-          components:
-            subtype === "decor"
-              ? includes.map(({ itemId, quantity }) => ({ itemId, quantity }))
-              : [],
-        },
-      }),
-      ...(kind === "service" && {
-        service: {
-          priceCents: quoted ? null : toCents(fields.price),
-          priceBasis: fields.priceBasis as RatioBasis,
-          pricedByQuote: quoted,
-          includes,
-          addons,
-        },
-      }),
-      ...(kind === "consumable" && {
-        consumable: {
-          ...consumableDraft,
-          recipeUnit: (fields.recipeUnit || null) as Unit | null,
-          ...(!costHidden && { unitCostCents: toCents(fields.unitCost) }),
-          preferredVendor: fields.preferredVendor,
-          preferredVendorId: fields.preferredVendorId || null,
-          parLevel: toNumber(fields.parLevel),
-          allergens,
-          storageSectionId: storageSectionId || null,
-          storageOrder: toNumber(fields.storageOrder),
-        },
-      }),
-      ...(isBar && {
-        bar: {
-          brand: fields.brand,
-          subcategory: barSubcategories[fields.category]?.includes(
-            fields.subcategory,
-          )
-            ? fields.subcategory
-            : "",
-          container: (fields.container || null) as BarContainer | null,
-          housePick,
-        },
-      }),
-    };
+    const payload = buildItemInput({
+      kind, subtype, fields, categoryId, typeId, active, quoted, includes,
+      addons, housePick, allergens, rentalCostsVisible, costHidden,
+    });
     setSaving(true);
     setError("");
     try {
@@ -417,12 +171,8 @@ function ItemFormFields({
       setSaving(false);
     }
   };
-  const subtypes: readonly string[] = subtypesByKind[kind];
-  // A Master inventory item (FLOW-289): not a bar item or an ingredient.
-  const master = !preset && !(kind === "consumable" && subtype !== "supply");
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={
         item
@@ -433,535 +183,102 @@ function ItemFormFields({
       }
       description={<T id="inventory-item-form.item-form-fields.saved-to-flowbase">Saved to Flowbase.</T>}
       wide
+      onSubmit={save}
+      before={<ErrorText message={conflict} />}
+      error={error}
+      saving={saving}
+      saveLabel={<>{kind !== "consumable" && !can("rentals.apply_directly") ? <T id="inventory-item-form.item-form-fields.submit-for-approval">Submit for approval</T> : <T id="inventory-item-form.item-form-fields.save-item">Save item</T>}</>}
+      cancelLabel={<T id="inventory-item-form.item-form-fields.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        {conflict && (
-          <p role="alert" className="error-message">
-            {conflict}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        {notice && <p role="status" className="success-message">{notice}</p>}
-        <div className="form-grid">
-          <FormField label={<T id="inventory-item-form.item-form-fields.name">Name *</T>}>
-            <input
-              value={fields.name}
-              onChange={(e) => set("name")(e.target.value)}
-              autoFocus
-            />
-          </FormField>
-          {shows("code") && (<FormField label={<T id="inventory-item-form.item-form-fields.code-sku">Code / SKU</T>}>{input("code")}</FormField>)}
-          {master && (
-            <FormField label={<T id="inventory-item-form.item-form-fields.kind">Kind</T>}>
-              {/* Every Master item reads "Rental" (FLOW-289). */}
-              <p><T id="inventory-item-form.item-form-fields.rental">Rental</T></p>
-            </FormField>
-          )}
-          {/* What happens to its stock, which only an Admin picks for a new Master
-              item: returned (rental), used up (supply) or not stocked (service). */}
-          {master && can("inventory.sections") && (
-            <FormField label={<T id="inventory-item-form.item-form-fields.stock-tracking">Stock tracking</T>}>
-              <Dropdown
-                value={stockTrackingOf(kind)}
-                disabled={Boolean(item)}
-                onChange={(e) => {
-                  const next = kindForTracking[e.target.value as StockTracking];
-                  setKind(next);
-                  // A used-up Master item is a supply (FLOW-289).
-                  setSubtype(next === "consumable" ? "supply" : (subtypesByKind[next] as readonly string[])[0] ?? "");
-                  setCategoryId("");
-                  setTypeId("");
-                }}
-              >
-                {stockTrackingSchema.options.map((option) => (
-                  <option key={option} value={option}>
-                    {stockTrackingLabels[option]}
-                  </option>
-                ))}
-              </Dropdown>
-            </FormField>
-          )}
-          {subtypes.length > 0 && !preset && kind !== "consumable" && (
-            <FormField label={<T id="inventory-item-form.item-form-fields.subtype">Subtype</T>}>
-              <Dropdown
-                value={subtype}
-                onChange={(e) => { setSubtype(e.target.value); setCategoryId(""); setTypeId(""); }}
-              >
-                {subtypes.map((option) => (
-                  <option key={option} value={option}>
-                    {subtypeLabel(option)}
-                  </option>
-                ))}
-              </Dropdown>
-            </FormField>
-          )}
-          <FormField label={<T id="inventory-item-form.item-form-fields.classification-category">Category</T>}>
-            <Dropdown value={categoryId} onValueChange={(next) => { setCategoryId(next); setTypeId(""); }}
-              creatable={can("inventory.sections") ? {
-                label: <T id="inventory-item-form.item-form-fields.new-category">New category</T>,
-                onCreate: async (name) => {
-                  const created = await inventoryCategoriesApi.createCategory(catalogKind, name);
-                  await classification.refresh();
-                  setCategoryId(created.id);
-                  setTypeId("");
-                  return created.id;
-                },
-              } : undefined}>
-              <option value="">None</option>
-              {categories.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </Dropdown>
-          </FormField>
-          <FormField label={<T id="inventory-item-form.item-form-fields.classification-type">Type</T>}>
-            <Dropdown value={typeId} disabled={!categoryId} onValueChange={setTypeId}
-              creatable={categoryId && can("inventory.sections") ? {
-                label: <T id="inventory-item-form.item-form-fields.new-type">New type</T>,
-                onCreate: async (name) => {
-                  const created = await inventoryCategoriesApi.createType(categoryId, name);
-                  await classification.refresh();
-                  setTypeId(created.id);
-                  return created.id;
-                },
-              } : undefined}>
-              <option value="">None</option>
-              {types.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </Dropdown>
-          </FormField>
-          {isBar ? (
-            <>
-              <FormField label={<T id="inventory-item-form.item-form-fields.bar-category">Bar category</T>}>
-                <Dropdown
-                  value={fields.category}
-                  onChange={(e) => pickCategory(e.target.value)}
-                >
-                  <option value="">Pick one</option>
-                  {barCategories.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              {barSubcategories[fields.category] && (
-                <FormField label={<T id="inventory-item-form.item-form-fields.subcategory">Subcategory</T>}>
-                  <Dropdown
-                    value={fields.subcategory}
-                    onChange={(e) => set("subcategory")(e.target.value)}
-                  >
-                    <option value="">Not set</option>
-                    {barSubcategories[fields.category].map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </Dropdown>
-                </FormField>
-              )}
-              <FormField label={<T id="inventory-item-form.item-form-fields.brand-varietal">Brand / varietal</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-pinot-grigio">e.g. Pinot Grigio</T>}>
-                {input("brand")}
-              </FormField>
-            </>
-          ) : (
-            <FormField label={<T id="inventory-item-form.item-form-fields.legacy-category">Legacy category</T>}>
-              <input
-                list="item-categories"
-                value={fields.category}
-                onChange={(e) => pickCategory(e.target.value)}
-              />
-              {categoryList && (
-                <ListSuggestions id="item-categories" list={categoryList} />
-              )}
-            </FormField>
-          )}
-          {kind !== "service" && (
-            <UnitSelect
-              label={<T id="inventory-item-form.item-form-fields.stock-unit">Stock unit</T>}
-              value={fields.unit}
-              onChange={set("unit")}
-            />
-          )}
-          {shows("group") && (<FormField label={<T id="inventory-item-form.item-form-fields.group">Group</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-table-linens">e.g. Table Linens</T>}>
-            {input("group")}
-          </FormField>)}
-          {isBar ? (
-            <>
-              <FormField label={<T id="inventory-item-form.item-form-fields.tier">Tier</T>}>
-                <Dropdown
-                  value={fields.tier}
-                  onChange={(e) => set("tier")(e.target.value)}
-                >
-                  <option value="">Not set</option>
-                  {barTierSchema.options.map((option) => (
-                    <option key={option} value={option}>
-                      {barTierLabels[option]}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              <FormField label={<T id="inventory-item-form.item-form-fields.container">Container</T>}>
-                <Dropdown
-                  value={fields.container}
-                  onChange={(e) => set("container")(e.target.value)}
-                >
-                  <option value="">Not set</option>
-                  {barContainerSchema.options.map((option) => (
-                    <option key={option} value={option}>
-                      {barContainerLabels[option]}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              <FormField
-                label={<T id="inventory-item-form.item-form-fields.house-pick">House pick</T>}
-                hint={<T id="inventory-item-form.item-form-fields.reordered-when-an-event-s">{"Reordered when an event's tier runs short"}</T>}
-              >
-                <RoundCheck
-                  aria-label="House pick for its tier"
-                  checked={housePick}
-                  onChange={(e) => setHousePick(e.target.checked)}
-                />
-              </FormField>
-            </>
-          ) : (
-            <FormField label={<T id="inventory-item-form.item-form-fields.tier">Tier</T>} hint={<T id="inventory-item-form.item-form-fields.e-g-standard-premium">e.g. Standard, Premium</T>}>
-              {input("tier")}
-            </FormField>
-          )}
-          <FormField label={<T id="inventory-item-form.item-form-fields.color-finish">Color / finish</T>}>{input("color")}</FormField>
-        </div>
-        {shows("description") && (<FormField label={<T id="inventory-item-form.item-form-fields.description">Description</T>}>
-          <textarea
-            rows={2}
-            value={fields.description}
-            onChange={(e) => set("description")(e.target.value)}
-          />
-        </FormField>)}
-        <div className="form-grid">
-          <FormField
-            label={<T id="inventory-item-form.item-form-fields.ratio">Ratio</T>}
-            hint={
-              defaultRatio
-                ? <T id="inventory-item-form.item-form-fields.leave-empty-to-use-category" values={{ quantity: defaultRatio.quantity, ratioBasisLabels: <LabelT id="labels.ratio-basis" value={defaultRatio.basis}>{ratioBasisLabels[defaultRatio.basis]}</LabelT> }}>{"Leave empty to use category default: {quantity} {ratioBasisLabels}"}</T>
-                : <T id="inventory-item-form.item-form-fields.e-g-2-per-guest">e.g. 2 per guest; leave empty for category default</T>
-            }
+      {notice && <p role="status" className="success-message">{notice}</p>}
+      <ItemClassificationSection
+        form={form}
+        editing={Boolean(item)}
+        preset={Boolean(preset)}
+        shows={shows}
+        kind={kind}
+        setKind={setKind}
+        subtype={subtype}
+        setSubtype={setSubtype}
+        categoryId={categoryId}
+        setCategoryId={setCategoryId}
+        typeId={typeId}
+        setTypeId={setTypeId}
+        housePick={housePick}
+        setHousePick={setHousePick}
+      />
+      {shows("description") && (<FormField label={<T id="inventory-item-form.item-form-fields.description">Description</T>}>
+        <textarea
+          rows={2}
+          value={fields.description}
+          onChange={(e) => set("description")(e.target.value)}
+        />
+      </FormField>)}
+      <div className="form-grid">
+        <FormField
+          label={<T id="inventory-item-form.item-form-fields.ratio">Ratio</T>}
+          hint={
+            defaultRatio
+              ? <T id="inventory-item-form.item-form-fields.leave-empty-to-use-category" values={{ quantity: defaultRatio.quantity, ratioBasisLabels: <LabelT id="labels.ratio-basis" value={defaultRatio.basis}>{ratioBasisLabels[defaultRatio.basis]}</LabelT> }}>{"Leave empty to use category default: {quantity} {ratioBasisLabels}"}</T>
+              : <T id="inventory-item-form.item-form-fields.e-g-2-per-guest">e.g. 2 per guest; leave empty for category default</T>
+          }
+        >
+          <FieldInput form={form} name="ratioQuantity" type="number" />
+        </FormField>
+        <FormField label={<T id="inventory-item-form.item-form-fields.ratio-basis">Ratio basis</T>}>
+          <Dropdown
+            value={fields.ratioBasis}
+            onChange={(e) => set("ratioBasis")(e.target.value)}
           >
-            {input("ratioQuantity", { type: "number" })}
-          </FormField>
-          <FormField label={<T id="inventory-item-form.item-form-fields.ratio-basis">Ratio basis</T>}>
-            <Dropdown
-              value={fields.ratioBasis}
-              onChange={(e) => set("ratioBasis")(e.target.value)}
-            >
-              {ratioBasisSchema.options.map((basis) => (
-                <option key={basis} value={basis}>
-                  {ratioBasisLabels[basis]}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-        </div>
-        {kind === "rental" && (
-          <>
-            <FormField
-              label={<T id="inventory-item-form.item-form-fields.price-per-unit">Price ($ per unit)</T>}
-              hint={
-                priceNeedsApproval
-                  ? <T id="inventory-item-form.item-form-fields.price-changes-will-be-submitted">Price changes will be submitted for Admin approval.</T>
-                  : undefined
-              }
-            >
-              <input
-                type="number"
-                step="0.01"
-                value={fields.price}
-                onChange={(e) => set("price")(e.target.value)}
-              />
-            </FormField>
-            <div className="form-grid">
-              {rentalCostsVisible && (
-                <>
-                  <FormField label={<T id="inventory-item-form.item-form-fields.internal-cost">Internal cost ($)</T>}>
-                    {input("internalCost", { type: "number" })}
-                  </FormField>
-                  <FormField label={<T id="inventory-item-form.item-form-fields.replacement-cost">Replacement cost ($)</T>}>
-                    {input("replacementCost", { type: "number" })}
-                  </FormField>
-                </>
-              )}
-              <FormField
-                label={<T id="inventory-item-form.item-form-fields.rented-from">Rented from</T>}
-                hint={<T id="inventory-item-form.item-form-fields.a-sub-rented-item-is">A sub-rented item is available on request, never owned stock.</T>}
-              >
-                <Dropdown
-                  value={fields.rentalVendorId}
-                  onChange={(e) => {
-                    const vendor = vendorOptions.find(
-                      (option) => option.id === e.target.value,
-                    );
-                    setFields((current) => ({
-                      ...current,
-                      rentalVendorId: e.target.value,
-                      leadTimeDays:
-                        current.leadTimeDays ||
-                        numberText(vendor?.leadTimeDays),
-                    }));
-                  }}
-                >
-                  <option value="">Owned (not sub-rented)</option>
-                  {vendorOptions.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              {fields.rentalVendorId && (
-                <>
-                  {rentalCostsVisible && (
-                    <FormField label={<T id="inventory-item-form.item-form-fields.vendor-cost-per-unit">Vendor cost ($ per unit)</T>}>
-                      {input("vendorCost", { type: "number" })}
-                    </FormField>
-                  )}
-                  <FormField label={<T id="inventory-item-form.item-form-fields.lead-time-days">Lead time (days)</T>}>
-                    {input("leadTimeDays", { type: "number" })}
-                  </FormField>
-                </>
-              )}
-              <FormField label={<T id="inventory-item-form.item-form-fields.dimensions">Dimensions</T>}>{input("dimensions")}</FormField>
-              <FormField label={<T id="inventory-item-form.item-form-fields.buffer-days-before">Buffer days before</T>}>
-                {input("bufferDaysBefore", { type: "number" })}
-              </FormField>
-              <FormField label={<T id="inventory-item-form.item-form-fields.buffer-days-after">Buffer days after</T>}>
-                {input("bufferDaysAfter", { type: "number" })}
-              </FormField>
-              <FormField label={<T id="inventory-item-form.item-form-fields.assembly-notes">Assembly notes</T>}>
-                {input("assemblyNotes")}
-              </FormField>
-              <FormField label={<T id="inventory-item-form.item-form-fields.notes">Notes</T>}>{input("notes")}</FormField>
-              <FormField
-                label={<T id="inventory-item-form.item-form-fields.colors">Colors</T>}
-                hint={<T id="inventory-item-form.item-form-fields.one-color-per-line-stock">One color per line. Stock is tracked separately for each color.</T>}
-              >
-                <textarea
-                  value={fields.colors}
-                  onChange={(e) => set("colors")(e.target.value)}
-                  rows={3}
-                />
-              </FormField>
-            </div>
-          </>
-        )}
-        {kind === "service" && (
-          <>
-            <label className="checkbox-filter">
-              <RoundCheck
-                checked={quoted}
-                onChange={(e) => setQuoted(e.target.checked)}
-              />
-              <T id="inventory-item-form.item-form-fields.priced-by-quote">Priced by quote</T>
-            </label>
-            {!quoted && (
-              <div className="form-grid">
-                <FormField label={<T id="inventory-item-form.item-form-fields.price">Price ($)</T>}>
-                  {input("price", { type: "number" })}
-                </FormField>
-                <FormField label={<T id="inventory-item-form.item-form-fields.priced">Priced</T>}>
-                  <Dropdown
-                    value={fields.priceBasis}
-                    onChange={(e) => set("priceBasis")(e.target.value)}
-                  >
-                    {["per_event", "per_guest"].map((basis) => (
-                      <option key={basis} value={basis}>
-                        {ratioBasisLabels[basis as RatioBasis]}
-                      </option>
-                    ))}
-                  </Dropdown>
-                </FormField>
-              </div>
-            )}
-            <h3 className="form-subheading"><T id="inventory-item-form.item-form-fields.per-person-add-ons">Per-person add-ons</T></h3>
-            {addons.map((addon, index) => (
-              <div className="form-grid" key={index}>
-                <FormField label={<T id="inventory-item-form.item-form-fields.add-on-name" values={{ value: index + 1 }}>{"Add-on {value} name"}</T>}>
-                  <input
-                    value={addon.name}
-                    onChange={(e) =>
-                      setAddons(
-                        addons.map((row, i) =>
-                          i === index ? { ...row, name: e.target.value } : row,
-                        ),
-                      )
-                    }
-                  />
-                </FormField>
-                <FormField label={<T id="inventory-item-form.item-form-fields.add-on-price-per-guest" values={{ value: index + 1 }}>{"Add-on {value} price ($ per guest)"}</T>}>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={addon.priceCents / 100}
-                    onChange={(e) =>
-                      setAddons(
-                        addons.map((row, i) =>
-                          i === index
-                            ? {
-                                ...row,
-                                priceCents: Math.round(
-                                  Number(e.target.value) * 100,
-                                ),
-                              }
-                            : row,
-                        ),
-                      )
-                    }
-                  />
-                </FormField>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setAddons(addons.filter((_, i) => i !== index))
-                  }
-                >
-                  <T id="inventory-item-form.item-form-fields.remove-add-on" values={{ value: index + 1 }}>{"Remove add-on {value}"}</T>
-                </Button>
-              </div>
+            {ratioBasisSchema.options.map((basis) => (
+              <option key={basis} value={basis}>
+                {ratioBasisLabels[basis]}
+              </option>
             ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setAddons([...addons, { name: "", priceCents: 0 }])
-              }
-            >
-              <T id="inventory-item-form.item-form-fields.add-per-person-add-on">Add per-person add-on</T>
-            </Button>
-          </>
-        )}
-        {(kind === "service" || (kind === "rental" && subtype === "decor")) && (
-          <CatalogIncludes
-            itemId={item?.id}
-            service={kind === "service"}
-            value={includes}
-            onChange={setIncludes}
-          />
-        )}
-        {kind === "consumable" && (
-          <>
-            <h3 className="form-subheading"><T id="inventory-item-form.item-form-fields.purchasing-and-units">Purchasing and units</T></h3>
-            <div className="form-grid">
-              <UnitSelect
-                label={<T id="inventory-item-form.item-form-fields.purchase-unit">Purchase unit</T>}
-                value={fields.purchaseUnit}
-                onChange={set("purchaseUnit")}
-              />
-              {fields.purchaseUnit === "case" && (
-                <FormField label={<T id="inventory-item-form.item-form-fields.items-per-case">Items per case</T>}>
-                  {input("packCount", { type: "number" })}
-                </FormField>
-              )}
-              <FormField
-                label={<T id="inventory-item-form.item-form-fields.one-each-is-about">One each is about</T>}
-                hint={<T id="inventory-item-form.item-form-fields.e-g-750-ml-a">e.g. 750 ml a bottle, or 8 oz a chicken breast</T>}
-              >
-                {input("eachSizeQuantity", { type: "number" })}
-              </FormField>
-              <UnitSelect
-                label={<T id="inventory-item-form.item-form-fields.each-size-unit">Each size unit</T>}
-                value={fields.eachSizeUnit}
-                onChange={set("eachSizeUnit")}
-                optional="Not set"
-              />
-              <UnitSelect
-                label={<T id="inventory-item-form.item-form-fields.recipe-unit">Recipe unit</T>}
-                value={fields.recipeUnit}
-                onChange={set("recipeUnit")}
-                optional="Not set"
-              />
-              {costHidden ? (
-                <p className="muted">
-                  <T id="inventory-item-form.item-form-fields.costs-are-visible-to-full">Costs are visible to full-time staff only.</T>
-                </p>
-              ) : (
-                <FormField
-                  label={<T id="inventory-item-form.item-form-fields.unit-cost-per" values={{ unitLabel: unitLabel(fields.purchaseUnit as Unit) }}>{"Unit cost ($ per {unitLabel})"}</T>}
-                >
-                  {input("unitCost", { type: "number" })}
-                </FormField>
-              )}
-              <FormField label={<T id="inventory-item-form.item-form-fields.vendor-directory">Vendor directory</T>}>
-                <Dropdown
-                  value={fields.preferredVendorId}
-                  onChange={(e) => set("preferredVendorId")(e.target.value)}
-                >
-                  <option value="">Not in the directory</option>
-                  {vendorOptions.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              {!fields.preferredVendorId && (
-                <FormField label={isBar ? <T id="inventory-item-form.item-form-fields.distributor">Distributor</T> : <T id="inventory-item-form.item-form-fields.preferred-vendor">Preferred vendor</T>}>
-                  {input("preferredVendor")}
-                </FormField>
-              )}
-              <FormField
-                label={<T id="inventory-item-form.item-form-fields.par-level" values={{ unitLabel: unitLabel(fields.unit as Unit) }}>{"Par level ({unitLabel})"}</T>}
-              >
-                {input("parLevel", { type: "number" })}
-              </FormField>
-              {!isBar && <>
-              <FormField label={subtype === "ingredient" ? <T id="inventory-item-form.item-form-fields.storage-area">Storage area</T> : <T id="inventory-item-form.item-form-fields.location">Location</T>}>
-                <Dropdown
-                  value={storageSectionId}
-                  onChange={(e) => set("storageSectionId")(e.target.value)}
-                >
-                  <option value="">Not set</option>
-                  {(storage.data ?? []).map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              <FormField
-                label={<T id="inventory-item-form.item-form-fields.shelf-order">Shelf order</T>}
-                hint={<T id="inventory-item-form.item-form-fields.where-it-sits-at-the">Where it sits there; count mode follows this order</T>}
-              >
-                {input("storageOrder", { type: "number" })}
-              </FormField>
-              </>}
-            </div>
-            {conversionProblem && (
-              <p role="status" className="error-message">
-                <AlertTriangle size={14} /><T id="inventory-item-form.item-form-fields.add-what-one-each-weighs" values={{ conversionProblem }}>{" {conversionProblem} Add what one each weighs or holds."}</T>
-              </p>
-            )}
-          </>
-        )}
-        <label className="checkbox-filter">
-          <RoundCheck
-            checked={active}
-            onChange={(e) => setActive(e.target.checked)}
-          />
-          <T id="inventory-item-form.item-form-fields.active">Active</T>
-        </label>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="inventory-item-form.item-form-fields.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {kind !== "consumable" && !can("rentals.apply_directly") ? <T id="inventory-item-form.item-form-fields.submit-for-approval">Submit for approval</T> : <T id="inventory-item-form.item-form-fields.save-item">Save item</T>}
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+          </Dropdown>
+        </FormField>
+      </div>
+      {kind === "rental" && (
+        <ItemRentalSection
+          form={form}
+          priceNeedsApproval={priceNeedsApproval}
+          rentalCostsVisible={rentalCostsVisible}
+          vendorOptions={vendorOptions}
+        />
+      )}
+      {kind === "service" && (
+        <ItemServiceSection
+          form={form}
+          quoted={quoted}
+          setQuoted={setQuoted}
+          addons={addons}
+          setAddons={setAddons}
+        />
+      )}
+      {(kind === "service" || (kind === "rental" && subtype === "decor")) && (
+        <CatalogIncludes
+          itemId={item?.id}
+          service={kind === "service"}
+          value={includes}
+          onChange={setIncludes}
+        />
+      )}
+      {kind === "consumable" && (
+        <ItemConsumableSection
+          form={form}
+          subtype={subtype}
+          costHidden={costHidden}
+          vendorOptions={vendorOptions}
+          storage={storage.data ?? []}
+        />
+      )}
+      <label className="checkbox-filter">
+        <RoundCheck
+          checked={active}
+          onChange={(e) => setActive(e.target.checked)}
+        />
+        <T id="inventory-item-form.item-form-fields.active">Active</T>
+      </label>
+    </FormDrawer>
   );
 }

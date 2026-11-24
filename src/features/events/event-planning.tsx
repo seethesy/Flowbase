@@ -17,8 +17,7 @@ import {
   type ResolveInput,
 } from "../../../shared/reservations";
 import { useResource } from "../../app/useResource";
-import { LoadError } from "../../components/record-display";
-import { Button, LoadingSkeleton, Section } from "../../components/shared";
+import { Button, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { allPages, inventoryApi } from "../../services/core";
 import { planningApi } from "../../services/planning";
 import { preparationApi } from "../../services/preparation";
@@ -87,7 +86,7 @@ function PlanningSections({
   if (failed)
     return (
       <Section title={<T id="event-planning.planning-sections.equipment-stock">{"Equipment & stock"}</T>}>
-        <LoadError message={failed} />
+        <ErrorText message={failed} />
       </Section>
     );
   if (!holds.data || !conflicts.data || !needs.data || !bar.data || !rentals.data) return <LoadingSkeleton />;
@@ -115,11 +114,7 @@ function PlanningSections({
   return (
     <>
       <Section title={<T id="event-planning.planning-sections.equipment-holds">Equipment holds</T>}>
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         {open.map((conflict) => (
           <ConflictCard
             key={conflict.id}
@@ -240,7 +235,7 @@ function RentalRequestsSection({ requests, canEdit, onSave }: {
   };
   return (
     <Section title={<T id="event-planning.rental-requests-section.vendor-rental-requests">Vendor rental requests</T>}>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       {!requests.length && <p className="muted"><T id="event-planning.rental-requests-section.no-vendor-rentals-are-held">No vendor rentals are held for this event.</T></p>}
       {requests.map((request) => (
         <article key={request.vendorId} className="rental-request-document" data-print={printing === request.vendorId}>

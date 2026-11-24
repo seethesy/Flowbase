@@ -5,8 +5,7 @@ import type { InventoryItem } from "../../../shared/inventory";
 import { conflictStateLabels, holdStatusLabels } from "../../../shared/reservations";
 import { addLocalDays } from "../../../shared/time";
 import { useResource } from "../../app/useResource";
-import { LoadError } from "../../components/record-display";
-import { LoadingSkeleton, Section } from "../../components/shared";
+import { LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { planningApi } from "../../services/planning";
 import { date } from "../events/event-format";
 import { quantityLabel } from "./inventory-labels";
@@ -52,11 +51,9 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
           </label>
         </form>
         {!valid && (
-          <p role="alert" className="error-message">
-            <T id="inventory-planning.rental-planning.choose-a-range-that-ends">Choose a range that ends on or after the day it starts.</T>
-          </p>
+          <ErrorText message={<T id="inventory-planning.rental-planning.choose-a-range-that-ends">Choose a range that ends on or after the day it starts.</T>} />
         )}
-        {valid && availability.error && <LoadError message={availability.error} />}
+        {valid && availability.error && <ErrorText message={availability.error} />}
         {valid && !availability.error && !figures && <LoadingSkeleton />}
         {valid && figures && (
           <>
@@ -106,7 +103,7 @@ function RentalPlanning({ item }: { item: InventoryItem }) {
         )}
       </Section>
       <Section title={<T id="inventory-planning.rental-planning.open-conflicts">Open conflicts</T>}>
-        {conflicts.error && <LoadError message={conflicts.error} />}
+        <ErrorText message={conflicts.error} />
         {!conflicts.error && !conflicts.data && <LoadingSkeleton />}
         {conflicts.data && (
           <ul className="planning-list">
@@ -141,7 +138,7 @@ function ConsumablePlanning({ item }: { item: InventoryItem }) {
   const allocations = useResource(["inventory-allocations", item.id], () => planningApi.allocations(item.id));
   return (
     <Section title={<T id="inventory-planning.consumable-planning.allocations">Allocations</T>}>
-      {allocations.error && <LoadError message={allocations.error} />}
+      <ErrorText message={allocations.error} />
       {!allocations.error && !allocations.data && <LoadingSkeleton />}
       {allocations.data &&
         (allocations.data.length ? (

@@ -26,11 +26,11 @@ import {
   DataTable,
   Section,
   ConfirmationDialog,
-  DetailDrawer,
   FormField,
   LoadingSkeleton,
+  ErrorText,
+  FormDrawer,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { EventTable } from "../events/event-list";
 import { Attachments } from "../common/attachments";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -117,7 +117,7 @@ export function VenueList() {
         </span>
       </FilterBar>
       {venues.error ? (
-        <LoadError message={venues.error} />
+        <ErrorText message={venues.error} />
       ) : venues.loading && !venues.data ? (
         <LoadingSkeleton />
       ) : (
@@ -246,218 +246,197 @@ function VenueFormFields({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={venue ? <T id="venues.venue-form-fields.edit-venue">Edit venue</T> : <T id="venues.venue-form-fields.new-venue">New venue</T>}
       description={<T id="venues.venue-form-fields.saved-to-flowbase">Saved to Flowbase.</T>}
+      onSubmit={save}
+      before={<ErrorText message={conflict} />}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="venues.venue-form-fields.save-venue">Save venue</T>}
+      cancelLabel={<T id="venues.venue-form-fields.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        {conflict && (
-          <p role="alert" className="error-message">
-            {conflict}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <FormField label={<T id="venues.venue-form-fields.name">Name *</T>}>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-        </FormField>
-        {shows("address") && (<FormField label={<T id="venues.venue-form-fields.address">Address</T>}>
-          <textarea
-            rows={2}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-        </FormField>
-        )}
-        {shows("jurisdiction") && (<FormField label={<T id="venues.venue-form-fields.jurisdiction">Jurisdiction</T>} hint={<T id="venues.venue-form-fields.stored-for-future-tax-use">Stored for future tax use.</T>}>
-          <Dropdown
-            value={jurisdiction}
-            onChange={(e) => setJurisdiction(e.target.value)}
-          >
-            <option value="">Not set</option>
-            {jurisdictionSchema.options.map((option) => (
-              <option key={option}>{option}</option>
-            ))}
-          </Dropdown>
-        </FormField>
-        )}
-        {shows("loadInNotes") && (<FormField label={<T id="venues.venue-form-fields.load-in-notes">Load-in notes</T>}>
-          <textarea
-            rows={2}
-            value={loadInNotes}
-            onChange={(e) => setLoadInNotes(e.target.value)}
-          />
-        </FormField>
-        )}
-        {shows("parkingNotes") && (<FormField label={<T id="venues.venue-form-fields.parking-notes">Parking notes</T>}>
-          <textarea
-            rows={2}
-            value={parkingNotes}
-            onChange={(e) => setParkingNotes(e.target.value)}
-          />
-        </FormField>
-        )}
-        <h3 className="form-subheading"><T id="venues.venue-form-fields.areas">Areas</T></h3>
-        {areas.map((area, index) => (
-          <div className="inline-row" key={area.key}>
-            <FormField label={<T id="venues.venue-form-fields.area" values={{ value: index + 1 }}>{"Area {value}"}</T>}>
-              <input
-                value={area.name}
-                onChange={(e) =>
-                  setAreas((current) =>
-                    current.map((other) =>
-                      other.key === area.key
-                        ? { ...other, name: e.target.value }
-                        : other,
-                    ),
-                  )
-                }
-              />
-            </FormField>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() =>
+      <FormField label={<T id="venues.venue-form-fields.name">Name *</T>}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+        />
+      </FormField>
+      {shows("address") && (<FormField label={<T id="venues.venue-form-fields.address">Address</T>}>
+        <textarea
+          rows={2}
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+      </FormField>
+      )}
+      {shows("jurisdiction") && (<FormField label={<T id="venues.venue-form-fields.jurisdiction">Jurisdiction</T>} hint={<T id="venues.venue-form-fields.stored-for-future-tax-use">Stored for future tax use.</T>}>
+        <Dropdown
+          value={jurisdiction}
+          onChange={(e) => setJurisdiction(e.target.value)}
+        >
+          <option value="">Not set</option>
+          {jurisdictionSchema.options.map((option) => (
+            <option key={option}>{option}</option>
+          ))}
+        </Dropdown>
+      </FormField>
+      )}
+      {shows("loadInNotes") && (<FormField label={<T id="venues.venue-form-fields.load-in-notes">Load-in notes</T>}>
+        <textarea
+          rows={2}
+          value={loadInNotes}
+          onChange={(e) => setLoadInNotes(e.target.value)}
+        />
+      </FormField>
+      )}
+      {shows("parkingNotes") && (<FormField label={<T id="venues.venue-form-fields.parking-notes">Parking notes</T>}>
+        <textarea
+          rows={2}
+          value={parkingNotes}
+          onChange={(e) => setParkingNotes(e.target.value)}
+        />
+      </FormField>
+      )}
+      <h3 className="form-subheading"><T id="venues.venue-form-fields.areas">Areas</T></h3>
+      {areas.map((area, index) => (
+        <div className="inline-row" key={area.key}>
+          <FormField label={<T id="venues.venue-form-fields.area" values={{ value: index + 1 }}>{"Area {value}"}</T>}>
+            <input
+              value={area.name}
+              onChange={(e) =>
                 setAreas((current) =>
-                  current.filter((other) => other.key !== area.key),
+                  current.map((other) =>
+                    other.key === area.key
+                      ? { ...other, name: e.target.value }
+                      : other,
+                  ),
                 )
               }
+            />
+          </FormField>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() =>
+              setAreas((current) =>
+                current.filter((other) => other.key !== area.key),
+              )
+            }
+          >
+            <T id="venues.venue-form-fields.remove-area">Remove area</T>
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setAreas((current) => [...current, keyed({ name: "" })])}
+      >
+        <Plus size={14} /><T id="venues.venue-form-fields.add-area">{" Add area"}</T>
+      </Button>
+      <h3 className="form-subheading"><T id="venues.venue-form-fields.venue-contacts">Venue contacts</T></h3>
+      {contacts === null ? (
+        <p className="muted">
+          <T id="venues.venue-form-fields.venue-contacts-are-visible-to">Venue contacts are visible to full-time staff only.</T>
+        </p>
+      ) : (
+        <>
+          {contacts.map((contact, index) => (
+            <fieldset
+              className="form-group"
+              key={contact.key}
+              aria-label={`Venue contact ${index + 1}`}
             >
-              <T id="venues.venue-form-fields.remove-area">Remove area</T>
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setAreas((current) => [...current, keyed({ name: "" })])}
-        >
-          <Plus size={14} /><T id="venues.venue-form-fields.add-area">{" Add area"}</T>
-        </Button>
-        <h3 className="form-subheading"><T id="venues.venue-form-fields.venue-contacts">Venue contacts</T></h3>
-        {contacts === null ? (
-          <p className="muted">
-            <T id="venues.venue-form-fields.venue-contacts-are-visible-to">Venue contacts are visible to full-time staff only.</T>
-          </p>
-        ) : (
-          <>
-            {contacts.map((contact, index) => (
-              <fieldset
-                className="form-group"
-                key={contact.key}
-                aria-label={`Venue contact ${index + 1}`}
-              >
-                <div className="form-grid">
-                  {(["name", "email", "phone"] as const).map((field) => (
-                    <FormField
-                      key={field}
-                      label={
-                        field === "name"
-                          ? <T id="venues.venue-form-fields.contact-name">Contact name *</T>
-                          : field === "email"
-                            ? <T id="venues.venue-form-fields.email">Email</T>
-                            : <T id="venues.venue-form-fields.phone">Phone</T>
-                      }
-                    >
-                      <input
-                        value={contact[field] ?? ""}
-                        onChange={(e) =>
-                          setContacts((current) =>
-                            (current ?? []).map((other) =>
-                              other.key === contact.key
-                                ? { ...other, [field]: e.target.value }
-                                : other,
-                            ),
-                          )
-                        }
-                      />
-                    </FormField>
-                  ))}
-                  <FormField label={<T id="venues.venue-form-fields.role">Role</T>}>
-                    <Dropdown
-                      value={contact.role}
+              <div className="form-grid">
+                {(["name", "email", "phone"] as const).map((field) => (
+                  <FormField
+                    key={field}
+                    label={
+                      field === "name"
+                        ? <T id="venues.venue-form-fields.contact-name">Contact name *</T>
+                        : field === "email"
+                          ? <T id="venues.venue-form-fields.email">Email</T>
+                          : <T id="venues.venue-form-fields.phone">Phone</T>
+                    }
+                  >
+                    <input
+                      value={contact[field] ?? ""}
                       onChange={(e) =>
                         setContacts((current) =>
                           (current ?? []).map((other) =>
                             other.key === contact.key
-                              ? {
-                                  ...other,
-                                  role: venueContactRoleSchema.parse(
-                                    e.target.value,
-                                  ),
-                                }
+                              ? { ...other, [field]: e.target.value }
                               : other,
                           ),
                         )
                       }
-                    >
-                      {venueContactRoleSchema.options.map((role) => (
-                        <option key={role} value={role}>
-                          {contactRoleLabels[role]}
-                        </option>
-                      ))}
-                    </Dropdown>
+                    />
                   </FormField>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    setContacts((current) =>
-                      (current ?? []).filter(
-                        (other) => other.key !== contact.key,
-                      ),
-                    )
-                  }
-                >
-                  <T id="venues.venue-form-fields.remove-contact">Remove contact</T>
-                </Button>
-              </fieldset>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setContacts((current) => [
-                  ...(current ?? []),
-                  keyed({
-                    name: "",
-                    role: "manager" as const,
-                    email: "",
-                    phone: "",
-                  }),
-                ])
-              }
-            >
-              <Plus size={14} /><T id="venues.venue-form-fields.add-venue-contact">{" Add venue contact"}</T>
-            </Button>
-          </>
-        )}
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="venues.venue-form-fields.cancel">Cancel</T>
+                ))}
+                <FormField label={<T id="venues.venue-form-fields.role">Role</T>}>
+                  <Dropdown
+                    value={contact.role}
+                    onChange={(e) =>
+                      setContacts((current) =>
+                        (current ?? []).map((other) =>
+                          other.key === contact.key
+                            ? {
+                                ...other,
+                                role: venueContactRoleSchema.parse(
+                                  e.target.value,
+                                ),
+                              }
+                            : other,
+                        ),
+                      )
+                    }
+                  >
+                    {venueContactRoleSchema.options.map((role) => (
+                      <option key={role} value={role}>
+                        {contactRoleLabels[role]}
+                      </option>
+                    ))}
+                  </Dropdown>
+                </FormField>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setContacts((current) =>
+                    (current ?? []).filter(
+                      (other) => other.key !== contact.key,
+                    ),
+                  )
+                }
+              >
+                <T id="venues.venue-form-fields.remove-contact">Remove contact</T>
+              </Button>
+            </fieldset>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              setContacts((current) => [
+                ...(current ?? []),
+                keyed({
+                  name: "",
+                  role: "manager" as const,
+                  email: "",
+                  phone: "",
+                }),
+              ])
+            }
+          >
+            <Plus size={14} /><T id="venues.venue-form-fields.add-venue-contact">{" Add venue contact"}</T>
           </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="venues.venue-form-fields.save-venue">Save venue</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        </>
+      )}
+    </FormDrawer>
   );
 }
 
@@ -483,7 +462,7 @@ export function VenueDetail() {
     return (
       <>
         {back}
-        <LoadError message={venue.error} />
+        <ErrorText message={venue.error} />
       </>
     );
   const v = venue.data;

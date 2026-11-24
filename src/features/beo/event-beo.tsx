@@ -12,8 +12,7 @@ import {
   type BeoView,
 } from "../../../shared/beo";
 import { useResource } from "../../app/useResource";
-import { Button, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { cachedBeo, isNetworkError } from "../../offline/db";
 import { beoApi } from "../../services/beo";
 import { eventsApi } from "../../services/core";
@@ -68,7 +67,7 @@ export function EventBeoSection({
   if (beo.error)
     return (
       <Section title={<T id="event-beo.event-beo-section.banquet-event-order">Banquet event order</T>}>
-        <LoadError message={beo.error} />
+        <ErrorText message={beo.error} />
       </Section>
     );
   if (!beo.data) return <LoadingSkeleton />;
@@ -289,11 +288,7 @@ export function EventBeoSection({
         </span>
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="events.beo" blockIds={["status", "header", "event", "summary", "food-setup", "staff", "timeline", "equipment", "layout", "setup-cleanup", "notes", "edit-notes", "changes"]}>
       <Block id="status" name="BEO status" h={4}>
       <OfflineStatus eventId={event.id} />
@@ -397,7 +392,7 @@ export function EventBeoPage() {
     return (
       <>
         {back}
-        <LoadError message={(event.error ?? beo.error)!} />
+        <ErrorText message={(event.error ?? beo.error)!} />
       </>
     );
   if (!event.data || !beo.data) return <LoadingSkeleton />;
@@ -405,7 +400,7 @@ export function EventBeoPage() {
     return (
       <>
         {back}
-        <LoadError message="BEO not found." />
+        <ErrorText message="BEO not found." />
       </>
     );
   return (

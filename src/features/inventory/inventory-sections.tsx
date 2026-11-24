@@ -18,8 +18,8 @@ import {
   Section,
   FormField,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import "./inventory.css";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T, LabelT } from "../../app/copy";
@@ -58,11 +58,7 @@ export function LocationsPage() {
         subtitle={<T id="inventory-sections.locations-page.where-stock-lives-vendor-holds">Where stock lives. Vendor holds sub-rented items; the kitchen keeps ingredients in its own storage.</T>}
         eyebrow={<T id="inventory-sections.locations-page.settings-eyebrow">SETTINGS</T>}
       />
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="inventory.sections">
       <Block id="add" name="Add location" h={5}>
       {!archived && (
@@ -114,7 +110,7 @@ export function LocationsPage() {
       </Block>
       <Block id="sections" name="Locations" h={20}>
       {sections.error ? (
-        <LoadError message={sections.error} />
+        <ErrorText message={sections.error} />
       ) : !sections.data ? (
         <LoadingSkeleton />
       ) : (

@@ -8,8 +8,7 @@ import {
 } from "../../../shared/communications";
 import { communicationsApi, type CommunicationTarget } from "../../services/communications";
 import { LoadMore, usePagedList } from "../../app/paging";
-import { Button, FormField, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, FormField, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { T, LabelT } from "../../app/copy";
 import "../leads/leads.css";
 
@@ -71,11 +70,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
           void submit();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <div className="form-grid">
           <FormField label={<T id="communications.communication-log.type">Type</T>}>
             <Dropdown
@@ -109,7 +104,7 @@ export function CommunicationLog({ target }: { target: CommunicationTarget }) {
         </Button>
       </form>
       {entries.error ? (
-        <LoadError message={entries.error} />
+        <ErrorText message={entries.error} />
       ) : !entries.data ? (
         <LoadingSkeleton />
       ) : entries.data.length === 0 ? (

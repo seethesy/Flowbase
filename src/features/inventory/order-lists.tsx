@@ -3,8 +3,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, LoadingSkeleton, PageHeader } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, LoadingSkeleton, PageHeader, ErrorText } from "../../components/shared";
 import { orderListsApi } from "../../services/order-lists";
 import { isPlaced, outstanding, type OrderLine, type OrderList, type VendorOrder } from "../../../shared/order-lists";
 import { canSeeField } from "../../../shared/visibility";
@@ -27,7 +26,7 @@ export function OrderLists() {
   };
   return <>
     <PageHeader pageKey="inventory.order-lists" title={<T id="order-lists.order-lists.order-lists">Order lists</T>} subtitle={<T id="order-lists.order-lists.build-a-shopping-list-from">Build a shopping list from event shortages and low stock.</T>} />
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     <PageGrid pageKey="inventory.order-lists">
     <Block id="builder" name="Build a list" h={3}>
     <div className="order-list-builder">
@@ -37,7 +36,7 @@ export function OrderLists() {
     </div>
     </Block>
     <Block id="lists" name="Order lists" h={16}>
-    {lists.error ? <LoadError message={lists.error} /> : lists.loading && !lists.data ? <LoadingSkeleton /> :
+    {lists.error ? <ErrorText message={lists.error} /> : lists.loading && !lists.data ? <LoadingSkeleton /> :
       <ul>{lists.data?.map((list) => <li key={list.id}><Link to={`/inventory/orders/${list.id}`}>
         <T id="order-lists.order-lists.lines" values={{ from: list.from, to: list.to, statusLabel: statusLabel(list.status), count: list.lines.length }}>{"{from} – {to} · {statusLabel} · {count} lines"}</T>
       </Link></li>)}</ul>}
@@ -58,7 +57,7 @@ export function OrderListDetail() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const data = list.data;
-  if (list.error) return <LoadError message={list.error} />;
+  if (list.error) return <ErrorText message={list.error} />;
   if (!data) return <LoadingSkeleton />;
   const lines = draft ?? data.lines;
   const placed = isPlaced(data.status);
@@ -93,7 +92,7 @@ export function OrderListDetail() {
       {editing && data.status !== "approved" && <Button onClick={() => void submit()}><T id="order-lists.order-list-detail.submit-for-approval">Submit for approval</T></Button>}
       {cancellable && <Button variant="outline" onClick={() => void cancelList()}><T id="order-lists.order-list-detail.cancel-list">Cancel list</T></Button>}
     </PageHeader>
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     {message && <p role="status">{message}</p>}
     {data.status === "submitted" && <p role="status"><T id="order-lists.order-list-detail.edits-are-locked-until-admin">Edits are locked until Admin approves or rejects this list.</T></p>}
     {data.status === "approved" && !data.orders.length && <p role="status"><T id="order-lists.order-list-detail.approved-place-each-vendor-s">{"Approved. Place each vendor's order on its portal, then record it below."}</T></p>}
@@ -185,7 +184,7 @@ function RecordOrderForm({ vendor, lines, showCosts, onSubmit }: {
   return <form className="vendor-order-form" aria-label={`Record ${vendor} order`}
     onSubmit={(event) => { event.preventDefault(); void save(); }}>
     <h3><T id="order-lists.record-order-form.record-the-portal-order">Record the portal order</T></h3>
-    {problem && <p role="alert" className="error-message">{problem}</p>}
+    <ErrorText message={problem} />
     <label><T id="order-lists.record-order-form.portal-order-number">{"Portal order number "}</T><input aria-label={`Portal order number for ${vendor}`} value={portal}
       onChange={(event) => setPortal(event.target.value)} /></label>
     <label><T id="order-lists.record-order-form.order-date">{"Order date "}</T><input type="date" aria-label={`Order date for ${vendor}`} value={orderedOn}

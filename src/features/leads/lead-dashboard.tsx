@@ -29,8 +29,8 @@ import {
   LoadingSkeleton,
   PageHeader,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { T, LabelT } from "../../app/copy";
 
 // Lead dashboard (FLOW-113): which lead sources are worth paying for. Dollar
@@ -150,7 +150,7 @@ export function LeadDashboardPage() {
       </Block>
       <Block id="totals" name="Totals" h={8}>
       {dashboard.error ? (
-        <LoadError message={dashboard.error} />
+        <ErrorText message={dashboard.error} />
       ) : !data ? (
         <LoadingSkeleton />
       ) : (

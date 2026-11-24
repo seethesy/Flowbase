@@ -4,18 +4,13 @@ import { id } from "../../../shared/schema-primitives";
 import { orderListInputSchema, orderListLinesSchema, orderListNotesSchema, receiveInputSchema,
   recordOrderInputSchema } from "../../../shared/order-lists";
 import { requirePermission } from "../../auth";
-import { notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { idParam, notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { addToDraftOrderList, cancelOrder, cancelOrderList, createOrderList, getOrderList, listOrderLists, receiveOrder,
   recordOrder, submitOrderList, updateOrderList, updateOrderListNotes } from "../../records/inventory/order-lists";
 
 export function orderListRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (value: string) => {
-    const result = id.safeParse(value);
-    if (!result.success) throw notFound("Order list");
-    return result.data;
-  };
   const orderParam = (value: string) => {
     const result = id.safeParse(value);
     if (!result.success) throw notFound("Order");
@@ -31,31 +26,31 @@ export function orderListRoutes(options: { withDb?: RunWithDb }) {
     const { itemIds } = await parseBody(c, z.object({ itemIds: z.array(id).min(1).max(200) }));
     return c.json(await record(c, (db, actor) => addToDraftOrderList(db, actor, itemIds)));
   });
-  routes.get("/:id", requirePermission("order_lists.write"), async (c) => c.json(await record(c, (db, actor) => getOrderList(db, actor, param(c.req.param("id"))))));
+  routes.get("/:id", requirePermission("order_lists.write"), async (c) => c.json(await record(c, (db, actor) => getOrderList(db, actor, idParam(c, "Order list")))));
   routes.put("/:id", requirePermission("order_lists.write"), async (c) => {
     const { lines } = await parseBody(c, orderListLinesSchema);
-    return c.json(await record(c, (db, actor) => updateOrderList(db, actor, param(c.req.param("id")), lines)));
+    return c.json(await record(c, (db, actor) => updateOrderList(db, actor, idParam(c, "Order list"), lines)));
   });
   // The list's notes, edited inline on the Purchasing tab (FLOW-300).
   routes.patch("/:id", requirePermission("order_lists.write"), async (c) => {
     const { notes } = await parseBody(c, orderListNotesSchema);
-    return c.json(await record(c, (db, actor) => updateOrderListNotes(db, actor, param(c.req.param("id")), notes)));
+    return c.json(await record(c, (db, actor) => updateOrderListNotes(db, actor, idParam(c, "Order list"), notes)));
   });
-  routes.post("/:id/submit", requirePermission("order_lists.write"), async (c) => c.json(await record(c, (db, actor) => submitOrderList(db, actor, param(c.req.param("id"))))));
+  routes.post("/:id/submit", requirePermission("order_lists.write"), async (c) => c.json(await record(c, (db, actor) => submitOrderList(db, actor, idParam(c, "Order list")))));
   // Ordering record (FLOW-87): Admin records each vendor's portal order.
   routes.post("/:id/orders", requirePermission("order_lists.approve"), async (c) => {
     const input = await parseBody(c, recordOrderInputSchema);
-    return c.json(await record(c, (db, actor) => recordOrder(db, actor, param(c.req.param("id")), input)), 201);
+    return c.json(await record(c, (db, actor) => recordOrder(db, actor, idParam(c, "Order list"), input)), 201);
   });
   routes.post("/:id/cancel", requirePermission("order_lists.approve"), async (c) =>
-    c.json(await record(c, (db, actor) => cancelOrderList(db, actor, param(c.req.param("id"))))));
+    c.json(await record(c, (db, actor) => cancelOrderList(db, actor, idParam(c, "Order list")))));
   routes.post("/:id/orders/:orderId/cancel", requirePermission("order_lists.approve"), async (c) =>
-    c.json(await record(c, (db, actor) => cancelOrder(db, actor, param(c.req.param("id")), orderParam(c.req.param("orderId"))))));
+    c.json(await record(c, (db, actor) => cancelOrder(db, actor, idParam(c, "Order list"), orderParam(c.req.param("orderId"))))));
   // Receiving (FLOW-88): whoever builds order lists receives deliveries.
   routes.post("/:id/orders/:orderId/receive", requirePermission("order_lists.write"), async (c) => {
     const input = await parseBody(c, receiveInputSchema);
     return c.json(await record(c, (db, actor) =>
-      receiveOrder(db, actor, param(c.req.param("id")), orderParam(c.req.param("orderId")), input)));
+      receiveOrder(db, actor, idParam(c, "Order list"), orderParam(c.req.param("orderId")), input)));
   });
   return routes;
 }

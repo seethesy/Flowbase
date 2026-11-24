@@ -23,14 +23,14 @@ import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
 import { useResource } from "../../app/useResource";
 import {
   Button,
-  DetailDrawer,
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
+  FormDrawer,
 } from "../../components/shared";
 import { eventStaffApi } from "../../services/event-staff";
 import { staffApi } from "../../services/staff";
-import { LoadError } from "../../components/record-display";
 import { date, time } from "./event-format";
 import { ListSelect } from "../common/list-fields";
 import "./event-staff.css";
@@ -46,7 +46,7 @@ const range = (startsAt: string, endsAt: string) => {
   const end = utcToBusinessTime(new Date(endsAt));
   return `${date(start.date)} ${time(start.time)}–${time(end.time)}`;
 };
-export const conflictText = (conflict: ShiftConflict) =>
+const conflictText = (conflict: ShiftConflict) =>
   `${conflict.eventTitle ?? "another event"} (${shiftKindLabels[conflict.shiftKind]}, ${range(conflict.startsAt, conflict.endsAt)})`;
 
 // conflictText for the screen, with its wording editable (FLOW-257).
@@ -83,7 +83,7 @@ export function EventStaffSection({
   if (roster.error)
     return (
       <Section title={<T id="event-staff.event-staff-section.staff">Staff</T>}>
-        <LoadError message={roster.error} />
+        <ErrorText message={roster.error} />
       </Section>
     );
   if (!roster.data) return <LoadingSkeleton />;
@@ -136,11 +136,7 @@ export function EventStaffSection({
         )
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {warning && (
         <p role="alert" className="staff-warning warning">
           {warning}
@@ -290,7 +286,7 @@ function ShiftBlock({
         )}
       </div>
       {shift.activities && <p className="muted">{shift.activities}</p>}
-      {staffError && <LoadError message={staffError} />}
+      <ErrorText message={staffError} />
       <ul className="staff-slots">
         {shift.slots.map((slot) => {
           const label = slotLabel(slot);
@@ -474,85 +470,71 @@ function ShiftForm({
   const set = <K extends keyof ShiftInput>(key: K, value: ShiftInput[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={shift ? <T id="event-staff.shift-form.edit-shift">Edit shift</T> : <T id="event-staff.shift-form.add-shift">Add shift</T>}
       description={<T id="event-staff.shift-form.times-are-new-york-time">Times are New York time. An end time before the start runs past midnight.</T>}
+      onSubmit={async () => {
+        if (!draft.date || !draft.startTime || !draft.endTime)
+          return setError("Day, date, start and end time are required.");
+        try {
+          setError("");
+          await onSave(draft);
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-staff.shift-form.save-shift">Save shift</T>}
+      cancelLabel={<T id="event-staff.shift-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!draft.date || !draft.startTime || !draft.endTime)
-            return setError("Day, date, start and end time are required.");
-          try {
-            setError("");
-            await onSave(draft);
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <div className="form-grid">
-          <FormField label={<T id="event-staff.shift-form.day">Day</T>}>
-            <Dropdown
-              value={draft.kind}
-              onChange={(e) => {
-                const kind = shiftKindSchema.parse(e.target.value);
-                set("kind", kind);
-                if (!shift) set("date", defaultShiftDate(event, kind));
-              }}
-            >
-              {shiftKindSchema.options.map((kind) => (
-                <option key={kind} value={kind}>
-                  {shiftKindLabels[kind]}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-          <FormField label={<T id="event-staff.shift-form.date">Date</T>}>
-            <input
-              type="date"
-              value={draft.date}
-              onChange={(e) => set("date", e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="event-staff.shift-form.start-time">Start time</T>}>
-            <input
-              type="time"
-              value={draft.startTime}
-              onChange={(e) => set("startTime", e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="event-staff.shift-form.end-time">End time</T>}>
-            <input
-              type="time"
-              value={draft.endTime}
-              onChange={(e) => set("endTime", e.target.value)}
-            />
-          </FormField>
-        </div>
-        <FormField label={<T id="event-staff.shift-form.activities">Activities</T>}>
-          <textarea
-            rows={3}
-            value={draft.activities ?? ""}
-            onChange={(e) => set("activities", e.target.value)}
+      <div className="form-grid">
+        <FormField label={<T id="event-staff.shift-form.day">Day</T>}>
+          <Dropdown
+            value={draft.kind}
+            onChange={(e) => {
+              const kind = shiftKindSchema.parse(e.target.value);
+              set("kind", kind);
+              if (!shift) set("date", defaultShiftDate(event, kind));
+            }}
+          >
+            {shiftKindSchema.options.map((kind) => (
+              <option key={kind} value={kind}>
+                {shiftKindLabels[kind]}
+              </option>
+            ))}
+          </Dropdown>
+        </FormField>
+        <FormField label={<T id="event-staff.shift-form.date">Date</T>}>
+          <input
+            type="date"
+            value={draft.date}
+            onChange={(e) => set("date", e.target.value)}
           />
         </FormField>
-        <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
-            <T id="event-staff.shift-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-staff.shift-form.save-shift">Save shift</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        <FormField label={<T id="event-staff.shift-form.start-time">Start time</T>}>
+          <input
+            type="time"
+            value={draft.startTime}
+            onChange={(e) => set("startTime", e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="event-staff.shift-form.end-time">End time</T>}>
+          <input
+            type="time"
+            value={draft.endTime}
+            onChange={(e) => set("endTime", e.target.value)}
+          />
+        </FormField>
+      </div>
+      <FormField label={<T id="event-staff.shift-form.activities">Activities</T>}>
+        <textarea
+          rows={3}
+          value={draft.activities ?? ""}
+          onChange={(e) => set("activities", e.target.value)}
+        />
+      </FormField>
+    </FormDrawer>
   );
 }
 
@@ -581,77 +563,63 @@ function LeadsForm({
     (member) => member.hasAccount && member.role !== "part_time_staff",
   );
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={<T id="event-staff.leads-form.production-leads">Production Leads</T>}
       description={<T id="event-staff.leads-form.the-primary-receives-the-event">{"The primary receives the event's production alerts; assistants are copied."}</T>}
+      onSubmit={async () => {
+        // AC3: assistants need a primary.
+        if (!primary && assistants.length)
+          return setError(
+            "Name a primary Production Lead before adding assistants.",
+          );
+        try {
+          setError("");
+          await onSave({
+            productionLeadId: primary || null,
+            assistantLeadIds: assistants.filter((id) => id !== primary),
+          });
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-staff.leads-form.save-leads">Save leads</T>}
+      cancelLabel={<T id="event-staff.leads-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          // AC3: assistants need a primary.
-          if (!primary && assistants.length)
-            return setError(
-              "Name a primary Production Lead before adding assistants.",
-            );
-          try {
-            setError("");
-            await onSave({
-              productionLeadId: primary || null,
-              assistantLeadIds: assistants.filter((id) => id !== primary),
-            });
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
+      <FormField
+        label={<T id="event-staff.leads-form.primary-production-lead">Primary Production Lead</T>}
+        hint={<T id="event-staff.leads-form.full-time-staff-only">Full-time staff only.</T>}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <FormField
-          label={<T id="event-staff.leads-form.primary-production-lead">Primary Production Lead</T>}
-          hint={<T id="event-staff.leads-form.full-time-staff-only">Full-time staff only.</T>}
-        >
-          <Dropdown value={primary} onChange={(e) => setPrimary(e.target.value)}>
-            <option value="">None</option>
-            {fullTime.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </Dropdown>
-        </FormField>
-        <fieldset className="list-checkboxes">
-          <legend><T id="event-staff.leads-form.assistant-production-leads">Assistant Production Leads</T></legend>
-          {staff
-            .filter((member) => member.id !== primary)
-            .map((member) => (
-              <label key={member.id}>
-                <RoundCheck
-                  checked={assistants.includes(member.id)}
-                  onChange={(e) =>
-                    setAssistants((current) =>
-                      e.target.checked
-                        ? [...current, member.id]
-                        : current.filter((id) => id !== member.id),
-                    )
-                  }
-                />
-                {member.name}
-              </label>
-            ))}
-        </fieldset>
-        <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
-            <T id="event-staff.leads-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-staff.leads-form.save-leads">Save leads</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        <Dropdown value={primary} onChange={(e) => setPrimary(e.target.value)}>
+          <option value="">None</option>
+          {fullTime.map((member) => (
+            <option key={member.id} value={member.id}>
+              {member.name}
+            </option>
+          ))}
+        </Dropdown>
+      </FormField>
+      <fieldset className="list-checkboxes">
+        <legend><T id="event-staff.leads-form.assistant-production-leads">Assistant Production Leads</T></legend>
+        {staff
+          .filter((member) => member.id !== primary)
+          .map((member) => (
+            <label key={member.id}>
+              <RoundCheck
+                checked={assistants.includes(member.id)}
+                onChange={(e) =>
+                  setAssistants((current) =>
+                    e.target.checked
+                      ? [...current, member.id]
+                      : current.filter((id) => id !== member.id),
+                  )
+                }
+              />
+              {member.name}
+            </label>
+          ))}
+      </fieldset>
+    </FormDrawer>
   );
 }

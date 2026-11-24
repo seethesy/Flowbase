@@ -6,10 +6,9 @@ import {
   slotInputSchema,
   slotUpdateSchema,
 } from "../../../shared/event-staff";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requirePermission } from "../../auth";
 import {
-  notFound,
+  idParam,
   parseBody,
   recordRunner,
   type AppContext,
@@ -32,12 +31,7 @@ import { setProductionLeads } from "../../records/events/events";
 export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
-  const eventId = (c: AppContext) => param(c, "id", "Event");
+  const eventId = (c: AppContext) => idParam(c, "Event");
 
   routes.get("/:id/roster", requirePermission("events.read"), async (c) => {
     const id = eventId(c);
@@ -67,7 +61,7 @@ export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("events.write"),
     async (c) => {
       const id = eventId(c);
-      const shiftId = param(c, "shiftId", "Shift");
+      const shiftId = idParam(c, "Shift", "shiftId");
       const input = await parseBody(c, shiftInputSchema);
       return c.json(
         await record(c, (db, actor) =>
@@ -81,7 +75,7 @@ export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("events.write"),
     async (c) => {
       const id = eventId(c);
-      const shiftId = param(c, "shiftId", "Shift");
+      const shiftId = idParam(c, "Shift", "shiftId");
       const options = await parseBody(c, removalOptionsSchema);
       return c.json(
         await record(c, (db, actor) => archiveShift(db, actor, id, shiftId, options.notifyRemovedStaff)),
@@ -101,7 +95,7 @@ export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("events.write"),
     async (c) => {
       const id = eventId(c);
-      const slotId = param(c, "slotId", "Staffing slot");
+      const slotId = idParam(c, "Staffing slot", "slotId");
       const input = await parseBody(c, slotUpdateSchema);
       return c.json(
         await record(c, (db, actor) =>
@@ -115,7 +109,7 @@ export function eventStaffRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("events.write"),
     async (c) => {
       const id = eventId(c);
-      const slotId = param(c, "slotId", "Staffing slot");
+      const slotId = idParam(c, "Staffing slot", "slotId");
       const options = await parseBody(c, removalOptionsSchema);
       return c.json(await record(c, (db, actor) =>
         archiveSlot(db, actor, id, slotId, options.notifyRemovedStaff)));

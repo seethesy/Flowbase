@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { id, localDate } from "../../../shared/schema-primitives";
+import { localDate } from "../../../shared/schema-primitives";
 import {
   payExceptionInputSchema,
   payExceptionUpdateSchema,
@@ -7,7 +7,7 @@ import {
 } from "../../../shared/staff-pay";
 import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
 import { requirePermission } from "../../auth";
-import { ApiError, notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { ApiError, idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import {
   archivePayException,
   createPayException,
@@ -22,11 +22,6 @@ import {
 export function staffPayRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const exceptionId = (value: string) => {
-    const parsed = id.safeParse(value);
-    if (!parsed.success) throw notFound("Pay exception");
-    return parsed.data;
-  };
   // ?from=&to= (New York dates, inclusive); defaults to this month so far.
   routes.get("/", requirePermission("staff.pay.read"), async (c) => {
     const today = utcToBusinessTime(new Date()).date;
@@ -47,12 +42,12 @@ export function staffPayRoutes(options: { withDb?: RunWithDb }) {
     return c.json(await record(c, (db, actor) => createPayException(db, actor, input)), 201);
   });
   routes.patch("/exceptions/:id", requirePermission("staff.pay.write"), async (c) => {
-    const target = exceptionId(c.req.param("id"));
+    const target = idParam(c, "Pay exception");
     const input = await parseBody(c, payExceptionUpdateSchema);
     return c.json(await record(c, (db, actor) => updatePayException(db, actor, target, input)));
   });
   routes.delete("/exceptions/:id", requirePermission("staff.pay.write"), async (c) => {
-    const target = exceptionId(c.req.param("id"));
+    const target = idParam(c, "Pay exception");
     return c.json(await record(c, (db, actor) => archivePayException(db, actor, target)));
   });
   return routes;

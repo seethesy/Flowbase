@@ -21,8 +21,7 @@ import { useResource } from "../../app/useResource";
 import { LoadMore, usePagedList } from "../../app/paging";
 import { useDeletable } from "../../app/live-edit/deletable";
 import { usePermissions } from "../../app/permissions";
-import { LoadError } from "../../components/record-display";
-import { Button, FilterBar } from "../../components/shared";
+import { Button, FilterBar, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { RoundCheck } from "../../components/ui/round-check";
 import { StatusPill, statusLabel } from "../../components/ui/status-pill";
@@ -46,7 +45,7 @@ import "./calendar.css";
 // the date are kept in the address, so a reload or a shared link keeps them.
 // Clicking an event opens its side panel.
 
-export type CalendarView = "month" | "week" | "day";
+type CalendarView = "month" | "week" | "day";
 const fullCalendarViews: Record<CalendarView, string> = { month: "dayGridMonth", week: "timeGridWeek", day: "timeGridDay" };
 // Older links used FullCalendar's view names, or the removed List view.
 const viewOf = (value: string | null): CalendarView =>
@@ -90,7 +89,7 @@ const shortDay = (date: string, withYear = false) =>
 // What a view shows (FLOW-294): the days fetched for the calendar, the days the
 // events table lists (a month view lists its month), its title, and the dates
 // the previous and next buttons go to.
-export function calendarRange(view: CalendarView, date: string) {
+function calendarRange(view: CalendarView, date: string) {
   if (view === "day")
     return {
       fetch: { from: date, to: date },
@@ -354,7 +353,7 @@ export function CalendarPage() {
       {googleResults[googleResult] && (
         <p role="status" className="muted">{googleResults[googleResult]}</p>
       )}
-      {googleShown && googleEvents.error && <LoadError message={googleEvents.error} />}
+      {googleShown && googleEvents.error && <ErrorText message={googleEvents.error} />}
       </Block>
       <Block id="calendar" name="Calendar" h={30}>
       <div className="calendar-toolbar">
@@ -380,7 +379,7 @@ export function CalendarPage() {
         <T id="calendar.calendar-page.status">Status:</T>
         {calendarEventStatuses.map((value) => <StatusPill key={value} status={value} />)}
       </p>
-      {calendar.error && <LoadError message={calendar.error} />}
+      <ErrorText message={calendar.error} />
       <div className="calendar-panel">
         <FullCalendar
           ref={calendarRef}
@@ -452,7 +451,7 @@ function CalendarList({
   };
   return (
     <div className="calendar-events-table">
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <EventTable
         variant="calendar"
         events={rows}

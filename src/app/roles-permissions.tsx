@@ -2,8 +2,7 @@ import { Block, PageGrid } from "./live-edit/page-grid";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dropdown } from "../components/ui/Dropdown";
-import { Button, LoadingSkeleton, PageHeader, Section } from "../components/shared";
-import { LoadError } from "../components/record-display";
+import { Button, LoadingSkeleton, PageHeader, Section, ErrorText } from "../components/shared";
 import { roles, type Role } from "../../shared/access";
 import { emptyLayout, layoutItemGone, type LayoutBlock, type LayoutDoc } from "../../shared/layout";
 import {
@@ -163,7 +162,7 @@ export function RolesPermissionsPage() {
         subtitle="What each role can read or write, area by area, and which roles see each dashboard card, sidebar heading and tab."
       />
       {loaded.error ? (
-        <LoadError message={loaded.error} />
+        <ErrorText message={loaded.error} />
       ) : !matrix ? (
         <LoadingSkeleton />
       ) : (
@@ -268,11 +267,7 @@ export function RolesPermissionsPage() {
             </Block>
           )}
           </PageGrid>
-          {error && (
-            <p role="alert" className="error-message">
-              {error}
-            </p>
-          )}
+          <ErrorText message={error} />
           {notice && <p role="status">{notice}</p>}
           {dirty && (
             <div className="perm-save-bar" role="region" aria-label="Unsaved changes">

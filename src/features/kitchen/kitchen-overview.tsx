@@ -4,8 +4,7 @@ import type { KitchenOverviewRow } from "../../../shared/kitchen-overview";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { T } from "../../app/copy";
 import { useResource } from "../../app/useResource";
-import { LoadError } from "../../components/record-display";
-import { DataTable, DateTimeCell, LoadingSkeleton } from "../../components/shared";
+import { DataTable, DateTimeCell, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { kitchenApi } from "../../services/kitchen";
 import { calendarWhenParts } from "../events/calendar-entries";
 import { KitchenHeading } from "./kitchen-screen";
@@ -70,7 +69,7 @@ export function KitchenOverviewPage() {
       <KitchenHeading tab="overview" />
       <PageGrid pageKey="kitchen.overview">
         <Block id="menu-items" name="Menu items" h={24}>
-          {overview.error && <LoadError message={overview.error} />}
+          <ErrorText message={overview.error} />
           {!data && !overview.error && <LoadingSkeleton />}
           {data && !data.rows.length && (
             <p className="muted"><T id="kitchen-overview.table.no-menu-items">No menu items for events in the next 14 days.</T></p>

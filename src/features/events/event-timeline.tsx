@@ -16,12 +16,12 @@ import {
 import { useResource } from "../../app/useResource";
 import {
   Button,
-  DetailDrawer,
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
+  FormDrawer,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { eventTimelineApi } from "../../services/event-timeline";
 import { staffApi } from "../../services/staff";
 import { vendorsApi } from "../../services/vendors";
@@ -84,7 +84,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
   if (timeline.error)
     return (
       <Section title={<T id="event-timeline.event-timeline-section.timeline">Timeline</T>}>
-        <LoadError message={timeline.error} />
+        <ErrorText message={timeline.error} />
       </Section>
     );
   if (!timeline.data) return <LoadingSkeleton />;
@@ -109,11 +109,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
         )
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="events.timeline">
       <Block id="suggestions" name="Timeline suggestions" h={8}>
       {data.suggestions.length > 0 && data.canEdit && (
@@ -242,164 +238,150 @@ function EntryForm({
       (entry?.who?.type === "staff" && entry.who.id === m.id),
   );
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={entry ? <T id="event-timeline.entry-form.edit-timeline-entry">Edit timeline entry</T> : <T id="event-timeline.entry-form.add-timeline-entry">Add timeline entry</T>}
       description={<T id="event-timeline.entry-form.times-are-new-york-time">Times are New York time. An end time before the start runs past midnight.</T>}
+      onSubmit={async () => {
+        if (!draft.date || !draft.startTime || !draft.endTime)
+          return setError("Date, start and end time are required.");
+        if (!draft.activity.trim()) return setError("Describe the activity.");
+        try {
+          setError("");
+          await onSave({
+            kind: draft.kind,
+            date: draft.date,
+            startTime: draft.startTime,
+            endTime: draft.endTime,
+            activity: draft.activity.trim(),
+            who: whoOf(draft),
+            where: draft.where,
+            source: draft.source,
+          });
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-timeline.entry-form.save">Save</T>}
+      cancelLabel={<T id="event-timeline.entry-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!draft.date || !draft.startTime || !draft.endTime)
-            return setError("Date, start and end time are required.");
-          if (!draft.activity.trim()) return setError("Describe the activity.");
-          try {
-            setError("");
-            await onSave({
-              kind: draft.kind,
-              date: draft.date,
-              startTime: draft.startTime,
-              endTime: draft.endTime,
-              activity: draft.activity.trim(),
-              who: whoOf(draft),
-              where: draft.where,
-              source: draft.source,
-            });
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <div className="form-grid">
-          <FormField label={<T id="event-timeline.entry-form.kind">Kind</T>}>
+      <div className="form-grid">
+        <FormField label={<T id="event-timeline.entry-form.kind">Kind</T>}>
+          <Dropdown
+            value={draft.kind}
+            onChange={(e) =>
+              set("kind", e.target.value as Draft["kind"])
+            }
+          >
+            {timelineKinds.map((kind) => (
+              <option key={kind} value={kind}>
+                {timelineKindLabels[kind]}
+              </option>
+            ))}
+          </Dropdown>
+        </FormField>
+        <FormField label={<T id="event-timeline.entry-form.date">Date</T>}>
+          <input
+            type="date"
+            value={draft.date}
+            onChange={(e) => set("date", e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="event-timeline.entry-form.start-time">Start time</T>}>
+          <input
+            type="time"
+            value={draft.startTime}
+            onChange={(e) => set("startTime", e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="event-timeline.entry-form.end-time">End time</T>}>
+          <input
+            type="time"
+            value={draft.endTime}
+            onChange={(e) => set("endTime", e.target.value)}
+          />
+        </FormField>
+      </div>
+      <FormField label={<T id="event-timeline.entry-form.activity">Activity</T>}>
+        <input
+          value={draft.activity}
+          maxLength={500}
+          onChange={(e) => set("activity", e.target.value)}
+        />
+      </FormField>
+      <div className="form-grid">
+        <FormField label={<T id="event-timeline.entry-form.who">Who</T>}>
+          <Dropdown
+            value={draft.whoType}
+            onChange={(e) => {
+              set("whoType", e.target.value as Draft["whoType"]);
+              set("whoValue", "");
+            }}
+          >
+            <option value="">Nobody</option>
+            <option value="staff">Staff member</option>
+            <option value="role">Role</option>
+            <option value="vendor">Event partner</option>
+          </Dropdown>
+        </FormField>
+        {draft.whoType === "staff" && (
+          <FormField label={<T id="event-timeline.entry-form.staff-member">Staff member</T>}>
             <Dropdown
-              value={draft.kind}
-              onChange={(e) =>
-                set("kind", e.target.value as Draft["kind"])
-              }
+              value={draft.whoValue}
+              onChange={(e) => set("whoValue", e.target.value)}
             >
-              {timelineKinds.map((kind) => (
-                <option key={kind} value={kind}>
-                  {timelineKindLabels[kind]}
+              <option value="">Choose a person</option>
+              {people.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
                 </option>
               ))}
             </Dropdown>
           </FormField>
-          <FormField label={<T id="event-timeline.entry-form.date">Date</T>}>
-            <input
-              type="date"
-              value={draft.date}
-              onChange={(e) => set("date", e.target.value)}
+        )}
+        {draft.whoType === "role" && (
+          <FormField label={<T id="event-timeline.entry-form.role">Role</T>}>
+            <ListSelect
+              list="staff_position"
+              label="Role"
+              empty="Choose a role"
+              value={draft.whoValue}
+              onChange={(value) => set("whoValue", value)}
             />
           </FormField>
-          <FormField label={<T id="event-timeline.entry-form.start-time">Start time</T>}>
-            <input
-              type="time"
-              value={draft.startTime}
-              onChange={(e) => set("startTime", e.target.value)}
-            />
+        )}
+        {draft.whoType === "vendor" && (
+          <FormField label={<T id="event-timeline.entry-form.event-partner">Event partner</T>}>
+            <Dropdown
+              value={draft.whoValue}
+              onChange={(e) => set("whoValue", e.target.value)}
+            >
+              <option value="">Choose a partner</option>
+              {(partners.data ?? []).map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </Dropdown>
           </FormField>
-          <FormField label={<T id="event-timeline.entry-form.end-time">End time</T>}>
-            <input
-              type="time"
-              value={draft.endTime}
-              onChange={(e) => set("endTime", e.target.value)}
-            />
-          </FormField>
-        </div>
-        <FormField label={<T id="event-timeline.entry-form.activity">Activity</T>}>
-          <input
-            value={draft.activity}
-            maxLength={500}
-            onChange={(e) => set("activity", e.target.value)}
-          />
+        )}
+        <FormField label={<T id="event-timeline.entry-form.where">Where</T>}>
+          <Dropdown
+            value={draft.where}
+            onChange={(e) => set("where", e.target.value)}
+          >
+            <option value="">—</option>
+            {[...new Set([...areas, ...(draft.where ? [draft.where] : [])])].map(
+              (area) => (
+                <option key={area} value={area}>
+                  {area}
+                </option>
+              ),
+            )}
+          </Dropdown>
         </FormField>
-        <div className="form-grid">
-          <FormField label={<T id="event-timeline.entry-form.who">Who</T>}>
-            <Dropdown
-              value={draft.whoType}
-              onChange={(e) => {
-                set("whoType", e.target.value as Draft["whoType"]);
-                set("whoValue", "");
-              }}
-            >
-              <option value="">Nobody</option>
-              <option value="staff">Staff member</option>
-              <option value="role">Role</option>
-              <option value="vendor">Event partner</option>
-            </Dropdown>
-          </FormField>
-          {draft.whoType === "staff" && (
-            <FormField label={<T id="event-timeline.entry-form.staff-member">Staff member</T>}>
-              <Dropdown
-                value={draft.whoValue}
-                onChange={(e) => set("whoValue", e.target.value)}
-              >
-                <option value="">Choose a person</option>
-                {people.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Dropdown>
-            </FormField>
-          )}
-          {draft.whoType === "role" && (
-            <FormField label={<T id="event-timeline.entry-form.role">Role</T>}>
-              <ListSelect
-                list="staff_position"
-                label="Role"
-                empty="Choose a role"
-                value={draft.whoValue}
-                onChange={(value) => set("whoValue", value)}
-              />
-            </FormField>
-          )}
-          {draft.whoType === "vendor" && (
-            <FormField label={<T id="event-timeline.entry-form.event-partner">Event partner</T>}>
-              <Dropdown
-                value={draft.whoValue}
-                onChange={(e) => set("whoValue", e.target.value)}
-              >
-                <option value="">Choose a partner</option>
-                {(partners.data ?? []).map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </Dropdown>
-            </FormField>
-          )}
-          <FormField label={<T id="event-timeline.entry-form.where">Where</T>}>
-            <Dropdown
-              value={draft.where}
-              onChange={(e) => set("where", e.target.value)}
-            >
-              <option value="">—</option>
-              {[...new Set([...areas, ...(draft.where ? [draft.where] : [])])].map(
-                (area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ),
-              )}
-            </Dropdown>
-          </FormField>
-        </div>
-        <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
-            <T id="event-timeline.entry-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-timeline.entry-form.save">Save</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+      </div>
+    </FormDrawer>
   );
 }

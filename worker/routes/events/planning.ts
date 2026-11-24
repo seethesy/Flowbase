@@ -7,11 +7,11 @@ import {
   reservationUpdateSchema,
   resolveInputSchema,
 } from "../../../shared/reservations";
-import { id as uuid, localDate } from "../../../shared/schema-primitives";
+import { localDate } from "../../../shared/schema-primitives";
 import { requirePermission } from "../../auth";
 import {
   ApiError,
-  notFound,
+  idParam,
   parseBody,
   recordRunner,
   type AppContext,
@@ -50,11 +50,6 @@ const availabilityQuerySchema = z
 export function planningRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
   const stateFilter = (c: AppContext) => {
     const raw = c.req.query("state");
     if (raw === undefined) return undefined;
@@ -66,30 +61,30 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
 
   // --- Event holds ---------------------------------------------------------
   routes.get("/events/:id/reservations", requirePermission("events.read"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => eventReservations(db, actor, id)));
   });
   routes.post("/events/:id/reservations", requirePermission("events.write"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, reservationInputSchema);
     return c.json(await record(c, (db, actor) => placeHold(db, actor, id, input)), 201);
   });
   routes.patch("/reservations/:id", requirePermission("events.write"), async (c) => {
-    const id = param(c, "id", "Reservation");
+    const id = idParam(c, "Reservation");
     const input = await parseBody(c, reservationUpdateSchema);
     return c.json(
       await record(c, (db, actor) => updateHold(db, actor, id, input.quantity)),
     );
   });
   routes.delete("/reservations/:id", requirePermission("events.write"), async (c) => {
-    const id = param(c, "id", "Reservation");
+    const id = idParam(c, "Reservation");
     await record(c, (db, actor) => removeHold(db, actor, id));
     return c.body(null, 204);
   });
 
   // --- Conflicts -----------------------------------------------------------
   routes.get("/events/:id/conflicts", requirePermission("events.read"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const state = stateFilter(c);
     return c.json(await record(c, (db, actor) => eventConflicts(db, actor, id, state)));
   });
@@ -97,7 +92,7 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
     "/inventory/items/:id/conflicts",
     requirePermission("inventory.read"),
     async (c) => {
-      const id = param(c, "id", "Item");
+      const id = idParam(c, "Item");
       const state = stateFilter(c);
       return c.json(await record(c, (db, actor) => itemConflicts(db, actor, id, state)));
     },
@@ -106,7 +101,7 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
     "/reservation-conflicts/:id/resolve",
     requirePermission("events.write"),
     async (c) => {
-      const id = param(c, "id", "Conflict");
+      const id = idParam(c, "Conflict");
       const input = await parseBody(c, resolveInputSchema);
       return c.json(await record(c, (db, actor) => resolveConflict(db, actor, id, input)));
     },
@@ -117,7 +112,7 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
     "/inventory/items/:id/availability",
     requirePermission("inventory.read"),
     async (c) => {
-      const id = param(c, "id", "Item");
+      const id = idParam(c, "Item");
       const range = availabilityQuerySchema.safeParse(c.req.query());
       if (!range.success)
         throw new ApiError(
@@ -135,21 +130,21 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
 
   // --- Consumable requirements and allocations -----------------------------
   routes.get("/events/:id/requirements", requirePermission("events.read"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => listRequirements(db, actor, id)));
   });
   routes.put("/events/:id/requirements", requirePermission("events.write"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, requirementsInputSchema);
     return c.json(await record(c, (db, actor) => setManualRequirements(db, actor, id, input)));
   });
   // Bar plan (FLOW-170): bar quantities by item and by tier.
   routes.get("/events/:id/bar-plan", requirePermission("events.read"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getBarPlan(db, actor, id)));
   });
   routes.put("/events/:id/bar-plan", requirePermission("events.write"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, barPlanInputSchema);
     return c.json(await record(c, (db, actor) => setBarPlan(db, actor, id, input)));
   });
@@ -157,7 +152,7 @@ export function planningRoutes(options: { withDb?: RunWithDb }) {
     "/inventory/items/:id/allocations",
     requirePermission("inventory.read"),
     async (c) => {
-      const id = param(c, "id", "Item");
+      const id = idParam(c, "Item");
       return c.json(await record(c, (db, actor) => itemAllocations(db, actor, id)));
     },
   );

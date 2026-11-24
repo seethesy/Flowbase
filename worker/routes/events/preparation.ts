@@ -7,12 +7,11 @@ import {
   pullLineUpdateSchema,
   pullScheduleInputSchema,
 } from "../../../shared/pull-list";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { rentalRequestUpdateSchema } from "../../../shared/rental-requests";
 import { truckAssignmentInputSchema, truckInputSchema, truckLineInputSchema, truckStatusSchema } from "../../../shared/trucks";
 import { closeoutInputSchema } from "../../../shared/closeout";
 import { requirePermission } from "../../auth";
-import { notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../../hono";
+import { idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import {
   addKitchenLine,
   getKitchenMenu,
@@ -43,29 +42,24 @@ import {
 export function preparationRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
   const read = requirePermission("events.read");
 
   // Post-event closeout and returns (FLOW-157).
   routes.get("/:id/closeout", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getCloseout(db, actor, id)));
   });
   routes.post("/:id/closeout", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, closeoutInputSchema);
     return c.json(await record(c, (db, actor) => closeOutEvent(db, actor, id, input)), 201);
   });
   routes.get("/:id/trucks", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getTruckLog(db, actor, id)));
   });
   routes.post("/:id/trucks", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, truckInputSchema);
     return c.json(await record(c, async (db, actor) => {
       await createTruck(db, actor, id, input.name);
@@ -73,7 +67,7 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
     }), 201);
   });
   routes.patch("/:id/trucks/:truckId/status", read, async (c) => {
-    const id = param(c, "id", "Event"), truckId = param(c, "truckId", "Truck");
+    const id = idParam(c, "Event"), truckId = idParam(c, "Truck", "truckId");
     const input = await parseBody(c, truckStatusSchema);
     return c.json(await record(c, async (db, actor) => {
       await setTruckStatus(db, actor, id, truckId, input);
@@ -81,46 +75,46 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
     }));
   });
   routes.post("/:id/trucks/assignments", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, truckAssignmentInputSchema);
     return c.json(await record(c, (db, actor) => assignTruck(db, actor, id, input)), 201);
   });
   routes.post("/:id/trucks/assignments/:assignmentId/archive", read, async (c) => {
-    const id = param(c, "id", "Event"), assignmentId = param(c, "assignmentId", "Truck assignment");
+    const id = idParam(c, "Event"), assignmentId = idParam(c, "Truck assignment", "assignmentId");
     return c.json(await record(c, (db, actor) => removeTruckAssignment(db, actor, id, assignmentId)));
   });
   routes.put("/:id/trucks/lines/:lineId", read, async (c) => {
-    const id = param(c, "id", "Event"), lineId = param(c, "lineId", "Pull-list line");
+    const id = idParam(c, "Event"), lineId = idParam(c, "Pull-list line", "lineId");
     const input = await parseBody(c, truckLineInputSchema);
     return c.json(await record(c, (db, actor) => movePullLineToTruck(db, actor, id, lineId, input.truckId)));
   });
 
   routes.get("/:id/rental-requests", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => listRentalRequests(db, actor, id)));
   });
   routes.put("/:id/rental-requests/:vendorId", read, async (c) => {
-    const id = param(c, "id", "Event");
-    const vendorId = param(c, "vendorId", "Vendor");
+    const id = idParam(c, "Event");
+    const vendorId = idParam(c, "Vendor", "vendorId");
     const input = await parseBody(c, rentalRequestUpdateSchema);
     return c.json(await record(c, (db, actor) => updateRentalRequest(db, actor, id, vendorId, input)));
   });
 
   routes.get("/:id/planning", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getPlanningProgress(db, actor, id)));
   });
   routes.post("/:id/planning/start", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => startPlanning(db, actor, id)));
   });
   routes.post("/:id/planning/outputs/:kind/preview", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const kind = refreshableOutputSchema.parse(c.req.param("kind"));
     return c.json(await record(c, (db, actor) => previewPlanningRefresh(db, actor, id, kind)));
   });
   routes.post("/:id/planning/outputs/:kind/regenerate", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const kind = refreshableOutputSchema.parse(c.req.param("kind"));
     const input = await parseBody(c, refreshOutputInputSchema);
     return c.json(await record(c, (db, actor) => regeneratePlanningOutput(db, actor, id, kind, input.expectedStaleAt)));
@@ -128,47 +122,47 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
 
   // Pull list
   routes.get("/:id/pull-list", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getPullList(db, actor, id)));
   });
   routes.post("/:id/pull-list/lines", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, pullLineInputSchema);
     return c.json(await record(c, (db, actor) => addPullLine(db, actor, id, input)), 201);
   });
   routes.patch("/:id/pull-list/lines/:lineId", read, async (c) => {
-    const id = param(c, "id", "Event");
-    const lineId = param(c, "lineId", "Pull list line");
+    const id = idParam(c, "Event");
+    const lineId = idParam(c, "Pull list line", "lineId");
     const input = await parseBody(c, pullLineUpdateSchema);
     return c.json(await record(c, (db, actor) => updatePullLine(db, actor, id, lineId, input)));
   });
   routes.post("/:id/pull-list/lines/:lineId/status", read, async (c) => {
-    const id = param(c, "id", "Event");
-    const lineId = param(c, "lineId", "Pull list line");
+    const id = idParam(c, "Event");
+    const lineId = idParam(c, "Pull list line", "lineId");
     const input = await parseBody(c, pullLineStatusInputSchema);
     return c.json(
       await record(c, (db, actor) => setPullLineStatus(db, actor, id, lineId, input.status)),
     );
   });
   routes.post("/:id/pull-list/lines/:lineId/archive", read, async (c) => {
-    const id = param(c, "id", "Event");
-    const lineId = param(c, "lineId", "Pull list line");
+    const id = idParam(c, "Event");
+    const lineId = idParam(c, "Pull list line", "lineId");
     return c.json(await record(c, (db, actor) => removePullLine(db, actor, id, lineId)));
   });
   routes.put("/:id/pull-list/schedule", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, pullScheduleInputSchema);
     return c.json(await record(c, (db, actor) => setPullSchedule(db, actor, id, input)));
   });
   routes.post("/:id/pull-list/regenerate/preview", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, regenerateInputSchema);
     return c.json(
       await record(c, (db, actor) => previewPullRegeneration(db, actor, id, input.discardEdits)),
     );
   });
   routes.post("/:id/pull-list/regenerate", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, regenerateInputSchema);
     return c.json(
       await record(c, (db, actor) => regeneratePullList(db, actor, id, input.discardEdits)),
@@ -177,41 +171,41 @@ export function preparationRoutes(options: { withDb?: RunWithDb }) {
 
   // Kitchen menu
   routes.get("/:id/kitchen-menu", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getKitchenMenu(db, actor, id)));
   });
   routes.post("/:id/kitchen-menu/lines", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, kitchenLineInputSchema);
     return c.json(await record(c, (db, actor) => addKitchenLine(db, actor, id, input)), 201);
   });
   routes.patch("/:id/kitchen-menu/lines/:lineId", read, async (c) => {
-    const id = param(c, "id", "Event");
-    const lineId = param(c, "lineId", "Menu line");
+    const id = idParam(c, "Event");
+    const lineId = idParam(c, "Menu line", "lineId");
     const input = await parseBody(c, kitchenLineUpdateSchema);
     return c.json(await record(c, (db, actor) => updateKitchenLine(db, actor, id, lineId, input)));
   });
   routes.post("/:id/kitchen-menu/lines/:lineId/archive", read, async (c) => {
-    const id = param(c, "id", "Event");
-    const lineId = param(c, "lineId", "Menu line");
+    const id = idParam(c, "Event");
+    const lineId = idParam(c, "Menu line", "lineId");
     return c.json(await record(c, (db, actor) => removeKitchenLine(db, actor, id, lineId)));
   });
   routes.put("/:id/kitchen-menu/times", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, kitchenTimesInputSchema);
     return c.json(
       await record(c, (db, actor) => setLeavesKitchen(db, actor, id, input.leavesKitchenTime)),
     );
   });
   routes.post("/:id/kitchen-menu/regenerate/preview", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, regenerateInputSchema);
     return c.json(
       await record(c, (db, actor) => previewKitchenRegeneration(db, actor, id, input.discardEdits)),
     );
   });
   routes.post("/:id/kitchen-menu/regenerate", read, async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, regenerateInputSchema);
     return c.json(
       await record(c, (db, actor) => regenerateKitchenMenu(db, actor, id, input.discardEdits)),

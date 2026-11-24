@@ -8,10 +8,9 @@ import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
   ApiError,
-  notFound,
+  idParam,
   parseBody,
   recordRunner,
-  type AppContext,
   type AppEnv,
   type RunWithDb,
 } from "../../hono";
@@ -36,11 +35,6 @@ export function attachmentRoutes(options: {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
-  const id = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Attachment");
-    return parsed.data;
-  };
 
   routes.get("/", requirePermission("attachments.read"), async (c) => {
     const recordType = recordTypeSchema.safeParse(c.req.query("recordType"));
@@ -66,7 +60,7 @@ export function attachmentRoutes(options: {
     "/:id/complete",
     requirePermission("attachments.read"),
     async (c) => {
-      const attachmentId = id(c);
+      const attachmentId = idParam(c, "Attachment");
       return c.json(
         await record(c, (db, actor) =>
           completeUpload(db, actor, c.env ?? {}, attachmentId),
@@ -75,7 +69,7 @@ export function attachmentRoutes(options: {
     },
   );
   routes.patch("/:id", requirePermission("attachments.read"), async (c) => {
-    const attachmentId = id(c);
+    const attachmentId = idParam(c, "Attachment");
     const change = await parseBody(c, changeSchema);
     return c.json(
       await record(c, (db, actor) =>
@@ -87,7 +81,7 @@ export function attachmentRoutes(options: {
     "/:id/archive",
     requirePermission("attachments.read"),
     async (c) => {
-      const attachmentId = id(c);
+      const attachmentId = idParam(c, "Attachment");
       return c.json(
         await record(c, (db, actor) =>
           updateAttachment(db, actor, c.env ?? {}, attachmentId, {

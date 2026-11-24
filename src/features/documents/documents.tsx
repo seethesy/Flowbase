@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Upload } from "lucide-react";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
-import { Button, DataTable, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader, SearchInput, type DeleteResult } from "../../components/shared";
+import { Button, DataTable, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader, SearchInput, type DeleteResult, ErrorText } from "../../components/shared";
 import { useResource } from "../../app/useResource";
 import { usePermissions } from "../../app/permissions";
 import { T, useCopy } from "../../app/copy";
@@ -77,7 +77,7 @@ function LinkedCell({ row, writable, save }: { row: Document; writable: boolean;
     </button>
     {editing && <div className="document-linked-editor">
       <RecordPicker value={link} onChange={setLink} />
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <Button disabled={busy} onClick={() => void commit()}><T id="documents.library.save-link">Save link</T></Button>
       <Button variant="outline" onClick={() => setEditing(false)}><T id="documents.library.cancel-link">Cancel</T></Button>
     </div>}
@@ -157,7 +157,7 @@ export function DocumentsPage() {
       subtitle={<T id="documents.library.subtitle">Files linked to the work they belong to.</T>}>
       {can("attachments.write") && <Button onClick={() => setUploadOpen(true)}><Upload size={16} /><T id="documents.library.upload">Upload</T></Button>}
     </PageHeader>
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     <PageGrid pageKey="documents.library">
     <Block id="types" name="Document types" h={4}>
     <div className="document-type-tabs">
@@ -183,7 +183,7 @@ export function DocumentsPage() {
     </FilterBar>
     </Block>
     <Block id="documents-table" name="Documents" h={20}>
-    {files.error && <p role="alert" className="error-message">{files.error}</p>}
+    <ErrorText message={files.error} />
     {files.loading && !files.data ? <LoadingSkeleton /> : <DataTable tableKey="documents.library" exportName="documents" data={data} columns={columns} onRow={(row) => setSelectedId(row.id)} openColumn
       selection={{ rowId: (row) => row.id, onDelete: can("attachments.write") ? remove : undefined,
         onRestore: can("attachments.write") ? async (ids) => { await Promise.all(ids.map((id) => documentsApi.restore(id))); reload(); } : undefined }} />}
@@ -239,7 +239,7 @@ export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onC
   };
   return <DetailDrawer open onClose={onClose} title={<T id="documents.upload.title">Upload document</T>}
     description={<T id="documents.upload.description">PDF, Word, Excel, JPG, PNG or HEIC. Maximum 25 MB.</T>}>
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     <label className="document-drop-zone" onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => { event.preventDefault(); const picked = event.dataTransfer.files[0];
         if (picked) { setFile(picked); if (!name) setName(picked.name); } }}>

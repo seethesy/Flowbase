@@ -20,11 +20,11 @@ import {
   LoadingSkeleton,
   PageHeader,
   Section,
+  ErrorText,
 } from "../../components/shared";
 import { readImportFile, type NamedSheet } from "../../services/import-files";
 import { usePermissions } from "../../app/permissions";
 import { importsApi } from "../../services/imports";
-import { LoadError } from "../../components/record-display";
 import { dateTimeLabel } from "../inventory/inventory-labels";
 import { T, LabelT } from "../../app/copy";
 import "../inventory/inventory.css";
@@ -70,7 +70,7 @@ function ImportListPage() {
       <PageGrid pageKey="imports.list">
       <Block id="importers" name="Importers" h={8}>
         {modules.error ? (
-          <LoadError message={modules.error} />
+          <ErrorText message={modules.error} />
         ) : !modules.data ? (
           <LoadingSkeleton />
         ) : !modules.data.length ? (
@@ -133,7 +133,7 @@ function ImportModulePage() {
         </Button>
       </PageHeader>
       {module.error ? (
-        <LoadError message={module.error} />
+        <ErrorText message={module.error} />
       ) : !module.data ? (
         <LoadingSkeleton />
       ) : (
@@ -314,11 +314,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
             <T id="imports.import-flow.to-import" values={{ name: fileName, plural: plural(rows.length, "row") }}>{"{name}: {plural} to import."}</T>
           </p>
         )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
       </Section>
 
       </Block>
@@ -581,7 +577,7 @@ function ImportLogTable({
   return (
     <Section title={<T id="imports.import-log-table.recent-imports">Recent imports</T>}>
       {logs.error ? (
-        <LoadError message={logs.error} />
+        <ErrorText message={logs.error} />
       ) : !logs.data ? (
         <LoadingSkeleton />
       ) : !logs.data.length ? (

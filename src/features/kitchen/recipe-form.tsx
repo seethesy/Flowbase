@@ -10,7 +10,7 @@ import { canSeeField } from "../../../shared/visibility";
 import { allPages, inventoryApi, recipesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
 import { queryClient } from "../../app/queryClient";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, FormField, FormDrawer } from "../../components/shared";
 import { useBusinessSettings } from "../../services/settings";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T } from "../../app/copy";
@@ -226,222 +226,205 @@ export function RecipeForm({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={recipe ? <T id="recipes.recipe-form.edit-recipe">Edit recipe</T> : <T id="recipes.recipe-form.new-recipe">New recipe</T>}
       description={<T id="recipes.recipe-form.saved-to-flowbase">Saved to Flowbase.</T>}
+      onSubmit={save}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="recipes.recipe-form.save-recipe">Save recipe</T>}
+      cancelLabel={<T id="recipes.recipe-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <FormField label={<T id="recipes.recipe-form.name">Name *</T>}>
+      <FormField label={<T id="recipes.recipe-form.name">Name *</T>}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+        />
+      </FormField>
+      <FormField label={<T id="recipes.recipe-form.category">Category</T>}>
+        <Dropdown
+          aria-label="Category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          {listOptions(settings.lists.recipe_category, category).map((option) => (
+            <option key={option.label} value={option.label}>
+              {option.archived ? `${option.label} (archived)` : option.label}
+            </option>
+          ))}
+        </Dropdown>
+      </FormField>
+      <FormField label={<T id="recipes.recipe-form.description">Description</T>}>
+        <textarea
+          rows={2}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </FormField>
+      <div className="form-grid">
+        <FormField
+          label={<T id="recipes.recipe-form.yield-servings">Yield (servings)</T>}
+          hint={<T id="recipes.recipe-form.leave-empty-if-unknown-the">{"Leave empty if unknown; the dish can't be scaled without it"}</T>}
+        >
           <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
+            type="number"
+            min="0"
+            step="any"
+            value={servings}
+            onChange={(e) => setServings(e.target.value)}
           />
         </FormField>
-        <FormField label={<T id="recipes.recipe-form.category">Category</T>}>
-          <Dropdown
-            aria-label="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {listOptions(settings.lists.recipe_category, category).map((option) => (
-              <option key={option.label} value={option.label}>
-                {option.archived ? `${option.label} (archived)` : option.label}
-              </option>
-            ))}
-          </Dropdown>
-        </FormField>
-        <FormField label={<T id="recipes.recipe-form.description">Description</T>}>
-          <textarea
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+        <FormField label={<T id="recipes.recipe-form.portion-size">Portion size</T>} hint={<T id="recipes.recipe-form.e-g-6-oz">e.g. 6 oz</T>}>
+          <input
+            value={portionSize}
+            onChange={(e) => setPortionSize(e.target.value)}
           />
         </FormField>
-        <div className="form-grid">
-          <FormField
-            label={<T id="recipes.recipe-form.yield-servings">Yield (servings)</T>}
-            hint={<T id="recipes.recipe-form.leave-empty-if-unknown-the">{"Leave empty if unknown; the dish can't be scaled without it"}</T>}
-          >
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={servings}
-              onChange={(e) => setServings(e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="recipes.recipe-form.portion-size">Portion size</T>} hint={<T id="recipes.recipe-form.e-g-6-oz">e.g. 6 oz</T>}>
-            <input
-              value={portionSize}
-              onChange={(e) => setPortionSize(e.target.value)}
-            />
-          </FormField>
-        </div>
-        <h3 className="form-subheading"><T id="recipes.recipe-form.ingredients">Ingredients</T></h3>
-        {lines.map((line, index) => (
-          <fieldset
-            className="form-group"
-            key={line.key}
-            aria-label={`Ingredient line ${index + 1}`}
-          >
-            <div className="form-grid">
-              <FormField label={<T id="recipes.recipe-form.ingredient" values={{ value: index + 1 }}>{"Ingredient {value}"}</T>}>
-                <Dropdown
-                  value={line.itemId}
-                  onChange={(e) =>
-                    pickIngredient(
-                      line,
-                      catalog.find((item) => item.id === e.target.value),
-                    )
-                  }
-                >
-                  <option value="">Choose an ingredient</option>
-                  {options.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              <FormField label={<T id="recipes.recipe-form.quantity">Quantity</T>} hint={<T id="recipes.recipe-form.empty-for-as-needed">Empty for “as needed”</T>}>
+      </div>
+      <h3 className="form-subheading"><T id="recipes.recipe-form.ingredients">Ingredients</T></h3>
+      {lines.map((line, index) => (
+        <fieldset
+          className="form-group"
+          key={line.key}
+          aria-label={`Ingredient line ${index + 1}`}
+        >
+          <div className="form-grid">
+            <FormField label={<T id="recipes.recipe-form.ingredient" values={{ value: index + 1 }}>{"Ingredient {value}"}</T>}>
+              <Dropdown
+                value={line.itemId}
+                onChange={(e) =>
+                  pickIngredient(
+                    line,
+                    catalog.find((item) => item.id === e.target.value),
+                  )
+                }
+              >
+                <option value="">Choose an ingredient</option>
+                {options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </Dropdown>
+            </FormField>
+            <FormField label={<T id="recipes.recipe-form.quantity">Quantity</T>} hint={<T id="recipes.recipe-form.empty-for-as-needed">Empty for “as needed”</T>}>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={line.quantity}
+                onChange={(e) =>
+                  update(line.key, { quantity: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label={<T id="recipes.recipe-form.unit">Unit</T>}>
+              <Dropdown
+                value={line.unit}
+                onChange={(e) =>
+                  update(line.key, { unit: e.target.value as Unit | "" })
+                }
+              >
+                <option value="">—</option>
+                {unitSchema.options.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unitLabel(unit)}
+                  </option>
+                ))}
+              </Dropdown>
+            </FormField>
+            <FormField label={<T id="recipes.recipe-form.prep-note">Prep note</T>}>
+              <input
+                value={line.prepNote}
+                onChange={(e) =>
+                  update(line.key, { prepNote: e.target.value })
+                }
+              />
+            </FormField>
+            {showCost && (
+              <FormField
+                label={<T id="recipes.recipe-form.entered-cost">Entered cost ($)</T>}
+                hint={<T id="recipes.recipe-form.used-until-the-ingredient-has">Used until the ingredient has a unit cost</T>}
+              >
                 <input
                   type="number"
                   min="0"
-                  step="any"
-                  value={line.quantity}
-                  onChange={(e) =>
-                    update(line.key, { quantity: e.target.value })
-                  }
+                  step="0.01"
+                  value={line.cost}
+                  onChange={(e) => update(line.key, { cost: e.target.value })}
                 />
               </FormField>
-              <FormField label={<T id="recipes.recipe-form.unit">Unit</T>}>
-                <Dropdown
-                  value={line.unit}
-                  onChange={(e) =>
-                    update(line.key, { unit: e.target.value as Unit | "" })
-                  }
-                >
-                  <option value="">—</option>
-                  {unitSchema.options.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unitLabel(unit)}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              <FormField label={<T id="recipes.recipe-form.prep-note">Prep note</T>}>
-                <input
-                  value={line.prepNote}
-                  onChange={(e) =>
-                    update(line.key, { prepNote: e.target.value })
-                  }
-                />
-              </FormField>
-              {showCost && (
-                <FormField
-                  label={<T id="recipes.recipe-form.entered-cost">Entered cost ($)</T>}
-                  hint={<T id="recipes.recipe-form.used-until-the-ingredient-has">Used until the ingredient has a unit cost</T>}
-                >
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={line.cost}
-                    onChange={(e) => update(line.key, { cost: e.target.value })}
-                  />
-                </FormField>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() =>
-                setLines((current) =>
-                  current.filter((other) => other.key !== line.key),
-                )
-              }
-            >
-              <T id="recipes.recipe-form.remove-ingredient">Remove ingredient</T>
-            </Button>
-          </fieldset>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            setLines((current) => [
-              ...current,
-              {
-                key: newKey(),
-                itemId: "",
-                quantity: "",
-                unit: "",
-                prepNote: "",
-                cost: "",
-              },
-            ])
-          }
-        >
-          <Plus size={14} /><T id="recipes.recipe-form.add-ingredient">{" Add ingredient"}</T>
-        </Button>
-        <h3 className="form-subheading"><T id="recipes.recipe-form.method">Method</T></h3>
-        <FormField label={<T id="recipes.recipe-form.steps">Steps</T>} hint={<T id="recipes.recipe-form.one-step-per-line-in">One step per line, in order</T>}>
-          <textarea
-            rows={5}
-            value={steps}
-            onChange={(e) => setSteps(e.target.value)}
-          />
-        </FormField>
-        <FormField label={<T id="recipes.recipe-form.finishing-note">Finishing note</T>} hint={<T id="recipes.recipe-form.e-g-garnish-with-microgreens">e.g. garnish with microgreens</T>}>
-          <input
-            value={finishingNote}
-            onChange={(e) => setFinishingNote(e.target.value)}
-          />
-        </FormField>
-        <h3 className="form-subheading"><T id="recipes.recipe-form.allergens-and-dietary-tags">Allergens and dietary tags</T></h3>
-        <TagChoices
-          label="Allergens"
-          options={listOptions(settings.lists.allergen, allergens)}
-          value={allergens}
-          onChange={setAllergens}
-        />
-        <TagChoices
-          label="Dietary tags"
-          options={listOptions(settings.lists.dietary_tag, dietaryTags)}
-          hints={dietaryTagHints}
-          value={dietaryTags}
-          onChange={setDietaryTags}
-        />
-        <label className="checkbox-filter">
-          <RoundCheck
-            checked={active}
-            onChange={(e) => setActive(e.target.checked)}
-          />
-          <T id="recipes.recipe-form.active">Active</T>
-        </label>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="recipes.recipe-form.cancel">Cancel</T>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() =>
+              setLines((current) =>
+                current.filter((other) => other.key !== line.key),
+              )
+            }
+          >
+            <T id="recipes.recipe-form.remove-ingredient">Remove ingredient</T>
           </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="recipes.recipe-form.save-recipe">Save recipe</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        </fieldset>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setLines((current) => [
+            ...current,
+            {
+              key: newKey(),
+              itemId: "",
+              quantity: "",
+              unit: "",
+              prepNote: "",
+              cost: "",
+            },
+          ])
+        }
+      >
+        <Plus size={14} /><T id="recipes.recipe-form.add-ingredient">{" Add ingredient"}</T>
+      </Button>
+      <h3 className="form-subheading"><T id="recipes.recipe-form.method">Method</T></h3>
+      <FormField label={<T id="recipes.recipe-form.steps">Steps</T>} hint={<T id="recipes.recipe-form.one-step-per-line-in">One step per line, in order</T>}>
+        <textarea
+          rows={5}
+          value={steps}
+          onChange={(e) => setSteps(e.target.value)}
+        />
+      </FormField>
+      <FormField label={<T id="recipes.recipe-form.finishing-note">Finishing note</T>} hint={<T id="recipes.recipe-form.e-g-garnish-with-microgreens">e.g. garnish with microgreens</T>}>
+        <input
+          value={finishingNote}
+          onChange={(e) => setFinishingNote(e.target.value)}
+        />
+      </FormField>
+      <h3 className="form-subheading"><T id="recipes.recipe-form.allergens-and-dietary-tags">Allergens and dietary tags</T></h3>
+      <TagChoices
+        label="Allergens"
+        options={listOptions(settings.lists.allergen, allergens)}
+        value={allergens}
+        onChange={setAllergens}
+      />
+      <TagChoices
+        label="Dietary tags"
+        options={listOptions(settings.lists.dietary_tag, dietaryTags)}
+        hints={dietaryTagHints}
+        value={dietaryTags}
+        onChange={setDietaryTags}
+      />
+      <label className="checkbox-filter">
+        <RoundCheck
+          checked={active}
+          onChange={(e) => setActive(e.target.checked)}
+        />
+        <T id="recipes.recipe-form.active">Active</T>
+      </label>
+    </FormDrawer>
   );
 }

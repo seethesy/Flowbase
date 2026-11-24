@@ -18,8 +18,8 @@ import {
   Section,
   FormField,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { StatusSelect } from "../../components/ui/status-pill";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
@@ -74,7 +74,7 @@ export function LeadDetail() {
         <Link to="/leads" className="back-link">
           <T id="lead-detail.lead-detail.all-leads">← All leads</T>
         </Link>
-        <LoadError message={lead.error} />
+        <ErrorText message={lead.error} />
       </>
     );
   const l = lead.data;
@@ -145,11 +145,7 @@ export function LeadDetail() {
           <Allowed action="leads.update"><Button onClick={() => setNewEvent(true)}><T id="lead-detail.edit.new-event">New event</T></Button></Allowed>
         </div>
       </div>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {l.assignedElsewhere && (
         <p role="note" className="demo-callout">
           <TriangleAlert size={14} /> {assignedElsewhereMessage}

@@ -5,8 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { productionWindows, type ProductionItem, type ProductionWindow } from "../../../shared/production";
 import { utcToBusinessTime } from "../../../shared/time";
 import { useResource } from "../../app/useResource";
-import { Button, FilterBar, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, FilterBar, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { productionApi } from "../../services/production";
 import { LabelT, Plural, T } from "../../app/copy";
 import { usePermissions } from "../../app/permissions";
@@ -47,7 +46,7 @@ export function EventProductionSection({ eventId }: { eventId: string }) {
     return result;
   }, {}) ?? {};
   return <Section title={<T id="production.event-production-section.production-list">Production list</T>}>
-    {list.error && <LoadError message={list.error} />}
+    <ErrorText message={list.error} />
     {!list.data && !list.error && <LoadingSkeleton />}
     {list.data && <>
       <p><strong><T id="production.event-production-section.complete" values={{ percent: list.data.percent }}>{"{percent}% complete"}</T></strong><T id="production.event-production-section.of-items" values={{ complete: list.data.complete, total: list.data.total }}>{" · {complete} of {total} items"}</T></p>
@@ -175,8 +174,8 @@ export function ProductionOverviewPage() {
     </FilterBar>
     </Block>
     <Block id="readiness" name="Readiness questions" h={6}>
-    {error && <p role="alert" className="error-message">{error}</p>}
-    {overview.error && <LoadError message={overview.error} />}
+    <ErrorText message={error} />
+    <ErrorText message={overview.error} />
     {!overview.data && !overview.error && <LoadingSkeleton />}
     {readiness.length > 0 && <section className="production-readiness-panel" aria-label="Readiness questions">
       <h2><T id="production.overview.readiness-questions" values={{ count: readiness.length }}>{"Readiness questions ({count})"}</T></h2>

@@ -34,6 +34,8 @@ import { DateTimeCell } from "./date-time-cell";
 import { fromRowControl, rowOpenProps } from "./row-open";
 export { DateTimeCell, dateTimeSortKey, instantLabels, instantParts } from "./date-time-cell";
 export { fromRowControl, rowOpenProps, ROW_CONTROLS } from "./row-open";
+import { ErrorText } from "./error-text";
+export { ErrorText };
 import { canSeeField, type FieldGroup } from "../../../shared/visibility";
 import type { Actor } from "../../../shared/access";
 import { usePermissions } from "../../app/permissions";
@@ -167,7 +169,7 @@ export function EditableCell<Row>({
 }
 // The header row and every filtered row in the current sort order, not just the
 // page on screen.
-export function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
+function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
   const columns = table.getVisibleLeafColumns().filter((column) => {
     const { header, meta } = column.columnDef;
     if (typeof header !== "string" || meta?.exportable === false) return false;
@@ -192,7 +194,7 @@ export function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
 }
 // The CSV of rows the table doesn't hold (FLOW-216: every page of a paged list),
 // with the table's columns and current sort, through a headless copy of it.
-export function rowsCsv<T>(
+function rowsCsv<T>(
   table: Table<T>,
   rows: T[],
   actor: Actor | null,
@@ -484,11 +486,7 @@ function DataTableView<Row>({
       {(exportName || editor) && (
         <div className="table-toolbar">
           {editor}
-          {exportError && (
-            <p role="alert" className="error-message">
-              {exportError}
-            </p>
-          )}
+          <ErrorText message={exportError} />
           {exportName && <Button
             variant="outline"
             disabled={!data.length || exporting !== null}
@@ -668,6 +666,65 @@ export function DetailDrawer({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+// A create/edit drawer (FLOW-313): the drawer, a form whose submit calls
+// onSubmit with the form element, an error line above the fields, and Cancel /
+// Save. `before` renders above the error line (e.g. a stale-save conflict).
+export function FormDrawer({
+  onClose,
+  title,
+  description,
+  wide,
+  onSubmit,
+  error,
+  before,
+  saving,
+  saveDisabled,
+  saveLabel,
+  cancelLabel,
+  className,
+  noValidate = true,
+  children,
+}: {
+  onClose: () => void;
+  title: ReactNode;
+  description?: ReactNode;
+  wide?: boolean;
+  onSubmit: (form: HTMLFormElement) => unknown;
+  error?: ReactNode;
+  before?: ReactNode;
+  saving?: boolean;
+  saveDisabled?: boolean;
+  saveLabel: ReactNode;
+  cancelLabel: ReactNode;
+  className?: string;
+  noValidate?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <DetailDrawer open onClose={onClose} title={title} description={description} wide={wide}>
+      <form
+        className={className}
+        noValidate={noValidate}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onSubmit(e.currentTarget);
+        }}
+      >
+        {before}
+        <ErrorText message={error} />
+        {children}
+        <div className="form-actions">
+          <Button variant="outline" type="button" onClick={onClose}>
+            {cancelLabel}
+          </Button>
+          <Button type="submit" disabled={saveDisabled ?? saving}>
+            {saveLabel}
+          </Button>
+        </div>
+      </form>
+    </DetailDrawer>
   );
 }
 export function ConfirmationDialog({

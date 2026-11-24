@@ -13,8 +13,8 @@ import {
   LoadingSkeleton,
   PageHeader,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { Dropdown } from "../../components/ui/Dropdown";
 import {
   dollars,
@@ -61,7 +61,7 @@ export function PayrollPage() {
     pending.current.clear();
   }, [payroll.data]);
   const edit = can("staff.pay.write");
-  if (!can("staff.pay.read")) return <LoadError message="Only Admin and Technical can see pay." />;
+  if (!can("staff.pay.read")) return <ErrorText message="Only Admin and Technical can see pay." />;
   const save = async (row: PayrollRow, change: PayChange) => {
     setError("");
     // A second edit can start before the first one's reload lands: send it on
@@ -150,9 +150,9 @@ export function PayrollPage() {
           <input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} />
         </FormField>
       </FilterBar>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       {payroll.error ? (
-        <LoadError message={payroll.error} />
+        <ErrorText message={payroll.error} />
       ) : !payroll.data ? (
         <LoadingSkeleton />
       ) : (
@@ -210,7 +210,7 @@ function PayExceptions({ exceptions, names, from, to, edit, onChanged }: {
   return (
     <Section title={<T id="payroll.pay-exceptions.pay-exceptions">Pay exceptions</T>}
       action={edit && !adding ? <Button variant="outline" onClick={() => setAdding(true)}><T id="payroll.pay-exceptions.add-exception">Add exception</T></Button> : undefined}>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       {adding && <ExceptionForm names={names} from={from} to={to} onCancel={() => setAdding(false)}
         onSaved={() => { setAdding(false); onChanged(); }} />}
       {exceptions.length
@@ -262,7 +262,7 @@ function ExceptionForm({ names, from, to, onCancel, onSaved }: {
   };
   return (
     <form className="settings-form payroll-exception-form" noValidate onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <FormField label="Name">
         <Dropdown aria-label="Name" value={name} onChange={(e) => setName(e.target.value)}>
           {names.map((option) => <option key={option} value={option}>{option}</option>)}

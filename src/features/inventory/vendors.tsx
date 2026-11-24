@@ -31,11 +31,11 @@ import {
   DataTable,
   Section,
   ConfirmationDialog,
-  DetailDrawer,
   FormField,
   LoadingSkeleton,
+  ErrorText,
+  FormDrawer,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { centsLabel, kindLabels, subtypeLabel } from "./inventory-labels";
 import "./vendors.css";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -205,7 +205,7 @@ export function VendorList() {
         </span>
       </FilterBar>
       {vendors.error ? (
-        <LoadError message={vendors.error} />
+        <ErrorText message={vendors.error} />
       ) : vendors.loading && !vendors.data ? (
         <LoadingSkeleton />
       ) : (
@@ -240,7 +240,7 @@ const dollars = (cents: number | null) =>
 
 // There is deliberately no password field (AC1): portal passwords stay out of
 // Flowbase.
-export function VendorForm({
+function VendorForm({
   vendor,
   onClose,
   onSaved,
@@ -345,175 +345,158 @@ export function VendorForm({
       ),
     );
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={vendor ? <T id="vendors.vendor-form.edit-vendor">Edit vendor</T> : <T id="vendors.vendor-form.new-vendor">New vendor</T>}
       description={<T id="vendors.vendor-form.saved-to-flowbase-portal-passwords">Saved to Flowbase. Portal passwords are never stored here.</T>}
+      onSubmit={save}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="vendors.vendor-form.save-vendor">Save vendor</T>}
+      cancelLabel={<T id="vendors.vendor-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
+      <FormField label={<T id="vendors.vendor-form.name">Name *</T>}>
+        <input
+          value={fields.name}
+          onChange={(e) => set("name")(e.target.value)}
+          autoFocus
+        />
+      </FormField>
+      <FormField label={<T id="vendors.vendor-form.type">Type</T>}>
+        <Dropdown
+          value={type}
+          onChange={(e) => setType(vendorTypeSchema.parse(e.target.value))}
+        >
+          {vendorTypeSchema.options.map((option) => (
+            <option key={option} value={option}>
+              {vendorTypeLabels[option]}
+            </option>
+          ))}
+        </Dropdown>
+      </FormField>
+      <div className="form-grid">
+        {shows("portalUrl") && (<FormField label={<T id="vendors.vendor-form.vendor-portal-url">Vendor portal URL</T>}>
+          {field("portalUrl", "url")}
+        </FormField>
         )}
-        <FormField label={<T id="vendors.vendor-form.name">Name *</T>}>
-          <input
-            value={fields.name}
-            onChange={(e) => set("name")(e.target.value)}
-            autoFocus
-          />
+        {shows("accountNumber") && (<FormField label={<T id="vendors.vendor-form.account-number">Account number</T>}>
+          {accountNumber === null ? (
+            <p className="muted">{hiddenNote}</p>
+          ) : (
+            <input
+              value={accountNumber}
+              onChange={(e) => setAccountNumber(e.target.value)}
+            />
+          )}
         </FormField>
-        <FormField label={<T id="vendors.vendor-form.type">Type</T>}>
-          <Dropdown
-            value={type}
-            onChange={(e) => setType(vendorTypeSchema.parse(e.target.value))}
-          >
-            {vendorTypeSchema.options.map((option) => (
-              <option key={option} value={option}>
-                {vendorTypeLabels[option]}
-              </option>
-            ))}
-          </Dropdown>
+        )}
+        {shows("orderCutoff") && <FormField label={<T id="vendors.vendor-form.order-cutoff">Order cutoff</T>}>{field("orderCutoff")}</FormField>}
+        {shows("minimumOrderCents") && (<FormField label={<T id="vendors.vendor-form.minimum-order">Minimum order ($)</T>}>
+          {field("minimumOrder", "number")}
         </FormField>
-        <div className="form-grid">
-          {shows("portalUrl") && (<FormField label={<T id="vendors.vendor-form.vendor-portal-url">Vendor portal URL</T>}>
-            {field("portalUrl", "url")}
-          </FormField>
-          )}
-          {shows("accountNumber") && (<FormField label={<T id="vendors.vendor-form.account-number">Account number</T>}>
-            {accountNumber === null ? (
-              <p className="muted">{hiddenNote}</p>
-            ) : (
-              <input
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-              />
-            )}
-          </FormField>
-          )}
-          {shows("orderCutoff") && <FormField label={<T id="vendors.vendor-form.order-cutoff">Order cutoff</T>}>{field("orderCutoff")}</FormField>}
-          {shows("minimumOrderCents") && (<FormField label={<T id="vendors.vendor-form.minimum-order">Minimum order ($)</T>}>
-            {field("minimumOrder", "number")}
-          </FormField>
-          )}
-          {shows("leadTimeDays") && (<FormField label={<T id="vendors.vendor-form.lead-time-days">Lead time (days)</T>}>
-            {field("leadTimeDays", "number")}
-          </FormField>
-          )}
-        </div>
-        <fieldset className="form-group">
-          <legend><T id="vendors.vendor-form.delivery-days">Delivery days</T></legend>
-          {weekdaySchema.options.map((day) => (
-            <label className="checkbox-filter" key={day}>
-              <RoundCheck
-                checked={deliveryDays.includes(day)}
-                onChange={(e) =>
-                  setDeliveryDays((current) =>
-                    e.target.checked
-                      ? [...current, day]
-                      : current.filter((other) => other !== day),
+        )}
+        {shows("leadTimeDays") && (<FormField label={<T id="vendors.vendor-form.lead-time-days">Lead time (days)</T>}>
+          {field("leadTimeDays", "number")}
+        </FormField>
+        )}
+      </div>
+      <fieldset className="form-group">
+        <legend><T id="vendors.vendor-form.delivery-days">Delivery days</T></legend>
+        {weekdaySchema.options.map((day) => (
+          <label className="checkbox-filter" key={day}>
+            <RoundCheck
+              checked={deliveryDays.includes(day)}
+              onChange={(e) =>
+                setDeliveryDays((current) =>
+                  e.target.checked
+                    ? [...current, day]
+                    : current.filter((other) => other !== day),
+                )
+              }
+            />
+            <LabelT id="labels.weekday" value={day}>{weekdayLabels[day]}</LabelT>
+          </label>
+        ))}
+      </fieldset>
+      {shows("orderingInstructions") && (<FormField label={<T id="vendors.vendor-form.ordering-instructions">Ordering instructions</T>}>
+        <textarea
+          rows={3}
+          value={fields.orderingInstructions}
+          onChange={(e) => set("orderingInstructions")(e.target.value)}
+        />
+      </FormField>
+      )}
+      {shows("notes") && (<FormField label={<T id="vendors.vendor-form.notes">Notes</T>}>
+        <textarea
+          rows={2}
+          value={fields.notes}
+          onChange={(e) => set("notes")(e.target.value)}
+        />
+      </FormField>
+      )}
+      <h3 className="form-subheading"><T id="vendors.vendor-form.contacts">Contacts</T></h3>
+      {contacts === null ? (
+        <p className="muted"><T id="vendors.vendor-form.vendor-contacts-are" values={{ hiddenNote: hiddenNote.toLowerCase() }}>{"Vendor contacts are {hiddenNote}"}</T></p>
+      ) : (
+        <>
+          {contacts.map((contact, index) => (
+            <fieldset
+              className="form-group"
+              key={contact.key}
+              aria-label={`Vendor contact ${index + 1}`}
+            >
+              <div className="form-grid">
+                {(["name", "role", "email", "phone"] as const).map((key) => (
+                  <FormField
+                    key={key}
+                    label={
+                      {
+                        name: "Contact name *",
+                        role: "Role",
+                        email: "Email",
+                        phone: "Phone",
+                      }[key]
+                    }
+                  >
+                    <input
+                      value={contact[key] ?? ""}
+                      onChange={(e) =>
+                        updateContact(contact.key, key, e.target.value)
+                      }
+                    />
+                  </FormField>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setContacts((current) =>
+                    (current ?? []).filter(
+                      (other) => other.key !== contact.key,
+                    ),
                   )
                 }
-              />
-              <LabelT id="labels.weekday" value={day}>{weekdayLabels[day]}</LabelT>
-            </label>
-          ))}
-        </fieldset>
-        {shows("orderingInstructions") && (<FormField label={<T id="vendors.vendor-form.ordering-instructions">Ordering instructions</T>}>
-          <textarea
-            rows={3}
-            value={fields.orderingInstructions}
-            onChange={(e) => set("orderingInstructions")(e.target.value)}
-          />
-        </FormField>
-        )}
-        {shows("notes") && (<FormField label={<T id="vendors.vendor-form.notes">Notes</T>}>
-          <textarea
-            rows={2}
-            value={fields.notes}
-            onChange={(e) => set("notes")(e.target.value)}
-          />
-        </FormField>
-        )}
-        <h3 className="form-subheading"><T id="vendors.vendor-form.contacts">Contacts</T></h3>
-        {contacts === null ? (
-          <p className="muted"><T id="vendors.vendor-form.vendor-contacts-are" values={{ hiddenNote: hiddenNote.toLowerCase() }}>{"Vendor contacts are {hiddenNote}"}</T></p>
-        ) : (
-          <>
-            {contacts.map((contact, index) => (
-              <fieldset
-                className="form-group"
-                key={contact.key}
-                aria-label={`Vendor contact ${index + 1}`}
               >
-                <div className="form-grid">
-                  {(["name", "role", "email", "phone"] as const).map((key) => (
-                    <FormField
-                      key={key}
-                      label={
-                        {
-                          name: "Contact name *",
-                          role: "Role",
-                          email: "Email",
-                          phone: "Phone",
-                        }[key]
-                      }
-                    >
-                      <input
-                        value={contact[key] ?? ""}
-                        onChange={(e) =>
-                          updateContact(contact.key, key, e.target.value)
-                        }
-                      />
-                    </FormField>
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    setContacts((current) =>
-                      (current ?? []).filter(
-                        (other) => other.key !== contact.key,
-                      ),
-                    )
-                  }
-                >
-                  <T id="vendors.vendor-form.remove-contact">Remove contact</T>
-                </Button>
-              </fieldset>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setContacts((current) => [
-                  ...(current ?? []),
-                  keyed({ name: "", role: "", email: "", phone: "" }),
-                ])
-              }
-            >
-              <Plus size={14} /><T id="vendors.vendor-form.add-contact">{" Add contact"}</T>
-            </Button>
-          </>
-        )}
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="vendors.vendor-form.cancel">Cancel</T>
+                <T id="vendors.vendor-form.remove-contact">Remove contact</T>
+              </Button>
+            </fieldset>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              setContacts((current) => [
+                ...(current ?? []),
+                keyed({ name: "", role: "", email: "", phone: "" }),
+              ])
+            }
+          >
+            <Plus size={14} /><T id="vendors.vendor-form.add-contact">{" Add contact"}</T>
           </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="vendors.vendor-form.save-vendor">Save vendor</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        </>
+      )}
+    </FormDrawer>
   );
 }
 
@@ -532,7 +515,7 @@ export function VendorDetail() {
     return (
       <>
         {back}
-        <LoadError message={vendor.error} />
+        <ErrorText message={vendor.error} />
       </>
     );
   const v = vendor.data;

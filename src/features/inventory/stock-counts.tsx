@@ -18,8 +18,8 @@ import {
   Button,
   ConfirmationDialog,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
 import { T, useCopy, LabelT, joined } from "../../app/copy";
 import "./stock-counts.css";
@@ -65,7 +65,7 @@ export function StartCount({ kind = "location" }: { kind?: SectionKind }) {
         ]}
         onValueChange={(next) => next && void start(next)}
       />
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
     </>
   );
 }
@@ -177,11 +177,7 @@ function CountLineRow({
           >
             {line.counted ? <T id="stock-counts.count-line-row.recount">Recount</T> : <T id="stock-counts.count-line-row.save">Save</T>}
           </Button>
-          {error && (
-            <p role="alert" className="error-message">
-              {error}
-            </p>
-          )}
+          <ErrorText message={error} />
         </form>
       ) : (
         count.status === "open" && (
@@ -209,7 +205,7 @@ export function CountMode() {
     return (
       <>
         {back}
-        <LoadError message={count.error} />
+        <ErrorText message={count.error} />
       </>
     );
   const current = count.data;

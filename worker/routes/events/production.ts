@@ -1,8 +1,7 @@
 import { Hono } from "hono";
-import { id } from "../../../shared/schema-primitives";
 import { readinessResponseSchema } from "../../../shared/readiness";
 import { requirePermission } from "../../auth";
-import { notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { getProductionList, getProductionOverview } from "../../records/events/production";
 import { getReadiness, respondToReadiness } from "../../records/events/readiness";
 
@@ -16,20 +15,17 @@ export function productionRoutes(options: { withDb?: RunWithDb }) {
     return c.json(await record(c, (db, actor) => getProductionOverview(db, actor, days)));
   });
   routes.get("/events/:id", requirePermission("production.read"), async (c) => {
-    const parsed = id.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Event");
-    return c.json(await record(c, (db, actor) => getProductionList(db, actor, parsed.data)));
+    const eventId = idParam(c, "Event");
+    return c.json(await record(c, (db, actor) => getProductionList(db, actor, eventId)));
   });
   routes.get("/events/:id/readiness", requirePermission("production.read"), async (c) => {
-    const parsed = id.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Event");
-    return c.json(await record(c, (db, actor) => getReadiness(db, actor, parsed.data)));
+    const eventId = idParam(c, "Event");
+    return c.json(await record(c, (db, actor) => getReadiness(db, actor, eventId)));
   });
   routes.post("/events/:id/readiness/:key", requirePermission("production.read"), async (c) => {
-    const parsed = id.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Event");
+    const eventId = idParam(c, "Event");
     const input = await parseBody(c, readinessResponseSchema);
-    return c.json(await record(c, (db, actor) => respondToReadiness(db, actor, parsed.data, decodeURIComponent(c.req.param("key")), input)));
+    return c.json(await record(c, (db, actor) => respondToReadiness(db, actor, eventId, decodeURIComponent(c.req.param("key")), input)));
   });
   return routes;
 }

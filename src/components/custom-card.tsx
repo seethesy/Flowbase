@@ -10,7 +10,7 @@ import { usePermissions } from "../app/permissions";
 import { cardRequestPath, cardsApi } from "../services/layout";
 import { BoxesView } from "./layout-boxes";
 import { FieldLabel, FieldValue } from "./layout-fields";
-import { LoadError } from "./record-display";
+import { ErrorText } from "./shared";
 
 // A custom card (FLOW-256): a title, a source (this record, a related list or a
 // main list), and a table or boxes. The config is the same for everyone; the
@@ -21,7 +21,7 @@ type Record_ = { source: SourceKey; id: string } | null;
 
 // The card's source and the related list's endpoint, or null when the card
 // can't load on this page (a "This record" card off a record page).
-export function cardTarget(card: CardConfig, record: Record_): { source: SourceKey; relationPath: string | null } | null {
+function cardTarget(card: CardConfig, record: Record_): { source: SourceKey; relationPath: string | null } | null {
   if (card.source.type === "list") return { source: card.source.list, relationPath: null };
   if (!record) return null;
   if (card.source.type === "record") return { source: record.source, relationPath: null };
@@ -52,7 +52,7 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
           <T id="layout.custom-card.no-data">No data</T>
         </p>
       ) : rows.error ? (
-        <LoadError message={(rows.error as Error).message} />
+        <ErrorText message={(rows.error as Error).message} />
       ) : !rows.data ? (
         <div className="skeleton" role="status" aria-label="Loading card" />
       ) : !rows.data.length ? (

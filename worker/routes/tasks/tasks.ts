@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { id as uuid } from "../../../shared/schema-primitives";
 import {
   applyTemplateInputSchema,
   checklistItemInputSchema,
@@ -16,7 +15,7 @@ import { requirePermission } from "../../auth";
 import { enqueueJob } from "../../jobs/queue";
 import {
   ApiError,
-  notFound,
+  idParam,
   pageRequest,
   parseBody,
   recordRunner,
@@ -56,13 +55,8 @@ import { productionScanJob } from "../../jobs/production-scan";
 export function taskRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
-  const taskId = (c: AppContext) => param(c, "id", "Task");
-  const templateId = (c: AppContext) => param(c, "id", "Task template");
+  const taskId = (c: AppContext) => idParam(c, "Task");
+  const templateId = (c: AppContext) => idParam(c, "Task template");
 
   routes.get("/dashboard", requirePermission("tasks.read"), async (c) =>
     c.json(await record(c, (db, actor) => taskDashboard(db, actor))),
@@ -78,7 +72,7 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
     );
   });
   routes.post("/views/:id/archive", requirePermission("tasks.read"), async (c) => {
-    const id = param(c, "id", "View");
+    const id = idParam(c, "View");
     await record(c, (db, actor) => deleteTaskView(db, actor, id));
     return c.body(null, 204);
   });
@@ -208,7 +202,7 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("tasks.write"),
     async (c) => {
       const id = taskId(c);
-      const itemId = param(c, "itemId", "Checklist item");
+      const itemId = idParam(c, "Checklist item", "itemId");
       const input = await parseBody(c, checklistItemUpdateSchema);
       return c.json(
         await record(c, async (db, actor) => {
@@ -225,7 +219,7 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("tasks.write"),
     async (c) => {
       const id = taskId(c);
-      const itemId = param(c, "itemId", "Checklist item");
+      const itemId = idParam(c, "Checklist item", "itemId");
       return c.json(
         await record(c, async (db, actor) => {
           await db.transaction((tx) =>

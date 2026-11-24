@@ -4,8 +4,7 @@ import { Link } from "react-router-dom";
 import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
 import { useAuth } from "../../app/auth";
 import { useResource } from "../../app/useResource";
-import { PageHeader, Section, Button, LoadingSkeleton } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { PageHeader, Section, Button, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { leadsApi } from "../../services/leads";
 import { timeApi } from "../../services/time-tracking";
 import { operationalReportsApi } from "../../services/operational-reports";
@@ -46,7 +45,7 @@ function OperationalReportsContent({ userRole }: { userRole?: string }) {
   const leads = useResource(["operational-leads", from, to], () => leadsApi.dashboard(range));
   if (!allowed) return <p role="alert"><T id="operational-reports.operational-reports.you-do-not-have-access">You do not have access to operational reports.</T></p>;
   if (report.error || time.error || leads.error)
-    return <LoadError message={report.error ?? time.error ?? leads.error ?? "Unable to load reports."} />;
+    return <ErrorText message={report.error ?? time.error ?? leads.error ?? "Unable to load reports."} />;
   const data = report.data;
   const timeData = time.data;
   const leadData = leads.data;

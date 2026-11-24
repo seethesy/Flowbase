@@ -7,8 +7,7 @@ import type { Role } from "../../../shared/access";
 import type { TaskSummary } from "../../../shared/tasks";
 import { useAuth } from "../../app/auth";
 import { useResource } from "../../app/useResource";
-import { Button, PageHeader, LoadingSkeleton, RoleText } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, PageHeader, LoadingSkeleton, RoleText, ErrorText } from "../../components/shared";
 import { RoundCheck } from "../../components/ui/round-check";
 import { StatusPill } from "../../components/ui/status-pill";
 import { roleLabel } from "../../services/users";
@@ -61,7 +60,7 @@ export function Dashboard() {
   return <>
     <PageHeader pageKey="dashboard.home" title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? <RoleText role={role} /> : ""} />
     {error && <p role="alert">{error}</p>}
-    {dashboard.error ? <LoadError message={dashboard.error} /> : !data ? <LoadingSkeleton /> :
+    {dashboard.error ? <ErrorText message={dashboard.error} /> : !data ? <LoadingSkeleton /> :
       <div className={`dashboard-cards ${data.myLeads === null ? "dashboard-cards--no-leads" : ""} ${data.allTasks === null ? "dashboard-cards--no-all" : ""}`}>
         <PageGrid pageKey="dashboard.home">
         {data.myLeads !== null && <Block id="my-leads" name="My Leads" w={6} h={12}><section className="dashboard-card dashboard-card--leads"><LayoutHeader headerKey="my-leads.title" name="My Leads header"><header><h2><T id="dashboard.home.my-leads">My Leads</T> <span>{data.myLeads.length}</span></h2><Link to={to("/leads")}><T id="dashboard.home.view-all-leads">View all</T></Link></header></LayoutHeader>

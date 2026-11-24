@@ -6,7 +6,7 @@ import {
   type SearchResult,
 } from "../../../shared/search";
 import { searchApi } from "../../services/search";
-import { EmptyState, LoadingSkeleton, SearchInput } from "../../components/shared";
+import { EmptyState, ErrorText, LoadingSkeleton, SearchInput } from "../../components/shared";
 import { T, useCopy, LabelT } from "../../app/copy";
 import "./search.css";
 
@@ -54,11 +54,7 @@ export function GlobalSearch({ onOpen }: { onOpen: (path: string) => void }) {
         onChange={setSearch}
         placeholder={searchClientsLeadsEventsVenuesPlaceholder} copyId="search.global-search.search-clients-leads-events-venues.placeholder"
       />
-      {state.error && ready && (
-        <p role="alert" className="error-message">
-          {state.error}
-        </p>
-      )}
+      {ready && <ErrorText message={state.error} />}
       {term.length >= SEARCH_MIN_LENGTH && !ready && <LoadingSkeleton />}
       {ready &&
         state.results.map((result) => (

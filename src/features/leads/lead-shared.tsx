@@ -4,7 +4,7 @@ import { type Lead, type LeadStatus } from "../../../shared/leads";
 import { StatusPill } from "../../components/ui/status-pill";
 import { useResource } from "../../app/useResource";
 import { leadsApi } from "../../services/leads";
-import { Button, FormField } from "../../components/shared";
+import { Button, FormField, ErrorText } from "../../components/shared";
 
 export function LeadStatusBadge({ status }: { status: LeadStatus }) {
   return <StatusPill status={status} />;
@@ -71,11 +71,7 @@ export function AssignForm({
   };
   return (
     <form noValidate onSubmit={(event) => void submit(event)}>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <div className="filter-bar">
         <FormField label={label}>
           <Dropdown value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)}>

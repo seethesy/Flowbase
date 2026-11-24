@@ -10,6 +10,8 @@ import {
 } from "../../../shared/settings";
 import { requirePermission } from "../../auth";
 import {
+  archiveRoutes,
+  idParam,
   notFound,
   parseBody,
   recordRunner,
@@ -37,11 +39,6 @@ export function settingsRoutes(options: { withDb?: RunWithDb; isolateCaches?: bo
   const listKey = (c: AppContext) => {
     const parsed = listKeySchema.safeParse(c.req.param("key"));
     if (!parsed.success) throw notFound("List");
-    return parsed.data;
-  };
-  const valueId = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("List value");
     return parsed.data;
   };
 
@@ -98,28 +95,13 @@ export function settingsRoutes(options: { withDb?: RunWithDb; isolateCaches?: bo
     "/values/:id",
     requirePermission("settings.manage"),
     async (c) => {
-      const id = valueId(c);
+      const id = idParam(c, "List value");
       const { label } = await parseBody(c, listValueUpdateSchema);
       return c.json(
         await record(c, (db, actor) => renameListValue(db, actor, id, label)),
       );
     },
   );
-  for (const [action, archived] of [
-    ["archive", true],
-    ["restore", false],
-  ] as const)
-    routes.post(
-      `/values/:id/${action}`,
-      requirePermission("settings.manage"),
-      async (c) => {
-        const id = valueId(c);
-        return c.json(
-          await record(c, (db, actor) =>
-            setListValueArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
+  archiveRoutes(routes, record, { path: "/values/:id", what: "List value", guard: requirePermission("settings.manage"), set: setListValueArchived });
   return routes;
 }

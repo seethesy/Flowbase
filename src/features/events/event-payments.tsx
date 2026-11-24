@@ -19,12 +19,12 @@ import {
 import { useResource } from "../../app/useResource";
 import {
   Button,
-  DetailDrawer,
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
+  FormDrawer,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { paymentsApi } from "../../services/payments";
 import { date } from "./event-format";
 import { Plural, T, LabelT } from "../../app/copy";
@@ -56,7 +56,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
   if (payments.error)
     return (
       <Section title={<T id="event-payments.event-payments-section.payments">Payments</T>}>
-        <LoadError message={payments.error} />
+        <ErrorText message={payments.error} />
       </Section>
     );
   if (!payments.data) return <LoadingSkeleton />;
@@ -81,11 +81,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
         )
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="events.payments">
       <Block id="summary" name="Payment summary" h={5}>
       <dl className="payments-summary">
@@ -333,80 +329,66 @@ function ScheduleItemDrawer({
   const set = <K extends keyof ItemForm>(key: K, value: ItemForm[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={form.id ? <T id="event-payments.schedule-item-drawer.edit-scheduled-payment">Edit scheduled payment</T> : <T id="event-payments.schedule-item-drawer.add-scheduled-payment">Add scheduled payment</T>}
+      onSubmit={async () => {
+        const cents = dollarsToCents(draft.amount);
+        if (cents === null || cents <= 0)
+          return setError("Enter an amount greater than $0.");
+        if (!draft.dueDate) return setError("Enter a due date.");
+        try {
+          setError("");
+          await onSave({
+            kind: draft.kind,
+            label: draft.label.trim(),
+            cents,
+            dueDate: draft.dueDate,
+          });
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-payments.schedule-item-drawer.save">Save</T>}
+      cancelLabel={<T id="event-payments.schedule-item-drawer.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const cents = dollarsToCents(draft.amount);
-          if (cents === null || cents <= 0)
-            return setError("Enter an amount greater than $0.");
-          if (!draft.dueDate) return setError("Enter a due date.");
-          try {
-            setError("");
-            await onSave({
-              kind: draft.kind,
-              label: draft.label.trim(),
-              cents,
-              dueDate: draft.dueDate,
-            });
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <div className="form-grid">
-          <FormField label={<T id="event-payments.schedule-item-drawer.type">Type</T>}>
-            <Dropdown
-              value={draft.kind}
-              onChange={(e) => set("kind", e.target.value as ScheduleKind)}
-            >
-              {scheduleKinds.map((kind) => (
-                <option key={kind} value={kind}>
-                  {scheduleKindLabels[kind]}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-          <FormField label={<T id="event-payments.schedule-item-drawer.amount">Amount ($)</T>}>
-            <input
-              inputMode="decimal"
-              value={draft.amount}
-              onChange={(e) => set("amount", e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="event-payments.schedule-item-drawer.due-date">Due date</T>}>
-            <input
-              type="date"
-              value={draft.dueDate}
-              onChange={(e) => set("dueDate", e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="event-payments.schedule-item-drawer.label">Label</T>}>
-            <input
-              value={draft.label}
-              maxLength={100}
-              onChange={(e) => set("label", e.target.value)}
-            />
-          </FormField>
-        </div>
-        <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
-            <T id="event-payments.schedule-item-drawer.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-payments.schedule-item-drawer.save">Save</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+      <div className="form-grid">
+        <FormField label={<T id="event-payments.schedule-item-drawer.type">Type</T>}>
+          <Dropdown
+            value={draft.kind}
+            onChange={(e) => set("kind", e.target.value as ScheduleKind)}
+          >
+            {scheduleKinds.map((kind) => (
+              <option key={kind} value={kind}>
+                {scheduleKindLabels[kind]}
+              </option>
+            ))}
+          </Dropdown>
+        </FormField>
+        <FormField label={<T id="event-payments.schedule-item-drawer.amount">Amount ($)</T>}>
+          <input
+            inputMode="decimal"
+            value={draft.amount}
+            onChange={(e) => set("amount", e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="event-payments.schedule-item-drawer.due-date">Due date</T>}>
+          <input
+            type="date"
+            value={draft.dueDate}
+            onChange={(e) => set("dueDate", e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="event-payments.schedule-item-drawer.label">Label</T>}>
+          <input
+            value={draft.label}
+            maxLength={100}
+            onChange={(e) => set("label", e.target.value)}
+          />
+        </FormField>
+      </div>
+    </FormDrawer>
   );
 }
 
@@ -426,89 +408,75 @@ function PaymentDrawer({
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={<T id="event-payments.payment-drawer.record-payment">Record payment</T>}
       description={<T id="event-payments.payment-drawer.never-enter-a-card-number">Never enter a card number. Use the last 4 digits or a confirmation code as the reference.</T>}
+      onSubmit={async () => {
+        const cents = dollarsToCents(amount);
+        if (cents === null || cents <= 0)
+          return setError("Enter an amount greater than $0.");
+        if (!receivedOn) return setError("Enter the date received.");
+        try {
+          setError("");
+          await onSave({
+            method,
+            amountCents: cents,
+            receivedOn,
+            reference: reference.trim(),
+            note: note.trim(),
+          });
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-payments.payment-drawer.record-payment">Record payment</T>}
+      cancelLabel={<T id="event-payments.payment-drawer.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const cents = dollarsToCents(amount);
-          if (cents === null || cents <= 0)
-            return setError("Enter an amount greater than $0.");
-          if (!receivedOn) return setError("Enter the date received.");
-          try {
-            setError("");
-            await onSave({
-              method,
-              amountCents: cents,
-              receivedOn,
-              reference: reference.trim(),
-              note: note.trim(),
-            });
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
-        <div className="form-grid">
-          <FormField label={<T id="event-payments.payment-drawer.method">Method</T>}>
-            <Dropdown
-              value={method}
-              onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-            >
-              {paymentMethods.map((m) => (
-                <option key={m} value={m}>
-                  {paymentMethodLabels[m]}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-          <FormField label={<T id="event-payments.payment-drawer.amount">Amount ($)</T>}>
-            <input
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="event-payments.payment-drawer.date-received">Date received</T>}>
-            <input
-              type="date"
-              value={receivedOn}
-              onChange={(e) => setReceivedOn(e.target.value)}
-            />
-          </FormField>
-          <FormField label={<T id="event-payments.payment-drawer.reference">Reference</T>}>
-            <input
-              value={reference}
-              maxLength={100}
-              onChange={(e) => setReference(e.target.value)}
-            />
-          </FormField>
-        </div>
-        <FormField label={<T id="event-payments.payment-drawer.note">Note</T>}>
-          <textarea
-            rows={2}
-            value={note}
-            maxLength={500}
-            onChange={(e) => setNote(e.target.value)}
+      <div className="form-grid">
+        <FormField label={<T id="event-payments.payment-drawer.method">Method</T>}>
+          <Dropdown
+            value={method}
+            onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+          >
+            {paymentMethods.map((m) => (
+              <option key={m} value={m}>
+                {paymentMethodLabels[m]}
+              </option>
+            ))}
+          </Dropdown>
+        </FormField>
+        <FormField label={<T id="event-payments.payment-drawer.amount">Amount ($)</T>}>
+          <input
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
           />
         </FormField>
-        <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
-            <T id="event-payments.payment-drawer.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-payments.payment-drawer.record-payment">Record payment</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        <FormField label={<T id="event-payments.payment-drawer.date-received">Date received</T>}>
+          <input
+            type="date"
+            value={receivedOn}
+            onChange={(e) => setReceivedOn(e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="event-payments.payment-drawer.reference">Reference</T>}>
+          <input
+            value={reference}
+            maxLength={100}
+            onChange={(e) => setReference(e.target.value)}
+          />
+        </FormField>
+      </div>
+      <FormField label={<T id="event-payments.payment-drawer.note">Note</T>}>
+        <textarea
+          rows={2}
+          value={note}
+          maxLength={500}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </FormField>
+    </FormDrawer>
   );
 }

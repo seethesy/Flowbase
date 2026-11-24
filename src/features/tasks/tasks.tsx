@@ -12,8 +12,7 @@ import {
 } from "../../../shared/tasks";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, FormField, LoadingSkeleton, PageHeader, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, FormField, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { staffApi } from "../../services/staff";
 import { tasksApi } from "../../services/tasks";
 import { sopsApi } from "../../services/sops";
@@ -102,7 +101,7 @@ export function TaskDetail() {
   const [busy, setBusy] = useState(false);
   const [item, setItem] = useState("");
   const [comment, setComment] = useState("");
-  if (task.error) return <LoadError message={task.error} />;
+  if (task.error) return <ErrorText message={task.error} />;
   if (!task.data) return <LoadingSkeleton />;
   const data = task.data;
   const act = async (change: () => Promise<Task>, after?: () => void) => {
@@ -137,11 +136,7 @@ export function TaskDetail() {
         title={data.title}
         subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: <LabelT id="labels.task-type" value={data.type}>{taskTypeLabels[data.type]}</LabelT>, taskPriorityLabels: <LabelT id="labels.task-priority" value={data.priority}>{taskPriorityLabels[data.priority]}</LabelT> }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}
       />
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="tasks.detail" record={{ source: "tasks", id, row: data as unknown as Record<string, unknown> }}>
       <Block id="details" name="Task details" h={14}>
       <Section title={<T id="tasks.task-detail.details">Details</T>}>

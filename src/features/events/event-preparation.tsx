@@ -21,8 +21,7 @@ import {
 } from "../../../shared/pull-list";
 import type { KitchenMenu } from "../../../shared/kitchen-menu";
 import { useResource } from "../../app/useResource";
-import { Button, ConfirmationDialog, FormField, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, ConfirmationDialog, FormField, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { preparationApi } from "../../services/preparation";
 import { recipesApi, sectionsApi } from "../../services/core";
 import { staffApi } from "../../services/staff";
@@ -47,12 +46,6 @@ const useAction = () => {
   };
   return { error, run };
 };
-const ErrorLine = ({ message }: { message: string }) =>
-  message ? (
-    <p role="alert" className="error-message">
-      {message}
-    </p>
-  ) : null;
 
 function RefreshPlanningOutput({ eventId, output, onChanged }: {
   eventId: string;
@@ -71,7 +64,7 @@ function RefreshPlanningOutput({ eventId, output, onChanged }: {
       catch (cause) { setError((cause as Error).message); }
       finally { setBusy(false); }
     }}><T id="event-preparation.refresh-planning-output.preview-regeneration" values={{ replaceAll: <LabelT id="labels.planning-output-kind" value={kind}>{kind.replaceAll("_", " ")}</LabelT> }}>{"Preview {replaceAll} regeneration"}</T></Button>
-    <ErrorLine message={error} />
+    <ErrorText message={error} />
     {preview && <div role="region" aria-label={`${kind} regeneration preview`}>
       {preview.upToDate ? <p><T id="event-preparation.refresh-planning-output.no-derived-values-changed-manual">No derived values changed. Manual entries will be kept.</T></p> : <ul>
         {preview.changes.map((change, index) => <li key={`${change.label}:${index}`}>
@@ -132,7 +125,7 @@ function RegenerateButton({
       {open && (
         <div className="regen-preview" role="region" aria-label="Regeneration preview">
           <strong>{label}</strong>
-          <ErrorLine message={error} />
+          <ErrorText message={error} />
           <label>
             <RoundCheck
               checked={discard}
@@ -204,7 +197,7 @@ export function EventPlanningProgressSection({
   if (progress.error)
     return (
       <Section title={<T id="event-preparation.event-planning-progress-section.planning">Planning</T>}>
-        <LoadError message={progress.error} />
+        <ErrorText message={progress.error} />
       </Section>
     );
   if (!progress.data) return <LoadingSkeleton />;
@@ -218,7 +211,7 @@ export function EventPlanningProgressSection({
         )
       }
     >
-      <ErrorLine message={error} />
+      <ErrorText message={error} />
       <PageGrid pageKey="events.preparation">
       <Block id="progress" name="Planning progress" h={12}>
       {!data.started ? (
@@ -289,7 +282,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
   if (list.error)
     return (
       <Section title={<T id="event-preparation.event-pull-list-section.pull-list">Pull list</T>}>
-        <LoadError message={list.error} />
+        <ErrorText message={list.error} />
       </Section>
     );
   if (!list.data) return <LoadingSkeleton />;
@@ -315,7 +308,7 @@ export function EventPullListSection({ event }: { event: FlowEvent }) {
         </span>
       }
     >
-      <ErrorLine message={error} />
+      <ErrorText message={error} />
       {!data.exists && <p className="muted"><T id="event-preparation.event-pull-list-section.no-pull-list-yet-start">No pull list yet. Start planning or add a line.</T></p>}
       {data.missingSchedule && (
         <p role="status" className="warning-message">
@@ -562,7 +555,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
   if (menu.error)
     return (
       <Section title={<T id="event-preparation.event-kitchen-menu-section.kitchen-menu">Kitchen menu</T>}>
-        <LoadError message={menu.error} />
+        <ErrorText message={menu.error} />
       </Section>
     );
   if (!menu.data) return <LoadingSkeleton />;
@@ -587,7 +580,7 @@ export function EventKitchenMenuSection({ event }: { event: FlowEvent }) {
         </span>
       }
     >
-      <ErrorLine message={error} />
+      <ErrorText message={error} />
       <article className="kitchen-print-sheet" aria-label="Kitchen sheet">
         <h2><T id="event-preparation.event-kitchen-menu-section.kitchen-sheet" values={{ title: event.title }}>{"{title} — kitchen sheet"}</T></h2>
         <p>{date(event.date)} · {data.servings === null ? <T id="event-preparation.event-kitchen-menu-section.servings-tbd">Servings TBD</T> : <T id="event-preparation.event-kitchen-menu-section.servings" values={{ servings: data.servings }}>{"{servings} servings"}</T>}</p>

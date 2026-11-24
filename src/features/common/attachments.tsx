@@ -8,8 +8,7 @@ import type {
 } from "../../../shared/attachments";
 import { attachmentsApi, uploadAttachment } from "../../services/attachments";
 import { useResource } from "../../app/useResource";
-import { Button, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, Section, ErrorText } from "../../components/shared";
 import "./attachments.css";
 import { T } from "../../app/copy";
 import { copySlug } from "../../../shared/copy";
@@ -130,13 +129,9 @@ export function Attachments({
         </Allowed>
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {files.error ? (
-        <LoadError message={files.error} />
+        <ErrorText message={files.error} />
       ) : shown.length ? (
         <ul className="attachment-grid">
           {shown.map((file) => (

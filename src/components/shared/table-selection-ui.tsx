@@ -16,6 +16,7 @@ import { Button } from "../ui/button";
 import { Plural, T } from "../../app/copy";
 import { emptySelection, selectionReducer } from "./table-selection";
 import { fromRowControl } from "./row-open";
+import { ErrorText } from "./error-text";
 
 // The selection, bulk bar, Delete key and Undo toast every data table shares
 // (FLOW-260). DataTable uses it; a custom table (Leads) can too: spread
@@ -200,11 +201,7 @@ export function useTableSelection(options: SelectionOptions | undefined, ids: st
           </p>
         )}
       </div>
-    ) : error ? (
-      <p role="alert" className="error-message">
-        {error}
-      </p>
-    ) : null;
+    ) : <ErrorText message={error} />;
 
   const toastNode = toast
     ? createPortal(

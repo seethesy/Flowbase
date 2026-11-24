@@ -3,8 +3,7 @@ import { useState } from "react";
 import { useResource } from "../../app/useResource";
 import { usePermissions } from "../../app/permissions";
 import { LabelT, T } from "../../app/copy";
-import { Button, DateTimeCell, EmptyState, LoadingSkeleton, PageHeader, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DateTimeCell, EmptyState, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { deletableLabels } from "../../../shared/deletions";
 import { utcToBusinessTime } from "../../../shared/time";
 import { deletionsApi } from "../../services/deletions";
@@ -30,11 +29,11 @@ export function ArchivedPage() {
         title={<T id="archived.archived-page.title">Archived</T>}
         subtitle={<T id="archived.archived-page.subtitle">Records deleted from a table. Restore puts one back where it was.</T>}
       />
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <PageGrid pageKey="settings.archived">
       <Block id="records" name="Archived records" h={16}>
       {deleted.error ? (
-        <LoadError message={deleted.error} />
+        <ErrorText message={deleted.error} />
       ) : !deleted.data ? (
         <LoadingSkeleton />
       ) : !deleted.data.length ? (

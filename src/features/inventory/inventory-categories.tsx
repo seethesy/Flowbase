@@ -2,7 +2,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Dropdown } from "../../components/ui/Dropdown";
-import { Button, PageHeader, Section } from "../../components/shared";
+import { Button, PageHeader, Section, ErrorText } from "../../components/shared";
 import { useResource } from "../../app/useResource";
 import { T } from "../../app/copy";
 import { usePermissions } from "../../app/permissions";
@@ -28,7 +28,7 @@ export function InventoryCategoriesPage() {
     <Link to="/settings" className="back-link"><T id="inventory-categories.back">← Settings</T></Link>
     <PageHeader pageKey="inventory.categories" title={<T id="inventory-categories.title">Inventory categories</T>}
       subtitle={<T id="inventory-categories.subtitle">Manage categories and their types. Move items before archiving an entry in use.</T>} />
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     <PageGrid pageKey="inventory.categories">
     <Block id="add" name="Add category" h={5}>
     <Section title={<T id="inventory-categories.add-category">Add category</T>}>

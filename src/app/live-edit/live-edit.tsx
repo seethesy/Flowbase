@@ -19,6 +19,7 @@ import {
   useLiveEdit,
   type EditorTarget,
 } from "../copy";
+import { ErrorText } from "../../components/shared";
 
 // The admin's live text editing chrome (FLOW-240): the header pencil, Save and
 // Cancel, the inline editor and the leave-page guard. Its own wording is not
@@ -243,11 +244,7 @@ function LeaveGuard() {
             You have unsaved text changes on this page. Save them before you leave, or discard them.
           </p>
           {invalid && <p className="live-copy-error">Fix the highlighted placeholder or color before saving.</p>}
-          {error && (
-            <p role="alert" className="error-message">
-              {error}
-            </p>
-          )}
+          <ErrorText message={error} />
           <div className="form-actions">
             <Button
               disabled={invalid}
@@ -313,11 +310,7 @@ function OrphanNotice() {
       </button>
       {open && (
         <div className="live-edit-orphans-list">
-          {error && (
-            <p role="alert" className="error-message">
-              {error}
-            </p>
-          )}
+          <ErrorText message={error} />
           <ul>
             {orphans!.copy.map((orphan) => (
               <OrphanRow

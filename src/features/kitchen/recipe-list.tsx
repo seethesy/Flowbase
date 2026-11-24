@@ -12,8 +12,7 @@ import { canSeeField } from "../../../shared/visibility";
 import { utcToBusinessTime } from "../../../shared/time";
 import { recipesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
-import { Button, DataTable, FilterBar, LoadingSkeleton, SearchInput } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DataTable, FilterBar, LoadingSkeleton, SearchInput, ErrorText } from "../../components/shared";
 import { centsLabel, quantityLabel } from "../inventory/inventory-labels";
 import { useArchivedMarks, useListLabels } from "../common/list-fields";
 import { KitchenCard, KitchenHeading } from "./kitchen-screen";
@@ -198,7 +197,7 @@ export function RecipeList() {
       </Block>
       <Block id="list" name="List" h={24}>
       {recipes.error ? (
-        <LoadError message={recipes.error} />
+        <ErrorText message={recipes.error} />
       ) : recipes.loading && !recipes.data ? (
         <LoadingSkeleton />
       ) : (
