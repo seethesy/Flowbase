@@ -28,6 +28,16 @@ export const staffMemberSchema = z.object({
   positions: z.array(z.string()),
   // FT+ only (staff_notes); null otherwise.
   notes: z.string().nullable(),
+  // Profile details (FLOW-333), on every staff profile. Address and the internal
+  // staff ID follow the mobile number's rule (staff_contact), so they're null
+  // for everyone else. The staff ID is worked out from the phone number
+  // (staffIds below), never typed in; "" when there's no phone number. Drives and
+  // Has a car are Yes (true), No (false) or not set (null), readable by anyone
+  // who can see the directory.
+  address: z.string().nullable(),
+  employeeId: z.string().nullable(),
+  drives: z.boolean().nullable(),
+  hasCar: z.boolean().nullable(),
   // The SMS opt-in and when it was given. STOP replies are honored by the SMS
   // channel (FLOW-52).
   smsConsent: z.boolean(),
@@ -56,6 +66,10 @@ export const staffUpdateSchema = z
       )
       .optional(),
     notes: text(5000).optional(),
+    // Admin only (FLOW-333).
+    address: text(1000).optional(),
+    drives: z.boolean().nullable().optional(),
+    hasCar: z.boolean().nullable().optional(),
     smsConsent: z.boolean().optional(),
     // Active or Inactive for staff without an account (FLOW-270 A3); people
     // with an account change status in Settings › Users.
@@ -80,3 +94,21 @@ export type StaffCreate = z.input<typeof staffCreateSchema>;
 // What anyone may change on their own profile; everything else is Admin's.
 export const selfEditableStaffFields = ["mobile", "secondaryEmail", "smsConsent"] as const;
 
+
+// The internal staff ID (FLOW-333 A1): the last 4 digits of the phone number;
+// when another listed staff member's number ends the same way, the 5th-last
+// digit is added, then the 6th, and so on until it's unique. It's worked out from
+// the current numbers, so adding someone whose number ends the same way
+// lengthens both IDs. Two people with the very same number keep the whole number.
+export function staffIds(members: readonly { id: string; mobile: string | null }[]): Map<string, string> {
+  const digits = members.map((member) => ({ id: member.id, digits: (member.mobile ?? "").replace(/\D/g, "") }));
+  return new Map(
+    digits.map(({ id, digits: own }) => {
+      if (!own) return [id, ""];
+      const others = digits.filter((other) => other.id !== id && other.digits);
+      let length = Math.min(4, own.length);
+      while (length < own.length && others.some((other) => other.digits.endsWith(own.slice(-length)))) length++;
+      return [id, own.slice(-length)];
+    }),
+  );
+}

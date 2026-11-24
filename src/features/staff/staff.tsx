@@ -45,6 +45,18 @@ const statusLabel = (member: StaffMember) =>
       : "Inactive";
 const mobileLabel = (mobile: string | null) =>
   mobile === null ? "Hidden" : mobile || "—";
+// Drives / Has a car (FLOW-333): Yes, No or not set.
+const yesNoLabel = (value: boolean | null) => (value === null ? "—" : value ? "Yes" : "No");
+const yesNoValue = (value: boolean | null) => (value === null ? "" : value ? "yes" : "no");
+const yesNoParse = (value: string) => (value === "yes" ? true : value === "no" ? false : null);
+const yesNoOptions = [
+  { value: "", label: "Not set" },
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+];
+const yesNoMatches = (filter: string, value: boolean | null) =>
+  !filter || (filter === "unset" ? value === null : yesNoValue(value) === filter);
+const hiddenLabel = (value: string | null) => (value === null ? "Hidden" : value || "—");
 // Staff without an account have a blank role (FLOW-270 A3).
 const roleOf = (member: StaffMember) => (member.role ? roleLabel(member.role) : "");
 const assignableRoles = (adminToo: boolean) =>
@@ -60,6 +72,8 @@ export function StaffDirectory() {
   const [position, setPosition] = useState("");
   const [role, setRole] = useState("");
   const [inactive, setInactive] = useState(false);
+  const [drives, setDrives] = useState("");
+  const [hasCar, setHasCar] = useState("");
   const [adding, setAdding] = useState(false);
   const [bulkError, setBulkError] = useState("");
   const staff = useResource(
@@ -83,6 +97,8 @@ export function StaffDirectory() {
       (inactive || member.active) &&
       (!position || member.positions.includes(position)) &&
       (!roles || !role || (role === "none" ? member.role === null : member.role === role)) &&
+      yesNoMatches(drives, member.drives) &&
+      yesNoMatches(hasCar, member.hasCar) &&
       `${member.name} ${member.email}`.toLowerCase().includes(term),
   );
   const changeRoles = async (ids: string[], clear: () => void, next: Role) => {
@@ -142,6 +158,25 @@ export function StaffDirectory() {
         canEdit: (row) => manage && !row.hasAccount,
         editOptions: [{ value: "active", label: "Active" }, { value: "deactivated", label: "Inactive" }],
         onEdit: async (row, value) => { await staffApi.update(row.id, { status: value === "active" ? "active" : "deactivated" }); staff.reload(); } } },
+    // Profile details (FLOW-333): staff ID and address follow the phone
+    // number's rule; drives and has a car show to everyone. Admin edits them,
+    // except the staff ID, which comes from the phone number (A1).
+    { id: "employeeId", header: "Staff ID", accessorFn: (member) => hiddenLabel(member.employeeId),
+      meta: { fieldGroup: "staff_contact", csv: (member) => member.employeeId ?? "" } },
+    { id: "address", header: "Address", accessorFn: (member) => hiddenLabel(member.address),
+      meta: { fieldGroup: "staff_contact", csv: (member) => member.address ?? "",
+        edit: "text", editValue: (row) => row.address ?? "", canEdit: (row) => manage && row.address !== null,
+        onEdit: async (row, value) => { await staffApi.update(row.id, { address: value }); staff.reload(); } } },
+    { id: "drives", header: "Drives", accessorFn: (member) => yesNoLabel(member.drives),
+      meta: { csv: (member) => (member.drives === null ? "" : yesNoLabel(member.drives)),
+        edit: "select", editValue: (row) => yesNoValue(row.drives), editOptions: yesNoOptions, canEdit: () => manage,
+        editDisplay: (row) => yesNoLabel(row.drives),
+        onEdit: async (row, value) => { await staffApi.update(row.id, { drives: yesNoParse(value) }); staff.reload(); } } },
+    { id: "hasCar", header: "Has a car", accessorFn: (member) => yesNoLabel(member.hasCar),
+      meta: { csv: (member) => (member.hasCar === null ? "" : yesNoLabel(member.hasCar)),
+        edit: "select", editValue: (row) => yesNoValue(row.hasCar), editOptions: yesNoOptions, canEdit: () => manage,
+        editDisplay: (row) => yesNoLabel(row.hasCar),
+        onEdit: async (row, value) => { await staffApi.update(row.id, { hasCar: yesNoParse(value) }); staff.reload(); } } },
   ];
   return (
     <>
@@ -177,6 +212,18 @@ export function StaffDirectory() {
             <option value="none">No account</option>
           </Dropdown>
         )}
+        <Dropdown aria-label="Drives" value={drives} onChange={(e) => setDrives(e.target.value)}>
+          <option value="">Drives: any</option>
+          <option value="yes">Drives: yes</option>
+          <option value="no">Drives: no</option>
+          <option value="unset">Drives: not set</option>
+        </Dropdown>
+        <Dropdown aria-label="Has a car" value={hasCar} onChange={(e) => setHasCar(e.target.value)}>
+          <option value="">Has a car: any</option>
+          <option value="yes">Has a car: yes</option>
+          <option value="no">Has a car: no</option>
+          <option value="unset">Has a car: not set</option>
+        </Dropdown>
         <label className="checkbox-filter">
           <RoundCheck
             checked={inactive}
@@ -308,13 +355,15 @@ export function StaffProfile({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <StaffSummary member={data} canEdit={manage || own} onEdit={() => setEditing(true)} />
+        <StaffSummary member={data} canEdit={manage || own} manage={manage} onEdit={() => setEditing(true)} onSaved={member.replace} />
       )}
     </>
   );
 }
 
-function StaffSummary({ member, canEdit, onEdit }: { member: StaffMember; canEdit: boolean; onEdit: () => void }) {
+function StaffSummary({ member, canEdit, manage, onEdit, onSaved }: {
+  member: StaffMember; canEdit: boolean; manage: boolean; onEdit: () => void; onSaved: (member: StaffMember) => void;
+}) {
   const positions = useListLabels("staff_position");
   return (
     <PageGrid pageKey="staff.detail" record={{ source: "staff", id: member.id, row: member as unknown as Record<string, unknown> }}>
@@ -340,11 +389,63 @@ function StaffSummary({ member, canEdit, onEdit }: { member: StaffMember; canEdi
           <label key={position}><RoundCheck checked={member.positions.includes(position)} disabled readOnly />{position}</label>)}</div>
       </Section>
       </Block>
+      <Block id="staff-details" name="Details" w={6} h={10}>
+      <Section title={<T id="staff.staff-summary.details">Details</T>}>
+        {manage && <Button variant="outline" onClick={onEdit}><T id="staff.staff-summary.edit-details">Edit</T></Button>}
+        <dl className="employee-profile-grid staff-profile-readonly">
+          <div><dt><T id="staff.staff-summary.staff-id">Staff ID</T></dt><dd title="Last digits of the phone number">{hiddenLabel(member.employeeId)}</dd></div>
+          <div><dt><T id="staff.staff-summary.address">Address</T></dt><dd className="staff-address">{hiddenLabel(member.address)}</dd></div>
+          <div><dt><T id="staff.staff-summary.drives">Drives</T></dt><dd>{yesNoLabel(member.drives)}</dd></div>
+          <div><dt><T id="staff.staff-summary.has-a-car">Has a car</T></dt><dd>{yesNoLabel(member.hasCar)}</dd></div>
+        </dl>
+      </Section>
+      </Block>
+      {member.notes !== null && (
+        <Block id="staff-notes" name="Notes" w={6} h={10}>
+        <StaffNotes member={member} manage={manage} onSaved={onSaved} />
+        </Block>
+      )}
     </PageGrid>
   );
 }
 
-type Draft = Required<Omit<StaffUpdate, "notes" | "status" | "role">> & { role: Role | null };
+// Notes on the profile (FLOW-333): FT+ read them, Admin edits them, like the
+// lead page's Notes card.
+function StaffNotes({ member, manage, onSaved }: { member: StaffMember; manage: boolean; onSaved: (member: StaffMember) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(member.notes ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true); setError("");
+    try { onSaved(await staffApi.update(member.id, { notes: draft })); setEditing(false); }
+    catch (e) { setError((e as Error).message); }
+    finally { setSaving(false); }
+  };
+  return (
+    <Section title={<T id="staff.staff-notes.notes">Notes</T>}>
+      {editing ? (
+        <form className="settings-form" noValidate onSubmit={(event) => { event.preventDefault(); void save(); }}>
+          <ErrorText message={error} />
+          <FormField label="Staff notes"><textarea rows={5} value={draft} maxLength={5000} onChange={(event) => setDraft(event.target.value)} /></FormField>
+          <div className="form-actions">
+            <Button type="submit" disabled={saving}><T id="staff.staff-notes.save">Save notes</T></Button>
+            <Button type="button" variant="outline" onClick={() => setEditing(false)}><T id="staff.staff-notes.cancel">Cancel</T></Button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {manage && <Button variant="outline" onClick={() => { setDraft(member.notes ?? ""); setEditing(true); }}><T id="staff.staff-notes.edit">Edit notes</T></Button>}
+          <p className="staff-notes">{member.notes || "—"}</p>
+        </>
+      )}
+    </Section>
+  );
+}
+
+type Draft = Required<Omit<StaffUpdate, "notes" | "status" | "role" | "address" | "drives" | "hasCar">> & {
+  role: Role | null; address: string; drives: boolean | null; hasCar: boolean | null;
+};
 const draftOf = (member: StaffMember): Draft => ({
   name: member.name,
   mobile: member.mobile ?? "",
@@ -352,6 +453,9 @@ const draftOf = (member: StaffMember): Draft => ({
   role: member.role,
   positions: member.positions,
   smsConsent: member.smsConsent,
+  address: member.address ?? "",
+  drives: member.drives,
+  hasCar: member.hasCar,
 });
 
 function StaffForm({
@@ -432,6 +536,17 @@ function StaffForm({
         {manage ? <ListCheckboxes list="staff_position" legend="Positions" values={draft.positions} onChange={(positions) => set("positions", positions)} /> :
           <p><T id="staff.staff-form.positions">Positions: </T>{member.positions.join(", ") || "—"}</p>}
         <label className="staff-consent"><RoundCheck checked={draft.smsConsent} onChange={(event) => set("smsConsent", event.target.checked)} /><T id="staff.staff-form.sms-consent">Text me work updates (SMS)</T></label>
+        {manage && (
+          <div className="employee-profile-grid">
+            <FormField label="Address"><textarea rows={3} value={draft.address} maxLength={1000} onChange={(event) => set("address", event.target.value)} /></FormField>
+            <FormField label="Drives"><Dropdown aria-label="Drives" value={yesNoValue(draft.drives)} onChange={(event) => set("drives", yesNoParse(event.target.value))}>
+              {yesNoOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </Dropdown></FormField>
+            <FormField label="Has a car"><Dropdown aria-label="Has a car" value={yesNoValue(draft.hasCar)} onChange={(event) => set("hasCar", yesNoParse(event.target.value))}>
+              {yesNoOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </Dropdown></FormField>
+          </div>
+        )}
         {member.smsConsentAt && <p className="settings-hint"><T id="staff.staff-form.opted-in">Opted in </T>{dateTimeLabel(member.smsConsentAt)}.</p>}
         <div className="form-actions"><Button type="submit" disabled={saving}><T id="staff.staff-form.save">Save profile</T></Button><Button type="button" variant="outline" onClick={onCancel}><T id="staff.staff-form.cancel">Cancel</T></Button></div>
       </Section>

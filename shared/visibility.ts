@@ -97,7 +97,13 @@ const shapes = {
     },
     service: { priceCents: "pricing", addons: { priceCents: "pricing" } },
   },
-  staff_member: { mobile: "staff_contact", notes: "staff_notes" },
+  // Address and staff ID follow the mobile number's rule (FLOW-333).
+  staff_member: {
+    mobile: "staff_contact",
+    address: "staff_contact",
+    employeeId: "staff_contact",
+    notes: "staff_notes",
+  },
 } satisfies Record<string, Rule>;
 export type VisibilityShape = keyof typeof shapes;
 function visible(actor: Actor, rule: string, context: ViewContext): boolean {

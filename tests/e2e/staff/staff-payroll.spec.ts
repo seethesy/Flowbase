@@ -26,14 +26,14 @@ test("the directory shows Name, Positions, Role, Phone, Email and Status, and a 
   await browserDb((db) => db.update(s.users).set({ positions: ["Server"] }).where(eq(s.users.id, server.id)));
   await page.goto("/#/staff");
   await expect(page.getByRole("columnheader", { name: "Name" })).toBeVisible();
-  expect(await headers(page)).toEqual(["Name", "Positions", "Role", "Phone", "Email", "Status"]);
+  expect(await headers(page)).toEqual(["Name", "Positions", "Role", "Phone", "Email", "Status", "Staff ID", "Address", "Drives", "Has a car"]);
   await expect(page.getByRole("columnheader", { name: "Open" })).toHaveCount(0);
   const row = page.getByRole("row", { name: new RegExp(server.name.replace(/[()]/g, "\\$&")) });
   // Positions show as chips; the Part-time Staff role is listed too.
   await expect(row.locator(".staff-position-chips .badge")).toHaveText(["Server"]);
   await expect(page.getByRole("row", { name: /Part Time Staff/ }).first()).toBeVisible();
   // Clicking anywhere on the row (here, the Status cell) opens the profile.
-  await row.getByRole("cell").last().click();
+  await row.getByRole("cell").nth((await headers(page)).indexOf("Status")).click();
   await expect(page).toHaveURL(new RegExp(`#/staff/${server.id}$`));
 });
 
