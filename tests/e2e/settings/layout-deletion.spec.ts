@@ -3,7 +3,7 @@ import { browserDb, seedLeads } from "../database";
 import { lead } from "../fixtures";
 import { seedUsers } from "../../../worker/db/seed";
 import { uiLayout, leads, auditLog } from "../../../worker/db/schema";
-import { emptyLayout, type LayoutDoc } from "../../../shared/layout";
+import type { LayoutDocV1 } from "../../../shared/layout";
 import { eq } from "drizzle-orm";
 const edit = (page: Page) => page.getByRole("button", { name: "Edit screen text" }).click();
 const save = async (page: Page) => {
@@ -26,15 +26,16 @@ for (const entry of [
 ]) test(`FLOW-282: delete, restore, permanently remove, reset and cancel on ${entry.key} (AC1-6)`, async ({ page, browser }) => {
   const record = lead({ name: "Lifecycle record" }); await seedLeads([record]);
   const path = entry.path === "lead" ? `/#/leads/${record.id}` : entry.path;
-  const doc: LayoutDoc = { ...emptyLayout(), blocks: [
+  // Saved before the page grid (version 1); it reads as a page grid (FLOW-321).
+  const doc: LayoutDocV1 = { version: 1, tables: {}, fieldBoxes: {}, blocks: [
     { kind: "builtin", id: entry.id, x: 0, y: 0, w: 6, h: 12, style: { background: "#ffffff" }, visibleTo: ["admin", "sales_manager"] },
     { kind: "text", id: "note-1", variant: "note", text: "Layout note", x: 0, y: 100, w: 6, h: 3 },
     { kind: "card", id: "card-1", x: 6, y: 100, w: 6, h: 8, card: { title: "Lifecycle custom", source: { type: "list", list: "events" }, limit: 5, filters: [], display: { type: "table", columns: [{ key: "title" }] } } },
   ] };
   await browserDb((db) => db.insert(uiLayout).values({ pageKey: entry.key, layout: doc }));
   await page.goto(path); await edit(page);
-  // Materialize any newly added code blocks before measuring the last saved position.
-  await page.getByRole("button", { name: `Half width: ${entry.name}`, exact: true }).click(); await save(page);
+  // Save once as a page grid (version 2) before measuring the last saved position.
+  await page.getByRole("button", { name: `Hide on phone: ${entry.name}`, exact: true }).click(); await save(page);
   const original = (await saved(entry.key)).blocks.find((b) => b.id === entry.id);
   await edit(page); await remove(page, entry.name);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();

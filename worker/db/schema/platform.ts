@@ -1,7 +1,7 @@
 // App-wide tables: settings and lists, jobs, audit, imports, notifications, usage, live-edit wording and layouts, deletions and attachments.
 import { sql } from "drizzle-orm";
 import { boolean, date, index, integer, jsonb, numeric, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { type LayoutDoc } from "../../../shared/layout";
+import { type StoredLayoutDoc } from "../../../shared/layout";
 import { listKeys, settingKeys } from "../../../shared/settings";
 import { importStatuses } from "../../../shared/imports";
 import { notificationTypes } from "../../../shared/notifications";
@@ -292,5 +292,5 @@ export const deletions = pgTable(
 export const uiLayout = pgTable("ui_layout", {
   ...baseColumns(),
   pageKey: text("page_key").notNull().unique(),
-  layout: jsonb("layout").$type<LayoutDoc>().notNull(),
+  layout: jsonb("layout").$type<StoredLayoutDoc>().notNull(),
 }).enableRLS();

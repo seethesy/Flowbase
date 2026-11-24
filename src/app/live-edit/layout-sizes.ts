@@ -1,7 +1,7 @@
 import { GRID_COLUMNS } from "../../../shared/layout";
 
-// Sizing blocks and boxes without dragging (FLOW-278): width presets and the
-// arrow keys. Apart from the lazy grid editor, so the page grid can use it.
+// Sizing boxes inside cards and field cards without dragging (FLOW-278): width
+// presets and the arrow keys. Page blocks use the page grid instead (FLOW-321).
 
 export type GridItem = { id: string; x: number; y: number; w: number; h: number };
 

@@ -1,7 +1,8 @@
 # Page layouts (FLOW-253 to 256)
 
-The Admin's live edit (FLOW-240) also changes page **layout**: blocks on a
-12-column grid, table columns, field boxes and custom cards. There is one layout
+The Admin's live edit (FLOW-240) also changes page **layout**: blocks on the
+page grid (rows and columns sized as shares, with merged areas; FLOW-319 to
+322), table columns, field boxes and custom cards. There is one layout
 per page, shared by everyone, saved by the same pencil → Save/Cancel session as
 wording. With no saved layout a page renders exactly as its code does.
 
@@ -11,10 +12,12 @@ wording. With no saved layout a page renders exactly as its code does.
 | --- | --- |
 | Field registry: every field a layout may show, per source, with its read rule | `shared/fields/` |
 | `LayoutDoc` schema, limits, contrast check, server validation (`layoutProblems`) | `shared/layout.ts` |
+| Page grid: track math, editing operations, v1 conversion, grid invariants (`gridProblems`) | `shared/page-grid.ts` |
 | `fields=` projection and card queries (`where`, `orderBy`, `take`) | `worker/fields.ts`; card filters, sort and limit in the list's own SQL query (FLOW-308) in `worker/card-sql.ts` |
 | `GET/PUT/DELETE /api/layout/:pageKey` (`layout.edit`, Admin), audit-logged | `worker/routes/settings/layout.ts`, `worker/records/settings/layout.ts` |
-| Page grid, edit toolbar, Hidden items, Reset page layout | `src/app/live-edit/page-grid.tsx` |
-| Drag-and-resize grid (lazy-loaded `react-grid-layout`) | `src/app/live-edit/layout-grid-editor.tsx` |
+| Page grid in view mode and its sizing frame (`useGridFrame`) | `src/app/live-edit/page-grid.tsx` |
+| Page grid editor: guides, dividers, tracks, merge, placement, toolbar, Hidden items, Reset page layout | `src/app/live-edit/page-grid-editor.tsx` |
+| Drag-and-resize grid for boxes inside cards and field cards (lazy-loaded `react-grid-layout`) | `src/app/live-edit/layout-grid-editor.tsx` |
 | Style popover (text and background colors, 4.5:1 guard) | `src/app/live-edit/layout-style.tsx` |
 | Columns editor and layout-aware tables | `src/app/live-edit/column-picker.tsx`, `src/app/live-edit/table-layout.tsx`, `DataTable` |
 | Field boxes on record pages | `src/app/live-edit/field-card.tsx` |
@@ -57,16 +60,18 @@ wording. With no saved layout a page renders exactly as its code does.
   Closeout section: its blocks keep their saved place whatever the event page's
   layout is. A drag that starts in a nested grid (a tab's blocks, a card's
   boxes) moves only the nested item.
-- Size without dragging: each block's bar has width presets (¼, ⅓, ½, ⅔, Full),
-  "Fit content" (`fit`: the height follows what the card shows) and "Hide on
-  phone" (`hidePhone`). A focused block or box moves with the arrow keys and
-  resizes with Shift and the arrow keys (`src/app/live-edit/layout-sizes.ts`).
+- Size without dragging: each block's bar had width presets (¼, ⅓, ½, ⅔, Full),
+  "Fit content" (`fit`) and "Hide on phone" (`hidePhone`), and a focused block
+  moved with the arrow keys. Since FLOW-321 page blocks use the page grid
+  instead and keep only "Hide on phone"; boxes inside cards and field cards keep
+  the presets and arrow keys (`src/app/live-edit/layout-sizes.ts`).
 - Style popover: presets (Plain, Card, Highlight, Warning), "Default look",
   text and background colors, no border or a border color, an accent stripe,
   corners, padding, title size and "Hide title bar". The 4.5:1 text/background
   check applies to every combination, presets included.
-- Phones (under 900px) stack blocks in saved reading order, one column, and
-  drop blocks set to hide on phone.
+- Phones keep the page grid's arrangement and shares (FLOW-320; no stacking)
+  and drop blocks set to hide on phone, leaving their cells empty. Boxes inside
+  cards still stack below 900px.
 - A record page's toolbar says the layout applies to every record of that type.
 - A page holds up to 40 blocks.
 - Playwright coverage: `tests/e2e/settings/layout-every-screen.spec.ts`.
@@ -133,9 +138,11 @@ a `Block`: with a saved layout only blocks render.
 
 - `pageKey` names the saved layout (`area.screen`). `record` makes "This record"
   and related-list cards available.
-- `w`/`h` are the block's default size in edit mode (12 columns; rows of 24px).
-- A block that is sometimes absent (`{cond && <Block …>}`) keeps its saved
-  place and comes back there.
+- `h` sets the block's row share in the code default grid (one column, a row
+  per block, shares proportional to `h`); `w` no longer matters.
+- A block that is sometimes absent (`{cond && <Block …>}`, another tab, a role
+  that can't see it) keeps its saved cell; while it's absent, a row or column
+  holding only absent blocks collapses (FLOW-320 A3).
 
 A built-in card becomes editable when its `pageKey/blockId` has an entry in
 `builtinCards` (its code default as a card config). Only record lists qualify:
@@ -159,7 +166,8 @@ optional fields to show.
 - A dashboard or custom card can limit itself to some roles with `visibleTo`
   (FLOW-269): set from its Style popover or Settings › Roles & permissions. It
   also hides from a role that can't read the card's source area.
-- At most 40 blocks and 12 custom cards per page; a card shows at most 100 rows.
+- At most 40 blocks and 12 custom cards per page; a page grid has 1 to 12
+  columns and 1 to 40 rows; a card shows at most 100 rows.
 - A card costs one list query (FLOW-308). The list endpoint runs it as the viewer,
   with its own row scope, and adds the card's filters, sort and `LIMIT take` in
   SQL when every filter and the sort are on plain columns of the source's table
@@ -236,3 +244,63 @@ optional fields to show.
   and the SOP lifecycle checks in `tests/e2e/settings/layout-remaining-pages.spec.ts`.
 
 Integration with main preserves FLOW-296 aggregate column resizing (no registry field chooser), FLOW-266 inventory filters and shortcuts, and the Documents `documents-table` id.
+
+## Page grid (FLOW-319 to 322)
+
+A saved layout is a `LayoutDoc` version 2: `grid.cols` and `grid.rows` are
+shares in basis points (1% = 100, each axis exactly 10000, every track at least
+1%), and `grid.regions` are merged rectangles of two or more cells that never
+overlap. Each shown block's `x`, `y`, `w`, `h` are track coordinates: a single
+cell, or exactly a merged area (addressed by its top-left cell); two shown
+blocks never share one. Hidden and deleted blocks keep their last place only as
+a restore hint; a permanently removed block has none. `gridProblems`
+(`shared/page-grid.ts`) checks all of this for the client schema and for
+`PUT /api/layout`, whose 400 names the offending path.
+
+- **Saved version 1 layouts** convert on read (`convertV1`), on the server
+  (`getLayout`) and in the client schema: column edges at the shown blocks' left
+  and right edges, row edges at their tops and bottoms, gaps as empty cells, a
+  block overlapping an earlier one in a new row at the bottom; Fit content is
+  dropped. The first Save writes version 2; `PUT` refuses version 1. Reset
+  page layout still deletes the row, so the page renders natively again.
+- **Code default** in edit mode: one column, a row per built-in block, shares
+  from their `h`. A built-in added to the code after a save goes into a new
+  row spanning every column, above the row where the next built-in in code
+  order starts (or at the bottom). A built-in the code dropped isn't sent by
+  `GET /api/layout` (the key manifest says which exist): its cell stays empty.
+- **Track math**: dragging a divider changes only its two tracks; an exact
+  percentage rescales the others proportionally (to the nearest 0.1% when that
+  totals exactly) and is refused if a track would go under 1%; a new track gets
+  1/(n+1); a removed track's share goes to the others; rounding goes by largest
+  remainder.
+- **Operations** (each returns the next document and an outcome to preview, or
+  a refusal with no change): move (onto an occupied cell: swap), merge (refused
+  with several blocks inside, naming them), unmerge (its block to the top-left
+  cell), add and remove a row or column (a merged area spanning the point grows
+  or shrinks; removing a track a block sits entirely in is refused), add a block
+  into an empty cell or a new row at the bottom (straight there when the page
+  has no empty cell), restore to the last place when it's free, else to the
+  cell the Admin picks.
+- **View mode** (`page-grid.tsx`): the grid fills the usable area, the content
+  width and the viewport below the grid's top less the main area's bottom
+  padding, with a 480px floor below which the page scrolls (the grid also grows
+  so that no row is under 56px, for pages with many rows); a grid nested in
+  another grid's cell fills that cell. Tracks are `minmax(0, <share>fr)`, so
+  each is (usable size − gaps) × share at every width, phones included. Content
+  larger than its cell scrolls inside it. No guides or controls render.
+- **Edit mode** (`page-grid-editor.tsx`) draws in the same frame (edit and view
+  boxes match): the toolbar is fixed to the bottom of the screen (a nested
+  grid's follows its frame in its cell) and the guides are overlaid. Every boundary is a dotted
+  blue divider (`role="separator"`, `aria-valuenow` the percentage; arrow keys
+  1%, Shift 5%; drag shows both percentages); every empty cell and merged area
+  is outlined. Each track's label has its exact percentage and add and remove
+  buttons. Cells are focusable: the arrow keys move between them, Shift and
+  the arrow keys (or Shift and click) select a rectangle for Merge and Unmerge.
+  A block moves by its handle, the one destination highlighted, or with Enter,
+  the arrow keys and Enter. Add card and Add text ask for an empty cell or "New
+  row at bottom"; Show and Restore use the last place or ask the same way.
+  Every edit shows its outcome first (the grid draws it, with a line of text,
+  also announced); Esc cancels.
+- Playwright coverage: `tests/e2e/settings/page-grid-render.spec.ts`,
+  `page-grid-editor.spec.ts` and `page-grid-cross-device.spec.ts`; model tests
+  in `tests/settings/page-grid.test.ts`.
