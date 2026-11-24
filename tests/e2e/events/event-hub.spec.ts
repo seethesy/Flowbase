@@ -86,7 +86,9 @@ test("Cancel on the event page discards the changes in every card (FLOW-335 AC3)
   const details = page.locator("section.panel", { has: page.getByRole("heading", { name: "Event details", exact: true }) });
   await expect(details.getByText("100 Garden Way, Arlington, VA", { exact: true })).toBeVisible();
   await expect(page.getByText("Elsewhere")).toHaveCount(0);
-  await expect(page.getByText("Truck", { exact: true })).toHaveCount(0);
+  const notes = page.locator("section.panel", { has: page.getByRole("heading", { name: "Notes", exact: true }) });
+  await expect(notes.getByText("Truck", { exact: true })).toHaveCount(0);
+  await expect(notes.getByRole("textbox")).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Fall gala", level: 1 })).toBeVisible();
   await expect(details.getByText("100 Garden Way, Arlington, VA", { exact: true })).toBeVisible();
