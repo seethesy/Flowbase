@@ -51,11 +51,11 @@ export async function saveLayout(db: Db, actor: Actor, pageKey: string, layout: 
 }
 
 // Back to the code default, colors included. Resetting a page with no saved
-// layout is a no-op.
-export async function resetLayout(db: Db, actor: Actor, pageKey: string): Promise<void> {
-  await db.transaction(async (tx) => {
+// layout is a no-op: false (FLOW-304 sends no ping for it).
+export async function resetLayout(db: Db, actor: Actor, pageKey: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
     const [row] = await tx.delete(uiLayout).where(eq(uiLayout.pageKey, pageKey)).returning();
-    if (!row) return;
+    if (!row) return false;
     await writeAudit(tx, actor, {
       entityType: "ui_layout",
       entityId: row.id,
@@ -63,5 +63,6 @@ export async function resetLayout(db: Db, actor: Actor, pageKey: string): Promis
       before: { pageKey, layout: row.layout },
       after: { pageKey, layout: null },
     });
+    return true;
   });
 }

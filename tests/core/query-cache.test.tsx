@@ -108,3 +108,30 @@ it("shares one request per key and refetches after a save", async () => {
   await waitFor(() => expect(loads).toBe(2));
   expect(second.result.current[0].data).toEqual(["Warehouse"]);
 });
+
+// FLOW-304: data stays fresh for 30 s, so a load that read before a save
+// committed must not count as fresh once it lands.
+it("refetches after a save that landed while a load was under way", async () => {
+  let loads = 0;
+  let finish: () => void = () => {};
+  const load = () => {
+    loads += 1;
+    const value = loads;
+    return new Promise<number>((resolve) => {
+      finish = () => resolve(value);
+    });
+  };
+  const first = renderHook(() => useResource(["order-lists"], load));
+  await waitFor(() => expect(loads).toBe(1));
+  vi.mocked(fetch).mockImplementation(async () =>
+    Response.json({ ok: true }, { headers: { "X-Changed-Areas": "inventory,vendors" } }),
+  );
+  await request(z.object({ ok: z.boolean() }), "/api/order-lists", "POST", {});
+  finish();
+  await waitFor(() => expect(first.result.current.data).toBe(1));
+  first.unmount();
+  const second = renderHook(() => useResource(["order-lists"], load));
+  await waitFor(() => expect(loads).toBe(2));
+  finish();
+  await waitFor(() => expect(second.result.current.data).toBe(2));
+});

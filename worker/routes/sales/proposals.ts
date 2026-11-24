@@ -10,6 +10,8 @@ import { id as uuid } from "../../../shared/schema-primitives";
 import { proposalMappingSchema } from "../../../shared/proposal-mapping";
 import { recordContractSchema, recordAddendumSchema, signAddendumSchema } from "../../../shared/contracts";
 import { requirePermission } from "../../auth";
+import { salesProposals } from "../../fields";
+import { salesDataset } from "../../records/sales/sales";
 import {
   ApiError,
   notFound,
@@ -78,6 +80,10 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
   // The event's proposals: GET /api/proposals?eventId=<id>.
   routes.get("/", requirePermission("proposals.read"), async (c) => {
     const eventId = uuid.safeParse(c.req.query("eventId"));
+    // A custom card on all proposals (FLOW-308) reads the sales tracker's
+    // proposal rows, which apply the viewer's scope (worker/fields.ts).
+    if (!eventId.success && c.get("card"))
+      return c.json(salesProposals(await record(c, salesDataset)));
     if (!eventId.success)
       throw new ApiError(400, "INVALID_REQUEST", "Choose an event.");
     return c.json(

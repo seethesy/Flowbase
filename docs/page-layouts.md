@@ -11,7 +11,7 @@ wording. With no saved layout a page renders exactly as its code does.
 | --- | --- |
 | Field registry: every field a layout may show, per source, with its read rule | `shared/fields/` |
 | `LayoutDoc` schema, limits, contrast check, server validation (`layoutProblems`) | `shared/layout.ts` |
-| `fields=` projection and card queries (`where`, `orderBy`, `take`) | `worker/fields.ts` |
+| `fields=` projection and card queries (`where`, `orderBy`, `take`) | `worker/fields.ts`; card filters, sort and limit in the list's own SQL query (FLOW-308) in `worker/card-sql.ts` |
 | `GET/PUT/DELETE /api/layout/:pageKey` (`layout.edit`, Admin), audit-logged | `worker/routes/settings/layout.ts`, `worker/records/settings/layout.ts` |
 | Page grid, edit toolbar, Hidden items, Reset page layout | `src/app/live-edit/page-grid.tsx` |
 | Drag-and-resize grid (lazy-loaded `react-grid-layout`) | `src/app/live-edit/layout-grid-editor.tsx` |
@@ -160,6 +160,14 @@ optional fields to show.
   (FLOW-269): set from its Style popover or Settings › Roles & permissions. It
   also hides from a role that can't read the card's source area.
 - At most 40 blocks and 12 custom cards per page; a card shows at most 100 rows.
+- A card costs one list query (FLOW-308). The list endpoint runs it as the viewer,
+  with its own row scope, and adds the card's filters, sort and `LIMIT take` in
+  SQL when every filter and the sort are on plain columns of the source's table
+  (`cardColumns` in `worker/card-sql.ts`). A filter or sort on a computed field,
+  or on one with a read rule (hidden from some viewers), runs in memory on one
+  page of at most 500 rows; related-record lists always do. The card is then
+  applied again in memory on fields the viewer may read, so a hidden field filters
+  and sorts as empty either way.
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.
 

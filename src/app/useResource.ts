@@ -3,7 +3,7 @@ import {
   useQuery,
   type QueryKey,
 } from "@tanstack/react-query";
-import { queryClient, REFERENCE_STALE_MS } from "./queryClient";
+import { DEFAULT_STALE_MS, queryClient, REFERENCE_STALE_MS } from "./queryClient";
 import { ApiRequestError } from "../services/core";
 
 export type ResourceOptions<T = unknown> = {
@@ -67,7 +67,9 @@ export function useResource<T>(
         ? (cached: Cached) => renewIn(cached.state.data) ?? 0
         : options.reference
           ? REFERENCE_STALE_MS
-          : undefined,
+          : // Spelled out: an explicit undefined would override the client's
+            // default and make the data stale at once.
+            DEFAULT_STALE_MS,
       refetchInterval: expiresAt
         ? (cached: Cached) => {
             const wait = renewIn(cached.state.data);

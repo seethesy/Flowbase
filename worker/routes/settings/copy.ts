@@ -16,6 +16,7 @@ import manifestJson from "../../../shared/generated/live-edit-keys.json";
 import { requirePermission } from "../../auth";
 import { ApiError, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { deleteCopyRow, listCopy, moveCopy, resetCopy, saveCopy } from "../../records/settings/copy";
+import { unchanged } from "../../realtime";
 import { getLayout, listLayouts, saveLayout } from "../../records/settings/layout";
 
 // Every wording key and layout id the code has (FLOW-277), built by
@@ -91,7 +92,7 @@ export function copyRoutes(options: { withDb?: RunWithDb }) {
   routes.delete("/:key", requirePermission("copy.edit"), async (c) => {
     const key = copyKeySchema.safeParse(c.req.param("key"));
     if (!key.success) throw new ApiError(400, "INVALID_KEY", "Invalid wording key.");
-    await record(c, (db) => resetCopy(db, key.data));
+    if ((await record(c, (db) => resetCopy(db, key.data))) === false) unchanged(c);
     return c.body(null, 204);
   });
   return routes;

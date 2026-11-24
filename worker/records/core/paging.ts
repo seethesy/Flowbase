@@ -5,7 +5,12 @@ import { ApiError } from "../../hono";
 // the list's own order after the cursor; the cursor is the last row's sort values,
 // so paging returns every matching row exactly once even while rows are added.
 // Every key list ends with the id, which makes the order total.
-export type PageRequest = { cursor?: string; limit?: number };
+export type PageRequest = { cursor?: string; limit?: number; card?: CardSql };
+// A custom card's query (FLOW-308, worker/fields.ts): conditions on the list's
+// own table, the order to read in before the list's own keys, and how many
+// rows to read. The list keeps its own row scope and adds these, in one query
+// with no cursor; the card's rows come back as one page.
+export type CardSql = { where?: SQL; orderBy: SQL[]; limit: number };
 export type Page<T> = { rows: T[]; next: string | null };
 
 export const DEFAULT_PAGE_SIZE = 100;
@@ -98,15 +103,31 @@ export function pageSize(limit?: number) {
 // where clause, the order, the row limit (one extra row tells whether more exist)
 // and `page` to cut the rows and build the next cursor.
 export function keyset<R>(keys: SortKey<R>[], request: PageRequest = {}) {
-  const limit = pageSize(request.limit);
   const plain = keys as SortKey<never>[];
+  const { card } = request;
+  if (card)
+    return {
+      where: card.where,
+      // The list's own keys break ties, so equal card values keep list order.
+      orderBy: [
+        ...card.orderBy,
+        ...plain.map((key) => (key.desc ? desc(expression(key)) : asc(expression(key)))),
+      ],
+      limit: card.limit,
+      page<T = R>(rows: R[], map?: (rows: R[]) => T[] | Promise<T[]>): Promise<Page<T>> {
+        const finish = (mapped: T[]): Page<T> => ({ rows: mapped, next: null });
+        if (!map) return Promise.resolve(finish(rows as unknown as T[]));
+        return Promise.resolve(map(rows)).then(finish);
+      },
+    };
+  const limit = pageSize(request.limit);
   return {
     where: request.cursor ? after(plain, decode(request.cursor, plain)) : undefined,
     orderBy: plain.map((key) =>
       key.desc ? desc(expression(key)) : asc(expression(key)),
     ),
     limit: limit + 1,
-    page<T = R>(rows: R[], map?: (rows: R[]) => T[] | Promise<T[]>) {
+    page<T = R>(rows: R[], map?: (rows: R[]) => T[] | Promise<T[]>): Promise<Page<T>> {
       const more = rows.length > limit;
       const kept = rows.slice(0, limit);
       const last = kept[kept.length - 1];

@@ -20,6 +20,9 @@ import {
   type LayoutDoc,
 } from "../../shared/layout";
 import { applyCardQuery, parseCardQuery } from "../../worker/fields";
+import { compileCardSql } from "../../worker/card-sql";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import { defaultBlocks, readingOrder, withBuiltins } from "../../src/app/live-edit/layout-state";
 
 // Page layouts (FLOW-253 to 256): the field registry and its read rules, the
@@ -260,5 +263,54 @@ describe("card queries (FLOW-256)", () => {
     const query = parseCardQuery("leads", new URLSearchParams({ orderBy: "budgetCents:desc" }))!;
     expect(applyCardQuery(as("salesperson"), "leads", leads, query, now).map((row) => row.id)).toEqual(["b", "a"]);
     expect(applyCardQuery(admin, "leads", leads, query, now).map((row) => row.id)).toEqual(["a", "b"]);
+  });
+});
+
+// FLOW-308: which parts of a card run in the list's own SQL query.
+describe("card queries in SQL", () => {
+  const dialect = new PgDialect();
+  const card = (source: "leads" | "events" | "recipes", params: Record<string, string>, actor = admin) =>
+    compileCardSql(actor, source, parseCardQuery(source, new URLSearchParams(params))!);
+  const text = (part: SQL | undefined) => (part ? dialect.sqlToQuery(part).sql : "");
+
+  it("reads exactly take rows when every filter and the sort are plain columns", () => {
+    const query = card("leads", {
+      where: JSON.stringify([{ field: "status", op: "is", value: "inquiry" }, { field: "guestCount", op: "after", value: 10 }]),
+      orderBy: "receivedAt:desc",
+      take: "10",
+    });
+    expect(query.limit).toBe(10);
+    expect(text(query.where)).toContain('"leads"."status"');
+    expect(text(query.where)).toContain('"leads"."guest_count"');
+    expect(query.orderBy).toHaveLength(1);
+    expect(text(query.orderBy[0])).toContain("nulls last");
+  });
+
+  it("reads one page when a filter or the sort is computed or has a read rule", () => {
+    // needsReview is computed; budgetCents is hidden from some viewers.
+    const computed = card("leads", { where: JSON.stringify([{ field: "needsReview", op: "is", value: "true" }]), take: "5" });
+    expect(computed.limit).toBe(500);
+    expect(computed.where).toBeUndefined();
+    const hidden = card("leads", { orderBy: "budgetCents:desc", take: "5" }, as("salesperson"));
+    expect(hidden.limit).toBe(500);
+    expect(hidden.orderBy).toEqual([]);
+    // The filters that can run in SQL still narrow the page.
+    const mixed = card("leads", {
+      where: JSON.stringify([{ field: "needsReview", op: "is", value: "true" }, { field: "name", op: "contains", value: "ava" }]),
+      take: "5",
+    });
+    expect(mixed.limit).toBe(500);
+    expect(text(mixed.where)).toContain("strpos");
+  });
+
+  it("keeps sources without a SQL column map to one page in memory", () => {
+    const query = card("recipes", { orderBy: "name:asc", take: "3" });
+    expect(query).toEqual({ orderBy: [], limit: 500 });
+  });
+
+  it("sorts an event's date in business time", () => {
+    const query = card("events", { orderBy: "date:asc", take: "3" });
+    expect(query.limit).toBe(3);
+    expect(text(query.orderBy[0])).toContain("at time zone");
   });
 });

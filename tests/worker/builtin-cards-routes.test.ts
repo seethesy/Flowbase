@@ -79,7 +79,7 @@ mini.use("*", async (c, next) => {
   c.set("actor", actor);
   await next();
 });
-mini.use("/api/*", fieldProjection(() => mini));
+mini.use("/api/*", fieldProjection());
 mini.get("/api/leads", (c) => c.json(leadRows));
 
 it("never gives a restricted role a field it can't read from an edited card (AC4)", async () => {

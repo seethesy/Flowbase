@@ -35,7 +35,7 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
   const target = cardTarget(card, record);
   const path = target ? cardRequestPath(card, target.source, record?.id ?? null, target.relationPath) : null;
   const rows = useQuery({
-    queryKey: ["layout-card", cardId, path],
+    queryKey: ["layout-card", target?.source ?? null, cardId, path],
     queryFn: () => cardsApi.rows(path!, card.source.type === "record"),
     enabled: path !== null,
   }, queryClient);
