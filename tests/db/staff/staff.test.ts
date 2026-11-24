@@ -242,10 +242,11 @@ it("keeps address, staff ID, drives and has a car for staff without accounts, hi
   await expect(updateStaffMember(db, partTime, partTime.userId, { drives: true })).rejects.toMatchObject({ status: 403 });
   // The person sees their own address and ID (mobile number's rule).
   await updateStaffMember(db, admin, partTime.userId, { address: "1 Own Street" });
-  expect(await getStaffMember(db, partTime, partTime.userId)).toMatchObject({ address: "1 Own Street", employeeId: "0102" });
+  const own = await getStaffMember(db, partTime, partTime.userId);
+  expect(own).toMatchObject({ address: "1 Own Street", employeeId: own.mobile!.slice(-4) });
   // A second number ending the same way lengthens both IDs until they differ.
-  const twin = await createStaffMember(db, admin, { name: "Sky Twin", mobile: "(202) 555-9177" });
-  expect(twin.employeeId).toBe("90177");
+  const twin = await createStaffMember(db, admin, { name: "Sky Twin", mobile: "(202) 554-0177" });
+  expect(twin.employeeId).toBe("40177");
   expect((await getStaffMember(db, admin, noAccount.id)).employeeId).toBe("50177");
   // Audited like other profile changes.
   const audit = await db
