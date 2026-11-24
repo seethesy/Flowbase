@@ -2,14 +2,20 @@ import { z } from "zod";
 import { roleSchema, roles } from "./access";
 import { fieldDef, fieldRegistry, isSourceKey, sourceKeys, type SourceKey } from "./fields";
 import { styleContrastOk } from "./contrast";
+import { asV2, gridProblems, SHARE_TOTAL } from "./page-grid";
 
 // Saved page layouts (FLOW-253): one LayoutDoc per page, shared by everyone, live
 // on Save through the same live-edit session as wording (FLOW-240). Table column
 // sets (FLOW-254), field boxes and free-text boxes (FLOW-255) and custom cards
 // (FLOW-256) are parts of the same document. With no saved document a page
 // renders exactly as its code lays it out.
+//
+// Version 2 (FLOW-319) places page blocks on an explicit grid of rows and
+// columns sized as shares, with merged regions (shared/page-grid.ts); a block's
+// x, y, w and h are then track coordinates. Saved version 1 documents (free
+// placement on 12 columns of 24px rows) convert on read and save as version 2.
 
-export const LAYOUT_VERSION = 1;
+export const LAYOUT_VERSION = 2;
 export const GRID_COLUMNS = 12;
 // Raised from 20 for pages with many sections (FLOW-278).
 export const MAX_BLOCKS = 40;
@@ -149,8 +155,9 @@ export const cardConfigSchema = z
   .strict();
 export type CardConfig = z.infer<typeof cardConfigSchema>;
 
-// Options every block has (FLOW-278): its look, "Fit content" (its height
-// follows its content instead of its row count) and "Hide on phone".
+// Options every block has (FLOW-278): its look and "Hide on phone". "Fit
+// content" (`fit`) is read from version 1 documents only and dropped on
+// conversion: rows keep their shares (FLOW-319 A4).
 const blockOptions = {
   ...lifecycleShape,
   style: styleSchema.optional(),
@@ -202,19 +209,44 @@ export const blockSchema = z
   .refine(insideGrid, gridMessage);
 export type LayoutBlock = z.infer<typeof blockSchema>;
 
-export const layoutDocSchema = z
-  .object({
-    version: z.literal(LAYOUT_VERSION),
-    // Empty: the page keeps its code order for built-in blocks.
-    blocks: blockSchema.array().max(400).refine((blocks) => blocks.filter((b) => !layoutItemGone(b)).length <= MAX_BLOCKS, `A page holds at most ${MAX_BLOCKS} blocks.`).default([]),
-    tables: z.record(layoutKeySchema, tableConfigSchema).default({}),
-    fieldBoxes: z.record(layoutKeySchema, fieldBoxesSchema).default({}),
-    headers: z.record(layoutKeySchema, z.object({ ...lifecycleShape }).strict()).optional(),
-  })
+const docShape = {
+  // Empty: the page keeps its code order for built-in blocks.
+  blocks: blockSchema.array().max(400).refine((blocks) => blocks.filter((b) => !layoutItemGone(b)).length <= MAX_BLOCKS, `A page holds at most ${MAX_BLOCKS} blocks.`).default([]),
+  tables: z.record(layoutKeySchema, tableConfigSchema).default({}),
+  fieldBoxes: z.record(layoutKeySchema, fieldBoxesSchema).default({}),
+  headers: z.record(layoutKeySchema, z.object({ ...lifecycleShape }).strict()).optional(),
+};
+// A rectangle of grid tracks: a merged region, or a block's cell or region.
+const rectSchema = z
+  .object({ x: z.number().int().min(0).max(100), y: z.number().int().min(0).max(100), w: z.number().int().min(1).max(100), h: z.number().int().min(1).max(100) })
   .strict();
-export type LayoutDoc = z.infer<typeof layoutDocSchema>;
-export type LayoutDocInput = z.input<typeof layoutDocSchema>;
-export const emptyLayout = (): LayoutDoc => ({ version: LAYOUT_VERSION, blocks: [], tables: {}, fieldBoxes: {} });
+// Column and row shares in basis points (1% = 100). Limits and totals are
+// checked by gridProblems, so a 400 names the offending path.
+export const gridSchema = z
+  .object({ cols: z.number().int().array().max(100), rows: z.number().int().array().max(100), regions: rectSchema.array().max(400).default([]) })
+  .strict();
+
+// Version 1, read from saved rows only.
+export const layoutDocV1Schema = z.object({ version: z.literal(1), ...docShape }).strict();
+export type LayoutDocV1 = z.infer<typeof layoutDocV1Schema>;
+// Version 2 as sent to PUT /api/layout (FLOW-321: the only version it accepts);
+// layoutProblems checks the grid.
+export const layoutDocV2Schema = z.object({ version: z.literal(LAYOUT_VERSION), grid: gridSchema, ...docShape }).strict();
+export type LayoutDoc = z.infer<typeof layoutDocV2Schema>;
+export type LayoutDocInput = z.input<typeof layoutDocV2Schema>;
+// A saved row: either version.
+export type StoredLayoutDoc = LayoutDoc | LayoutDocV1;
+// Either version, as version 2, with the grid's invariants checked: what the
+// client reads.
+export const layoutDocSchema = z
+  .union([layoutDocV1Schema, layoutDocV2Schema])
+  .transform((doc): LayoutDoc => asV2(doc))
+  .superRefine((doc, ctx) => {
+    for (const problem of gridProblems(doc))
+      ctx.addIssue({ code: "custom", path: problem.path.split("."), message: problem.message });
+  });
+export const emptyGrid = () => ({ cols: [SHARE_TOTAL], rows: [SHARE_TOTAL], regions: [] });
+export const emptyLayout = (): LayoutDoc => ({ version: LAYOUT_VERSION, grid: emptyGrid(), blocks: [], tables: {}, fieldBoxes: {} });
 
 // GET /api/layout/:pageKey: the saved document, or null for the code default.
 export const savedLayoutSchema = z
@@ -358,7 +390,8 @@ function checkBoxes(boxes: LayoutBox[], source: SourceKey | null, path: string, 
 // colors, duplicate ids and too many cards. The page key says which record a
 // "This record" or related-list card reads.
 export function layoutProblems(pageKey: string, doc: LayoutDoc): LayoutProblem[] {
-  const problems: LayoutProblem[] = [];
+  // The page grid's invariants (FLOW-319 AC1).
+  const problems: LayoutProblem[] = gridProblems(doc);
   const recordSource = recordPages[pageKey]?.source ?? null;
   const ids = new Set<string>();
   let cards = 0;

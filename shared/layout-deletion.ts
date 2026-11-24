@@ -1,8 +1,8 @@
-import { layoutItemGone, type LayoutDoc, type LayoutLifecycle } from "./layout";
+import { layoutItemGone, type LayoutLifecycle, type StoredLayoutDoc } from "./layout";
 
 export type DeletedItem = { key: string; kind: string; builtin: boolean; state: LayoutLifecycle };
 // Stable paths are internal identifiers, never inferred from editable labels.
-export function layoutItems(doc: LayoutDoc): DeletedItem[] {
+export function layoutItems(doc: StoredLayoutDoc): DeletedItem[] {
   const items: DeletedItem[] = [];
   for (const block of doc.blocks) {
     items.push({ key: `block/${block.id}`, kind: block.kind === "text" ? "Text" : "Card", builtin: block.kind === "builtin", state: block });
@@ -16,7 +16,7 @@ export function layoutItems(doc: LayoutDoc): DeletedItem[] {
     items.push({ key: `field-box/${card}/${box.id}`, kind: box.kind === "field" ? "Field box" : "Text box", builtin: box.kind === "field", state: box });
   return items;
 }
-export function changeDeletedItem(doc: LayoutDoc, key: string, action: "restore" | "permanent"): LayoutDoc {
+export function changeDeletedItem<D extends StoredLayoutDoc>(doc: D, key: string, action: "restore" | "permanent"): D {
   const next = structuredClone(doc);
   const item = layoutItems(next).find((item) => item.key === key);
   if (!item?.state.deleted || item.state.removed) return doc;
@@ -43,7 +43,7 @@ export function changeDeletedItem(doc: LayoutDoc, key: string, action: "restore"
   }
   return next;
 }
-export function layoutLifecycleChanges(before: LayoutDoc, after: LayoutDoc) {
+export function layoutLifecycleChanges(before: StoredLayoutDoc, after: StoredLayoutDoc) {
   const previous = new Map(layoutItems(before).map((item) => [item.key, item]));
   const current = new Map(layoutItems(after).map((item) => [item.key, item]));
   return [...new Set([...previous.keys(), ...current.keys()])].flatMap((key) => {

@@ -1,5 +1,5 @@
 import type { CopyOverrides } from "./copy";
-import type { LayoutDoc } from "./layout";
+import type { LayoutDoc, StoredLayoutDoc } from "./layout";
 
 // Keeping the Admin's live edits across releases (FLOW-277). Saved wording
 // (ui_copy) and page layouts (ui_layout) are matched to the code by key: a
@@ -309,9 +309,9 @@ export function resolveBlockId(pageKey: string, id: string, renames: LiveEditRen
 // A saved layout as the code reads it now: renamed built-in blocks and field
 // cards take their new ids. A block already saved under the new id wins. The
 // next Save of the page stores the new ids, so the entry can later be dropped.
-export function renameLayoutDoc(pageKey: string, doc: LayoutDoc, renames: LiveEditRenames = liveEditRenames): LayoutDoc {
+export function renameLayoutDoc<D extends StoredLayoutDoc>(pageKey: string, doc: D, renames: LiveEditRenames = liveEditRenames): D {
   const taken = new Set(doc.blocks.filter((block) => resolveBlockId(pageKey, block.id, renames) === block.id).map((b) => b.id));
-  const blocks = doc.blocks.flatMap((block): LayoutDoc["blocks"] => {
+  const blocks = doc.blocks.flatMap((block): D["blocks"] => {
     if (block.kind !== "builtin") return [block];
     const id = resolveBlockId(pageKey, block.id, renames);
     if (id === block.id) return [block];
