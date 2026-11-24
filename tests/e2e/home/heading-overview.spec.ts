@@ -45,8 +45,7 @@ test("an Admin adds a card to the Sales overview that everyone sees (AC2)", asyn
   await expect(page.getByLabel("Statuses", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit screen text" }).click();
   await page.getByRole("button", { name: "Add card" }).click();
-  // The page grid has no blocks yet: Add card asks for its one cell (FLOW-321).
-  await page.getByRole("button", { name: "Place here: Empty cell, row 1, column 1" }).click();
+  // The Leads table fills the grid, so Add card opens the builder in a new row.
   const builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Pipeline at a glance");
   // A table card needs at least one column before Done.
