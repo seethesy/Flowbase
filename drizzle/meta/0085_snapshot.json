@@ -1,6 +1,6 @@
 {
-  "id": "b266d241-af3c-4d6c-8198-35d5239bd8d2",
-  "prevId": "e114629b-e7db-4715-aede-667e05001b52",
+  "id": "000bb2e2-e80f-4745-a671-896a83deaa6d",
+  "prevId": "b266d241-af3c-4d6c-8198-35d5239bd8d2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -313,6 +313,25 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "drives": {
+          "name": "drives",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "has_car": {
+          "name": "has_car",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

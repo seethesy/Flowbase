@@ -33,6 +33,12 @@ export const users = pgTable(
     // can't sign in and never notified. Their role is stored as the least
     // privileged one and shown blank; it grants nothing because they never sign in.
     hasAccount: boolean("has_account").notNull().default(true),
+    // Profile details Admin keeps for every staff member (FLOW-333): a mailing
+    // address (follows the mobile number's rule) and drives / has a car, Yes, No
+    // or not set (null). The staff ID isn't stored: it comes from the phone number.
+    address: text("address").notNull().default(""),
+    drives: boolean("drives"),
+    hasCar: boolean("has_car"),
   },
   (table) => [
     // Staff without accounts have no email, so only real addresses are unique.

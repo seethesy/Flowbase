@@ -2492,14 +2492,24 @@
     "staff.staff-form.save-email": [],
     "staff.staff-form.sms-consent": [],
     "staff.staff-form.staff-profile": [],
+    "staff.staff-notes.cancel": [],
+    "staff.staff-notes.edit": [],
+    "staff.staff-notes.notes": [],
+    "staff.staff-notes.save": [],
     "staff.staff-profile.no-account": [],
     "staff.staff-profile.staff-profile": [],
+    "staff.staff-summary.address": [],
+    "staff.staff-summary.details": [],
+    "staff.staff-summary.drives": [],
     "staff.staff-summary.edit": [],
+    "staff.staff-summary.edit-details": [],
     "staff.staff-summary.employee-profile": [],
+    "staff.staff-summary.has-a-car": [],
     "staff.staff-summary.mobile": [],
     "staff.staff-summary.name": [],
     "staff.staff-summary.primary-email": [],
     "staff.staff-summary.secondary-email": [],
+    "staff.staff-summary.staff-id": [],
     "stock-counts.count-line-row.below-par": [],
     "stock-counts.count-line-row.counted": [
       "changeLabel",
@@ -3469,7 +3479,9 @@
     },
     "staff.detail": {
       "blocks": [
+        "staff-details",
         "staff-facts",
+        "staff-notes",
         "staff-positions"
       ],
       "fieldCards": [
