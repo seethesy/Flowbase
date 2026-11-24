@@ -17,7 +17,7 @@ import { fakeDb } from "./fake-db";
 beforeEach(() => resetPendingUsage());
 
 const cloudflare = (body: unknown, status = 200) =>
-  vi.fn(async (..._args: Parameters<typeof fetch>) => Response.json(body, { status }));
+  vi.fn<typeof fetch>(async () => Response.json(body, { status }));
 const env = { CF_ANALYTICS_TOKEN: "analytics-token", CF_ACCOUNT_ID: "account-id",
   CF_WORKER_NAME: "flowbase", CF_HYPERDRIVE_ID: "hyperdrive-id" };
 const answer = { data: { viewer: { accounts: [{ workers: [{ sum: { requests: 4167 } }], hyperdrive: [{ count: 32968 }] }] } }, errors: null };
