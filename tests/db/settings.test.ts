@@ -7,7 +7,10 @@ import * as schema from "../../worker/db/schema";
 import {
   addListValue,
   assertListLabels,
+  getCachedSettings,
   getSettings,
+  invalidateSettings,
+  SETTINGS_TTL_MS,
   orderListValues,
   renameListValue,
   setListValueArchived,
@@ -178,4 +181,26 @@ it("falls back to the defaults for a stored value the schema no longer accepts",
     .from(schema.settings)
     .where(and(eq(schema.settings.key, "defaults")));
   expect(rows).toHaveLength(1);
+});
+
+// FLOW-306 AC3: the isolate's copy shows a save at once where it was saved, and
+// any other change within SETTINGS_TTL_MS everywhere else.
+it("serves the isolate's copy, drops it on save and re-reads it after a minute", async () => {
+  invalidateSettings();
+  const start = Date.now();
+  expect((await getCachedSettings(db, start)).lists[scratch]).toEqual([]);
+  // A save in this isolate shows on the very next read.
+  await addListValue(db, admin, scratch, "Gala");
+  expect((await getCachedSettings(db, start + 1)).lists[scratch].map((v) => v.label)).toEqual(["Gala"]);
+  await updateSetting(db, admin, "defaults", { ...defaultBusinessDefaults, idleCutoffMinutes: 9 });
+  expect((await getCachedSettings(db, start + 2)).defaults.idleCutoffMinutes).toBe(9);
+  // Another isolate's save (simulated by a direct write) shows within the TTL.
+  const cachedAt = start + 3;
+  invalidateSettings();
+  await getCachedSettings(db, cachedAt);
+  await db.insert(schema.listValues).values({ listKey: scratch, label: "Brunch", sortOrder: 5 });
+  expect((await getCachedSettings(db, cachedAt + SETTINGS_TTL_MS - 1)).lists[scratch].map((v) => v.label)).toEqual(["Gala"]);
+  expect((await getCachedSettings(db, cachedAt + SETTINGS_TTL_MS)).lists[scratch].map((v) => v.label)).toEqual(["Gala", "Brunch"]);
+  expect(SETTINGS_TTL_MS).toBe(60_000);
+  invalidateSettings();
 });

@@ -42,4 +42,7 @@ export default createApp({
     );
   },
   importModules: [rentalImporter],
+  // Specs reset the database under this running Worker, so it never keeps an
+  // isolate copy of the matrix or the settings (FLOW-306).
+  isolateCaches: false,
 });

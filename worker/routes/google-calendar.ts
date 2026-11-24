@@ -18,7 +18,7 @@ export function googleCalendarRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.get("/callback", async (c) => {
-    const path = await runDb(options.withDb, c.env, (db) =>
+    const path = await runDb(options.withDb, c, (db) =>
       completeConnect(db, c.env, {
         code: c.req.query("code"),
         state: c.req.query("state"),

@@ -29,6 +29,14 @@ export type Bindings = {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_TOKEN_KEY?: string;
+  // Usage figures from Cloudflare (FLOW-305): an account-scoped API token with
+  // Account Analytics: Read only (Worker secret), the account id, the Worker's
+  // script name and the Hyperdrive config id (vars). Without the token and the
+  // account id, request and query counts are estimated in the isolate.
+  CF_ANALYTICS_TOKEN?: string;
+  CF_ACCOUNT_ID?: string;
+  CF_WORKER_NAME?: string;
+  CF_HYPERDRIVE_ID?: string;
   // Optional R2 binding to the same bucket: confirms uploads arrived and removes
   // abandoned or long-archived files (FLOW-188).
   FILES?: {

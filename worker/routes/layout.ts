@@ -4,6 +4,7 @@ import { liveEditRenames, renameLayoutDoc } from "../../shared/live-edit-renames
 import { requirePermission } from "../auth";
 import { ApiError, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../hono";
 import { getLayout, resetLayout, saveLayout } from "../records/layout";
+import { unchanged } from "../realtime";
 
 // Saved page layouts (FLOW-253). Everyone signed in (auth.read) reads a page's
 // layout; only layout.edit (Admin) saves or resets it.
@@ -33,7 +34,7 @@ export function layoutRoutes(options: { withDb?: RunWithDb }) {
   });
   routes.delete("/:pageKey", requirePermission("layout.edit"), async (c) => {
     const key = pageKey(c);
-    await record(c, (db, actor) => resetLayout(db, actor, key));
+    if ((await record(c, (db, actor) => resetLayout(db, actor, key))) === false) unchanged(c);
     return c.body(null, 204);
   });
   return routes;

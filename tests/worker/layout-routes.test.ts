@@ -51,7 +51,7 @@ beforeEach(() => {
     updatedAt: "2026-11-20T12:00:00.000Z",
     updatedBy: userId,
   }));
-  vi.mocked(resetLayout).mockResolvedValue();
+  vi.mocked(resetLayout).mockResolvedValue(true);
 });
 
 it("gives every signed-in role the page's layout, or null for the code default", async () => {
@@ -110,7 +110,7 @@ mini.use("*", async (c, next) => {
   c.set("actor", actor);
   await next();
 });
-mini.use("/api/*", fieldProjection(() => mini));
+mini.use("/api/*", fieldProjection());
 mini.get("/api/leads", (c) => c.json(leadRows));
 mini.get("/api/leads/:id", (c) => c.json(leadRows.find((row) => row.id === c.req.param("id"))));
 

@@ -9,7 +9,8 @@ import { usePermissions } from "../app/permissions";
 import { T } from "../app/copy";
 
 const rowSchema = z.object({ metric: z.string(), label: z.string(), value: z.number(),
-  limit: z.number(), period: z.string(), percent: z.number().nullable() });
+  limit: z.number(), period: z.string(), percent: z.number().nullable(),
+  source: z.enum(["cloudflare", "estimate"]).optional() });
 const labels = {
   workerRequests: "Worker requests per day", dbQueries: "Database queries per day",
   r2Bytes: "R2 storage bytes", supabaseBytes: "Supabase database bytes",
@@ -44,8 +45,10 @@ export function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
       <ul>{usage.data?.map((row) => <li key={row.metric}>
         <strong>{row.label}</strong>: {format(row.metric, row.value)} / {format(row.metric, row.limit)}
         {row.percent !== null && ` (${row.percent}%)`} · {row.period}
+        {row.source === "cloudflare" && <> · <T id="usage.usage-page.source-cloudflare">from Cloudflare</T></>}
+        {row.source === "estimate" && <> · <T id="usage.usage-page.source-estimate">estimate</T></>}
       </li>)}</ul>
-      <p><T id="usage.usage-page.worker-and-query-counts-are">Worker and query counts are approximate. R2 counts completed Flowbase attachments; GitHub minutes are reported by the ops workflow.</T></p>
+      <p><T id="usage.usage-page.worker-and-query-counts-are">Worker requests and database queries come from Cloudflare, read hourly, once its Analytics token is set up. Until then they are estimated by the Worker and can run low. R2 counts completed Flowbase attachments; GitHub minutes are reported by the ops workflow.</T></p>
     </Section>
     </Block>
     {manage && <Block id="limits" name="Free-tier limits" h={12}><Section title={<T id="usage.usage-page.free-tier-limits">Free-tier limits</T>}>

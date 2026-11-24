@@ -49,8 +49,9 @@ export default Sentry.withSentry(
       env: Bindings,
       ctx: Parameters<typeof app.fetch>[2],
     ) => app.fetch(request, env, ctx),
-    scheduled: async (_controller: unknown, env: Bindings) => {
-      await runScheduledJobs(env, jobRegistry);
+    // Each tick's work follows its scheduled time (FLOW-307).
+    scheduled: async (controller: { scheduledTime: number }, env: Bindings) => {
+      await runScheduledJobs(env, jobRegistry, { scheduledTime: controller.scheduledTime });
     },
   },
 );

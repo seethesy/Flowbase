@@ -101,7 +101,7 @@ export function createActorResolver(
       name: meta?.full_name ?? meta?.name,
     });
     if (!identity.success) return null;
-    const actor = await runDb(withDb, c.env, (db) =>
+    const actor = await runDb(withDb, c, (db) =>
       resolveUser(db, identity.data),
     );
     if (!actor)
