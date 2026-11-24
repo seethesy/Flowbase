@@ -62,6 +62,34 @@ export async function getSettings(db: DbLike): Promise<BusinessSettings> {
   };
 }
 
+// Per-isolate copy of the settings and lists (FLOW-306), the same way as the
+// roles and permissions matrix: a save in this isolate drops it at once, other
+// isolates re-read it after SETTINGS_TTL_MS, so they can show an Admin's change
+// up to a minute late. Reads inside a write transaction use getSettings.
+export const SETTINGS_TTL_MS = 60_000;
+let cachedSettings: { value: BusinessSettings; at: number } | null = null;
+// A read that started before a save must not store what it read after it.
+let generation = 0;
+export const invalidateSettings = () => {
+  cachedSettings = null;
+  generation++;
+};
+export async function getCachedSettings(db: DbLike, now = Date.now()): Promise<BusinessSettings> {
+  if (cachedSettings && now - cachedSettings.at < SETTINGS_TTL_MS) return cachedSettings.value;
+  const started = generation;
+  const value = await getSettings(db);
+  if (started === generation) cachedSettings = { value, at: now };
+  return value;
+}
+// Runs a settings or list write, then drops this isolate's copy.
+async function saving<T>(write: Promise<T>): Promise<T> {
+  try {
+    return await write;
+  } finally {
+    invalidateSettings();
+  }
+}
+
 // The audit snapshot of a settings group. A logo is stored as an inline image; the
 // audit records that it changed, not the image itself.
 function settingSnapshot(value: Record<string, unknown>) {
@@ -77,7 +105,7 @@ export async function updateSetting<K extends SettingKey>(
   key: K,
   value: BusinessSettings[K],
 ): Promise<BusinessSettings[K]> {
-  return db.transaction(async (tx) => {
+  return saving(db.transaction(async (tx) => {
     const [current] = await tx
       .select()
       .from(settings)
@@ -107,7 +135,7 @@ export async function updateSetting<K extends SettingKey>(
       after: settingSnapshot({ key, ...value }),
     });
     return value;
-  });
+  }));
 }
 
 const listValueSnapshot = async (tx: DbLike, id: string) => {
@@ -146,7 +174,7 @@ export async function addListValue(
   key: ListKey,
   label: string,
 ): Promise<ListValue> {
-  return db.transaction(async (tx) => {
+  return saving(db.transaction(async (tx) => {
     await assertUniqueLabel(tx, key, label);
     const [{ next }] = await tx
       .select({
@@ -173,7 +201,7 @@ export async function addListValue(
       after: value,
     });
     return value;
-  });
+  }));
 }
 
 // Renaming changes what new records get; existing records keep the old label.
@@ -183,7 +211,7 @@ export async function renameListValue(
   id: string,
   label: string,
 ): Promise<ListValue> {
-  return db.transaction(async (tx) => {
+  return saving(db.transaction(async (tx) => {
     const before = await listValueSnapshot(tx, id);
     if (!before.archived) await assertUniqueLabel(tx, before.listKey, label, id);
     await tx
@@ -199,7 +227,7 @@ export async function renameListValue(
       after,
     });
     return after;
-  });
+  }));
 }
 
 // Sets the display order of a list: ids in the order to show them. Values left
@@ -210,7 +238,7 @@ export async function orderListValues(
   key: ListKey,
   ids: string[],
 ): Promise<ListValue[]> {
-  return db.transaction(async (tx) => {
+  return saving(db.transaction(async (tx) => {
     const rows = await tx
       .select()
       .from(listValues)
@@ -245,7 +273,7 @@ export async function orderListValues(
       });
     }
     return (await getSettings(tx)).lists[key];
-  });
+  }));
 }
 
 export async function setListValueArchived(
@@ -257,11 +285,11 @@ export async function setListValueArchived(
   const current = await listValueSnapshot(db, id);
   if (!archived && current.archived)
     await assertUniqueLabel(db, current.listKey, current.label, id);
-  await setArchived(db, actor, id, archived, {
+  await saving(setArchived(db, actor, id, archived, {
     update: (tx, values) =>
       tx.update(listValues).set(values).where(eq(listValues.id, id)),
     audit: { entityType: "list_value", snapshot: listValueSnapshot },
-  });
+  }));
   return listValueSnapshot(db, id);
 }
 

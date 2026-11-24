@@ -9,8 +9,9 @@ import type { Page, PageRequest } from "./records/paging";
 
 export type AppEnv = {
   Bindings: Bindings;
-  // actor is set only behind requireActor (worker/auth.ts).
-  Variables: { requestId: string; actor: Actor };
+  // actor is set only behind requireActor (worker/auth.ts). db is the request's
+  // shared database client (FLOW-306), set wherever the app has withDb.
+  Variables: { requestId: string; actor: Actor; db?: RunWithDb };
 };
 export type AppContext = Context<AppEnv>;
 
@@ -21,13 +22,27 @@ export type RunWithDb = <T>(
 ) => Promise<T>;
 
 // Unwired database access surfaces as 503 through the app's error handler.
+// Inside a request the work shares the request's one client (FLOW-306).
 export function runDb<T>(
   withDb: RunWithDb | undefined,
-  env: Bindings,
+  c: AppContext,
   run: (db: Db) => Promise<T>,
 ): Promise<T> {
   if (!withDb) throw new DatabaseNotConfiguredError();
-  return withDb(env, run);
+  return (c.get("db") ?? withDb)(c.env, run);
+}
+
+// Work after the response: waitUntil in Workers, awaited where there is no
+// execution context (tests and local requests).
+export async function afterResponse(c: AppContext, task: Promise<unknown>) {
+  let ctx: { waitUntil: (promise: Promise<unknown>) => void } | undefined;
+  try {
+    ctx = c.executionCtx;
+  } catch {
+    // No execution context outside the Workers runtime.
+  }
+  if (ctx) ctx.waitUntil(task);
+  else await task;
 }
 
 // Runs a record function with the database and the signed-in actor (FLOW-192).
@@ -37,7 +52,7 @@ export function runDb<T>(
 export const recordRunner =
   (withDb: RunWithDb | undefined) =>
   <T>(c: AppContext, run: (db: Db, actor: Actor) => Promise<T>): Promise<T> =>
-    runDb(withDb, c.env, (db) => run(db, c.get("actor")));
+    runDb(withDb, c, (db) => run(db, c.get("actor")));
 
 // List paging (FLOW-179): ?cursor=&limit= in, the page's rows as the JSON body
 // (unchanged shape) with X-Has-More and, when there is one, X-Next-Cursor.

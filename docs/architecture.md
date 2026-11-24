@@ -142,3 +142,28 @@ An open screen shows another user's committed change without navigating.
   board's own "last updated" note) can listen with `onDataChanged`, which fires
   after each visible refresh. Data with its own expiry, such as signed attachment
   links (FLOW-201), uses `useResource`'s `expiresAt` option instead.
+
+## Request pipeline and isolate caches (FLOW-305, FLOW-306)
+
+- **One database client per request.** The first `/api/*` middleware
+  (`worker/app.ts`) creates a lazy request client (`worker/db/request.ts`,
+  `c.var.db`) on first use and closes it after the response (`waitUntil`; awaited
+  in tests). Sign-in (`resolveUser`), the policy reload, route handlers
+  (`recordRunner`/`runDb`), BEO change tracking and the production-scan enqueue
+  all share it; transactions still use `db.transaction`. Cron, jobs and tests call
+  `withDb` directly.
+- **Plain sign-in lookup.** An active account already linked to the token's `sub`
+  costs one plain select. Only first sign-in, invitation activation and identity
+  mismatches take the locked transaction.
+- **Isolate caches.** The roles and permissions matrix (`POLICY_TTL_MS`) and the
+  business settings and lists served by `GET /api/settings` (`SETTINGS_TTL_MS`)
+  are cached per Worker isolate for 60 seconds, wherever Hyperdrive is bound. A
+  save drops the copy in the isolate that saved it, so the Admin sees the change at
+  once; **other isolates can show an Admin's change up to 60 seconds late.** Reads
+  inside a write transaction and the cron always read the database.
+- **Usage counts.** No request or query writes a counter row. With the
+  `CF_ANALYTICS_TOKEN` Worker secret, the hourly cron stores today's Worker
+  requests and Hyperdrive queries from Cloudflare's GraphQL Analytics API. Without
+  it, each isolate counts in memory and writes all metrics in one upsert at most
+  once a minute and at the end of each cron run; counts in an evicted isolate are
+  lost, so Settings › usage marks the figure as an estimate.
