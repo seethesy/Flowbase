@@ -33,7 +33,8 @@ test("Inventory: filters are custom dropdowns that work from the keyboard (AC1, 
   await page.goto("/#/inventory");
   await expect(page.getByRole("link", { name: chairs().name }).or(page.getByText(chairs().name)).first()).toBeVisible();
   await expect(page.locator("select")).toHaveCount(0);
-  const kind = page.getByRole("combobox", { name: "Kind", exact: true }).first();
+  // The Location filter (FLOW-291 replaced the Kind filter).
+  const kind = page.getByRole("combobox", { name: "Location", exact: true }).first();
   await kind.focus();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("listbox")).toBeVisible();
@@ -49,12 +50,13 @@ test("A form in a drawer: picking an option keeps the drawer open and saves the 
   await page.getByRole("button", { name: "New Item", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.locator("select")).toHaveCount(0);
-  const kind = dialog.getByRole("combobox", { name: "Kind", exact: true });
+  // Admin's Stock tracking choice (FLOW-289) stands in for the old Kind picker.
+  const kind = dialog.getByRole("combobox", { name: "Stock tracking", exact: true });
   await kind.click();
   // The list renders inside the dialog, so the dialog's focus trap and outside-click
   // handling leave it alone.
   await expect(dialog.getByRole("listbox")).toBeVisible();
-  await dialog.locator('[role="option"][data-value="service"]').click();
+  await dialog.locator('[role="option"][data-value="not_stocked"]').click();
   await expect(dialog).toBeVisible();
-  await expect(kind).toHaveAttribute("data-value", "service");
+  await expect(kind).toHaveAttribute("data-value", "not_stocked");
 });

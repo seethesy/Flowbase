@@ -3,8 +3,9 @@ import type { Actor } from "../../shared/access";
 import { isPlaced, suggestOrderLines, type OrderCandidate, type OrderLine, type OrderList,
   type ReceiveInput, type RecordOrderInput, type VendorOrder } from "../../shared/order-lists";
 import type { Unit } from "../../shared/units";
+import { utcToBusinessTime } from "../../shared/time";
 import type { Db, DbLike } from "../db/client";
-import { consumableAllocations, events, inventoryConsumableDetails, inventoryItems,
+import { consumableAllocations, events, inventoryConsumableDetails, allInventoryItems, allInventoryItemFields,
   inventoryStock, orderLists, vendors } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { can } from "../policy";
@@ -35,14 +36,17 @@ registerApprovalSubject("order_list", {
   },
 });
 
-export async function suggestOrderList(db: DbLike, from: string, to: string): Promise<OrderLine[]> {
+// Lines for the events and low stock from `from` to `to`; with itemIds, only
+// those items' lines (the Order tab's Add to order list, FLOW-292).
+export async function suggestOrderList(db: DbLike, from: string, to: string, itemIds?: string[], options: { atPar?: boolean } = {}): Promise<OrderLine[]> {
   const [items, stock, allocations] = await Promise.all([
-    db.select({ item: inventoryItems, detail: inventoryConsumableDetails, vendor: vendors })
-      .from(inventoryItems)
-      .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
+    db.select({ item: allInventoryItemFields, detail: inventoryConsumableDetails, vendor: vendors })
+      .from(allInventoryItems)
+      .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
       .leftJoin(vendors, eq(vendors.id, inventoryConsumableDetails.preferredVendorId))
-      .where(and(eq(inventoryItems.kind, "consumable"), eq(inventoryItems.active, true),
-        isNull(inventoryItems.archivedAt))),
+      .where(and(eq(allInventoryItems.kind, "consumable"), eq(allInventoryItems.active, true),
+        isNull(allInventoryItems.archivedAt),
+        itemIds ? inArray(allInventoryItems.id, itemIds) : undefined)),
     db.select({ itemId: inventoryStock.itemId,
       onHand: sql<string>`coalesce(sum(${inventoryStock.quantity}), 0)` })
       .from(inventoryStock).where(isNull(inventoryStock.archivedAt))
@@ -69,7 +73,7 @@ export async function suggestOrderList(db: DbLike, from: string, to: string): Pr
     orderingInstructions: vendor?.orderingInstructions ?? "",
     onHand: onHand.get(item.id) ?? 0, parLevel: detail.parLevel,
     shortages: shortages.get(item.id) ?? [],
-  })));
+  })), options);
 }
 
 export async function createOrderList(db: Db, actor: Actor, from: string, to: string) {
@@ -79,6 +83,35 @@ export async function createOrderList(db: Db, actor: Actor, from: string, to: st
     createdBy: actor.userId, updatedBy: actor.userId }).returning();
   return toList(row);
 }
+// The Order tab's Add to order list (FLOW-292 AC4): puts each item on the newest
+// draft order list, with what it needs to get back to par in purchase units
+// (one purchase unit for an item exactly at par),
+// replacing a line the item already has there. With no draft list, a new one
+// starts today. Items that need nothing are left off; the list is returned.
+export async function addToDraftOrderList(db: Db, actor: Actor, itemIds: string[]) {
+  requireEditor(actor);
+  const today = utcToBusinessTime(new Date()).date;
+  const id = await db.transaction(async (tx) => {
+    const [draft] = await tx.select().from(orderLists)
+      .where(and(eq(orderLists.status, "draft"), isNull(orderLists.archivedAt)))
+      .orderBy(sql`${orderLists.createdAt} desc`).limit(1).for("update");
+    const added = await suggestOrderList(tx, today, today, itemIds, { atPar: true });
+    if (!added.length && !draft)
+      throw new ApiError(409, "NOTHING_TO_ORDER", "Nothing selected needs reordering.");
+    if (!draft) {
+      const [row] = await tx.insert(orderLists).values({ fromDate: today, toDate: today, lines: added,
+        createdBy: actor.userId, updatedBy: actor.userId }).returning({ id: orderLists.id });
+      return row.id;
+    }
+    const replaced = new Set(added.map((line) => line.itemId));
+    const lines = [...draft.lines.filter((line) => !replaced.has(line.itemId)), ...added];
+    await tx.update(orderLists).set({ lines, updatedBy: actor.userId, updatedAt: new Date() })
+      .where(eq(orderLists.id, draft.id));
+    return draft.id;
+  });
+  return getOrderList(db, actor, id);
+}
+
 export async function listOrderLists(db: DbLike, actor: Actor) {
   requireEditor(actor);
   const rows = await db.select().from(orderLists).where(isNull(orderLists.archivedAt))
@@ -103,8 +136,8 @@ export async function updateOrderList(db: Db, actor: Actor, id: string, lines: O
     if (isPlaced(row.status) && row.status !== "approved")
       throw new ApiError(409, "ORDER_LIST_ORDERED", "Orders are recorded against this list, so its lines can't change.");
     const ids = [...new Set(lines.map((line) => line.itemId))];
-    const valid = ids.length ? await tx.select({ id: inventoryItems.id }).from(inventoryItems)
-      .where(and(inArray(inventoryItems.id, ids), eq(inventoryItems.kind, "consumable"))) : [];
+    const valid = ids.length ? await tx.select({ id: allInventoryItems.id }).from(allInventoryItems)
+      .where(and(inArray(allInventoryItems.id, ids), eq(allInventoryItems.kind, "consumable"))) : [];
     if (valid.length !== ids.length || ids.length !== lines.length)
       throw new ApiError(400, "INVALID_REQUEST", "Each line must name a different consumable item.");
     await tx.update(orderLists).set({ lines, status: "draft", approvalId: null,

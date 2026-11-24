@@ -22,7 +22,7 @@ async function seedDish() {
 }
 
 test("the tabs read Overview | Recipes | Ingredients | Menus | Photos under the Kitchen heading (AC1; FLOW-293 AC1)", async ({ page }) => {
-  for (const path of ["/kitchen/overview", "/recipes", "/inventory/ingredients", "/kitchen/menus"]) {
+  for (const path of ["/kitchen/overview", "/recipes", "/kitchen/ingredients", "/kitchen/menus"]) {
     await page.goto(`/#${path}`);
     await expect(page.getByRole("heading", { name: "Kitchen", level: 1 })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Kitchen pages" }).getByRole("link"))

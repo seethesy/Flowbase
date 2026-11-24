@@ -29,7 +29,7 @@ async function chooseFile(page: Page) {
 test("checks rows in a dry run, then imports them and skips the row with an error", async ({
   page,
 }) => {
-  await page.goto("/#/imports");
+  await page.goto("/#/settings/imports");
   await page.getByRole("link", { name: "Test rentals" }).click();
   await expect(
     page.getByRole("heading", { name: "Import Test rentals", level: 1 }),
@@ -51,7 +51,7 @@ test("checks rows in a dry run, then imports them and skips the row with an erro
       .getByRole("row", { name: "5 Name is required." }),
   ).toBeVisible();
   // The dry run wrote nothing.
-  expect(await browserDb((db) => db.select().from(s.inventoryItems))).toEqual([]);
+  expect(await browserDb((db) => db.select().from(s.allInventoryItems))).toEqual([]);
 
   await page.getByRole("button", { name: "Import 2 rows" }).click();
   await expect(
@@ -72,7 +72,7 @@ test("checks rows in a dry run, then imports them and skips the row with an erro
   ).toContainText("Test Admin");
 
   const { items, movements, log } = await browserDb(async (db) => ({
-    items: await db.select().from(s.inventoryItems),
+    items: await db.select().from(s.allInventoryItems),
     movements: await db.select().from(s.stockMovements),
     log: (await db.select().from(s.importLogs))[0],
   }));
@@ -109,8 +109,8 @@ test("checks rows in a dry run, then imports them and skips the row with an erro
       (
         await db
           .select()
-          .from(s.inventoryItems)
-          .where(eq(s.inventoryItems.code, "CH-001"))
+          .from(s.allInventoryItems)
+          .where(eq(s.allInventoryItems.code, "CH-001"))
       )[0],
   );
   expect(

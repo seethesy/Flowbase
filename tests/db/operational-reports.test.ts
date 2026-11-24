@@ -5,12 +5,13 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import * as schema from "../../worker/db/schema";
 import { operationalReport } from "../../worker/records/operational-reports";
+import { insertItems } from "../fixtures/inventory-tables";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL must point to the disposable CI Postgres service.");
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
-const clear = sql`truncate table reservations, vendor_orders, order_lists, events, clients, inventory_items cascade`;
+const clear = sql`truncate table reservations, vendor_orders, order_lists, events, clients, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => { await db.execute(clear); });
 afterAll(async () => { await db.execute(clear); await client.end(); });
@@ -18,9 +19,9 @@ afterAll(async () => { await db.execute(clear); await client.end(); });
 it("counts active rental holds including zero-use items and sums vendor spend by month", async () => {
   const [clientRow] = await db.insert(schema.clients).values({ name: "Example organization", kind: "organization" }).returning();
   const [event] = await db.insert(schema.events).values({ title: "Example event", clientId: clientRow.id, startsAt: new Date("2026-11-14T20:00:00Z") }).returning();
-  const [used, unused] = await db.insert(schema.inventoryItems).values([
+  const [used, unused] = await insertItems(db, [
     { kind: "rental", name: "Blue chair" }, { kind: "rental", name: "White table" },
-  ]).returning();
+  ]);
   await db.insert(schema.reservations).values([
     { eventId: event.id, itemId: used.id, quantity: 3, windowStart: "2026-11-14", windowEnd: "2026-11-15", status: "confirmed" },
     { eventId: event.id, itemId: unused.id, quantity: 2, windowStart: "2026-10-14", windowEnd: "2026-10-15", status: "released" },

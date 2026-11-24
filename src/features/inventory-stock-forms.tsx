@@ -28,13 +28,17 @@ export function StockForm({
   onClose: () => void;
   onSaved: (item: InventoryItem) => void;
 }) {
-  const kind = sectionKindFor(item.kind) ?? "rental";
+  const kind = sectionKindFor(item) ?? "location";
   const sections = useResource(
     ["sections", { kind }],
     () => sectionsApi.list({ kind }),
     { reference: true },
   );
-  const [from, setFrom] = useState(item.stock[0]?.sectionId ?? "");
+  const [picked, setFrom] = useState(item.stock[0]?.sectionId ?? "");
+  // Bar stock has no location on screen (FLOW-291): it's recorded where the item
+  // already is, or at the first location.
+  const barItem = item.list === "bar";
+  const from = picked || (barItem ? sections.data?.[0]?.id ?? "" : "");
   const [to, setTo] = useState("");
   const [color, setColor] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -53,7 +57,7 @@ export function StockForm({
     if (amount === null || Number.isNaN(amount))
       return setError("Enter a quantity.");
     if (!from || (mode === "transfer" && !to))
-      return setError("Pick the sections.");
+      return setError("Pick the locations.");
     setSaving(true);
     setError("");
     try {
@@ -94,8 +98,8 @@ export function StockForm({
       title={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.transfer-stock">Transfer stock</T> : <T id="inventory-stock-forms.stock-form.count-stock">Count stock</T>}
       description={
         mode === "transfer"
-          ? <T id="inventory-stock-forms.stock-form.moves-stock-between-sections-and">Moves stock between sections and records a transfer.</T>
-          : <T id="inventory-stock-forms.stock-form.records-what-you-counted-in">Records what you counted in a section; the difference is saved as a count movement.</T>
+          ? <T id="inventory-stock-forms.stock-form.moves-stock-between-locations-and">Moves stock between locations and records a transfer.</T>
+          : <T id="inventory-stock-forms.stock-form.records-what-you-counted-at">Records what you counted; the difference is saved as a count movement.</T>
       }
     >
       <form
@@ -111,17 +115,17 @@ export function StockForm({
           </p>
         )}
         {notice && <p role="status">{notice}</p>}
-        <FormField label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.from-section">From section</T> : <T id="inventory-stock-forms.stock-form.section">Section</T>}>
+        {!barItem && <FormField label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.from-location">From location</T> : <T id="inventory-stock-forms.stock-form.location">Location</T>}>
           <Dropdown value={from} onChange={(e) => setFrom(e.target.value)}>
-            <option value="">Pick a section</option>
+            <option value="">Pick a location</option>
             {options}
           </Dropdown>
-        </FormField>
+        </FormField>}
         <ColorSelect item={item} value={color} onChange={setColor} />
         {mode === "transfer" && (
-          <FormField label={<T id="inventory-stock-forms.stock-form.to-section">To section</T>}>
+          <FormField label={<T id="inventory-stock-forms.stock-form.to-location">To location</T>}>
             <Dropdown value={to} onChange={(e) => setTo(e.target.value)}>
-              <option value="">Pick a section</option>
+              <option value="">Pick a location</option>
               {options}
             </Dropdown>
           </FormField>
@@ -172,7 +176,7 @@ export function MovementForm({
   onClose: () => void;
   onSaved: (item: InventoryItem) => void;
 }) {
-  const kind = sectionKindFor(item.kind) ?? "rental";
+  const kind = sectionKindFor(item) ?? "location";
   const sections = useResource(
     ["sections", { kind }],
     () => sectionsApi.list({ kind }),
@@ -180,7 +184,10 @@ export function MovementForm({
   );
   const [type, setType] =
     useState<(typeof handMovementTypes)[number]>("receive");
-  const [sectionId, setSectionId] = useState(item.stock[0]?.sectionId ?? "");
+  const [picked, setSectionId] = useState(item.stock[0]?.sectionId ?? "");
+  // Bar stock has no location on screen (FLOW-291), as in StockForm.
+  const barItem = item.list === "bar";
+  const sectionId = picked || (barItem ? sections.data?.[0]?.id ?? "" : "");
   const [color, setColor] = useState("");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
@@ -190,7 +197,7 @@ export function MovementForm({
     const amount = toNumber(quantity);
     if (amount === null || Number.isNaN(amount) || amount === 0)
       return setError("Enter a quantity.");
-    if (!sectionId) return setError("Pick a section.");
+    if (!sectionId) return setError("Pick a location.");
     const input: MovementInput = {
       type,
       sectionId,
@@ -244,19 +251,19 @@ export function MovementForm({
           </Dropdown>
         </FormField>
         <ColorSelect item={item} value={color} onChange={setColor} />
-        <FormField label={<T id="inventory-stock-forms.movement-form.section">Section</T>}>
+        {!barItem && <FormField label={<T id="inventory-stock-forms.movement-form.location">Location</T>}>
           <Dropdown
             value={sectionId}
             onChange={(e) => setSectionId(e.target.value)}
           >
-            <option value="">Pick a section</option>
+            <option value="">Pick a location</option>
             {(sections.data ?? []).map((section) => (
               <option key={section.id} value={section.id}>
                 {section.name}
               </option>
             ))}
           </Dropdown>
-        </FormField>
+        </FormField>}
         <FormField
           label={direction > 0 ? <T id="inventory-stock-forms.movement-form.quantity-in-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity in ({unit})"}</T> : direction < 0 ? <T id="inventory-stock-forms.movement-form.quantity-out-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity out ({unit})"}</T> : <T id="inventory-stock-forms.movement-form.change-unit" values={{ unit: unitLabel(item.unit) }}>{"Change ({unit})"}</T>}
           hint={

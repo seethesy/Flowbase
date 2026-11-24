@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import type { RequirementItem } from "../../shared/inventory-requirements";
 import type { DbLike } from "../db/client";
-import { inventoryItems, inventoryRentalDetails, inventoryServiceDetails } from "../db/schema";
+import { allInventoryItems, inventoryRentalDetails, inventoryServiceDetails } from "../db/schema";
 
 // Catalog rows for expanding kits and services (shared/inventory-requirements.ts):
 // the pull list (FLOW-134) and holds (FLOW-212, FLOW-213) read them the same way.
@@ -17,21 +17,21 @@ export async function loadCatalog(db: DbLike, ids: string[]) {
   while (pending.length) {
     const rows = await db
       .select({
-        id: inventoryItems.id,
-        name: inventoryItems.name,
-        kind: inventoryItems.kind,
-        subtype: inventoryItems.subtype,
-        ratioQuantity: inventoryItems.ratioQuantity,
-        ratioBasis: inventoryItems.ratioBasis,
-        active: inventoryItems.active,
-        archivedAt: inventoryItems.archivedAt,
+        id: allInventoryItems.id,
+        name: allInventoryItems.name,
+        kind: allInventoryItems.kind,
+        subtype: allInventoryItems.subtype,
+        ratioQuantity: allInventoryItems.ratioQuantity,
+        ratioBasis: allInventoryItems.ratioBasis,
+        active: allInventoryItems.active,
+        archivedAt: allInventoryItems.archivedAt,
         includes: inventoryServiceDetails.includes,
         components: inventoryRentalDetails.components,
       })
-      .from(inventoryItems)
-      .leftJoin(inventoryServiceDetails, eq(inventoryServiceDetails.itemId, inventoryItems.id))
-      .leftJoin(inventoryRentalDetails, eq(inventoryRentalDetails.itemId, inventoryItems.id))
-      .where(inArray(inventoryItems.id, pending));
+      .from(allInventoryItems)
+      .leftJoin(inventoryServiceDetails, eq(inventoryServiceDetails.itemId, allInventoryItems.id))
+      .leftJoin(inventoryRentalDetails, eq(inventoryRentalDetails.itemId, allInventoryItems.id))
+      .where(inArray(allInventoryItems.id, pending));
     const next = new Set<string>();
     for (const row of rows) {
       catalog.set(row.id, {

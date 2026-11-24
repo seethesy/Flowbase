@@ -74,8 +74,10 @@ export function contextForPath(
         recordType: null,
         recordId: null,
       };
-    // The recipe book (FLOW-93) is kitchen work.
+    // The recipe book (FLOW-93) and the Kitchen screen, Ingredients included
+    // (FLOW-291), are kitchen work.
     case "recipes":
+    case "kitchen":
       return { activity: "kitchen", recordType: null, recordId: null };
     default:
       return { activity: "general", recordType: null, recordId: null };

@@ -9,6 +9,7 @@ import type { InventoryItem, Section } from "../../shared/inventory";
 import type { Lead, LeadDuplicateReason } from "../../shared/leads";
 import { addLocalDays, businessTimeToUtc } from "../../shared/time";
 import { defaultListValues, listKeys } from "../../shared/settings";
+import { insertItems } from "../fixtures/inventory-tables";
 
 export async function browserDb<T>(run: (db: Db) => Promise<T>) {
   const client = postgres(assertTestDatabaseUrl(process.env.DATABASE_URL), {
@@ -62,7 +63,7 @@ export async function resetBrowserDatabase(sections: Section[]) {
       ),
     );
     await db
-      .insert(s.inventorySections)
+      .insert(s.inventoryLocations)
       .values(
         sections.map((row, sortOrder) => ({
           id: row.id,
@@ -145,9 +146,7 @@ export async function seedRecords(
 export async function seedInventory(seed: { items?: InventoryItem[] } = {}) {
   await browserDb(async (db) => {
     for (const row of seed.items ?? []) {
-      await db
-        .insert(s.inventoryItems)
-        .values({
+      await insertItems(db, {
           id: row.id,
           kind: row.kind,
           subtype: row.subtype,

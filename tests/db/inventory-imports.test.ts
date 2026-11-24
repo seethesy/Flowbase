@@ -7,9 +7,9 @@ import * as schema from "../../worker/db/schema";
 import {
   importKeys,
   inventoryConsumableDetails,
-  inventoryItems,
+  allInventoryItems,
   inventoryRentalDetails,
-  inventorySections,
+  inventoryLocations,
   inventoryStock,
   stockMovements,
   vendors,
@@ -112,16 +112,16 @@ async function runImport(module: string, rows: ImportRow[], fileName: string) {
 }
 
 const itemNamed = async (name: string) => {
-  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.name, name));
+  const [item] = await db.select().from(allInventoryItems).where(eq(allInventoryItems.name, name));
   expect(item, `item ${name}`).toBeDefined();
   return item;
 };
 const stockOf = async (name: string) => {
   const item = await itemNamed(name);
   const levels = await db
-    .select({ section: inventorySections.name, quantity: inventoryStock.quantity })
+    .select({ section: inventoryLocations.name, quantity: inventoryStock.quantity })
     .from(inventoryStock)
-    .innerJoin(inventorySections, eq(inventorySections.id, inventoryStock.sectionId))
+    .innerJoin(inventoryLocations, eq(inventoryLocations.id, inventoryStock.sectionId))
     .where(eq(inventoryStock.itemId, item.id));
   return levels.filter((level) => level.quantity !== 0);
 };
@@ -151,7 +151,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table import_keys, import_logs, audit_log, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, vendors, jobs cascade`,
+    sql`truncate table import_keys, import_logs, audit_log, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, inventory_locations, vendors, jobs cascade`,
   );
   await restoreDefaultSections(client);
 });
@@ -179,7 +179,7 @@ describe("Master Inventory importer (FLOW-78)", () => {
     expect(plans).toHaveLength(rows.length);
     expect(plans.filter((plan) => plan.action === "error")).toEqual([]);
     expect(plans.every((plan) => plan.action === "create" && plan.summary)).toBe(true);
-    expect(await db.select().from(inventoryItems)).toHaveLength(0);
+    expect(await db.select().from(allInventoryItems)).toHaveLength(0);
     expect(await db.select().from(vendors)).toHaveLength(0);
   });
 
@@ -204,15 +204,15 @@ describe("Master Inventory importer (FLOW-78)", () => {
     expect(rental.vendorId).toBeNull();
 
     const sternos = await itemNamed("Sternos - sample pack");
-    expect(sternos).toMatchObject({ kind: "consumable", subtype: "supply", description: "72 pk\nLocation: Warehouse" });
+    expect(sternos).toMatchObject({ kind: "consumable", subtype: "supply", description: "72 pk" });
     expect(sternos.flags).toEqual(["needs_cost"]);
-    expect(await stockOf("Sternos - sample pack")).toEqual([{ section: "Supplies", quantity: 1 }]);
+    expect(await stockOf("Sternos - sample pack")).toEqual([{ section: "Warehouse", quantity: 1 }]);
 
     expect((await itemNamed("Menu Card Design")).kind).toBe("service");
     expect(await stockOf("Menu Card Design")).toEqual([]);
     for (const variant of ["wireless", "wired", "clip-on"])
       expect((await itemNamed(`Sample Microphone – ${variant}`)).kind).toBe("rental");
-    expect(await db.select().from(inventoryItems).where(eq(inventoryItems.name, "Sample Cutting Board"))).toHaveLength(1);
+    expect(await db.select().from(allInventoryItems).where(eq(allInventoryItems.name, "Sample Cutting Board"))).toHaveLength(1);
 
     const fork = await itemNamed("Sample Plastic Fork");
     expect(fork.flags).toEqual(["needs_count"]);
@@ -222,10 +222,12 @@ describe("Master Inventory importer (FLOW-78)", () => {
     expect(loose).toMatchObject({ category: "Uncategorized", pullOwner: null });
     expect(loose.flags).toEqual(["confirm_location", "needs_category", "needs_cost", "needs_count"]);
 
-    // Storage Box is created as a rental section when the file needs it.
-    const [box] = await db.select().from(inventorySections).where(eq(inventorySections.name, "Storage Box"));
-    expect(box.kind).toBe("rental");
+    // Storage Box is one of the default locations (FLOW-289).
+    const [box] = await db.select().from(inventoryLocations).where(eq(inventoryLocations.name, "Storage Box"));
+    expect(box.kind).toBe("location");
     expect(await stockOf("Sample Padded Chair")).toEqual([{ section: "Warehouse", quantity: 3 }]);
+    // The sheet's "Jamie's" is Jamie's - Main Floor, never a new location (Ash, 2026-11-23).
+    expect(await db.select().from(inventoryLocations).where(eq(inventoryLocations.name, "Jamie's"))).toEqual([]);
   });
 
   it("changes nothing when the file is imported again (AC4)", async () => {
@@ -233,7 +235,7 @@ describe("Master Inventory importer (FLOW-78)", () => {
     await runImport("master_inventory", rows, "Main.csv");
     const [movements, items, keys] = [
       await db.select().from(stockMovements),
-      await db.select().from(inventoryItems),
+      await db.select().from(allInventoryItems),
       await db.select().from(importKeys),
     ];
     const plans = await dryRun("master_inventory", rows);
@@ -241,7 +243,7 @@ describe("Master Inventory importer (FLOW-78)", () => {
     const { log } = await runImport("master_inventory", rows, "Main.csv");
     expect(log).toMatchObject({ created: 0, updated: 0, skipped: rows.length, failed: 0 });
     expect(await db.select().from(stockMovements)).toEqual(movements);
-    expect(await db.select().from(inventoryItems)).toEqual(items);
+    expect(await db.select().from(allInventoryItems)).toEqual(items);
     expect(await db.select().from(importKeys)).toHaveLength(keys.length);
   });
 
@@ -299,7 +301,7 @@ describe("Bar Inventory importer (FLOW-91)", () => {
     expect(plans.find((plan) => plan.rowNumber === 4)?.notes).toEqual([
       "Suggested spelling: Coors Lite → Coors Light.",
     ]);
-    expect(await db.select().from(inventoryItems)).toHaveLength(0);
+    expect(await db.select().from(allInventoryItems)).toHaveLength(0);
   });
 
   it("imports bar stock with its category, subcategory, tier, pack and opening count", async () => {
@@ -309,14 +311,14 @@ describe("Bar Inventory importer (FLOW-91)", () => {
     const lager = await itemNamed("Sample Lager");
     expect(lager).toMatchObject({ kind: "consumable", subtype: "bar", category: "Beer", unit: "case" });
     expect(await consumableOf("Sample Lager")).toMatchObject({ purchaseUnit: "case", packCount: 24 });
-    expect(await stockOf("Sample Lager")).toEqual([{ section: "Bar Storage", quantity: 4 }]);
+    expect(await stockOf("Sample Lager")).toEqual([{ section: "Warehouse", quantity: 4 }]);
 
     expect(await itemNamed("Sample Mid Vodka")).toMatchObject({ category: "Liquor", tier: "mid" });
     expect((await itemNamed("Sample Mid Vodka")).description).toContain("Tier: mid/high");
-    expect(await stockOf("Sample Mid Vodka")).toEqual([{ section: "Bar Storage", quantity: 3.25 }]);
-    expect(await stockOf("Sample Bubbles")).toEqual([{ section: "Bar Storage", quantity: 3 }]);
-    expect(await stockOf("Sample Cabernet")).toEqual([{ section: "Bar Storage", quantity: 2 }]);
-    expect(await stockOf("Sample Cranberry")).toEqual([{ section: "Bar Storage", quantity: 3 }]);
+    expect(await stockOf("Sample Mid Vodka")).toEqual([{ section: "Warehouse", quantity: 3.25 }]);
+    expect(await stockOf("Sample Bubbles")).toEqual([{ section: "Warehouse", quantity: 3 }]);
+    expect(await stockOf("Sample Cabernet")).toEqual([{ section: "Warehouse", quantity: 2 }]);
+    expect(await stockOf("Sample Cranberry")).toEqual([{ section: "Warehouse", quantity: 3 }]);
     expect(await consumableOf("Sample Cranberry")).toMatchObject({ purchaseUnit: "each", eachSizeQuantity: 64, eachSizeUnit: "fl_oz" });
 
     // Unreadable counts import as 0 with the text kept.
@@ -326,7 +328,7 @@ describe("Bar Inventory importer (FLOW-91)", () => {
     expect(await stockOf("Sample Cola")).toEqual([]);
 
     // The same name under two liquor types is two items.
-    expect(await db.select().from(inventoryItems).where(eq(inventoryItems.name, "Sample Rail Vodka"))).toHaveLength(2);
+    expect(await db.select().from(allInventoryItems).where(eq(allInventoryItems.name, "Sample Rail Vodka"))).toHaveLength(2);
   });
 
   it("links the wines to Impero Wine Distributors (AC2)", async () => {
@@ -347,13 +349,13 @@ describe("Bar Inventory importer (FLOW-91)", () => {
     await runImport("bar_inventory", rows, "Master Sheet.csv");
     const before = {
       movements: await db.select().from(stockMovements),
-      items: await db.select().from(inventoryItems),
+      items: await db.select().from(allInventoryItems),
     };
     expect((await dryRun("bar_inventory", rows)).map((plan) => plan.action)).toEqual(rows.map(() => "skip"));
     const { log } = await runImport("bar_inventory", rows, "Master Sheet.csv");
     expect(log).toMatchObject({ created: 0, updated: 0, skipped: rows.length, failed: 0 });
     expect(await db.select().from(stockMovements)).toEqual(before.movements);
-    expect(await db.select().from(inventoryItems)).toEqual(before.items);
+    expect(await db.select().from(allInventoryItems)).toEqual(before.items);
   });
 
   it("reports a count that breaks the rounding rule as a failed row", async () => {

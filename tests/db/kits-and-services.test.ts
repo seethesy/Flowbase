@@ -16,6 +16,7 @@ import type { Closeout } from "../../shared/closeout";
 import type { PullList } from "../../shared/pull-list";
 import type { ProposalMapping } from "../../shared/proposal-mapping";
 import type { Conflict, ItemAvailability, Reservation } from "../../shared/reservations";
+import { insertItems, deleteItems } from "../fixtures/inventory-tables";
 
 // Kits, services and supplies in event workflows (FLOW-212, FLOW-213, FLOW-214)
 // against the real database: holds, conflicts, pull lists, closeout, task templates
@@ -76,7 +77,7 @@ const clean = async () => {
     await db.delete(schema.inventoryRentalDetails).where(inArray(schema.inventoryRentalDetails.itemId, made.items));
     await db.delete(schema.inventoryConsumableDetails).where(inArray(schema.inventoryConsumableDetails.itemId, made.items));
     await db.delete(schema.inventoryServiceDetails).where(inArray(schema.inventoryServiceDetails.itemId, made.items));
-    await db.delete(schema.inventoryItems).where(inArray(schema.inventoryItems.id, made.items));
+    await deleteItems(db, made.items);
   }
   made.items = [];
 };
@@ -86,30 +87,30 @@ afterAll(async () => {
   await client.end();
 });
 
-const section = async (kind: "rental" | "consumable") => {
+const section = async (kind: "location" | "storage") => {
   const [row] = await db
     .select()
-    .from(schema.inventorySections)
-    .where(and(eq(schema.inventorySections.kind, kind), isNull(schema.inventorySections.archivedAt), sql`${schema.inventorySections.name} <> 'Vendor'`))
+    .from(schema.inventoryLocations)
+    .where(and(eq(schema.inventoryLocations.kind, kind), isNull(schema.inventoryLocations.archivedAt), sql`${schema.inventoryLocations.name} <> 'Vendor'`))
     .limit(1);
   return row;
 };
 const rental = async (name: string, subtype: string, stock: number, components: { itemId: string; quantity: number }[] = []) => {
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "rental", subtype, name }).returning();
+  const [item] = await insertItems(db, { kind: "rental", subtype, name });
   made.items.push(item.id);
   await db.insert(schema.inventoryRentalDetails).values({ itemId: item.id, components });
-  if (stock) await db.insert(schema.inventoryStock).values({ itemId: item.id, sectionId: (await section("rental")).id, quantity: stock });
+  if (stock) await db.insert(schema.inventoryStock).values({ itemId: item.id, sectionId: (await section("location")).id, quantity: stock });
   return item;
 };
 const consumable = async (name: string, stock: number, parLevel: number | null = null) => {
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "supply", name, unit: "each" }).returning();
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "supply", name, unit: "each" });
   made.items.push(item.id);
   await db.insert(schema.inventoryConsumableDetails).values({ itemId: item.id, purchaseUnit: "each", parLevel });
-  if (stock) await db.insert(schema.inventoryStock).values({ itemId: item.id, sectionId: (await section("consumable")).id, quantity: stock });
+  if (stock) await db.insert(schema.inventoryStock).values({ itemId: item.id, sectionId: (await section("location")).id, quantity: stock });
   return item;
 };
 const service = async (name: string, includes: { itemId: string; quantity: number; basis: "per_guest" | "per_event" }[]) => {
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "service", name }).returning();
+  const [item] = await insertItems(db, { kind: "service", name });
   made.items.push(item.id);
   await db.insert(schema.inventoryServiceDetails).values({ itemId: item.id, includes });
   return item;

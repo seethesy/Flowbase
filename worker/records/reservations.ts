@@ -21,10 +21,11 @@ import { alias } from "drizzle-orm/pg-core";
 import {
   eventRequirements,
   events,
-  inventoryItems,
+  allInventoryItems,
   inventoryRentalDetails,
   reservationConflicts,
   reservations,
+  masterInventoryItems,
 } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import {
@@ -84,9 +85,9 @@ async function visibleEventInfo(db: DbLike, actor: Actor, eventIds: string[]) {
 async function itemNames(db: DbLike, itemIds: string[]) {
   if (!itemIds.length) return new Map<string, string>();
   const rows = await db
-    .select({ id: inventoryItems.id, name: inventoryItems.name })
-    .from(inventoryItems)
-    .where(inArray(inventoryItems.id, itemIds));
+    .select({ id: allInventoryItems.id, name: allInventoryItems.name })
+    .from(allInventoryItems)
+    .where(inArray(allInventoryItems.id, itemIds));
   return new Map(rows.map((row) => [row.id, row.name]));
 }
 
@@ -190,13 +191,14 @@ export async function eventReservations(
 async function lockRentalItem(tx: DbLike, itemId: string) {
   const [item] = await tx
     .select({
-      id: inventoryItems.id,
-      kind: inventoryItems.kind,
-      active: inventoryItems.active,
-      archivedAt: inventoryItems.archivedAt,
+      id: masterInventoryItems.id,
+      kind: masterInventoryItems.kind,
+      active: masterInventoryItems.active,
+      archivedAt: masterInventoryItems.archivedAt,
     })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, itemId))
+    // Rentals are Master items (FLOW-289).
+    .from(masterInventoryItems)
+    .where(eq(masterInventoryItems.id, itemId))
     .for("update");
   if (!item) throw new ApiError(400, "INVALID_REQUEST", "Choose an existing item.");
   if (item.kind !== "rental")
@@ -597,9 +599,9 @@ export async function itemAvailability(
   to: string,
 ): Promise<ItemAvailability> {
   const [item] = await db
-    .select({ id: inventoryItems.id, kind: inventoryItems.kind })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, itemId));
+    .select({ id: allInventoryItems.id, kind: allInventoryItems.kind })
+    .from(allInventoryItems)
+    .where(eq(allInventoryItems.id, itemId));
   if (!item) throw notFound("Item");
   if (item.kind !== "rental")
     throw new ApiError(400, "INVALID_REQUEST", "Availability by date is tracked for rental items.");
@@ -843,9 +845,9 @@ export async function resolveConflict(
     // Items are locked in id order, so two resolutions can't deadlock.
     for (const itemId of [found.itemId, ...(targetId ? [targetId] : [])].sort())
       await tx
-        .select({ id: inventoryItems.id })
-        .from(inventoryItems)
-        .where(eq(inventoryItems.id, itemId))
+        .select({ id: masterInventoryItems.id })
+        .from(masterInventoryItems)
+        .where(eq(masterInventoryItems.id, itemId))
         .for("update");
     const [conflict] = await tx
       .select()

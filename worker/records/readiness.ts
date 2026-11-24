@@ -7,7 +7,7 @@ import type { readinessResponseSchema } from "../../shared/readiness";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
 import { businessDefaultsSchema } from "../../shared/settings";
 import type { Db, DbLike } from "../db/client";
-import { eventShifts, eventStaffSlots, events, inventoryItems, kitchenMenuLines, kitchenMenus, pullListLines, pullLists, readinessResponses, recipes, settings, taskAssignees, tasks, truckAssignments, trucks } from "../db/schema";
+import { eventShifts, eventStaffSlots, events, allInventoryItems, kitchenMenuLines, kitchenMenus, pullListLines, pullLists, readinessResponses, recipes, settings, taskAssignees, tasks, truckAssignments, trucks } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { visibleEvents } from "./events";
 import { eventProposalLines } from "./pull-list";
@@ -46,8 +46,8 @@ export async function getReadiness(db: DbLike, actor: Actor, eventId: string, no
   ]);
   const pull = pullRows[0];
   const pullLines = pull ? await db.select({ id: pullListLines.id, name: pullListLines.name, quantity: pullListLines.quantity,
-    ratio: inventoryItems.ratioQuantity, basis: inventoryItems.ratioBasis })
-    .from(pullListLines).leftJoin(inventoryItems, eq(inventoryItems.id, pullListLines.itemId))
+    ratio: allInventoryItems.ratioQuantity, basis: allInventoryItems.ratioBasis })
+    .from(pullListLines).leftJoin(allInventoryItems, eq(allInventoryItems.id, pullListLines.itemId))
     .where(and(eq(pullListLines.pullListId, pull.id), isNull(pullListLines.archivedAt))) : [];
   const taskMap = new Map<string, ReadinessFacts["tasks"][number]>();
   for (const row of taskRows) {

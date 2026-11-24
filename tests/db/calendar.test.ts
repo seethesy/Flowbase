@@ -13,6 +13,7 @@ import type { Client, EventInput, FlowEvent } from "../../shared/core-records";
 import type { EventHub } from "../../shared/event-hub";
 import type { EventRoster, ShiftInput } from "../../shared/event-staff";
 import type { Task, TaskInput, TaskSummary } from "../../shared/tasks";
+import { insertItems, deleteItems } from "../fixtures/inventory-tables";
 
 // Basic calendar (FLOW-63), its overview mode (FLOW-64) and layers (FLOW-67), and
 // the event hub's tasks and history sections (FLOW-166) against Postgres.
@@ -94,7 +95,7 @@ const items: string[] = [];
 afterAll(async () => {
   await db.execute(tables);
   if (items.length)
-    await db.delete(schema.inventoryItems).where(inArray(schema.inventoryItems.id, items));
+    await deleteItems(db, items);
   await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
 });
@@ -374,10 +375,7 @@ describe("calendar overview mode (FLOW-64)", () => {
 
 describe("calendar layers (FLOW-67)", () => {
   const rental = async (name: string) => {
-    const [item] = await db
-      .insert(schema.inventoryItems)
-      .values({ kind: "rental", name, unit: "each" })
-      .returning();
+    const [item] = await insertItems(db, { kind: "rental", name, unit: "each" });
     items.push(item.id);
     return item.id;
   };

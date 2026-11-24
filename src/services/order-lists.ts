@@ -6,6 +6,9 @@ export const orderListsApi = {
   get: (id: string) => request(orderListSchema, `/api/order-lists/${id}`),
   create: (from: string, to: string) => request(orderListSchema, "/api/order-lists", "POST", { from, to }),
   update: (id: string, lines: OrderLine[]) => request(orderListSchema, `/api/order-lists/${id}`, "PUT", { lines }),
+  // The Order tab's Add to order list (FLOW-292): onto the newest draft list.
+  addToDraft: (itemIds: string[]) =>
+    request(orderListSchema, "/api/order-lists/draft/lines", "POST", { itemIds }),
   submit: (id: string) => request(orderListSchema, `/api/order-lists/${id}/submit`, "POST", {}),
   // Ordering record (FLOW-87) and receiving (FLOW-88).
   recordOrder: (id: string, input: RecordOrderInput) =>

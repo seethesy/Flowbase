@@ -7,9 +7,14 @@ import { requirePermission } from "../auth";
 import { ApiError, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../hono";
 import { loadMatrix, saveMatrix } from "../records/permissions";
 import { loadNavHidden, saveNavHidden } from "../records/nav-visibility";
+import { normalizeNavHidden, type NavHidden } from "../../shared/nav-visibility";
 
 // Every sidebar heading and tab key (FLOW-284), from the live-edit manifest.
 const navKeys = new Set((manifestJson as { nav: string[] }).nav);
+// A saved key for a tab that was since removed (e.g. Inventory › Purchasing,
+// FLOW-291) is left out, so the Admin's next save isn't refused for it.
+const onlyKnown = (hidden: NavHidden): NavHidden =>
+  normalizeNavHidden(Object.fromEntries(Object.entries(hidden).map(([role, keys]) => [role, keys.filter((key) => navKeys.has(key))])));
 
 // Roles and permissions (FLOW-269). Everyone signed in reads the matrix, because
 // the browser evaluates the same policy to show or hide screens; only users.manage
@@ -32,7 +37,7 @@ export function permissionRoutes(options: { withDb?: RunWithDb }) {
   // reads it, because the browser builds the sidebar from it; only Admin saves.
   // It only hides navigation: the API above still answers by area.
   routes.get("/navigation", requirePermission("auth.read"), async (c) =>
-    c.json({ hidden: await record(c, (db) => loadNavHidden(db)) }));
+    c.json({ hidden: onlyKnown(await record(c, (db) => loadNavHidden(db))) }));
   routes.put("/navigation", requirePermission("users.manage"), async (c) => {
     const { hidden } = await parseBody(c, navVisibilitySchema);
     const problem = navHiddenProblem(hidden, navKeys);

@@ -17,7 +17,7 @@ import { writeAudit } from "../audit/log";
 import type { DbLike } from "../db/client";
 import {
   inventoryConsumableDetails,
-  inventoryItems,
+  allInventoryItems, allInventoryItemFields,
   orderLists,
   vendorOrders,
 } from "../db/schema";
@@ -281,10 +281,10 @@ export async function receiveVendorOrder(
 
   const itemIds = rows.map((row) => row.itemId);
   const items = await tx
-    .select({ item: inventoryItems, detail: inventoryConsumableDetails })
-    .from(inventoryItems)
-    .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, inventoryItems.id))
-    .where(inArray(inventoryItems.id, itemIds));
+    .select({ item: allInventoryItemFields, detail: inventoryConsumableDetails })
+    .from(allInventoryItems)
+    .innerJoin(inventoryConsumableDetails, eq(inventoryConsumableDetails.itemId, allInventoryItems.id))
+    .where(inArray(allInventoryItems.id, itemIds));
   const byId = new Map(items.map((row) => [row.item.id, row]));
   const reason = `Received order ${order.portalOrderNumber} from ${order.vendorName}`;
   for (const row of rows) {

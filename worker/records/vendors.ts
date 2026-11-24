@@ -28,7 +28,7 @@ import { fullView, listHistoryPage, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
 import {
   inventoryConsumableDetails,
-  inventoryItems,
+  allInventoryItems,
   inventoryRentalDetails,
   vendorContacts,
   vendors,
@@ -142,18 +142,18 @@ export async function vendorItems(
 ): Promise<VendorItem[]> {
   const rows = await db
     .select({
-      id: inventoryItems.id,
-      name: inventoryItems.name,
-      code: inventoryItems.code,
-      kind: inventoryItems.kind,
-      subtype: inventoryItems.subtype,
+      id: allInventoryItems.id,
+      name: allInventoryItems.name,
+      code: allInventoryItems.code,
+      kind: allInventoryItems.kind,
+      subtype: allInventoryItems.subtype,
       subRental: sql<boolean>`coalesce(${inventoryRentalDetails.vendorId} = ${vendorId}, false)`,
     })
-    .from(inventoryItems)
+    .from(allInventoryItems)
     .leftJoin(
       inventoryRentalDetails,
       and(
-        eq(inventoryRentalDetails.itemId, inventoryItems.id),
+        eq(inventoryRentalDetails.itemId, allInventoryItems.id),
         or(
           eq(inventoryRentalDetails.vendorId, vendorId),
           eq(inventoryRentalDetails.supplierId, vendorId),
@@ -163,20 +163,20 @@ export async function vendorItems(
     .leftJoin(
       inventoryConsumableDetails,
       and(
-        eq(inventoryConsumableDetails.itemId, inventoryItems.id),
+        eq(inventoryConsumableDetails.itemId, allInventoryItems.id),
         eq(inventoryConsumableDetails.preferredVendorId, vendorId),
       ),
     )
     .where(
       and(
-        isNull(inventoryItems.archivedAt),
+        isNull(allInventoryItems.archivedAt),
         or(
           isNotNull(inventoryRentalDetails.itemId),
           isNotNull(inventoryConsumableDetails.itemId),
         ),
       ),
     )
-    .orderBy(asc(inventoryItems.name), asc(inventoryItems.id));
+    .orderBy(asc(allInventoryItems.name), asc(allInventoryItems.id));
   return rows.map(({ subRental, ...item }) => ({
     ...item,
     relation: subRental ? ("sub_rental" as const) : ("supplies" as const),

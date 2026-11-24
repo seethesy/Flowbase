@@ -87,21 +87,17 @@ export const navigationGroups: NavGroup[] = [
     copyId: "inventory",
     name: "Inventory",
     tabs: [
-      { copyId: "inventory", name: "Inventory", to: "/inventory", also: ["/kitchen/orders"], visible: "inventory.read" },
-      // Bar stock has its own tab (FLOW-266); its address stays /inventory/bar.
-      { copyId: "bar", name: "Bar", to: "/inventory/bar", visible: "inventory.read" },
-      // Order lists live under Purchasing (FLOW-266).
-      { copyId: "purchasing", name: "Purchasing", to: "/purchasing", also: ["/inventory/orders"], visible: "inventory.read" },
+      // FLOW-291: Inventory | Bar Inventory | Order | Vendors (and Photos, FLOW-298).
+      { copyId: "inventory", name: "Inventory", to: "/inventory", visible: "inventory.read" },
+      // Bar stock's tab keeps its address, /inventory/bar, and its key "bar"
+      // (saved wording and who sees it, FLOW-284) now it reads Bar Inventory.
+      { copyId: "bar", name: "Bar Inventory", to: "/inventory/bar", visible: "inventory.read" },
+      // Ordering (FLOW-292): order lists, approvals and what needs reordering.
+      // Replaces Purchasing and Low stock.
+      { copyId: "order", name: "Order", to: "/inventory/order", also: ["/inventory/orders"], visible: "inventory.read" },
       { copyId: "vendors", name: "Vendors", to: "/vendors", visible: "vendors.read" },
       // Inventory photos (FLOW-298).
       { copyId: "photos", name: "Photos", to: "/inventory/photos", visible: "inventory.read" },
-      // Each importer needs its own permission (FLOW-47): inventory or leads.
-      {
-        copyId: "imports",
-        name: "Imports",
-        to: "/imports",
-        visible: (actor) => can(actor, "inventory.write") || can(actor, "leads.update"),
-      },
     ],
   },
   {
@@ -111,7 +107,8 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "overview", name: "Overview", to: "/kitchen/overview", visible: (actor) => can(actor, "events.read") && can(actor, "recipes.read") },
       { copyId: "recipes", name: "Recipes", to: "/recipes", visible: "recipes.read" },
-      { copyId: "ingredients", name: "Ingredients", to: "/inventory/ingredients", visible: "inventory.read" },
+      // Kitchen Ingredients (FLOW-289/291) are only under Kitchen.
+      { copyId: "ingredients", name: "Ingredients", to: "/kitchen/ingredients", visible: "recipes.read" },
       // Every menu PDF (FLOW-267): Documents of type Menu and the client recipe book.
       { copyId: "menus", name: "Menus", to: "/kitchen/menus", visible: "recipes.read" },
       // Kitchen photos (FLOW-298).
@@ -154,14 +151,9 @@ const subPages: Record<string, NavLabel> = {
   "/tasks/templates": { copyId: "templates", label: "Templates" },
   "/sops/new": { copyId: "new-sop", label: "New SOP" },
   "/sales/reports": { copyId: "sales-reports", label: "Sales reports" },
-  "/inventory/master": { copyId: "master-inventory", label: "Master inventory" },
   "/inventory/orders": { copyId: "order-lists", label: "Order lists" },
-  "/inventory/bar": { copyId: "bar", label: "Bar" },
-  "/inventory/supplies": { copyId: "supplies", label: "Supplies" },
-  "/inventory/low-stock": { copyId: "low-stock", label: "Low stock" },
-  "/inventory/counts": { copyId: "stock-counts", label: "Stock counts" },
-  "/inventory/sections": { copyId: "sections", label: "Sections" },
-  "/kitchen/orders": { copyId: "kitchen-orders", label: "Kitchen orders" },
+  "/settings/locations": { copyId: "locations", label: "Locations" },
+  "/settings/imports": { copyId: "imports", label: "Imports" },
   "/recipes/client": { copyId: "client-recipe-book", label: "Client recipe book" },
   "/settings/users": { copyId: "users", label: "Users" },
   "/settings/permissions": { copyId: "roles-permissions", label: "Roles & permissions" },
@@ -210,6 +202,9 @@ const recordBases: Record<string, RecordKind | NavLabel> = {
   "/inventory/orders": { copyId: "order-list", label: "Order list" },
   "/imports": { copyId: "import", label: "Import" },
 };
+// Path segments with no page of their own: count mode (/inventory/counts/:id)
+// sits under Inventory now the Counts list is gone (FLOW-291).
+const passThrough = new Set(["/inventory/counts"]);
 // Pages below a record, e.g. an event's BEO.
 const recordChildren: Record<string, NavLabel> = { beo: { copyId: "beo", label: "BEO" } };
 
@@ -242,7 +237,7 @@ const owns = (prefix: string, pathname: string) =>
 
 export type NavMatch = { group: NavGroup; tab: NavTab; prefix: string };
 // The heading and tab a URL belongs to: the longest owned prefix wins, so
-// /inventory/ingredients is Kitchen › Ingredients, not Inventory. A page under
+// /inventory/orders/<id> is Inventory › Order, not Inventory. A page under
 // two headings goes to `preferredGroup` (the heading it was opened from), and
 // otherwise to the first heading.
 export function matchNavigation(pathname: string, preferredGroup?: string): NavMatch | null {
@@ -316,8 +311,8 @@ export function breadcrumbTrail(
   for (let index = 0; index < rest.length; index += 1) {
     const segment = rest[index];
     const next = `${base}/${segment}`;
-    if (subPages[next]) {
-      crumbs.push({ ...subPages[next], to: next });
+    if (subPages[next] || passThrough.has(next)) {
+      if (subPages[next]) crumbs.push({ ...subPages[next], to: next });
       base = next;
       continue;
     }

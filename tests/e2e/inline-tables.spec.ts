@@ -83,7 +83,7 @@ test("Inventory, Ingredient and Bar tables save inline item names", async ({ pag
   ] });
   for (const [path, before, after] of [
     ["/inventory", "Chiavari Chair", "Banquet Chair"],
-    ["/inventory/ingredients", "Synthetic herb", "Synthetic basil"],
+    ["/kitchen/ingredients", "Synthetic herb", "Synthetic basil"],
     ["/inventory/bar", "Synthetic spirit", "Synthetic vodka"],
   ]) {
     await page.goto(`/#${path}`);
@@ -187,7 +187,7 @@ test("Inventory, Ingredient and Bar tables save the remaining item fields inline
   await page.reload();
   await expect(await cellOf(page, /Chiavari Chair/, "Group")).toHaveText("Ballroom chairs");
 
-  await page.goto("/#/inventory/ingredients");
+  await page.goto("/#/kitchen/ingredients");
   await pickInline(page, (await cellOf(page, /Synthetic herb/, "Recipe unit")).getByRole("button"), "tbsp", "/api/inventory/items/");
   await page.reload();
   await expect(await cellOf(page, /Synthetic herb/, "Recipe unit")).toHaveText("tbsp");
@@ -269,7 +269,7 @@ test("Purchasing saves an order line's note on blur", async ({ page }) => {
 // FLOW-275: how an ingredient is bought, saved inline and still there after a reload.
 test("Ingredients save how an item is bought inline", async ({ page }) => {
   await seedInventory({ items: [consumable("Synthetic thyme", { details: { purchaseUnit: "each", packCount: null } })] });
-  await page.goto("/#/inventory/ingredients");
+  await page.goto("/#/kitchen/ingredients");
   // A case needs its pack count first.
   await (await cellOf(page, /Synthetic thyme/, "Pack count")).getByRole("button").click();
   await page.locator("tbody tr input.table-edit-input").fill("6");

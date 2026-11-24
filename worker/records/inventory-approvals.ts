@@ -4,8 +4,8 @@ import { inventoryChangeSchema, type InventoryChange } from "../../shared/invent
 import { itemInputSchema } from "../../shared/inventory";
 import { writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { approvalRequests, inventoryItems, inventoryRentalDetails,
-  inventorySections, inventoryServiceDetails, inventoryStock, users } from "../db/schema";
+import { approvalRequests, masterInventoryItems, inventoryRentalDetails,
+  inventoryLocations, inventoryServiceDetails, inventoryStock, users } from "../db/schema";
 import { ApiError, forbidden, notFound } from "../hono";
 import { emitDomainEvent } from "../jobs/queue";
 import { can } from "../policy";
@@ -28,8 +28,10 @@ const subject = {
   approverRole: "admin" as const,
   async readFields(tx: DbLike, _subjectId: string, fields: string[]) {
     const ids = [...new Set(fields.map((field) => parts(field).itemId).filter(Boolean))].sort();
-    const rows = ids.length ? await tx.select().from(inventoryItems)
-      .where(inArray(inventoryItems.id, ids)).orderBy(inventoryItems.id).for("update") : [];
+    // Master approvals change rentals and services only, so the rows are Master's
+    // (FLOW-289); an id from another list reads as missing.
+    const rows = ids.length ? await tx.select().from(masterInventoryItems)
+      .where(inArray(masterInventoryItems.id, ids)).orderBy(masterInventoryItems.id).for("update") : [];
     const byId = new Map(rows.map((row) => [row.id, row]));
     if (rows.length !== ids.length) return null;
     const result: Record<string, unknown> = {};
@@ -102,12 +104,12 @@ const subject = {
           await tx.update(inventoryServiceDetails).set({ priceCents: value as number | null, updatedBy: actor.userId,
             updatedAt: new Date() }).where(eq(inventoryServiceDetails.itemId, itemId));
         }
-        await tx.update(inventoryItems).set({ updatedAt: new Date(), updatedBy: actor.userId })
-          .where(eq(inventoryItems.id, itemId));
+        await tx.update(masterInventoryItems).set({ updatedAt: new Date(), updatedBy: actor.userId })
+          .where(eq(masterInventoryItems.id, itemId));
       } else if (type === "field" && ["name", "description", "category", "group"].includes(extra)) {
         if (typeof value !== "string") throw new ApiError(400, "INVALID_REQUEST", "Invalid item field.");
-        await tx.update(inventoryItems).set({ [extra]: value, updatedBy: actor.userId,
-          updatedAt: new Date() }).where(eq(inventoryItems.id, itemId));
+        await tx.update(masterInventoryItems).set({ [extra]: value, updatedBy: actor.userId,
+          updatedAt: new Date() }).where(eq(masterInventoryItems.id, itemId));
       } else throw new ApiError(400, "INVALID_REQUEST", "Invalid inventory change.");
       await writeAudit(tx, actor, { entityType: "inventory_item", entityId: itemId,
         action: "update",
@@ -143,9 +145,9 @@ export async function submitInventoryChanges(db: Db, actor: Actor, changes: Inve
         if (change.type === "quantity" && item.kind !== "rental")
           throw new ApiError(400, "INVALID_REQUEST", "Only rentals have stock quantity.");
         if (change.type === "quantity") {
-          const [section] = await tx.select({ kind: inventorySections.kind }).from(inventorySections)
-            .where(and(eq(inventorySections.id, change.sectionId), isNull(inventorySections.archivedAt)));
-          if (!section || section.kind !== "rental") throw notFound("Rental section");
+          const [section] = await tx.select({ kind: inventoryLocations.kind }).from(inventoryLocations)
+            .where(and(eq(inventoryLocations.id, change.sectionId), isNull(inventoryLocations.archivedAt)));
+          if (!section || section.kind !== "location") throw notFound("Location");
         }
       }
     }

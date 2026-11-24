@@ -24,7 +24,7 @@ import {
 import type { Unit } from "../../shared/units";
 import { fullView, listHistory, maskField, writeAudit } from "../audit/log";
 import type { Db, DbLike } from "../db/client";
-import { attachments, inventoryItems, recipeLines, recipes } from "../db/schema";
+import { attachments, allInventoryItems, recipeLines, recipes } from "../db/schema";
 import { fileStorage } from "../attachments/storage";
 import type { Bindings } from "../bindings";
 import { ApiError, forbidden, notFound } from "../hono";
@@ -67,8 +67,8 @@ async function ingredientsOf(
   if (!ids.length) return new Map();
   const rows = await db
     .select()
-    .from(inventoryItems)
-    .where(inArray(inventoryItems.id, ids));
+    .from(allInventoryItems)
+    .where(inArray(allInventoryItems.id, ids));
   const items = await toItems(db, fullView, rows);
   return new Map(
     items.map((item) => [item.id, { ...item, archived: !!item.archivedAt }]),
@@ -186,7 +186,7 @@ export async function listRecipes(
         filter.category ? eq(recipes.category, filter.category) : undefined,
         filter.search ? or(
           ilike(recipes.name, `%${filter.search}%`),
-          sql`exists (select 1 from ${recipeLines} inner join ${inventoryItems} on ${inventoryItems.id} = ${recipeLines.itemId} where ${recipeLines.recipeId} = ${recipes.id} and ${recipeLines.archivedAt} is null and ${inventoryItems.name} ilike ${`%${filter.search}%`})`,
+          sql`exists (select 1 from ${recipeLines} inner join ${allInventoryItems} on ${allInventoryItems.id} = ${recipeLines.itemId} where ${recipeLines.recipeId} = ${recipes.id} and ${recipeLines.archivedAt} is null and ${allInventoryItems.name} ilike ${`%${filter.search}%`})`,
         ) : undefined,
         filter.allergen ? sql`${recipes.allergens} @> ${JSON.stringify([filter.allergen])}::jsonb` : undefined,
         filter.dietaryTag ? sql`${recipes.dietaryTags} @> ${JSON.stringify([filter.dietaryTag])}::jsonb` : undefined,
@@ -302,7 +302,7 @@ export async function recipeHistory(db: DbLike, actor: Actor, id: string) {
 const invalid = (message: string) =>
   new ApiError(400, "INVALID_REQUEST", message);
 
-// Every line uses a catalog ingredient (FLOW-81). An archived ingredient can stay
+// Every line uses a catalog consumable (FLOW-81, FLOW-169): kitchen, bar or supply. An archived one can stay
 // on a line that already had it but can't be added.
 async function requireIngredients(
   tx: DbLike,
@@ -313,8 +313,8 @@ async function requireIngredients(
   if (!ids.length) return;
   const rows = await tx
     .select()
-    .from(inventoryItems)
-    .where(inArray(inventoryItems.id, ids));
+    .from(allInventoryItems)
+    .where(inArray(allInventoryItems.id, ids));
   for (const line of input.lines) {
     const item = rows.find((row) => row.id === line.itemId);
     if (!item || item.kind !== "consumable")

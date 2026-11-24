@@ -26,6 +26,19 @@ it("uses the larger of par gap and event shortage, without double ordering", () 
   expect(lines[0]).toMatchObject({ quantity: 2, shortage: 18 });
 });
 
+// The Order tab reorders items at par too (FLOW-292, Ash 2026-11-23).
+it("orders one purchase unit of an item exactly at par only from the Order tab", () => {
+  const atPar = {
+    itemId: "00000000-0000-4000-8000-000000000001", itemName: "Napkins",
+    unit: "each" as const, purchaseUnit: "dozen" as const, packCount: null, eachSize: null,
+    vendorId: null, vendorName: "", orderingInstructions: "", onHand: 20, parLevel: 20, shortages: [],
+  };
+  expect(suggestOrderLines([atPar])).toEqual([]);
+  expect(suggestOrderLines([atPar], { atPar: true })).toMatchObject([{ quantity: 1, purchaseUnit: "dozen", shortage: 0 }]);
+  expect(suggestOrderLines([{ ...atPar, onHand: 21 }], { atPar: true })).toEqual([]);
+  expect(suggestOrderLines([{ ...atPar, onHand: 0, parLevel: 0 }], { atPar: true })).toEqual([]);
+});
+
 // Ordering record (FLOW-87) and receiving (FLOW-88).
 const wine = "00000000-0000-4000-8000-000000000001";
 const glasses = "00000000-0000-4000-8000-000000000003";

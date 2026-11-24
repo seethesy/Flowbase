@@ -14,13 +14,13 @@ import { utcToBusinessTime } from "../../shared/time";
 import type { DbLike } from "../db/client";
 import {
   events,
-  inventoryItems,
   inventoryRentalDetails,
-  inventorySections,
+  inventoryLocations,
   inventoryStock,
   reservationConflicts,
   reservations,
   users,
+  masterInventoryItems,
 } from "../db/schema";
 import { emitDomainEvent } from "../jobs/queue";
 
@@ -75,12 +75,12 @@ export async function ownedStock(db: DbLike, itemIds: string[]) {
       total: sql<string>`coalesce(sum(${inventoryStock.quantity}), 0)`,
     })
     .from(inventoryStock)
-    .innerJoin(inventorySections, eq(inventorySections.id, inventoryStock.sectionId))
+    .innerJoin(inventoryLocations, eq(inventoryLocations.id, inventoryStock.sectionId))
     .where(
       and(
         inArray(inventoryStock.itemId, itemIds),
         isNull(inventoryStock.archivedAt),
-        ne(inventorySections.name, VENDOR_SECTION),
+        ne(inventoryLocations.name, VENDOR_SECTION),
       ),
     )
     .groupBy(inventoryStock.itemId);
@@ -213,13 +213,14 @@ async function conflictRecipients(
 export async function evaluateItem(tx: DbLike, itemId: string): Promise<void> {
   const [item] = await tx
     .select({
-      id: inventoryItems.id,
-      kind: inventoryItems.kind,
-      name: inventoryItems.name,
-      unit: inventoryItems.unit,
+      id: masterInventoryItems.id,
+      kind: masterInventoryItems.kind,
+      name: masterInventoryItems.name,
+      unit: masterInventoryItems.unit,
     })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, itemId))
+    // Rentals are Master items (FLOW-289).
+    .from(masterInventoryItems)
+    .where(eq(masterInventoryItems.id, itemId))
     .for("update");
   if (!item || item.kind !== "rental") return;
 

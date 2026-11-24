@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { orderListStatuses, type OrderList, type OrderListStatus } from "../../shared/order-lists";
 import { addLocalDays, utcToBusinessTime } from "../../shared/time";
-import { Block, PageGrid } from "../app/page-grid";
 import { LabelT, T } from "../app/copy";
 import { Allowed } from "../app/permissions";
 import { useResource } from "../app/useResource";
@@ -12,9 +11,8 @@ import { Button, DataTable, DetailDrawer, FilterBar, FormField, LoadingSkeleton 
 import { Dropdown } from "../components/ui/Dropdown";
 import { orderListsApi } from "../services/order-lists";
 import { weekday } from "./calendar-entries";
-import { InventoryHeading } from "./inventory-screen";
 
-// The Inventory screen's Purchasing tab (FLOW-266) at /purchasing: every order
+// The order lists table (FLOW-266), shown on the Order tab (FLOW-292): every order
 // list with its status, dates, events, lines and vendors, and how a list moves
 // through its statuses. A list opens at /inventory/orders/<id>, where its lines
 // are edited, submitted, approved and received.
@@ -54,7 +52,7 @@ export const listDates = (list: Pick<OrderList, "from" | "to">) =>
   list.from === list.to ? shortDate(list.from) : `${shortDate(list.from)} – ${shortDate(list.to)}`;
 const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
 
-export function PurchasingPage() {
+export function OrderListsTable() {
   const navigate = useNavigate();
   const lists = useResource(["order-lists"], orderListsApi.list);
   const [status, setStatus] = useState<OrderListStatus | "">("");
@@ -80,16 +78,12 @@ export function PurchasingPage() {
   ];
   return (
     <>
-      <InventoryHeading tab="purchasing">
-        <Button variant="outline" asChild>
-          <Link to="/kitchen/orders"><T id="purchasing.page.vendor-orders">Vendor orders</T></Link>
-        </Button>
-        <Allowed action="order_lists.write">
-          <Button onClick={() => setCreating(true)}><T id="purchasing.page.new-order-list">+ New order list</T></Button>
-        </Allowed>
-      </InventoryHeading>
-      <PageGrid pageKey="inventory.purchasing">
-        <Block id="filters" name="Filters" h={4}>
+          <div className="section-heading" id="order-lists">
+            <h2><T id="purchasing.page.order-lists">Order lists</T></h2>
+            <Allowed action="order_lists.write">
+              <Button onClick={() => setCreating(true)}><T id="purchasing.page.new-order-list">+ New order list</T></Button>
+            </Allowed>
+          </div>
           <p className="inventory-flow">
             <T id="purchasing.page.how-an-order-list-moves">How an order list moves:</T>
             {flow.map((value, index) => (
@@ -115,8 +109,6 @@ export function PurchasingPage() {
               onValueChange={(next) => setStatus(next as OrderListStatus | "")}
             />
           </FilterBar>
-        </Block>
-        <Block id="lists" name="Order lists" h={20}>
           {lists.error ? (
             <LoadError message={lists.error} />
           ) : !lists.data ? (
@@ -135,8 +127,6 @@ export function PurchasingPage() {
           <p className="table-hint">
             <T id="purchasing.page.status-moves-through">{"Status moves through Submit, Approve and Receive on the list itself; lines are edited inside the list."}</T>
           </p>
-        </Block>
-      </PageGrid>
       {creating && <NewOrderList onClose={() => setCreating(false)} onCreated={(list) => navigate(`/inventory/orders/${list.id}`)} />}
     </>
   );
