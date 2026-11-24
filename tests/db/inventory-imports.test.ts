@@ -13,6 +13,9 @@ import {
   inventoryStock,
   stockMovements,
   vendors,
+  barInventoryItems,
+  kitchenIngredients,
+  masterInventoryItems,
 } from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import type { RunWithDb } from "../../worker/hono";
@@ -20,6 +23,7 @@ import { restoreDefaultSections } from "./reference-data";
 import type { Actor } from "../../shared/access";
 import {
   barInventoryFields,
+  kitchenInventoryFields,
   masterInventoryFields,
 } from "../../shared/import-inventory";
 import {
@@ -35,6 +39,7 @@ import {
 import { parseCsv } from "../../src/services/import-files";
 import { barInventoryCsv } from "../fixtures/bar-inventory";
 import { masterInventoryCsv } from "../fixtures/master-inventory";
+import { kitchenInventoryCsv } from "../fixtures/kitchen-inventory";
 
 // The Master Inventory (FLOW-78) and Bar Inventory (FLOW-91) importers through
 // the import framework, against the CI Postgres service, on synthetic copies of
@@ -76,7 +81,7 @@ const admin = signedInAs(actor("c1000000-0000-4000-8000-000000000001"));
 const sheetRows = (
   csv: string,
   fields: typeof masterInventoryFields,
-  layout: "master" | "bar",
+  layout: "master" | "bar" | "kitchen",
 ): ImportRow[] => {
   const sheet = parseCsv(csv);
   const mapping = autoMap(sheet[headingIndex(sheet)], fields);
@@ -86,6 +91,7 @@ const sheetRows = (
 };
 const masterRows = () => sheetRows(masterInventoryCsv, masterInventoryFields, "master");
 const barRows = () => sheetRows(barInventoryCsv, barInventoryFields, "bar");
+const kitchenRows = () => sheetRows(kitchenInventoryCsv, kitchenInventoryFields, "kitchen");
 
 const dryRun = (module: string, rows: ImportRow[]) =>
   admin<ImportRowPlan[]>("POST", "/api/imports/dry-run", { module, rows });
@@ -169,6 +175,8 @@ describe("Master Inventory importer (FLOW-78)", () => {
     expect(modules.map((module) => module.key)).toEqual([
       "master_inventory",
       "bar_inventory",
+      "kitchen_inventory",
+      "events",
     ]);
     expect(modules[0].transforms).toEqual([{ type: "inventory_rows", layout: "master" }]);
   });
@@ -283,9 +291,11 @@ describe("Master Inventory importer (FLOW-78)", () => {
     expect(log).toMatchObject({ created: rows.length - 1, failed: 1 });
   });
 
-  it("is not available to staff without inventory write", async () => {
+  it("is not available to anyone but the Admin, even with inventory write (FLOW-290 AC1)", async () => {
     const partTime = signedInAs(actor("c1000000-0000-4000-8000-000000000002", "part_time", "staff"));
     await partTime("POST", "/api/imports/dry-run", { module: "master_inventory", rows: masterRows() }, 403);
+    const technical = signedInAs(actor("c1000000-0000-4000-8000-000000000003", "full_time", "technical"));
+    await technical("POST", "/api/imports/dry-run", { module: "master_inventory", rows: masterRows() }, 403);
   });
 });
 
@@ -367,5 +377,99 @@ describe("Bar Inventory importer (FLOW-91)", () => {
     expect(results.find((result) => result.outcome === "failed")?.error).toBe(
       "Count beer and wine to the nearest 0.5.",
     );
+  });
+});
+
+describe("Kitchen Inventory importer (FLOW-89)", () => {
+  it("dry-runs the whole file without errors, showing each item's storage, without writing (AC1)", async () => {
+    const rows = kitchenRows();
+    const plans = await dryRun("kitchen_inventory", rows);
+    expect(plans).toHaveLength(rows.length);
+    expect(plans.filter((plan) => plan.action === "error")).toEqual([]);
+    expect(plans.every((plan) => plan.action === "create")).toBe(true);
+    expect(plans.find((plan) => plan.rowNumber === 6)?.summary).toBe("Dessert / Ice Creams · Freezer · qty 0 · Needs count, Needs cost");
+    expect(await db.select().from(allInventoryItems)).toHaveLength(0);
+  });
+
+  it("imports each ingredient with its category, subcategory, storage, quantity, cost and distributor (AC2, AC3)", async () => {
+    const { log } = await runImport("kitchen_inventory", kitchenRows(), "Kitchen_Ingredient_Inventory_List - Sheet1.csv");
+    expect(log).toMatchObject({ created: 10, updated: 0, skipped: 0, failed: 0 });
+
+    const basil = await itemNamed("Sample Basil");
+    expect(basil).toMatchObject({ kind: "consumable", subtype: "ingredient", category: "Produce", subcategory: "Herbs", flags: [] });
+    expect(await stockOf("Sample Basil")).toEqual([{ section: "Fridge", quantity: 3 }]);
+    const basilDetails = await consumableOf("Sample Basil");
+    expect(basilDetails.unitCostCents).toBe(450);
+    const produce = await vendorNamed("Sample Produce Co");
+    expect(basilDetails.preferredVendorId).toBe(produce.id);
+    expect((await consumableOf("Sample Cheddar")).preferredVendorId).toBe(produce.id);
+    expect(await db.select().from(vendors)).toHaveLength(1);
+
+    const storage = async (name: string) => {
+      const details = await consumableOf(name);
+      const [section] = await db.select().from(inventoryLocations).where(eq(inventoryLocations.id, details.storageSectionId!));
+      return [section.name, section.kind];
+    };
+    expect(await storage("Sample Chicken Thigh")).toEqual(["Fridge", "storage"]);
+    expect(await storage("Sample Vanilla Scoop")).toEqual(["Freezer", "storage"]);
+    expect(await storage("Sample Brownie Mix")).toEqual(["Pantry", "storage"]);
+    expect(await storage("Sample Dumplings")).toEqual(["Freezer", "storage"]);
+    expect(await storage("Sample Jasmine Rice")).toEqual(["Pantry", "storage"]);
+
+    const chicken = await itemNamed("Sample Chicken Thigh");
+    expect(chicken.flags).toEqual(["needs_cost", "needs_count"]);
+    expect(await stockOf("Sample Chicken Thigh")).toEqual([]);
+    expect((await consumableOf("Sample Chicken Thigh")).unitCostCents).toBeNull();
+    // The merged duplicate made one ingredient; no kitchen storage was added.
+    expect(await db.select().from(allInventoryItems).where(eq(allInventoryItems.name, "Sample Basil"))).toHaveLength(1);
+    expect((await db.select().from(inventoryLocations).where(eq(inventoryLocations.kind, "storage"))).map((section) => section.name).sort())
+      .toEqual(["Freezer", "Fridge", "Pantry"]);
+  });
+
+  it("changes nothing when the file is imported again (AC4)", async () => {
+    const rows = kitchenRows();
+    await runImport("kitchen_inventory", rows, "Kitchen.csv");
+    const before = {
+      movements: await db.select().from(stockMovements),
+      items: await db.select().from(allInventoryItems),
+    };
+    expect((await dryRun("kitchen_inventory", rows)).map((plan) => plan.action)).toEqual(rows.map(() => "skip"));
+    const { log } = await runImport("kitchen_inventory", rows, "Kitchen.csv");
+    expect(log).toMatchObject({ created: 0, updated: 0, skipped: rows.length, failed: 0 });
+    expect(await db.select().from(stockMovements)).toEqual(before.movements);
+    expect(await db.select().from(allInventoryItems)).toEqual(before.items);
+  });
+});
+
+describe("Settings › Imports lists (FLOW-290)", () => {
+  it("AC4: Master, Bar and Kitchen each fill their own table and nothing crosses", async () => {
+    await runImport("kitchen_inventory", kitchenRows(), "Kitchen.csv");
+    expect(await db.select().from(masterInventoryItems)).toEqual([]);
+    expect(await db.select().from(barInventoryItems)).toEqual([]);
+    const kitchen = await db.select().from(kitchenIngredients);
+    expect(kitchen).toHaveLength(10);
+
+    await runImport("master_inventory", masterRows(), "Main.csv");
+    await runImport("bar_inventory", barRows(), "Master Sheet.csv");
+    const [master, bar] = [await db.select().from(masterInventoryItems), await db.select().from(barInventoryItems)];
+    expect(master.length).toBeGreaterThan(0);
+    expect(bar.length).toBeGreaterThan(0);
+    expect(master.every((item) => item.kind !== "consumable" || item.subtype === "supply")).toBe(true);
+    expect(bar.every((item) => item.subtype === "bar")).toBe(true);
+    expect(await db.select().from(kitchenIngredients)).toEqual(kitchen);
+  });
+
+  it("AC5: re-running a changed count only resets that location's quantity to the file's", async () => {
+    const rows = kitchenRows();
+    await runImport("kitchen_inventory", rows, "Kitchen.csv");
+    const changed = rows.map((row) => (row.values.item === "Sample Basil" ? { ...row, values: { ...row.values, qty: "7" } } : row));
+    const plans = await dryRun("kitchen_inventory", changed);
+    expect(plans.filter((plan) => plan.action !== "skip").map((plan) => plan.rowNumber)).toEqual([4]);
+    const items = await db.select().from(allInventoryItems);
+    await runImport("kitchen_inventory", changed, "Kitchen.csv");
+    expect(await stockOf("Sample Basil")).toEqual([{ section: "Fridge", quantity: 7 }]);
+    const ids = (list: { id: string }[]) => list.map((item) => item.id).sort();
+    expect(ids(await db.select().from(allInventoryItems))).toEqual(ids(items));
+    expect(await stockOf("Sample Cheddar")).toEqual([{ section: "Fridge", quantity: 2 }]);
   });
 });

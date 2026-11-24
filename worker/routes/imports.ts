@@ -27,11 +27,11 @@ import {
 } from "../records/imports";
 import { registeredImportModules } from "../records/import-inventory";
 
-// Data imports (FLOW-47), mounted at /api/imports. Every route needs a signed-in
-// user; each importer then requires its own permission (an inventory importer
-// inventory.write, the lead importer leads.update), checked per module, and an
-// importer the user can't run is not listed. The browser parses the file and sends
-// at most 100 rows per request.
+// Data imports (FLOW-47), mounted at /api/imports. Settings › Imports is Admin
+// only (FLOW-290): every route needs imports.run, which only Admin holds and the
+// Roles & permissions matrix can't grant. Each importer still names its own
+// permission, checked per module. The browser parses the file and sends at most
+// 100 rows per request.
 export function importRoutes(options: {
   withDb?: RunWithDb;
   resolveActor?: ResolveActor;
@@ -47,13 +47,13 @@ export function importRoutes(options: {
     return parsed.data;
   };
 
-  routes.get("/modules", requirePermission("auth.read"), (c) =>
+  routes.get("/modules", requirePermission("imports.run"), (c) =>
     c.json(listImportModules(modules, c.get("actor"))),
   );
-  routes.get("/modules/:key", requirePermission("auth.read"), (c) =>
+  routes.get("/modules/:key", requirePermission("imports.run"), (c) =>
     c.json(getImportModule(modules, c.get("actor"), c.req.param("key"))),
   );
-  routes.post("/dry-run", requirePermission("auth.read"), async (c) => {
+  routes.post("/dry-run", requirePermission("imports.run"), async (c) => {
     const input = await parseBody(c, importDryRunSchema);
     return c.json(
       await record(c, (db, actor) =>
@@ -61,27 +61,27 @@ export function importRoutes(options: {
       ),
     );
   });
-  routes.get("/", requirePermission("auth.read"), async (c) =>
+  routes.get("/", requirePermission("imports.run"), async (c) =>
     c.json(
       await record(c, (db, actor) =>
         listImports(db, modules, actor, c.req.query("module") || undefined),
       ),
     ),
   );
-  routes.post("/", requirePermission("auth.read"), async (c) => {
+  routes.post("/", requirePermission("imports.run"), async (c) => {
     const input = await parseBody(c, importStartSchema);
     return c.json(
       await record(c, (db, actor) => startImport(db, modules, actor, input)),
       201,
     );
   });
-  routes.get("/:id", requirePermission("auth.read"), async (c) => {
+  routes.get("/:id", requirePermission("imports.run"), async (c) => {
     const id = param(c);
     return c.json(
       await record(c, (db, actor) => getImport(db, modules, actor, id)),
     );
   });
-  routes.post("/:id/rows", requirePermission("auth.read"), async (c) => {
+  routes.post("/:id/rows", requirePermission("imports.run"), async (c) => {
     const id = param(c);
     const input = await parseBody(c, importBatchSchema);
     return c.json(
@@ -90,7 +90,7 @@ export function importRoutes(options: {
       ),
     );
   });
-  routes.post("/:id/complete", requirePermission("auth.read"), async (c) => {
+  routes.post("/:id/complete", requirePermission("imports.run"), async (c) => {
     const id = param(c);
     return c.json(
       await record(c, (db, actor) => completeImport(db, modules, actor, id)),

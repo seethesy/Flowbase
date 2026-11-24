@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   barInventoryRows,
+  kitchenInventoryRows,
   masterInventoryRows,
   type ImportNote,
 } from "./import-inventory";
@@ -25,9 +26,9 @@ export const importTransformSchema = z.discriminatedUnion("type", [
   // `field` takes the value of the row above.
   z.object({ type: z.literal("fill_down"), field: z.string() }),
   // Whole-sheet row rules of the inventory importers (shared/import-inventory.ts):
-  // skipped, merged and renamed rows (master) or category rows (bar). Dropped and
+  // skipped, merged and renamed rows (master, kitchen) or category rows (bar). Dropped and
   // renamed rows come back as notes for the dry-run report.
-  z.object({ type: z.literal("inventory_rows"), layout: z.enum(["master", "bar"]) }),
+  z.object({ type: z.literal("inventory_rows"), layout: z.enum(["master", "bar", "kitchen"]) }),
 ]);
 export type ImportTransform = z.infer<typeof importTransformSchema>;
 
@@ -141,9 +142,11 @@ export function applyTransformsWithNotes(
   const notes: ImportNote[] = [];
   for (const transform of transforms) {
     if (transform.type === "inventory_rows") {
-      const result = (
-        transform.layout === "master" ? masterInventoryRows : barInventoryRows
-      )(current);
+      const result = {
+        master: masterInventoryRows,
+        bar: barInventoryRows,
+        kitchen: kitchenInventoryRows,
+      }[transform.layout](current);
       current = result.rows;
       notes.push(...result.notes);
     } else if (transform.type === "category_headers") {

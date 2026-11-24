@@ -65,7 +65,8 @@ export function SettingsPage() {
           <p><Link to="/settings/archived"><T id="settings.settings-page.archived">Archived: restore deleted records</T></Link></p>
           <p><Link to="/settings/inventory-categories"><T id="settings.settings-page.inventory-categories">Inventory categories</T></Link></p>
           <p><Link to="/settings/locations"><T id="settings.settings-page.locations">Locations</T></Link></p>
-          <p><Link to="/settings/imports"><T id="settings.settings-page.imports">Imports</T></Link></p>
+          {/* Admin only (FLOW-290): the matrix can grant settings.manage, not imports.run. */}
+          {permissions.can("imports.run") && <p><Link to="/settings/imports"><T id="settings.settings-page.imports">Imports</T></Link></p>}
         </Section>
         </Block>
       )}

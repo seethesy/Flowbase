@@ -27,6 +27,7 @@ test("the old addresses lead to their new places (FLOW-291, FLOW-292)", async ({
     ["/inventory/ingredients", /#\/kitchen\/ingredients$/],
     ["/inventory/sections", /#\/settings\/locations$/],
     ["/imports", /#\/settings\/imports$/],
+    ["/imports/master_inventory", /#\/settings\/imports\/master_inventory$/],
     ["/purchasing", /#\/inventory\/order$/],
     ["/inventory/low-stock", /#\/inventory\/order$/],
     ["/inventory/orders", /#\/inventory\/order$/],

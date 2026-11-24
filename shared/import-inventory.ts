@@ -437,3 +437,116 @@ export function describeBarRow(row: BarRow) {
 
 export const barExternalKey = (row: BarRow) =>
   `bar:${key(row.category)}|${key(row.subcategory)}|${key(row.name)}`;
+
+// ---- Kitchen Inventory (FLOW-89) ----
+
+// One tab of the kitchen ingredient sheet: every row carries its own Category
+// and Subcategory (no category rows). Quantity, Cost/Unit and Distributor may be
+// empty.
+export const kitchenInventoryFields: ImportField[] = [
+  { key: "category", label: "Category", required: false, aliases: [] },
+  { key: "subcategory", label: "Subcategory", required: false, aliases: [] },
+  { key: "item", label: "Item", required: true, aliases: ["Ingredient", "Name"] },
+  { key: "qty", label: "Quantity", required: false, aliases: ["Qty"] },
+  { key: "cost", label: "Cost/Unit", required: false, aliases: ["Cost", "Unit Cost", "Cost per Unit"] },
+  { key: "distributor", label: "Distributor", required: false, aliases: ["Vendor"] },
+];
+
+// Rows with no Item are skipped; an Item listed again (any case or spacing) is
+// merged into its first row. Both are reported.
+export function kitchenInventoryRows(rows: Cells[]): TransformResult {
+  const notes: ImportNote[] = [];
+  const first = new Map<string, number>();
+  const out: Cells[] = [];
+  for (const row of rows) {
+    const item = clean(row.values.item);
+    if (!item) {
+      notes.push({ rowNumber: row.rowNumber, text: "No Item; skipped." });
+      continue;
+    }
+    const earlier = first.get(key(item));
+    if (earlier !== undefined) {
+      notes.push({ rowNumber: row.rowNumber, text: `Same Item as row ${earlier}; merged into it.` });
+      continue;
+    }
+    first.set(key(item), row.rowNumber);
+    out.push(row);
+  }
+  return { rows: out, notes };
+}
+
+export const kitchenStorages = ["Fridge", "Freezer", "Pantry"] as const;
+export type KitchenStorage = (typeof kitchenStorages)[number];
+// Q3 (FLOW-89): all under Kitchen storage. Protein, Produce and Dairy go in the
+// Fridge; Ice Creams and Frozen & Prepared in the Freezer; everything else,
+// other desserts included, in the Pantry. The dry run shows each item's storage.
+export function kitchenStorage(category: string, subcategory: string): KitchenStorage {
+  const [c, s] = [key(category), key(subcategory)];
+  if (s === "ice creams" || s === "ice cream" || s === "frozen & prepared") return "Freezer";
+  if (["protein", "produce", "dairy"].includes(c)) return "Fridge";
+  return "Pantry";
+}
+
+export type KitchenRow = {
+  name: string;
+  typeName: string;
+  category: string;
+  subcategory: string;
+  storage: KitchenStorage;
+  quantity: number;
+  // The sheet's Quantity text when it wasn't a number.
+  description: string;
+  costCents: number | null;
+  distributor: string;
+  flags: ItemFlag[];
+};
+
+export function parseKitchenRow(values: Record<string, string>): ParseResult<KitchenRow> {
+  const errors: string[] = [];
+  const name = clean(values.item);
+  if (!name) errors.push("Item is required.");
+  const flags: ItemFlag[] = [];
+  let category = clean(values.category);
+  const subcategory = clean(values.subcategory);
+  if (!category) {
+    category = "Uncategorized";
+    flags.push("needs_category");
+  }
+  const qtyText = clean(values.qty);
+  let quantity = 0;
+  let description = "";
+  if (isNumber(qtyText)) quantity = Number(qtyText);
+  else {
+    // Empty today: imported as 0 and flagged for a count.
+    flags.push("needs_count");
+    if (qtyText && !["-", "?"].includes(qtyText)) description = `Sheet quantity: ${qtyText}`;
+  }
+  const cost = parseCost(clean(values.cost));
+  if ("error" in cost) errors.push(cost.error.replace(/^Cost/, "Cost/Unit"));
+  const costCents = "error" in cost ? null : cost.cents;
+  if (costCents === null) flags.push("needs_cost");
+  if (errors.length) return { errors };
+  return {
+    row: {
+      name,
+      typeName: "",
+      category,
+      subcategory,
+      storage: kitchenStorage(category, subcategory),
+      quantity,
+      description,
+      costCents,
+      distributor: clean(values.distributor),
+      flags,
+    },
+  };
+}
+
+export function describeKitchenRow(row: KitchenRow) {
+  return {
+    summary: `${row.category}${row.subcategory ? ` / ${row.subcategory}` : ""} · ${row.storage} · qty ${row.quantity}${flagList(row.flags)}`,
+    notes: [] as string[],
+  };
+}
+
+export const kitchenExternalKey = (row: KitchenRow) => `kitchen:${key(row.name)}`;
