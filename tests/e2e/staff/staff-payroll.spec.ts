@@ -33,7 +33,7 @@ test("the directory shows Name, Positions, Role, Phone, Email and Status, and a 
   await expect(row.locator(".staff-position-chips .badge")).toHaveText(["Server"]);
   await expect(page.getByRole("row", { name: /Part Time Staff/ }).first()).toBeVisible();
   // Clicking anywhere on the row (here, the Status cell) opens the profile.
-  await row.getByRole("cell").last().click();
+  await row.getByRole("cell").nth((await headers(page)).indexOf("Status")).click();
   await expect(page).toHaveURL(new RegExp(`#/staff/${server.id}$`));
 });
 

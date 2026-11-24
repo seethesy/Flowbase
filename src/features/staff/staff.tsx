@@ -539,10 +539,10 @@ function StaffForm({
         {manage && (
           <div className="employee-profile-grid">
             <FormField label="Address"><textarea rows={3} value={draft.address} maxLength={1000} onChange={(event) => set("address", event.target.value)} /></FormField>
-            <FormField label="Drives"><Dropdown value={yesNoValue(draft.drives)} onChange={(event) => set("drives", yesNoParse(event.target.value))}>
+            <FormField label="Drives"><Dropdown aria-label="Drives" value={yesNoValue(draft.drives)} onChange={(event) => set("drives", yesNoParse(event.target.value))}>
               {yesNoOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Dropdown></FormField>
-            <FormField label="Has a car"><Dropdown value={yesNoValue(draft.hasCar)} onChange={(event) => set("hasCar", yesNoParse(event.target.value))}>
+            <FormField label="Has a car"><Dropdown aria-label="Has a car" value={yesNoValue(draft.hasCar)} onChange={(event) => set("hasCar", yesNoParse(event.target.value))}>
               {yesNoOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </Dropdown></FormField>
           </div>
