@@ -43,11 +43,11 @@ The workflow is split into parallel jobs (FLOW-285), so a PR takes about as long
 
 | Job | Runs | Postgres |
 |---|---|---|
-| `changes` | Markdown-only detection; its output gates `e2e` | no |
+| `changes` | Chooses the Playwright specs (FLOW-315, `scripts/select-e2e.mjs`): none, a draft PR's selection, or the full suite; its output gates and sizes `e2e` | no |
 | `static` | `lint`, `build` (type-checks app and Worker, then bundles), chunk budget | no |
 | `unit` | `npm test`, `npm run test:worker` | no |
 | `db` | `db:check`, `test:db` twice (second shuffled), `db:seed` | yes |
-| `e2e (1..4)` | `npm run test:e2e:ci -- --shard=N/4` after `vite build` | one per shard |
+| `e2e (1..N)` | `npm run test:e2e:ci -- --shard=N/total` after `vite build`: one shard for a small draft selection, four for the full suite | one per shard |
 | `ci-ok` | passes only if every job above succeeded or was skipped | no |
 
 `ci-ok` is the single required status check in branch protection, so adding or removing shards does not change required checks. Each e2e shard has its own database and `wrangler dev`, so the one-database / one-Worker setup below holds inside a shard. Failure traces upload as `browser-failure-artifacts-N` for the failing shard. To run one shard locally: `npx playwright test --project=desktop --project=webkit-offline --shard=1/4`.
@@ -73,6 +73,8 @@ npm run test:e2e:ci -- --shard=N/4
 ```
 
 `npm run typecheck` and `npm run typecheck:worker` remain for local use.
+
+Draft PRs run the smoke specs plus the specs of the areas they change (`tests/e2e/areas.json`); a PR marked ready for review, and every push to it, runs the full suite. A changed shared foundation or a file in no area runs everything; Markdown, `docs/`, and unit- or DB-test-only changes run no Playwright. Check a selection locally with `BASE_SHA=origin/main HEAD_SHA=HEAD DRAFT=true node scripts/select-e2e.mjs`.
 
 Manual workflow verification: push two commits to a PR while the first run is active and confirm cancellation; check npm/Chromium cache hits on a subsequent run; open a Markdown-only PR and confirm the `e2e` shards are skipped and `ci-ok` passes. Review Actions billing minutes after runs: the account's 2,000 monthly free minutes are shared with ops schedules, so avoid redundant pushes. Cloud setup and production deploy verification remain developer tasks.
 
