@@ -942,7 +942,7 @@ describe("FLOW-337: generating the BEO from a proposal", () => {
     expect(beo.content.summary.guestCount).toBe(120);
     expect(beo.content.event.address).toBe("9 Harbor Rd");
     expect(beo.content.foodSetup.courses.flatMap((course) => course.lines.map((line) => line.name))).toEqual([expect.stringContaining("Braised short rib")]);
-    expect(beo.content.staff.shifts.flatMap((shift) => shift.slots).filter((slot) => slot.position === "Bartender")).toHaveLength(2);
+    expect(beo.content.staff.shifts.flatMap((shift) => shift.slots).filter((slot) => slot.label.includes("Bartender"))).toHaveLength(2);
     const entries = () => db.select().from(schema.eventTimelineEntries).where(eq(schema.eventTimelineEntries.eventId, event.id));
     expect((await entries()).map((row) => row.activity).sort()).toEqual(["Dinner served", "Guests arrive"]);
 
@@ -950,7 +950,7 @@ describe("FLOW-337: generating the BEO from a proposal", () => {
     expect(again.id).toBe(beo.id);
     expect(await entries()).toHaveLength(2);
     expect(await db.select().from(schema.kitchenMenuLines)).toHaveLength(1);
-    expect(again.content.staff.shifts.flatMap((shift) => shift.slots).filter((slot) => slot.position === "Bartender")).toHaveLength(2);
+    expect(again.content.staff.shifts.flatMap((shift) => shift.slots).filter((slot) => slot.label.includes("Bartender"))).toHaveLength(2);
     expect(await db.select().from(schema.beos)).toHaveLength(1);
     // A reader without proposals sees no source.
     expect((await getBeo(jamie, event)).source).toBeNull();

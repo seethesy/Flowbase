@@ -192,7 +192,7 @@ export function ImportBeoDrawer({ event: fixed, onImported, onClose }: { event?:
   const area = (key: "durations" | "menu" | "drinks" | "staff" | "setup" | "other" | "unrecognized", label: ReactNode, goesTo: ReactNode) => (
     <FormField label={label} hint={goesTo}>
       <textarea aria-label={key} rows={Math.min(10, Math.max(2, review[key].split("\n").length))} value={review[key]}
-        onChange={(e) => set({ [key]: e.target.value })} />
+        onChange={(e) => set({ [key]: e.target.value } as Partial<Review>)} />
     </FormField>
   );
   const notes = <T id="beo.import.goes-to-notes">Goes to: BEO additional notes</T>;

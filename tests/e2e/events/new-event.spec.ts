@@ -10,16 +10,16 @@ import { events } from "../../../worker/db/schema";
 // (A1), and hidden from roles that can't create events (AC4).
 
 test("New event with a chosen lead creates an event linked to the lead and opens it", async ({ page }) => {
-  const picked = lead({ name: "Harbor reunion lead", status: "new" });
+  const picked = lead({ name: "Harbor reunion lead" });
   await seedLeads([picked]);
   await page.goto("/#/events/overview");
   await page.getByRole("button", { name: "New event" }).click();
   const drawer = page.getByRole("dialog", { name: "New event" });
   await drawer.getByRole("searchbox").fill("Harbor");
   await choose(drawer.getByRole("combobox", { name: "Lead" }), { label: "Harbor reunion lead" });
-  await drawer.getByLabel("Event name *").fill("Harbor reunion");
-  await drawer.getByLabel("Date *").fill("2027-05-08");
-  await drawer.getByLabel("Start time *").fill("18:00");
+  await drawer.getByLabel("Event name *", { exact: true }).fill("Harbor reunion");
+  await drawer.getByLabel("Date *", { exact: true }).fill("2027-05-08");
+  await drawer.getByLabel("Start time *", { exact: true }).fill("18:00");
   await drawer.getByRole("button", { name: "Save event" }).click();
 
   await expect(page.getByRole("heading", { name: "Harbor reunion", level: 1 })).toBeVisible();
@@ -35,10 +35,11 @@ test("New event without a lead continues to the event form and opens the event",
 
   const form = page.getByRole("dialog", { name: "New event" });
   await expect(form.getByText("Only title, date, start time and client are required.")).toBeVisible();
-  await form.getByLabel("Title *").fill("Walk-in luncheon");
-  await form.getByLabel("Date *").fill("2027-04-02");
-  await choose(form.getByRole("combobox", { name: "Client *" }), { label: juniper().name });
-  await form.getByLabel("Start time *").fill("12:00");
+  await form.getByLabel("Title *", { exact: true }).fill("Walk-in luncheon");
+  await form.getByLabel("Date *", { exact: true }).fill("2027-04-02");
+  // A label that wraps a dropdown also holds its option text.
+  await choose(form.getByLabel(/^Client \*/), { label: juniper().name });
+  await form.getByLabel("Start time *", { exact: true }).fill("12:00");
   await form.getByRole("button", { name: "Save event" }).click();
 
   await expect(page.getByRole("heading", { name: "Walk-in luncheon", level: 1 })).toBeVisible();
