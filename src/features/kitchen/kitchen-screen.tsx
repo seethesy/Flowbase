@@ -7,8 +7,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { LabelT, T } from "../../app/copy";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { LoadError } from "../../components/record-display";
-import { Button, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader } from "../../components/shared";
+import { Button, DetailDrawer, FilterBar, LoadingSkeleton, PageHeader, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { eventsApi, recipesApi } from "../../services/core";
 import { documentsApi } from "../../services/documents";
@@ -178,8 +177,8 @@ export function MenusPage() {
           </FilterBar>
         </Block>
         <Block id="menus" name="Menus" h={24}>
-          {menus.error && <LoadError message={menus.error} />}
-          {error && <p role="alert" className="error-message">{error}</p>}
+          <ErrorText message={menus.error} />
+          <ErrorText message={error} />
           {!menus.data && !menus.error && <LoadingSkeleton />}
           <ul className="menu-cards" aria-label="Menus">
             {shown.map(({ document, kind: cardKind }) => {

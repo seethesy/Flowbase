@@ -8,8 +8,8 @@ import { eventsApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
 import { useOpenFor } from "../../app/useOpenFor";
 import { LoadMore, usePagedList } from "../../app/paging";
-import { Button, Section, ConfirmationDialog, FormField, LoadingSkeleton } from "../../components/shared";
-import { hidden, initials, LoadError } from "../../components/record-display";
+import { Button, Section, ConfirmationDialog, FormField, LoadingSkeleton, ErrorText } from "../../components/shared";
+import { hidden, initials } from "../../components/record-display";
 import { Attachments } from "../common/attachments";
 import { CommunicationLog } from "../common/communications";
 import { time } from "./event-format";
@@ -80,11 +80,7 @@ function EventStatusPanel({
             void change();
           }}
         >
-          {error && (
-            <p role="alert" className="error-message">
-              {error}
-            </p>
-          )}
+          <ErrorText message={error} />
           <FormField label={<T id="events.event-status-panel.new-status">New status</T>}>
             <StatusSelect value={target} includeEventStages options={others} onChange={(value) => setTo(eventStatusSchema.parse(value))} />
           </FormField>
@@ -102,7 +98,7 @@ function EventStatusPanel({
       )}
       <h3><T id="events.event-status-panel.status-history">Status history</T></h3>
       {history.error ? (
-        <LoadError message={history.error} />
+        <ErrorText message={history.error} />
       ) : (
         <ul aria-label="Status history">
           {history.data?.map((entry) => (
@@ -173,7 +169,7 @@ export function EventDetail() {
     return (
       <>
         {back}
-        <LoadError message={hub.error} />
+        <ErrorText message={hub.error} />
       </>
     );
   if (!hub.data) return <LoadingSkeleton />;

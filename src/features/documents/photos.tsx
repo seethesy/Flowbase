@@ -15,7 +15,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { Button, ConfirmationDialog, DetailDrawer, EmptyState, FilterBar, LoadingSkeleton, PageHeader } from "../../components/shared";
+import { Button, ConfirmationDialog, DetailDrawer, EmptyState, FilterBar, LoadingSkeleton, PageHeader, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { RoundCheck } from "../../components/ui/round-check";
 import { Plural, T, useCopy } from "../../app/copy";
@@ -173,8 +173,8 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
           </Button>
         )}
       </PageHeader>
-      {error && <p role="alert" className="error-message">{error}</p>}
-      {photos.error && <p role="alert" className="error-message">{photos.error}</p>}
+      <ErrorText message={error} />
+      <ErrorText message={photos.error} />
       <GalleryOrganizers area={area} filters={<>      {marketing && (
         <FilterBar>
           <Dropdown aria-label="Event" value={filter.eventId ?? ""} onValueChange={(value) => setFilter({ ...filter, eventId: value || undefined })}>
@@ -339,7 +339,7 @@ export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title
                 </div>
               )}
               {!marketing && canWrite && <PhotoDetails photo={current} onSaved={reload} />}
-              {error && <p role="alert" className="error-message">{error}</p>}
+              <ErrorText message={error} />
             </Dialog.Content>
           )}
         </Dialog.Portal>
@@ -420,7 +420,7 @@ function PhotoDetails({ photo, onSaved }: { photo: Photo; onSaved: () => void })
       <Button type="submit" disabled={busy}>
         <T id="photos.details.save">Save</T>
       </Button>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
     </form>
   );
 }
@@ -474,7 +474,7 @@ function PhotoUpload({ area, onClose, onSaved }: { area: PhotoArea; onClose: () 
       title={<T id="photos.upload.title">Upload photos</T>}
       description={<T id="photos.upload.description">JPEG, PNG, WebP or HEIC, up to 25 MB each.</T>}
     >
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <label
         className="document-drop-zone"
         onDragOver={(drag) => drag.preventDefault()}

@@ -34,6 +34,8 @@ import { DateTimeCell } from "./date-time-cell";
 import { fromRowControl, rowOpenProps } from "./row-open";
 export { DateTimeCell, dateTimeSortKey, instantLabels, instantParts } from "./date-time-cell";
 export { fromRowControl, rowOpenProps, ROW_CONTROLS } from "./row-open";
+import { ErrorText } from "./error-text";
+export { ErrorText };
 import { canSeeField, type FieldGroup } from "../../../shared/visibility";
 import type { Actor } from "../../../shared/access";
 import { usePermissions } from "../../app/permissions";
@@ -484,11 +486,7 @@ function DataTableView<Row>({
       {(exportName || editor) && (
         <div className="table-toolbar">
           {editor}
-          {exportError && (
-            <p role="alert" className="error-message">
-              {exportError}
-            </p>
-          )}
+          <ErrorText message={exportError} />
           {exportName && <Button
             variant="outline"
             disabled={!data.length || exporting !== null}

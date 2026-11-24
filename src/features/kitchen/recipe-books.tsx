@@ -8,8 +8,7 @@ import { useResource } from "../../app/useResource";
 import { recipesApi } from "../../services/core";
 import { usePermissions } from "../../app/permissions";
 import { PrintLayout } from "../../components/print/PrintLayout";
-import { LoadError } from "../../components/record-display";
-import { Button, FilterBar, LoadingSkeleton, PageHeader } from "../../components/shared";
+import { Button, FilterBar, LoadingSkeleton, PageHeader, ErrorText } from "../../components/shared";
 import { useArchivedMarks, useListLabels } from "../common/list-fields";
 import "./recipe-books.css";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -63,7 +62,7 @@ export function ClientRecipeBook() {
       {can("attachments.write") && <Button variant="outline" disabled={saving} onClick={() => void saveBook()}><T id="recipe-books.client-recipe-book.save-to-menus">Save PDF to Menus</T></Button>}
     </PageHeader>
     {saved && <p role="status"><T id="recipe-books.client-recipe-book.saved-to-menus">Saved. The PDF is on Kitchen › Menus under Recipe books.</T> <Link to="/kitchen/menus"><T id="recipe-books.client-recipe-book.open-menus">Open Menus</T></Link></p>}
-    {saveError && <p role="alert" className="error-message">{saveError}</p>}
+    <ErrorText message={saveError} />
     <PageGrid pageKey="recipes.client-book">
     <Block id="filters" name="Filters" h={4}>
     <FilterBar>
@@ -75,7 +74,7 @@ export function ClientRecipeBook() {
     </FilterBar>
     </Block>
     <Block id="dishes" name="Dishes" h={30}>
-    {resource.error ? <LoadError message={resource.error} /> : resource.loading ? <LoadingSkeleton /> : <>
+    {resource.error ? <ErrorText message={resource.error} /> : resource.loading ? <LoadingSkeleton /> : <>
       {!dishes.length && <p><T id="recipe-books.client-recipe-book.no-dishes-in-this-category">No dishes in this category.</T></p>}
       <div className="client-recipe-grid">{dishes.map((dish) => <div key={dish.id}>
         <label className="checkbox-filter"><RoundCheck aria-label={`Select ${dish.name}`} checked={selected.includes(dish.id)} onChange={(e) => toggle(dish.id, e.target.checked)} /><T id="recipe-books.client-recipe-book.select" values={{ name: dish.name }}>{"Select {name}"}</T></label>
@@ -94,7 +93,7 @@ export function ClientRecipePrint() {
   const markCategory = useArchivedMarks("recipe_category");
   const ids = params.has("ids") ? new Set((params.get("ids") ?? "").split(",")) : null;
   const resource = useResource(["recipes", "client", category ?? ""], () => recipesApi.clientList({ category }));
-  if (resource.error) return <LoadError message={resource.error} />;
+  if (resource.error) return <ErrorText message={resource.error} />;
   if (!resource.data) return <LoadingSkeleton />;
   const dishes = resource.data.filter((dish) => !ids || ids.has(dish.id));
   return <PrintLayout title="Recipe book" subtitle={category ? markCategory(category) : undefined}>
@@ -107,7 +106,7 @@ export function KitchenRecipePrint() {
   const markAllergen = useArchivedMarks("allergen");
   const markDietaryTag = useArchivedMarks("dietary_tag");
   const resource = useResource(["recipes", id], () => recipesApi.get(id));
-  if (resource.error) return <LoadError message={resource.error} />;
+  if (resource.error) return <ErrorText message={resource.error} />;
   if (!resource.data) return <LoadingSkeleton />;
   const dish = resource.data;
   // Render only the kitchen card's fields, even when an Admin prints it.

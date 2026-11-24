@@ -7,8 +7,7 @@ import { taskStatuses, taskStatusLabels, taskStatusSchema, taskTypeLabels, type 
 import { taskScope } from "../../../shared/policy";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, DataTable, DateTimeCell, instantParts, LoadingSkeleton, PageHeader, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DataTable, DateTimeCell, instantParts, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { tasksApi } from "../../services/tasks";
 import { dateTimeLabel } from "../inventory/inventory-labels";
 import { T, LabelT } from "../../app/copy";
@@ -239,7 +238,7 @@ export function TaskDashboardPage() {
   const staff = useActiveStaff();
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
-  if (dashboard.error) return <LoadError message={dashboard.error} />;
+  if (dashboard.error) return <ErrorText message={dashboard.error} />;
   if (!dashboard.data || !actor) return <LoadingSkeleton />;
   const data = dashboard.data;
   const reload = () => dashboard.reload();
@@ -266,11 +265,7 @@ export function TaskDashboardPage() {
         )}
         <Button onClick={() => setAdding(true)}><T id="task-lists.task-dashboard-page.new-task">New task</T></Button>
       </PageHeader>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="tasks.dashboard">
 <Block id="my-tasks" name="My tasks" h={16}>
 <Section title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}>

@@ -2,7 +2,7 @@ import { Dropdown } from "../../components/ui/Dropdown";
 import { useEffect, useRef, useState } from "react";
 import type { ProposalVersion } from "../../../shared/proposals";
 import { proposalLineKinds, suggestCatalog, type ProposalLine, type ProposalMapping } from "../../../shared/proposal-mapping";
-import { Button, FormField, LoadingSkeleton } from "../../components/shared";
+import { Button, FormField, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { queryClient } from "../../app/queryClient";
 import { proposalsApi } from "../../services/proposals";
 import { parseProposalDocx, type ProposalBlock } from "./proposal-docx";
@@ -48,7 +48,7 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
     }).catch((cause) => { if (active) setError((cause as Error).message); });
     return () => { active = false; };
   }, [id, version.id]);
-  if (error && !draft) return <p role="alert" className="error-message">{error}</p>;
+  if (error && !draft) return <ErrorText message={error} />;
   if (!blocks || !draft || !catalog) return <LoadingSkeleton />;
   const patchLine = (index: number, patch: Partial<ProposalLine>) =>
     setDraft({ ...draft, lines: draft.lines.map((line, at) => at === index ? { ...line, ...patch } : line) });
@@ -88,7 +88,7 @@ export function ProposalReview({ id, version, canWrite, guestCount, onSubmitted 
     <div className="proposal-review-values">
       <h3><T id="proposal-review.proposal-review.review-and-map">Review and map</T></h3>
       <p className="muted"><T id="proposal-review.proposal-review.confirm-each-value-against-the">Confirm each value against the document. Add lines that were not extracted.</T></p>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <FormField label={<T id="proposal-review.proposal-review.proposal-total-usd">Proposal total (USD) *</T>}><input aria-label="Proposal total (USD) *" type="number" min="0" step="0.01" value={draft.totalCents === null ? "" : (draft.totalCents / 100).toFixed(2)} disabled={!canWrite} onChange={(e) => setDraft({ ...draft, totalCents: e.target.value === "" ? null : Math.round(Number(e.target.value) * 100) })} /></FormField>
       <section><h4><T id="proposal-review.proposal-review.event-details">Event details</T></h4>
         {Object.entries(fieldLabels).map(([key, label]) => <div className="proposal-review-entry" key={key}>

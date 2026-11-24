@@ -5,8 +5,7 @@ import type { FlowEvent } from "../../../shared/core-records";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../../shared/time";
 import { truckStatuses, type TruckAssignmentInput } from "../../../shared/trucks";
 import { useResource } from "../../app/useResource";
-import { Button, FormField, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, FormField, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { preparationApi } from "../../services/preparation";
 import { staffApi } from "../../services/staff";
 import { ApiRequestError } from "../../services/core";
@@ -34,7 +33,7 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState("");
   const [busy, setBusy] = useState(false);
-  if (log.error) return <Section title={<T id="event-trucks.event-truck-section.truck-log">Truck log</T>}><LoadError message={log.error} /></Section>;
+  if (log.error) return <Section title={<T id="event-trucks.event-truck-section.truck-log">Truck log</T>}><ErrorText message={log.error} /></Section>;
   if (!log.data) return <LoadingSkeleton />;
   const data = log.data;
   const assigned = new Set(data.assignments.map((assignment) => assignment.truckId));
@@ -59,7 +58,7 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
     } finally { setBusy(false); }
   };
   return <Section title={<T id="event-trucks.event-truck-section.truck-log">Truck log</T>}>
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     {data.missingDriverWarning && <p role="alert" className="warning-message">{data.missingDriverWarning}</p>}
     <PageGrid pageKey="events.trucks">
     <Block id="assignments" name="Truck assignments" h={12}>
@@ -108,7 +107,7 @@ export function EventTruckSection({ event }: { event: FlowEvent }) {
         })}><T id="event-trucks.event-truck-section.add-truck">Add truck</T></Button></div>
     </Block>}
     <Block id="pull-lines" name="Pull-list lines by truck" h={12}>
-    {pull.error && <LoadError message={pull.error} />}
+    <ErrorText message={pull.error} />
     {pull.loading && !pull.data && <LoadingSkeleton />}
     {pull.data && pull.data.groups.flatMap((group) => group.lines).length > 0 && <div>
       <h3><T id="event-trucks.event-truck-section.pull-list-lines-by-truck">Pull-list lines by truck</T></h3>

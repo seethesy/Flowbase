@@ -12,7 +12,7 @@ import { unitLabel } from "../../../shared/units";
 import { inventoryApi, inventoryChangesApi, sectionsApi } from "../../services/core";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { toNumber } from "./inventory-item-input";
 import { changeLabel, dateTimeLabel } from "./inventory-labels";
 import { T, LabelT } from "../../app/copy";
@@ -109,11 +109,7 @@ export function StockForm({
           void save();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         {notice && <p role="status">{notice}</p>}
         {!barItem && <FormField label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.from-location">From location</T> : <T id="inventory-stock-forms.stock-form.location">Location</T>}>
           <Dropdown value={from} onChange={(e) => setFrom(e.target.value)}>
@@ -231,11 +227,7 @@ export function MovementForm({
           void save();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="inventory-stock-forms.movement-form.type">Type</T>}>
           <Dropdown
             value={type}
@@ -366,11 +358,7 @@ export function CorrectionForm({
           void save();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField
           label={<T id="inventory-stock-forms.correction-form.should-have-been" values={{ unitLabel: unitLabel(item.unit) }}>{"Should have been ({unitLabel})"}</T>}
           hint={<T id="inventory-stock-forms.correction-form.signed-a-minus-sign-removes">Signed: a minus sign removes stock.</T>}

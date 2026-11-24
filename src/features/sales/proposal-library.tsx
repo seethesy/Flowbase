@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FileText, LayoutGrid, List } from "lucide-react";
 import { Dropdown } from "../../components/ui/Dropdown";
-import { Button, EmptyState, FilterBar, LoadingSkeleton, PageHeader, SearchInput } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, EmptyState, FilterBar, LoadingSkeleton, PageHeader, SearchInput, ErrorText } from "../../components/shared";
 import { useResource } from "../../app/useResource";
 import { usePermissions } from "../../app/permissions";
 import { T, useCopy } from "../../app/copy";
@@ -54,7 +53,7 @@ export function ProposalLibrary() {
   const [search, setSearch] = useState("");
   const [uploaded, setUploaded] = useState("");
   const choose = (next: View) => { setView(next); writeView(actor?.userId, next); };
-  if (files.error) return <LoadError message={files.error} />;
+  if (files.error) return <ErrorText message={files.error} />;
   const all = files.data ?? [];
   const term = search.trim().toLowerCase();
   const rows = all.filter((row) =>

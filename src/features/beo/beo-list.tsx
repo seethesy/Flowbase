@@ -15,8 +15,7 @@ import { useResource } from "../../app/useResource";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { LabelT, T } from "../../app/copy";
 import { beoApi } from "../../services/beo";
-import { LoadError } from "../../components/record-display";
-import { Button, DataTable, DateTimeCell, DetailDrawer, FilterBar, LoadingSkeleton } from "../../components/shared";
+import { Button, DataTable, DateTimeCell, DetailDrawer, FilterBar, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { useDeletable } from "../../app/live-edit/deletable";
 import { calendarWhenParts, weekday } from "../events/calendar-entries";
@@ -150,7 +149,7 @@ export function BeoListPage() {
       </FilterBar>
       </Block>
       <Block id="list" name="List" h={24}>
-      {beos.error && <LoadError message={beos.error} />}
+      <ErrorText message={beos.error} />
       {!beos.data && !beos.error && <LoadingSkeleton />}
       {beos.data && (
         <DataTable
@@ -198,7 +197,7 @@ function BeoPreview({ row, onClose, onOpen }: { row: BeoListRow; onClose: () => 
       description={<BeoStatusBadge status={row.status} />}
     >
       <div className="beo-preview-page" aria-label="BEO preview">
-        {beo.error && <LoadError message={beo.error} />}
+        <ErrorText message={beo.error} />
         {!content && !beo.error && <LoadingSkeleton />}
         {content && (
           <>

@@ -9,8 +9,7 @@ import {
 import { unitLabel } from "../../../shared/units";
 import { inventoryApi } from "../../services/core";
 import { LoadMore, usePagedList } from "../../app/paging";
-import { Button, Section, LoadingSkeleton } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, Section, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { centsLabel, changeLabel, dateTimeLabel } from "./inventory-labels";
 import { CorrectionForm } from "./inventory-stock-forms";
 import { T, LabelT } from "../../app/copy";
@@ -42,7 +41,7 @@ export function MovementHistory({
   return (
     <Section title={<T id="inventory-histories.movement-history.movement-history">Movement history</T>}>
       {movements.error ? (
-        <LoadError message={movements.error} />
+        <ErrorText message={movements.error} />
       ) : !movements.data ? (
         <LoadingSkeleton />
       ) : !all.length ? (
@@ -132,7 +131,7 @@ export function CostHistory({
   return (
     <Section title={<T id="inventory-histories.cost-history.cost-history">Cost history</T>}>
       {history.error ? (
-        <LoadError message={history.error} />
+        <ErrorText message={history.error} />
       ) : !history.data ? (
         <LoadingSkeleton />
       ) : !history.data.length ? (

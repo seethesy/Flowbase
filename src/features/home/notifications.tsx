@@ -10,8 +10,7 @@ import type {
 } from "../../../shared/notifications";
 import { queryClient } from "../../app/queryClient";
 import { useResource } from "../../app/useResource";
-import { Button, DetailDrawer, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DetailDrawer, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { notificationsApi } from "../../services/notifications";
 import { dateTimeLabel } from "../inventory/inventory-labels";
 import "./notifications.css";
@@ -93,15 +92,9 @@ export function NotificationBell() {
           unread ? <T id="notifications.notification-bell.unread" values={{ unread }}>{"{unread} unread"}</T> : <T id="notifications.notification-bell.things-that-need-your-attention">Things that need your attention.</T>
         }
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         {inbox.error && !inbox.data ? (
-          <p role="alert" className="error-message">
-            <T id="notifications.notification-bell.notifications-couldn-t-load" values={{ message: inbox.error.message }}>{"Notifications couldn't load. {message}"}</T>
-          </p>
+          <ErrorText message={<T id="notifications.notification-bell.notifications-couldn-t-load" values={{ message: inbox.error.message }}>{"Notifications couldn't load. {message}"}</T>} />
         ) : !inbox.data ? (
           <LoadingSkeleton />
         ) : (
@@ -171,7 +164,7 @@ export function NotificationSettings() {
         Object.fromEntries(preferences.data.map((p) => [p.type, { email: p.email, sms: p.sms }])),
       );
   }, [preferences.data]);
-  if (preferences.error) return <LoadError message={preferences.error} />;
+  if (preferences.error) return <ErrorText message={preferences.error} />;
   if (!preferences.data) return <LoadingSkeleton />;
   const save = async () => {
     setSaving(true);
@@ -204,11 +197,7 @@ export function NotificationSettings() {
           <p className="notification-hint">
             <T id="notifications.settings.hint">Notifications always appear in the app. Choose Email and SMS for each update.</T>
           </p>
-          {error && (
-            <p role="alert" className="error-message">
-              {error}
-            </p>
-          )}
+          <ErrorText message={error} />
           {notice && <p role="status">{notice}</p>}
           <ul>
             {preferences.data.map((preference: NotificationPreference) => (

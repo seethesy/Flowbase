@@ -10,7 +10,7 @@ import { canSeeField } from "../../../shared/visibility";
 import { allPages, inventoryApi, recipesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
 import { queryClient } from "../../app/queryClient";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { useBusinessSettings } from "../../services/settings";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T } from "../../app/copy";
@@ -239,11 +239,7 @@ export function RecipeForm({
           void save();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="recipes.recipe-form.name">Name *</T>}>
           <input
             value={name}

@@ -5,8 +5,7 @@ import { allPages, clientsApi, eventsApi, venuesApi } from "../../services/core"
 import { StaleReload, isStale } from "../../components/stale-reload";
 import { useResource } from "../../app/useResource";
 import { useDebounced } from "../../app/paging";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 
 import { ListSelect, ListSuggestions } from "../common/list-fields";
 import { type ListKey } from "../../../shared/settings";
@@ -203,18 +202,10 @@ function EventFormFields({
           void save();
         }}
       >
-        {conflict && (
-          <p role="alert" className="error-message">
-            {conflict}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={conflict} />
+        <ErrorText message={error} />
         {(clients.error || venues.error) && (
-          <LoadError message={clients.error ?? venues.error ?? ""} />
+          <ErrorText message={clients.error ?? venues.error ?? ""} />
         )}
         <FormField label={<T id="events.event-form-fields.title">Title *</T>}>
           <input

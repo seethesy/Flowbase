@@ -4,8 +4,7 @@ import { Link } from "react-router-dom";
 import { allPages } from "../../services/core";
 import { approvalsApi } from "../../services/approvals";
 import { useResource } from "../../app/useResource";
-import { Button, LoadingSkeleton, PageHeader } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, LoadingSkeleton, PageHeader, ErrorText } from "../../components/shared";
 import { T, useCopy } from "../../app/copy";
 
 export function ApprovalQueue() {
@@ -23,10 +22,10 @@ export function ApprovalQueue() {
   };
   return <>
     <PageHeader pageKey="approvals.queue" title={<T id="approval-queue.approval-queue.approvals">Approvals</T>} subtitle={<T id="approval-queue.approval-queue.requests-waiting-for-your-decision">Requests waiting for your decision.</T>} eyebrow={<T id="approval-queue.approval-queue.workflow">WORKFLOW</T>} />
-    {error && <p role="alert" className="error-message">{error}</p>}
+    <ErrorText message={error} />
     <PageGrid pageKey="approvals.queue">
     <Block id="queue" name="Requests" h={24}>
-    {queue.error ? <LoadError message={queue.error} /> : queue.loading && !queue.data ? <LoadingSkeleton /> :
+    {queue.error ? <ErrorText message={queue.error} /> : queue.loading && !queue.data ? <LoadingSkeleton /> :
       <div className="approval-queue">{queue.data?.map((approval) => <section key={approval.id} className="table-card" style={{ padding: 16, marginBottom: 12 }}>
         <h2>{approval.summary}</h2>
         <p>{approval.requester?.name ?? <T id="approval-queue.approval-queue.unknown-proposer">Unknown proposer</T>} · {new Date(approval.createdAt).toLocaleString()}</p>

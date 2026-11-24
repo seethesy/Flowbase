@@ -27,8 +27,8 @@ import {
   Section,
   ConfirmationDialog,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { Attachments } from "../common/attachments";
 import { CostHistory, MovementHistory } from "./inventory-histories";
 import { ItemForm } from "./inventory-item-form";
@@ -89,7 +89,7 @@ export function InventoryDetail() {
     return (
       <>
         {back}
-        <LoadError message={item.error} />
+        <ErrorText message={item.error} />
       </>
     );
   const i = item.data;
@@ -457,7 +457,7 @@ function ServiceTaskTemplates({ itemId }: { itemId: string }) {
   return (
     <Section title={<T id="inventory-detail.service-task-templates.task-templates">Task templates</T>}>
       {templates.error ? (
-        <LoadError message={templates.error} />
+        <ErrorText message={templates.error} />
       ) : !templates.data ? (
         <LoadingSkeleton />
       ) : linked.length ? (
@@ -483,7 +483,7 @@ function IncludedItems({ item }: { item: InventoryItem }) {
   return (
     <Section title={item.service ? <T id="inventory-detail.included-items.includes">Includes</T> : <T id="inventory-detail.included-items.kit-components">Kit components</T>}>
       {items.error ? (
-        <LoadError message={items.error} />
+        <ErrorText message={items.error} />
       ) : (
         <ul>
           {lines.map((line) => (

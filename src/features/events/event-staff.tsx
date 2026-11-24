@@ -27,10 +27,10 @@ import {
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
 } from "../../components/shared";
 import { eventStaffApi } from "../../services/event-staff";
 import { staffApi } from "../../services/staff";
-import { LoadError } from "../../components/record-display";
 import { date, time } from "./event-format";
 import { ListSelect } from "../common/list-fields";
 import "./event-staff.css";
@@ -83,7 +83,7 @@ export function EventStaffSection({
   if (roster.error)
     return (
       <Section title={<T id="event-staff.event-staff-section.staff">Staff</T>}>
-        <LoadError message={roster.error} />
+        <ErrorText message={roster.error} />
       </Section>
     );
   if (!roster.data) return <LoadingSkeleton />;
@@ -136,11 +136,7 @@ export function EventStaffSection({
         )
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {warning && (
         <p role="alert" className="staff-warning warning">
           {warning}
@@ -290,7 +286,7 @@ function ShiftBlock({
         )}
       </div>
       {shift.activities && <p className="muted">{shift.activities}</p>}
-      {staffError && <LoadError message={staffError} />}
+      <ErrorText message={staffError} />
       <ul className="staff-slots">
         {shift.slots.map((slot) => {
           const label = slotLabel(slot);
@@ -494,11 +490,7 @@ function ShiftForm({
           }
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <div className="form-grid">
           <FormField label={<T id="event-staff.shift-form.day">Day</T>}>
             <Dropdown
@@ -607,11 +599,7 @@ function LeadsForm({
           }
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField
           label={<T id="event-staff.leads-form.primary-production-lead">Primary Production Lead</T>}
           hint={<T id="event-staff.leads-form.full-time-staff-only">Full-time staff only.</T>}

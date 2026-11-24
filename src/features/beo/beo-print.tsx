@@ -11,8 +11,7 @@ import {
   type BeoSection,
 } from "../../../shared/beo";
 import { useResource } from "../../app/useResource";
-import { LoadingSkeleton } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { LoadingSkeleton, ErrorText } from "../../components/shared";
 import { PrintLayout } from "../../components/print/PrintLayout";
 import { attachmentsApi } from "../../services/attachments";
 import { beoApi } from "../../services/beo";
@@ -67,7 +66,7 @@ export function BeoPrint() {
   const beo = useResource(["event-beo", id], () => beoApi.get(id));
   // Taken when the page opens, which is when the printout is made.
   const [printedAt] = useState(() => new Date().toLocaleString());
-  if (beo.error) return <LoadError message={beo.error} />;
+  if (beo.error) return <ErrorText message={beo.error} />;
   if (!beo.data) return <LoadingSkeleton />;
   const { content, status } = beo.data;
   const hidden = content.event.contactHidden;

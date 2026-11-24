@@ -10,7 +10,7 @@ import { usePermissions } from "../app/permissions";
 import { cardRequestPath, cardsApi } from "../services/layout";
 import { BoxesView } from "./layout-boxes";
 import { FieldLabel, FieldValue } from "./layout-fields";
-import { LoadError } from "./record-display";
+import { ErrorText } from "./shared";
 
 // A custom card (FLOW-256): a title, a source (this record, a related list or a
 // main list), and a table or boxes. The config is the same for everyone; the
@@ -52,7 +52,7 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
           <T id="layout.custom-card.no-data">No data</T>
         </p>
       ) : rows.error ? (
-        <LoadError message={(rows.error as Error).message} />
+        <ErrorText message={(rows.error as Error).message} />
       ) : !rows.data ? (
         <div className="skeleton" role="status" aria-label="Loading card" />
       ) : !rows.data.length ? (

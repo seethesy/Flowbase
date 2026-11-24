@@ -23,8 +23,8 @@ import {
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { proposalsApi, uploadProposalVersion } from "../../services/proposals";
 import { uploadAttachment } from "../../services/attachments";
 import { ProposalReview } from "../sales/proposal-review";
@@ -85,7 +85,7 @@ export function EventProposalsSection({
   if (list.error)
     return (
       <Section title={<T id="event-proposals.event-proposals-section.proposals">Proposals</T>}>
-        <LoadError message={list.error} />
+        <ErrorText message={list.error} />
       </Section>
     );
   if (!list.data) return <LoadingSkeleton />;
@@ -242,11 +242,7 @@ function ProposalForm({
           }
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="event-proposals.proposal-form.title">Title *</T>}>
           <input
             value={draft.title}
@@ -335,7 +331,7 @@ function ProposalDrawer({
       title={title}
       description={<T id="event-proposals.proposal-drawer.stages-after-revisions-are-set">Stages after Revisions are set by uploading, approving, sending and booking the proposal.</T>}
     >
-      {detail.error && <LoadError message={detail.error} />}
+      <ErrorText message={detail.error} />
       {!detail.data && !detail.error && <LoadingSkeleton />}
       {detail.data &&
         (() => {
@@ -347,11 +343,7 @@ function ProposalDrawer({
           const currentVersion = p.versions.find((version) => version.current);
           return (
             <div className="proposal-detail">
-              {error && (
-                <p role="alert" className="error-message">
-                  {error}
-                </p>
-              )}
+              <ErrorText message={error} />
               <PageGrid pageKey="proposals.detail" record={{ source: "proposals", id: p.id, row: p as unknown as Record<string, unknown> }}>
                 <Block id="proposal-facts" name="Proposal details" w={12} h={6}>
                   <FieldCard cardKey="proposal-facts" source="proposals" row={p as unknown as Record<string, unknown>}

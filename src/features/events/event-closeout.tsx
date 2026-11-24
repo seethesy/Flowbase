@@ -3,8 +3,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import type { FlowEvent } from "../../../shared/core-records";
 import { closeoutLineProblem, type Closeout, type CloseoutLine } from "../../../shared/closeout";
 import { useResource } from "../../app/useResource";
-import { Button, FormField, LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, FormField, LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { closeoutApi } from "../../services/closeout";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T } from "../../app/copy";
@@ -28,7 +27,7 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  if (closeout.error) return <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}><LoadError message={closeout.error} /></Section>;
+  if (closeout.error) return <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}><ErrorText message={closeout.error} /></Section>;
   if (!closeout.data) return <LoadingSkeleton />;
   const data: Closeout = closeout.data;
 
@@ -108,7 +107,7 @@ export function EventCloseoutSection({ event }: { event: FlowEvent }) {
 
   return (
     <Section title={<T id="event-closeout.event-closeout-section.closeout-and-returns">Closeout and returns</T>}>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       <PageGrid pageKey="events.closeout">
       <Block id="pull-list" name="Pull list" h={12}>
 {!data.lines.length && <p><T id="event-closeout.event-closeout-section.the-pull-list-is-empty">The pull list is empty; there is nothing to check in.</T></p>}

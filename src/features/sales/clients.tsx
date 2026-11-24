@@ -37,6 +37,7 @@ import {
   DetailDrawer,
   FormField,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
 import { EventTable } from "../events/event-list";
 import { Attachments } from "../common/attachments";
@@ -45,7 +46,7 @@ import { StaleReload, isStale } from "../../components/stale-reload";
 import { ClientSalesTracker } from "./sales";
 import "./clients.css";
 
-import { initials, hidden, LoadError } from "../../components/record-display";
+import { initials, hidden } from "../../components/record-display";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T, useCopy, LabelT } from "../../app/copy";
 
@@ -191,7 +192,7 @@ export function ClientList() {
         </span>
       </FilterBar>
       {clients.error ? (
-        <LoadError message={clients.error} />
+        <ErrorText message={clients.error} />
       ) : clients.loading && !clients.data ? (
         <LoadingSkeleton />
       ) : (
@@ -358,16 +359,8 @@ function ClientFormFields({
           void save(false);
         }}
       >
-        {conflict && (
-          <p role="alert" className="error-message">
-            {conflict}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={conflict} />
+        <ErrorText message={error} />
         {duplicates.length > 0 && (
           <div role="alert" className="error-message">
             <p>
@@ -542,7 +535,7 @@ export function ClientDetail() {
         <Link to="/clients" className="back-link">
           <T id="clients.client-detail.all-clients">← All clients</T>
         </Link>
-        <LoadError message={client.error} />
+        <ErrorText message={client.error} />
       </>
     );
   const c = client.data;

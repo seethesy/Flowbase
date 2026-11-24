@@ -27,8 +27,8 @@ import {
   ColumnResizeHandle,
   DateTimeCell,
   fromRowControl,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { useListLabels } from "../common/list-fields";
 import "./leads.css";
 import { ConvertLeadForm } from "./lead-convert";
@@ -169,9 +169,9 @@ export function LeadInbox() {
         <Select label="Sources" value={source} onChange={setSource} options={sources} />
         <span className="result-count"><T id="leads.inbox.lead-count" values={{ count: data.length }}>{"{count} leads"}</T></span>
       </FilterBar>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       {selection.bar}
-      {leads.error ? <LoadError message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
+      {leads.error ? <ErrorText message={leads.error} /> : leads.loading && !leads.data ? <LoadingSkeleton /> :
         <TableLayout tableKey="leads.inbox.table" codeColumns={leadColumns.map((column) => ({ key: column.key, header: column.heading }))}>
           {(layout) => {
             const visible: { key: string; width?: number }[] = layout.custom ? layout.columns : leadColumns.map((column) => ({ key: column.key }));

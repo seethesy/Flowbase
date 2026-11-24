@@ -2,7 +2,7 @@ import { Dropdown } from "../../components/ui/Dropdown";
 import { useState } from "react";
 import { defaultLeadSources, type Lead } from "../../../shared/leads";
 import { leadsApi } from "../../services/leads";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { useListLabels } from "../common/list-fields";
 import { T } from "../../app/copy";
 
@@ -82,11 +82,7 @@ export function NewLeadForm({
           void submit();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <div className="form-grid">
           <FormField label={<T id="lead-entry.new-lead-form.source">Source *</T>}>
             <Dropdown value={source} onChange={(e) => setSource(e.target.value)}>

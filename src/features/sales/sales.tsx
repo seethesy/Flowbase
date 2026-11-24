@@ -6,8 +6,7 @@ import { StatusPill } from "../../components/ui/status-pill";
 import { pipelineLabels, pipelineStatusSchema } from "../../../shared/pipeline";
 import { filterSalesRows, salesCsv, salesFilterSchema, type SalesFilter, type SalesRow } from "../../../shared/sales";
 import { useResource } from "../../app/useResource";
-import { Button, EditableCell, LoadingSkeleton, PageHeader, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, EditableCell, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { salesApi } from "../../services/sales";
 import { proposalsApi } from "../../services/proposals";
 import { staffApi } from "../../services/staff";
@@ -62,7 +61,7 @@ export function SalesTracker() {
   const [filter, setFilter] = useState<SalesFilter>(salesFilterSchema.parse({}));
   const [viewName, setViewName] = useState("");
   const [error, setError] = useState("");
-  if (data.error) return <LoadError message={data.error} />;
+  if (data.error) return <ErrorText message={data.error} />;
   if (!data.data) return <LoadingSkeleton />;
   const rows = filterSalesRows(data.data.rows, filter);
   const owners = [...new Map(data.data.rows.filter((row) => row.ownerId).map((row) => [row.ownerId!, row.owner ?? "Unassigned"] as const)).entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -121,7 +120,7 @@ export function SalesTracker() {
 
 export function ClientSalesTracker({ clientId }: { clientId: string }) {
   const data = useResource(["sales", "client", clientId], () => salesApi.client(clientId));
-  if (data.error) return <LoadError message={data.error} />;
+  if (data.error) return <ErrorText message={data.error} />;
   if (!data.data) return <LoadingSkeleton />;
   return <Section title={<T id="sales.client-sales-tracker.client-proposal-tracker">Client proposal tracker</T>}>
     <p><T id="sales.client-sales-tracker.events-lifetime-booked-total" values={{ eventCount: data.data.eventCount, dollars: dollars(data.data.lifetimeBookedCents) }}>{"{eventCount} events · Lifetime booked total: {dollars}"}</T></p>
@@ -141,7 +140,7 @@ export function SalesReports() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const data = useResource(["sales", "reports", from, to], () => salesApi.report({ from, to }));
-  if (data.error) return <LoadError message={data.error} />;
+  if (data.error) return <ErrorText message={data.error} />;
   if (!data.data) return <LoadingSkeleton />;
   const report = data.data;
   const reportRows: (string | number | null)[][] = [["Section", "Name", "Count", "Total", "Rate"],

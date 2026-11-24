@@ -6,8 +6,7 @@ import { ApiRequestError, clientsApi } from "../../services/core";
 import { leadsApi } from "../../services/leads";
 import { useResource } from "../../app/useResource";
 import { useDebounced } from "../../app/paging";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { leadTitle } from "./lead-shared";
 import { T, useCopy } from "../../app/copy";
 
@@ -34,7 +33,7 @@ function ClientPicker({
     { enabled: Boolean(value && !listed) },
   );
   const chosen = !listed && fetched.data?.id === value ? fetched.data : undefined;
-  if (clients.error) return <LoadError message={clients.error} />;
+  if (clients.error) return <ErrorText message={clients.error} />;
   return (
     <>
       <FormField label={<T id="lead-convert.client-picker.find-client">Find client</T>}>
@@ -131,11 +130,7 @@ export function ConvertLeadForm({
           void submit(false);
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         {duplicates.length > 0 && (
           <div role="alert" className="error-message">
             <p>

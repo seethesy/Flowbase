@@ -3,8 +3,7 @@ import type { HistoryEntry } from "../../../shared/audit";
 import { eventStatusDetailLabels, type EventStatus } from "../../../shared/core-records";
 import { BUSINESS_TIME_ZONE } from "../../../shared/time";
 import { LoadMore, usePagedList } from "../../app/paging";
-import { LoadingSkeleton, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { LoadingSkeleton, Section, ErrorText } from "../../components/shared";
 import { eventsApi } from "../../services/core";
 import { LabelT, T } from "../../app/copy";
 import type { ReactNode } from "react";
@@ -85,7 +84,7 @@ export function EventHistorySection({
   if (list.error)
     return (
       <Section title={<T id="event-activity.event-history-section.history">History</T>}>
-        <LoadError message={list.error} />
+        <ErrorText message={list.error} />
       </Section>
     );
   if (!list.data) return <LoadingSkeleton />;

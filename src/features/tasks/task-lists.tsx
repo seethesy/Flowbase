@@ -9,8 +9,7 @@ import { businessTimeToUtc, isBusinessTime, utcToBusinessTime } from "../../../s
 import { LoadMore, usePagedList } from "../../app/paging";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, EditableCell, EmptyState, FilterBar, LoadingSkeleton, PageHeader, Section } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { Button, EditableCell, EmptyState, FilterBar, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { tasksApi } from "../../services/tasks";
 import { preparationApi } from "../../services/preparation";
 import { dateTimeLabel } from "../inventory/inventory-labels";
@@ -297,11 +296,7 @@ export function TaskList() {
       >
         <Button onClick={() => setAdding(true)}><T id="task-lists.task-list.new-task">New task</T></Button>
       </PageHeader>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="tasks.all">
       <Block id="filters" name="Filters" h={6}>
       <FilterBar>
@@ -439,7 +434,7 @@ export function TaskList() {
       </Block>
       <Block id="list" name="Task list" h={24}>
       {list.error ? (
-        <LoadError message={list.error} />
+        <ErrorText message={list.error} />
       ) : !list.data ? (
         <LoadingSkeleton />
       ) : list.data.length ? (
@@ -533,11 +528,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
         </div>
       )}
       {message && <p role="status">{message}</p>}
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {tbdPullLines.length > 0 && <p role="alert" className="warning-message">
         <T id="task-lists.event-tasks-section.production-list-pull-quantity-tbd">{"Production list: pull quantity TBD for "}</T>{tbdPullLines.map((line) => line.name).join(", ")}.
       </p>}
@@ -548,7 +539,7 @@ export function EventTasksSection({ event }: { event: FlowEvent }) {
             : <T id="task-lists.event-tasks-section.who-is-assigned-to" values={{ title: task.title }}>{"Who is assigned to {title}?"}</T>}
         </p>)}
       {list.error ? (
-        <LoadError message={list.error} />
+        <ErrorText message={list.error} />
       ) : !list.data ? (
         <LoadingSkeleton />
       ) : list.data.length ? (

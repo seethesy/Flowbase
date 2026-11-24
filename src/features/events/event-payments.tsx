@@ -23,8 +23,8 @@ import {
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { paymentsApi } from "../../services/payments";
 import { date } from "./event-format";
 import { Plural, T, LabelT } from "../../app/copy";
@@ -56,7 +56,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
   if (payments.error)
     return (
       <Section title={<T id="event-payments.event-payments-section.payments">Payments</T>}>
-        <LoadError message={payments.error} />
+        <ErrorText message={payments.error} />
       </Section>
     );
   if (!payments.data) return <LoadingSkeleton />;
@@ -81,11 +81,7 @@ export function EventPaymentsSection({ event }: { event: FlowEvent }) {
         )
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="events.payments">
       <Block id="summary" name="Payment summary" h={5}>
       <dl className="payments-summary">
@@ -359,11 +355,7 @@ function ScheduleItemDrawer({
           }
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <div className="form-grid">
           <FormField label={<T id="event-payments.schedule-item-drawer.type">Type</T>}>
             <Dropdown
@@ -454,11 +446,7 @@ function PaymentDrawer({
           }
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <div className="form-grid">
           <FormField label={<T id="event-payments.payment-drawer.method">Method</T>}>
             <Dropdown

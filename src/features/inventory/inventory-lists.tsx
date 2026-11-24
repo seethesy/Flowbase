@@ -28,8 +28,8 @@ import {
   FilterBar,
   DataTable,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { ItemForm } from "./inventory-item-form";
 import { useListLabels } from "../common/list-fields";
 import {
@@ -391,9 +391,9 @@ export function InventoryList() {
           </FilterBar>
         </Block>
         <Block id="list" name="List" h={24}>
-          {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.inventory-list.skipped" values={{ names: bulkError }}>{"Skipped: {names}"}</T></p>}
+          {bulkError && <ErrorText message={<T id="inventory-lists.inventory-list.skipped" values={{ names: bulkError }}>{"Skipped: {names}"}</T>} />}
           {items.error ? (
-            <LoadError message={items.error} />
+            <ErrorText message={items.error} />
           ) : items.loading && !items.data ? (
             <LoadingSkeleton />
           ) : (
@@ -591,7 +591,7 @@ export function IngredientList() {
           </Button>
         </Allowed>
       </KitchenHeading>
-      {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.ingredient-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T></p>}
+      {bulkError && <ErrorText message={<T id="inventory-lists.ingredient-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T>} />}
       <PageGrid pageKey="inventory.consumables">
         <Block id="filters" name="Filters" h={3}>
       <FilterBar>
@@ -660,7 +660,7 @@ export function IngredientList() {
         )}
       </PageGrid>
       {items.error ? (
-        <LoadError message={items.error} />
+        <ErrorText message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : null}
@@ -847,7 +847,7 @@ export function BarList() {
           </Button>
         </Allowed>
       </InventoryHeading>
-      {bulkError && <p role="alert" className="error-message"><T id="inventory-lists.bar-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T></p>}
+      {bulkError && <ErrorText message={<T id="inventory-lists.bar-list.not-changed" values={{ names: bulkError }}>{"Not changed: {names}"}</T>} />}
       <PageGrid pageKey="inventory.bar">
         <Block id="filters" name="Filters" h={3}>
       <FilterBar>
@@ -950,7 +950,7 @@ export function BarList() {
         )}
       </PageGrid>
       {items.error ? (
-        <LoadError message={items.error} />
+        <ErrorText message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : null}

@@ -12,7 +12,7 @@ import { allPages, inventoryApi, inventoryChangesApi, sectionsApi } from "../../
 import { StaleReload, isStale } from "../../components/stale-reload";
 import { vendorsApi } from "../../services/vendors";
 import { useResource } from "../../app/useResource";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { useShownFields } from "../../app/live-edit/field-card";
 import { useBusinessSettings } from "../../services/settings";
 import { usePermissions } from "../../app/permissions";
@@ -192,16 +192,8 @@ function ItemFormFields({
           void save();
         }}
       >
-        {conflict && (
-          <p role="alert" className="error-message">
-            {conflict}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={conflict} />
+        <ErrorText message={error} />
         {notice && <p role="status" className="success-message">{notice}</p>}
         <ItemClassificationSection
           form={form}

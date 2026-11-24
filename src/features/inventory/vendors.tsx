@@ -34,8 +34,8 @@ import {
   DetailDrawer,
   FormField,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { centsLabel, kindLabels, subtypeLabel } from "./inventory-labels";
 import "./vendors.css";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -205,7 +205,7 @@ export function VendorList() {
         </span>
       </FilterBar>
       {vendors.error ? (
-        <LoadError message={vendors.error} />
+        <ErrorText message={vendors.error} />
       ) : vendors.loading && !vendors.data ? (
         <LoadingSkeleton />
       ) : (
@@ -358,11 +358,7 @@ export function VendorForm({
           void save();
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="vendors.vendor-form.name">Name *</T>}>
           <input
             value={fields.name}
@@ -532,7 +528,7 @@ export function VendorDetail() {
     return (
       <>
         {back}
-        <LoadError message={vendor.error} />
+        <ErrorText message={vendor.error} />
       </>
     );
   const v = vendor.data;

@@ -21,8 +21,8 @@ import {
   RoleText,
   SearchInput,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { ListCheckboxes, useListLabels } from "../common/list-fields";
 import { roleLabel } from "../../services/users";
 import { dateTimeLabel } from "../inventory/inventory-labels";
@@ -188,9 +188,9 @@ export function StaffDirectory() {
       </FilterBar>
       </Block>
       <Block id="list" name="List" h={24}>
-      {bulkError && <p role="alert" className="error-message">{bulkError}</p>}
+      <ErrorText message={bulkError} />
       {staff.error ? (
-        <LoadError message={staff.error} />
+        <ErrorText message={staff.error} />
       ) : staff.loading && !staff.data ? (
         <LoadingSkeleton />
       ) : (
@@ -247,7 +247,7 @@ function AddStaffForm({ onClose, onSaved }: { onClose: () => void; onSaved: (mem
       title={<T id="staff.add-staff-form.add-staff-without-account">Add staff without an account</T>}
       description={<T id="staff.add-staff-form.no-invite-no-sign-in">No invite is sent and they can't sign in. They can be scheduled on shifts and never get notifications.</T>}>
       <form className="settings-form" noValidate onSubmit={(event) => { event.preventDefault(); void save(); }}>
-        {error && <p role="alert" className="error-message">{error}</p>}
+        <ErrorText message={error} />
         <FormField label="Name"><input value={name} maxLength={200} onChange={(event) => setName(event.target.value)} /></FormField>
         <FormField label="Phone number"><input type="tel" value={mobile} maxLength={40} onChange={(event) => setMobile(event.target.value)} /></FormField>
         <ListCheckboxes list="staff_position" legend="Positions" values={positions} onChange={setPositions} />
@@ -287,7 +287,7 @@ export function StaffProfile({
     ["staff", id],
     () => staffApi.get(id),
   );
-  if (member.error) return <LoadError message={member.error} />;
+  if (member.error) return <ErrorText message={member.error} />;
   if (!member.data) return <LoadingSkeleton />;
   const data = member.data;
   const manage = permissions.can("users.manage");
@@ -409,7 +409,7 @@ function StaffForm({
   };
   return (
     <form className="settings-form" noValidate onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       {notice && <p role="status">{notice}</p>}
       <Section title={<T id="staff.staff-form.employee-profile">Employee profile</T>}>
         <div className="employee-profile-grid">

@@ -19,8 +19,8 @@ import {
   LoadingSkeleton,
   PageHeader,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { useBusinessSettings } from "../../services/settings";
 import "./time-tracking.css";
 
@@ -170,7 +170,7 @@ export function TimeReports() {
       </Block>
       <Block id="effort" name="Effort per booking" h={16}>
       {report.error ? (
-        <LoadError message={report.error} />
+        <ErrorText message={report.error} />
       ) : !data ? (
         <LoadingSkeleton />
       ) : (

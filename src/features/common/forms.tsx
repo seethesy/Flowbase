@@ -1,6 +1,6 @@
 import { Dropdown } from "../../components/ui/Dropdown";
 import { useState } from "react";
-import { Button, DetailDrawer, FormField } from "../../components/shared";
+import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
 import { useDemo } from "../../app/store";
 import { employees } from "../../data/mock/fixtures";
 import type { Proposal } from "../../types";
@@ -75,11 +75,7 @@ export function RecordForm({
         <p className="demo-callout">
           <T id="forms.record-form.demo-records-are-validated-by">Demo records are validated by the API. Changes reset on refresh.</T>
         </p>
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="forms.record-form.name">Name *</T>}>
           <input name="name" defaultValue={value("name")} required autoFocus />
         </FormField>

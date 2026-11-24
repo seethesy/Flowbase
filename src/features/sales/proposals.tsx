@@ -38,6 +38,7 @@ import {
   FormField,
   FileList,
   EmptyState,
+  ErrorText,
 } from "../../components/shared";
 import { RecordForm } from "../common/forms";
 import { T, useCopy } from "../../app/copy";
@@ -139,11 +140,7 @@ export function ProposalDrawer({
             </div>
           </form>
         )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         {c.lossReason && (
           <p className="demo-callout"><T id="proposals.proposal-drawer.loss-reason-2" values={{ lossReason: c.lossReason }}>{"Loss reason: {lossReason}"}</T></p>
         )}

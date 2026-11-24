@@ -25,6 +25,7 @@ import {
   FormField,
   PageHeader,
   Section,
+  ErrorText,
 } from "../../components/shared";
 import { TimeTrackingSettings } from "../staff/time-tracking";
 import { dateTimeLabel } from "../inventory/inventory-labels";
@@ -106,11 +107,7 @@ function useSaveState() {
 function SaveMessages({ error, notice }: { error: string; notice: string }) {
   return (
     <>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {notice && <p role="status">{notice}</p>}
     </>
   );

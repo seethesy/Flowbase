@@ -5,7 +5,7 @@ import type { FlowEvent } from "../../../shared/core-records";
 import { ANNOTATED_GROUP, areaPhotoGroups, type BeoArea, type BeoAreaKind, type BeoView } from "../../../shared/beo";
 import type { Attachment } from "../../../shared/attachments";
 import { useResource } from "../../app/useResource";
-import { Button } from "../../components/shared";
+import { Button, ErrorText } from "../../components/shared";
 import { attachmentsApi, uploadAttachment } from "../../services/attachments";
 import { beoApi } from "../../services/beo";
 import { eventsApi } from "../../services/core";
@@ -67,11 +67,7 @@ export function AreaPhotos({
   };
   return (
     <div className="beo-photos">
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {groups.map(({ group, label, camera, readOnly }) => {
         const shown = (files.data ?? []).filter((file) => file.group === group && file.kind === "photo");
         const editable = (canEdit && !readOnly) || (group === "actual" && canAddActual);
@@ -177,11 +173,7 @@ function CopyLayout({ event, onChange }: { event: FlowEvent; onChange: (view: Be
           </Button>
         </>
       )}
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
     </div>
   );
 }
@@ -284,11 +276,7 @@ export function BeoAreaList({
           />
         </Suspense>
       )}
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {canEdit && (
         <form
           ref={form}
@@ -369,11 +357,7 @@ export function BeoCleanup({
             </ul>
           </fieldset>
         ))}
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {data.exists && data.canEdit && (
         <div className="beo-edit">
           {draft ? (

@@ -8,8 +8,7 @@ import { Allowed, usePermissions } from "../../app/permissions";
 import { useDeletable } from "../../app/live-edit/deletable";
 import { centsLabel } from "./inventory-labels";
 import { useResource } from "../../app/useResource";
-import { LoadError } from "../../components/record-display";
-import { Button, DataTable, DetailDrawer, FilterBar, FormField, LoadingSkeleton } from "../../components/shared";
+import { Button, DataTable, DetailDrawer, FilterBar, FormField, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { orderListsApi } from "../../services/order-lists";
 import { weekday } from "../events/calendar-entries";
@@ -131,7 +130,7 @@ export function OrderListsTable() {
             />
           </FilterBar>
           {lists.error ? (
-            <LoadError message={lists.error} />
+            <ErrorText message={lists.error} />
           ) : !lists.data ? (
             <LoadingSkeleton />
           ) : (
@@ -181,7 +180,7 @@ function NewOrderList({ onClose, onCreated }: { onClose: () => void; onCreated: 
         <FormField label={<T id="purchasing.new-order-list.to">To</T>}>
           <input aria-label="To" type="date" required value={to} onChange={(event) => setTo(event.target.value)} />
         </FormField>
-        {error && <p role="alert" className="error-message">{error}</p>}
+        <ErrorText message={error} />
         <Button type="submit"><T id="purchasing.new-order-list.build-list">Build list</T></Button>
       </form>
     </DetailDrawer>

@@ -6,8 +6,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { Allowed, usePermissions } from "../../app/permissions";
 import { LoadMore, usePagedList } from "../../app/paging";
 import { T } from "../../app/copy";
-import { LoadError } from "../../components/record-display";
-import { Button, DataTable, EmptyState, LoadingSkeleton } from "../../components/shared";
+import { Button, DataTable, EmptyState, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { inventoryApi } from "../../services/core";
 import { queryClient } from "../../app/queryClient";
 import { orderListsApi } from "../../services/order-lists";
@@ -100,7 +99,7 @@ function ReorderTable({ list }: { list: InventoryList }) {
       <div className="section-heading">
         <h2>{titles[list]}</h2>
       </div>
-      {error && <p role="alert" className="error-message">{error}</p>}
+      <ErrorText message={error} />
       {added && (
         <p role="status">
           <T id="inventory-order.reorder.added">Added to the draft order list.</T>{" "}
@@ -108,7 +107,7 @@ function ReorderTable({ list }: { list: InventoryList }) {
         </p>
       )}
       {items.error ? (
-        <LoadError message={items.error} />
+        <ErrorText message={items.error} />
       ) : items.loading && !items.data ? (
         <LoadingSkeleton />
       ) : !data.length ? (

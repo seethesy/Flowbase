@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Excalidraw, convertToExcalidrawElements, exportToBlob } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { ANNOTATED_GROUP, type BeoArea, type BeoView } from "../../../shared/beo";
-import { Button } from "../../components/shared";
+import { Button, ErrorText } from "../../components/shared";
 import { attachmentsApi, uploadAttachment } from "../../services/attachments";
 import { beoApi } from "../../services/beo";
 import { T } from "../../app/copy";
@@ -137,11 +137,7 @@ export default function LayoutEditor({
           <T id="beo-layout-editor.layout-editor.cancel">Cancel</T>
         </Button>
       </div>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       {loaded ? (
         <div className="beo-excalidraw">
           <Excalidraw

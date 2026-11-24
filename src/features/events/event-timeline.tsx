@@ -20,8 +20,8 @@ import {
   FormField,
   LoadingSkeleton,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { eventTimelineApi } from "../../services/event-timeline";
 import { staffApi } from "../../services/staff";
 import { vendorsApi } from "../../services/vendors";
@@ -84,7 +84,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
   if (timeline.error)
     return (
       <Section title={<T id="event-timeline.event-timeline-section.timeline">Timeline</T>}>
-        <LoadError message={timeline.error} />
+        <ErrorText message={timeline.error} />
       </Section>
     );
   if (!timeline.data) return <LoadingSkeleton />;
@@ -109,11 +109,7 @@ export function EventTimelineSection({ event }: { event: FlowEvent }) {
         )
       }
     >
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="events.timeline">
       <Block id="suggestions" name="Timeline suggestions" h={8}>
       {data.suggestions.length > 0 && data.canEdit && (
@@ -272,11 +268,7 @@ function EntryForm({
           }
         }}
       >
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <div className="form-grid">
           <FormField label={<T id="event-timeline.entry-form.kind">Kind</T>}>
             <Dropdown

@@ -7,7 +7,7 @@ import {
   type BeoView,
   type RunOfShowMode,
 } from "../../../shared/beo";
-import { Button } from "../../components/shared";
+import { Button, ErrorText } from "../../components/shared";
 import { beoApi } from "../../services/beo";
 import { T, useCopy } from "../../app/copy";
 
@@ -199,11 +199,7 @@ export function BeoSchedule({
               <Button type="button" variant="ghost" onClick={() => setDraft(null)}>
                 <T id="beo-schedule.beo-schedule.cancel">Cancel</T>
               </Button>
-              {error && (
-                <p role="alert" className="error-message">
-                  {error}
-                </p>
-              )}
+              <ErrorText message={error} />
             </form>
           ) : (
             <Button

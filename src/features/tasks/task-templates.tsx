@@ -19,8 +19,8 @@ import {
   LoadingSkeleton,
   PageHeader,
   Section,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { tasksApi } from "../../services/tasks";
 import { allPages, inventoryApi } from "../../services/core";
 import { sopsApi } from "../../services/sops";
@@ -150,11 +150,7 @@ function TemplateEditor({
       description={<T id="task-templates.template-editor.each-task-is-due-a">{"Each task is due a number of days from the event, at its own time or the event's start time."}</T>}
     >
       <form className="task-form" onSubmit={submit}>
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={error} />
         <FormField label={<T id="task-templates.template-editor.template-name">Template name</T>}>
           <input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
         </FormField>
@@ -284,7 +280,7 @@ export function TaskTemplates() {
   const [editing, setEditing] = useState<TaskTemplate | "new" | null>(null);
   const [error, setError] = useState("");
   const manage = can("tasks.templates");
-  if (templates.error) return <LoadError message={templates.error} />;
+  if (templates.error) return <ErrorText message={templates.error} />;
   if (!templates.data) return <LoadingSkeleton />;
   return (
     <>
@@ -297,11 +293,7 @@ export function TaskTemplates() {
       >
         {manage && <Button onClick={() => setEditing("new")}><T id="task-templates.task-templates.new-template">New template</T></Button>}
       </PageHeader>
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
+      <ErrorText message={error} />
       <PageGrid pageKey="tasks.templates">
       <Block id="templates" name="Templates" h={24}>
       {templates.data.length ? (

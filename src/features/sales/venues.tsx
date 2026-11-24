@@ -29,8 +29,8 @@ import {
   DetailDrawer,
   FormField,
   LoadingSkeleton,
+  ErrorText,
 } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
 import { EventTable } from "../events/event-list";
 import { Attachments } from "../common/attachments";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -117,7 +117,7 @@ export function VenueList() {
         </span>
       </FilterBar>
       {venues.error ? (
-        <LoadError message={venues.error} />
+        <ErrorText message={venues.error} />
       ) : venues.loading && !venues.data ? (
         <LoadingSkeleton />
       ) : (
@@ -259,16 +259,8 @@ function VenueFormFields({
           void save();
         }}
       >
-        {conflict && (
-          <p role="alert" className="error-message">
-            {conflict}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error-message">
-            {error}
-          </p>
-        )}
+        <ErrorText message={conflict} />
+        <ErrorText message={error} />
         <FormField label={<T id="venues.venue-form-fields.name">Name *</T>}>
           <input
             value={name}
@@ -483,7 +475,7 @@ export function VenueDetail() {
     return (
       <>
         {back}
-        <LoadError message={venue.error} />
+        <ErrorText message={venue.error} />
       </>
     );
   const v = venue.data;

@@ -9,8 +9,7 @@ import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
 import { allPages, clientsApi, eventsApi, venuesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
 import { LoadMore, useDebounced, usePagedList } from "../../app/paging";
-import { PageHeader, Button, SearchInput, FilterBar, DataTable, LoadingSkeleton, Select, DateTimeCell, dateTimeSortKey, type TableSelection } from "../../components/shared";
-import { LoadError } from "../../components/record-display";
+import { PageHeader, Button, SearchInput, FilterBar, DataTable, LoadingSkeleton, Select, DateTimeCell, dateTimeSortKey, type TableSelection, ErrorText } from "../../components/shared";
 import { date, time } from "./event-format";
 import { calendarWhen, calendarWhenParts } from "./calendar-entries";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -91,7 +90,7 @@ export function EventTable({
     await saveEventFields(event.id, change);
     onSaved?.();
   };
-  if (error) return <LoadError message={error} />;
+  if (error) return <ErrorText message={error} />;
   const listColumns: ColumnDef<FlowEvent, unknown>[] = [
     { accessorKey: "title", header: "Event", meta: { edit: "text", canEdit: () => can("events.write"), onEdit: (row, value) => edit(row, { title: value }) } },
     // FLOW-296: the date with the start time beneath it, sorted by both and
