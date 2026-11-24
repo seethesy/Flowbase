@@ -1501,6 +1501,8 @@
     "kitchen-screen.stock.low": [],
     "kitchen-screen.stock.out": [],
     "layout.custom-card.no-data": [],
+    "layout.custom-card.no-fields": [],
+    "layout.custom-card.no-source": [],
     "layout.custom-card.open": [],
     "lead-convert.client-picker.existing-client": [],
     "lead-convert.client-picker.find-client": [],
