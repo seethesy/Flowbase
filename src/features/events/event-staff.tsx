@@ -46,7 +46,7 @@ const range = (startsAt: string, endsAt: string) => {
   const end = utcToBusinessTime(new Date(endsAt));
   return `${date(start.date)} ${time(start.time)}–${time(end.time)}`;
 };
-export const conflictText = (conflict: ShiftConflict) =>
+const conflictText = (conflict: ShiftConflict) =>
   `${conflict.eventTitle ?? "another event"} (${shiftKindLabels[conflict.shiftKind]}, ${range(conflict.startsAt, conflict.endsAt)})`;
 
 // conflictText for the screen, with its wording editable (FLOW-257).

@@ -62,7 +62,7 @@ export type FieldName =
 
 export type ItemFields = Record<FieldName, string>;
 type ServiceDetails = NonNullable<InventoryItem["service"]>;
-export type IncludedLine = ServiceDetails["includes"][number];
+type IncludedLine = ServiceDetails["includes"][number];
 export type ServiceAddon = ServiceDetails["addons"][number];
 
 export const initialItemFields = (item: InventoryItem | undefined): ItemFields => ({

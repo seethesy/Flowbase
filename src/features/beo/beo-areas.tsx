@@ -27,7 +27,7 @@ const expiryOf = (list: Attachment[]) =>
     .filter((at): at is string => Boolean(at))
     .sort()[0];
 
-export function AreaPhotos({
+function AreaPhotos({
   areaId,
   groups,
   canEdit,

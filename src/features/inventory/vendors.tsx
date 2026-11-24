@@ -240,7 +240,7 @@ const dollars = (cents: number | null) =>
 
 // There is deliberately no password field (AC1): portal passwords stay out of
 // Flowbase.
-export function VendorForm({
+function VendorForm({
   vendor,
   onClose,
   onSaved,

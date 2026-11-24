@@ -45,7 +45,7 @@ import "./calendar.css";
 // the date are kept in the address, so a reload or a shared link keeps them.
 // Clicking an event opens its side panel.
 
-export type CalendarView = "month" | "week" | "day";
+type CalendarView = "month" | "week" | "day";
 const fullCalendarViews: Record<CalendarView, string> = { month: "dayGridMonth", week: "timeGridWeek", day: "timeGridDay" };
 // Older links used FullCalendar's view names, or the removed List view.
 const viewOf = (value: string | null): CalendarView =>
@@ -89,7 +89,7 @@ const shortDay = (date: string, withYear = false) =>
 // What a view shows (FLOW-294): the days fetched for the calendar, the days the
 // events table lists (a month view lists its month), its title, and the dates
 // the previous and next buttons go to.
-export function calendarRange(view: CalendarView, date: string) {
+function calendarRange(view: CalendarView, date: string) {
   if (view === "day")
     return {
       fetch: { from: date, to: date },

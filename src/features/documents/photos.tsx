@@ -47,7 +47,7 @@ const jpegName = (photo: Photo) => `${photo.fileName.replace(/\.[^.]+$/, "")}.jp
 // bar, a lightbox and multi-file upload. Marketing adds its filters, approval
 // and tags; Kitchen and Inventory (FLOW-298) add a label and date per photo and
 // confirm every delete.
-export function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title: ReactNode; subtitle: ReactNode }) {
+function PhotoGallery({ area, title, subtitle }: { area: PhotoArea; title: ReactNode; subtitle: ReactNode }) {
   const { can } = usePermissions();
   const marketing = area === "marketing";
   const canWrite = can(photoAreaActions[area].write);

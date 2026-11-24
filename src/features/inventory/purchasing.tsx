@@ -40,7 +40,7 @@ const statusTone: Record<OrderListStatus, string> = {
 // The usual path, as the strip above the table shows it.
 const flow: OrderListStatus[] = ["draft", "submitted", "approved", "ordered", "partially_received", "received"];
 
-export function OrderListStatusPill({ status }: { status: OrderListStatus }) {
+function OrderListStatusPill({ status }: { status: OrderListStatus }) {
   return (
     <span className={`badge ${statusTone[status]}`}>
       <LabelT id="labels.order-list-status" value={status}>{statusLabels[status]}</LabelT>
@@ -49,7 +49,7 @@ export function OrderListStatusPill({ status }: { status: OrderListStatus }) {
 }
 
 const shortDate = (date: string) => weekday(date).split(", ")[1] ?? date;
-export const listDates = (list: Pick<OrderList, "from" | "to">) =>
+const listDates = (list: Pick<OrderList, "from" | "to">) =>
   list.from === list.to ? shortDate(list.from) : `${shortDate(list.from)} – ${shortDate(list.to)}`;
 const unique = (values: string[]) => [...new Set(values.filter(Boolean))];
 

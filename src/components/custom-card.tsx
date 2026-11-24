@@ -21,7 +21,7 @@ type Record_ = { source: SourceKey; id: string } | null;
 
 // The card's source and the related list's endpoint, or null when the card
 // can't load on this page (a "This record" card off a record page).
-export function cardTarget(card: CardConfig, record: Record_): { source: SourceKey; relationPath: string | null } | null {
+function cardTarget(card: CardConfig, record: Record_): { source: SourceKey; relationPath: string | null } | null {
   if (card.source.type === "list") return { source: card.source.list, relationPath: null };
   if (!record) return null;
   if (card.source.type === "record") return { source: record.source, relationPath: null };

@@ -34,7 +34,7 @@ const tone: Record<BeoListStatus, string> = {
   approved: "success",
   final: "info",
 };
-export function BeoStatusBadge({ status }: { status: BeoListStatus }) {
+function BeoStatusBadge({ status }: { status: BeoListStatus }) {
   return (
     <span className={`badge ${tone[status]}`}>
       <LabelT id="labels.beo-list-status" value={status}>{beoListStatusLabels[status]}</LabelT>

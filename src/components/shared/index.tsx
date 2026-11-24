@@ -169,7 +169,7 @@ export function EditableCell<Row>({
 }
 // The header row and every filtered row in the current sort order, not just the
 // page on screen.
-export function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
+function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
   const columns = table.getVisibleLeafColumns().filter((column) => {
     const { header, meta } = column.columnDef;
     if (typeof header !== "string" || meta?.exportable === false) return false;
@@ -194,7 +194,7 @@ export function tableCsv<T>(table: Table<T>, actor: Actor | null): string {
 }
 // The CSV of rows the table doesn't hold (FLOW-216: every page of a paged list),
 // with the table's columns and current sort, through a headless copy of it.
-export function rowsCsv<T>(
+function rowsCsv<T>(
   table: Table<T>,
   rows: T[],
   actor: Actor | null,
