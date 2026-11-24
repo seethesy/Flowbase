@@ -69,6 +69,8 @@ const clean = async () => {
     sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, notifications, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, stock_count_lines, stock_counts, stock_movements, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
   await db.delete(schema.taskAssignees);
+  // Task managers (FLOW-323) reference tasks.
+  await db.delete(schema.taskManagers);
   await db.delete(schema.tasks);
   await db.delete(schema.taskTemplateItems);
   await db.delete(schema.taskTemplates);

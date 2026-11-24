@@ -1,2 +1,4 @@
 /* Staff directory (FLOW-270): positions as chips. */
 .staff-position-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+/* FLOW-333: multi-line address and notes keep their line breaks. */
+.staff-address, .staff-notes { white-space: pre-line; }

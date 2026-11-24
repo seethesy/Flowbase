@@ -5,6 +5,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { and, eq } from "drizzle-orm";
 import * as schema from "../../../worker/db/schema";
 import {
+  createStaffMember,
   getStaffMember,
   listStaff,
   updateStaffMember,
@@ -207,4 +208,51 @@ it("keeps a name Admin set before the first Google sign-in", async () => {
     name: "Google Name",
   });
   expect((await getStaffMember(db, admin, named.id)).name).toBe("Pat Named");
+});
+
+// FLOW-333: address, staff ID, drives and has a car, on every staff profile.
+it("keeps address, staff ID, drives and has a car for staff without accounts, hiding address and ID below FT+", async () => {
+  const noAccount = await createStaffMember(db, admin, { name: "Robin Runner", mobile: "2025550177" });
+  const saved = await updateStaffMember(db, admin, noAccount.id, {
+    address: "12 Example Lane\nSpringfield",
+    notes: "Prefers weekend shifts",
+    drives: true,
+    hasCar: false,
+  });
+  expect(saved).toMatchObject({
+    address: "12 Example Lane\nSpringfield",
+    // Staff ID: the phone number's last 4 digits (A1).
+    employeeId: "0177",
+    notes: "Prefers weekend shifts",
+    drives: true,
+    hasCar: false,
+  });
+  // Saved, not just echoed.
+  expect(await getStaffMember(db, admin, noAccount.id)).toMatchObject({ address: "12 Example Lane\nSpringfield", employeeId: "0177", drives: true, hasCar: false });
+  expect(await getStaffMember(db, fullTime, noAccount.id)).toMatchObject({ address: "12 Example Lane\nSpringfield", employeeId: "0177" });
+  // Below FT+: no address or ID through the API; drives / has a car still show.
+  const seen = await getStaffMember(db, partTime, noAccount.id);
+  expect(seen).toMatchObject({ address: null, employeeId: null, notes: null, drives: true, hasCar: false });
+  const listed = (await listStaff(db, partTime)).find((member) => member.id === noAccount.id);
+  expect(listed).toMatchObject({ address: null, employeeId: null, drives: true });
+  // Clearing back to "not set".
+  await expect(updateStaffMember(db, admin, noAccount.id, { drives: null })).resolves.toMatchObject({ drives: null });
+  // Only Admin edits them, including on your own profile.
+  await expect(updateStaffMember(db, partTime, partTime.userId, { address: "Somewhere" })).rejects.toMatchObject({ status: 403 });
+  await expect(updateStaffMember(db, partTime, partTime.userId, { drives: true })).rejects.toMatchObject({ status: 403 });
+  // The person sees their own address and ID (mobile number's rule).
+  await updateStaffMember(db, admin, partTime.userId, { address: "1 Own Street" });
+  const own = await getStaffMember(db, partTime, partTime.userId);
+  expect(own).toMatchObject({ address: "1 Own Street", employeeId: own.mobile!.slice(-4) });
+  // A second number ending the same way lengthens both IDs until they differ.
+  const twin = await createStaffMember(db, admin, { name: "Sky Twin", mobile: "(202) 554-0177" });
+  expect(twin.employeeId).toBe("40177");
+  expect((await getStaffMember(db, admin, noAccount.id)).employeeId).toBe("50177");
+  // Audited like other profile changes.
+  const audit = await db
+    .select()
+    .from(schema.auditLog)
+    .where(and(eq(schema.auditLog.entityType, "user"), eq(schema.auditLog.entityId, noAccount.id)));
+  expect(audit.map((entry) => entry.changes.address?.after)).toContain("12 Example Lane\nSpringfield");
+  expect(audit.map((entry) => entry.changes.drives?.after)).toContain(true);
 });

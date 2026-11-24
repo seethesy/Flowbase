@@ -47,7 +47,9 @@ export function cardProblem(
   return shown.some((box) => box.kind !== "field" || readable(box.field!)) ? null : "no-fields";
 }
 
-export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId: string; record: Record_ }) {
+// preview (FLOW-327): the card builder's live preview, without the header's
+// layout controls.
+export function CustomCard({ card, cardId, record, preview = false }: { card: CardConfig; cardId: string; record: Record_; preview?: boolean }) {
   const { actor } = usePermissions();
   const target = cardTarget(card, record);
   const path = target ? cardRequestPath(card, target.source, record?.id ?? null, target.relationPath) : null;
@@ -60,11 +62,17 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
   const problem = cardProblem(card, source ?? null, actor);
   return (
     <section className="panel layout-card" data-card-id={cardId}>
-      <LayoutHeader headerKey={`${cardId}.title`} name={`${card.title} header`}>
-      <div className="section-heading">
-        <h2>{card.title}</h2>
-      </div>
-      </LayoutHeader>
+      {preview ? (
+        <div className="section-heading">
+          <h2>{card.title}</h2>
+        </div>
+      ) : (
+        <LayoutHeader headerKey={`${cardId}.title`} name={`${card.title} header`}>
+        <div className="section-heading">
+          <h2>{card.title}</h2>
+        </div>
+        </LayoutHeader>
+      )}
       {problem === "no-source" || !source ? (
         <p role="alert" className="error-message">
           <T id="layout.custom-card.no-source">This card's source isn't available on this page.</T>

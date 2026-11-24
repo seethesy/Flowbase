@@ -177,6 +177,10 @@ const member: StaffMember = {
   active: true,
   positions: ["Server"],
   notes: null,
+  address: null,
+  employeeId: null,
+  drives: null,
+  hasCar: null,
   smsConsent: false,
   smsConsentAt: null,
 };

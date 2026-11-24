@@ -146,6 +146,7 @@ export function responseSchema(
   if (resource === "operational-reports") return operationalReportSchema;
   if (resource === "admin" && id === "usage") return z.array(z.object({ percent: z.number().nullable() }));
   if (resource === "admin" && id === "collector-health") return z.array(z.object({ status: z.string() }));
+  if (resource === "admin" && id === "sms-outbox") return z.array(z.object({ id: z.string(), status: z.string() }));
   if (resource === "admin" && ["jobs", "ingest-receipts"].includes(id ?? "")) return z.array(z.unknown());
   if (resource === "auth")
     return id === "config" ? authConfigSchema : userSchema;

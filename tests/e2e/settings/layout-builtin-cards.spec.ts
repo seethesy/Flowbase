@@ -46,7 +46,7 @@ test("edits My Leads' columns, filter, sort and rows for everyone, then resets i
   await choose(builder.getByRole("combobox", { name: "Sort by" }), { label: "Guests" });
   await choose(builder.getByRole("combobox", { name: "Sort direction" }), { label: "Descending" });
   await builder.getByRole("spinbutton", { name: "Row limit" }).fill("5");
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await save(page);
 
   // A Salesperson sees their own leads through the edited card.
@@ -78,7 +78,7 @@ test("edits a client's Events related list (AC2)", async ({ page }) => {
   const builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByRole("checkbox", { name: "Show Status" }).click();
   await builder.getByRole("checkbox", { name: "Show Venue" }).click();
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await save(page);
   await page.reload();
   await page.getByRole("tab", { name: "Events" }).click();
@@ -128,7 +128,7 @@ for (const entry of [
     await expect(builder.getByRole("checkbox", { name: `Show ${entry.field}`, exact: true })).toBeChecked();
     await builder.getByRole("checkbox", { name: `Show ${entry.field}`, exact: true }).click();
     await builder.getByRole("spinbutton", { name: "Row limit" }).fill("2");
-    await builder.getByRole("button", { name: "Done", exact: true }).click();
+    await builder.getByRole("button", { name: "Save card", exact: true }).click();
     await save(page);
     const other = await asUser(browser, seedUsers.find((u) => u.role === "sales_manager")!.id);
     await other.page.goto(entry.path);

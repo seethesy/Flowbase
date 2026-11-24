@@ -48,10 +48,10 @@ test("an Admin adds a card to the Sales overview that everyone sees (AC2)", asyn
   // The Leads table fills the grid, so Add card opens the builder in a new row.
   const builder = page.getByRole("dialog", { name: "Card builder" });
   await builder.getByLabel("Title").fill("Pipeline at a glance");
-  // A table card needs at least one column before Done.
+  // A table card needs at least one column before Save card.
   await choose(builder.getByRole("combobox", { name: "Source" }), "list:leads");
   await builder.getByRole("checkbox", { name: "Show Client" }).click();
-  await builder.getByRole("button", { name: "Done" }).click();
+  await builder.getByRole("button", { name: "Save card" }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pipeline at a glance" })).toBeVisible();

@@ -96,6 +96,28 @@ wording. With no saved layout a page renders exactly as its code does.
   whose field the new source has, and names the ones it dropped.
 - Playwright coverage: `tests/e2e/settings/layout-builtin-cards.spec.ts`.
 
+## Card drawer and colored controls (FLOW-327)
+
+- The Add card / Edit card drawer runs in this order: Title, Source (grouped
+  This record / Related list / Main list), Display as (a Table | Boxes
+  `SegmentedControl`, `src/components/ui/segmented-control.tsx`), Fields, Which
+  rows (filters, collapsed until Add filter, then Sort and Rows), and a live
+  preview of the first 3 rows (`CustomCard` with `preview`).
+- Fields is one picker for both displays: search, the picked fields numbered
+  in order with up/down arrows, then the rest. Table shows them as columns,
+  Boxes as field boxes; text boxes are still added below the picker. Switching
+  Table | Boxes carries the picked fields over.
+- Save card stays disabled with the reason shown until the card has a source,
+  a title and at least one field (`cardSaveProblem`). The card config format
+  is unchanged, so saved cards open filled in and save back unchanged.
+- Live-edit colors use existing tokens: primary for Add card and Save card;
+  neutral outlines for Add text, Merge and Unmerge, with a pressed "No phone"
+  filled; `--error` red for delete icons and Delete permanently; `--info`
+  blue for Hide and Hidden items; muted ghost for Deleted items and Reset page
+  layout.
+- Tests: `tests/settings/card-builder.test.tsx`; Playwright in
+  `tests/e2e/settings/layout-coverage.spec.ts`.
+
 ## Navigation by role (FLOW-284)
 
 - An Admin chooses which roles see each sidebar heading and tab: Settings ›

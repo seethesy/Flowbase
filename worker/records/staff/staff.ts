@@ -3,6 +3,7 @@ import type { Actor } from "../../../shared/access";
 import { can } from "../../../shared/policy";
 import {
   selfEditableStaffFields,
+  staffIds,
   staffMemberSchema,
   type StaffCreate,
   type StaffMember,
@@ -23,7 +24,9 @@ import { assertListLabels } from "../settings/settings";
 // The name pay is linked by (FLOW-270 A4): the directory's name for the person.
 export const staffFullName = (row: { name: string; email: string }) => (row.name || row.email).trim();
 
-export const toStaffMember = (row: typeof users.$inferSelect): StaffMember =>
+// employeeId: the staff ID worked out from every listed phone number (FLOW-333);
+// audit snapshots leave it blank because it isn't stored.
+export const toStaffMember = (row: typeof users.$inferSelect, employeeId = ""): StaffMember =>
   staffMemberSchema.parse({
     id: row.id,
     name: row.name || row.email,
@@ -37,6 +40,10 @@ export const toStaffMember = (row: typeof users.$inferSelect): StaffMember =>
     active: row.status === "active",
     positions: row.positions,
     notes: row.notes,
+    address: row.address,
+    employeeId,
+    drives: row.drives,
+    hasCar: row.hasCar,
     smsConsent: row.smsConsentAt !== null,
     smsConsentAt: row.smsConsentAt?.toISOString() ?? null,
   });
@@ -45,6 +52,13 @@ const forActor = (actor: Actor, member: StaffMember) =>
   serializeFields(actor, "staff_member", member, { subjectUserId: member.id });
 
 const listed = and(isNull(users.archivedAt), ne(users.status, "revoked"));
+
+// Staff IDs across everyone in the directory (FLOW-333 A1).
+async function directoryIds(db: DbLike) {
+  return staffIds(await db.select({ id: users.id, mobile: users.mobile }).from(users).where(listed));
+}
+const presented = async (db: DbLike, actor: Actor, row: typeof users.$inferSelect) =>
+  forActor(actor, toStaffMember(row, (await directoryIds(db)).get(row.id) ?? ""));
 
 // Pay type and rate ride along only for people who may read pay (FLOW-270 AC2):
 // everyone else's response has no pay keys at all.
@@ -68,7 +82,8 @@ export async function listStaff(db: DbLike, actor: Actor) {
     .from(users)
     .where(listed)
     .orderBy(asc(users.name), asc(users.email));
-  return withPay(db, actor, rows.map((row) => forActor(actor, toStaffMember(row))));
+  const ids = staffIds(rows);
+  return withPay(db, actor, rows.map((row) => forActor(actor, toStaffMember(row, ids.get(row.id) ?? ""))));
 }
 
 export async function getStaffMember(db: DbLike, actor: Actor, id: string) {
@@ -77,7 +92,7 @@ export async function getStaffMember(db: DbLike, actor: Actor, id: string) {
     .from(users)
     .where(and(eq(users.id, id), listed));
   if (!row) throw notFound("Staff member");
-  const [member] = await withPay(db, actor, [forActor(actor, toStaffMember(row))]);
+  const [member] = await withPay(db, actor, [await presented(db, actor, row)]);
   return member;
 }
 
@@ -147,7 +162,7 @@ export async function createStaffMember(db: Db, actor: Actor, input: StaffCreate
       .returning();
     const member = toStaffMember(row);
     await writeAudit(tx, actor, { entityType: "user", entityId: row.id, action: "create", before: null, after: member });
-    return forActor(actor, member);
+    return presented(tx, actor, row);
   });
 }
 
@@ -277,6 +292,6 @@ export async function updateStaffMember(
       before,
       after,
     });
-    return forActor(actor, after);
+    return presented(tx, actor, updated);
   }).then(async (member) => (await withPay(db, actor, [member]))[0]);
 }
