@@ -21,7 +21,8 @@ test("Admin hides Sales › Venues and Reports from Part-time Staff (AC1, AC2)",
   // FLOW-328: the leads table is Leads › Overview.
   const leadsCell = grid.getByLabel("Leads › Overview for Part Time Staff", { exact: true });
   await expect(leadsCell).toBeDisabled();
-  await expect(grid.getByRole("row").filter({ has: leadsCell })).toContainText("No access to Leads");
+  await expect(grid.getByRole("row").filter({ has: page.getByLabel("Leads › Overview for Part Time Staff", { exact: true }) }))
+    .toContainText("No access to Leads");
 
   await venuesCell(page).uncheck();
   await grid.getByLabel("Reports for Part Time Staff", { exact: true }).uncheck();
