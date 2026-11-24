@@ -26,4 +26,3 @@ One task model for every module (FLOW-58, `shared/tasks.ts`; service in `worker/
 | `POST /api/tasks/<id>/archive` | Archive (needs `mayManageTask`) |
 | `POST /api/tasks/<id>/checklist`, `PATCH`/`POST …/checklist/<itemId>[/archive]` | Add, tick, rename or remove a checklist item |
 | `POST /api/tasks/<id>/comments` | Add a comment |
-

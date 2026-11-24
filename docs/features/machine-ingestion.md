@@ -20,4 +20,3 @@ Each source's ticket registers the processor that turns a receipt into records (
 **Admin API:** `GET /api/admin/ingest-receipts?status=failed&source=leads` lists receipts with their job status; `POST /api/admin/ingest-receipts/<id>/replay` queues a new processing job for a receipt whose job failed.
 
 **Sign-in.** Admin routes check permissions through the shared role/action matrix in `shared/policy.ts` (FLOW-38). The Worker verifies the Supabase JWT and loads the caller from the allowlist on every staff API request. User management is Admin only.
-

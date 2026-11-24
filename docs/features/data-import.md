@@ -17,4 +17,3 @@
 - **Errors** (AC2): each row runs in its own savepoint; a row that fails its checks or its write is reported with its row number and rolled back alone, and the other rows still import.
 - **Source files** (ADR-27): the real sheets each importer is written for are in the private data repo `seethesy/Flowbase-Data`, never in this public repo. Importer tests use synthetic fixtures that reproduce the file's layout; the first dry run of a real file is a manual check in `/imports` on dev.
 - **Log:** `import_logs` keeps who, when, the file name and the created, updated, unchanged and failed counts. Stock movements for imported quantities link to it.
-

@@ -20,4 +20,3 @@ Bar plan (FLOW-170; `allocatePool` in `shared/allocation.ts`, `recomputeBarPool`
 | `GET /api/approvals/<id>` | One request, with `canDecide` and `canWithdraw` |
 | `POST /api/approvals/<id>/approve` `{comment?}`, `POST …/reject` `{comment}` | Decide it |
 | `POST /api/approvals/<id>/withdraw` | The requester takes it back |
-

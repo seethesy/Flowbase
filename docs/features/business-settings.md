@@ -17,4 +17,3 @@
 | `GET /api/settings/history` | Recent changes (Admin) |
 
 The browser loads settings once per page (`useBusinessSettings`, `src/services/settings.ts`) and refreshes them after Admin's changes; until they load, or if they can't, it uses the same built-in defaults.
-

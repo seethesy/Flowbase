@@ -24,4 +24,3 @@ In-app and email notifications (FLOW-43, ADR-12; catalog in `shared/notification
 | `GET /api/notifications/preferences`, `PUT …` `{email: {<type>: boolean}}` | Email on or off per type, with the urgent flag |
 
 **Email setup (production, after FLOW-33):** `npx wrangler secret put EMAIL_API_KEY --env production` (the Resend API key), and set `EMAIL_FROM` (the verified sender, e.g. `Flowbase <notifications@notifications.eventsbydmvcater.com>`) as a production var in `wrangler.jsonc` or a secret. `APP_URL` must be set for emails to link into the app.
-
