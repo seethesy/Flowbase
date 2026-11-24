@@ -5,7 +5,7 @@ import { groupRentalRequests, type RentalRequest, type RentalRequestSettings } f
 import { utcToBusinessTime } from "../../shared/time";
 import { writeAudit } from "../audit/log";
 import type { Db } from "../db/client";
-import { events, inventoryItems, inventoryRentalDetails, reservations, vendors } from "../db/schema";
+import { events, allInventoryItems, inventoryRentalDetails, reservations, vendors } from "../db/schema";
 import { ApiError } from "../hono";
 import { findVisibleEvent, lockVisibleEvent } from "./events";
 
@@ -15,16 +15,16 @@ export async function listRentalRequests(db: Db, actor: Actor, eventId: string):
   await findVisibleEvent(db, actor, eventId);
   const [event] = await db.select().from(events).where(eq(events.id, eventId));
   const holds = await db.select({
-    itemId: inventoryItems.id,
-    name: inventoryItems.name,
+    itemId: allInventoryItems.id,
+    name: allInventoryItems.name,
     vendorId: vendors.id,
     vendorName: vendors.name,
     quantity: reservations.quantity,
     from: reservations.windowStart,
     through: reservations.windowEnd,
   }).from(reservations)
-    .innerJoin(inventoryItems, eq(inventoryItems.id, reservations.itemId))
-    .innerJoin(inventoryRentalDetails, eq(inventoryRentalDetails.itemId, inventoryItems.id))
+    .innerJoin(allInventoryItems, eq(allInventoryItems.id, reservations.itemId))
+    .innerJoin(inventoryRentalDetails, eq(inventoryRentalDetails.itemId, allInventoryItems.id))
     .innerJoin(vendors, eq(vendors.id, inventoryRentalDetails.vendorId))
     .where(and(eq(reservations.eventId, eventId), isNull(reservations.archivedAt)));
   const groups = groupRentalRequests(holds);

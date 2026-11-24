@@ -8,6 +8,7 @@ import { createApp } from "../../worker/app";
 import { recomputeItem } from "../../worker/records/allocations";
 import { suggestOrderList } from "../../worker/records/order-lists";
 import type { RunWithDb } from "../../worker/hono";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Bar plan (FLOW-170): bar quantities by item and by tier run through the same
 // allocation and order list as ingredients (AC1); a tier draws on its items as a
@@ -27,7 +28,7 @@ const call = async (method: string, path: string, body?: unknown) => {
   return { status: response.status, body: await response.json() };
 };
 const sectionName = "FLOW-170 bar storage";
-const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items cascade`;
+const tables = sql`truncate table vendor_orders, order_lists, approval_requests, audit_log, jobs, consumable_allocations, event_requirements, event_bar_tiers, event_timeline_entries, payment_schedule_items, payments, events, clients, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
@@ -38,20 +39,20 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await db.execute(tables);
-  await db.delete(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
+  await db.delete(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
   await db.delete(schema.users).where(eq(schema.users.id, adminId));
   await client.end();
 });
 
 async function section() {
-  const [found] = await db.select().from(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
-  return found ?? (await db.insert(schema.inventorySections).values({ name: sectionName, kind: "consumable" }).returning())[0];
+  const [found] = await db.select().from(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
+  return found ?? (await db.insert(schema.inventoryLocations).values({ name: sectionName, kind: "location" }).returning())[0];
 }
 // A rail vodka in bottles, sold by the 12-bottle case, with some on hand.
 async function vodka(name: string, onHand: number, housePick = false, subcategory = "Vodka") {
   const storage = await section();
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "bar", name,
-    category: "Liquor", tier: "rail", unit: "each" }).returning();
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "bar", name,
+    category: "Liquor", tier: "rail", unit: "each" });
   await db.insert(schema.inventoryConsumableDetails).values({ itemId: item.id, purchaseUnit: "case", packCount: 12,
     storageSectionId: storage.id });
   await db.insert(schema.inventoryBarDetails).values({ itemId: item.id, subcategory, container: "bottle", housePick });
@@ -81,7 +82,7 @@ it("saves bar lines by item and by tier and queues their recomputes", async () =
   expect(jobs.map((job) => job.payload)).toEqual([{ category: "Liquor", tier: "rail" }]);
   // Bar lines stay off the manual list, and a non-bar item is refused.
   expect((await call("GET", `/api/events/${gala.id}/requirements`)).body.map((line: { source: string }) => line.source)).toEqual(["bar"]);
-  const [cream] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "ingredient", name: "Cream", unit: "qt" }).returning();
+  const [cream] = await insertItems(db, { kind: "consumable", subtype: "ingredient", name: "Cream", unit: "qt" });
   expect((await call("PUT", `/api/events/${gala.id}/bar-plan`, { items: [{ itemId: cream.id, quantity: 1 }] })).status).toBe(400);
 });
 

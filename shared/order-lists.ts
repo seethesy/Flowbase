@@ -196,13 +196,16 @@ export type OrderCandidate = {
 };
 
 // Event shortages and the par gap describe the same demand; use the larger gap,
-// then convert once and round to whole purchase units.
-export function suggestOrderLines(candidates: OrderCandidate[]): OrderLine[] {
+// then convert once and round to whole purchase units. With atPar (the Order
+// tab, FLOW-292), an item exactly at its par level is ordered too: one purchase
+// unit (Ash, 2026-11-23).
+export function suggestOrderLines(candidates: OrderCandidate[], { atPar = false } = {}): OrderLine[] {
   return candidates.flatMap((item) => {
     const shortage = item.shortages.reduce((sum, row) => sum + row.quantity, 0);
     const gap = Math.max(shortage, Math.max(0, (item.parLevel ?? 0) - item.onHand));
-    if (gap <= 0) return [];
-    const purchased = orderQuantity(gap, item.unit, item.purchaseUnit, {
+    const restock = gap <= 0 && atPar && item.parLevel !== null && item.parLevel > 0 && item.onHand <= item.parLevel;
+    if (gap <= 0 && !restock) return [];
+    const purchased = restock ? { ok: true as const, value: 1 } : orderQuantity(gap, item.unit, item.purchaseUnit, {
       packCount: item.packCount, eachSize: item.eachSize,
     });
     return [{ itemId: item.itemId, itemName: item.itemName, vendorId: item.vendorId,

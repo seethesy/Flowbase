@@ -68,25 +68,29 @@ const sectionRow = (
   name: string,
   kind: Section["kind"],
 ): Section => ({
-  id: `d0000000-0000-4000-8000-00000000000${index}`,
+  id: `d0000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
   name,
   kind,
   totalQuantity: 0,
   archivedAt: null,
 });
+// The locations and kitchen storage migration 0077 seeds (FLOW-289).
 export const defaultSections = [
-  sectionRow(1, "Warehouse", "rental"),
-  sectionRow(2, "Jamie's", "rental"),
-  sectionRow(3, "Cafe", "rental"),
-  sectionRow(4, "Vendor", "rental"),
-  sectionRow(5, "Kitchen – Dry Storage", "consumable"),
-  sectionRow(6, "Kitchen – Refrigerated", "consumable"),
-  sectionRow(7, "Bar Storage", "consumable"),
-  sectionRow(8, "Supplies", "consumable"),
+  sectionRow(1, "Warehouse", "location"),
+  sectionRow(2, "Jamie's - Garage", "location"),
+  sectionRow(3, "Cozy Cafe", "location"),
+  sectionRow(4, "Vendor", "location"),
+  sectionRow(5, "Pantry", "storage"),
+  sectionRow(6, "Fridge", "storage"),
+  sectionRow(7, "Storage Box", "location"),
+  sectionRow(8, "Jamie's - Basement", "location"),
+  sectionRow(9, "Jamie's - Main Floor", "location"),
+  sectionRow(10, "Freezer", "storage"),
 ];
 
 export const chairs = (): InventoryItem => ({
   id: "e0000000-0000-4000-8000-000000000001",
+  list: "master",
   kind: "rental",
   subtype: "furniture",
   code: "CH-001",
@@ -118,7 +122,7 @@ export const chairs = (): InventoryItem => ({
       sectionName: "Warehouse",
       quantity: 40,
     },
-    { sectionId: defaultSections[2].id, sectionName: "Cafe", quantity: 10 },
+    { sectionId: defaultSections[2].id, sectionName: "Cozy Cafe", quantity: 10 },
   ],
   totalQuantity: 50,
   belowPar: null,
@@ -127,8 +131,8 @@ export const chairs = (): InventoryItem => ({
   updatedAt: "2026-10-22T09:00:00.000Z",
 });
 
-// A consumable as the API returns it, kept in Kitchen – Refrigerated unless the
-// overrides say otherwise.
+// A consumable as the API returns it: an ingredient kept in the Fridge, or a bar
+// item or supply at the Warehouse, unless the overrides say otherwise.
 export const consumable = (
   name: string,
   overrides: Partial<InventoryItem> & {
@@ -140,10 +144,11 @@ export const consumable = (
   const storage =
     defaultSections.find(
       (section) => section.id === details?.storageSectionId,
-    ) ?? defaultSections[5];
+    ) ?? defaultSections[(item.subtype ?? "ingredient") === "ingredient" ? 5 : 0];
   const parLevel = details?.parLevel ?? null;
   return {
     id: randomUUID(),
+    list: item.subtype === "bar" ? "bar" : item.subtype && item.subtype !== "ingredient" ? "master" : "kitchen",
     kind: "consumable",
     subtype: "ingredient",
     code: "",

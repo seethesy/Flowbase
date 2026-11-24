@@ -160,15 +160,16 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
       }
       const sections = await tx
         .select()
-        .from(schema.inventorySections)
-        .where(isNull(schema.inventorySections.archivedAt));
-      const rentalSections = sections.filter((s) =>
-        ["Warehouse", "Jamie's", "Cafe", "Vendor"].includes(s.name),
-      );
-      const storage = sections.find((s) => s.name === "Kitchen – Refrigerated");
+        .from(schema.inventoryLocations)
+        .where(isNull(schema.inventoryLocations.archivedAt));
+      // Locations and kitchen storage (FLOW-289), seeded by the migrations.
+      const rentalSections = ["Warehouse", "Jamie's - Garage", "Cozy Cafe", "Vendor"]
+        .map((name) => sections.find((s) => s.kind === "location" && s.name === name))
+        .filter((s): s is NonNullable<typeof s> => s !== undefined);
+      const storage = sections.find((s) => s.kind === "storage" && s.name === "Fridge");
       if (rentalSections.length !== 4 || !storage)
         throw new Error(
-          "Migrate the database before seeding its default sections.",
+          "Migrate the database before seeding its default locations.",
         );
       for (const [i, row] of fixtures.inventory.entries()) {
         const rental = row.category === "Tableware";
@@ -177,16 +178,19 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
           ({ pcs: "each", bottles: "each", L: "l" } as Record<string, string>)[
             row.unit
           ] ?? row.unit;
+        const supply = !rental && row.category === "Supplies";
+        // Rentals and supplies are Master items, the rest Kitchen Ingredients.
         await tx
-          .insert(schema.inventoryItems)
+          .insert(
+            // The two tables share their columns (worker/records/inventory-common.ts).
+            (rental || supply
+              ? schema.masterInventoryItems
+              : schema.kitchenIngredients) as typeof schema.masterInventoryItems,
+          )
           .values({
             id,
             kind: rental ? "rental" : "consumable",
-            subtype: rental
-              ? "tableware"
-              : row.category === "Supplies"
-                ? "supply"
-                : "ingredient",
+            subtype: rental ? "tableware" : supply ? "supply" : "ingredient",
             code: row.id,
             name: row.name,
             category: row.category,
@@ -212,12 +216,12 @@ export async function seedDatabase(value: string | undefined, mode?: string) {
               unitCostCents: Math.round(row.cost * 100),
               preferredVendor: row.vendor,
               parLevel: row.reorder,
-              storageSectionId: storage.id,
+              storageSectionId: supply ? rentalSections[0].id : storage.id,
             })
             .onConflictDoNothing();
         for (const [j, section] of (rental
           ? rentalSections
-          : [storage]
+          : [supply ? rentalSections[0] : storage]
         ).entries()) {
           const movementId = seedId(11 + j, i + 1);
           const quantity = rental

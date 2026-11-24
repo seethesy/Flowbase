@@ -1,11 +1,13 @@
 import { test, expect } from "./auth-fixture";
+import { choose } from "./dropdown";
 import { consumable, defaultSections } from "./fixtures";
 import { seedInventory } from "./database";
 
 // Count mode (FLOW-82) is used on a phone in the storage area.
 test.use({ viewport: { width: 390, height: 844 } });
 
-test("counts a storage section on a phone and resumes a partial count", async ({
+// FLOW-291: a count starts from Start stock count on the list, picking where.
+test("counts kitchen storage on a phone and resumes a partial count", async ({
   page,
 }) => {
   const fridge = defaultSections[5];
@@ -25,10 +27,11 @@ test("counts a storage section on a phone and resumes a partial count", async ({
       }),
     ],
   });
-  await page.goto("/#/inventory/counts");
-  await page
-    .getByRole("button", { name: `Start counting ${fridge.name}` })
-    .click();
+  const start = async () => {
+    await page.goto("/#/kitchen/ingredients");
+    await choose(page.getByRole("combobox", { name: "Start stock count" }), fridge.id);
+  };
+  await start();
   await expect(
     page.getByRole("heading", { name: `Count: ${fridge.name}` }),
   ).toBeVisible();
@@ -49,10 +52,9 @@ test("counts a storage section on a phone and resumes a partial count", async ({
   await expect(page.getByText("1 of 2 counted")).toBeVisible();
 
   // AC3: leave and come back; the count resumes at the next uncounted item.
-  await page.getByRole("link", { name: "← All counts" }).click();
-  await page
-    .getByRole("button", { name: `Resume counting ${fridge.name}` })
-    .click();
+  await page.getByRole("link", { name: "← All inventory" }).click();
+  await expect(page).toHaveURL(/#\/inventory$/);
+  await start();
   await expect(page.getByText("1 of 2 counted")).toBeVisible();
   await expect(
     page.getByRole("listitem", { name: "Heavy Cream" }).getByRole("status"),
@@ -77,11 +79,12 @@ test("counts a storage section on a phone and resumes a partial count", async ({
     .getByRole("dialog")
     .getByRole("button", { name: "Confirm" })
     .click();
-  await expect(
-    page.getByRole("button", { name: `Start counting ${fridge.name}` }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/#\/inventory$/);
 
+  // The old low-stock list is the Order tab's kitchen table (FLOW-292).
   await page.goto("/#/inventory/low-stock");
-  await expect(page.getByRole("button", { name: "Heavy Cream" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Butter" })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/inventory\/order$/);
+  const kitchen = page.locator("#kitchen");
+  await expect(kitchen.getByRole("link", { name: "Heavy Cream" })).toBeVisible();
+  await expect(kitchen.getByRole("link", { name: "Butter" })).toHaveCount(0);
 });

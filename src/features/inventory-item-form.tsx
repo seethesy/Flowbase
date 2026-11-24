@@ -9,11 +9,14 @@ import {
   barSubcategories,
   barTierLabels,
   barTierSchema,
-  itemKindSchema,
+  kindForTracking,
   ratioBasisLabels,
   ratioBasisSchema,
   recipeUnitProblem,
   classificationKind,
+  stockTrackingLabels,
+  stockTrackingOf,
+  stockTrackingSchema,
   subtypesByKind,
   type BarContainer,
   type InventoryItem,
@@ -21,6 +24,7 @@ import {
   type ItemKind,
   type RatioBasis,
   type Section as StockSection,
+  type StockTracking,
 } from "../../shared/inventory";
 import { unitLabel, unitSchema, type Unit } from "../../shared/units";
 import { allPages, inventoryApi, inventoryChangesApi, sectionsApi } from "../services/core";
@@ -30,7 +34,7 @@ import { vendorsApi } from "../services/vendors";
 import { useResource } from "../app/useResource";
 import { Button, DetailDrawer, FormField } from "../components/shared";
 import { useShownFields } from "../app/field-card";
-import { kindLabels, subtypeLabel } from "./inventory-labels";
+import { subtypeLabel } from "./inventory-labels";
 import { ListSuggestions } from "./list-fields";
 import { useBusinessSettings } from "../services/settings";
 import { inventoryCategoryList } from "../../shared/settings";
@@ -201,8 +205,6 @@ function ItemFormFields({
   }));
   // The item reordered when its tier runs short (FLOW-170).
   const [housePick, setHousePick] = useState(item?.bar?.housePick ?? false);
-  // A new bar item is kept in Bar Storage unless the user picks another section.
-  const [storageTouched, setStorageTouched] = useState(Boolean(item));
   // Allergens are set on dishes, not ingredients (FLOW-95); an item keeps any it
   // already has.
   const allergens = item?.consumable?.allergens ?? [];
@@ -231,11 +233,14 @@ function ItemFormFields({
   const catalogKind = classificationKind({ kind, subtype: kind === "service" ? null : subtype });
   const categories = (classification.data?.categories ?? []).filter((entry) => entry.kind === catalogKind);
   const types = (classification.data?.types ?? []).filter((entry) => entry.categoryId === categoryId);
+  // Ingredients are kept in kitchen storage, everything else at a location
+  // (FLOW-289).
+  const storageKind = subtype === "ingredient" ? "storage" : "location";
   const storage = useResource(
-    ["sections", kind === "consumable" ? { kind: "consumable" } : "none"],
+    ["sections", kind === "consumable" ? { kind: storageKind } : "none"],
     () =>
       kind === "consumable"
-        ? sectionsApi.list({ kind: "consumable" })
+        ? sectionsApi.list({ kind: storageKind })
         : Promise.resolve([] as StockSection[]),
     { reference: true },
   );
@@ -265,17 +270,8 @@ function ItemFormFields({
     (row) =>
       row.category.toLowerCase() === fields.category.trim().toLowerCase(),
   );
-  const storageSectionId = storageTouched
-    ? fields.storageSectionId
-    : fields.storageSectionId ||
-      (isBar
-        ? ((storage.data ?? []).find(
-            (section) => section.name === "Bar Storage",
-          )?.id ?? "")
-        : subtype === "supply"
-          ? ((storage.data ?? []).find((section) => section.name === "Supplies")
-              ?.id ?? "")
-          : "");
+  // Bar stock has no storage on screen (FLOW-291).
+  const storageSectionId = isBar ? "" : fields.storageSectionId;
   const input = (key: FieldName, props: { type?: string } = {}) => (
     <input
       type={props.type ?? "text"}
@@ -422,6 +418,8 @@ function ItemFormFields({
     }
   };
   const subtypes: readonly string[] = subtypesByKind[kind];
+  // A Master inventory item (FLOW-289): not a bar item or an ingredient.
+  const master = !preset && !(kind === "consumable" && subtype !== "supply");
   return (
     <DetailDrawer
       open
@@ -463,28 +461,37 @@ function ItemFormFields({
             />
           </FormField>
           {shows("code") && (<FormField label={<T id="inventory-item-form.item-form-fields.code-sku">Code / SKU</T>}>{input("code")}</FormField>)}
-          {!item && !preset && (
+          {master && (
             <FormField label={<T id="inventory-item-form.item-form-fields.kind">Kind</T>}>
+              {/* Every Master item reads "Rental" (FLOW-289). */}
+              <p><T id="inventory-item-form.item-form-fields.rental">Rental</T></p>
+            </FormField>
+          )}
+          {/* What happens to its stock, which only an Admin picks for a new Master
+              item: returned (rental), used up (supply) or not stocked (service). */}
+          {master && can("inventory.sections") && (
+            <FormField label={<T id="inventory-item-form.item-form-fields.stock-tracking">Stock tracking</T>}>
               <Dropdown
-                value={kind}
+                value={stockTrackingOf(kind)}
+                disabled={Boolean(item)}
                 onChange={(e) => {
-                  const next = e.target.value as ItemKind;
+                  const next = kindForTracking[e.target.value as StockTracking];
                   setKind(next);
-                  const options: readonly string[] = subtypesByKind[next];
-                  setSubtype(options[0] ?? "");
+                  // A used-up Master item is a supply (FLOW-289).
+                  setSubtype(next === "consumable" ? "supply" : (subtypesByKind[next] as readonly string[])[0] ?? "");
                   setCategoryId("");
                   setTypeId("");
                 }}
               >
-                {itemKindSchema.options.map((option) => (
+                {stockTrackingSchema.options.map((option) => (
                   <option key={option} value={option}>
-                    {kindLabels[option]}
+                    {stockTrackingLabels[option]}
                   </option>
                 ))}
               </Dropdown>
             </FormField>
           )}
-          {subtypes.length > 0 && !preset && (
+          {subtypes.length > 0 && !preset && kind !== "consumable" && (
             <FormField label={<T id="inventory-item-form.item-form-fields.subtype">Subtype</T>}>
               <Dropdown
                 value={subtype}
@@ -910,13 +917,11 @@ function ItemFormFields({
               >
                 {input("parLevel", { type: "number" })}
               </FormField>
-              <FormField label={<T id="inventory-item-form.item-form-fields.storage-section">Storage section</T>}>
+              {!isBar && <>
+              <FormField label={subtype === "ingredient" ? <T id="inventory-item-form.item-form-fields.storage-area">Storage area</T> : <T id="inventory-item-form.item-form-fields.location">Location</T>}>
                 <Dropdown
                   value={storageSectionId}
-                  onChange={(e) => {
-                    setStorageTouched(true);
-                    set("storageSectionId")(e.target.value);
-                  }}
+                  onChange={(e) => set("storageSectionId")(e.target.value)}
                 >
                   <option value="">Not set</option>
                   {(storage.data ?? []).map((section) => (
@@ -928,10 +933,11 @@ function ItemFormFields({
               </FormField>
               <FormField
                 label={<T id="inventory-item-form.item-form-fields.shelf-order">Shelf order</T>}
-                hint={<T id="inventory-item-form.item-form-fields.where-it-sits-in-the">Where it sits in the section; count mode follows this order</T>}
+                hint={<T id="inventory-item-form.item-form-fields.where-it-sits-at-the">Where it sits there; count mode follows this order</T>}
               >
                 {input("storageOrder", { type: "number" })}
               </FormField>
+              </>}
             </div>
             {conversionProblem && (
               <p role="status" className="error-message">

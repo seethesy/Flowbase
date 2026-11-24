@@ -73,7 +73,7 @@ const admin = as("admin");
 const manager = as("manager");
 const sam = as("sam");
 
-const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, inventory_items, ingest_receipts, jobs cascade`;
+const tables = sql`truncate table consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, recipe_lines, master_inventory_items, bar_inventory_items, kitchen_ingredients, ingest_receipts, jobs cascade`;
 const SECTION = "FLOW-198 Dry Storage";
 let sectionId = "";
 
@@ -95,23 +95,23 @@ beforeEach(async () => {
   // Added once and kept, and removed after the file: other users stay as they were.
   .onConflictDoNothing({ target: schema.users.id });
   const [existing] = await db
-    .select({ id: schema.inventorySections.id })
-    .from(schema.inventorySections)
-    .where(eq(schema.inventorySections.name, SECTION));
+    .select({ id: schema.inventoryLocations.id })
+    .from(schema.inventoryLocations)
+    .where(eq(schema.inventoryLocations.name, SECTION));
   sectionId =
     existing?.id ??
     (
       await db
-        .insert(schema.inventorySections)
-        .values({ name: SECTION, kind: "consumable" })
-        .returning({ id: schema.inventorySections.id })
+        .insert(schema.inventoryLocations)
+        .values({ name: SECTION, kind: "location" })
+        .returning({ id: schema.inventoryLocations.id })
     )[0].id;
 });
 afterAll(async () => {
   await db.execute(tables);
   await db
-    .delete(schema.inventorySections)
-    .where(eq(schema.inventorySections.name, SECTION));
+    .delete(schema.inventoryLocations)
+    .where(eq(schema.inventoryLocations.name, SECTION));
   await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
   await other.end();
@@ -525,9 +525,10 @@ const gloves = (overrides: Partial<ItemInput> = {}): ItemInput => ({
   consumable: { purchaseUnit: "each", parLevel: 10 },
   ...overrides,
 });
+// A supply, so it's kept at the same location as the gloves (FLOW-289).
 const flour = (overrides: Partial<ItemInput> = {}): ItemInput => ({
   kind: "consumable",
-  subtype: "ingredient",
+  subtype: "supply",
   name: "Flour",
   unit: "lb",
   consumable: { purchaseUnit: "lb", parLevel: 10 },
@@ -586,7 +587,7 @@ describe("FLOW-198: stock units are fixed once stock has moved", () => {
     const item = await create(flour());
     // The movement holds the item lock, as recordMovement does, until it commits.
     const movement = await holding(async (tx) => {
-      await tx`select id from inventory_items where id = ${item.id} for update`;
+      await tx`select id from master_inventory_items where id = ${item.id} for update`;
       await tx`insert into stock_movements (item_id, section_id, type, quantity, reason) values (${item.id}, ${sectionId}, 'receive', 10, 'race')`;
     });
     const loaded = await current(item.id);
@@ -601,16 +602,16 @@ describe("FLOW-198: stock units are fixed once stock has moved", () => {
     expect((await response.json()).error.code).toBe("UNIT_LOCKED");
     const [row] = await db
       .select()
-      .from(schema.inventoryItems)
-      .where(eq(schema.inventoryItems.id, item.id));
+      .from(schema.allInventoryItems)
+      .where(eq(schema.allInventoryItems.id, item.id));
     expect(row.unit).toBe("lb");
   });
 
   it("a unit change that commits first means the first movement is recorded under the new unit (AC4)", async () => {
     const item = await create(flour());
     const edit = await holding(async (tx) => {
-      await tx`select id from inventory_items where id = ${item.id} for update`;
-      await tx`update inventory_items set unit = 'kg' where id = ${item.id}`;
+      await tx`select id from master_inventory_items where id = ${item.id} for update`;
+      await tx`update master_inventory_items set unit = 'kg' where id = ${item.id}`;
     });
     const movement = admin.call("POST", `/api/inventory/items/${item.id}/movements`, {
       type: "receive",
@@ -643,7 +644,7 @@ describe("FLOW-196: stock and archive ordering", () => {
 
   it("counts a first stock row only once when another count has the item lock", async () => {
     const item = await create();
-    const held = await holding((tx) => tx`select id from inventory_items where id = ${item.id} for update`);
+    const held = await holding((tx) => tx`select id from master_inventory_items where id = ${item.id} for update`);
     const counting = admin.call("POST", `/api/inventory/items/${item.id}/counts`,
       { sectionId, quantity: 12, reason: "Physical count" });
     const secondCount = secondCall(`/api/inventory/items/${item.id}/counts`,
@@ -658,7 +659,7 @@ describe("FLOW-196: stock and archive ordering", () => {
 
   it("does not move stock into a section after its archive wins", async () => {
     const item = await create();
-    const held = await holding((tx) => tx`select id from inventory_sections where id = ${sectionId} for update`);
+    const held = await holding((tx) => tx`select id from inventory_locations where id = ${sectionId} for update`);
     const archiving = admin.call("POST", `/api/inventory/sections/${sectionId}/archive`);
     expect(await stillWaiting(archiving)).toBe(true);
     await held.commit();
@@ -666,23 +667,23 @@ describe("FLOW-196: stock and archive ordering", () => {
     const moving = move(item.id, 3);
     expect((await moving).status).toBe(409);
     expect(await total(item.id)).toBe(0);
-    await db.execute(sql`update inventory_sections set archived_at = null where id = ${sectionId}`);
+    await db.execute(sql`update inventory_locations set archived_at = null where id = ${sectionId}`);
   });
 
   it("blocks an incoming movement behind a section archive transaction", async () => {
     const item = await create();
-    const held = await holding((tx) => tx`update inventory_sections set archived_at = now() where id = ${sectionId}`);
+    const held = await holding((tx) => tx`update inventory_locations set archived_at = now() where id = ${sectionId}`);
     const moving = move(item.id, 5);
     expect(await stillWaiting(moving)).toBe(true);
     await held.commit();
     expect((await moving).status).toBe(409);
     expect(await total(item.id)).toBe(0);
-    await db.execute(sql`update inventory_sections set archived_at = null where id = ${sectionId}`);
+    await db.execute(sql`update inventory_locations set archived_at = null where id = ${sectionId}`);
   });
 
   it("does not move stock after the item's archive wins", async () => {
     const item = await create();
-    const held = await holding((tx) => tx`update inventory_items set archived_at = now() where id = ${item.id}`);
+    const held = await holding((tx) => tx`update master_inventory_items set archived_at = now() where id = ${item.id}`);
     const moving = move(item.id, 3);
     expect(await stillWaiting(moving)).toBe(true);
     await held.commit();

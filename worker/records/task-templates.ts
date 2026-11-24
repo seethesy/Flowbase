@@ -9,7 +9,7 @@ import {
 } from "../../shared/tasks";
 import { writeAudit } from "../audit/log";
 import type { DbLike } from "../db/client";
-import { events, inventoryItems, tasks, taskTemplateItems, taskTemplates } from "../db/schema";
+import { events, allInventoryItems, tasks, taskTemplateItems, taskTemplates } from "../db/schema";
 import { ApiError, notFound } from "../hono";
 import { findVisibleEvent } from "./events";
 import { createTask } from "./tasks";
@@ -227,8 +227,8 @@ export async function updateTaskTemplate(
 
 async function validateMatch(db: DbLike, input: TemplateInput) {
   if (!input.matchCatalogId) return;
-  const [item] = await db.select({ id: inventoryItems.id, kind: inventoryItems.kind })
-    .from(inventoryItems).where(and(eq(inventoryItems.id, input.matchCatalogId), isNull(inventoryItems.archivedAt)));
+  const [item] = await db.select({ id: allInventoryItems.id, kind: allInventoryItems.kind })
+    .from(allInventoryItems).where(and(eq(allInventoryItems.id, input.matchCatalogId), isNull(allInventoryItems.archivedAt)));
   if (!item || item.kind !== "service")
     throw new ApiError(400, "INVALID_MATCH", "Choose an active service offering.");
 }

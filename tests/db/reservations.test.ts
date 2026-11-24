@@ -9,6 +9,7 @@ import type { RunWithDb } from "../../worker/hono";
 import type { EmploymentType, Role } from "../../shared/access";
 import type { EventInput, FlowEvent } from "../../shared/core-records";
 import type { Conflict, ItemAvailability, Reservation } from "../../shared/reservations";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Reservations (FLOW-76), conflicts (FLOW-77) and their resolutions against
 // Postgres (FLOW-223). The pure rules are covered in tests/reservations.test.ts.
@@ -50,7 +51,7 @@ const appOn = (database: typeof db) => {
 };
 const admin = appOn(db);
 const sectionName = "FLOW-223 warehouse";
-const tables = sql`truncate table reservation_conflicts, reservations, jobs, audit_log, events, clients, stock_movements, inventory_stock, inventory_rental_details, inventory_items, vendors cascade`;
+const tables = sql`truncate table reservation_conflicts, reservations, jobs, audit_log, events, clients, stock_movements, inventory_stock, inventory_rental_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, vendors cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 let clientId = "";
@@ -64,19 +65,19 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await db.execute(tables);
-  await db.delete(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
+  await db.delete(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
   await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
   await second.end();
 });
 
 async function warehouse() {
-  const [found] = await db.select().from(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
-  return found ?? (await db.insert(schema.inventorySections).values({ name: sectionName, kind: "rental" }).returning())[0];
+  const [found] = await db.select().from(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
+  return found ?? (await db.insert(schema.inventoryLocations).values({ name: sectionName, kind: "location" }).returning())[0];
 }
 // A rental with `owned` in stock; with a vendor it is rented on request instead.
 async function rental(name: string, owned: number, vendorId?: string) {
-  const [item] = await db.insert(schema.inventoryItems).values({ kind: "rental", name, unit: "each" }).returning();
+  const [item] = await insertItems(db, { kind: "rental", name, unit: "each" });
   if (vendorId) await db.insert(schema.inventoryRentalDetails).values({ itemId: item.id, vendorId });
   if (owned) await db.insert(schema.inventoryStock).values({ itemId: item.id, sectionId: (await warehouse()).id, quantity: owned });
   return item.id;

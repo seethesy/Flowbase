@@ -30,7 +30,7 @@ it.each([
 });
 
 it("does not request item details for inventory subpages", () => {
-  render(<MemoryRouter initialEntries={["/inventory/counts"]}><Breadcrumbs /></MemoryRouter>);
+  render(<MemoryRouter initialEntries={["/inventory/order"]}><Breadcrumbs /></MemoryRouter>);
   expect(fetch).not.toHaveBeenCalled();
 });
 

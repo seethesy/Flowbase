@@ -1,24 +1,21 @@
 import { useState } from "react";
 import { Block, PageGrid } from "../app/page-grid";
+import { Dropdown } from "../components/ui/Dropdown";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { CheckCircle2, ClipboardCheck } from "lucide-react";
-import type { ColumnDef } from "@tanstack/react-table";
+import { CheckCircle2 } from "lucide-react";
 import {
   barCountStep,
   fitsCountStep,
   type CountLine,
-  type InventoryItem,
+  type SectionKind,
   type StockCount,
 } from "../../shared/inventory";
 import { unitLabel } from "../../shared/units";
-import { allPages, countsApi, inventoryApi, sectionsApi } from "../services/core";
+import { countsApi, sectionsApi } from "../services/core";
 import { useResource } from "../app/useResource";
-import { LoadMore, usePagedList } from "../app/paging";
 import {
   PageHeader,
   Button,
-  DataTable,
-  Section,
   ConfirmationDialog,
   LoadingSkeleton,
 } from "../components/shared";
@@ -27,26 +24,24 @@ import { changeLabel, dateTimeLabel, quantityLabel } from "./inventory";
 import { T, useCopy, LabelT, joined } from "../app/copy";
 import "./stock-counts.css";
 
-// Count mode (FLOW-82): count a storage section on a phone, item by item in shelf
-// order. Each saved count writes a count movement for the difference, and an
-// unfinished count can be resumed. Rental counts stay on the item page.
+// Count mode (FLOW-82, FLOW-291): count a location (or kitchen storage) on a
+// phone, item by item in shelf order. Each saved count writes a count movement for
+// the difference, and an unfinished count can be resumed. Rentals are counted here
+// only by people who can change Master inventory directly.
 const subtypeLabels: Record<string, string> = {
   ingredient: "Ingredient",
   bar: "Bar",
   supply: "Supply",
 };
 
-export function CountList() {
+// "Start stock count" on the Inventory and Bar Inventory tabs (FLOW-291): pick a
+// location to count, or resume the count already open there.
+export function StartCount({ kind = "location" }: { kind?: SectionKind }) {
   const navigate = useNavigate();
   const sections = useResource(
-    ["sections", { kind: "consumable" }],
-    () => sectionsApi.list({ kind: "consumable" }),
+    ["sections", { kind }],
+    () => sectionsApi.list({ kind }),
     { reference: true },
-  );
-  // Every open count: at most one per section, so this stays small (FLOW-179).
-  const open = useResource(
-    ["counts", { status: "open" }, "all"],
-    () => allPages((cursor) => countsApi.list({ status: "open" }, cursor)),
   );
   const [error, setError] = useState("");
   const start = async (sectionId: string) => {
@@ -58,61 +53,19 @@ export function CountList() {
       setError((e as Error).message);
     }
   };
-  const failed = sections.error ?? open.error;
   return (
     <>
-      <Link to="/inventory" className="back-link">
-        <T id="stock-counts.count-list.all-inventory">← All inventory</T>
-      </Link>
-      <PageHeader pageKey="inventory.counts"
-        title={<T id="stock-counts.count-list.counts">Counts</T>}
-        subtitle={<T id="stock-counts.count-list.count-a-storage-section-item">Count a storage section item by item. A count you leave part-way picks up where you stopped.</T>}
-        eyebrow={<T id="stock-counts.count-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
+      <Dropdown
+        variant="filter"
+        aria-label="Start stock count"
+        value=""
+        options={[
+          { value: "", label: <T id="stock-counts.start-count.start-stock-count">Start stock count</T>, text: "Start stock count" },
+          ...(sections.data ?? []).map((section) => ({ value: section.id, label: section.name })),
+        ]}
+        onValueChange={(next) => next && void start(next)}
       />
-      {error && (
-        <p role="alert" className="error-message">
-          {error}
-        </p>
-      )}
-      <PageGrid pageKey="inventory.counts">
-      <Block id="sections" name="Storage sections" h={20}>
-      {failed ? (
-        <LoadError message={failed} />
-      ) : !sections.data || !open.data ? (
-        <LoadingSkeleton />
-      ) : (
-        <Section title={<T id="stock-counts.count-list.storage-sections">Storage sections</T>}>
-          <ul className="count-sections">
-            {sections.data.map((section) => {
-              const count = open.data?.find(
-                (other) => other.sectionId === section.id,
-              );
-              return (
-                <li key={section.id}>
-                  <div>
-                    <strong>{section.name}</strong>
-                    {count && (
-                      <small>
-                        <T id="stock-counts.count-list.started-counted" values={{ startedAt: dateTimeLabel(count.startedAt), countedItems: count.countedItems }}>{"Started {startedAt}, {countedItems} counted"}</T>
-                      </small>
-                    )}
-                  </div>
-                  <Button
-                    variant={count ? "default" : "outline"}
-                    onClick={() => void start(section.id)}
-                    aria-label={`${count ? "Resume" : "Start"} counting ${section.name}`}
-                  >
-                    <ClipboardCheck size={14} />
-                    {count ? <T id="stock-counts.count-list.resume-count">Resume count</T> : <T id="stock-counts.count-list.start-count">Start count</T>}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        </Section>
-      )}
-      </Block>
-      </PageGrid>
+      {error && <p role="alert" className="error-message">{error}</p>}
     </>
   );
 }
@@ -248,8 +201,8 @@ export function CountMode() {
   );
   const [completing, setCompleting] = useState(false);
   const back = (
-    <Link to="/inventory/counts" className="back-link">
-      <T id="stock-counts.count-mode.all-counts">← All counts</T>
+    <Link to="/inventory" className="back-link">
+      <T id="stock-counts.count-mode.all-inventory">← All inventory</T>
     </Link>
   );
   if (count.error)
@@ -303,7 +256,7 @@ export function CountMode() {
         </ol>
       ) : (
         <p className="muted">
-          <T id="stock-counts.count-mode.nothing-is-kept-in-this">{"Nothing is kept in this section yet. Set an item's storage section to count it here."}</T>
+          <T id="stock-counts.count-mode.nothing-is-kept-at-this">{"Nothing is kept at this location yet. Stock an item here to count it."}</T>
         </p>
       )}
       </Block>
@@ -315,102 +268,13 @@ export function CountMode() {
         onConfirm={async () => {
           await countsApi.complete(current.id);
           setCompleting(false);
-          navigate("/inventory/counts");
+          navigate("/inventory");
         }}
       >
         {current.lines.length - counted > 0
           ? <T id="stock-counts.count-mode.items-weren-t-counted-their" values={{ value: current.lines.length - counted }}>{"{value} items weren't counted; their stock stays as it is."}</T>
           : <T id="stock-counts.count-mode.every-item-has-been-counted">Every item has been counted.</T>}
       </ConfirmationDialog>
-    </>
-  );
-}
-
-// Consumables below par (FLOW-82): ingredients, bar stock and supplies.
-export function LowStockList() {
-  const navigate = useNavigate();
-  const items = usePagedList(
-    ["inventory-items", "below-par"],
-    (cursor) => inventoryApi.list({ kind: "consumable", belowPar: true }, cursor),
-  );
-  const columns: ColumnDef<InventoryItem, unknown>[] = [
-    { accessorKey: "name", header: "Item" },
-    {
-      id: "subtype",
-      header: "Type",
-      accessorFn: (item) => subtypeLabels[item.subtype ?? ""] ?? "",
-      cell: ({ row }) => {
-        const label = subtypeLabels[row.original.subtype ?? ""];
-        return label ? <LabelT id="labels.item-subtype" value={row.original.subtype ?? ""}>{label}</LabelT> : "";
-      },
-    },
-    {
-      id: "onHand",
-      header: "On hand",
-      accessorFn: (item) => quantityLabel(item.totalQuantity, item.unit),
-    },
-    {
-      id: "par",
-      header: "Par",
-      accessorFn: (item) =>
-        quantityLabel(item.consumable?.parLevel ?? 0, item.unit),
-    },
-    {
-      id: "short",
-      header: "Short by",
-      accessorFn: (item) =>
-        quantityLabel(
-          (item.consumable?.parLevel ?? 0) - item.totalQuantity,
-          item.unit,
-        ),
-    },
-    {
-      id: "storage",
-      header: "Storage",
-      accessorFn: (item) => item.consumable?.storageSectionName ?? "—",
-    },
-    {
-      id: "vendor",
-      header: "Vendor",
-      accessorFn: (item) => item.consumable?.preferredVendor || "—",
-    },
-  ];
-  return (
-    <>
-      <Link to="/inventory" className="back-link">
-        <T id="stock-counts.low-stock-list.all-inventory">← All inventory</T>
-      </Link>
-      <PageHeader pageKey="inventory.low-stock"
-        title={<T id="stock-counts.low-stock-list.low-stock">Low stock</T>}
-        subtitle={<T id="stock-counts.low-stock-list.ingredients-bar-stock-and-supplies">Ingredients, bar stock and supplies below their par level.</T>}
-        eyebrow={<T id="stock-counts.low-stock-list.stock-supplies">{"STOCK & SUPPLIES"}</T>}
-      >
-        <Button variant="outline" asChild>
-          <Link to="/inventory/counts">
-            <ClipboardCheck size={16} />
-            <T id="stock-counts.low-stock-list.counts">Counts</T>
-          </Link>
-        </Button>
-      </PageHeader>
-      {items.error ? (
-        <LoadError message={items.error} />
-      ) : !items.data ? (
-        <LoadingSkeleton />
-      ) : (
-        <PageGrid pageKey="inventory.low-stock">
-          <Block id="list" name="List" h={24}>
-          <DataTable copyKey="stock-counts.low-stock-list"
-            data={items.data}
-            columns={columns}
-            onRow={(item) => navigate(`/inventory/${item.id}`)}
-            label={<T id="stock-counts.low-stock-list.items-below-par">items below par</T>}
-            exportName="low stock"
-            exportAll={items.loadAll}
-          />
-          <LoadMore list={items} label={<T id="stock-counts.low-stock-list.load-more-items">Load more items</T>} />
-          </Block>
-        </PageGrid>
-      )}
     </>
   );
 }

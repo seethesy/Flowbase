@@ -24,7 +24,7 @@ async function seedDish() {
 }
 
 test("the tabs read Overview | Recipes | Ingredients | Menus | Photos under the Kitchen heading (AC1; FLOW-293 AC1)", async ({ page }) => {
-  for (const path of ["/kitchen/overview", "/recipes", "/inventory/ingredients", "/kitchen/menus"]) {
+  for (const path of ["/kitchen/overview", "/recipes", "/kitchen/ingredients", "/kitchen/menus"]) {
     await page.goto(`/#${path}`);
     await expect(page.getByRole("heading", { name: "Kitchen", level: 1 })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Kitchen pages" }).getByRole("link"))
@@ -146,7 +146,7 @@ test("the Ingredients tab filters by storage (FLOW-301 AC3)", async ({ page }) =
   ] });
   await page.goto("/#/inventory/ingredients");
   await expect(page.getByRole("row", { name: /Synthetic cream/ })).toBeVisible();
-  await choose(page.getByRole("combobox", { name: /^Storage/ }), { label: "Kitchen – Dry Storage" });
+  await choose(page.getByRole("combobox", { name: /^Storage area/ }), { label: "Kitchen – Dry Storage" });
   await expect(page.getByRole("row", { name: /Synthetic flour/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /Synthetic cream/ })).toHaveCount(0);
 });

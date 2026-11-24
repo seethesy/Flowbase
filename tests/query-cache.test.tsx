@@ -14,12 +14,13 @@ const now = "2026-10-22T09:00:00.000Z";
 const section: Section = {
   id: "a0000000-0000-4000-8000-000000000001",
   name: "Warehouse",
-  kind: "rental",
+  kind: "location",
   totalQuantity: 4,
   archivedAt: null,
 };
 const item: InventoryItem = {
   id: "a0000000-0000-4000-8000-0000000000b1",
+  list: "master",
   kind: "rental",
   subtype: "equipment",
   code: "",

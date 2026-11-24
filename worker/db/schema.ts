@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { getViewSelectedFields, sql, type SQL } from "drizzle-orm";
 import {
   boolean,
   check,
@@ -8,6 +8,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  pgView,
   text,
   uniqueIndex,
   uuid,
@@ -67,7 +68,7 @@ const clientContactRoles = [
 const jurisdictions = ["DC", "MD", "VA"] as const;
 const venueContactRoles = ["manager", "coordinator"] as const;
 const attachmentStatuses = ["pending", "ready"] as const;
-const sectionKinds = ["rental", "consumable"] as const;
+const locationKinds = ["location", "storage"] as const;
 const itemKinds = ["rental", "consumable", "service"] as const;
 const containers = ["bottle", "can", "keg"] as const;
 const costSources = ["manual", "receiving"] as const;
@@ -964,17 +965,20 @@ export const vendorContacts = pgTable(
 const quantity = (name: string) =>
   numeric(name, { precision: 14, scale: 4, mode: "number" });
 
-// Where stock lives (FLOW-70): rental sections (Warehouse, Jamie's, Cafe, Vendor)
-// and consumable storage sections.
-export const inventorySections = pgTable(
-  "inventory_sections",
+// Where stock lives (FLOW-289; replaced the FLOW-70 sections). Locations hold
+// Master and Bar stock: an Admin-editable list seeded with Warehouse, Storage Box,
+// Jamie's three floors, Cozy Cafe and Vendor. Kitchen ingredients keep their own
+// storage list (Fridge, Freezer, Pantry), kind "storage". Code still calls a
+// location a section (sectionId) where the API shape predates FLOW-289.
+export const inventoryLocations = pgTable(
+  "inventory_locations",
   {
     ...baseColumns(),
     name: text("name").notNull(),
-    kind: text("kind", { enum: sectionKinds }).notNull(),
+    kind: text("kind", { enum: locationKinds }).notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
   },
-  (table) => [oneOf("inventory_sections_kind_check", table.kind, sectionKinds)],
+  (table) => [oneOf("inventory_locations_kind_check", table.kind, locationKinds)],
 ).enableRLS();
 
 // FLOW-262: configurable classification, separate from the legacy free-text
@@ -997,56 +1001,101 @@ export const inventoryTypes = pgTable("inventory_types", {
   uniqueIndex("inventory_types_category_name_idx").on(table.categoryId, sql`lower(${table.name})`).where(sql`${table.archivedAt} is null`),
 ]).enableRLS();
 
-// One row per thing Flowbase tracks or sells (FLOW-69). Kind-specific fields live
-// in the *_details tables below, one row per item of that kind.
-export const inventoryItems = pgTable(
-  "inventory_items",
-  {
-    ...baseColumns(),
-    kind: text("kind", { enum: itemKinds }).notNull(),
-    // Rental: equipment, furniture, linen, tableware, glassware, bar, decor.
-    // Consumable: ingredient, bar, supply. Services have none.
-    subtype: text("subtype"),
-    code: text("code").notNull().default(""),
-    name: text("name").notNull(),
-    category: text("category").notNull().default(""),
-    categoryId: uuid("category_id").references(() => inventoryCategories.id),
-    typeId: uuid("type_id").references(() => inventoryTypes.id),
-    description: text("description").notNull().default(""),
-    unit: text("unit").notNull().default("each"),
-    group: text("group").notNull().default(""),
-    // Source-sheet second level, who pulls it by default, and the follow-ups an
-    // import left on it (FLOW-165).
-    subcategory: text("subcategory").notNull().default(""),
-    pullOwner: text("pull_owner", { enum: pullOwners }),
-    flags: jsonb("flags").$type<string[]>().notNull().default([]),
-    color: text("color").notNull().default(""),
-    tier: text("tier").notNull().default(""),
-    ratioQuantity: quantity("ratio_quantity"),
-    ratioBasis: text("ratio_basis", { enum: priceBases }),
-    active: boolean("active").notNull().default(true),
-  },
-  (table) => [
-    index("inventory_items_kind_idx").on(table.kind, table.subtype),
-    uniqueIndex("inventory_items_code_idx")
-      .on(table.code)
-      .where(sql`${table.code} <> '' and ${table.archivedAt} is null`),
-    trigram("inventory_items_name_trgm_idx", table.name),
-    oneOf("inventory_items_kind_check", table.kind, itemKinds),
-    oneOf("inventory_items_ratio_basis_check", table.ratioBasis, priceBases),
-    oneOf("inventory_items_pull_owner_check", table.pullOwner, pullOwners),
-  ],
+// The three inventory lists (FLOW-289), one table each, sharing the item columns
+// of the FLOW-69 model so the all_inventory_items view can read them as one:
+// - Master Inventory: rentals, services and supplies (consumable/supply). Every
+//   one is shown as "Rental"; kind is its internal stock tracking (returned after
+//   events, used up at events, not stocked).
+// - Bar Inventory: drinks (consumable/bar).
+// - Kitchen Ingredients: consumable/ingredient, shown only under Kitchen.
+// A CHECK on each table keeps an item in its own list (FLOW-289 AC2).
+// Kind-specific fields live in the *_details tables below.
+const itemColumns = () => ({
+  ...baseColumns(),
+  kind: text("kind", { enum: itemKinds }).notNull(),
+  // Rental: equipment, furniture, linen, tableware, glassware, bar, decor.
+  // Consumable: ingredient, bar, supply. Services have none.
+  subtype: text("subtype"),
+  code: text("code").notNull().default(""),
+  name: text("name").notNull(),
+  category: text("category").notNull().default(""),
+  categoryId: uuid("category_id").references(() => inventoryCategories.id),
+  typeId: uuid("type_id").references(() => inventoryTypes.id),
+  description: text("description").notNull().default(""),
+  unit: text("unit").notNull().default("each"),
+  group: text("group").notNull().default(""),
+  // Source-sheet second level, who pulls it by default, and the follow-ups an
+  // import left on it (FLOW-165).
+  subcategory: text("subcategory").notNull().default(""),
+  pullOwner: text("pull_owner", { enum: pullOwners }),
+  flags: jsonb("flags").$type<string[]>().notNull().default([]),
+  color: text("color").notNull().default(""),
+  tier: text("tier").notNull().default(""),
+  ratioQuantity: quantity("ratio_quantity"),
+  ratioBasis: text("ratio_basis", { enum: priceBases }),
+  active: boolean("active").notNull().default(true),
+});
+type ItemTableColumns = {
+  kind: ExtraConfigColumn; subtype: ExtraConfigColumn; code: ExtraConfigColumn;
+  name: ExtraConfigColumn; archivedAt: ExtraConfigColumn; ratioBasis: ExtraConfigColumn;
+  pullOwner: ExtraConfigColumn;
+};
+const itemTableConfig = (prefix: string, list: SQL) => (table: ItemTableColumns) => [
+  index(`${prefix}_kind_idx`).on(table.kind, table.subtype),
+  uniqueIndex(`${prefix}_code_idx`)
+    .on(table.code)
+    .where(sql`${table.code} <> '' and ${table.archivedAt} is null`),
+  trigram(`${prefix}_name_trgm_idx`, table.name),
+  oneOf(`${prefix}_kind_check`, table.kind, itemKinds),
+  oneOf(`${prefix}_ratio_basis_check`, table.ratioBasis, priceBases),
+  oneOf(`${prefix}_pull_owner_check`, table.pullOwner, pullOwners),
+  check(`${prefix}_list_check`, list),
+];
+export const masterInventoryItems = pgTable(
+  "master_inventory_items",
+  itemColumns(),
+  itemTableConfig(
+    "master_inventory_items",
+    sql`kind <> 'consumable' or subtype = 'supply'`,
+  ),
+).enableRLS();
+export const barInventoryItems = pgTable(
+  "bar_inventory_items",
+  itemColumns(),
+  itemTableConfig(
+    "bar_inventory_items",
+    sql`kind = 'consumable' and subtype = 'bar'`,
+  ),
+).enableRLS();
+export const kitchenIngredients = pgTable(
+  "kitchen_ingredients",
+  itemColumns(),
+  itemTableConfig(
+    "kitchen_ingredients",
+    sql`kind = 'consumable' and subtype = 'ingredient'`,
+  ),
 ).enableRLS();
 
-const itemReference = () =>
-  uuid("item_id")
-    .notNull()
-    .unique()
-    .references(() => inventoryItems.id);
+// Every item of the three lists, read-only (FLOW-289). Reads that don't care
+// which list an item is in (an item's page, the ledger, counts, search) use it;
+// writes go to the list's own table (worker/records/inventory-lists.ts).
+export const allInventoryItems = pgView("all_inventory_items", itemColumns())
+  .with({ securityInvoker: true })
+  .as(
+    sql`select * from ${masterInventoryItems} union all select * from ${barInventoryItems} union all select * from ${kitchenIngredients}`,
+  );
+// The view's columns, for a select that nests an item: `{ item: allInventoryItemFields }`.
+export const allInventoryItemFields = getViewSelectedFields(allInventoryItems);
+
+const itemReference = (table: () => AnyPgColumn) =>
+  uuid("item_id").notNull().unique().references(table);
+// A reference to an item of any list (the ledger, stock, counts): no foreign key,
+// since it points at whichever table the item is in (FLOW-289).
+const anyItemReference = () => uuid("item_id").notNull();
 
 export const inventoryRentalDetails = pgTable("inventory_rental_details", {
   ...baseColumns(),
-  itemId: itemReference(),
+  itemId: itemReference(() => masterInventoryItems.id),
   priceCents: moneyCents("price_cents"),
   internalCostCents: moneyCents("internal_cost_cents"),
   replacementCostCents: moneyCents("replacement_cost_cents"),
@@ -1073,7 +1122,7 @@ export const inventoryServiceDetails = pgTable(
   "inventory_service_details",
   {
     ...baseColumns(),
-    itemId: itemReference(),
+    itemId: itemReference(() => masterInventoryItems.id),
     priceCents: moneyCents("price_cents"),
     priceBasis: text("price_basis", { enum: priceBases })
       .notNull()
@@ -1101,7 +1150,8 @@ export const inventoryConsumableDetails = pgTable(
   "inventory_consumable_details",
   {
     ...baseColumns(),
-    itemId: itemReference(),
+    // A supply, a drink or an ingredient: any list's item.
+    itemId: anyItemReference().unique(),
     purchaseUnit: text("purchase_unit").notNull(),
     packCount: integer("pack_count"),
     eachSizeQuantity: quantity("each_size_quantity"),
@@ -1115,7 +1165,7 @@ export const inventoryConsumableDetails = pgTable(
     parLevel: quantity("par_level"),
     allergens: jsonb("allergens").$type<string[]>().notNull().default([]),
     storageSectionId: uuid("storage_section_id").references(
-      () => inventorySections.id,
+      () => inventoryLocations.id,
     ),
     // Shelf position in the storage section; count mode lists items in this order
     // (FLOW-82).
@@ -1130,7 +1180,7 @@ export const inventoryBarDetails = pgTable(
   "inventory_bar_details",
   {
     ...baseColumns(),
-    itemId: itemReference(),
+    itemId: itemReference(() => barInventoryItems.id),
     // Brand or varietal, e.g. Tito's or Pinot Grigio.
     brand: text("brand").notNull().default(""),
     // Wine and liquor only (barSubcategories in shared/inventory.ts).
@@ -1148,9 +1198,7 @@ export const inventoryCostHistory = pgTable(
   "inventory_cost_history",
   {
     ...baseColumns(),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    itemId: anyItemReference(),
     previousCents: moneyCents("previous_cents"),
     unitCostCents: moneyCents("unit_cost_cents"),
     source: text("source", { enum: costSources }).notNull(),
@@ -1167,12 +1215,10 @@ export const inventoryStock = pgTable(
   "inventory_stock",
   {
     ...baseColumns(),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    itemId: anyItemReference(),
     sectionId: uuid("section_id")
       .notNull()
-      .references(() => inventorySections.id),
+      .references(() => inventoryLocations.id),
     quantity: quantity("quantity").notNull().default(0),
     color: text("color").notNull().default(""),
   },
@@ -1208,12 +1254,10 @@ export const stockMovements = pgTable(
   "stock_movements",
   {
     ...baseColumns(),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    itemId: anyItemReference(),
     sectionId: uuid("section_id")
       .notNull()
-      .references(() => inventorySections.id),
+      .references(() => inventoryLocations.id),
     type: text("type", { enum: movementTypes }).notNull(),
     quantity: quantity("quantity").notNull(),
     reason: text("reason").notNull().default(""),
@@ -1243,7 +1287,7 @@ export const stockCounts = pgTable(
     ...baseColumns(),
     sectionId: uuid("section_id")
       .notNull()
-      .references(() => inventorySections.id),
+      .references(() => inventoryLocations.id),
     status: text("status", { enum: countStatuses })
       .notNull()
       .default("open"),
@@ -1266,9 +1310,7 @@ export const stockCountLines = pgTable(
     countId: uuid("count_id")
       .notNull()
       .references(() => stockCounts.id),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    itemId: anyItemReference(),
     quantity: quantity("quantity").notNull(),
     reason: text("reason").notNull().default(""),
     movementId: uuid("movement_id")
@@ -1316,9 +1358,8 @@ export const recipeLines = pgTable(
     recipeId: uuid("recipe_id")
       .notNull()
       .references(() => recipes.id),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    // Any consumable, kitchen, bar or supply (FLOW-169), so no foreign key (FLOW-289).
+    itemId: anyItemReference(),
     quantity: quantity("quantity"),
     unit: text("unit"),
     prepNote: text("prep_note").notNull().default(""),
@@ -1745,7 +1786,7 @@ export const reservations = pgTable(
       .references(() => events.id),
     itemId: uuid("item_id")
       .notNull()
-      .references(() => inventoryItems.id),
+      .references(() => masterInventoryItems.id),
     quantity: quantity("quantity").notNull(),
     status: text("status", { enum: holdStatuses }).notNull().default("tentative"),
     windowStart: date("window_start", { mode: "string" }).notNull(),
@@ -1788,7 +1829,7 @@ export const reservationConflicts = pgTable(
       .references(() => reservations.id),
     itemId: uuid("item_id")
       .notNull()
-      .references(() => inventoryItems.id),
+      .references(() => masterInventoryItems.id),
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id),
@@ -1823,9 +1864,8 @@ export const eventRequirements = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    // A consumable of any list.
+    itemId: anyItemReference(),
     basis: text("basis", { enum: requirementBases }).notNull().default("fixed"),
     quantity: quantity("quantity").notNull(),
     source: text("source").notNull().default("manual"),
@@ -1860,7 +1900,7 @@ export const eventBarTiers = pgTable(
     allocated: quantity("allocated"),
     shortage: quantity("shortage"),
     orderBy: date("order_by", { mode: "string" }),
-    reorderItemId: uuid("reorder_item_id").references(() => inventoryItems.id),
+    reorderItemId: uuid("reorder_item_id").references(() => barInventoryItems.id),
     computedAt: timestamptz("computed_at"),
   },
   (table) => [
@@ -1883,9 +1923,8 @@ export const consumableAllocations = pgTable(
     eventId: uuid("event_id")
       .notNull()
       .references(() => events.id),
-    itemId: uuid("item_id")
-      .notNull()
-      .references(() => inventoryItems.id),
+    // A consumable of any list.
+    itemId: anyItemReference(),
     required: quantity("required").notNull(),
     allocated: quantity("allocated").notNull(),
     shortage: quantity("shortage").notNull(),
@@ -2080,9 +2119,9 @@ export const pullListLines = pgTable(
       .references(() => pullLists.id),
     truckId: uuid("truck_id").references(() => trucks.id),
     group: text("line_group", { enum: pullGroups }).notNull(),
-    itemId: uuid("item_id").references(() => inventoryItems.id),
+    itemId: uuid("item_id").references(() => masterInventoryItems.id),
     name: text("name").notNull().default(""),
-    sectionId: uuid("section_id").references(() => inventorySections.id),
+    sectionId: uuid("section_id").references(() => inventoryLocations.id),
     quantity: quantity("quantity"),
     notes: text("notes").notNull().default(""),
     status: text("status", { enum: pullStatuses }).notNull().default("to_pull"),
@@ -2133,7 +2172,7 @@ export const closeoutLines = pgTable(
     pullLineId: uuid("pull_line_id")
       .notNull()
       .references(() => pullListLines.id),
-    itemId: uuid("item_id").references(() => inventoryItems.id),
+    itemId: uuid("item_id").references(() => masterInventoryItems.id),
     name: text("name").notNull().default(""),
     pulled: quantity("pulled").notNull().default(0),
     returned: quantity("returned").notNull().default(0),
@@ -2374,6 +2413,19 @@ export const rolePermissions = pgTable(
     oneOf("role_permissions_area_check", table.area, areaKeys),
     oneOf("role_permissions_level_check", table.level, levels),
   ],
+).enableRLS();
+
+// Which roles see each sidebar heading and tab (FLOW-284): one row per role with
+// the nav keys it hides (shared/nav-visibility.ts). No row means the role sees
+// everything its permissions allow. UI only: the API still answers by area.
+export const roleNavHidden = pgTable(
+  "role_nav_hidden",
+  {
+    ...baseColumns(),
+    role: text("role", { enum: roles }).notNull().unique(),
+    hidden: jsonb("hidden").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  },
+  (table) => [oneOf("role_nav_hidden_role_check", table.role, roles)],
 ).enableRLS();
 
 // Staff pay (FLOW-270): each person's normal pay, kept off users so it never

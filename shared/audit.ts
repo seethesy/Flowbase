@@ -48,6 +48,8 @@ export type AuditEntity =
   | "ui_layout"
   // The roles and permissions matrix (FLOW-269): one row per save, before and after.
   | "role_permissions"
+  // Which roles see each sidebar heading and tab (FLOW-284): one row per save.
+  | "role_nav_hidden"
   // Proposals and their stage changes and versions (FLOW-122/123).
   | "proposal"
   | "contract"

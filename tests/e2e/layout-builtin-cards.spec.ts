@@ -89,13 +89,7 @@ test("edits a client's Events related list (AC2)", async ({ page }) => {
 });
 
 const inventoryTables = [
-  { name: "Ingredients", path: "/#/inventory/ingredients", item: consumable("Synthetic flour", { unit: "lb" }), hide: "Storage" },
-  {
-    name: "Low stock",
-    path: "/#/inventory/low-stock",
-    item: consumable("Synthetic cream", { unit: "qt", onHand: 2, details: { parLevel: 6 } }),
-    hide: "Vendor",
-  },
+  { name: "Ingredients", path: "/#/kitchen/ingredients", item: consumable("Synthetic flour", { unit: "lb" }), hide: "Storage" },
 ];
 for (const table of inventoryTables)
   test(`${table.name}: picks columns and exports what shows (AC3)`, async ({ page }) => {

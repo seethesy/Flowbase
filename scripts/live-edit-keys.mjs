@@ -1,7 +1,7 @@
 // The live-edit key manifest (FLOW-277): every wording key the code renders
 // (with its default's {placeholders}), the key prefixes the code builds at run
-// time, and every page layout's built-in block and field-card ids and
-// layout-aware table keys. Committed as shared/generated/live-edit-keys.json;
+// time, every page layout's built-in block and field-card ids and
+// layout-aware table keys, and every sidebar heading and tab key (FLOW-284). Committed as shared/generated/live-edit-keys.json;
 // the Worker reads it to find saved edits that no longer match a screen, and
 // tests/live-edit-keys.test.ts fails CI when a key disappears without an entry
 // in shared/live-edit-renames.ts.
@@ -160,6 +160,45 @@ export function scanLayoutConfig(text) {
   return { tables: tables.sort(), fieldCards };
 }
 
+// Every sidebar heading and tab key (FLOW-284): "<heading copyId>" and
+// "<heading copyId>.<tab copyId>", from navigationGroups in src/app/navigation.ts.
+// A heading's tabs are an array literal, or withOverview(id, to, [...]), which
+// puts an Overview tab first.
+export function scanNavigation(text) {
+  const source = ts.createSourceFile("src/app/navigation.ts", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  let groups = null;
+  const visit = (node) => {
+    if (ts.isVariableDeclaration(node) && node.name.getText() === "navigationGroups" && node.initializer && ts.isArrayLiteralExpression(node.initializer))
+      groups = node.initializer;
+    if (!groups) ts.forEachChild(node, visit);
+  };
+  visit(source);
+  const keys = [];
+  const copyIdOf = (object) => {
+    const property = object.properties.find((p) => ts.isPropertyAssignment(p) && p.name.getText() === "copyId");
+    return property ? literal(property.initializer) : null;
+  };
+  for (const group of groups?.elements ?? []) {
+    if (!ts.isObjectLiteralExpression(group)) continue;
+    const groupId = copyIdOf(group);
+    if (!groupId) continue;
+    keys.push(groupId);
+    const tabsProperty = group.properties.find((p) => ts.isPropertyAssignment(p) && p.name.getText() === "tabs");
+    let tabs = tabsProperty?.initializer;
+    if (tabs && ts.isCallExpression(tabs) && tabs.expression.getText() === "withOverview") {
+      keys.push(`${groupId}.overview`);
+      tabs = tabs.arguments[tabs.arguments.length - 1];
+    }
+    if (!tabs || !ts.isArrayLiteralExpression(tabs)) continue;
+    for (const tab of tabs.elements) {
+      if (!ts.isObjectLiteralExpression(tab)) continue;
+      const tabId = copyIdOf(tab);
+      if (tabId) keys.push(`${groupId}.${tabId}`);
+    }
+  }
+  return [...new Set(keys)].sort();
+}
+
 const sortedObject = (object) => Object.fromEntries(Object.entries(object).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
 // Every usage, for the per-key checks in tests/copy-keys.test.ts.
@@ -199,6 +238,7 @@ export function buildManifest(root = ".") {
       copyPrefixes: [...prefixes].sort(),
       layout: sortedObject(layout),
       tables: config.tables,
+      nav: scanNavigation(readFileSync(join(root, "src/app/navigation.ts"), "utf8")),
     },
     problems,
   };

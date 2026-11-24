@@ -8,19 +8,23 @@ import {
   countInputSchema,
   countLineInputSchema,
   countStatusSchema,
+  inventoryListOf,
+  inventoryListSchema,
   itemInputSchema,
   itemKindSchema,
+  type InventoryList,
   classificationInputSchema,
   movementInputSchema,
   sectionInputSchema,
   sectionKindSchema,
+  sectionOrderSchema,
   sectionRenameSchema,
   startCountInputSchema,
   transferInputSchema,
 } from "../../shared/inventory";
 import { id as uuid, withVersion } from "../../shared/schema-primitives";
 import { unitSchema } from "../../shared/units";
-import { requireActor, requirePermission, type ResolveActor } from "../auth";
+import { requireActor, requireAnyPermission, requirePermission, type ResolveActor } from "../auth";
 import { can } from "../policy";
 import {
   notFound,
@@ -52,6 +56,7 @@ import {
   listSections,
   recordCountLine,
   renameSection,
+  reorderSections,
   setItemArchived,
   setSectionArchived,
   startCount,
@@ -73,9 +78,20 @@ const inlineSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+// Who may read and change each list (FLOW-289): Master and Bar are inventory,
+// Kitchen Ingredients belong to the kitchen (Recipes and Menus).
+const listAction = (list: InventoryList, access: "read" | "write") =>
+  list === "kitchen"
+    ? access === "read" ? "recipes.read" as const : "recipes.write" as const
+    : access === "read" ? "inventory.read" as const : "inventory.write" as const;
+const requireList = (c: AppContext, list: InventoryList, access: "read" | "write") => {
+  if (!can(c.get("actor"), listAction(list, access)))
+    throw new ApiError(403, "FORBIDDEN", "You don't have access to this.");
+};
+
 // Inventory API (FLOW-69/70/71/81/82/83/90), mounted at /api/inventory. Every route
-// needs a signed-in user; item writes need inventory.write, section changes
-// inventory.sections (Admin). Movements need inventory.move and counts
+// needs a signed-in user; item writes need the list's write permission (above),
+// location changes inventory.sections (Admin). Movements need inventory.move and counts
 // inventory.count, and each item is then checked against who may move or count it
 // (canMoveItem, canCountItem). There is no route that
 // sets a quantity: every change is a movement (FLOW-71 AC1).
@@ -115,7 +131,10 @@ export function inventoryRoutes(options: {
     return c.json(await record(c, (db, actor) => updateInventoryType(db, actor, id, input)));
   });
 
-  routes.get("/items", requirePermission("inventory.read"), async (c) => {
+  // One list's items (FLOW-289: ?list=master, bar or kitchen), or every list's.
+  routes.get("/items", requireAnyPermission("inventory.read", "recipes.read"), async (c) => {
+    const list = inventoryListSchema.safeParse(c.req.query("list"));
+    requireList(c, list.success ? list.data : "master", "read");
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
     if (query(c, "sectionId") && !sectionId.success)
@@ -124,6 +143,7 @@ export function inventoryRoutes(options: {
       c,
       await record(c, (db, actor) =>
         listItems(db, actor, {
+          list: list.success ? list.data : undefined,
           archived: flag(c, "archived"),
           kind: kind.success ? kind.data : undefined,
           subtype: query(c, "subtype"),
@@ -152,12 +172,17 @@ export function inventoryRoutes(options: {
       throw new ApiError(400, "INVALID_REQUEST", "Invalid item ids.");
     return c.json(await record(c, (db) => pendingInventoryChanges(db, ids)));
   });
-  routes.get("/items/:id", requirePermission("inventory.read"), async (c) => {
+  routes.get("/items/:id", requireAnyPermission("inventory.read", "recipes.read"), async (c) => {
     const id = param(c, "Item");
-    return c.json(await record(c, (db, actor) => getItem(db, actor, id)));
+    return c.json(await record(c, async (db, actor) => {
+      const item = await getItem(db, actor, id);
+      requireList(c, item.list, "read");
+      return item;
+    }));
   });
-  routes.post("/items", requirePermission("inventory.write"), async (c) => {
+  routes.post("/items", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const input = await parseBody(c, itemInputSchema);
+    requireList(c, inventoryListOf(input), "write");
     if (input.kind !== "consumable" && !can(c.get("actor"), "rentals.apply_directly"))
       throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
     return c.json(
@@ -165,20 +190,24 @@ export function inventoryRoutes(options: {
       201,
     );
   });
-  routes.put("/items/:id", requirePermission("inventory.write"), async (c) => {
+  routes.put("/items/:id", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const id = param(c, "Item");
+    // The item's own list decides who may change it, before the body is read.
+    requireList(c, inventoryListOf(await record(c, (db) => findItem(db, id))), "write");
     const input = await parseBody(c, withVersion(itemInputSchema));
+    requireList(c, inventoryListOf(input), "write");
     if (input.kind !== "consumable" && !can(c.get("actor"), "rentals.apply_directly"))
       throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
     return c.json(
       await record(c, (db, actor) => updateItem(db, actor, id, input)),
     );
   });
-  routes.patch("/items/:id/inline", requirePermission("inventory.write"), async (c) => {
+  routes.patch("/items/:id/inline", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
     const id = param(c, "Item");
     const { field, value, updatedAt } = await parseBody(c, inlineSchema);
     return c.json(await record(c, async (db, actor) => {
       const stored = await getItem(db, fullView, id);
+      requireList(c, stored.list, "write");
       if (stored.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
         throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory change for approval.");
       const input = itemInputSchema.parse({
@@ -232,7 +261,7 @@ export function inventoryRoutes(options: {
           if (value && !unit.success) throw new ApiError(400, "INVALID_REQUEST", "Pick a recipe unit.");
           input.consumable.recipeUnit = value ? unit.data! : null;
         } else {
-          if (value && !uuid.safeParse(value).success) throw new ApiError(400, "INVALID_REQUEST", "Invalid storage section id.");
+          if (value && !uuid.safeParse(value).success) throw new ApiError(400, "INVALID_REQUEST", "Invalid location id.");
           input.consumable.storageSectionId = value || null;
         }
       } else input[field as "name" | "code" | "description" | "group" | "color" | "tier"] = value;
@@ -402,6 +431,19 @@ export function inventoryRoutes(options: {
       );
     },
   );
+  // Admin's order of one list (FLOW-289 AC4).
+  routes.post(
+    "/sections/order",
+    requirePermission("inventory.sections"),
+    async (c) => {
+      const input = await parseBody(c, sectionOrderSchema);
+      return c.json(
+        await record(c, (db, actor) =>
+          reorderSections(db, actor, input.kind, input.ids),
+        ),
+      );
+    },
+  );
   routes.put(
     "/sections/:id",
     requirePermission("inventory.sections"),
@@ -422,12 +464,13 @@ export function inventoryRoutes(options: {
   ] as const) {
     routes.post(
       `/items/:id/${action}`,
-      requirePermission("inventory.write"),
+      requireAnyPermission("inventory.write", "recipes.write"),
       async (c) => {
         const id = param(c, "Item");
         return c.json(
           await record(c, async (db, actor) => {
             const item = await findItem(db, id);
+            requireList(c, inventoryListOf(item), "write");
             if (item.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
               throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory archive for approval.");
             return setItemArchived(db, actor, id, archived);

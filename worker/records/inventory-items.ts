@@ -7,6 +7,7 @@ import {
 import {
   and,
   asc,
+  desc,
   eq,
   ilike,
   inArray,
@@ -25,7 +26,12 @@ import type {
   ItemFlag,
   ItemInputParsed,
 } from "../../shared/inventory";
-import { classificationKind } from "../../shared/inventory";
+import {
+  classificationKind,
+  inventoryListOf,
+  sectionKindFor,
+  type InventoryList,
+} from "../../shared/inventory";
 import { units, type Unit } from "../../shared/units";
 import type { Version } from "../../shared/schema-primitives";
 import { fullView, listHistoryPage, writeAudit } from "../audit/log";
@@ -33,21 +39,28 @@ import type { Db, DbLike } from "../db/client";
 import {
   inventoryBarDetails,
   inventoryConsumableDetails,
-  inventoryItems,
+  allInventoryItems,
   inventoryCategories,
   inventoryTypes,
   inventoryRentalDetails,
-  inventorySections,
+  inventoryLocations,
   inventoryServiceDetails,
   inventoryStock,
   stockMovements,
+  users,
   vendors,
 } from "../db/schema";
 import { ApiError, forbidden, notFound, requireVersion } from "../hono";
 import { can } from "../policy";
 import { emitDomainEvent } from "../jobs/queue";
 import { setArchived } from "./archive";
-import { conflict, type ItemRow, round } from "./inventory-common";
+import {
+  conflict,
+  itemTableOf,
+  type ItemRow,
+  requireLockedItem,
+  round,
+} from "./inventory-common";
 import { recordCostChange } from "./inventory-costs";
 import { requireStockSection } from "./inventory-sections";
 import { findVendor, requireLiveVendor } from "./vendors";
@@ -73,12 +86,12 @@ export async function toItems(
   const ids = rows.map((row) => row.id);
   // Two queries per page whatever its size (FLOW-180): the kind-specific details
   // in one left-joined row per item, and the stock it holds.
-  const [details, stock] = await Promise.all([
+  const [details, stock, counted] = await Promise.all([
     db
       .select({
         // Only the columns the item shows; each detail's item id keeps it
         // present (not null) whenever its row exists.
-        itemId: inventoryItems.id,
+        itemId: allInventoryItems.id,
         rental: {
           itemId: inventoryRentalDetails.itemId,
           priceCents: inventoryRentalDetails.priceCents,
@@ -121,7 +134,7 @@ export async function toItems(
           storageSectionId: inventoryConsumableDetails.storageSectionId,
           storageOrder: inventoryConsumableDetails.storageOrder,
         },
-        storageSectionName: inventorySections.name,
+        storageSectionName: inventoryLocations.name,
         bar: {
           itemId: inventoryBarDetails.itemId,
           brand: inventoryBarDetails.brand,
@@ -130,42 +143,42 @@ export async function toItems(
           housePick: inventoryBarDetails.housePick,
         },
       })
-      .from(inventoryItems)
+      .from(allInventoryItems)
       .leftJoin(
         inventoryRentalDetails,
-        eq(inventoryRentalDetails.itemId, inventoryItems.id),
+        eq(inventoryRentalDetails.itemId, allInventoryItems.id),
       )
       .leftJoin(vendors, eq(vendors.id, inventoryRentalDetails.vendorId))
       .leftJoin(suppliers, eq(suppliers.id, inventoryRentalDetails.supplierId))
       .leftJoin(
         inventoryServiceDetails,
-        eq(inventoryServiceDetails.itemId, inventoryItems.id),
+        eq(inventoryServiceDetails.itemId, allInventoryItems.id),
       )
       .leftJoin(
         inventoryConsumableDetails,
-        eq(inventoryConsumableDetails.itemId, inventoryItems.id),
+        eq(inventoryConsumableDetails.itemId, allInventoryItems.id),
       )
       .leftJoin(
-        inventorySections,
-        eq(inventoryConsumableDetails.storageSectionId, inventorySections.id),
+        inventoryLocations,
+        eq(inventoryConsumableDetails.storageSectionId, inventoryLocations.id),
       )
       .leftJoin(
         inventoryBarDetails,
-        eq(inventoryBarDetails.itemId, inventoryItems.id),
+        eq(inventoryBarDetails.itemId, allInventoryItems.id),
       )
-      .where(inArray(inventoryItems.id, ids)),
+      .where(inArray(allInventoryItems.id, ids)),
     db
       .select({
         itemId: inventoryStock.itemId,
         sectionId: inventoryStock.sectionId,
-        sectionName: inventorySections.name,
+        sectionName: inventoryLocations.name,
         quantity: inventoryStock.quantity,
         color: inventoryStock.color,
       })
       .from(inventoryStock)
       .innerJoin(
-        inventorySections,
-        eq(inventoryStock.sectionId, inventorySections.id),
+        inventoryLocations,
+        eq(inventoryStock.sectionId, inventoryLocations.id),
       )
       .where(
         and(
@@ -173,9 +186,26 @@ export async function toItems(
           sql`${inventoryStock.quantity} <> 0`,
         ),
       )
-      .orderBy(asc(inventorySections.sortOrder), asc(inventorySections.name)),
+      .orderBy(asc(inventoryLocations.sortOrder), asc(inventoryLocations.name)),
+    // Last counted and by whom (FLOW-291): the newest count movement.
+    db
+      .selectDistinctOn([stockMovements.itemId], {
+        itemId: stockMovements.itemId,
+        at: stockMovements.createdAt,
+        by: users.name,
+      })
+      .from(stockMovements)
+      .leftJoin(users, eq(users.id, stockMovements.createdBy))
+      .where(
+        and(
+          inArray(stockMovements.itemId, ids),
+          eq(stockMovements.type, "count"),
+        ),
+      )
+      .orderBy(stockMovements.itemId, desc(stockMovements.createdAt)),
   ]);
   const detailsById = indexBy(details, (detail) => detail.itemId);
+  const countedById = indexBy(counted, (count) => count.itemId);
   const stockByItem = groupBy(stock, (level) => level.itemId);
   return rows.map((row): InventoryItem => {
     const detail = detailsById.get(row.id);
@@ -195,8 +225,10 @@ export async function toItems(
     const c = detail?.consumable;
     const bar = detail?.bar;
     const par = c?.parLevel ?? null;
+    const lastCount = countedById.get(row.id);
     return serializeFields<InventoryItem>(actor, "inventory_item", {
       id: row.id,
+      list: inventoryListOf(row),
       kind: row.kind,
       subtype: row.subtype,
       code: row.code,
@@ -279,7 +311,10 @@ export async function toItems(
           : null,
       stock: levels,
       totalQuantity,
-      belowPar: par === null ? null : totalQuantity < par,
+      // At or below par counts (Ash, 2026-11-23); a par of 0 means nothing to keep.
+      belowPar: par === null ? null : par > 0 && totalQuantity <= par,
+      lastCountedAt: lastCount?.at.toISOString() ?? null,
+      lastCountedBy: lastCount?.by ?? null,
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
@@ -289,6 +324,8 @@ export async function toItems(
 
 export type ItemFilter = {
   archived?: boolean;
+  // One of the three lists (FLOW-289).
+  list?: InventoryList;
   kind?: InventoryItem["kind"];
   subtype?: string;
   category?: string;
@@ -313,9 +350,9 @@ export async function listItems(
 ): Promise<Page<InventoryItem>> {
   const paging = keyset<ItemRow>(
     [
-      { column: inventoryItems.group, type: "text", of: (row) => row.group },
-      { column: inventoryItems.name, type: "text", of: (row) => row.name },
-      { column: inventoryItems.id, type: "uuid", of: (row) => row.id },
+      { column: allInventoryItems.group, type: "text", of: (row) => row.group },
+      { column: allInventoryItems.name, type: "text", of: (row) => row.name },
+      { column: allInventoryItems.id, type: "uuid", of: (row) => row.id },
     ],
     page,
   );
@@ -323,33 +360,34 @@ export async function listItems(
   // rows. Each mirrors what the item shows: a section filter matches stock held
   // there or the storage section, below par compares total stock with par.
   const term = filter.search ? `%${filter.search}%` : undefined;
-  const item = inventoryItems.id;
+  const item = allInventoryItems.id;
   const rows = await db
     .select()
-    .from(inventoryItems)
+    .from(allInventoryItems)
     .where(
       and(
         filter.archived
-          ? and(isNotNull(inventoryItems.archivedAt), notDeleted("inventory_item", inventoryItems.id))
-          : isNull(inventoryItems.archivedAt),
-        filter.kind ? eq(inventoryItems.kind, filter.kind) : undefined,
-        filter.subtype ? eq(inventoryItems.subtype, filter.subtype) : undefined,
+          ? and(isNotNull(allInventoryItems.archivedAt), notDeleted("inventory_item", allInventoryItems.id))
+          : isNull(allInventoryItems.archivedAt),
+        filter.list ? inList(filter.list) : undefined,
+        filter.kind ? eq(allInventoryItems.kind, filter.kind) : undefined,
+        filter.subtype ? eq(allInventoryItems.subtype, filter.subtype) : undefined,
         // FLOW-266: the Inventory tab leaves bar stock to the Bar tab and
         // ingredients to Kitchen. Items without a subtype stay.
         filter.excludeSubtypes?.length
-          ? or(isNull(inventoryItems.subtype), notInArray(inventoryItems.subtype, filter.excludeSubtypes))
+          ? or(isNull(allInventoryItems.subtype), notInArray(allInventoryItems.subtype, filter.excludeSubtypes))
           : undefined,
         filter.category
-          ? eq(inventoryItems.category, filter.category)
+          ? eq(allInventoryItems.category, filter.category)
           : undefined,
-        filter.categoryId ? eq(inventoryItems.categoryId, filter.categoryId) : undefined,
-        filter.typeId ? eq(inventoryItems.typeId, filter.typeId) : undefined,
-        filter.tier ? eq(inventoryItems.tier, filter.tier) : undefined,
+        filter.categoryId ? eq(allInventoryItems.categoryId, filter.categoryId) : undefined,
+        filter.typeId ? eq(allInventoryItems.typeId, filter.typeId) : undefined,
+        filter.tier ? eq(allInventoryItems.tier, filter.tier) : undefined,
         term
           ? or(
-              ilike(inventoryItems.name, term),
-              ilike(inventoryItems.code, term),
-              ilike(inventoryItems.group, term),
+              ilike(allInventoryItems.name, term),
+              ilike(allInventoryItems.code, term),
+              ilike(allInventoryItems.group, term),
               sql`exists (select 1 from ${inventoryBarDetails} where ${inventoryBarDetails.itemId} = ${item} and ${inventoryBarDetails.brand} ilike ${term})`,
             )
           : undefined,
@@ -363,12 +401,12 @@ export async function listItems(
           ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.preferredVendor} ilike ${`%${filter.vendor}%`})`
           : undefined,
         filter.belowPar
-          ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.parLevel} is not null and coalesce((select sum(${inventoryStock.quantity}) from ${inventoryStock} where ${inventoryStock.itemId} = ${item}), 0) < ${inventoryConsumableDetails.parLevel})`
+          ? sql`exists (select 1 from ${inventoryConsumableDetails} where ${inventoryConsumableDetails.itemId} = ${item} and ${inventoryConsumableDetails.parLevel} > 0 and coalesce((select sum(${inventoryStock.quantity}) from ${inventoryStock} where ${inventoryStock.itemId} = ${item}), 0) <= ${inventoryConsumableDetails.parLevel})`
           : undefined,
         filter.subcategory
           ? and(
-              eq(inventoryItems.kind, "consumable"),
-              eq(inventoryItems.subtype, "bar"),
+              eq(allInventoryItems.kind, "consumable"),
+              eq(allInventoryItems.subtype, "bar"),
               sql`exists (select 1 from ${inventoryBarDetails} where ${inventoryBarDetails.itemId} = ${item} and ${inventoryBarDetails.subcategory} = ${filter.subcategory})`,
             )
           : undefined,
@@ -380,11 +418,22 @@ export async function listItems(
   return paging.page(rows, (kept) => toItems(db, actor, kept));
 }
 
+// The view's rows of one list; each table's CHECK keeps its items to these kinds.
+export const inList = (list: InventoryList) =>
+  list === "bar"
+    ? and(eq(allInventoryItems.kind, "consumable"), eq(allInventoryItems.subtype, "bar"))
+    : list === "kitchen"
+      ? and(eq(allInventoryItems.kind, "consumable"), eq(allInventoryItems.subtype, "ingredient"))
+      : or(
+          sql`${allInventoryItems.kind} <> 'consumable'`,
+          eq(allInventoryItems.subtype, "supply"),
+        );
+
 export async function findItem(db: DbLike, id: string) {
   const [row] = await db
     .select()
-    .from(inventoryItems)
-    .where(eq(inventoryItems.id, id));
+    .from(allInventoryItems)
+    .where(eq(allInventoryItems.id, id));
   if (!row) throw notFound("Item");
   return row;
 }
@@ -426,13 +475,13 @@ export async function itemHistory(
 async function requireUniqueCode(db: DbLike, code: string, exceptId?: string) {
   if (!code) return;
   const [clash] = await db
-    .select({ id: inventoryItems.id, name: inventoryItems.name })
-    .from(inventoryItems)
+    .select({ id: allInventoryItems.id, name: allInventoryItems.name })
+    .from(allInventoryItems)
     .where(
       and(
-        eq(inventoryItems.code, code),
-        isNull(inventoryItems.archivedAt),
-        exceptId ? sql`${inventoryItems.id} <> ${exceptId}` : undefined,
+        eq(allInventoryItems.code, code),
+        isNull(allInventoryItems.archivedAt),
+        exceptId ? sql`${allInventoryItems.id} <> ${exceptId}` : undefined,
       ),
     );
   if (clash)
@@ -615,22 +664,10 @@ async function saveDetails(
   if (input.kind === "consumable" && c) {
     if (c.unitCostCents !== undefined && !canSeeField(actor, "internal_cost"))
       throw forbidden();
-    let storageSectionId = c.storageSectionId;
-    if (!storageSectionId && input.subtype === "supply") {
-      const [section] = await tx
-        .select({ id: inventorySections.id })
-        .from(inventorySections)
-        .where(
-          and(
-            eq(inventorySections.kind, "consumable"),
-            eq(inventorySections.name, "Supplies"),
-            isNull(inventorySections.archivedAt),
-          ),
-        );
-      storageSectionId = section?.id ?? null;
-    }
+    const storageSectionId = c.storageSectionId;
+    // Ingredients are kept in kitchen storage; supplies and drinks at a location.
     if (storageSectionId)
-      await requireStockSection(tx, storageSectionId, "consumable");
+      await requireStockSection(tx, storageSectionId, sectionKindFor(input) ?? "location");
     const [stored] = await tx
       .select({
         unitCostCents: inventoryConsumableDetails.unitCostCents,
@@ -700,10 +737,12 @@ export async function createItem(
   const id = await db.transaction(async (tx) => {
     await validateClassification(tx, input);
     await validateComponents(tx, input);
+    // FLOW-289: the item goes into its list's table.
+    const table = itemTableOf(input);
     const [row] = await tx
-      .insert(inventoryItems)
+      .insert(table)
       .values({ ...itemValues(input, actor), createdBy: actor.userId })
-      .returning({ id: inventoryItems.id });
+      .returning({ id: table.id });
     await saveDetails(tx, actor, row.id, input);
     await writeAudit(tx, actor, {
       entityType: "inventory_item",
@@ -742,11 +781,7 @@ export async function updateItem(
   await db.transaction(async (tx) => {
     // Locked before anything is read: recordMovement takes the same lock, so a
     // first stock movement and this save can't interleave (FLOW-198 AC4).
-    const [locked] = await tx
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.id, id))
-      .for("update");
+    const locked = await requireLockedItem(tx, id);
     requireVersion(locked.updatedAt, input.updatedAt, "item");
     if (input.unit !== locked.unit) await requireNoStockHistory(tx, locked);
     const before = await itemSnapshot(tx, id);
@@ -767,10 +802,11 @@ export async function updateItem(
           "Client price changes require approval. The approval workflow is not yet available.",
         );
     }
+    const table = itemTableOf(locked);
     await tx
-      .update(inventoryItems)
+      .update(table)
       .set(itemValues(input, actor))
-      .where(eq(inventoryItems.id, id));
+      .where(eq(table.id, id));
     await saveDetails(tx, actor, id, input);
     await writeAudit(tx, actor, {
       entityType: "inventory_item",
@@ -812,11 +848,12 @@ export async function setItemArchived(
 ): Promise<InventoryItem> {
   const current = await findItem(db, id);
   if (!archived) await requireUniqueCode(db, current.code, id);
+  const table = itemTableOf(current);
   await setArchived(db, actor, id, archived, {
-    lock: (tx) => tx.select({ id: inventoryItems.id }).from(inventoryItems)
-      .where(eq(inventoryItems.id, id)).for("update"),
+    lock: (tx) => tx.select({ id: table.id }).from(table)
+      .where(eq(table.id, id)).for("update"),
     update: (tx, values) =>
-      tx.update(inventoryItems).set(values).where(eq(inventoryItems.id, id)),
+      tx.update(table).set(values).where(eq(table.id, id)),
     audit: { entityType: "inventory_item", snapshot: itemSnapshot },
     event: "inventory_item",
   });

@@ -12,6 +12,7 @@ import type { RunWithDb } from "../../worker/hono";
 import type { EmploymentType, Role } from "../../shared/access";
 import type { EventInput, FlowEvent } from "../../shared/core-records";
 import type { ItemAllocationRow, Requirement } from "../../shared/allocation";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Consumable allocation and projected stock (FLOW-85) against Postgres
 // (FLOW-223): the wine fixtures, guest-count changes, the recompute job and the
@@ -48,7 +49,7 @@ const as = (who: keyof typeof people) => {
 const admin = as("admin");
 const sue = as("sue");
 const sectionName = "FLOW-223 pantry";
-const tables = sql`truncate table jobs, audit_log, consumable_allocations, event_requirements, events, clients, stock_movements, inventory_stock, inventory_consumable_details, inventory_items, vendors cascade`;
+const tables = sql`truncate table jobs, audit_log, consumable_allocations, event_requirements, events, clients, stock_movements, inventory_stock, inventory_consumable_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, vendors cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 let clientId = "";
@@ -62,7 +63,7 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await db.execute(tables);
-  await db.delete(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
+  await db.delete(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
   await db.delete(schema.users).where(inArray(schema.users.id, Object.values(people)));
   await client.end();
 });
@@ -75,16 +76,15 @@ const drain = async () => {
 };
 
 async function pantry() {
-  const [found] = await db.select().from(schema.inventorySections).where(eq(schema.inventorySections.name, sectionName));
-  return found ?? (await db.insert(schema.inventorySections).values({ name: sectionName, kind: "consumable" }).returning())[0];
+  const [found] = await db.select().from(schema.inventoryLocations).where(eq(schema.inventoryLocations.name, sectionName));
+  return found ?? (await db.insert(schema.inventoryLocations).values({ name: sectionName, kind: "location" }).returning())[0];
 }
 // Bottles of wine by the 12-bottle case, ordered from a vendor with a 3-day lead time.
 async function wine(onHand: number) {
   const storage = await pantry();
   const [vendor] = await db.insert(schema.vendors)
     .values({ name: "Wine vendor", type: "beverage_distributor", leadTimeDays: 3 }).returning();
-  const [item] = await db.insert(schema.inventoryItems)
-    .values({ kind: "consumable", subtype: "bar", name: "Pinot Grigio", unit: "each" }).returning();
+  const [item] = await insertItems(db, { kind: "consumable", subtype: "bar", name: "Pinot Grigio", unit: "each" });
   await db.insert(schema.inventoryConsumableDetails).values({ itemId: item.id, purchaseUnit: "case", packCount: 12,
     storageSectionId: storage.id, preferredVendorId: vendor.id });
   if (onHand) await db.insert(schema.inventoryStock).values({ itemId: item.id, sectionId: storage.id, quantity: onHand });

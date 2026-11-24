@@ -10,6 +10,7 @@ import type { Bindings } from "../../worker/bindings";
 import type { Actor, Role } from "../../shared/access";
 import { areas, defaultMatrix, setPolicyMatrix, type AreaKey, type Level, type Matrix } from "../../shared/role-permissions";
 import { invalidatePolicy, loadMatrix, POLICY_TTL_MS } from "../../worker/records/permissions";
+import { emptyNavHidden } from "../../shared/nav-visibility";
 
 // Roles and permissions (FLOW-269) through the real API and database.
 
@@ -55,7 +56,7 @@ beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
 beforeEach(async () => {
-  await db.execute(sql`truncate table role_permissions, audit_log`);
+  await db.execute(sql`truncate table role_permissions, role_nav_hidden, audit_log`);
   invalidatePolicy();
   setPolicyMatrix(null);
 });
@@ -175,5 +176,49 @@ describe("the in-memory copy", () => {
     await admin("PUT", "/api/permissions", { matrix: defaultMatrix });
     expect((await loadMatrix(db)).staff.inventory_bar).toBe("read");
     expect((await staff("GET", "/api/inventory/items")).status).toBe(200);
+  });
+});
+
+// Which roles see each sidebar heading and tab (FLOW-284).
+describe("navigation by role", () => {
+  const hidden = { ...emptyNavHidden(), part_time_staff: ["sales.venues", "reports"] };
+  const partTime = signedInAs("part_time_staff");
+
+  it("everyone reads it, starting with nothing hidden", async () => {
+    const response = await partTime("GET", "/api/permissions/navigation");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ hidden: emptyNavHidden() });
+  });
+
+  it("AC1, AC2: Admin hides Venues and Reports for Part-time Staff; the API still answers by area", async () => {
+    const saved = await admin("PUT", "/api/permissions/navigation", { hidden });
+    expect(saved.status).toBe(200);
+    expect((await saved.json()).hidden.part_time_staff).toEqual(["reports", "sales.venues"]);
+    expect((await (await partTime("GET", "/api/permissions/navigation")).json()).hidden.part_time_staff).toEqual([
+      "reports",
+      "sales.venues",
+    ]);
+    // Not a security boundary: Venues still answers by the Events area.
+    expect((await partTime("GET", "/api/venues")).status).toBe(200);
+  });
+
+  it("AC4: Admin's list stays empty, keys must exist, and only Admin saves", async () => {
+    const locked = await admin("PUT", "/api/permissions/navigation", { hidden: { ...emptyNavHidden(), admin: ["sales"] } });
+    expect(locked.status).toBe(400);
+    expect((await locked.json()).error.code).toBe("INVALID_NAV_VISIBILITY");
+    expect(
+      (await admin("PUT", "/api/permissions/navigation", { hidden: { ...emptyNavHidden(), staff: ["sales.nowhere"] } })).status,
+    ).toBe(400);
+    expect((await admin("PUT", "/api/permissions/navigation", { hidden: { staff: [] } })).status).toBe(400);
+    expect((await staff("PUT", "/api/permissions/navigation", { hidden })).status).toBe(403);
+    expect(await db.select().from(schema.roleNavHidden)).toEqual([]);
+  });
+
+  it("is audit-logged with each changed role's list before and after", async () => {
+    await admin("PUT", "/api/permissions/navigation", { hidden });
+    await admin("PUT", "/api/permissions/navigation", { hidden });
+    const audit = await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityType, "role_nav_hidden"));
+    expect(audit).toHaveLength(1);
+    expect(audit[0].changes).toEqual({ part_time_staff: { before: [], after: ["reports", "sales.venues"] } });
   });
 });

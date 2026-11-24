@@ -15,7 +15,6 @@ const OperationalReports = lazy(() => import("../features/operational-reports").
 const ArchivedPage = lazy(() => import("../features/archived").then((module) => ({ default: module.ArchivedPage })));
 const RolesPermissionsPage = lazy(() => import("./roles-permissions").then((module) => ({ default: module.RolesPermissionsPage })));
 const OperationsPage = lazy(() => import("../features/operations").then((module) => ({ default: module.OperationsPage })));
-const KitchenOrderStatus = lazy(() => import("../features/kitchen-orders").then((module) => ({ default: module.KitchenOrderStatus })));
 const ClientList = lazy(() =>
   import("../features/clients").then((module) => ({ default: module.ClientList })),
 );
@@ -102,8 +101,7 @@ const StaffProfile = lazy(() =>
 const InventoryList = lazy(() =>
   import("../features/inventory").then((module) => ({ default: module.InventoryList })),
 );
-const MasterInventory = lazy(() => import("../features/inventory-master").then((module) => ({ default: module.MasterInventory })));
-const PurchasingPage = lazy(() => import("../features/purchasing").then((module) => ({ default: module.PurchasingPage })));
+const OrderTab = lazy(() => import("../features/inventory-order").then((module) => ({ default: module.OrderTab })));
 const OrderListDetail = lazy(() => import("../features/order-lists").then((module) => ({ default: module.OrderListDetail })));
 const ApprovalQueue = lazy(() => import("../features/approval-queue").then((module) => ({ default: module.ApprovalQueue })));
 const InventoryDetail = lazy(() =>
@@ -115,19 +113,12 @@ const IngredientList = lazy(() =>
 const BarList = lazy(() =>
   import("../features/inventory").then((module) => ({ default: module.BarList })),
 );
-const SectionList = lazy(() =>
-  import("../features/inventory").then((module) => ({ default: module.SectionList })),
-);
-const CountList = lazy(() =>
-  import("../features/stock-counts").then((module) => ({ default: module.CountList })),
+const LocationsPage = lazy(() =>
+  import("../features/inventory").then((module) => ({ default: module.LocationsPage })),
 );
 const CountMode = lazy(() =>
   import("../features/stock-counts").then((module) => ({ default: module.CountMode })),
 );
-const LowStockList = lazy(() =>
-  import("../features/stock-counts").then((module) => ({ default: module.LowStockList })),
-);
-const SuppliesList = lazy(() => import("../features/inventory").then((module) => ({ default: module.SuppliesList })));
 const ImportList = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportList })));
 const ImportPage = lazy(() => import("../features/imports").then((module) => ({ default: module.ImportPage })));
 const RecipeList = lazy(() => import("../features/recipes").then((module) => ({ default: module.RecipeList })));
@@ -271,19 +262,26 @@ export const getRouter = () =>
         { path: "/sales", element: <SalesTracker /> },
         { path: "/sales/reports", element: <SalesReports /> },
         { path: "/inventory", element: <InventoryList /> },
-        { path: "/inventory/master", element: <MasterInventory /> },
-        // FLOW-266: the order lists are Inventory › Purchasing.
-        { path: "/inventory/orders", element: <Navigate to="/purchasing" replace /> },
-        { path: "/kitchen/orders", element: <KitchenOrderStatus /> },
+        // FLOW-292: ordering is Inventory › Order. Purchasing, the order lists'
+        // old address, Low stock and Kitchen orders land there.
+        { path: "/inventory/order", element: <OrderTab /> },
+        { path: "/inventory/orders", element: <Navigate to="/inventory/order" replace /> },
+        { path: "/purchasing", element: <Navigate to="/inventory/order" replace /> },
+        { path: "/inventory/low-stock", element: <Navigate to="/inventory/order" replace /> },
+        { path: "/kitchen/orders", element: <Navigate to="/inventory/order#kitchen" replace /> },
         { path: "/inventory/orders/:id", element: <OrderListDetail /> },
         { path: "/approvals", element: <ApprovalQueue /> },
-        { path: "/inventory/ingredients", element: <IngredientList /> },
+        // FLOW-291: Ingredients live only under Kitchen; the removed Master
+        // sheet, Supplies and Counts pages land on the Inventory tab, Sections on
+        // Settings › Locations.
+        { path: "/kitchen/ingredients", element: <IngredientList /> },
+        { path: "/inventory/ingredients", element: <Navigate to="/kitchen/ingredients" replace /> },
         { path: "/inventory/bar", element: <BarList /> },
-        { path: "/inventory/supplies", element: <SuppliesList /> },
-        { path: "/inventory/low-stock", element: <LowStockList /> },
-        { path: "/inventory/counts", element: <CountList /> },
+        { path: "/inventory/master", element: <Navigate to="/inventory" replace /> },
+        { path: "/inventory/supplies", element: <Navigate to="/inventory" replace /> },
+        { path: "/inventory/counts", element: <Navigate to="/inventory" replace /> },
         { path: "/inventory/counts/:id", element: <CountMode /> },
-        { path: "/inventory/sections", element: <SectionList /> },
+        { path: "/inventory/sections", element: <Navigate to="/settings/locations" replace /> },
         { path: "/inventory/:id", element: <InventoryDetail /> },
         { path: "/recipes", element: <RecipeList /> },
         { path: "/kitchen/overview", element: <KitchenOverviewPage /> },
@@ -323,17 +321,19 @@ export const getRouter = () =>
         { path: "/sops/:id", element: <SopDetail /> },
         { path: "/reports", element: <TimeReports /> },
         { path: "/reports/operations", element: <OperationalReports /> },
-        { path: "/imports", element: <ImportList /> },
+        // Imports left the Inventory heading for Settings (FLOW-290/291).
+        { path: "/settings/imports", element: <ImportList /> },
+        { path: "/imports", element: <Navigate to="/settings/imports" replace /> },
         { path: "/imports/:module", element: <ImportPage /> },
         { path: "/settings", element: <SettingsPage /> },
         { path: "/settings/inventory-categories", element: <InventoryCategoriesPage /> },
+        { path: "/settings/locations", element: <LocationsPage /> },
         { path: "/settings/collector", element: <CollectorHealthPage /> },
         { path: "/settings/usage", element: <UsagePage /> },
         { path: "/settings/operations", element: <OperationsPage /> },
         { path: "/settings/users", element: <UserManagement /> },
         { path: "/settings/permissions", element: <RolesPermissionsPage /> },
         { path: "/settings/archived", element: <ArchivedPage /> },
-        { path: "/purchasing", element: <PurchasingPage /> },
         ...["help", "*"].map((path) => ({
           path,
           element: <Placeholder />,

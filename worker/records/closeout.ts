@@ -13,9 +13,9 @@ import {
   closeoutLines,
   eventCloseouts,
   events,
-  inventoryItems,
+  allInventoryItems,
   inventoryRentalDetails,
-  inventorySections,
+  inventoryLocations,
   inventoryStock,
   pullListLines,
   pullLists,
@@ -46,10 +46,10 @@ const requireEdit = (actor: Actor) => {
 
 async function readLines(db: DbLike, eventId: string) {
   return db
-    .select({ line: pullListLines, sub: inventoryRentalDetails.vendorId, kind: inventoryItems.kind })
+    .select({ line: pullListLines, sub: inventoryRentalDetails.vendorId, kind: allInventoryItems.kind })
     .from(pullListLines)
     .innerJoin(pullLists, eq(pullLists.id, pullListLines.pullListId))
-    .leftJoin(inventoryItems, eq(inventoryItems.id, pullListLines.itemId))
+    .leftJoin(allInventoryItems, eq(allInventoryItems.id, pullListLines.itemId))
     .leftJoin(inventoryRentalDetails, eq(inventoryRentalDetails.itemId, pullListLines.itemId))
     .where(
       and(eq(pullLists.eventId, eventId), isNull(pullListLines.archivedAt), isNull(pullLists.archivedAt)),
@@ -106,7 +106,7 @@ export async function getCloseout(db: DbLike, actor: Actor, eventId: string): Pr
 // section holding most of it, otherwise the first section of the right kind.
 async function returnSection(
   tx: DbLike,
-  item: { id: string; kind: Parameters<typeof sectionKindFor>[0] },
+  item: { id: string } & Parameters<typeof sectionKindFor>[0],
   preferred: string | null,
 ) {
   if (preferred) return preferred;
@@ -117,17 +117,17 @@ async function returnSection(
     .orderBy(desc(inventoryStock.quantity), asc(inventoryStock.sectionId))
     .limit(1);
   if (stocked) return stocked.sectionId;
-  const kind = sectionKindFor(item.kind);
+  const kind = sectionKindFor(item);
   const [section] = kind
     ? await tx
-        .select({ id: inventorySections.id })
-        .from(inventorySections)
-        .where(and(eq(inventorySections.kind, kind), isNull(inventorySections.archivedAt)))
-        .orderBy(asc(inventorySections.sortOrder), asc(inventorySections.id))
+        .select({ id: inventoryLocations.id })
+        .from(inventoryLocations)
+        .where(and(eq(inventoryLocations.kind, kind), isNull(inventoryLocations.archivedAt)))
+        .orderBy(asc(inventoryLocations.sortOrder), asc(inventoryLocations.id))
         .limit(1)
     : [];
   if (!section)
-    throw new ApiError(409, "NO_SECTION", "Add a storage section before closing out this event.");
+    throw new ApiError(409, "NO_SECTION", "Add a location before closing out this event.");
   return section.id;
 }
 
@@ -203,7 +203,7 @@ export async function closeOutEvent(
       const leftover = consumable ? pulled - c.used : 0;
       // Counts that aren't stock: a name-only line, or an item sub-rented from a vendor.
       if (line.itemId && !sub) {
-        const [item] = await tx.select().from(inventoryItems).where(eq(inventoryItems.id, line.itemId));
+        const [item] = await tx.select().from(allInventoryItems).where(eq(allInventoryItems.id, line.itemId));
         if (item && !item.archivedAt) {
           const sectionId = await returnSection(tx, item, line.sectionId);
           const back = consumable ? leftover : c.returned;

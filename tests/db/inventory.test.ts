@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
 import {
-  inventorySections,
+  inventoryLocations,
   inventoryStock,
   jobs,
   stockMovements,
@@ -24,6 +24,7 @@ import type {
   InventoryItem,
   ItemInput,
   Section,
+  SectionKind,
   StockCount,
   StockMovement,
 } from "../../shared/inventory";
@@ -41,9 +42,9 @@ const db = drizzle(client, { schema });
 const versionOf = async (id: string) =>
   (
     await db
-      .select({ updatedAt: schema.inventoryItems.updatedAt })
-      .from(schema.inventoryItems)
-      .where(eq(schema.inventoryItems.id, id))
+      .select({ updatedAt: schema.allInventoryItems.updatedAt })
+      .from(schema.allInventoryItems)
+      .where(eq(schema.allInventoryItems.id, id))
   )[0].updatedAt.toISOString();
 const withDb: RunWithDb = (_env, run) => run(db);
 const env = { ASSETS: { fetch } };
@@ -381,8 +382,7 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
     );
   });
 
-  it("defaults supplies to Supplies storage and includes below-par supplies in the low-stock list", async () => {
-    const storage = await section("Supplies", "consumable");
+  it("keeps supplies in Master inventory and lists them below par (FLOW-289)", async () => {
     const supply = await createItem({
       kind: "consumable",
       subtype: "supply",
@@ -390,15 +390,15 @@ describe("rental, kit and service catalogs (FLOW-72/79/80/92)", () => {
       ratio: { quantity: 2, basis: "per_event" },
       consumable: { purchaseUnit: "case", packCount: 24, parLevel: 24 },
     });
-    expect(supply.consumable?.storageSectionId).toBe(storage.id);
+    expect(supply).toMatchObject({ list: "master", consumable: { storageSectionId: null } });
     const low = await admin.get<InventoryItem[]>(
-      "/api/inventory/items?kind=consumable&subtype=supply&belowPar=true",
+      "/api/inventory/items?list=master&kind=consumable&belowPar=true",
     );
     expect(low.map((row) => row.id)).toContain(supply.id);
   });
 });
 
-const section = (name: string, kind: "rental" | "consumable" = "rental") =>
+const section = (name: string, kind: SectionKind = "location") =>
   admin.send<Section>("POST", "/api/inventory/sections", { name, kind }, 201);
 const createItem = (input: ItemInput, as = admin) =>
   as.send<InventoryItem>("POST", "/api/inventory/items", input, 201);
@@ -439,34 +439,35 @@ let defaults: { name: string; kind: string }[] = [];
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
   defaults = await db
-    .select({ name: inventorySections.name, kind: inventorySections.kind })
-    .from(inventorySections)
-    .orderBy(inventorySections.kind, inventorySections.sortOrder);
+    .select({ name: inventoryLocations.name, kind: inventoryLocations.kind })
+    .from(inventoryLocations)
+    .orderBy(inventoryLocations.kind, inventoryLocations.sortOrder);
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, inventory_locations, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
-  // beforeEach clears inventory_sections; give later files the seeded defaults back.
+  // beforeEach clears inventory_locations; give later files the seeded defaults back.
   await restoreDefaultSections(client);
   await client.end();
 });
 
 describe("sections (FLOW-70)", () => {
   it("ships the default rental and storage sections", () => {
+    // FLOW-289 AC4: the seven locations, then the kitchen's storage.
     expect(defaults).toEqual([
-      { name: "Kitchen – Dry Storage", kind: "consumable" },
-      { name: "Kitchen – Refrigerated", kind: "consumable" },
-      { name: "Kitchen – Freezer", kind: "consumable" },
-      { name: "Bar Storage", kind: "consumable" },
-      { name: "Supplies", kind: "consumable" },
-      { name: "Warehouse", kind: "rental" },
-      { name: "Jamie's", kind: "rental" },
-      { name: "Cafe", kind: "rental" },
-      { name: "Vendor", kind: "rental" },
-      { name: "Unlabeled", kind: "rental" },
+      { name: "Warehouse", kind: "location" },
+      { name: "Storage Box", kind: "location" },
+      { name: "Jamie's - Garage", kind: "location" },
+      { name: "Jamie's - Basement", kind: "location" },
+      { name: "Jamie's - Main Floor", kind: "location" },
+      { name: "Cozy Cafe", kind: "location" },
+      { name: "Vendor", kind: "location" },
+      { name: "Fridge", kind: "storage" },
+      { name: "Freezer", kind: "storage" },
+      { name: "Pantry", kind: "storage" },
     ]);
   });
 
@@ -494,7 +495,7 @@ describe("sections (FLOW-70)", () => {
       (
         await lead.call("POST", "/api/inventory/sections", {
           name: "X",
-          kind: "rental",
+          kind: "location",
         })
       ).status,
     ).toBe(403);
@@ -504,9 +505,24 @@ describe("sections (FLOW-70)", () => {
     await section("Warehouse");
     const response = await admin.call("POST", "/api/inventory/sections", {
       name: "warehouse",
-      kind: "rental",
+      kind: "location",
     });
     expect(response.status).toBe(409);
+  });
+
+  // FLOW-289 AC4: Admin orders each list; others can't.
+  it("lets Admin reorder the locations", async () => {
+    const first = await section("First");
+    const second = await section("Second");
+    const third = await section("Third");
+    const ordered = await admin.send<Section[]>("POST", "/api/inventory/sections/order", {
+      kind: "location", ids: [third.id, first.id],
+    });
+    expect(ordered.map((row) => [row.name, row.sortOrder])).toEqual([["Third", 0], ["First", 1], ["Second", 2]]);
+    expect((await admin.get<Section[]>("/api/inventory/sections?kind=location")).map((row) => row.name))
+      .toEqual(["Third", "First", "Second"]);
+    expect((await lead.call("POST", "/api/inventory/sections/order", { kind: "location", ids: [second.id] })).status).toBe(403);
+    expect((await admin.call("POST", "/api/inventory/sections/order", { kind: "storage", ids: [second.id] })).status).toBe(404);
   });
 
   it("shows the total and per-section quantities (AC1)", async () => {
@@ -598,7 +614,7 @@ describe("sections (FLOW-70)", () => {
       ).status,
     ).toBe(403);
     // Consumable movements stay with inventory managers.
-    const fridge = await section("Refrigerated", "consumable");
+    const fridge = await section("Refrigerated", "storage");
     const creamItem = await createItem(cream());
     expect(
       (
@@ -634,7 +650,7 @@ describe("sections (FLOW-70)", () => {
   });
 
   it("keeps rentals in rental sections and consumables in storage", async () => {
-    const dry = await section("Dry Storage", "consumable");
+    const dry = await section("Dry Storage", "storage");
     const item = await createItem(chairs());
     const response = await admin.call(
       "POST",
@@ -658,7 +674,7 @@ describe("sections (FLOW-70)", () => {
     expect((await response.json()).error).toMatchObject({
       code: "SECTION_HAS_STOCK",
       message:
-        "Warehouse still holds stock. Move or count it out before archiving the section.",
+        "Warehouse still holds stock. Move or count it out before archiving the location.",
     });
     await count(item.id, warehouse.id, 0);
     await admin.send(
@@ -798,8 +814,8 @@ describe("ingredients (FLOW-81)", () => {
   });
 
   it("filters by category, vendor, storage and below par", async () => {
-    const fridge = await section("Refrigerated", "consumable");
-    const dry = await section("Dry Storage", "consumable");
+    const fridge = await section("Refrigerated", "storage");
+    const dry = await section("Dry Storage", "storage");
     const creamItem = await createItem(
       cream({
         consumable: { ...cream().consumable!, storageSectionId: fridge.id },
@@ -1029,7 +1045,7 @@ describe("stock ledger (FLOW-71)", () => {
   });
 
   it("records each movement type with its sign, reason and user", async () => {
-    const fridge = await section("Refrigerated", "consumable");
+    const fridge = await section("Refrigerated", "storage");
     const item = await createItem(cream());
     await record(item.id, {
       type: "receive",
@@ -1089,7 +1105,7 @@ describe("stock ledger (FLOW-71)", () => {
   });
 
   it("corrects a movement with a new linked movement and leaves the original untouched (AC3)", async () => {
-    const fridge = await section("Refrigerated", "consumable");
+    const fridge = await section("Refrigerated", "storage");
     const item = await createItem(cream());
     await record(item.id, {
       type: "receive",
@@ -1158,7 +1174,7 @@ describe("stock ledger (FLOW-71)", () => {
       { quantity: -4, reason: "x" },
       "WRONG_DIRECTION",
     );
-    const other = await section("Freezer", "consumable");
+    const other = await section("Freezer", "storage");
     await admin.send(
       "POST",
       `/api/inventory/items/${item.id}/transfers`,
@@ -1198,7 +1214,7 @@ const saveLine = (
 
 describe("count mode (FLOW-82)", () => {
   it("writes a count movement for the difference (AC1)", async () => {
-    const fridge = await section("Refrigerated", "consumable");
+    const fridge = await section("Refrigerated", "storage");
     const item = await createItem(
       cream({
         consumable: { ...cream().consumable!, storageSectionId: fridge.id },
@@ -1236,7 +1252,7 @@ describe("count mode (FLOW-82)", () => {
   });
 
   it("puts an item that drops below par on the low-stock list (AC2)", async () => {
-    const fridge = await section("Refrigerated", "consumable");
+    const fridge = await section("Refrigerated", "storage");
     const item = await createItem(
       cream({
         consumable: { ...cream().consumable!, storageSectionId: fridge.id },
@@ -1257,7 +1273,7 @@ describe("count mode (FLOW-82)", () => {
   });
 
   it("resumes a partly completed count where it left off (AC3)", async () => {
-    const dry = await section("Dry Storage", "consumable");
+    const dry = await section("Dry Storage", "storage");
     const stored = (name: string, storageOrder: number) =>
       createItem({
         kind: "consumable",
@@ -1329,7 +1345,8 @@ describe("count mode (FLOW-82)", () => {
   });
 
   it("lets the kitchen count ingredients and FT+ count bar stock and supplies", async () => {
-    const bar = await section("Bar Storage", "consumable");
+    const bar = await section("Bar Storage");
+    const fridge = await section("Bar Fridge", "storage");
     const beer = await createItem({
       kind: "consumable",
       subtype: "bar",
@@ -1346,25 +1363,22 @@ describe("count mode (FLOW-82)", () => {
       subtype: "ingredient",
       name: "Limes",
       category: "Produce",
-      consumable: { purchaseUnit: "each", storageSectionId: bar.id },
+      consumable: { purchaseUnit: "each", storageSectionId: fridge.id },
     });
-    const started = await startCount(bar.id, cook);
-    // Kitchen Staff count both; general Staff count bar stock but not ingredients.
-    expect(started.lines.map((line) => [line.name, line.canCount])).toEqual([
-      ["Lager", true],
-      ["Limes", true],
-    ]);
-    await saveLine(started.id, { itemId: limes.id, quantity: 30 }, cook);
-    await saveLine(
-      started.id,
-      { itemId: beer.id, quantity: 48 },
-      fullTimeStaff,
-    );
+    // Bar stock is counted at its location, ingredients in kitchen storage
+    // (FLOW-289); Kitchen Staff count both.
+    const barCount = await startCount(bar.id, cook);
+    expect(barCount.lines.map((line) => [line.name, line.canCount])).toEqual([["Lager", true]]);
+    const fridgeCount = await startCount(fridge.id, cook);
+    expect(fridgeCount.lines.map((line) => [line.name, line.canCount])).toEqual([["Limes", true]]);
+    await saveLine(fridgeCount.id, { itemId: limes.id, quantity: 30 }, cook);
+    await saveLine(barCount.id, { itemId: beer.id, quantity: 48 }, fullTimeStaff);
+    // General Staff count bar stock but not ingredients.
     expect(
       (
         await fullTimeStaff.call(
           "POST",
-          `/api/inventory/counts/${started.id}/lines`,
+          `/api/inventory/counts/${fridgeCount.id}/lines`,
           { itemId: limes.id, quantity: 3 },
         )
       ).status,
@@ -1376,15 +1390,39 @@ describe("count mode (FLOW-82)", () => {
         })
       ).status,
     ).toBe(403);
-    // Count mode is for storage sections.
+  });
+
+  // FLOW-291 AC6: Start stock count works for Master and Bar items.
+  it("counts Master items at their location, rentals only for those who change them directly", async () => {
     const warehouse = await section("Warehouse");
-    expect(
-      (
-        await admin.call("POST", "/api/inventory/counts", {
-          sectionId: warehouse.id,
-        })
-      ).status,
-    ).toBe(409);
+    const chairsItem = await createItem(chairs());
+    await count(chairsItem.id, warehouse.id, 10);
+    const gloves = await createItem({
+      kind: "consumable",
+      subtype: "supply",
+      name: "Gloves",
+      consumable: { purchaseUnit: "each", storageSectionId: warehouse.id },
+    });
+    const started = await startCount(warehouse.id);
+    expect(started.lines.map((line) => [line.name, line.systemQuantity, line.canCount])).toEqual([
+      ["Chiavari Chair", 10, true],
+      ["Gloves", 0, true],
+    ]);
+    const saved = await saveLine(started.id, { itemId: chairsItem.id, quantity: 8, reason: "Two broken" });
+    expect(saved.lines.find((line) => line.itemId === chairsItem.id)?.counted).toMatchObject({ quantity: 8, difference: -2 });
+    expect((await admin.get<InventoryItem>(`/api/inventory/items/${chairsItem.id}`)).totalQuantity).toBe(8);
+    // FT+ counts the supply here, but a rental count goes through approval.
+    const theirs = await fullTimeStaff.send<StockCount>("POST", "/api/inventory/counts", { sectionId: warehouse.id }, 200);
+    expect(theirs.lines.map((line) => [line.name, line.canCount])).toEqual([
+      ["Chiavari Chair", false],
+      ["Gloves", true],
+    ]);
+    await saveLine(started.id, { itemId: gloves.id, quantity: 50 }, fullTimeStaff);
+    const refused = await fullTimeStaff.call("POST", `/api/inventory/counts/${started.id}/lines`, { itemId: chairsItem.id, quantity: 1 });
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).error.code).toBe("APPROVAL_REQUIRED");
+    // The Inventory table's Last counted column (FLOW-291).
+    expect((await admin.get<InventoryItem>(`/api/inventory/items/${chairsItem.id}`)).lastCountedAt).toEqual(expect.any(String));
   });
 });
 
@@ -1542,7 +1580,7 @@ describe("bar stock (FLOW-90)", () => {
   });
 
   it("counts bar stock through count mode, like ingredients (AC1)", async () => {
-    const bar = await section("Bar Storage", "consumable");
+    const bar = await section("Bar Storage");
     const item = await createItem(
       titos({
         consumable: { ...titos().consumable!, storageSectionId: bar.id },
@@ -1561,7 +1599,7 @@ describe("bar stock (FLOW-90)", () => {
   });
 
   it("counts beer and wine to the nearest 0.5 and liquor to the nearest 0.25", async () => {
-    const bar = await section("Bar Storage", "consumable");
+    const bar = await section("Bar Storage");
     const storage = { ...titos().consumable!, storageSectionId: bar.id };
     const vodka = await createItem(titos({ consumable: storage }));
     const beer = await createItem(
@@ -1623,7 +1661,7 @@ describe("inline table fields (FLOW-275)", () => {
 
   it("saves an ingredient's recipe unit and storage, and keeps storage in storage sections", async () => {
     const ingredient = await createItem(cream());
-    const cooler = await section("Synthetic cooler", "consumable");
+    const cooler = await section("Synthetic cooler", "storage");
     const warehouse = await section("Synthetic warehouse");
     expect((await inline(admin, ingredient.id, "consumable.recipeUnit", "tbsp")).status).toBe(200);
     expect((await inline(admin, ingredient.id, "consumable.storageSectionId", cooler.id)).status).toBe(200);

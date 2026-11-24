@@ -8,7 +8,7 @@ import {
   auditLog,
   importKeys,
   importLogs,
-  inventoryItems,
+  allInventoryItems,
   inventoryStock,
   stockMovements,
 } from "../../worker/db/schema";
@@ -129,7 +129,7 @@ async function runImport(rows: ImportRow[], fileName = "rentals.csv") {
   );
   return { log: done, results };
 }
-const items = () => db.select().from(inventoryItems);
+const items = () => db.select().from(allInventoryItems);
 const movementsOf = (itemId: string) =>
   db.select().from(stockMovements).where(eq(stockMovements.itemId, itemId));
 const auditsOf = (entityId: string) =>
@@ -140,17 +140,17 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, import_keys, import_logs, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, import_keys, import_logs, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, inventory_locations, ingest_receipts, jobs`,
   );
   warehouse = await admin.send<Section>(
     "POST",
     "/api/inventory/sections",
-    { name: "Warehouse", kind: "rental" },
+    { name: "Warehouse", kind: "location" },
     201,
   );
 });
 afterAll(async () => {
-  // beforeEach clears inventory_sections; give later files the seeded defaults back.
+  // beforeEach clears inventory_locations; give later files the seeded defaults back.
   await restoreDefaultSections(client);
   await client.end();
 });
@@ -282,8 +282,8 @@ describe("commit (FLOW-47)", () => {
     expect((await items()).length).toBe(2);
     const [chair] = await db
       .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.code, "CH-001"));
+      .from(allInventoryItems)
+      .where(eq(allInventoryItems.code, "CH-001"));
     expect(chair.name).toBe("Chiavari Chair, gold");
   });
 
@@ -451,7 +451,7 @@ describe("imported stock (FLOW-168)", () => {
     const cafe = await admin.send<Section>(
       "POST",
       "/api/inventory/sections",
-      { name: "Cafe", kind: "rental" },
+      { name: "Cafe", kind: "location" },
       201,
     );
     await admin.send(

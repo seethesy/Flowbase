@@ -1,5 +1,5 @@
 {
-  "id": "27783f64-6c25-41e1-87fc-42f6e1be1eb8",
+  "id": "3dae60f8-fe13-4ecc-bac2-418a4dcb55d0",
   "prevId": "789b49a8-d5d3-451d-b79d-616aec4f36ee",
   "version": "7",
   "dialect": "postgresql",
@@ -3467,7 +3467,7 @@
       "checkConstraints": {
         "deletions_entity_type_check": {
           "name": "deletions_entity_type_check",
-          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop', 'beo', 'order_list')"
+          "value": "\"deletions\".\"entity_type\" in ('lead', 'client', 'venue', 'event', 'vendor', 'inventory_item', 'recipe', 'staff_member', 'sop', 'beo')"
         }
       },
       "isRLSEnabled": true
@@ -8922,13 +8922,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
         }
       },
       "indexes": {
@@ -15061,6 +15054,84 @@
         "venues_jurisdiction_check": {
           "name": "venues_jurisdiction_check",
           "value": "\"venues\".\"jurisdiction\" in ('DC', 'MD', 'VA')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.role_nav_hidden": {
+      "name": "role_nav_hidden",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hidden": {
+          "name": "hidden",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "role_nav_hidden_role_unique": {
+          "name": "role_nav_hidden_role_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "role"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "role_nav_hidden_role_check": {
+          "name": "role_nav_hidden_role_check",
+          "value": "\"role_nav_hidden\".\"role\" in ('admin', 'technical', 'sales_manager', 'salesperson', 'kitchen_lead', 'kitchen_staff', 'staff', 'part_time_staff')"
         }
       },
       "isRLSEnabled": true

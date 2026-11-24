@@ -37,9 +37,9 @@ const db = drizzle(client, { schema });
 const versionOf = async (id: string) =>
   (
     await db
-      .select({ updatedAt: schema.inventoryItems.updatedAt })
-      .from(schema.inventoryItems)
-      .where(eq(schema.inventoryItems.id, id))
+      .select({ updatedAt: schema.allInventoryItems.updatedAt })
+      .from(schema.allInventoryItems)
+      .where(eq(schema.allInventoryItems.id, id))
   )[0].updatedAt.toISOString();
 const withDb: RunWithDb = (_env, run) => run(db);
 const env = { ASSETS: { fetch } };
@@ -106,7 +106,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, lead_duplicates, leads, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, inventory_locations, lead_duplicates, leads, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
   // Lead owners must be active sales users (FLOW-250).
   await db
@@ -137,7 +137,7 @@ beforeEach(async () => {
 afterAll(async () => {
   // Leave no seeded users behind for later files (any order, FLOW-250).
   await db.execute(sql`truncate table users cascade`);
-  // beforeEach clears inventory_sections; give later files the seeded defaults back.
+  // beforeEach clears inventory_locations; give later files the seeded defaults back.
   await restoreDefaultSections(client);
   await client.end();
 });
@@ -288,7 +288,7 @@ describe("inventory sections", () => {
     const section = await admin.send<Section>(
       "POST",
       "/api/inventory/sections",
-      { name: "Annex", kind: "rental" },
+      { name: "Annex", kind: "location" },
       201,
     );
     await admin.send("PUT", `/api/inventory/sections/${section.id}`, {
@@ -305,7 +305,7 @@ describe("inventory sections", () => {
     ]);
     expect(rows[0].changes).toEqual({
       name: { before: null, after: "Annex" },
-      kind: { before: null, after: "rental" },
+      kind: { before: null, after: "location" },
     });
     expect(rows[1].changes).toEqual({
       name: { before: "Annex", after: "North Annex" },

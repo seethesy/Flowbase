@@ -14,7 +14,7 @@ import {
   clientContacts,
   clients,
   events,
-  inventoryItems,
+  allInventoryItems,
   leads,
   recipes,
   vendorContacts,
@@ -173,21 +173,21 @@ async function searchVenues(db: DbLike, q: Query) {
 
 async function searchItems(db: DbLike, q: Query) {
   const score = best(
-    textScore(inventoryItems.name, q),
-    exactScore(inventoryItems.code, q),
+    textScore(allInventoryItems.name, q),
+    exactScore(allInventoryItems.code, q),
   );
   return db
     .select({
-      id: inventoryItems.id,
-      title: inventoryItems.name,
-      subtitle: inventoryItems.code,
+      id: allInventoryItems.id,
+      title: allInventoryItems.name,
+      subtitle: allInventoryItems.code,
       score: toNumber(score),
     })
-    .from(inventoryItems)
+    .from(allInventoryItems)
     .where(
       and(
-        isNull(inventoryItems.archivedAt),
-        eq(inventoryItems.active, true),
+        isNull(allInventoryItems.archivedAt),
+        eq(allInventoryItems.active, true),
         sql`${score} >= ${SEARCH_THRESHOLD}`,
       ),
     )

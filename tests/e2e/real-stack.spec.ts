@@ -1,3 +1,4 @@
+import { choose } from "./dropdown";
 import { databaseTest as test, expect, mockBrowserAuth } from "./auth-fixture";
 import { seedDatabase, seedId, seedUsers } from "../../worker/db/seed";
 import { browserDb } from "./database";
@@ -157,10 +158,13 @@ for (const role of ["admin", "salesperson"] as const) {
         .getByRole("row", { name: /^Warehouse / }),
     ).toBeVisible();
 
-    await page.goto("/#/inventory/counts");
-    await page
-      .getByRole("button", { name: "Start counting Kitchen – Refrigerated" })
-      .click();
+    // FLOW-291: a count starts from the Inventory tab; supplies are Master
+    // items kept at the Warehouse (FLOW-289).
+    await page.goto("/#/inventory");
+    await choose(
+      page.getByRole("combobox", { name: "Start stock count" }),
+      { label: "Warehouse" },
+    );
     const line = page.getByRole("listitem", {
       name: "Chafing dish fuel",
       exact: true,

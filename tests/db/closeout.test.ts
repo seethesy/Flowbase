@@ -10,6 +10,7 @@ import type { RunWithDb } from "../../worker/hono";
 import type { EmploymentType, Role } from "../../shared/access";
 import type { Client, FlowEvent } from "../../shared/core-records";
 import type { Closeout } from "../../shared/closeout";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Post-event closeout and returns (FLOW-157) through the real API and database.
 
@@ -62,7 +63,7 @@ const manager = signedInAs("manager");
 const sam = signedInAs("sam");
 const jamie = signedInAs("jamie");
 
-const tables = sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, inventory_items, inventory_sections, lead_duplicates, leads, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, audit_log, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_rental_details, inventory_service_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, inventory_locations, lead_duplicates, leads, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -80,7 +81,7 @@ beforeEach(async () => {
   );
 });
 afterAll(async () => {
-  // The tests clear inventory_sections; give later files the seeded defaults back.
+  // The tests clear inventory_locations; give later files the seeded defaults back.
   await db.execute(tables);
   await restoreDefaultSections(client);
   await client.end();
@@ -97,12 +98,12 @@ async function setup(status: "preparation" | "closed" = "preparation") {
     { title: "Fall gala", date: "2026-11-14", startTime: "18:00", endTime: "23:00", clientId }, 201,
   );
   await db.update(schema.events).set({ status }).where(eq(schema.events.id, gala.id));
-  const [warehouse] = await db.insert(schema.inventorySections).values({ name: "Warehouse", kind: "rental" }).returning();
-  const [pantry] = await db.insert(schema.inventorySections).values({ name: "Pantry", kind: "consumable" }).returning();
-  const [plates] = await db.insert(schema.inventoryItems).values({ kind: "rental", subtype: "tableware", name: "Dinner plate", code: `PL-${crypto.randomUUID().slice(0, 6)}` }).returning();
+  const [warehouse] = await db.insert(schema.inventoryLocations).values({ name: "Warehouse", kind: "location" }).returning();
+  const [pantry] = await db.insert(schema.inventoryLocations).values({ name: "Pantry", kind: "location" }).returning();
+  const [plates] = await insertItems(db, { kind: "rental", subtype: "tableware", name: "Dinner plate", code: `PL-${crypto.randomUUID().slice(0, 6)}` });
   await db.insert(schema.inventoryRentalDetails).values({ itemId: plates.id });
   await db.insert(schema.inventoryStock).values({ itemId: plates.id, sectionId: warehouse.id, quantity: 100 });
-  const [napkins] = await db.insert(schema.inventoryItems).values({ kind: "consumable", subtype: "supply", name: "Napkins", code: `NP-${crypto.randomUUID().slice(0, 6)}` }).returning();
+  const [napkins] = await insertItems(db, { kind: "consumable", subtype: "supply", name: "Napkins", code: `NP-${crypto.randomUUID().slice(0, 6)}` });
   await db.insert(schema.inventoryStock).values({ itemId: napkins.id, sectionId: pantry.id, quantity: 50 });
   const [list] = await db.insert(schema.pullLists).values({ eventId: gala.id }).returning();
   const [plateLine, napkinLine] = await db.insert(schema.pullListLines).values([

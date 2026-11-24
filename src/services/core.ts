@@ -36,6 +36,7 @@ import {
   type MovementInput,
   type SectionKind,
   type TransferInput,
+  type InventoryList,
 } from "../../shared/inventory";
 import {
   clientRecipeSchema,
@@ -238,6 +239,8 @@ export const inventoryApi = {
   list: (
     filter: {
       archived?: boolean;
+      // One of the three lists (FLOW-289).
+      list?: InventoryList;
       kind?: ItemKind;
       subtype?: string;
       // Subtypes to leave out, comma-separated (FLOW-266: "bar,ingredient").
@@ -334,6 +337,9 @@ export const sectionsApi = {
     request(sectionSchema, "/api/inventory/sections", "POST", input),
   rename: (id: string, name: string) =>
     request(sectionSchema, at("inventory/sections", id), "PUT", { name }),
+  // Admin's order of one list (FLOW-289).
+  reorder: (kind: SectionKind, ids: string[]) =>
+    request(sectionSchema.array(), "/api/inventory/sections/order", "POST", { kind, ids }),
   setArchived: (id: string, archived: boolean) =>
     request(
       sectionSchema,

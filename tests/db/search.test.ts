@@ -5,13 +5,14 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "../../worker/db/schema";
-import { events, inventoryItems, venues } from "../../worker/db/schema";
+import { events, venues } from "../../worker/db/schema";
 import { createApp } from "../../worker/app";
 import { createLead } from "../../worker/records/leads";
 import type { RunWithDb } from "../../worker/hono";
 import type { Actor, EmploymentType, Role } from "../../shared/access";
 import type { Client, ClientInput } from "../../shared/core-records";
 import type { SearchResult } from "../../shared/search";
+import { insertItems } from "../fixtures/inventory-tables";
 
 // Global search (FLOW-46) against the CI Postgres service: typo tolerance, ranking,
 // and the caller's record scoping and field visibility.
@@ -89,7 +90,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_service_details, inventory_rental_details, inventory_items, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, day_of_updates, day_of_checkpoints, day_of_staff_states, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, recipe_lines, recipes, stock_count_lines, stock_counts, stock_movements, inventory_stock, inventory_cost_history, inventory_bar_details, inventory_consumable_details, inventory_service_details, inventory_rental_details, master_inventory_items, bar_inventory_items, kitchen_ingredients, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
   );
 });
 afterAll(async () => {
@@ -140,9 +141,7 @@ describe("global search (FLOW-46)", () => {
       clientId: owner.id,
     });
     await db.insert(venues).values({ name: "The Glasshouse", address: "Arlington, VA" });
-    await db
-      .insert(inventoryItems)
-      .values({
+    await insertItems(db, {
         kind: "rental",
         subtype: "tableware",
         name: "Gold Charger Plate",
