@@ -10,6 +10,8 @@ import {
 import { id as uuid, localDate, withVersion } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
+  archiveRoutes,
+  historyRoute,
   idParam,
   pageRequest,
   parseBody,
@@ -85,22 +87,12 @@ export function recordRoutes(options: {
   });
   // Record history (FLOW-41): read-only for anyone who can see the record. There
   // are deliberately no routes that change or remove audit rows.
-  for (const [resource, what, history] of [
+  for (const [resource, what, read] of [
     ["clients", "Client", clientHistory],
     ["venues", "Venue", venueHistory],
     ["events", "Event", eventHistory],
   ] as const)
-    routes.get(
-      `/${resource}/:id/history`,
-      requirePermission(`${resource}.read`),
-      async (c) => {
-        const id = idParam(c, what);
-        return sendPage(
-          c,
-          await record(c, (db, actor) => history(db, actor, id, pageRequest(c))),
-        );
-      },
-    );
+    historyRoute(routes, record, { path: `/${resource}/:id`, what, guard: requirePermission(`${resource}.read`), read });
   routes.post("/clients", requirePermission("clients.write"), async (c) => {
     const input = await parseBody(c, clientCreateSchema);
     return c.json(
@@ -115,47 +107,9 @@ export function recordRoutes(options: {
       await record(c, (db, actor) => updateClient(db, actor, id, input)),
     );
   });
-  for (const [action, archived] of [
-    ["archive", true],
-    ["restore", false],
-  ] as const) {
-    routes.post(
-      `/clients/:id/${action}`,
-      requirePermission("clients.write"),
-      async (c) => {
-        const id = idParam(c, "Client");
-        return c.json(
-          await record(c, (db, actor) =>
-            setClientArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
-    routes.post(
-      `/venues/:id/${action}`,
-      requirePermission("venues.write"),
-      async (c) => {
-        const id = idParam(c, "Venue");
-        return c.json(
-          await record(c, (db, actor) =>
-            setVenueArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
-    routes.post(
-      `/events/:id/${action}`,
-      requirePermission("events.write"),
-      async (c) => {
-        const id = idParam(c, "Event");
-        return c.json(
-          await record(c, (db, actor) =>
-            setEventArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
-  }
+  archiveRoutes(routes, record, { path: "/clients/:id", what: "Client", guard: requirePermission("clients.write"), set: setClientArchived });
+  archiveRoutes(routes, record, { path: "/venues/:id", what: "Venue", guard: requirePermission("venues.write"), set: setVenueArchived });
+  archiveRoutes(routes, record, { path: "/events/:id", what: "Event", guard: requirePermission("events.write"), set: setEventArchived });
 
   routes.get("/venues", requirePermission("venues.read"), async (c) =>
     sendPage(

@@ -1,4 +1,4 @@
-import type { Context } from "hono";
+import type { Context, Hono, MiddlewareHandler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 import type { Actor } from "../shared/access";
@@ -67,6 +67,54 @@ export const recordRunner =
   (withDb: RunWithDb | undefined) =>
   <T>(c: AppContext, run: (db: Db, actor: Actor) => Promise<T>): Promise<T> =>
     runDb(withDb, c, (db) => run(db, c.get("actor")));
+
+// Archive and restore routes (FLOW-313): POST <path>/archive and
+// <path>/restore, each behind the router's policy middleware. `set` is the
+// record function, which checks access and writes the audit row in its
+// transaction; `check` runs first with the request, for a router's own rule.
+export function archiveRoutes<T>(
+  routes: Hono<AppEnv>,
+  record: ReturnType<typeof recordRunner>,
+  options: {
+    path: string;
+    what: string;
+    guard: MiddlewareHandler<AppEnv>;
+    set: (db: Db, actor: Actor, id: string, archived: boolean) => Promise<T>;
+    check?: (c: AppContext, db: Db, actor: Actor, id: string) => Promise<void>;
+  },
+) {
+  for (const [action, archived] of [
+    ["archive", true],
+    ["restore", false],
+  ] as const)
+    routes.post(`${options.path}/${action}`, options.guard, async (c) => {
+      const id = idParam(c, options.what);
+      return c.json(
+        await record(c, async (db, actor) => {
+          await options.check?.(c, db, actor, id);
+          return options.set(db, actor, id, archived);
+        }),
+      );
+    });
+}
+
+// A record's history (FLOW-41, FLOW-313): GET <path>/history, one page of its
+// audit rows, behind the router's policy middleware.
+export function historyRoute<T>(
+  routes: Hono<AppEnv>,
+  record: ReturnType<typeof recordRunner>,
+  options: {
+    path: string;
+    what: string;
+    guard: MiddlewareHandler<AppEnv>;
+    read: (db: Db, actor: Actor, id: string, page: PageRequest) => Promise<Page<T>>;
+  },
+) {
+  routes.get(`${options.path}/history`, options.guard, async (c) => {
+    const id = idParam(c, options.what);
+    return sendPage(c, await record(c, (db, actor) => options.read(db, actor, id, pageRequest(c))));
+  });
+}
 
 // List paging (FLOW-179): ?cursor=&limit= in, the page's rows as the JSON body
 // (unchanged shape) with X-Has-More and, when there is one, X-Next-Cursor.

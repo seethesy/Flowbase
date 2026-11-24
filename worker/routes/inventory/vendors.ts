@@ -3,6 +3,8 @@ import { Hono } from "hono";
 import { vendorInputSchema, vendorTypeSchema } from "../../../shared/vendors";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
+  archiveRoutes,
+  historyRoute,
   idParam,
   pageRequest,
   parseBody,
@@ -59,15 +61,7 @@ export function vendorRoutes(options: {
       const vendor = await getVendor(db, actor, idParam(c, "Vendor"));
       return getItemsByIds(db, actor, vendor.items.map((item) => item.id));
     })));
-  routes.get("/:id/history", requirePermission("vendors.read"), async (c) => {
-    const id = idParam(c, "Vendor");
-    return sendPage(
-      c,
-      await record(c, (db, actor) =>
-        vendorHistory(db, actor, id, pageRequest(c)),
-      ),
-    );
-  });
+  historyRoute(routes, record, { path: "/:id", what: "Vendor", guard: requirePermission("vendors.read"), read: vendorHistory });
   routes.post("/", requirePermission("vendors.write"), async (c) => {
     const input = await parseBody(c, vendorInputSchema);
     return c.json(
@@ -82,21 +76,6 @@ export function vendorRoutes(options: {
       await record(c, (db, actor) => updateVendor(db, actor, id, input)),
     );
   });
-  for (const [action, archived] of [
-    ["archive", true],
-    ["restore", false],
-  ] as const)
-    routes.post(
-      `/:id/${action}`,
-      requirePermission("vendors.write"),
-      async (c) => {
-        const id = idParam(c, "Vendor");
-        return c.json(
-          await record(c, (db, actor) =>
-            setVendorArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
+  archiveRoutes(routes, record, { path: "/:id", what: "Vendor", guard: requirePermission("vendors.write"), set: setVendorArchived });
   return routes;
 }

@@ -3,7 +3,7 @@ import { documentChangeSchema, documentUploadSchema, documentTypeSchema } from "
 import { recordTypeSchema } from "../../../shared/attachments";
 import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
-import { ApiError, idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { ApiError, archiveRoutes, idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { archiveDocument, changeDocument, completeDocumentUpload, getDocument, listDocuments, startDocumentUpload } from "../../records/documents/documents";
 
 export function documentRoutes(options: { withDb?: RunWithDb; resolveActor?: ResolveActor }) {
@@ -36,9 +36,9 @@ export function documentRoutes(options: { withDb?: RunWithDb; resolveActor?: Res
     const change = await parseBody(c, documentChangeSchema);
     return c.json(await record(c, (db, actor) => changeDocument(db, actor, c.env ?? {}, idParam(c, "Document"), change)));
   });
-  routes.post("/:id/archive", requirePermission("attachments.write"), async (c) =>
-    c.json(await record(c, (db, actor) => archiveDocument(db, actor, idParam(c, "Document")))));
-  routes.post("/:id/restore", requirePermission("attachments.write"), async (c) =>
-    c.json(await record(c, (db, actor) => archiveDocument(db, actor, idParam(c, "Document"), true))));
+  archiveRoutes(routes, record, {
+    path: "/:id", what: "Document", guard: requirePermission("attachments.write"),
+    set: (db, actor, id, archived) => archiveDocument(db, actor, id, !archived),
+  });
   return routes;
 }

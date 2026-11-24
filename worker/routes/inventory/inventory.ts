@@ -28,6 +28,8 @@ import { requireActor, requireAnyPermission, requirePermission, type ResolveActo
 import { can } from "../../policy";
 import {
   ApiError,
+  archiveRoutes,
+  historyRoute,
   idParam,
   pageRequest,
   parseBody,
@@ -333,17 +335,7 @@ export function inventoryRoutes(options: {
     },
   );
   // Item history (FLOW-185): read-only; costs hidden per F-01-04.
-  routes.get(
-    "/items/:id/history",
-    requirePermission("inventory.read"),
-    async (c) => {
-      const id = idParam(c, "Item");
-      return sendPage(
-        c,
-        await record(c, (db, actor) => itemHistory(db, actor, id, pageRequest(c))),
-      );
-    },
-  );
+  historyRoute(routes, record, { path: "/items/:id", what: "Item", guard: requirePermission("inventory.read"), read: itemHistory });
   routes.get(
     "/items/:id/cost-history",
     requirePermission("inventory.read"),
@@ -453,38 +445,18 @@ export function inventoryRoutes(options: {
     },
   );
 
-  for (const [action, archived] of [
-    ["archive", true],
-    ["restore", false],
-  ] as const) {
-    routes.post(
-      `/items/:id/${action}`,
-      requireAnyPermission("inventory.write", "recipes.write"),
-      async (c) => {
-        const id = idParam(c, "Item");
-        return c.json(
-          await record(c, async (db, actor) => {
-            const item = await findItem(db, id);
-            requireList(c, inventoryListOf(item), "write");
-            if (item.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
-              throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory archive for approval.");
-            return setItemArchived(db, actor, id, archived);
-          }),
-        );
-      },
-    );
-    routes.post(
-      `/sections/:id/${action}`,
-      requirePermission("inventory.sections"),
-      async (c) => {
-        const id = idParam(c, "Section");
-        return c.json(
-          await record(c, (db, actor) =>
-            setSectionArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
-  }
+  archiveRoutes(routes, record, {
+    path: "/items/:id",
+    what: "Item",
+    guard: requireAnyPermission("inventory.write", "recipes.write"),
+    check: async (c, db, actor, id) => {
+      const item = await findItem(db, id);
+      requireList(c, inventoryListOf(item), "write");
+      if (item.kind !== "consumable" && !can(actor, "rentals.apply_directly"))
+        throw new ApiError(409, "APPROVAL_REQUIRED", "Submit this Master inventory archive for approval.");
+    },
+    set: setItemArchived,
+  });
+  archiveRoutes(routes, record, { path: "/sections/:id", what: "Section", guard: requirePermission("inventory.sections"), set: setSectionArchived });
   return routes;
 }

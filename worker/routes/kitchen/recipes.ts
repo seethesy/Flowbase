@@ -8,6 +8,7 @@ import { saveClientRecipeBook } from "../../records/kitchen/recipe-book-pdf";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
   ApiError,
+  archiveRoutes,
   idParam,
   parseBody,
   queryParam,
@@ -101,21 +102,6 @@ export function recipeRoutes(options: {
       await record(c, (db, actor) => updateRecipe(db, actor, id, input)),
     );
   });
-  for (const [action, archived] of [
-    ["archive", true],
-    ["restore", false],
-  ] as const)
-    routes.post(
-      `/:id/${action}`,
-      requirePermission("recipes.write"),
-      async (c) => {
-        const id = idParam(c, "Recipe");
-        return c.json(
-          await record(c, (db, actor) =>
-            setRecipeArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
+  archiveRoutes(routes, record, { path: "/:id", what: "Recipe", guard: requirePermission("recipes.write"), set: setRecipeArchived });
   return routes;
 }

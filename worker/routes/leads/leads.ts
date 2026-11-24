@@ -11,6 +11,7 @@ import {
 } from "../../../shared/leads";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
+  historyRoute,
   idParam,
   pageRequest,
   parseBody,
@@ -147,13 +148,7 @@ export function leadRoutes(options: {
     return c.json(await record(c, (db, actor) => updateLead(db, actor, id, input)));
   });
   // Lead history (FLOW-185): read-only for anyone who can see the lead.
-  routes.get("/:id/history", requirePermission("leads.read"), async (c) => {
-    const id = idParam(c, "Lead");
-    return sendPage(
-      c,
-      await record(c, (db, actor) => leadHistory(db, actor, id, pageRequest(c))),
-    );
-  });
+  historyRoute(routes, record, { path: "/:id", what: "Lead", guard: requirePermission("leads.read"), read: leadHistory });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
     const id = idParam(c, "Lead");
     const input = await parseBody(c, leadAssignSchema);

@@ -10,6 +10,7 @@ import {
 } from "../../../shared/settings";
 import { requirePermission } from "../../auth";
 import {
+  archiveRoutes,
   idParam,
   notFound,
   parseBody,
@@ -101,21 +102,6 @@ export function settingsRoutes(options: { withDb?: RunWithDb; isolateCaches?: bo
       );
     },
   );
-  for (const [action, archived] of [
-    ["archive", true],
-    ["restore", false],
-  ] as const)
-    routes.post(
-      `/values/:id/${action}`,
-      requirePermission("settings.manage"),
-      async (c) => {
-        const id = idParam(c, "List value");
-        return c.json(
-          await record(c, (db, actor) =>
-            setListValueArchived(db, actor, id, archived),
-          ),
-        );
-      },
-    );
+  archiveRoutes(routes, record, { path: "/values/:id", what: "List value", guard: requirePermission("settings.manage"), set: setListValueArchived });
   return routes;
 }
