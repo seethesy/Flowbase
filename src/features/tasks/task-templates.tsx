@@ -1,6 +1,6 @@
 import { Dropdown } from "../../components/ui/Dropdown";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   offsetLabel,
@@ -13,13 +13,13 @@ import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
 import {
   Button,
-  DetailDrawer,
   EmptyState,
   FormField,
   LoadingSkeleton,
   PageHeader,
   Section,
   ErrorText,
+  FormDrawer,
 } from "../../components/shared";
 import { tasksApi } from "../../services/tasks";
 import { allPages, inventoryApi } from "../../services/core";
@@ -110,8 +110,7 @@ function TemplateEditor({
   const [busy, setBusy] = useState(false);
   const edit = (index: number, change: Partial<Draft>) =>
     setItems(items.map((item, i) => (i === index ? { ...item, ...change } : item)));
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const submit = async () => {
     setBusy(true);
     setError("");
     const input = {
@@ -142,135 +141,130 @@ function TemplateEditor({
     }
   };
   return (
-    <DetailDrawer
-      open
-      wide
+    <FormDrawer
       onClose={onClose}
+      wide
       title={template ? <T id="task-templates.template-editor.edit" values={{ name: template.name }}>{"Edit {name}"}</T> : <T id="task-templates.template-editor.new-task-template">New task template</T>}
       description={<T id="task-templates.template-editor.each-task-is-due-a">{"Each task is due a number of days from the event, at its own time or the event's start time."}</T>}
+      className="task-form"
+      noValidate={false}
+      onSubmit={submit}
+      error={error}
+      saveDisabled={busy || !name.trim()}
+      saveLabel={<T id="task-templates.template-editor.save-template">Save template</T>}
+      cancelLabel={<T id="task-templates.template-editor.cancel">Cancel</T>}
     >
-      <form className="task-form" onSubmit={submit}>
-        <ErrorText message={error} />
-        <FormField label={<T id="task-templates.template-editor.template-name">Template name</T>}>
-          <input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
-        </FormField>
-        <FormField label={<T id="task-templates.template-editor.sop-link">SOP link</T>} hint={<T id="task-templates.template-editor.optional-added-to-each-task">{"Optional. Added to each task's description."}</T>}>
-          <input
-            type="url"
-            maxLength={2000}
-            placeholder={httpsPlaceholder} data-copy-id="task-templates.template-editor.https.placeholder"
-            value={sopUrl}
-            onChange={(e) => setSopUrl(e.target.value)}
-          />
-        </FormField>
-        <FormField label={<T id="task-templates.template-editor.library-sop">Library SOP</T>} hint={<T id="task-templates.template-editor.opens-directly-from-each-task">Opens directly from each task created by this template.</T>}>
-          <Dropdown value={sopId} onChange={(e) => setSopId(e.target.value)}>
-            <option value="">No library SOP</option>
-            {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
-          </Dropdown>
-        </FormField>
-        <FormField label={<T id="task-templates.template-editor.service-offering">Service offering</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped">Automatically apply when a mapped proposal contains this offering.</T>}>
-          <Dropdown value={matchCatalogId} onChange={(e) => setMatchCatalogId(e.target.value)}>
-            <option value="">Any offering</option>
-            {(services.data ?? []).map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
-          </Dropdown>
-        </FormField>
-        <FormField label={<T id="task-templates.template-editor.proposal-line-type">Proposal line type</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped-2">Automatically apply when a mapped proposal contains this line type.</T>}>
-          <Dropdown value={matchLineKind} onChange={(e) => setMatchLineKind(e.target.value)}>
-            <option value="">Any type</option>
-            {["menu", "rental", "decor", "service", "supply"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
-          </Dropdown>
-        </FormField>
-        <FormField label={<T id="task-templates.template-editor.event-type">Event type</T>} hint={<T id="task-templates.template-editor.automatically-apply-to-events-of">Automatically apply to events of this type. Leave all three matches blank for a manual template.</T>}>
-          <input maxLength={100} value={matchEventType} onChange={(e) => setMatchEventType(e.target.value)} />
-        </FormField>
-        <ol className="template-items">
-          {items.map((item, index) => (
-            <li key={item.id ?? `new-${index}`} aria-label={`Task ${index + 1}`}>
-              <FormField label={<T id="task-templates.template-editor.task">Task</T>}>
+      <FormField label={<T id="task-templates.template-editor.template-name">Template name</T>}>
+        <input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
+      </FormField>
+      <FormField label={<T id="task-templates.template-editor.sop-link">SOP link</T>} hint={<T id="task-templates.template-editor.optional-added-to-each-task">{"Optional. Added to each task's description."}</T>}>
+        <input
+          type="url"
+          maxLength={2000}
+          placeholder={httpsPlaceholder} data-copy-id="task-templates.template-editor.https.placeholder"
+          value={sopUrl}
+          onChange={(e) => setSopUrl(e.target.value)}
+        />
+      </FormField>
+      <FormField label={<T id="task-templates.template-editor.library-sop">Library SOP</T>} hint={<T id="task-templates.template-editor.opens-directly-from-each-task">Opens directly from each task created by this template.</T>}>
+        <Dropdown value={sopId} onChange={(e) => setSopId(e.target.value)}>
+          <option value="">No library SOP</option>
+          {(sops.data ?? []).map((sop) => <option key={sop.id} value={sop.id}>{sop.title} ({sop.category})</option>)}
+        </Dropdown>
+      </FormField>
+      <FormField label={<T id="task-templates.template-editor.service-offering">Service offering</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped">Automatically apply when a mapped proposal contains this offering.</T>}>
+        <Dropdown value={matchCatalogId} onChange={(e) => setMatchCatalogId(e.target.value)}>
+          <option value="">Any offering</option>
+          {(services.data ?? []).map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+        </Dropdown>
+      </FormField>
+      <FormField label={<T id="task-templates.template-editor.proposal-line-type">Proposal line type</T>} hint={<T id="task-templates.template-editor.automatically-apply-when-a-mapped-2">Automatically apply when a mapped proposal contains this line type.</T>}>
+        <Dropdown value={matchLineKind} onChange={(e) => setMatchLineKind(e.target.value)}>
+          <option value="">Any type</option>
+          {["menu", "rental", "decor", "service", "supply"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+        </Dropdown>
+      </FormField>
+      <FormField label={<T id="task-templates.template-editor.event-type">Event type</T>} hint={<T id="task-templates.template-editor.automatically-apply-to-events-of">Automatically apply to events of this type. Leave all three matches blank for a manual template.</T>}>
+        <input maxLength={100} value={matchEventType} onChange={(e) => setMatchEventType(e.target.value)} />
+      </FormField>
+      <ol className="template-items">
+        {items.map((item, index) => (
+          <li key={item.id ?? `new-${index}`} aria-label={`Task ${index + 1}`}>
+            <FormField label={<T id="task-templates.template-editor.task">Task</T>}>
+              <input
+                required
+                maxLength={200}
+                value={item.title}
+                onChange={(e) => edit(index, { title: e.target.value })}
+              />
+            </FormField>
+            <FormField label={<T id="task-templates.template-editor.type">Type</T>}>
+              <Dropdown
+                value={item.type}
+                onChange={(e) => edit(index, { type: e.target.value as TaskType })}
+              >
+                {taskTypes.map((option) => (
+                  <option key={option} value={option}>
+                    {taskTypeLabels[option]}
+                  </option>
+                ))}
+              </Dropdown>
+            </FormField>
+            <FormField label={<T id="task-templates.template-editor.when">When</T>}>
+              <Dropdown
+                value={item.when}
+                onChange={(e) => edit(index, { when: e.target.value as Draft["when"] })}
+              >
+                <option value="before">Days before the event</option>
+                <option value="on">On the event day</option>
+                <option value="after">Days after the event</option>
+              </Dropdown>
+            </FormField>
+            {item.when !== "on" && (
+              <FormField label={<T id="task-templates.template-editor.days">Days</T>}>
                 <input
-                  required
-                  maxLength={200}
-                  value={item.title}
-                  onChange={(e) => edit(index, { title: e.target.value })}
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={item.days}
+                  onChange={(e) => edit(index, { days: e.target.value })}
                 />
               </FormField>
-              <FormField label={<T id="task-templates.template-editor.type">Type</T>}>
-                <Dropdown
-                  value={item.type}
-                  onChange={(e) => edit(index, { type: e.target.value as TaskType })}
-                >
-                  {taskTypes.map((option) => (
-                    <option key={option} value={option}>
-                      {taskTypeLabels[option]}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              <FormField label={<T id="task-templates.template-editor.when">When</T>}>
-                <Dropdown
-                  value={item.when}
-                  onChange={(e) => edit(index, { when: e.target.value as Draft["when"] })}
-                >
-                  <option value="before">Days before the event</option>
-                  <option value="on">On the event day</option>
-                  <option value="after">Days after the event</option>
-                </Dropdown>
-              </FormField>
-              {item.when !== "on" && (
-                <FormField label={<T id="task-templates.template-editor.days">Days</T>}>
-                  <input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={item.days}
-                    onChange={(e) => edit(index, { days: e.target.value })}
-                  />
-                </FormField>
-              )}
-              <FormField label={<T id="task-templates.template-editor.time">Time</T>} hint={<T id="task-templates.template-editor.blank-the-event-s-start">{"Blank = the event's start time."}</T>}>
-                <input
-                  type="time"
-                  value={item.time}
-                  onChange={(e) => edit(index, { time: e.target.value })}
-                />
-              </FormField>
-              <FormField label={<T id="task-templates.template-editor.default-position">Default position</T>}>
-                <ListSelect
-                  list="staff_position"
-                  empty="Any position"
-                  value={item.position}
-                  onChange={(value) => edit(index, { position: value })}
-                />
-              </FormField>
-              <p className="template-offset">
-                <OffsetText offsetDays={offsetOf(item)} time={item.time || null} />
-              </p>
-              {items.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setItems(items.filter((_, i) => i !== index))}
-                >
-                  <T id="task-templates.template-editor.remove-task" values={{ value: index + 1 }}>{"Remove task {value}"}</T>
-                </Button>
-              )}
-            </li>
-          ))}
-        </ol>
-        <Button type="button" variant="outline" onClick={() => setItems([...items, blankItem()])}>
-          <T id="task-templates.template-editor.add-another-task">Add another task</T>
-        </Button>
-        <div className="form-actions">
-          <Button type="button" variant="outline" onClick={onClose}>
-            <T id="task-templates.template-editor.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={busy || !name.trim()}>
-            <T id="task-templates.template-editor.save-template">Save template</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+            )}
+            <FormField label={<T id="task-templates.template-editor.time">Time</T>} hint={<T id="task-templates.template-editor.blank-the-event-s-start">{"Blank = the event's start time."}</T>}>
+              <input
+                type="time"
+                value={item.time}
+                onChange={(e) => edit(index, { time: e.target.value })}
+              />
+            </FormField>
+            <FormField label={<T id="task-templates.template-editor.default-position">Default position</T>}>
+              <ListSelect
+                list="staff_position"
+                empty="Any position"
+                value={item.position}
+                onChange={(value) => edit(index, { position: value })}
+              />
+            </FormField>
+            <p className="template-offset">
+              <OffsetText offsetDays={offsetOf(item)} time={item.time || null} />
+            </p>
+            {items.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setItems(items.filter((_, i) => i !== index))}
+              >
+                <T id="task-templates.template-editor.remove-task" values={{ value: index + 1 }}>{"Remove task {value}"}</T>
+              </Button>
+            )}
+          </li>
+        ))}
+      </ol>
+      <Button type="button" variant="outline" onClick={() => setItems([...items, blankItem()])}>
+        <T id="task-templates.template-editor.add-another-task">Add another task</T>
+      </Button>
+    </FormDrawer>
   );
 }
 

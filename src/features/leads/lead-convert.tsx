@@ -6,7 +6,7 @@ import { ApiRequestError, clientsApi } from "../../services/core";
 import { leadsApi } from "../../services/leads";
 import { useResource } from "../../app/useResource";
 import { useDebounced } from "../../app/paging";
-import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
+import { Button, FormField, ErrorText, FormDrawer } from "../../components/shared";
 import { leadTitle } from "./lead-shared";
 import { T, useCopy } from "../../app/copy";
 
@@ -117,127 +117,114 @@ export function ConvertLeadForm({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={<T id="lead-convert.confirm.title">Move to Closing</T>}
       description={<T id="lead-convert.confirm.description" values={{ name: leadTitle(lead) }}>{"Move to Closing? This creates the client and attaches {name}'s events. If none exists, an event is created."}</T>}
+      onSubmit={() => submit(false)}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="lead-convert.confirm.submit">Confirm Closing</T>}
+      cancelLabel={<T id="lead-convert.convert-lead-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit(false);
-        }}
-      >
-        <ErrorText message={error} />
-        {duplicates.length > 0 && (
-          <div role="alert" className="error-message">
-            <p>
-              <TriangleAlert size={14} /><T id="lead-convert.convert-lead-form.a-client-with-this-email">{" A client with this email or phone already exists:"}</T>
-            </p>
-            <ul>
-              {duplicates.map((duplicate) => (
-                <li key={duplicate.id}>
-                  {duplicate.name}{" "}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setMode("link");
-                      setClientId(duplicate.id);
-                      setDuplicates([]);
-                    }}
-                  >
-                    <T id="lead-convert.convert-lead-form.link-to" values={{ name: duplicate.name }}>{"Link to {name}"}</T>
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={() => void submit(true)}
-            >
-              <T id="lead-convert.convert-lead-form.create-anyway">Create anyway</T>
-            </Button>
-          </div>
-        )}
-        <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.client">Client</T></h3>
-        <div className="form-group">
-          <label>
-            <input
-              type="radio"
-              name="client-mode"
-              checked={mode === "create"}
-              onChange={() => setMode("create")}
-            /><T id="lead-convert.convert-lead-form.create-a-new-client">{" Create a new client"}</T>
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="client-mode"
-              checked={mode === "link"}
-              onChange={() => setMode("link")}
-            /><T id="lead-convert.convert-lead-form.link-to-an-existing-client">{" Link to an existing client"}</T>
-          </label>
+      {duplicates.length > 0 && (
+        <div role="alert" className="error-message">
+          <p>
+            <TriangleAlert size={14} /><T id="lead-convert.convert-lead-form.a-client-with-this-email">{" A client with this email or phone already exists:"}</T>
+          </p>
+          <ul>
+            {duplicates.map((duplicate) => (
+              <li key={duplicate.id}>
+                {duplicate.name}{" "}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setMode("link");
+                    setClientId(duplicate.id);
+                    setDuplicates([]);
+                  }}
+                >
+                  <T id="lead-convert.convert-lead-form.link-to" values={{ name: duplicate.name }}>{"Link to {name}"}</T>
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={() => void submit(true)}
+          >
+            <T id="lead-convert.convert-lead-form.create-anyway">Create anyway</T>
+          </Button>
         </div>
-        {mode === "create" ? (
-          <div className="form-grid">
-            <FormField label={<T id="lead-convert.convert-lead-form.client-name">Client name *</T>}>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
-            </FormField>
-            <FormField label={<T id="lead-convert.convert-lead-form.client-type">Client type</T>}>
-              <Dropdown
-                value={kind}
-                onChange={(e) => setKind(e.target.value as typeof kind)}
-              >
-                <option value="person">Person</option>
-                <option value="organization">Organization</option>
-              </Dropdown>
-            </FormField>
-          </div>
-        ) : (
-          <ClientPicker value={clientId} onChange={setClientId} />
-        )}
-        <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.event">Event</T></h3>
-        {Boolean(events.data?.length) && <FormField label={<T id="lead-convert.confirm.linked-event">Linked event</T>}><Dropdown value={existingEventId || events.data?.[0]?.id || ""} onChange={(event) => setExistingEventId(event.target.value)}>
-          <option value="new">Create another event</option>{events.data?.map((event) => <option value={event.id} key={event.id}>{event.title}</option>)}
-        </Dropdown></FormField>}
-        {!chosenEventId && <>
-        <FormField
-          label={<T id="lead-convert.convert-lead-form.event-title">Event title</T>}
-          hint={`Blank uses "client — ${lead.eventType || "Event"}".`}
-        >
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
-        </FormField>
+      )}
+      <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.client">Client</T></h3>
+      <div className="form-group">
+        <label>
+          <input
+            type="radio"
+            name="client-mode"
+            checked={mode === "create"}
+            onChange={() => setMode("create")}
+          /><T id="lead-convert.convert-lead-form.create-a-new-client">{" Create a new client"}</T>
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="client-mode"
+            checked={mode === "link"}
+            onChange={() => setMode("link")}
+          /><T id="lead-convert.convert-lead-form.link-to-an-existing-client">{" Link to an existing client"}</T>
+        </label>
+      </div>
+      {mode === "create" ? (
         <div className="form-grid">
-          <FormField label={<T id="lead-convert.convert-lead-form.event-date">Event date *</T>}>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+          <FormField label={<T id="lead-convert.convert-lead-form.client-name">Client name *</T>}>
+            <input value={name} onChange={(e) => setName(e.target.value)} />
           </FormField>
-          <FormField label={<T id="lead-convert.convert-lead-form.start-time">Start time *</T>}>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
+          <FormField label={<T id="lead-convert.convert-lead-form.client-type">Client type</T>}>
+            <Dropdown
+              value={kind}
+              onChange={(e) => setKind(e.target.value as typeof kind)}
+            >
+              <option value="person">Person</option>
+              <option value="organization">Organization</option>
+            </Dropdown>
           </FormField>
         </div>
-        </>}
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="lead-convert.convert-lead-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="lead-convert.confirm.submit">Confirm Closing</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+      ) : (
+        <ClientPicker value={clientId} onChange={setClientId} />
+      )}
+      <h3 className="form-subheading"><T id="lead-convert.convert-lead-form.event">Event</T></h3>
+      {Boolean(events.data?.length) && <FormField label={<T id="lead-convert.confirm.linked-event">Linked event</T>}><Dropdown value={existingEventId || events.data?.[0]?.id || ""} onChange={(event) => setExistingEventId(event.target.value)}>
+        <option value="new">Create another event</option>{events.data?.map((event) => <option value={event.id} key={event.id}>{event.title}</option>)}
+      </Dropdown></FormField>}
+      {!chosenEventId && <>
+      <FormField
+        label={<T id="lead-convert.convert-lead-form.event-title">Event title</T>}
+        hint={`Blank uses "client — ${lead.eventType || "Event"}".`}
+      >
+        <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      </FormField>
+      <div className="form-grid">
+        <FormField label={<T id="lead-convert.convert-lead-form.event-date">Event date *</T>}>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </FormField>
+        <FormField label={<T id="lead-convert.convert-lead-form.start-time">Start time *</T>}>
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </FormField>
+      </div>
+      </>}
+    </FormDrawer>
   );
 }

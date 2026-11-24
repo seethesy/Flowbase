@@ -12,7 +12,7 @@ import { unitLabel } from "../../../shared/units";
 import { inventoryApi, inventoryChangesApi, sectionsApi } from "../../services/core";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
+import { FormField, FormDrawer } from "../../components/shared";
 import { toNumber } from "./inventory-item-input";
 import { changeLabel, dateTimeLabel } from "./inventory-labels";
 import { T, LabelT } from "../../app/copy";
@@ -92,8 +92,7 @@ export function StockForm({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.transfer-stock">Transfer stock</T> : <T id="inventory-stock-forms.stock-form.count-stock">Count stock</T>}
       description={
@@ -101,56 +100,44 @@ export function StockForm({
           ? <T id="inventory-stock-forms.stock-form.moves-stock-between-locations-and">Moves stock between locations and records a transfer.</T>
           : <T id="inventory-stock-forms.stock-form.records-what-you-counted-at">Records what you counted; the difference is saved as a count movement.</T>
       }
+      onSubmit={save}
+      error={error}
+      saving={saving}
+      saveLabel={<>{mode === "transfer" ? <T id="inventory-stock-forms.stock-form.transfer">Transfer</T> : mode === "count" && item.kind === "rental" && !can("rentals.apply_directly")
+              ? <T id="inventory-stock-forms.stock-form.submit-for-approval">Submit for approval</T> : <T id="inventory-stock-forms.stock-form.save-count">Save count</T>}</>}
+      cancelLabel={<T id="inventory-stock-forms.stock-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <ErrorText message={error} />
-        {notice && <p role="status">{notice}</p>}
-        {!barItem && <FormField label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.from-location">From location</T> : <T id="inventory-stock-forms.stock-form.location">Location</T>}>
-          <Dropdown value={from} onChange={(e) => setFrom(e.target.value)}>
+      {notice && <p role="status">{notice}</p>}
+      {!barItem && <FormField label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.from-location">From location</T> : <T id="inventory-stock-forms.stock-form.location">Location</T>}>
+        <Dropdown value={from} onChange={(e) => setFrom(e.target.value)}>
+          <option value="">Pick a location</option>
+          {options}
+        </Dropdown>
+      </FormField>}
+      <ColorSelect item={item} value={color} onChange={setColor} />
+      {mode === "transfer" && (
+        <FormField label={<T id="inventory-stock-forms.stock-form.to-location">To location</T>}>
+          <Dropdown value={to} onChange={(e) => setTo(e.target.value)}>
             <option value="">Pick a location</option>
             {options}
           </Dropdown>
-        </FormField>}
-        <ColorSelect item={item} value={color} onChange={setColor} />
-        {mode === "transfer" && (
-          <FormField label={<T id="inventory-stock-forms.stock-form.to-location">To location</T>}>
-            <Dropdown value={to} onChange={(e) => setTo(e.target.value)}>
-              <option value="">Pick a location</option>
-              {options}
-            </Dropdown>
-          </FormField>
-        )}
-        <FormField
-          label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.quantity-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity ({unit})"}</T> : <T id="inventory-stock-forms.stock-form.counted-quantity-unit" values={{ unit: unitLabel(item.unit) }}>{"Counted quantity ({unit})"}</T>}
-        >
-          <input
-            type="number"
-            step="any"
-            min="0"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
         </FormField>
-        <FormField label={<T id="inventory-stock-forms.stock-form.reason">Reason</T>}>
-          <input value={reason} onChange={(e) => setReason(e.target.value)} />
-        </FormField>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="inventory-stock-forms.stock-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {mode === "transfer" ? <T id="inventory-stock-forms.stock-form.transfer">Transfer</T> : mode === "count" && item.kind === "rental" && !can("rentals.apply_directly")
-              ? <T id="inventory-stock-forms.stock-form.submit-for-approval">Submit for approval</T> : <T id="inventory-stock-forms.stock-form.save-count">Save count</T>}
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+      )}
+      <FormField
+        label={mode === "transfer" ? <T id="inventory-stock-forms.stock-form.quantity-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity ({unit})"}</T> : <T id="inventory-stock-forms.stock-form.counted-quantity-unit" values={{ unit: unitLabel(item.unit) }}>{"Counted quantity ({unit})"}</T>}
+      >
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+        />
+      </FormField>
+      <FormField label={<T id="inventory-stock-forms.stock-form.reason">Reason</T>}>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </FormField>
+    </FormDrawer>
   );
 }
 
@@ -214,74 +201,61 @@ export function MovementForm({
   };
   const direction = movementDirection[type];
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={<T id="inventory-stock-forms.movement-form.record-movement">Record movement</T>}
       description={<T id="inventory-stock-forms.movement-form.adds-a-movement-to-the">Adds a movement to the stock ledger. Quantities are never edited directly.</T>}
+      onSubmit={save}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="inventory-stock-forms.movement-form.record">Record</T>}
+      cancelLabel={<T id="inventory-stock-forms.movement-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <ErrorText message={error} />
-        <FormField label={<T id="inventory-stock-forms.movement-form.type">Type</T>}>
-          <Dropdown
-            value={type}
-            onChange={(e) =>
-              setType(e.target.value as (typeof handMovementTypes)[number])
-            }
-          >
-            {handMovementTypes.map((option) => (
-              <option key={option} value={option}>
-                {movementTypeLabels[option]}
-              </option>
-            ))}
-          </Dropdown>
-        </FormField>
-        <ColorSelect item={item} value={color} onChange={setColor} />
-        {!barItem && <FormField label={<T id="inventory-stock-forms.movement-form.location">Location</T>}>
-          <Dropdown
-            value={sectionId}
-            onChange={(e) => setSectionId(e.target.value)}
-          >
-            <option value="">Pick a location</option>
-            {(sections.data ?? []).map((section) => (
-              <option key={section.id} value={section.id}>
-                {section.name}
-              </option>
-            ))}
-          </Dropdown>
-        </FormField>}
-        <FormField
-          label={direction > 0 ? <T id="inventory-stock-forms.movement-form.quantity-in-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity in ({unit})"}</T> : direction < 0 ? <T id="inventory-stock-forms.movement-form.quantity-out-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity out ({unit})"}</T> : <T id="inventory-stock-forms.movement-form.change-unit" values={{ unit: unitLabel(item.unit) }}>{"Change ({unit})"}</T>}
-          hint={
-            direction === 0 ? <T id="inventory-stock-forms.movement-form.use-a-minus-sign-to">Use a minus sign to remove stock.</T> : undefined
+      <FormField label={<T id="inventory-stock-forms.movement-form.type">Type</T>}>
+        <Dropdown
+          value={type}
+          onChange={(e) =>
+            setType(e.target.value as (typeof handMovementTypes)[number])
           }
         >
-          <input
-            type="number"
-            step="any"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-        </FormField>
-        <FormField label={type === "adjust" ? <T id="inventory-stock-forms.movement-form.reason">Reason *</T> : <T id="inventory-stock-forms.movement-form.reason-2">Reason</T>}>
-          <input value={reason} onChange={(e) => setReason(e.target.value)} />
-        </FormField>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="inventory-stock-forms.movement-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="inventory-stock-forms.movement-form.record">Record</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+          {handMovementTypes.map((option) => (
+            <option key={option} value={option}>
+              {movementTypeLabels[option]}
+            </option>
+          ))}
+        </Dropdown>
+      </FormField>
+      <ColorSelect item={item} value={color} onChange={setColor} />
+      {!barItem && <FormField label={<T id="inventory-stock-forms.movement-form.location">Location</T>}>
+        <Dropdown
+          value={sectionId}
+          onChange={(e) => setSectionId(e.target.value)}
+        >
+          <option value="">Pick a location</option>
+          {(sections.data ?? []).map((section) => (
+            <option key={section.id} value={section.id}>
+              {section.name}
+            </option>
+          ))}
+        </Dropdown>
+      </FormField>}
+      <FormField
+        label={direction > 0 ? <T id="inventory-stock-forms.movement-form.quantity-in-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity in ({unit})"}</T> : direction < 0 ? <T id="inventory-stock-forms.movement-form.quantity-out-unit" values={{ unit: unitLabel(item.unit) }}>{"Quantity out ({unit})"}</T> : <T id="inventory-stock-forms.movement-form.change-unit" values={{ unit: unitLabel(item.unit) }}>{"Change ({unit})"}</T>}
+        hint={
+          direction === 0 ? <T id="inventory-stock-forms.movement-form.use-a-minus-sign-to">Use a minus sign to remove stock.</T> : undefined
+        }
+      >
+        <input
+          type="number"
+          step="any"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+        />
+      </FormField>
+      <FormField label={type === "adjust" ? <T id="inventory-stock-forms.movement-form.reason">Reason *</T> : <T id="inventory-stock-forms.movement-form.reason-2">Reason</T>}>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </FormField>
+    </FormDrawer>
   );
 }
 
@@ -345,43 +319,30 @@ export function CorrectionForm({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={<T id="inventory-stock-forms.correction-form.correct-movement">Correct movement</T>}
       description={<T id="inventory-stock-forms.correction-form.of-in-on-the-difference" values={{ movementTypeLabels: <LabelT id="labels.movement-type" value={movement.type}>{movementTypeLabels[movement.type]}</LabelT>, changeLabel: changeLabel(current), unitLabel: unitLabel(item.unit), sectionName: movement.sectionName, createdAt: dateTimeLabel(movement.createdAt) }}>{"{movementTypeLabels} of {changeLabel} {unitLabel} in {sectionName} on {createdAt}. The difference is recorded as a new, linked movement."}</T>}
+      onSubmit={save}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="inventory-stock-forms.correction-form.save-correction">Save correction</T>}
+      cancelLabel={<T id="inventory-stock-forms.correction-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
+      <FormField
+        label={<T id="inventory-stock-forms.correction-form.should-have-been" values={{ unitLabel: unitLabel(item.unit) }}>{"Should have been ({unitLabel})"}</T>}
+        hint={<T id="inventory-stock-forms.correction-form.signed-a-minus-sign-removes">Signed: a minus sign removes stock.</T>}
       >
-        <ErrorText message={error} />
-        <FormField
-          label={<T id="inventory-stock-forms.correction-form.should-have-been" values={{ unitLabel: unitLabel(item.unit) }}>{"Should have been ({unitLabel})"}</T>}
-          hint={<T id="inventory-stock-forms.correction-form.signed-a-minus-sign-removes">Signed: a minus sign removes stock.</T>}
-        >
-          <input
-            type="number"
-            step="any"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-        </FormField>
-        <FormField label={<T id="inventory-stock-forms.correction-form.reason">Reason *</T>}>
-          <input value={reason} onChange={(e) => setReason(e.target.value)} />
-        </FormField>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="inventory-stock-forms.correction-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="inventory-stock-forms.correction-form.save-correction">Save correction</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        <input
+          type="number"
+          step="any"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+        />
+      </FormField>
+      <FormField label={<T id="inventory-stock-forms.correction-form.reason">Reason *</T>}>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} />
+      </FormField>
+    </FormDrawer>
   );
 }

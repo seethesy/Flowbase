@@ -34,10 +34,10 @@ import {
   Section,
   ConfirmationDialog,
   EmptyState,
-  DetailDrawer,
   FormField,
   LoadingSkeleton,
   ErrorText,
+  FormDrawer,
 } from "../../components/shared";
 import { EventTable } from "../events/event-list";
 import { Attachments } from "../common/attachments";
@@ -346,172 +346,159 @@ function ClientFormFields({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={client ? <T id="clients.client-form-fields.edit-client">Edit client</T> : <T id="clients.client-form-fields.new-client">New client</T>}
       description={<T id="clients.client-form-fields.saved-to-flowbase">Saved to Flowbase.</T>}
+      onSubmit={() => save(false)}
+      before={<ErrorText message={conflict} />}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="clients.client-form-fields.save-client">Save client</T>}
+      cancelLabel={<T id="clients.client-form-fields.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save(false);
-        }}
-      >
-        <ErrorText message={conflict} />
-        <ErrorText message={error} />
-        {duplicates.length > 0 && (
-          <div role="alert" className="error-message">
-            <p>
-              <TriangleAlert size={14} /><T id="clients.client-form-fields.a-client-with-this-email">{" A client with this email or phone already exists:"}</T>
-            </p>
-            <ul>
-              {duplicates.map((duplicate) => (
-                <li key={duplicate.id}>
-                  <Link to={`/clients/${duplicate.id}`} onClick={onClose}>
-                    {duplicate.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={() => void save(true)}
-            >
-              <T id="clients.client-form-fields.create-anyway">Create anyway</T>
-            </Button>
-          </div>
-        )}
-        <FormField label={<T id="clients.client-form-fields.name">Name *</T>}>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-        </FormField>
-        <div className="form-grid">
-          <FormField label={<T id="clients.client-form-fields.type">Type</T>}>
-            <Dropdown
-              value={kind}
-              onChange={(e) => setKind(e.target.value as Client["kind"])}
-            >
-              <option value="organization">Organization</option>
-              <option value="person">Person</option>
-            </Dropdown>
-          </FormField>
-          <FormField label={<T id="clients.client-form-fields.tags">Tags</T>} hint={<T id="clients.client-form-fields.separate-tags-with-commas">Separate tags with commas.</T>}>
-            <input value={tags} onChange={(e) => setTags(e.target.value)} />
-          </FormField>
-        </div>
-        {shows("notes") && (<FormField label={<T id="clients.client-form-fields.notes">Notes</T>}>
-          <textarea
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </FormField>
-        )}
-        <h3 className="form-subheading"><T id="clients.client-form-fields.contacts">Contacts</T></h3>
-        {contacts.map((contact, index) => (
-          <fieldset
-            className="form-group"
-            key={contact.key}
-            aria-label={`Contact ${index + 1}`}
+      {duplicates.length > 0 && (
+        <div role="alert" className="error-message">
+          <p>
+            <TriangleAlert size={14} /><T id="clients.client-form-fields.a-client-with-this-email">{" A client with this email or phone already exists:"}</T>
+          </p>
+          <ul>
+            {duplicates.map((duplicate) => (
+              <li key={duplicate.id}>
+                <Link to={`/clients/${duplicate.id}`} onClick={onClose}>
+                  {duplicate.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={() => void save(true)}
           >
-            <div className="form-grid">
-              <FormField label={<T id="clients.client-form-fields.contact-name">Contact name *</T>}>
-                <input
-                  value={contact.name}
-                  onChange={(e) => update(contact.key, { name: e.target.value })}
-                />
-              </FormField>
-              <FormField label={<T id="clients.client-form-fields.role">Role</T>}>
-                <Dropdown
-                  value={contact.role}
-                  onChange={(e) =>
-                    update(contact.key, {
-                      role: contactRoleSchema.parse(e.target.value),
-                    })
-                  }
-                >
-                  {contactRoleSchema.options.map((role) => (
-                    <option key={role} value={role}>
-                      {contactRoleLabels[role]}
-                    </option>
-                  ))}
-                </Dropdown>
-              </FormField>
-              {contact.hiddenDetails ? (
-                <p className="muted">
-                  <T id="clients.client-form-fields.email-and-phone-are-visible">Email and phone are visible to full-time staff only.</T>
-                </p>
-              ) : (
-                <>
-                  <FormField label={<T id="clients.client-form-fields.email">Email</T>}>
-                    <input
-                      type="email"
-                      value={contact.email ?? ""}
-                      onChange={(e) =>
-                        update(contact.key, { email: e.target.value })
-                      }
-                    />
-                  </FormField>
-                  <FormField label={<T id="clients.client-form-fields.phone">Phone</T>}>
-                    <input
-                      value={contact.phone ?? ""}
-                      onChange={(e) =>
-                        update(contact.key, { phone: e.target.value })
-                      }
-                    />
-                  </FormField>
-                </>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() =>
-                setContacts((current) =>
-                  current.filter((other) => other.key !== contact.key),
-                )
-              }
-            >
-              <T id="clients.client-form-fields.remove-contact">Remove contact</T>
-            </Button>
-          </fieldset>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            setContacts((current) => [
-              ...current,
-              {
-                key: `new-${Date.now()}`,
-                name: "",
-                role: "billing",
-                email: "",
-                phone: "",
-                hiddenDetails: false,
-              },
-            ])
-          }
-        >
-          <Plus size={14} /><T id="clients.client-form-fields.add-contact">{" Add contact"}</T>
-        </Button>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="clients.client-form-fields.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="clients.client-form-fields.save-client">Save client</T>
+            <T id="clients.client-form-fields.create-anyway">Create anyway</T>
           </Button>
         </div>
-      </form>
-    </DetailDrawer>
+      )}
+      <FormField label={<T id="clients.client-form-fields.name">Name *</T>}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+        />
+      </FormField>
+      <div className="form-grid">
+        <FormField label={<T id="clients.client-form-fields.type">Type</T>}>
+          <Dropdown
+            value={kind}
+            onChange={(e) => setKind(e.target.value as Client["kind"])}
+          >
+            <option value="organization">Organization</option>
+            <option value="person">Person</option>
+          </Dropdown>
+        </FormField>
+        <FormField label={<T id="clients.client-form-fields.tags">Tags</T>} hint={<T id="clients.client-form-fields.separate-tags-with-commas">Separate tags with commas.</T>}>
+          <input value={tags} onChange={(e) => setTags(e.target.value)} />
+        </FormField>
+      </div>
+      {shows("notes") && (<FormField label={<T id="clients.client-form-fields.notes">Notes</T>}>
+        <textarea
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </FormField>
+      )}
+      <h3 className="form-subheading"><T id="clients.client-form-fields.contacts">Contacts</T></h3>
+      {contacts.map((contact, index) => (
+        <fieldset
+          className="form-group"
+          key={contact.key}
+          aria-label={`Contact ${index + 1}`}
+        >
+          <div className="form-grid">
+            <FormField label={<T id="clients.client-form-fields.contact-name">Contact name *</T>}>
+              <input
+                value={contact.name}
+                onChange={(e) => update(contact.key, { name: e.target.value })}
+              />
+            </FormField>
+            <FormField label={<T id="clients.client-form-fields.role">Role</T>}>
+              <Dropdown
+                value={contact.role}
+                onChange={(e) =>
+                  update(contact.key, {
+                    role: contactRoleSchema.parse(e.target.value),
+                  })
+                }
+              >
+                {contactRoleSchema.options.map((role) => (
+                  <option key={role} value={role}>
+                    {contactRoleLabels[role]}
+                  </option>
+                ))}
+              </Dropdown>
+            </FormField>
+            {contact.hiddenDetails ? (
+              <p className="muted">
+                <T id="clients.client-form-fields.email-and-phone-are-visible">Email and phone are visible to full-time staff only.</T>
+              </p>
+            ) : (
+              <>
+                <FormField label={<T id="clients.client-form-fields.email">Email</T>}>
+                  <input
+                    type="email"
+                    value={contact.email ?? ""}
+                    onChange={(e) =>
+                      update(contact.key, { email: e.target.value })
+                    }
+                  />
+                </FormField>
+                <FormField label={<T id="clients.client-form-fields.phone">Phone</T>}>
+                  <input
+                    value={contact.phone ?? ""}
+                    onChange={(e) =>
+                      update(contact.key, { phone: e.target.value })
+                    }
+                  />
+                </FormField>
+              </>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() =>
+              setContacts((current) =>
+                current.filter((other) => other.key !== contact.key),
+              )
+            }
+          >
+            <T id="clients.client-form-fields.remove-contact">Remove contact</T>
+          </Button>
+        </fieldset>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          setContacts((current) => [
+            ...current,
+            {
+              key: `new-${Date.now()}`,
+              name: "",
+              role: "billing",
+              email: "",
+              phone: "",
+              hiddenDetails: false,
+            },
+          ])
+        }
+      >
+        <Plus size={14} /><T id="clients.client-form-fields.add-contact">{" Add contact"}</T>
+      </Button>
+    </FormDrawer>
   );
 }
 

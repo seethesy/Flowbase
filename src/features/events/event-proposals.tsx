@@ -24,6 +24,7 @@ import {
   LoadingSkeleton,
   Section,
   ErrorText,
+  FormDrawer,
 } from "../../components/shared";
 import { proposalsApi, uploadProposalVersion } from "../../services/proposals";
 import { uploadAttachment } from "../../services/attachments";
@@ -223,48 +224,38 @@ function ProposalForm({
   const [draft, setDraft] = useState({ title, notes });
   const [error, setError] = useState("");
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={heading}
       description={<T id="event-proposals.proposal-form.the-proposal-itself-is-written">The proposal itself is written in Google Docs; Flowbase tracks its stages and versions.</T>}
+      onSubmit={async () => {
+        if (!draft.title.trim()) return setError("Title is required.");
+        try {
+          setError("");
+          await onSave(draft);
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+      error={error}
+      saveLabel={<T id="event-proposals.proposal-form.save-proposal">Save proposal</T>}
+      cancelLabel={<T id="event-proposals.proposal-form.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!draft.title.trim()) return setError("Title is required.");
-          try {
-            setError("");
-            await onSave(draft);
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        <ErrorText message={error} />
-        <FormField label={<T id="event-proposals.proposal-form.title">Title *</T>}>
-          <input
-            value={draft.title}
-            maxLength={200}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          />
-        </FormField>
-        <FormField label={<T id="event-proposals.proposal-form.notes">Notes</T>}>
-          <textarea
-            value={draft.notes}
-            maxLength={5000}
-            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-          />
-        </FormField>
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="event-proposals.proposal-form.cancel">Cancel</T>
-          </Button>
-          <Button type="submit"><T id="event-proposals.proposal-form.save-proposal">Save proposal</T></Button>
-        </div>
-      </form>
-    </DetailDrawer>
+      <FormField label={<T id="event-proposals.proposal-form.title">Title *</T>}>
+        <input
+          value={draft.title}
+          maxLength={200}
+          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+        />
+      </FormField>
+      <FormField label={<T id="event-proposals.proposal-form.notes">Notes</T>}>
+        <textarea
+          value={draft.notes}
+          maxLength={5000}
+          onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+        />
+      </FormField>
+    </FormDrawer>
   );
 }
 

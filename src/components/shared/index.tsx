@@ -668,6 +668,65 @@ export function DetailDrawer({
     </Dialog.Root>
   );
 }
+// A create/edit drawer (FLOW-313): the drawer, a form whose submit calls
+// onSubmit with the form element, an error line above the fields, and Cancel /
+// Save. `before` renders above the error line (e.g. a stale-save conflict).
+export function FormDrawer({
+  onClose,
+  title,
+  description,
+  wide,
+  onSubmit,
+  error,
+  before,
+  saving,
+  saveDisabled,
+  saveLabel,
+  cancelLabel,
+  className,
+  noValidate = true,
+  children,
+}: {
+  onClose: () => void;
+  title: ReactNode;
+  description?: ReactNode;
+  wide?: boolean;
+  onSubmit: (form: HTMLFormElement) => unknown;
+  error?: ReactNode;
+  before?: ReactNode;
+  saving?: boolean;
+  saveDisabled?: boolean;
+  saveLabel: ReactNode;
+  cancelLabel: ReactNode;
+  className?: string;
+  noValidate?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <DetailDrawer open onClose={onClose} title={title} description={description} wide={wide}>
+      <form
+        className={className}
+        noValidate={noValidate}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onSubmit(e.currentTarget);
+        }}
+      >
+        {before}
+        <ErrorText message={error} />
+        {children}
+        <div className="form-actions">
+          <Button variant="outline" type="button" onClick={onClose}>
+            {cancelLabel}
+          </Button>
+          <Button type="submit" disabled={saveDisabled ?? saving}>
+            {saveLabel}
+          </Button>
+        </div>
+      </form>
+    </DetailDrawer>
+  );
+}
 export function ConfirmationDialog({
   open,
   onClose,

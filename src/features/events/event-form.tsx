@@ -5,7 +5,7 @@ import { allPages, clientsApi, eventsApi, venuesApi } from "../../services/core"
 import { StaleReload, isStale } from "../../components/stale-reload";
 import { useResource } from "../../app/useResource";
 import { useDebounced } from "../../app/paging";
-import { Button, DetailDrawer, FormField, ErrorText } from "../../components/shared";
+import { FormField, ErrorText, FormDrawer } from "../../components/shared";
 
 import { ListSelect, ListSuggestions } from "../common/list-fields";
 import { type ListKey } from "../../../shared/settings";
@@ -188,146 +188,133 @@ function EventFormFields({
     }
   };
   return (
-    <DetailDrawer
-      open
+    <FormDrawer
       onClose={onClose}
       title={event ? <T id="events.event-form-fields.edit-event">Edit event</T> : <T id="events.event-form-fields.new-event">New event</T>}
       description={<T id="events.event-form-fields.only-title-date-start-time">Only title, date, start time and client are required.</T>}
       wide
+      onSubmit={save}
+      before={<ErrorText message={conflict} />}
+      error={error}
+      saving={saving}
+      saveLabel={<T id="events.event-form-fields.save-event">Save event</T>}
+      cancelLabel={<T id="events.event-form-fields.cancel">Cancel</T>}
     >
-      <form
-        noValidate
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <ErrorText message={conflict} />
-        <ErrorText message={error} />
-        {(clients.error || venues.error) && (
-          <ErrorText message={clients.error ?? venues.error ?? ""} />
-        )}
-        <FormField label={<T id="events.event-form-fields.title">Title *</T>}>
+      {(clients.error || venues.error) && (
+        <ErrorText message={clients.error ?? venues.error ?? ""} />
+      )}
+      <FormField label={<T id="events.event-form-fields.title">Title *</T>}>
+        <input
+          value={draft.title}
+          onChange={(e) => set("title", e.target.value)}
+          autoFocus
+        />
+      </FormField>
+      <div className="form-grid">
+        {text("date", "Date *", "date")}
+        <FormField label={<T id="events.event-form-fields.find-client">Find client</T>}>
           <input
-            value={draft.title}
-            onChange={(e) => set("title", e.target.value)}
-            autoFocus
+            type="search"
+            value={clientSearch}
+            onChange={(e) => setClientSearch(e.target.value)}
+            placeholder={typeAClientOrContactPlaceholder} data-copy-id="events.event-form-fields.type-a-client-or-contact.placeholder"
           />
         </FormField>
-        <div className="form-grid">
-          {text("date", "Date *", "date")}
-          <FormField label={<T id="events.event-form-fields.find-client">Find client</T>}>
-            <input
-              type="search"
-              value={clientSearch}
-              onChange={(e) => setClientSearch(e.target.value)}
-              placeholder={typeAClientOrContactPlaceholder} data-copy-id="events.event-form-fields.type-a-client-or-contact.placeholder"
-            />
-          </FormField>
-          <FormField label={<T id="events.event-form-fields.client">Client *</T>}>
-            <Dropdown
-              value={draft.clientId}
-              onChange={(e) => {
-                set("clientId", e.target.value);
-                set("pocContactId", null);
-              }}
-            >
-              <option value="">Choose a client</option>
-              {clientOptions.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-          {text("startTime", "Start time *", "time")}
-          {text("endTime", "End time", "time")}
-          <FormField label={<T id="events.event-form-fields.point-of-contact">Point of contact</T>}>
-            <Dropdown
-              value={draft.pocContactId ?? ""}
-              onChange={(e) => set("pocContactId", e.target.value || null)}
-            >
-              <option value="">None</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-          {/* Any status on create; afterwards it changes on the event page. */}
-          {!event && (
-            <FormField label={<T id="events.event-form-fields.status">Status</T>}>
-              <StatusSelect value={draft.status ?? "inquiry"} includeEventStages onChange={(value) => set("status", eventStatusSchema.parse(value))} />
-            </FormField>
-          )}
-          <FormField label={<T id="events.event-form-fields.venue">Venue</T>}>
-            <Dropdown
-              value={draft.venueId ?? ""}
-              onChange={(e) => set("venueId", e.target.value || null)}
-            >
-              <option value="">No venue (use an address)</option>
-              {venues.data?.map((venue) => (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name}
-                </option>
-              ))}
-            </Dropdown>
-          </FormField>
-          {shows("address") && <FormField label={<T id="events.event-form-fields.address">Address</T>} hint={<T id="events.event-form-fields.leave-empty-to-use-the">{"Leave empty to use the venue's."}</T>}>
-            <input
-              value={draft.address}
-              onChange={(e) => set("address", e.target.value)}
-            />
-          </FormField>}
-          {shows("eventType") && list("eventType", "Event type", "event_type")}
-          {shows("serviceType") && list("serviceType", "Service type", "service_type")}
-          {shows("foodServiceStyle") && list("foodServiceStyle", "Food service style", "food_service_style")}
-          {shows("dressCode") && <FormField label={<T id="events.event-form-fields.dress-code">Dress code</T>} hint={<T id="events.event-form-fields.pick-a-preset-or-type">Pick a preset or type your own.</T>}>
-            <input
-              list="dress-code-presets"
-              value={draft.dressCode ?? ""}
-              onChange={(e) => set("dressCode", e.target.value)}
-            />
-            <ListSuggestions id="dress-code-presets" list="dress_code" />
-          </FormField>}
-          {shows("arrivalTime") && text("arrivalTime", "Arrival time at venue", "time")}
-          {shows("guestCount") && text("guestCount", "Guest count", "number")}
-          {shows("servingsCount") && text("servingsCount", "Servings count", "number")}
-        </div>
-        <FormField
-          label={<T id="events.event-form-fields.areas">Areas</T>}
-          hint={<T id="events.event-form-fields.one-per-line-left-unchanged">{"One per line. Left unchanged, a newly picked venue's areas are used."}</T>}
-        >
-          <textarea
-            rows={3}
-            value={areas ?? ""}
-            onChange={(e) => setAreas(e.target.value)}
-          />
+        <FormField label={<T id="events.event-form-fields.client">Client *</T>}>
+          <Dropdown
+            value={draft.clientId}
+            onChange={(e) => {
+              set("clientId", e.target.value);
+              set("pocContactId", null);
+            }}
+          >
+            <option value="">Choose a client</option>
+            {clientOptions.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </Dropdown>
         </FormField>
-        {shows("transportationNotes") && <FormField label={<T id="events.event-form-fields.transportation-notes">Transportation notes</T>}>
-          <textarea
-            rows={2}
-            value={draft.transportationNotes}
-            onChange={(e) => set("transportationNotes", e.target.value)}
+        {text("startTime", "Start time *", "time")}
+        {text("endTime", "End time", "time")}
+        <FormField label={<T id="events.event-form-fields.point-of-contact">Point of contact</T>}>
+          <Dropdown
+            value={draft.pocContactId ?? ""}
+            onChange={(e) => set("pocContactId", e.target.value || null)}
+          >
+            <option value="">None</option>
+            {contacts.map((contact) => (
+              <option key={contact.id} value={contact.id}>
+                {contact.name}
+              </option>
+            ))}
+          </Dropdown>
+        </FormField>
+        {/* Any status on create; afterwards it changes on the event page. */}
+        {!event && (
+          <FormField label={<T id="events.event-form-fields.status">Status</T>}>
+            <StatusSelect value={draft.status ?? "inquiry"} includeEventStages onChange={(value) => set("status", eventStatusSchema.parse(value))} />
+          </FormField>
+        )}
+        <FormField label={<T id="events.event-form-fields.venue">Venue</T>}>
+          <Dropdown
+            value={draft.venueId ?? ""}
+            onChange={(e) => set("venueId", e.target.value || null)}
+          >
+            <option value="">No venue (use an address)</option>
+            {venues.data?.map((venue) => (
+              <option key={venue.id} value={venue.id}>
+                {venue.name}
+              </option>
+            ))}
+          </Dropdown>
+        </FormField>
+        {shows("address") && <FormField label={<T id="events.event-form-fields.address">Address</T>} hint={<T id="events.event-form-fields.leave-empty-to-use-the">{"Leave empty to use the venue's."}</T>}>
+          <input
+            value={draft.address}
+            onChange={(e) => set("address", e.target.value)}
           />
         </FormField>}
-        {shows("internalNotes") && <FormField label={<T id="events.event-form-fields.internal-notes">Internal notes</T>}>
-          <textarea
-            rows={3}
-            value={draft.internalNotes}
-            onChange={(e) => set("internalNotes", e.target.value)}
+        {shows("eventType") && list("eventType", "Event type", "event_type")}
+        {shows("serviceType") && list("serviceType", "Service type", "service_type")}
+        {shows("foodServiceStyle") && list("foodServiceStyle", "Food service style", "food_service_style")}
+        {shows("dressCode") && <FormField label={<T id="events.event-form-fields.dress-code">Dress code</T>} hint={<T id="events.event-form-fields.pick-a-preset-or-type">Pick a preset or type your own.</T>}>
+          <input
+            list="dress-code-presets"
+            value={draft.dressCode ?? ""}
+            onChange={(e) => set("dressCode", e.target.value)}
           />
+          <ListSuggestions id="dress-code-presets" list="dress_code" />
         </FormField>}
-        <div className="form-actions">
-          <Button variant="outline" type="button" onClick={onClose}>
-            <T id="events.event-form-fields.cancel">Cancel</T>
-          </Button>
-          <Button type="submit" disabled={saving}>
-            <T id="events.event-form-fields.save-event">Save event</T>
-          </Button>
-        </div>
-      </form>
-    </DetailDrawer>
+        {shows("arrivalTime") && text("arrivalTime", "Arrival time at venue", "time")}
+        {shows("guestCount") && text("guestCount", "Guest count", "number")}
+        {shows("servingsCount") && text("servingsCount", "Servings count", "number")}
+      </div>
+      <FormField
+        label={<T id="events.event-form-fields.areas">Areas</T>}
+        hint={<T id="events.event-form-fields.one-per-line-left-unchanged">{"One per line. Left unchanged, a newly picked venue's areas are used."}</T>}
+      >
+        <textarea
+          rows={3}
+          value={areas ?? ""}
+          onChange={(e) => setAreas(e.target.value)}
+        />
+      </FormField>
+      {shows("transportationNotes") && <FormField label={<T id="events.event-form-fields.transportation-notes">Transportation notes</T>}>
+        <textarea
+          rows={2}
+          value={draft.transportationNotes}
+          onChange={(e) => set("transportationNotes", e.target.value)}
+        />
+      </FormField>}
+      {shows("internalNotes") && <FormField label={<T id="events.event-form-fields.internal-notes">Internal notes</T>}>
+        <textarea
+          rows={3}
+          value={draft.internalNotes}
+          onChange={(e) => set("internalNotes", e.target.value)}
+        />
+      </FormField>}
+    </FormDrawer>
   );
 }
