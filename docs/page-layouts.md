@@ -91,6 +91,28 @@ wording. With no saved layout a page renders exactly as its code does.
   whose field the new source has, and names the ones it dropped.
 - Playwright coverage: `tests/e2e/layout-builtin-cards.spec.ts`.
 
+## Navigation by role (FLOW-284)
+
+- An Admin chooses which roles see each sidebar heading and tab: Settings ›
+  Roles & permissions › Navigation, or the "Who sees this" eye beside a heading
+  or tab in live edit (saved with the live-edit Save). Both read and write the
+  same setting.
+- Stored per role as a list of hidden nav keys in `role_nav_hidden`
+  (`GET /api/permissions/navigation` for everyone signed in, `PUT` Admin only,
+  audit-logged). A heading's key is its `copyId` (`sales`); a tab's is
+  `<heading copyId>.<tab copyId>` (`sales.venues`). Keys come from copyIds, so
+  renaming a tab in live edit keeps the setting. Every key is listed under
+  `nav` in `shared/generated/live-edit-keys.json`, and the API refuses others.
+- It only narrows: a role sees a tab only if it isn't hidden **and** its own
+  rule passes (area permission or `visible`). Hiding a heading hides every tab
+  under it, and a heading with no visible tab is hidden. Admin always sees
+  everything.
+- The sidebar, the tab bar, the breadcrumb and the landing page all follow it.
+  A direct link to a hidden page shows "Not available for your role" with a link
+  to the role's first visible page; `/` goes to that page when the Dashboard's
+  Overview is hidden.
+- **Not a security boundary.** The API still answers by area permissions only.
+
 ## Making a page arrangeable
 
 Wrap the page's sections in a `PageGrid` and each section in a `Block` with a

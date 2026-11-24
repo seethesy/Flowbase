@@ -6,6 +6,7 @@ import { copyOverridesSchema } from "../../shared/copy";
 import { orphansSchema } from "../../shared/live-edit-orphans";
 import { savedLayoutSchema } from "../../shared/layout";
 import { permissionsSchema } from "../../shared/role-permissions";
+import { navVisibilitySchema } from "../../shared/nav-visibility-schema";
 import { authConfigSchema, userSchema } from "../../shared/users";
 import { recordSchemas } from "../../shared/records";
 import {
@@ -133,6 +134,8 @@ export function responseSchema(
   // Page layouts (FLOW-253): GET and PUT answer with the saved layout, or null
   // with none saved. DELETE answers 204.
   if (resource === "layout") return savedLayoutSchema;
+  // Which roles see each heading and tab (FLOW-284): GET and PUT answer with every list.
+  if (resource === "permissions" && id === "navigation") return navVisibilitySchema;
   // Roles and permissions (FLOW-269): GET and PUT answer with the matrix.
   if (resource === "permissions") return permissionsSchema;
   if (resource === "home" && id === "dashboard") return homeDashboardSchema;

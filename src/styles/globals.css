@@ -3126,3 +3126,56 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   flex-wrap: wrap;
   gap: 8px;
 }
+/* Live edit (FLOW-284): who sees each sidebar heading and tab. */
+.nav-who-sees {
+  display: inline-flex;
+  align-items: center;
+}
+.primary-nav .nav-who-sees {
+  align-self: flex-end;
+  margin: -4px 4px 2px 0;
+}
+.nav-who-sees-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px dashed currentColor;
+  color: var(--muted);
+  background: transparent;
+}
+.primary-nav .nav-who-sees-toggle {
+  color: #a8c4ad;
+}
+.nav-who-sees-popover {
+  position: fixed;
+  z-index: 60;
+  width: 280px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 8px 24px #0002;
+  font-size: 12px;
+}
+.nav-who-sees-popover ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.nav-who-sees-popover label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-who-sees-popover small {
+  color: var(--muted);
+}
+.hidden-page-link {
+  text-align: center;
+  margin-top: 8px;
+}

@@ -2374,6 +2374,19 @@ export const rolePermissions = pgTable(
   ],
 ).enableRLS();
 
+// Which roles see each sidebar heading and tab (FLOW-284): one row per role with
+// the nav keys it hides (shared/nav-visibility.ts). No row means the role sees
+// everything its permissions allow. UI only: the API still answers by area.
+export const roleNavHidden = pgTable(
+  "role_nav_hidden",
+  {
+    ...baseColumns(),
+    role: text("role", { enum: roles }).notNull().unique(),
+    hidden: jsonb("hidden").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  },
+  (table) => [oneOf("role_nav_hidden_role_check", table.role, roles)],
+).enableRLS();
+
 // Staff pay (FLOW-270): each person's normal pay, kept off users so it never
 // rides along on other queries. Linked to the staff member by full name (A4,
 // Ash 2026-11-23); renaming a staff member renames the row. Audit-logged.

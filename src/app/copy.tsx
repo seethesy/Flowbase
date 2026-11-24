@@ -24,6 +24,7 @@ import { z } from "zod";
 import { orphansSchema, type OrphanAction } from "../../shared/live-edit-orphans";
 import type { LayoutDoc } from "../../shared/layout";
 import { styleContrastOk } from "../../shared/contrast";
+import type { NavHidden } from "../../shared/nav-visibility";
 
 // Admin live text editing (FLOW-240). Every built-in string on a screen is a
 // <T id="area.screen.element">Default text</T> (or useCopy for an input
@@ -67,6 +68,10 @@ type LiveEdit = {
   // Unsaved page layouts by page key; null resets the page to its code default.
   layoutPending: Record<string, LayoutDoc | null>;
   stageLayout: (pageKey: string, layout: LayoutDoc | null | undefined) => void;
+  // Which roles see each sidebar heading and tab (FLOW-284), changed from the
+  // "Who sees this" popovers; null when unchanged. Saved with the same Save.
+  navPending: NavHidden | null;
+  stageNav: (hidden: NavHidden | null) => void;
   editing: boolean;
   pending: Record<string, PendingEdit>;
   target: EditorTarget | null;
@@ -84,6 +89,8 @@ const inert: LiveEdit = {
   canEditLayout: false,
   layoutPending: {},
   stageLayout: () => {},
+  navPending: null,
+  stageNav: () => {},
   editing: false,
   pending: {},
   target: null,
@@ -120,9 +127,10 @@ export function layoutStyleProblems(layouts: Record<string, LayoutDoc | null>) {
   });
 }
 
-// Everything the session would save: wording edits and page layouts.
-export const pendingCount = (live: Pick<LiveEdit, "pending" | "layoutPending">) =>
-  Object.keys(live.pending).length + Object.keys(live.layoutPending).length;
+// Everything the session would save: wording edits, page layouts and who sees
+// each sidebar heading and tab.
+export const pendingCount = (live: Pick<LiveEdit, "pending" | "layoutPending"> & { navPending?: NavHidden | null }) =>
+  Object.keys(live.pending).length + Object.keys(live.layoutPending).length + (live.navPending ? 1 : 0);
 
 export function CopyProvider({
   canEdit,
@@ -152,6 +160,7 @@ export function CopyProvider({
       else next[pageKey] = layout;
       return next;
     }), []);
+  const [navPending, stageNav] = useState<NavHidden | null>(null);
   const setEditing = useCallback(
     (on: boolean) => {
       setEditingState(on && canEdit);
@@ -175,7 +184,7 @@ export function CopyProvider({
   const save = useCallback(async () => {
     const entries = Object.entries(pending);
     const layouts = Object.entries(layoutPending);
-    if ((!entries.length && !layouts.length) || pendingProblems(pending).length || layoutStyleProblems(layoutPending).length)
+    if ((!entries.length && !layouts.length && !navPending) || pendingProblems(pending).length || layoutStyleProblems(layoutPending).length)
       return;
     const edits = entries.flatMap(([key, edit]) =>
       edit.text === null ? [] : [{ key, text: trimLineBreaks(edit.text), placeholders: edit.placeholders }],
@@ -195,13 +204,16 @@ export function CopyProvider({
         }
       }
     }
+    if (navPending) await (await import("./nav-visibility-editor")).saveNavHidden(navPending);
     setPending({});
     setLayoutPending({});
+    stageNav(null);
     setTarget(null);
-  }, [client, pending, layoutPending]);
+  }, [client, pending, layoutPending, navPending]);
   const cancel = useCallback(() => {
     setPending({});
     setLayoutPending({});
+    stageNav(null);
     setTarget(null);
     setEditingState(false);
   }, []);
@@ -212,6 +224,8 @@ export function CopyProvider({
       canEditLayout: canEditLayout && canEdit,
       layoutPending,
       stageLayout,
+      navPending,
+      stageNav,
       editing: editing && canEdit,
       pending,
       target,
@@ -222,7 +236,7 @@ export function CopyProvider({
       save,
       cancel,
     }),
-    [overrides, canEdit, canEditLayout, layoutPending, stageLayout, editing, pending, target, setEditing, stage, save, cancel],
+    [overrides, canEdit, canEditLayout, layoutPending, stageLayout, navPending, editing, pending, target, setEditing, stage, save, cancel],
   );
   return <LiveEditContext.Provider value={value}>{children}</LiveEditContext.Provider>;
 }

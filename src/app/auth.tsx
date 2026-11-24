@@ -13,6 +13,7 @@ import {
   policyMatrix,
   setPolicyMatrix,
 } from "../../shared/role-permissions";
+import { navHidden, setNavHidden, type NavHidden } from "../../shared/nav-visibility";
 import { authClient, authFetch, configureAuthRequest } from "../services/auth";
 import { Button } from "../components/shared";
 import { queryClient } from "./queryClient";
@@ -21,16 +22,21 @@ import { cachedProfile, clearOfflineData, isNetworkError, rememberProfile } from
 import { syncOfflineBeos } from "../offline/sync";
 
 // Loads the roles and permissions matrix (FLOW-269) so `can` in the browser
-// answers like the API does. Resolves true when it changed. A failed load keeps
-// the matrix in force (the built-in rules until the first load succeeds).
+// answers like the API does, and which roles see each sidebar heading and tab
+// (FLOW-284), which comes with it. Resolves true when either changed. A failed
+// load keeps what is in force (the built-in rules and everything shown until the
+// first load succeeds).
 async function refreshPolicy(): Promise<boolean> {
   try {
     const response = await authFetch("/api/permissions");
     if (!response.ok) return false;
-    const { matrix } = permissionsSchema.parse(await response.json());
-    const before = JSON.stringify(policyMatrix());
+    const body = (await response.json()) as { navHidden?: NavHidden };
+    const { matrix } = permissionsSchema.parse(body);
+    const before = JSON.stringify([policyMatrix(), navHidden()]);
     setPolicyMatrix(matrix);
-    return JSON.stringify(matrix) !== before;
+    // No schema here: setNavHidden keeps only each role's string keys.
+    if (body.navHidden && typeof body.navHidden === "object") setNavHidden(body.navHidden);
+    return JSON.stringify([policyMatrix(), navHidden()]) !== before;
   } catch {
     return false;
   }
