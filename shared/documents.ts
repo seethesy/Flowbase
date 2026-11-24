@@ -49,6 +49,9 @@ export const documentUploadSchema = z.object({
   size: z.number().int().positive().max(25 * 1024 * 1024),
   documentId: id.optional(),
 });
+// POST /api/documents/<upload id>/cancel (FLOW-331).
+export const documentUploadCancelSchema = z.object({ id, cancelled: z.literal(true) });
+
 export const documentUploadTicketSchema = z.object({
   id,
   url: z.string().url(),
