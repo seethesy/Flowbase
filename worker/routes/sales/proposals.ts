@@ -14,7 +14,7 @@ import { salesProposals } from "../../fields";
 import { salesDataset } from "../../records/sales/sales";
 import {
   ApiError,
-  notFound,
+  idParam,
   parseBody,
   recordRunner,
   type AppContext,
@@ -42,12 +42,7 @@ import { listEventContracts, recordContract, listEventAddendums, listOpenAddendu
 export function proposalRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
-  const proposalId = (c: AppContext) => param(c, "id", "Proposal");
+  const proposalId = (c: AppContext) => idParam(c, "Proposal");
   const env = (c: AppContext) => c.env ?? {};
 
   routes.get("/addendums/open", requirePermission("proposals.read"), async (c) =>
@@ -59,22 +54,22 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
   );
 
   routes.get("/event/:eventId/contracts", requirePermission("proposals.read"), async (c) =>
-    c.json(await record(c, (db, actor) => listEventContracts(db, actor, param(c, "eventId", "Event")))),
+    c.json(await record(c, (db, actor) => listEventContracts(db, actor, idParam(c, "Event", "eventId")))),
   );
   routes.post("/:id/contracts", requirePermission("bookings.record"), async (c) => {
     const input = await parseBody(c, recordContractSchema);
     return c.json(await record(c, (db, actor) => recordContract(db, actor, proposalId(c), input)), 201);
   });
   routes.get("/event/:eventId/addendums", requirePermission("proposals.read"), async (c) =>
-    c.json(await record(c, (db, actor) => listEventAddendums(db, actor, param(c, "eventId", "Event")))),
+    c.json(await record(c, (db, actor) => listEventAddendums(db, actor, idParam(c, "Event", "eventId")))),
   );
   routes.post("/event/:eventId/addendums", requirePermission("addendums.record"), async (c) => {
     const input = await parseBody(c, recordAddendumSchema);
-    return c.json(await record(c, (db, actor) => recordAddendum(db, actor, param(c, "eventId", "Event"), input)), 201);
+    return c.json(await record(c, (db, actor) => recordAddendum(db, actor, idParam(c, "Event", "eventId"), input)), 201);
   });
   routes.post("/event/:eventId/addendums/:addendumId/sign", requirePermission("addendums.record"), async (c) => {
     const input = await parseBody(c, signAddendumSchema);
-    return c.json(await record(c, (db, actor) => signAddendum(db, actor, param(c, "eventId", "Event"), param(c, "addendumId", "Addendum"), input.signedAt)));
+    return c.json(await record(c, (db, actor) => signAddendum(db, actor, idParam(c, "Event", "eventId"), idParam(c, "Addendum", "addendumId"), input.signedAt)));
   });
 
   // The event's proposals: GET /api/proposals?eventId=<id>.
@@ -155,7 +150,7 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
     requirePermission("proposals.write"),
     async (c) => {
       const id = proposalId(c);
-      const versionId = param(c, "versionId", "Proposal version");
+      const versionId = idParam(c, "Proposal version", "versionId");
       return c.json(
         await record(c, (db, actor) =>
           completeProposalUpload(db, actor, env(c), id, versionId),

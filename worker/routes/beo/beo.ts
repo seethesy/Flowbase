@@ -10,9 +10,8 @@ import {
   runOfShowInputSchema,
 } from "../../../shared/beo";
 import { beoListQuerySchema } from "../../../shared/beo-list";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requirePermission } from "../../auth";
-import { ApiError, notFound, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../../hono";
+import { ApiError, idParam, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../../hono";
 import { listBeos } from "../../records/beo/beo-list";
 import { approveBeo, createBeo, getBeo, offlineBeos, requestBeoApproval, updateBeoNotes } from "../../records/beo/beo";
 import {
@@ -35,12 +34,7 @@ import {
 export function beoRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
-  const eventId = (c: AppContext) => param(c, "id", "Event");
+  const eventId = (c: AppContext) => idParam(c, "Event");
   const read = requirePermission("beos.read");
 
   routes.get("/:id/beo", read, async (c) => {
@@ -80,23 +74,23 @@ export function beoRoutes(options: { withDb?: RunWithDb }) {
   });
   routes.patch("/:id/beo/areas/:areaId", read, async (c) => {
     const id = eventId(c);
-    const areaId = param(c, "areaId", "Area");
+    const areaId = idParam(c, "Area", "areaId");
     const input = await parseBody(c, beoAreaUpdateSchema);
     return c.json(await record(c, (db, actor) => updateArea(db, actor, id, areaId, input)));
   });
   routes.delete("/:id/beo/areas/:areaId", read, async (c) => {
     const id = eventId(c);
-    const areaId = param(c, "areaId", "Area");
+    const areaId = idParam(c, "Area", "areaId");
     return c.json(await record(c, (db, actor) => archiveArea(db, actor, id, areaId)));
   });
   routes.get("/:id/beo/areas/:areaId/scene", read, async (c) => {
     const id = eventId(c);
-    const areaId = param(c, "areaId", "Area");
+    const areaId = idParam(c, "Area", "areaId");
     return c.json(await record(c, (db, actor) => getAreaScene(db, actor, id, areaId)));
   });
   routes.put("/:id/beo/areas/:areaId/scene", read, async (c) => {
     const id = eventId(c);
-    const areaId = param(c, "areaId", "Area");
+    const areaId = idParam(c, "Area", "areaId");
     const input = await parseBody(c, beoSceneInputSchema);
     return c.json(await record(c, (db, actor) => saveAreaScene(db, actor, id, areaId, input)));
   });
@@ -114,7 +108,7 @@ export function beoRoutes(options: { withDb?: RunWithDb }) {
   });
   routes.patch("/:id/beo/cleanup/:itemId", read, async (c) => {
     const id = eventId(c);
-    const itemId = param(c, "itemId", "Checklist item");
+    const itemId = idParam(c, "Checklist item", "itemId");
     const input = await parseBody(c, checkItemInputSchema);
     return c.json(await record(c, (db, actor) => checkCleanupItem(db, actor, id, itemId, input.checked)));
   });

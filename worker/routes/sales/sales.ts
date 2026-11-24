@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { id as uuid, isLocalDate } from "../../../shared/schema-primitives";
+import { isLocalDate } from "../../../shared/schema-primitives";
 import { salesViewInputSchema } from "../../../shared/sales";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
-import { ApiError, notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { ApiError, idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { createSalesView, deleteSalesView, listSalesViews, salesClient, salesDataset, salesReport } from "../../records/sales/sales";
 
 export function salesRoutes(options: { withDb?: RunWithDb; resolveActor?: ResolveActor }) {
@@ -22,24 +22,21 @@ export function salesRoutes(options: { withDb?: RunWithDb; resolveActor?: Resolv
     return c.json(await record(c, (db, actor) => createSalesView(db, actor, input)), 201);
   });
   routes.delete("/views/:id", requirePermission("proposals.read"), async (c) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("View");
-    await record(c, (db, actor) => deleteSalesView(db, actor, parsed.data));
+    const viewId = idParam(c, "View");
+    await record(c, (db, actor) => deleteSalesView(db, actor, viewId));
     return c.body(null, 204);
   });
   routes.get("/clients/:id/proposals", requirePermission("proposals.read"), async (c) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Client");
-    const data = await record(c, (db, actor) => salesClient(db, actor, parsed.data));
+    const clientId = idParam(c, "Client");
+    const data = await record(c, (db, actor) => salesClient(db, actor, clientId));
     return c.json(data.events.flatMap((event) => event.proposals.map((proposal) => ({
       id: proposal.id, eventId: event.eventId, title: proposal.title, stage: proposal.stage,
       currentVersion: proposal.versions[0]?.number ?? null,
     }))));
   });
   routes.get("/clients/:id", requirePermission("proposals.read"), async (c) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Client");
-    return c.json(await record(c, (db, actor) => salesClient(db, actor, parsed.data)));
+    const clientId = idParam(c, "Client");
+    return c.json(await record(c, (db, actor) => salesClient(db, actor, clientId)));
   });
   return routes;
 }

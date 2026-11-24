@@ -10,9 +10,10 @@ import {
 import { id as uuid, localDate, withVersion } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
-  notFound,
+  idParam,
   pageRequest,
   parseBody,
+  queryParam,
   recordRunner,
   sendPage,
   type AppContext,
@@ -59,12 +60,6 @@ export function recordRoutes(options: {
   const signedIn = requireActor(options.resolveActor);
   for (const resource of ["clients", "venues", "events"])
     routes.use(`/${resource}`, signedIn).use(`/${resource}/*`, signedIn);
-  const param = (c: AppContext, what: string) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
-  const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
   routes.get("/clients", requirePermission("clients.read"), async (c) =>
@@ -77,7 +72,7 @@ export function recordRoutes(options: {
           {
             archived: flag(c, "archived"),
             flagged: flag(c, "flagged"),
-            search: query(c, "search"),
+            search: queryParam(c, "search"),
           },
           pageRequest(c),
         ),
@@ -85,7 +80,7 @@ export function recordRoutes(options: {
     ),
   );
   routes.get("/clients/:id", requirePermission("clients.read"), async (c) => {
-    const id = param(c, "Client");
+    const id = idParam(c, "Client");
     return c.json(await record(c, (db, actor) => getClient(db, actor, id)));
   });
   // Record history (FLOW-41): read-only for anyone who can see the record. There
@@ -99,7 +94,7 @@ export function recordRoutes(options: {
       `/${resource}/:id/history`,
       requirePermission(`${resource}.read`),
       async (c) => {
-        const id = param(c, what);
+        const id = idParam(c, what);
         return sendPage(
           c,
           await record(c, (db, actor) => history(db, actor, id, pageRequest(c))),
@@ -114,7 +109,7 @@ export function recordRoutes(options: {
     );
   });
   routes.put("/clients/:id", requirePermission("clients.write"), async (c) => {
-    const id = param(c, "Client");
+    const id = idParam(c, "Client");
     const input = await parseBody(c, withVersion(clientInputSchema));
     return c.json(
       await record(c, (db, actor) => updateClient(db, actor, id, input)),
@@ -128,7 +123,7 @@ export function recordRoutes(options: {
       `/clients/:id/${action}`,
       requirePermission("clients.write"),
       async (c) => {
-        const id = param(c, "Client");
+        const id = idParam(c, "Client");
         return c.json(
           await record(c, (db, actor) =>
             setClientArchived(db, actor, id, archived),
@@ -140,7 +135,7 @@ export function recordRoutes(options: {
       `/venues/:id/${action}`,
       requirePermission("venues.write"),
       async (c) => {
-        const id = param(c, "Venue");
+        const id = idParam(c, "Venue");
         return c.json(
           await record(c, (db, actor) =>
             setVenueArchived(db, actor, id, archived),
@@ -152,7 +147,7 @@ export function recordRoutes(options: {
       `/events/:id/${action}`,
       requirePermission("events.write"),
       async (c) => {
-        const id = param(c, "Event");
+        const id = idParam(c, "Event");
         return c.json(
           await record(c, (db, actor) =>
             setEventArchived(db, actor, id, archived),
@@ -169,14 +164,14 @@ export function recordRoutes(options: {
         listVenues(
           db,
           actor,
-          { archived: flag(c, "archived"), search: query(c, "search") },
+          { archived: flag(c, "archived"), search: queryParam(c, "search") },
           pageRequest(c),
         ),
       ),
     ),
   );
   routes.get("/venues/:id", requirePermission("venues.read"), async (c) => {
-    const id = param(c, "Venue");
+    const id = idParam(c, "Venue");
     return c.json(await record(c, (db, actor) => getVenue(db, actor, id)));
   });
   routes.post("/venues", requirePermission("venues.write"), async (c) => {
@@ -187,7 +182,7 @@ export function recordRoutes(options: {
     );
   });
   routes.put("/venues/:id", requirePermission("venues.write"), async (c) => {
-    const id = param(c, "Venue");
+    const id = idParam(c, "Venue");
     const input = await parseBody(c, withVersion(venueInputSchema));
     return c.json(
       await record(c, (db, actor) => updateVenue(db, actor, id, input)),
@@ -197,11 +192,11 @@ export function recordRoutes(options: {
   routes.get("/events", requirePermission("events.read"), async (c) => {
     const filter = {
       archived: flag(c, "archived"),
-      clientId: query(c, "clientId"),
-      venueId: query(c, "venueId"),
-      from: query(c, "from"),
-      to: query(c, "to"),
-      search: query(c, "search"),
+      clientId: queryParam(c, "clientId"),
+      venueId: queryParam(c, "venueId"),
+      from: queryParam(c, "from"),
+      to: queryParam(c, "to"),
+      search: queryParam(c, "search"),
       // ?status=a,b: events in any of these statuses; unknown values are ignored.
       statuses: (c.req.query("status") ?? "")
         .split(",")
@@ -221,12 +216,12 @@ export function recordRoutes(options: {
     );
   });
   routes.get("/events/:id", requirePermission("events.read"), async (c) => {
-    const id = param(c, "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getEvent(db, actor, id)));
   });
   // The event hub (FLOW-57): the event, its client and the sections the user may see.
   routes.get("/events/:id/hub", requirePermission("events.read"), async (c) => {
-    const id = param(c, "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getEventHub(db, actor, id)));
   });
   routes.post("/events", requirePermission("events.write"), async (c) => {
@@ -237,7 +232,7 @@ export function recordRoutes(options: {
     );
   });
   routes.put("/events/:id", requirePermission("events.write"), async (c) => {
-    const id = param(c, "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, withVersion(eventInputSchema));
     return c.json(
       await record(c, (db, actor) => updateEvent(db, actor, id, input)),
@@ -249,7 +244,7 @@ export function recordRoutes(options: {
     "/events/:id/status",
     requirePermission("events.status"),
     async (c) => {
-      const id = param(c, "Event");
+      const id = idParam(c, "Event");
       const input = await parseBody(c, eventTransitionSchema);
       return c.json(
         await record(c, (db, actor) =>
@@ -262,7 +257,7 @@ export function recordRoutes(options: {
     "/events/:id/status-history",
     requirePermission("events.read"),
     async (c) => {
-      const id = param(c, "Event");
+      const id = idParam(c, "Event");
       return sendPage(
         c,
         await record(c, (db, actor) =>

@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import { notificationPreferencesInputSchema } from "../../../shared/notifications";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requirePermission } from "../../auth";
 import {
-  notFound,
+  idParam,
   parseBody,
   recordRunner,
   type AppEnv,
@@ -40,10 +39,9 @@ export function notificationRoutes(options: { withDb?: RunWithDb }) {
     );
   });
   routes.post("/:id/read", guard, async (c) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Notification");
+    const notificationId = idParam(c, "Notification");
     return c.json(
-      await record(c, (db, actor) => markRead(db, actor, parsed.data)),
+      await record(c, (db, actor) => markRead(db, actor, notificationId)),
     );
   });
   return routes;

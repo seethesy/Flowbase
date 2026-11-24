@@ -27,10 +27,11 @@ import { unitSchema } from "../../../shared/units";
 import { requireActor, requireAnyPermission, requirePermission, type ResolveActor } from "../../auth";
 import { can } from "../../policy";
 import {
-  notFound,
   ApiError,
+  idParam,
   pageRequest,
   parseBody,
+  queryParam,
   recordRunner,
   sendPage,
   type AppContext,
@@ -102,12 +103,6 @@ export function inventoryRoutes(options: {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
-  const param = (c: AppContext, what: string) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
-  const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
   routes.get("/categories", requirePermission("inventory.read"), async (c) =>
@@ -117,7 +112,7 @@ export function inventoryRoutes(options: {
     return c.json(await record(c, (db, actor) => createInventoryCategory(db, actor, input.kind, input.name)), 201);
   });
   routes.patch("/categories/:id", requirePermission("inventory.sections"), async (c) => {
-    const id = param(c, "Category");
+    const id = idParam(c, "Category");
     const input = await parseBody(c, classificationChangeSchema);
     return c.json(await record(c, (db, actor) => updateInventoryCategory(db, actor, id, input)));
   });
@@ -126,7 +121,7 @@ export function inventoryRoutes(options: {
     return c.json(await record(c, (db, actor) => createInventoryType(db, actor, input.categoryId, input.name)), 201);
   });
   routes.patch("/types/:id", requirePermission("inventory.sections"), async (c) => {
-    const id = param(c, "Type");
+    const id = idParam(c, "Type");
     const input = await parseBody(c, classificationChangeSchema);
     return c.json(await record(c, (db, actor) => updateInventoryType(db, actor, id, input)));
   });
@@ -137,7 +132,7 @@ export function inventoryRoutes(options: {
     requireList(c, list.success ? list.data : "master", "read");
     const kind = itemKindSchema.safeParse(c.req.query("kind"));
     const sectionId = uuid.safeParse(c.req.query("sectionId"));
-    if (query(c, "sectionId") && !sectionId.success)
+    if (queryParam(c, "sectionId") && !sectionId.success)
       return sendPage(c, { rows: [], next: null });
     return sendPage(
       c,
@@ -146,17 +141,17 @@ export function inventoryRoutes(options: {
           list: list.success ? list.data : undefined,
           archived: flag(c, "archived"),
           kind: kind.success ? kind.data : undefined,
-          subtype: query(c, "subtype"),
-          excludeSubtypes: query(c, "excludeSubtypes")?.split(",").filter(Boolean),
-          category: query(c, "category"),
-          categoryId: query(c, "categoryId"),
-          typeId: query(c, "typeId"),
+          subtype: queryParam(c, "subtype"),
+          excludeSubtypes: queryParam(c, "excludeSubtypes")?.split(",").filter(Boolean),
+          category: queryParam(c, "category"),
+          categoryId: queryParam(c, "categoryId"),
+          typeId: queryParam(c, "typeId"),
           sectionId: sectionId.success ? sectionId.data : undefined,
-          vendor: query(c, "vendor"),
+          vendor: queryParam(c, "vendor"),
           belowPar: flag(c, "belowPar"),
-          search: query(c, "search"),
-          tier: query(c, "tier"),
-          subcategory: query(c, "subcategory"),
+          search: queryParam(c, "search"),
+          tier: queryParam(c, "tier"),
+          subcategory: queryParam(c, "subcategory"),
         }, pageRequest(c)),
       ),
     );
@@ -173,7 +168,7 @@ export function inventoryRoutes(options: {
     return c.json(await record(c, (db) => pendingInventoryChanges(db, ids)));
   });
   routes.get("/items/:id", requireAnyPermission("inventory.read", "recipes.read"), async (c) => {
-    const id = param(c, "Item");
+    const id = idParam(c, "Item");
     return c.json(await record(c, async (db, actor) => {
       const item = await getItem(db, actor, id);
       requireList(c, item.list, "read");
@@ -191,7 +186,7 @@ export function inventoryRoutes(options: {
     );
   });
   routes.put("/items/:id", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
-    const id = param(c, "Item");
+    const id = idParam(c, "Item");
     // The item's own list decides who may change it, before the body is read.
     requireList(c, inventoryListOf(await record(c, (db) => findItem(db, id))), "write");
     const input = await parseBody(c, withVersion(itemInputSchema));
@@ -203,7 +198,7 @@ export function inventoryRoutes(options: {
     );
   });
   routes.patch("/items/:id/inline", requireAnyPermission("inventory.write", "recipes.write"), async (c) => {
-    const id = param(c, "Item");
+    const id = idParam(c, "Item");
     const { field, value, updatedAt } = await parseBody(c, inlineSchema);
     return c.json(await record(c, async (db, actor) => {
       const stored = await getItem(db, fullView, id);
@@ -277,7 +272,7 @@ export function inventoryRoutes(options: {
     "/items/:id/transfers",
     requirePermission("inventory.move"),
     async (c) => {
-      const id = param(c, "Item");
+      const id = idParam(c, "Item");
       const input = await parseBody(c, transferInputSchema);
       return c.json(
         await record(c, (db, actor) => transferStock(db, actor, id, input)),
@@ -289,7 +284,7 @@ export function inventoryRoutes(options: {
     "/items/:id/counts",
     requirePermission("inventory.count"),
     async (c) => {
-      const id = param(c, "Item");
+      const id = idParam(c, "Item");
       const input = await parseBody(c, countInputSchema);
       return c.json(
         await record(c, async (db, actor) => {
@@ -306,7 +301,7 @@ export function inventoryRoutes(options: {
     "/items/:id/movements",
     requirePermission("inventory.read"),
     async (c) => {
-      const id = param(c, "Item");
+      const id = idParam(c, "Item");
       return sendPage(
         c,
         await record(c, (db) => listMovements(db, id, pageRequest(c))),
@@ -317,7 +312,7 @@ export function inventoryRoutes(options: {
     "/items/:id/movements",
     requirePermission("inventory.move"),
     async (c) => {
-      const id = param(c, "Item");
+      const id = idParam(c, "Item");
       const input = await parseBody(c, movementInputSchema);
       return c.json(
         await record(c, (db, actor) => addMovement(db, actor, id, input)),
@@ -329,7 +324,7 @@ export function inventoryRoutes(options: {
     "/movements/:id/corrections",
     requirePermission("inventory.move"),
     async (c) => {
-      const id = param(c, "Movement");
+      const id = idParam(c, "Movement");
       const input = await parseBody(c, correctionInputSchema);
       return c.json(
         await record(c, (db, actor) => correctMovement(db, actor, id, input)),
@@ -342,7 +337,7 @@ export function inventoryRoutes(options: {
     "/items/:id/history",
     requirePermission("inventory.read"),
     async (c) => {
-      const id = param(c, "Item");
+      const id = idParam(c, "Item");
       return sendPage(
         c,
         await record(c, (db, actor) => itemHistory(db, actor, id, pageRequest(c))),
@@ -353,7 +348,7 @@ export function inventoryRoutes(options: {
     "/items/:id/cost-history",
     requirePermission("inventory.read"),
     async (c) => {
-      const id = param(c, "Item");
+      const id = idParam(c, "Item");
       return sendPage(
         c,
         await record(c, (db, actor) =>
@@ -384,14 +379,14 @@ export function inventoryRoutes(options: {
     return c.json(count, created ? 201 : 200);
   });
   routes.get("/counts/:id", requirePermission("inventory.count"), async (c) => {
-    const id = param(c, "Count");
+    const id = idParam(c, "Count");
     return c.json(await record(c, (db, actor) => getCount(db, actor, id)));
   });
   routes.post(
     "/counts/:id/lines",
     requirePermission("inventory.count"),
     async (c) => {
-      const id = param(c, "Count");
+      const id = idParam(c, "Count");
       const input = await parseBody(c, countLineInputSchema);
       return c.json(
         await record(c, (db, actor) => recordCountLine(db, actor, id, input)),
@@ -402,7 +397,7 @@ export function inventoryRoutes(options: {
     "/counts/:id/complete",
     requirePermission("inventory.count"),
     async (c) => {
-      const id = param(c, "Count");
+      const id = idParam(c, "Count");
       return c.json(
         await record(c, (db, actor) => completeCount(db, actor, id)),
       );
@@ -448,7 +443,7 @@ export function inventoryRoutes(options: {
     "/sections/:id",
     requirePermission("inventory.sections"),
     async (c) => {
-      const id = param(c, "Section");
+      const id = idParam(c, "Section");
       const input = await parseBody(c, sectionRenameSchema);
       return c.json(
         await record(c, (db, actor) =>
@@ -466,7 +461,7 @@ export function inventoryRoutes(options: {
       `/items/:id/${action}`,
       requireAnyPermission("inventory.write", "recipes.write"),
       async (c) => {
-        const id = param(c, "Item");
+        const id = idParam(c, "Item");
         return c.json(
           await record(c, async (db, actor) => {
             const item = await findItem(db, id);
@@ -482,7 +477,7 @@ export function inventoryRoutes(options: {
       `/sections/:id/${action}`,
       requirePermission("inventory.sections"),
       async (c) => {
-        const id = param(c, "Section");
+        const id = idParam(c, "Section");
         return c.json(
           await record(c, (db, actor) =>
             setSectionArchived(db, actor, id, archived),

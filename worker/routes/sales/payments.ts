@@ -3,13 +3,11 @@ import {
   paymentInputSchema,
   scheduleItemInputSchema,
 } from "../../../shared/payments";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requirePermission } from "../../auth";
 import {
-  notFound,
+  idParam,
   parseBody,
   recordRunner,
-  type AppContext,
   type AppEnv,
   type RunWithDb,
 } from "../../hono";
@@ -28,21 +26,16 @@ import {
 export function paymentRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const param = (c: AppContext, name: string, what: string) => {
-    const parsed = uuid.safeParse(c.req.param(name));
-    if (!parsed.success) throw notFound(what);
-    return parsed.data;
-  };
 
   routes.get("/:id/payments", requirePermission("events.read"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     return c.json(await record(c, (db, actor) => getEventPayments(db, actor, id)));
   });
   routes.post(
     "/:id/payments/schedule",
     requirePermission("payments.record"),
     async (c) => {
-      const id = param(c, "id", "Event");
+      const id = idParam(c, "Event");
       const input = await parseBody(c, scheduleItemInputSchema);
       return c.json(
         await record(c, (db, actor) => createScheduleItem(db, actor, id, input)),
@@ -54,8 +47,8 @@ export function paymentRoutes(options: { withDb?: RunWithDb }) {
     "/:id/payments/schedule/:itemId",
     requirePermission("payments.record"),
     async (c) => {
-      const id = param(c, "id", "Event");
-      const itemId = param(c, "itemId", "Schedule item");
+      const id = idParam(c, "Event");
+      const itemId = idParam(c, "Schedule item", "itemId");
       const input = await parseBody(c, scheduleItemInputSchema);
       return c.json(
         await record(c, (db, actor) =>
@@ -68,15 +61,15 @@ export function paymentRoutes(options: { withDb?: RunWithDb }) {
     "/:id/payments/schedule/:itemId/archive",
     requirePermission("payments.record"),
     async (c) => {
-      const id = param(c, "id", "Event");
-      const itemId = param(c, "itemId", "Schedule item");
+      const id = idParam(c, "Event");
+      const itemId = idParam(c, "Schedule item", "itemId");
       return c.json(
         await record(c, (db, actor) => archiveScheduleItem(db, actor, id, itemId)),
       );
     },
   );
   routes.post("/:id/payments", requirePermission("payments.record"), async (c) => {
-    const id = param(c, "id", "Event");
+    const id = idParam(c, "Event");
     const input = await parseBody(c, paymentInputSchema);
     return c.json(
       await record(c, (db, actor) => recordPayment(db, actor, id, input)),
@@ -87,8 +80,8 @@ export function paymentRoutes(options: { withDb?: RunWithDb }) {
     "/:id/payments/:paymentId/archive",
     requirePermission("payments.record"),
     async (c) => {
-      const id = param(c, "id", "Event");
-      const paymentId = param(c, "paymentId", "Payment");
+      const id = idParam(c, "Event");
+      const paymentId = idParam(c, "Payment", "paymentId");
       return c.json(
         await record(c, (db, actor) => archivePayment(db, actor, id, paymentId)),
       );

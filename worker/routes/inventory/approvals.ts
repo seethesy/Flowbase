@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { id as uuid } from "../../../shared/schema-primitives";
 import {
   approvalFilterSchema,
   approveInputSchema,
@@ -8,12 +7,11 @@ import {
 import { requirePermission } from "../../auth";
 import {
   ApiError,
-  notFound,
+  idParam,
   pageRequest,
   parseBody,
   recordRunner,
   sendPage,
-  type AppContext,
   type AppEnv,
   type RunWithDb,
 } from "../../hono";
@@ -31,11 +29,6 @@ import {
 export function approvalRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
-  const approvalId = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Approval request");
-    return parsed.data;
-  };
 
   routes.get("/", requirePermission("approvals.read"), async (c) => {
     const filter = approvalFilterSchema.safeParse(c.req.query());
@@ -49,11 +42,11 @@ export function approvalRoutes(options: { withDb?: RunWithDb }) {
     );
   });
   routes.get("/:id", requirePermission("approvals.read"), async (c) => {
-    const id = approvalId(c);
+    const id = idParam(c, "Approval request");
     return c.json(await record(c, (db, actor) => getApproval(db, actor, id)));
   });
   routes.post("/:id/approve", requirePermission("approvals.write"), async (c) => {
-    const id = approvalId(c);
+    const id = idParam(c, "Approval request");
     const input = await parseBody(c, approveInputSchema);
     return c.json(
       await record(c, async (db, actor) => {
@@ -65,7 +58,7 @@ export function approvalRoutes(options: { withDb?: RunWithDb }) {
     );
   });
   routes.post("/:id/reject", requirePermission("approvals.write"), async (c) => {
-    const id = approvalId(c);
+    const id = idParam(c, "Approval request");
     const input = await parseBody(c, rejectInputSchema);
     return c.json(
       await record(c, async (db, actor) => {
@@ -77,7 +70,7 @@ export function approvalRoutes(options: { withDb?: RunWithDb }) {
     );
   });
   routes.post("/:id/withdraw", requirePermission("approvals.write"), async (c) => {
-    const id = approvalId(c);
+    const id = idParam(c, "Approval request");
     return c.json(
       await record(c, async (db, actor) => {
         await db.transaction((tx) => withdrawApproval(tx, actor, id));

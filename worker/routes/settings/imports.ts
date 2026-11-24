@@ -4,13 +4,12 @@ import {
   importDryRunSchema,
   importStartSchema,
 } from "../../../shared/imports";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
-  notFound,
+  idParam,
   parseBody,
+  queryParam,
   recordRunner,
-  type AppContext,
   type AppEnv,
   type RunWithDb,
 } from "../../hono";
@@ -41,11 +40,6 @@ export function importRoutes(options: {
   const record = recordRunner(options.withDb);
   const modules = options.modules ?? registeredImportModules;
   routes.use("*", requireActor(options.resolveActor));
-  const param = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Import");
-    return parsed.data;
-  };
 
   routes.get("/modules", requirePermission("imports.run"), (c) =>
     c.json(listImportModules(modules, c.get("actor"))),
@@ -64,7 +58,7 @@ export function importRoutes(options: {
   routes.get("/", requirePermission("imports.run"), async (c) =>
     c.json(
       await record(c, (db, actor) =>
-        listImports(db, modules, actor, c.req.query("module") || undefined),
+        listImports(db, modules, actor, queryParam(c, "module")),
       ),
     ),
   );
@@ -76,13 +70,13 @@ export function importRoutes(options: {
     );
   });
   routes.get("/:id", requirePermission("imports.run"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Import");
     return c.json(
       await record(c, (db, actor) => getImport(db, modules, actor, id)),
     );
   });
   routes.post("/:id/rows", requirePermission("imports.run"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Import");
     const input = await parseBody(c, importBatchSchema);
     return c.json(
       await record(c, (db, actor) =>
@@ -91,7 +85,7 @@ export function importRoutes(options: {
     );
   });
   routes.post("/:id/complete", requirePermission("imports.run"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Import");
     return c.json(
       await record(c, (db, actor) => completeImport(db, modules, actor, id)),
     );

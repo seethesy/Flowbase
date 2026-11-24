@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 import type { Actor } from "../shared/access";
+import { id as uuid } from "../shared/schema-primitives";
 import type { ChangeArea } from "../shared/realtime";
 import type { Bindings } from "./bindings";
 import type { Db } from "./db/client";
@@ -74,7 +75,7 @@ export function pageRequest(c: AppContext): PageRequest {
   if (card) return { card };
   const limit = Number(c.req.query("limit"));
   return {
-    cursor: c.req.query("cursor") || undefined,
+    cursor: queryParam(c, "cursor"),
     limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
   };
 }
@@ -114,6 +115,16 @@ export const notFound = (what: string) =>
   new ApiError(404, "NOT_FOUND", `${what} not found.`);
 export const forbidden = () =>
   new ApiError(403, "FORBIDDEN", "You don't have access to this.");
+
+// A route's uuid parameter (FLOW-313); anything else is a 404 for `what`.
+export function idParam(c: AppContext, what: string, name = "id"): string {
+  const parsed = uuid.safeParse(c.req.param(name));
+  if (!parsed.success) throw notFound(what);
+  return parsed.data;
+}
+// A query string value, with an empty one read as absent (FLOW-313).
+export const queryParam = (c: AppContext, key: string) =>
+  c.req.query(key) || undefined;
 
 // Parses a JSON body; the first validation message becomes the error message.
 export async function parseBody<S extends z.ZodType>(

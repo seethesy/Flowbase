@@ -9,12 +9,12 @@ import {
   leadUpdateSchema,
   leadStatusChangeSchema,
 } from "../../../shared/leads";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
-  notFound,
+  idParam,
   pageRequest,
   parseBody,
+  queryParam,
   recordRunner,
   sendPage,
   type AppContext,
@@ -53,12 +53,6 @@ export function leadRoutes(options: {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
-  const param = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Lead");
-    return parsed.data;
-  };
-  const query = (c: AppContext, key: string) => c.req.query(key) || undefined;
   const flag = (c: AppContext, key: string) => c.req.query(key) === "true";
 
   routes.get("/", requirePermission("leads.read"), async (c) =>
@@ -66,13 +60,13 @@ export function leadRoutes(options: {
       c,
       await record(c, (db, actor) =>
         listLeads(db, actor, {
-          status: query(c, "status"),
-          source: query(c, "source"),
-          channel: query(c, "channel"),
-          assigned: query(c, "assigned"),
+          status: queryParam(c, "status"),
+          source: queryParam(c, "source"),
+          channel: queryParam(c, "channel"),
+          assigned: queryParam(c, "assigned"),
           needsReview: flag(c, "needsReview"),
           triage: flag(c, "triage"),
-          search: query(c, "search"),
+          search: queryParam(c, "search"),
         }, pageRequest(c)),
       ),
     ),
@@ -99,8 +93,8 @@ export function leadRoutes(options: {
     c.json(
       await record(c, (db, actor) =>
         leadDashboard(db, actor, {
-          from: query(c, "from"),
-          to: query(c, "to"),
+          from: queryParam(c, "from"),
+          to: queryParam(c, "to"),
         }),
       ),
     ),
@@ -117,16 +111,11 @@ export function leadRoutes(options: {
       ),
     ),
   );
-  const duplicateParam = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Duplicate");
-    return parsed.data;
-  };
   routes.post(
     "/duplicates/:id/merge",
     requirePermission("leads.merge"),
     async (c) => {
-      const id = duplicateParam(c);
+      const id = idParam(c, "Duplicate");
       const input = await parseBody(c, leadMergeSchema);
       return c.json(
         await record(c, async (db, actor) =>
@@ -143,30 +132,30 @@ export function leadRoutes(options: {
     "/duplicates/:id/dismiss",
     requirePermission("leads.merge"),
     async (c) => {
-      const id = duplicateParam(c);
+      const id = idParam(c, "Duplicate");
       await record(c, (db, actor) => dismissLeadDuplicate(db, actor, id));
       return c.body(null, 204);
     },
   );
   routes.get("/:id", requirePermission("leads.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     return c.json(await record(c, (db, actor) => getLead(db, actor, id)));
   });
   routes.put("/:id", requirePermission("leads.update"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     const input = await parseBody(c, leadUpdateSchema);
     return c.json(await record(c, (db, actor) => updateLead(db, actor, id, input)));
   });
   // Lead history (FLOW-185): read-only for anyone who can see the lead.
   routes.get("/:id/history", requirePermission("leads.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     return sendPage(
       c,
       await record(c, (db, actor) => leadHistory(db, actor, id, pageRequest(c))),
     );
   });
   routes.post("/:id/assign", requirePermission("leads.assign"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     const input = await parseBody(c, leadAssignSchema);
     return c.json(
       await record(c, (db, actor) =>
@@ -175,27 +164,27 @@ export function leadRoutes(options: {
     );
   });
   routes.post("/:id/status", requirePermission("leads.update"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     const input = await parseBody(c, leadStatusChangeSchema);
     return c.json(
       await record(c, (db, actor) => changeLeadStatus(db, actor, id, input)),
     );
   });
   routes.post("/:id/events", requirePermission("leads.update"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     const input = await parseBody(c, leadEventInputSchema);
     return c.json(await record(c, (db, actor) => createLeadEvent(db, actor, id, input)), 201);
   });
   routes.get("/:id/events", requirePermission("leads.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     return c.json(await record(c, (db, actor) => listLeadEvents(db, actor, id)));
   });
   routes.get("/:id/beos", requirePermission("leads.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     return c.json(await record(c, (db, actor) => listLeadBeos(db, actor, id)));
   });
   routes.post("/:id/convert", requirePermission("leads.convert"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Lead");
     const input = await parseBody(c, leadConvertSchema);
     return c.json(
       await record(c, (db, actor) => convertLead(db, actor, id, input)),

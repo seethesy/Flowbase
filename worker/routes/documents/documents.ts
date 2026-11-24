@@ -3,18 +3,13 @@ import { documentChangeSchema, documentUploadSchema, documentTypeSchema } from "
 import { recordTypeSchema } from "../../../shared/attachments";
 import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
-import { ApiError, notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { ApiError, idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { archiveDocument, changeDocument, completeDocumentUpload, getDocument, listDocuments, startDocumentUpload } from "../../records/documents/documents";
 
 export function documentRoutes(options: { withDb?: RunWithDb; resolveActor?: ResolveActor }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
-  const param = (value: string) => {
-    const result = uuid.safeParse(value);
-    if (!result.success) throw notFound("Document");
-    return result.data;
-  };
   routes.get("/", requirePermission("attachments.read"), async (c) => {
     const type = c.req.query("docType");
     const link = c.req.query("recordType");
@@ -34,16 +29,16 @@ export function documentRoutes(options: { withDb?: RunWithDb; resolveActor?: Res
     return c.json(await record(c, (db, actor) => startDocumentUpload(db, actor, c.env ?? {}, input)), 201);
   });
   routes.get("/:id", requirePermission("attachments.read"), async (c) =>
-    c.json(await record(c, (db, actor) => getDocument(db, actor, c.env ?? {}, param(c.req.param("id"))))));
+    c.json(await record(c, (db, actor) => getDocument(db, actor, c.env ?? {}, idParam(c, "Document")))));
   routes.post("/:id/complete", requirePermission("attachments.write"), async (c) =>
-    c.json(await record(c, (db, actor) => completeDocumentUpload(db, actor, c.env ?? {}, param(c.req.param("id"))))));
+    c.json(await record(c, (db, actor) => completeDocumentUpload(db, actor, c.env ?? {}, idParam(c, "Document")))));
   routes.patch("/:id", requirePermission("attachments.write"), async (c) => {
     const change = await parseBody(c, documentChangeSchema);
-    return c.json(await record(c, (db, actor) => changeDocument(db, actor, c.env ?? {}, param(c.req.param("id")), change)));
+    return c.json(await record(c, (db, actor) => changeDocument(db, actor, c.env ?? {}, idParam(c, "Document"), change)));
   });
   routes.post("/:id/archive", requirePermission("attachments.write"), async (c) =>
-    c.json(await record(c, (db, actor) => archiveDocument(db, actor, param(c.req.param("id"))))));
+    c.json(await record(c, (db, actor) => archiveDocument(db, actor, idParam(c, "Document")))));
   routes.post("/:id/restore", requirePermission("attachments.write"), async (c) =>
-    c.json(await record(c, (db, actor) => archiveDocument(db, actor, param(c.req.param("id")), true))));
+    c.json(await record(c, (db, actor) => archiveDocument(db, actor, idParam(c, "Document"), true))));
   return routes;
 }

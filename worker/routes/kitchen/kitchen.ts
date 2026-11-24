@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import { kitchenInChargeInputSchema } from "../../../shared/kitchen-overview";
-import { id } from "../../../shared/schema-primitives";
 import { requirePermission } from "../../auth";
-import { notFound, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
+import { idParam, parseBody, recordRunner, type AppEnv, type RunWithDb } from "../../hono";
 import { getKitchenOverview, setKitchenInCharge } from "../../records/kitchen/kitchen-overview";
 
 // Kitchen › Overview (FLOW-293), mounted at /api/kitchen. Reading follows event
@@ -14,10 +13,9 @@ export function kitchenRoutes(options: { withDb?: RunWithDb }) {
     c.json(await record(c, (db, actor) => getKitchenOverview(db, actor))),
   );
   routes.patch("/lines/:id/in-charge", requirePermission("events.read"), async (c) => {
-    const parsed = id.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Menu line");
+    const menuLineId = idParam(c, "Menu line");
     const input = await parseBody(c, kitchenInChargeInputSchema);
-    return c.json(await record(c, (db, actor) => setKitchenInCharge(db, actor, parsed.data, input)));
+    return c.json(await record(c, (db, actor) => setKitchenInCharge(db, actor, menuLineId, input)));
   });
   return routes;
 }

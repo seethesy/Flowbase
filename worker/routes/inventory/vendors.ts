@@ -1,15 +1,14 @@
 import { getItemsByIds } from "../../records/inventory/inventory";
 import { Hono } from "hono";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { vendorInputSchema, vendorTypeSchema } from "../../../shared/vendors";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
-  notFound,
+  idParam,
   pageRequest,
   parseBody,
+  queryParam,
   recordRunner,
   sendPage,
-  type AppContext,
   type AppEnv,
   type RunWithDb,
 } from "../../hono";
@@ -32,11 +31,6 @@ export function vendorRoutes(options: {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
-  const param = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Vendor");
-    return parsed.data;
-  };
 
   routes.get("/", requirePermission("vendors.read"), async (c) => {
     const type = vendorTypeSchema.safeParse(c.req.query("type"));
@@ -48,7 +42,7 @@ export function vendorRoutes(options: {
           actor,
           {
             archived: c.req.query("archived") === "true",
-            search: c.req.query("search") || undefined,
+            search: queryParam(c, "search"),
             type: type.success ? type.data : undefined,
           },
           pageRequest(c),
@@ -57,16 +51,16 @@ export function vendorRoutes(options: {
     );
   });
   routes.get("/:id", requirePermission("vendors.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Vendor");
     return c.json(await record(c, (db, actor) => getVendor(db, actor, id)));
   });
   routes.get("/:id/items", requirePermission("vendors.read"), requirePermission("inventory.read"), async (c) =>
     c.json(await record(c, async (db, actor) => {
-      const vendor = await getVendor(db, actor, param(c));
+      const vendor = await getVendor(db, actor, idParam(c, "Vendor"));
       return getItemsByIds(db, actor, vendor.items.map((item) => item.id));
     })));
   routes.get("/:id/history", requirePermission("vendors.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Vendor");
     return sendPage(
       c,
       await record(c, (db, actor) =>
@@ -82,7 +76,7 @@ export function vendorRoutes(options: {
     );
   });
   routes.put("/:id", requirePermission("vendors.write"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Vendor");
     const input = await parseBody(c, vendorInputSchema);
     return c.json(
       await record(c, (db, actor) => updateVendor(db, actor, id, input)),
@@ -96,7 +90,7 @@ export function vendorRoutes(options: {
       `/:id/${action}`,
       requirePermission("vendors.write"),
       async (c) => {
-        const id = param(c);
+        const id = idParam(c, "Vendor");
         return c.json(
           await record(c, (db, actor) =>
             setVendorArchived(db, actor, id, archived),

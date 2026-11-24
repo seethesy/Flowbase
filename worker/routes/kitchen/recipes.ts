@@ -5,12 +5,12 @@ import {
   scaleQuerySchema,
 } from "../../../shared/recipes";
 import { saveClientRecipeBook } from "../../records/kitchen/recipe-book-pdf";
-import { id as uuid } from "../../../shared/schema-primitives";
 import { requireActor, requirePermission, type ResolveActor } from "../../auth";
 import {
   ApiError,
-  notFound,
+  idParam,
   parseBody,
+  queryParam,
   recordRunner,
   type AppContext,
   type AppEnv,
@@ -37,19 +37,14 @@ export function recipeRoutes(options: {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   routes.use("*", requireActor(options.resolveActor));
-  const param = (c: AppContext) => {
-    const parsed = uuid.safeParse(c.req.param("id"));
-    if (!parsed.success) throw notFound("Recipe");
-    return parsed.data;
-  };
 
   const filters = (c: AppContext) => {
     return {
       archived: c.req.query("archived") === "true",
-      category: c.req.query("category") || undefined,
-      search: c.req.query("search") || undefined,
-      allergen: c.req.query("allergen") || undefined,
-      dietaryTag: c.req.query("dietaryTag") || undefined,
+      category: queryParam(c, "category"),
+      search: queryParam(c, "search"),
+      allergen: queryParam(c, "allergen"),
+      dietaryTag: queryParam(c, "dietaryTag"),
     };
   };
   routes.get("/client", requirePermission("recipes.read"), async (c) =>
@@ -68,19 +63,19 @@ export function recipeRoutes(options: {
     );
   });
   routes.get("/:id", requirePermission("recipes.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Recipe");
     return c.json(await record(c, (db, actor) => getRecipe(db, actor, id)));
   });
   // Record history (FLOW-41): read-only, like the core records'.
   routes.get("/:id/history", requirePermission("recipes.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Recipe");
     return c.json(
       await record(c, (db, actor) => recipeHistory(db, actor, id)),
     );
   });
   // FLOW-98: GET /api/recipes/<id>/scale?servings=120.
   routes.get("/:id/scale", requirePermission("recipes.read"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Recipe");
     const servings = scaleQuerySchema.safeParse(c.req.query("servings"));
     if (!servings.success)
       throw new ApiError(
@@ -100,7 +95,7 @@ export function recipeRoutes(options: {
     );
   });
   routes.put("/:id", requirePermission("recipes.write"), async (c) => {
-    const id = param(c);
+    const id = idParam(c, "Recipe");
     const input = await parseBody(c, recipeInputSchema);
     return c.json(
       await record(c, (db, actor) => updateRecipe(db, actor, id, input)),
@@ -114,7 +109,7 @@ export function recipeRoutes(options: {
       `/:id/${action}`,
       requirePermission("recipes.write"),
       async (c) => {
-        const id = param(c);
+        const id = idParam(c, "Recipe");
         return c.json(
           await record(c, (db, actor) =>
             setRecipeArchived(db, actor, id, archived),
