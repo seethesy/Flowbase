@@ -247,6 +247,12 @@ export const liveEditRenames: LiveEditRenames = {
       "stock-counts.low-stock-list.load-more-items",
       "stock-counts.low-stock-list.low-stock",
       "stock-counts.low-stock-list.stock-supplies",
+      // FLOW-332: the layer toggles' legend (now one Layers dropdown) and the
+      // Leads table's "Owners" label in front of its owner filter.
+      "calendar.calendar-page.layers",
+      "leads.inbox.owners",
+      // FLOW-334: the separate "Edit lead" card; its fields are edited in place.
+      "lead-detail.edit.title",
     ],
     blocks: [
       "events.detail/day-of",

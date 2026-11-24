@@ -142,8 +142,13 @@
     "calendar.calendar-page.all-owners": [],
     "calendar.calendar-page.all-statuses": [],
     "calendar.calendar-page.day": [],
-    "calendar.calendar-page.layers": [],
     "calendar.calendar-page.month": [],
+    "calendar.calendar-page.show-layers.one": [
+      "count"
+    ],
+    "calendar.calendar-page.show-layers.other": [
+      "count"
+    ],
     "calendar.calendar-page.status": [],
     "calendar.calendar-page.today": [],
     "calendar.calendar-page.week": [],
@@ -871,6 +876,7 @@
     "events.event-detail.archive": [],
     "events.event-detail.archive-this-event": [],
     "events.event-detail.archived": [],
+    "events.event-detail.cancel": [],
     "events.event-detail.client": [],
     "events.event-detail.edit": [],
     "events.event-detail.event-details": [],
@@ -890,6 +896,7 @@
     ],
     "events.event-detail.point-of-contact": [],
     "events.event-detail.restore": [],
+    "events.event-detail.save": [],
     "events.event-detail.transportation": [],
     "events.event-detail.will-be-hidden-from-the": [
       "title"
@@ -1564,7 +1571,6 @@
     "lead-detail.edit.edit": [],
     "lead-detail.edit.new-event": [],
     "lead-detail.edit.save": [],
-    "lead-detail.edit.title": [],
     "lead-detail.events.add": [],
     "lead-detail.events.beo-version": [
       "status",
@@ -1587,6 +1593,8 @@
     "lead-detail.lead-detail.email": [],
     "lead-detail.lead-detail.event": [],
     "lead-detail.lead-detail.event-date": [],
+    "lead-detail.lead-detail.event-name": [],
+    "lead-detail.lead-detail.event-time": [],
     "lead-detail.lead-detail.event-type": [],
     "lead-detail.lead-detail.first-response": [],
     "lead-detail.lead-detail.guests": [],
@@ -1616,6 +1624,7 @@
     "lead-detail.lead-detail.salesperson": [],
     "lead-detail.lead-detail.source": [],
     "lead-detail.lead-detail.source-lead": [],
+    "lead-detail.lead-detail.source-lead-link": [],
     "lead-detail.lead-detail.source-links": [],
     "lead-detail.lead-detail.unassigned": [],
     "lead-detail.lead-detail.unnamed-lead": [],
@@ -1655,7 +1664,6 @@
     "leads.inbox.needs-review": [],
     "leads.inbox.new-lead": [],
     "leads.inbox.next": [],
-    "leads.inbox.owners": [],
     "leads.inbox.page-range": [
       "end",
       "start",
