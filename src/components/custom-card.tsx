@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 // The app's client, named so pages render without a QueryClientProvider too (tests mount pages bare).
 import { queryClient } from "../app/queryClient";
 import { canReadField, fieldRegistry, type SourceKey } from "../../shared/fields";
-import type { CardConfig } from "../../shared/layout";
+import { layoutItemGone, type CardConfig } from "../../shared/layout";
+import type { Actor } from "../../shared/access";
 import { T } from "../app/copy";
 import { usePermissions } from "../app/permissions";
 import { cardRequestPath, cardsApi } from "../services/layout";
@@ -30,6 +31,22 @@ function cardTarget(card: CardConfig, record: Record_): { source: SourceKey; rel
   return relation ? { source: relation.source, relationPath: relation.path(record.id) } : null;
 }
 
+// Why a card with rows would render nothing (FLOW-326), or null when it shows
+// something: no source on this page, or none of its columns or boxes can be
+// shown to this viewer (unknown or unreadable fields, and no text boxes).
+export function cardProblem(
+  card: CardConfig,
+  source: SourceKey | null,
+  actor: Actor | null,
+): "no-source" | "no-fields" | null {
+  if (!source) return "no-source";
+  const readable = (field: string) => actor !== null && canReadField(actor, source, field);
+  if (card.display.type === "table")
+    return card.display.columns.some((column) => readable(column.key)) ? null : "no-fields";
+  const shown = card.display.boxes.filter((box) => !layoutItemGone(box));
+  return shown.some((box) => box.kind !== "field" || readable(box.field!)) ? null : "no-fields";
+}
+
 export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId: string; record: Record_ }) {
   const { actor } = usePermissions();
   const target = cardTarget(card, record);
@@ -40,6 +57,7 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
     enabled: path !== null,
   }, queryClient);
   const source = target?.source;
+  const problem = cardProblem(card, source ?? null, actor);
   return (
     <section className="panel layout-card" data-card-id={cardId}>
       <LayoutHeader headerKey={`${cardId}.title`} name={`${card.title} header`}>
@@ -47,7 +65,11 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
         <h2>{card.title}</h2>
       </div>
       </LayoutHeader>
-      {!source || !path ? (
+      {problem === "no-source" || !source ? (
+        <p role="alert" className="error-message">
+          <T id="layout.custom-card.no-source">This card's source isn't available on this page.</T>
+        </p>
+      ) : !path ? (
         <p className="muted">
           <T id="layout.custom-card.no-data">No data</T>
         </p>
@@ -58,6 +80,10 @@ export function CustomCard({ card, cardId, record }: { card: CardConfig; cardId:
       ) : !rows.data.length ? (
         <p className="muted">
           <T id="layout.custom-card.no-data">No data</T>
+        </p>
+      ) : problem === "no-fields" ? (
+        <p role="alert" className="error-message">
+          <T id="layout.custom-card.no-fields">None of this card's fields can be shown. Edit the card and choose its fields again.</T>
         </p>
       ) : card.display.type === "table" ? (
         <div className="table-scroll layout-card-scroll">

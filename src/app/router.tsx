@@ -8,6 +8,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
+import { RouteError } from "../components/RouteError";
 const Dashboard = lazy(() =>
   import("../features/home/dashboard").then((module) => ({ default: module.Dashboard })),
 );
@@ -235,15 +236,17 @@ let router: ReturnType<typeof createHashRouter> | undefined;
 export const getRouter = () =>
   (router ??= createHashRouter([
     // Printable documents render without the app shell.
-    { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense> },
-    { path: "/print/recipes/client", element: <Suspense fallback={<p role="status">Loading document…</p>}><ClientRecipePrint /></Suspense> },
+    { path: "/print/sample", element: <Suspense fallback={<p role="status">Loading document…</p>}><PrintSample /></Suspense>, errorElement: <RouteError /> },
+    { path: "/print/recipes/client", element: <Suspense fallback={<p role="status">Loading document…</p>}><ClientRecipePrint /></Suspense>, errorElement: <RouteError /> },
     // Saved BEOs, read with no signal (FLOW-150): outside the app shell too.
-    { path: "/offline", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoList /></Suspense> },
-    { path: "/offline/events/:id", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoPage /></Suspense> },
-    { path: "/print/events/:id/beo", element: <Suspense fallback={<p role="status">Loading document…</p>}><BeoPrint /></Suspense> },
-    { path: "/print/recipes/:id", element: <Suspense fallback={<p role="status">Loading document…</p>}><KitchenRecipePrint /></Suspense> },
+    { path: "/offline", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoList /></Suspense>, errorElement: <RouteError /> },
+    { path: "/offline/events/:id", element: <Suspense fallback={<p role="status">Loading…</p>}><OfflineBeoPage /></Suspense>, errorElement: <RouteError /> },
+    { path: "/print/events/:id/beo", element: <Suspense fallback={<p role="status">Loading document…</p>}><BeoPrint /></Suspense>, errorElement: <RouteError /> },
+    { path: "/print/recipes/:id", element: <Suspense fallback={<p role="status">Loading document…</p>}><KitchenRecipePrint /></Suspense>, errorElement: <RouteError /> },
     {
       element: <AppShell />,
+      // A screen that fails to load, e.g. a chunk removed by a deploy (FLOW-325).
+      errorElement: <RouteError />,
       children: [
         { path: "/", element: <Dashboard /> },
         { path: "/leads", element: <LeadInbox /> },

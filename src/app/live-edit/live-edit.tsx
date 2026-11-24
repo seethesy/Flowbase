@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useUnsavedEdits } from "../unsavedEdits";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { useBlocker } from "react-router-dom";
@@ -217,6 +218,8 @@ function CopyEditor({ target }: { target: EditorTarget }) {
 function LeaveGuard() {
   const live = useLiveEdit();
   const dirty = pendingCount(live) > 0;
+  // A new app version waits for these to be saved (FLOW-325).
+  useUnsavedEdits(dirty);
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&

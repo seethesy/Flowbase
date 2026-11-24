@@ -9,6 +9,7 @@ import { useResource } from "../../app/useResource";
 import { usePermissions } from "../../app/permissions";
 import { T, useCopy } from "../../app/copy";
 import { documentsApi, uploadDocument } from "../../services/documents";
+import { STORAGE_UNREACHABLE, StorageUnreachableError } from "../../services/attachments";
 import { searchApi } from "../../services/search";
 import { sopsApi } from "../../services/sops";
 import { documentTypeLabels, documentTypes, type Document, type DocumentType } from "../../../shared/documents";
@@ -152,13 +153,14 @@ export function DocumentsPage({ onlyType }: { onlyType?: DocumentType } = {}) {
     { accessorKey: "updatedAt", header: "Updated", cell: ({ row }) => new Date(row.original.updatedAt).toLocaleDateString() },
     { id: "size", header: "Size", accessorFn: (row) => latest(row)?.size ?? 0, cell: ({ row }) => sizeText(latest(row.original)?.size ?? 0) },
   ];
+  const unreachable = useCopy("documents.upload.storage-unreachable", STORAGE_UNREACHABLE);
   const uploadVersion = async (event: ChangeEvent<HTMLInputElement>) => {
     const picked = event.target.files?.[0];
     if (!picked || !selected) return;
     setError("");
     try { await uploadDocument(picked, { name: selected.name, docType: selected.docType,
       recordType: selected.recordType, recordId: selected.recordId, documentId: selected.id }); reload(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    catch (cause) { setError(uploadError(cause, unreachable)); }
     event.target.value = "";
   };
   const upload = can("attachments.write") && <Button onClick={() => setUploadOpen(true)}><Upload size={16} /><T id="documents.library.upload">Upload</T></Button>;
@@ -240,6 +242,10 @@ export function DocumentsPage({ onlyType }: { onlyType?: DocumentType } = {}) {
   </>;
 }
 
+// A storage upload that never reached R2 shows the editable message (FLOW-331).
+const uploadError = (cause: unknown, unreachable: string) =>
+  cause instanceof StorageUnreachableError ? unreachable : cause instanceof Error ? cause.message : String(cause);
+
 // Also the Kitchen screen's "+ Upload menu" (FLOW-267), with the type preset.
 export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onClose: () => void; onSaved: () => void; presetType?: DocumentType }) {
   const [file, setFile] = useState<File | null>(null);
@@ -248,6 +254,7 @@ export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onC
   const [link, setLink] = useState<{ type: AttachmentRecordType; id: string; name: string }>({ type: "document", id: "", name: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const unreachable = useCopy("documents.upload.storage-unreachable", STORAGE_UNREACHABLE);
   const save = async () => {
     if (!file) return setError("Choose a file.");
     if (link.type !== "document" && !link.id) return setError("Pick a linked record.");
@@ -256,7 +263,7 @@ export function DocumentUpload({ onClose, onSaved, presetType = "other" }: { onC
       await uploadDocument(file, { name: name.trim() || file.name, docType: type, recordType: link.type,
         recordId: link.id || undefined });
       onSaved(); onClose();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) { setError(uploadError(cause, unreachable)); }
     finally { setBusy(false); }
   };
   return <DetailDrawer open onClose={onClose} title={<T id="documents.upload.title">Upload document</T>}

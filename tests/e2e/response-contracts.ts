@@ -69,7 +69,7 @@ import {
   activityRecordedSchema,
 } from "../../shared/time-tracking";
 import { attachmentSchema, uploadTicketSchema } from "../../shared/attachments";
-import { documentSchema, documentUploadTicketSchema } from "../../shared/documents";
+import { documentSchema, documentUploadCancelSchema, documentUploadTicketSchema } from "../../shared/documents";
 import { photoSchema } from "../../shared/photos";
 import { communicationSchema } from "../../shared/communications";
 import { sopSchema, sopSummarySchema } from "../../shared/sops";
@@ -183,6 +183,7 @@ export function responseSchema(
   if (resource === "documents")
     return !id && method === "GET" ? documentSchema.array()
       : !id && method === "POST" ? documentUploadTicketSchema
+        : action === "cancel" ? documentUploadCancelSchema
         : action === "archive" || action === "restore"
           ? z.object({ id: z.string(), restored: z.boolean() }) : documentSchema;
   // Photo galleries (FLOW-271, FLOW-298).

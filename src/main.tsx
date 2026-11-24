@@ -8,7 +8,11 @@ import "./styles/globals.css";
 import { App } from "./app/App";
 import { ErrorBoundary } from "@sentry/react";
 import { initializeObservability } from "./observability";
+import { registerSW } from "virtual:pwa-register";
+import { startAppUpdates } from "./app/appUpdate";
 initializeObservability();
+// Offline BEO service worker (FLOW-150) and new-version updates (FLOW-325).
+startAppUpdates(registerSW);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary

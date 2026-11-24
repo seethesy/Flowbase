@@ -176,6 +176,11 @@ optional fields to show.
   page of at most 500 rows; related-record lists always do. The card is then
   applied again in memory on fields the viewer may read, so a hidden field filters
   and sorts as empty either way.
+- A card never renders blank (FLOW-326, `cardProblem` in
+  `src/components/custom-card.tsx`): with no source on this page it shows "This
+  card's source isn't available on this page."; with rows but no column or box
+  the viewer can be shown (unknown or unreadable fields, no text boxes) it says
+  "None of this card's fields can be shown"; with no rows, "No data".
 - The edit chrome (toolbar, popovers, builder) is not wrapped in `<T>`, like the
   live-edit chrome in `src/app`.
 

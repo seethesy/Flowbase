@@ -3384,3 +3384,14 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
   text-align: center;
   margin-top: 8px;
 }
+/* New version notice (FLOW-325). */
+.app-update-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.app-update-notice p {
+  margin: 0;
+  flex: 1;
+}

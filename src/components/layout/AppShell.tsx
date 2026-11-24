@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { DetailDrawer, RoleText } from "../shared";
 import { TrackingNotice } from "../TrackingNotice";
+import { AppUpdateNotice } from "../AppUpdateNotice";
 import { GlobalSearch } from "../../features/home/search";
 import { NotificationBell } from "../../features/home/notifications";
 import { useActivityTracking } from "../../app/useActivityTracking";
@@ -447,6 +448,7 @@ export function AppShell() {
       <div className="app-main">
         <TopHeader setMobile={setMobile} />
         <main id="main-content">
+          <AppUpdateNotice />
           <TrackingNotice />
           <SectionTabs />
           {dashboardParams.get("fromDashboard") === "1" && <Link className="back-link" to={`/${dashboardRole ? `?role=${encodeURIComponent(dashboardRole)}` : ""}`}><T id="app-shell.app-shell.back-to-dashboard">← Back</T></Link>}

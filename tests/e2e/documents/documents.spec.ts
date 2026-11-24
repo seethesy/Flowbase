@@ -75,3 +75,33 @@ test("uploads, previews, deletes and restores a document", async ({ page }) => {
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByRole("row", { name: /Synthetic contract/ })).toBeVisible();
 });
+
+test("an upload that can't reach storage shows why and leaves no document (FLOW-331)", async ({ page }) => {
+  const cancelled: string[] = [];
+  const uploadId = randomUUID();
+  // The browser's "Failed to fetch": a missing CORS rule or no network.
+  await page.route("**/r2-mock/**", (route) => route.abort("failed"));
+  await page.route("**/api/documents**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const [, , , id, action] = url.pathname.split("/");
+    if (request.method() === "GET" && !id) return route.fulfill({ json: [] });
+    if (request.method() === "POST" && !id)
+      return route.fulfill({ status: 201, json: { id: uploadId, url: `${url.origin}/r2-mock/file.pdf`, headers: { "Content-Type": "application/pdf" } } });
+    if (action === "cancel") {
+      cancelled.push(id);
+      return route.fulfill({ json: { id, cancelled: true } });
+    }
+    return route.fulfill({ status: 404, json: { error: { code: "NOT_FOUND", message: "Not found" } } });
+  });
+  await page.goto("/#/documents");
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  const drawer = page.getByRole("dialog");
+  await drawer.locator('input[type="file"]').setInputFiles({ name: "synthetic.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF") });
+  await drawer.getByRole("button", { name: "Upload", exact: true }).click();
+  await expect(drawer.getByRole("alert")).toHaveText("The file couldn't reach storage. Try again, or ask an Admin to check file storage settings.");
+  expect(cancelled).toEqual([uploadId]);
+  await expect(page.getByRole("row", { name: /synthetic.pdf/ })).toHaveCount(0);
+  // The drawer stays open with the file, so the user can retry.
+  await expect(drawer.getByRole("button", { name: "Upload", exact: true })).toBeEnabled();
+});

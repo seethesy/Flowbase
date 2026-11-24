@@ -9,9 +9,13 @@ export default defineConfig({
     // Offline BEO access (FLOW-150, ADR-18): the service worker keeps the app
     // itself available with no signal; the BEO data is saved in IndexedDB by
     // src/offline. API calls are never cached or answered by the worker.
+    // New deployments (FLOW-325): "prompt" keeps a new version waiting until
+    // src/app/appUpdate.ts applies it (fresh load, next navigation or the
+    // Reload notice), so unsaved edits are never lost to an automatic reload.
+    // The app registers the worker itself (virtual:pwa-register in main.tsx).
     VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "script",
+      registerType: "prompt",
+      injectRegister: false,
       manifest: false,
       workbox: {
         navigateFallback: "/index.html",
