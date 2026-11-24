@@ -7,6 +7,24 @@ import {
   taskViewInputSchema,
   templateDueAt,
 } from "../../shared/tasks";
+import { taskFields } from "../../shared/fields/tasks";
+import { mayManageTask } from "../../shared/policy";
+import { fieldText } from "../../src/components/layout-fields";
+
+it("labels the saved overseer field Manager and renders every manager", () => {
+  expect(taskFields.fields.find((field) => field.key === "overseer")?.label).toBe("Manager");
+  expect(fieldText("tasks", "overseer", { overseer: [
+    { id: "one", name: "First" }, { id: "two", name: "Second" },
+  ] })).toBe("First, Second");
+});
+
+it("lets any listed manager manage a task", () => {
+  const task = { createdBy: null, managerIds: ["one", "two"] };
+  const actor = (userId: string) => ({ userId, role: "part_time_staff" as const });
+  expect(mayManageTask(actor("one"), task)).toBe(true);
+  expect(mayManageTask(actor("two"), task)).toBe(true);
+  expect(mayManageTask(actor("other"), task)).toBe(false);
+});
 
 // The pure rules behind the task dashboard (FLOW-61), saved views (FLOW-59) and
 // task templates (FLOW-62). Times are New York business time.

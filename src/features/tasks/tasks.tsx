@@ -24,13 +24,13 @@ import { T, useCopy, LabelT } from "../../app/copy";
 
 // One task (FLOW-58): where a task notification leads (FLOW-43). Anyone who can
 // see the task changes its status, claims it, works its checklist and comments.
-// Whoever manages it reassigns it and changes its overseer (FLOW-60). The lists
+// Whoever manages it reassigns it and changes its managers (FLOW-60). The lists
 // and dashboard are in task-lists.tsx.
 
 const names = (people: { name: string }[]) =>
   people.map((person) => person.name).join(", ") || "—";
 
-// Reassigning (FLOW-60 AC3) and the overseer, for whoever manages the task.
+// Reassigning (FLOW-60 AC3) and the managers, for whoever manages the task.
 function Reassign({
   task,
   busy,
@@ -38,15 +38,13 @@ function Reassign({
 }: {
   task: Task;
   busy: boolean;
-  onSave: (assigneeIds: string[], overseerId: string | null) => void;
+  onSave: (assigneeIds: string[], managerIds: string[]) => void;
 }) {
-  const { can } = usePermissions();
   const staff = useResource(["staff"], () => staffApi.list(), { reference: true });
   const [assignees, setAssignees] = useState(task.assignees.map((person) => person.id));
-  const [overseer, setOverseer] = useState(task.overseer?.id ?? "");
-  if (!can("tasks.delegate")) return null;
+  const [managers, setManagers] = useState(task.managers.map((person) => person.id));
   const active = (staff.data ?? []).filter(
-    (member) => member.active || assignees.includes(member.id) || member.id === overseer,
+    (member) => member.active || assignees.includes(member.id) || managers.includes(member.id),
   );
   return (
     <form
@@ -54,7 +52,7 @@ function Reassign({
       aria-label="Reassign"
       onSubmit={(e) => {
         e.preventDefault();
-        onSave(assignees, overseer || null);
+        onSave(assignees, managers);
       }}
     >
       <FormField label={<T id="tasks.reassign.assigned-to">Assigned to</T>} hint={<T id="tasks.reassign.pick-one-or-more-people">Pick one or more people.</T>}>
@@ -72,9 +70,8 @@ function Reassign({
           ))}
         </Dropdown>
       </FormField>
-      <FormField label={<T id="tasks.reassign.overseer">Overseer</T>}>
-        <Dropdown value={overseer} onChange={(e) => setOverseer(e.target.value)}>
-          <option value="">No overseer</option>
+      <FormField label={<T id="tasks.reassign.overseer">Managers</T>}>
+        <Dropdown multiple value={managers} onChange={(e) => setManagers(Array.from(e.target.selectedOptions, (option) => option.value))}>
           {active.map((member) => (
             <option key={member.id} value={member.id}>
               {member.name}
@@ -186,8 +183,8 @@ export function TaskDetail() {
             <dd>{data.dueAt ? dateTimeLabel(data.dueAt) : "—"}</dd>
             <dt><T id="tasks.task-detail.assigned-to">Assigned to</T></dt>
             <dd>{names(data.assignees)}</dd>
-            <dt><T id="tasks.task-detail.overseer">Overseer</T></dt>
-            <dd>{data.overseer?.name ?? "—"}</dd>
+            <dt><T id="tasks.task-detail.overseer">Managers</T></dt>
+            <dd>{names(data.managers)}</dd>
             {data.position && (
               <>
                 <dt><T id="tasks.task-detail.position">Position</T></dt>
@@ -232,8 +229,8 @@ export function TaskDetail() {
               key={data.updatedAt}
               task={data}
               busy={busy}
-              onSave={(assigneeIds, overseerId) =>
-                void act(() => tasksApi.update(id, { assigneeIds, overseerId }))
+              onSave={(assigneeIds, managerIds) =>
+                void act(() => tasksApi.update(id, { assigneeIds, managerIds }))
               }
             />
           )}

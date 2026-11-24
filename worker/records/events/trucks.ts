@@ -84,7 +84,7 @@ export async function assignTruck(db: Db, actor: Actor, eventId: string, input: 
       description: `Driver and loaders for ${truck.name}.`, type: "truck_load", status: "todo", priority: "normal",
       dueAt: (pull?.scheduledAt ?? departsAt).toISOString(),
       assigneeIds: [...new Set([input.driverId, ...input.loaderIds].filter((id): id is string => Boolean(id)))],
-      overseerId: event.productionLeadId, eventId, clientId: null, inventoryItemId: null,
+      overseerId: null, managerIds: event.productionLeadId ? [event.productionLeadId] : undefined, eventId, clientId: null, inventoryItemId: null,
       beoId: null, sopId: null, position: null, checklist: [],
     });
     const [assignment] = await tx.insert(truckAssignments).values({

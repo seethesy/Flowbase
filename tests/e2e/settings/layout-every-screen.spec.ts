@@ -114,7 +114,7 @@ test.describe("on a phone (FLOW-278 AC5, FLOW-320 AC4)", () => {
     const grid = page.locator('[data-page-layout="tasks.dashboard"]');
     await grid.getByRole("button", { name: "Add column right of column 1", exact: true }).click();
     await grid.locator("> [role=toolbar]").getByRole("button", { name: "Apply", exact: true }).click();
-    await page.getByRole("button", { name: "Hide on phone: Overseeing" }).click();
+    await page.getByRole("button", { name: "Hide on phone: Managing" }).click();
     await save(page);
     await expect(block(page, "tasks.dashboard", "overseeing")).toBeVisible();
 

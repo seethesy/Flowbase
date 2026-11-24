@@ -20,7 +20,7 @@ const manager = "c1530000-0000-4000-8000-000000000002";
 const eventId = "e1530000-0000-4000-8000-000000000001";
 const taskId = "a1530000-0000-4000-8000-000000000001";
 const now = new Date("2026-11-12T16:00:00.000Z");
-const clear = sql`truncate table readiness_responses, sms_outbox, notifications, notification_preferences, task_assignees, tasks, event_staff_slots, event_shifts, truck_assignments, pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, reservation_conflicts, consumable_allocations, beos, payment_schedule_items, payments, events, clients, jobs, users cascade`;
+const clear = sql`truncate table readiness_responses, sms_outbox, notifications, notification_preferences, task_assignees, task_managers, tasks, event_staff_slots, event_shifts, truck_assignments, pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, reservation_conflicts, consumable_allocations, beos, payment_schedule_items, payments, events, clients, jobs, users cascade`;
 
 beforeAll(async () => { await migrate(db, { migrationsFolder: "drizzle" }); });
 beforeEach(async () => {
