@@ -31,10 +31,10 @@ const LeadDashboardPage = lazy(() =>
   import("../features/leads/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })),
 );
 const EventList = lazy(() =>
-  import("../features/events/events").then((module) => ({ default: module.EventList })),
+  import("../features/events/event-list").then((module) => ({ default: module.EventList })),
 );
 const EventDetail = lazy(() =>
-  import("../features/events/events").then((module) => ({ default: module.EventDetail })),
+  import("../features/events/event-detail").then((module) => ({ default: module.EventDetail })),
 );
 const EventBeoPage = lazy(() =>
   import("../features/beo/event-beo").then((module) => ({ default: module.EventBeoPage })),
@@ -121,8 +121,8 @@ const CountMode = lazy(() =>
 );
 const ImportList = lazy(() => import("../features/settings/imports").then((module) => ({ default: module.ImportList })));
 const ImportPage = lazy(() => import("../features/settings/imports").then((module) => ({ default: module.ImportPage })));
-const RecipeList = lazy(() => import("../features/kitchen/recipes").then((module) => ({ default: module.RecipeList })));
-const RecipeDetail = lazy(() => import("../features/kitchen/recipes").then((module) => ({ default: module.RecipeDetail })));
+const RecipeList = lazy(() => import("../features/kitchen/recipe-list").then((module) => ({ default: module.RecipeList })));
+const RecipeDetail = lazy(() => import("../features/kitchen/recipe-detail").then((module) => ({ default: module.RecipeDetail })));
 const ClientRecipeBook = lazy(() => import("../features/kitchen/recipe-books").then((module) => ({ default: module.ClientRecipeBook })));
 const ClientRecipePrint = lazy(() => import("../features/kitchen/recipe-books").then((module) => ({ default: module.ClientRecipePrint })));
 const KitchenOverviewPage = lazy(() => import("../features/kitchen/kitchen-overview").then((module) => ({ default: module.KitchenOverviewPage })));
@@ -148,7 +148,7 @@ const TaskDetail = lazy(() =>
   import("../features/tasks/tasks").then((module) => ({ default: module.TaskDetail })),
 );
 const TaskDashboardPage = lazy(() =>
-  import("../features/tasks/task-lists").then((module) => ({ default: module.TaskDashboardPage })),
+  import("../features/tasks/task-dashboard").then((module) => ({ default: module.TaskDashboardPage })),
 );
 const TaskList = lazy(() =>
   import("../features/tasks/task-lists").then((module) => ({ default: module.TaskList })),

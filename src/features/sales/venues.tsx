@@ -31,7 +31,7 @@ import {
   LoadingSkeleton,
 } from "../../components/shared";
 import { LoadError } from "../../components/record-display";
-import { EventTable } from "../events/events";
+import { EventTable } from "../events/event-list";
 import { Attachments } from "../common/attachments";
 import { RoundCheck } from "../../components/ui/round-check";
 import { T, useCopy, LabelT } from "../../app/copy";

@@ -29,7 +29,7 @@ import { StatusPill, statusLabel } from "../../components/ui/status-pill";
 import { T, LabelT } from "../../app/copy";
 import { CalendarEventPanel } from "./calendar-panel";
 import { toCalendarEntries } from "./calendar-entries";
-import { EventTable, saveEventFields } from "./events";
+import { EventTable, saveEventFields } from "./event-list";
 import { EventsHeading } from "./events-heading";
 import "./calendar.css";
 

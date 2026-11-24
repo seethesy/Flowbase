@@ -2,7 +2,7 @@ import { TestAuth } from "../auth-provider";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, it, vi } from "vitest";
-import { EventDetail } from "../../src/features/events/events";
+import { EventDetail } from "../../src/features/events/event-detail";
 import type { Client, FlowEvent } from "../../shared/core-records";
 import type { EventHub } from "../../shared/event-hub";
 import type { HistoryEntry } from "../../shared/audit";

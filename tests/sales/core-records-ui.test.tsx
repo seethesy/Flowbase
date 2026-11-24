@@ -6,7 +6,8 @@ import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { ClientForm, ClientList } from "../../src/features/sales/clients";
-import { EventForm, EventList } from "../../src/features/events/events";
+import { EventForm } from "../../src/features/events/event-form";
+import { EventList } from "../../src/features/events/event-list";
 import { VenueForm } from "../../src/features/sales/venues";
 import type { Client, FlowEvent, Venue } from "../../shared/core-records";
 

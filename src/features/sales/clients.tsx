@@ -38,7 +38,7 @@ import {
   FormField,
   LoadingSkeleton,
 } from "../../components/shared";
-import { EventTable } from "../events/events";
+import { EventTable } from "../events/event-list";
 import { Attachments } from "../common/attachments";
 import { CommunicationLog } from "../common/communications";
 import { StaleReload, isStale } from "../../components/stale-reload";
