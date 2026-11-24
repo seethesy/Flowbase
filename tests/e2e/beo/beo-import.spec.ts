@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer";
-import { and, eq } from "drizzle-orm";
 import { choose } from "../dropdown";
 import { test, expect } from "../auth-fixture";
 import { fallGala, juniper } from "../fixtures";
@@ -26,6 +25,24 @@ async function openReview(page: import("@playwright/test").Page) {
 }
 
 test("import → review → confirm: the BEO page shows the values and the file is in Documents", async ({ page }) => {
+  // The e2e Worker has no reachable file storage: Documents' upload start and
+  // complete are answered here, and the request says where the file goes.
+  const started: Record<string, unknown>[] = [];
+  await page.route("**/r2-mock/**", (route) => route.fulfill({ status: 200 }));
+  await page.route("**/api/documents**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === "POST" && url.pathname === "/api/documents") {
+      started.push(request.postDataJSON());
+      return route.fulfill({ json: { id: "d0000000-0000-4000-8000-000000003380", url: `${url.origin}/r2-mock/beo.docx`, headers: {} } });
+    }
+    if (request.method() === "POST" && url.pathname.endsWith("/complete")) {
+      const upload = started[0];
+      return route.fulfill({ json: { id: "d0000000-0000-4000-8000-000000003380", name: upload.name, docType: upload.docType,
+        recordType: upload.recordType, recordId: upload.recordId, group: "", protected: false, updatedAt: new Date().toISOString(), versions: [] } });
+    }
+    return route.continue();
+  });
   const review = await openReview(page);
   // AC1: each section recognized, with where it goes.
   await expect(review.getByRole("textbox", { name: "Client", exact: true })).toHaveValue("Testwood Family");
@@ -43,9 +60,7 @@ test("import → review → confirm: the BEO page shows the values and the file 
   await expect(page).toHaveURL(new RegExp(`#/events/${fallGala().id}/beo/`));
   await expect(page.getByText("Toasts and speeches")).toBeVisible();
   await expect(page.getByText("Leave Warehouse")).toHaveCount(0);
-  const documents = await browserDb((db) => db.select().from(s.attachments)
-    .where(and(eq(s.attachments.recordId, fallGala().id), eq(s.attachments.docType, "beo"))));
-  expect(documents).toHaveLength(1);
+  expect(started).toEqual([expect.objectContaining({ docType: "beo", recordType: "event", recordId: fallGala().id, fileName: "synthetic-beo.docx" })]);
 });
 
 test("cancelling the review saves nothing (AC4)", async ({ page }) => {

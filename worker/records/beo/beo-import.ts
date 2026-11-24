@@ -5,7 +5,7 @@ import type { beoImportInputSchema, BeoImportResult } from "../../../shared/beo-
 import type { Db, DbLike } from "../../db/client";
 import { beoRunOfShow, beos, eventStatusHistory, events } from "../../db/schema";
 import { forbidden } from "../../hono";
-import { can } from "../../policy";
+import { can, eventScope } from "../../policy";
 import { writeAudit } from "../../audit/log";
 import { emitDomainEvent } from "../../jobs/queue";
 import { eventSnapshot, instants, lockVisibleEvent } from "../events/events";
@@ -69,8 +69,9 @@ async function createImportedEvent(tx: DbLike, actor: Actor, input: NonNullable<
     address: input.address,
     eventType: input.eventType,
     guestCount: input.guestCount,
-    // A salesperson works their own events, so they can open what they import.
-    assignedSalespersonId: actor.role === "salesperson" ? actor.userId : null,
+    // Someone who works only their own events owns what they import, so they
+    // can open it.
+    assignedSalespersonId: eventScope(actor) === "all" ? null : actor.userId,
     status: "closed",
     createdBy: actor.userId,
     updatedBy: actor.userId,
