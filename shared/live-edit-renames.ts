@@ -56,8 +56,6 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
-      // FLOW-300: every importer now shows as a card, so there is no empty state.
-      "imports.import-list.no-importers-are-available-to",
       // FLOW-301: the client recipe book is a stored PDF now, not a fixed card.
       "kitchen-screen.menus.client-recipe-book",
       "kitchen-screen.menus.generated-from-the-recipes",

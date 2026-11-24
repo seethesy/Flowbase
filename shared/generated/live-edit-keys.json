@@ -1005,25 +1005,31 @@
     ],
     "imports.import-flow.check-rows": [],
     "imports.import-flow.choose-a-column-for": [],
+    "imports.import-flow.choose-sheet": [
+      "count",
+      "name"
+    ],
     "imports.import-flow.columns": [],
     "imports.import-flow.file": [],
     "imports.import-flow.required": [],
+    "imports.import-flow.sheet": [],
     "imports.import-flow.to-import": [
       "name",
       "plural"
     ],
+    "imports.import-list.admin-only": [],
     "imports.import-list.bar-inventory-description": [],
+    "imports.import-list.events-description": [],
     "imports.import-list.import-file": [],
-    "imports.import-list.kitchen-ingredients-description": [],
+    "imports.import-list.kitchen-inventory-description": [],
     "imports.import-list.last-run": [
       "date",
       "name"
     ],
-    "imports.import-list.leads-description": [],
     "imports.import-list.master-inventory-description": [],
     "imports.import-list.never-run": [],
+    "imports.import-list.no-importers-are-available-to": [],
     "imports.import-list.not-available-yet": [],
-    "imports.import-list.recipe-book-description": [],
     "imports.import-list.settings-imports": [],
     "imports.import-log-detail.by": [],
     "imports.import-log-detail.date": [],
@@ -2853,7 +2859,6 @@
     "labels.department.",
     "labels.document-type.",
     "labels.hold-status.",
-    "labels.importer.",
     "labels.item-kind.",
     "labels.item-subtype.",
     "labels.jurisdiction.",

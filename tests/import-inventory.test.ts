@@ -3,13 +3,19 @@ import {
   barExternalKey,
   barInventoryFields,
   describeBarRow,
+  describeKitchenRow,
   describeMasterRow,
+  kitchenExternalKey,
+  kitchenInventoryFields,
+  kitchenStorage,
   masterExternalKey,
   masterInventoryFields,
   masterKind,
   parseBarRow,
+  parseKitchenRow,
   parseMasterRow,
   type BarRow,
+  type KitchenRow,
   type MasterRow,
 } from "../shared/import-inventory";
 import {
@@ -22,6 +28,7 @@ import {
 import { parseCsv } from "../src/services/import-files";
 import { barCategoryRows, barInventoryCsv, barNonBlankRows } from "./fixtures/bar-inventory";
 import { masterInventoryCsv, masterNonBlankRows } from "./fixtures/master-inventory";
+import { kitchenInventoryCsv, kitchenNonBlankRows } from "./fixtures/kitchen-inventory";
 
 // The Master Inventory (FLOW-78) and Bar Inventory (FLOW-91) row rules, run the
 // way the Imports screen runs them: parse the file, map columns, apply the
@@ -31,7 +38,7 @@ import { masterInventoryCsv, masterNonBlankRows } from "./fixtures/master-invent
 function run<Row>(
   csv: string,
   fields: typeof masterInventoryFields,
-  layout: "master" | "bar",
+  layout: "master" | "bar" | "kitchen",
   parse: (values: Record<string, string>) => { row: Row } | { errors: string[] },
 ) {
   const sheet = parseCsv(csv);
@@ -282,5 +289,51 @@ describe("Bar Inventory importer (FLOW-91)", () => {
       errors: ["This row isn't under a category row (BEER, WINE, LIQUOR…)."],
     });
     expect(parseBarRow({ item: "", category: "Beer" })).toEqual({ errors: ["Item is required."] });
+  });
+});
+
+describe("Kitchen Inventory importer (FLOW-89)", () => {
+  const kitchen = run<KitchenRow>(kitchenInventoryCsv, kitchenInventoryFields, "kitchen", parseKitchenRow);
+  const at = (rowNumber: number) => rowOf(kitchen.parsed, rowNumber);
+
+  it("maps every column of the header automatically", () => {
+    const sheet = parseCsv(kitchenInventoryCsv);
+    expect(Object.values(autoMap(sheet[0], kitchenInventoryFields)).every((index) => index !== null)).toBe(true);
+  });
+
+  it("AC1: accounts for every non-blank row as an item, a merge or a skip, with no errors", () => {
+    const accounted = new Set([...kitchen.rows, ...kitchen.notes].map((row) => row.rowNumber));
+    expect(accounted.size).toBe(kitchenNonBlankRows);
+    expect(kitchen.parsed.filter((entry) => "errors" in entry.result)).toEqual([]);
+    expect(kitchen.notes).toEqual([
+      { rowNumber: 13, text: "Same Item as row 4; merged into it." },
+      { rowNumber: 14, text: "No Item; skipped." },
+    ]);
+  });
+
+  it("AC2: keeps Category and Subcategory and picks the Q3 default storage", () => {
+    expect(at(2)).toMatchObject({ category: "Protein", subcategory: "Poultry", storage: "Fridge" });
+    expect(at(4).storage).toBe("Fridge");
+    expect(at(5).storage).toBe("Fridge");
+    expect(at(6)).toMatchObject({ category: "Dessert", subcategory: "Ice Creams", storage: "Freezer" });
+    expect(at(7).storage).toBe("Pantry");
+    expect(at(8).storage).toBe("Freezer");
+    expect(at(9)).toMatchObject({ name: "Sample Jasmine Rice", category: "Carb", storage: "Pantry" });
+    expect(at(10).storage).toBe("Pantry");
+    expect(kitchenStorage("Produce", "Ice Creams")).toBe("Freezer");
+    expect(describeKitchenRow(at(6)).summary).toBe("Dessert / Ice Creams · Freezer · qty 0 · Needs count, Needs cost");
+  });
+
+  it("AC3: imports filled Quantity, Cost/Unit and Distributor and flags empty ones", () => {
+    expect(at(4)).toMatchObject({ quantity: 3, costCents: 450, distributor: "Sample Produce Co", flags: [] });
+    expect(at(5)).toMatchObject({ quantity: 2, costCents: 450 });
+    expect(at(2)).toMatchObject({ quantity: 0, costCents: null, distributor: "", flags: ["needs_count", "needs_cost"] });
+    expect(at(11)).toMatchObject({ quantity: 0, description: "Sheet quantity: half a tub", flags: ["needs_count", "needs_cost"] });
+  });
+
+  it("keys an ingredient by its name, so a re-run finds it again", () => {
+    expect(kitchenExternalKey(at(4))).toBe("kitchen:sample basil");
+    expect(parseKitchenRow({ item: "X", cost: "lots" })).toEqual({ errors: ['Cost/Unit "lots" isn\'t a number.'] });
+    expect(parseKitchenRow({ item: "X" })).toMatchObject({ row: { category: "Uncategorized", flags: ["needs_category", "needs_count", "needs_cost"] } });
   });
 });

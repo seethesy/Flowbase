@@ -21,7 +21,8 @@ import {
   PageHeader,
   Section,
 } from "../components/shared";
-import { readImportFile, type Sheet } from "../services/import-files";
+import { readImportFile, type NamedSheet } from "../services/import-files";
+import { usePermissions } from "../app/permissions";
 import { importsApi } from "../services/imports";
 import { LoadError } from "../components/record-display";
 import { dateTimeLabel } from "./inventory-labels";
@@ -37,33 +38,29 @@ const planActionLabels: Record<string, string> = { skip: "Unchanged", update: "U
 // (ADR-09); the API checks and writes. Each module importer (inventory, recipes,
 // leads) appears here once its ticket registers it.
 
-// Settings › Imports (FLOW-266; out of the Inventory heading since FLOW-291): a card per importer the viewer
-// may run, with when it last ran and who ran it, then the recent imports. Import
-// records are a history: they can be opened but not edited or deleted.
+// Settings › Imports (FLOW-266; out of the Inventory heading since FLOW-291), Admin
+// only (FLOW-290): a card per importer, with when it last ran and who ran it,
+// then the recent imports. Import records are a history: they can be opened but
+// not edited or deleted.
 const importerDescriptions: Record<string, ReactNode> = {
   master_inventory: <T id="imports.import-list.master-inventory-description">Rentals, decor and supplies with categories, types, storage and quantities.</T>,
   bar_inventory: <T id="imports.import-list.bar-inventory-description">Liquor, wine, beer and mixers with tiers, containers and distributors.</T>,
-  kitchen_ingredients: <T id="imports.import-list.kitchen-ingredients-description">Ingredients and kitchen supplies with units, vendors, costs and par levels.</T>,
-  recipe_book: <T id="imports.import-list.recipe-book-description">Recipes with their ingredients, yields and methods.</T>,
-  leads: <T id="imports.import-list.leads-description">Leads from a spreadsheet, with contacts, dates and guest counts.</T>,
+  kitchen_inventory: <T id="imports.import-list.kitchen-inventory-description">Ingredients with categories, subcategories, kitchen storage, quantities, costs and distributors.</T>,
+  events: <T id="imports.import-list.events-description">Events with their lead, client, date, guests and venue.</T>,
 };
-// FLOW-300: the preview's five importers. The last three show as cards before
-// their importers exist (FLOW-89, FLOW-99, FLOW-101's spreadsheet import), with
-// no Import file button until the API registers them.
-const plannedImporters = [
-  { key: "kitchen_ingredients", label: "Kitchen ingredients" },
-  { key: "recipe_book", label: "Recipe book" },
-  { key: "leads", label: "Leads" },
-];
+// Importers Settings › Imports offers that aren't built yet (FLOW-290): their
+// card says so until the Worker registers them. Leads is FLOW-239.
+const plannedImporters = [{ key: "leads", label: "Leads" }];
+const importPath = (key: string) => `/settings/imports/${encodeURIComponent(key)}`;
+
+const adminOnly = <p role="alert"><T id="imports.import-list.admin-only">Only an Admin can import spreadsheets.</T></p>;
 export function ImportList() {
+  return usePermissions().can("imports.run") ? <ImportListPage /> : adminOnly;
+}
+function ImportListPage() {
   const modules = useResource(["imports", "modules"], () => importsApi.modules());
   const logs = useResource(["imports", "logs", undefined, 0], () => importsApi.list(undefined), { keepPrevious: true });
   const lastRun = (key: string) => logs.data?.find((log) => log.module === key);
-  const cards = modules.data ? [
-    ...modules.data.map((module) => ({ key: module.key, label: module.label, available: true })),
-    ...plannedImporters.filter((planned) => !modules.data!.some((module) => module.key === planned.key))
-      .map((planned) => ({ ...planned, available: false })),
-  ] : [];
   return (
     <>
       <PageHeader pageKey="imports.list"
@@ -76,35 +73,37 @@ export function ImportList() {
           <LoadError message={modules.error} />
         ) : !modules.data ? (
           <LoadingSkeleton />
+        ) : !modules.data.length ? (
+          <p className="muted"><T id="imports.import-list.no-importers-are-available-to">No importers are available to you yet.</T></p>
         ) : (
           <ul className="import-cards" aria-label="Importers">
-            {cards.map((module) => {
+            {modules.data.map((module) => {
               const last = lastRun(module.key);
               return (
                 <li key={module.key}>
-                  <h3>
-                    {module.available
-                      ? <Link to={`/imports/${encodeURIComponent(module.key)}`}>{module.label}</Link>
-                      : <LabelT id="labels.importer" value={module.key}>{module.label}</LabelT>}
-                  </h3>
+                  <h3><Link to={importPath(module.key)}>{module.label}</Link></h3>
                   {importerDescriptions[module.key] && <p>{importerDescriptions[module.key]}</p>}
                   <small>
                     {last
                       ? <T id="imports.import-list.last-run" values={{ date: dateTimeLabel(last.createdAt), name: last.createdByName ?? "—" }}>{"Last run {date} by {name}"}</T>
                       : <T id="imports.import-list.never-run">Never run</T>}
                   </small>
-                  {module.available ? (
-                    <Button variant="outline" asChild>
-                      <Link to={`/imports/${encodeURIComponent(module.key)}`}>
-                        <T id="imports.import-list.import-file">Import file</T>
-                      </Link>
-                    </Button>
-                  ) : (
-                    <small className="muted"><T id="imports.import-list.not-available-yet">Not available yet</T></small>
-                  )}
+                  <Button variant="outline" asChild>
+                    <Link to={importPath(module.key)}>
+                      <T id="imports.import-list.import-file">Import file</T>
+                    </Link>
+                  </Button>
                 </li>
               );
             })}
+            {plannedImporters
+              .filter((planned) => !modules.data?.some((module) => module.key === planned.key))
+              .map((planned) => (
+                <li key={planned.key} aria-disabled="true">
+                  <h3>{planned.label}</h3>
+                  <small><T id="imports.import-list.not-available-yet">Importer not available yet</T></small>
+                </li>
+              ))}
           </ul>
         )}
       </Block>
@@ -117,6 +116,9 @@ export function ImportList() {
 }
 
 export function ImportPage() {
+  return usePermissions().can("imports.run") ? <ImportModulePage /> : adminOnly;
+}
+function ImportModulePage() {
   const { module: key = "" } = useParams();
   const module = useResource(["imports", "module", key], () => importsApi.module(key));
   return (
@@ -127,7 +129,7 @@ export function ImportPage() {
         subtitle={<T id="imports.import-page.choose-a-csv-or-excel">Choose a CSV or Excel (.xlsx) file. Nothing is saved until you import.</T>}
       >
         <Button asChild variant="outline">
-          <Link to="/imports"><T id="imports.import-page.all-imports">All imports</T></Link>
+          <Link to="/settings/imports"><T id="imports.import-page.all-imports">All imports</T></Link>
         </Button>
       </PageHeader>
       {module.error ? (
@@ -141,7 +143,9 @@ export function ImportPage() {
   );
 }
 
-type Loaded = { name: string; sheet: Sheet };
+// A chosen file and its sheets; a workbook with several waits for the user to
+// pick one (FLOW-290 AC3).
+type Loaded = { name: string; sheets: NamedSheet[]; index: number | null };
 type Committed = { log: ImportLog; failures: ImportRowResult[] };
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -155,18 +159,24 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
   const [error, setError] = useState("");
   const [logVersion, setLogVersion] = useState(0);
 
+  const sheet = file && file.index !== null ? file.sheets[file.index] : null;
   const headings = useMemo(() => {
-    if (!file) return [];
-    const index = headingIndex(file.sheet);
-    return index === -1 ? [] : file.sheet[index].map((cell) => cell.trim());
-  }, [file]);
+    if (!sheet) return [];
+    const index = headingIndex(sheet.sheet);
+    return index === -1 ? [] : sheet.sheet[index].map((cell) => cell.trim());
+  }, [sheet]);
   const transformed = useMemo(
     () =>
-      file
-        ? applyTransformsWithNotes(mapRows(file.sheet, mapping), module.transforms)
+      sheet
+        ? applyTransformsWithNotes(mapRows(sheet.sheet, mapping), module.transforms)
         : { rows: [], notes: [] },
-    [file, mapping, module.transforms],
+    [sheet, mapping, module.transforms],
   );
+  // The log names the tab when the workbook had several ("Book.xlsx › Kitchen").
+  const fileName =
+    file && sheet && file.sheets.length > 1
+      ? `${file.name} › ${sheet.name}`.slice(0, 255)
+      : (file?.name ?? "");
   const rows = transformed.rows;
   const missing = module.fields.filter(
     (field) => field.required && (mapping[field.key] ?? null) === null,
@@ -178,15 +188,28 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
     setError("");
     if (!chosen) return setFile(null);
     try {
-      const sheet = await readImportFile(chosen);
-      const index = headingIndex(sheet);
-      if (index === -1) throw new Error("The file is empty.");
-      setFile({ name: chosen.name, sheet });
-      setMapping(autoMap(sheet[index], module.fields));
+      const sheets = (await readImportFile(chosen)).filter(
+        (candidate) => headingIndex(candidate.sheet) !== -1,
+      );
+      if (!sheets.length) throw new Error("The file is empty.");
+      const loaded: Loaded = { name: chosen.name, sheets, index: null };
+      if (sheets.length === 1) pickSheet(loaded, 0);
+      else {
+        setFile(loaded);
+        setMapping({});
+      }
     } catch (failure) {
       setFile(null);
       setError((failure as Error).message);
     }
+  };
+  // Each sheet is read like its own CSV: its own heading row and column mapping.
+  const pickSheet = (loaded: Loaded, index: number) => {
+    setPlans(null);
+    setCommitted(null);
+    const picked = loaded.sheets[index].sheet;
+    setFile({ ...loaded, index });
+    setMapping(autoMap(picked[headingIndex(picked)], module.fields));
   };
   const remap = (field: string, column: string) => {
     setPlans(null);
@@ -218,13 +241,13 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
   // Commits in batches; a failed row is reported and the rest carry on (AC2).
   const commit = async () => {
-    if (!file) return;
+    if (!sheet) return;
     setError("");
     const failures: ImportRowResult[] = [];
     try {
       let log = await importsApi.start({
         module: module.key,
-        fileName: file.name,
+        fileName,
         rowCount: rows.length,
       });
       const parts = batches(rows);
@@ -264,9 +287,31 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
             }}
           />
         </label>
-        {file && (
+        {file && file.sheets.length > 1 && (
+          <label className="form-field">
+            <span><T id="imports.import-flow.sheet">Sheet</T></span>
+            <Dropdown
+              aria-label="Sheet"
+              value={file.index ?? ""}
+              onChange={(event) => {
+                if (event.target.value !== "") pickSheet(file, Number(event.target.value));
+              }}
+            >
+              <option value="">— Choose a sheet —</option>
+              {file.sheets.map((candidate, index) => (
+                <option key={index} value={index}>{candidate.name}</option>
+              ))}
+            </Dropdown>
+          </label>
+        )}
+        {file && file.index === null && (
           <p className="muted">
-            <T id="imports.import-flow.to-import" values={{ name: file.name, plural: plural(rows.length, "row") }}>{"{name}: {plural} to import."}</T>
+            <T id="imports.import-flow.choose-sheet" values={{ name: file.name, count: file.sheets.length }}>{"{name} has {count} sheets. Choose the one to import; each sheet imports like its own CSV."}</T>
+          </p>
+        )}
+        {file && sheet && (
+          <p className="muted">
+            <T id="imports.import-flow.to-import" values={{ name: fileName, plural: plural(rows.length, "row") }}>{"{name}: {plural} to import."}</T>
           </p>
         )}
         {error && (
@@ -278,7 +323,7 @@ function ImportFlow({ module }: { module: ImportModuleInfo }) {
 
       </Block>
       <Block id="columns" name="Column mapping" h={14}>
-      {file && (
+      {sheet && (
         <Section title={<T id="imports.import-flow.columns">Columns</T>}>
           <div className="import-mapping">
             {module.fields.map((field) => (

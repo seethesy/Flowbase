@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
+import { strToU8, zipSync } from "fflate";
 import { test, expect, type Page } from "./auth-fixture";
+import { choose } from "./dropdown";
 import { browserDb } from "./database";
 import * as s from "../../worker/db/schema";
 
@@ -31,6 +33,7 @@ test("checks rows in a dry run, then imports them and skips the row with an erro
 }) => {
   await page.goto("/#/settings/imports");
   await page.getByRole("link", { name: "Test rentals" }).click();
+  await expect(page).toHaveURL(/#\/settings\/imports\/test_rentals$/);
   await expect(
     page.getByRole("heading", { name: "Import Test rentals", level: 1 }),
   ).toBeVisible();
@@ -121,4 +124,51 @@ test("checks rows in a dry run, then imports them and skips the row with an erro
         .where(eq(s.stockMovements.itemId, chair.id)),
     ),
   ).toHaveLength(1);
+});
+
+// A workbook with a notes tab before the rentals tab, as inline-string cells.
+function workbook(sheets: { name: string; rows: string[][] }[]) {
+  const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const cell = (text: string, column: number, row: number) =>
+    text === "" ? "" : `<c r="${String.fromCharCode(65 + column)}${row}" t="inlineStr"><is><t>${text}</t></is></c>`;
+  return Buffer.from(
+    zipSync({
+      "xl/workbook.xml": strToU8(`<?xml version="1.0"?><workbook ${ns}><sheets>${sheets.map((sheet, index) => `<sheet name="${sheet.name}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("")}</sheets></workbook>`),
+      "xl/_rels/workbook.xml.rels": strToU8(`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("")}</Relationships>`),
+      ...Object.fromEntries(sheets.map((sheet, index) => [
+        `xl/worksheets/sheet${index + 1}.xml`,
+        strToU8(`<?xml version="1.0"?><worksheet ${ns}><sheetData>${sheet.rows.map((cells, row) => `<row r="${row + 1}">${cells.map((text, column) => cell(text, column, row + 1)).join("")}</row>`).join("")}</sheetData></worksheet>`),
+      ])),
+    }),
+  );
+}
+
+test("a workbook with several sheets asks which one to import (FLOW-290 AC3)", async ({ page }) => {
+  await page.goto("/#/settings/imports/test_rentals");
+  await page.getByLabel("File", { exact: true }).setInputFiles({
+    name: "Rentals.xlsx",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: workbook([
+      { name: "Notes", rows: [["Read me"], ["Counted in June"]] },
+      { name: "Rentals", rows: csv.split("\r\n").map((line) => line.split(",")) },
+    ]),
+  });
+  await expect(page.getByText("Rentals.xlsx has 2 sheets.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Check rows" })).toHaveCount(0);
+  await choose(page.getByRole("combobox", { name: "Sheet" }), { label: "Rentals" });
+  await expect(page.getByText("Rentals.xlsx › Rentals: 3 rows to import.")).toBeVisible();
+  await expect(page.getByLabel("Code", { exact: true })).toHaveAttribute("data-value", "0");
+  await page.getByRole("button", { name: "Check rows" }).click();
+  const summary = page.getByRole("list", { name: "Dry run summary" });
+  await expect(summary).toContainText("2 to create");
+  await page.getByRole("button", { name: "Import 2 rows" }).click();
+  await expect(page.getByText("Imported Rentals.xlsx › Rentals: 2 created, 0 updated, 0 unchanged, 1 failed.")).toBeVisible();
+  expect((await browserDb((db) => db.select().from(s.importLogs)))[0].fileName).toBe("Rentals.xlsx › Rentals");
+});
+
+test("Settings › Imports offers Leads as not available yet (FLOW-290)", async ({ page }) => {
+  await page.goto("/#/settings/imports");
+  const leads = page.getByRole("list", { name: "Importers" }).getByRole("listitem").filter({ hasText: "Leads" });
+  await expect(leads).toContainText("Importer not available yet");
+  await expect(leads.getByRole("link")).toHaveCount(0);
 });

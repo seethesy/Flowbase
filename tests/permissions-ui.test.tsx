@@ -119,3 +119,25 @@ it("hides protected controls without a signed-in profile", () => {
   );
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
 });
+it("shows Settings › Imports only to the Admin (FLOW-290 AC1)", async () => {
+  const { ImportList, ImportPage } = await import("../src/features/imports");
+  vi.mocked(fetch).mockClear();
+  vi.mocked(fetch).mockResolvedValue(Response.json([]));
+  for (const role of ["technical", "kitchen_lead"] as const) {
+    const { unmount } = render(
+      <TestAuth role={role}>
+        <MemoryRouter>
+          <ImportList />
+          <ImportPage />
+        </MemoryRouter>
+      </TestAuth>,
+    );
+    expect(screen.getAllByRole("alert").map((alert) => alert.textContent)).toEqual([
+      "Only an Admin can import spreadsheets.",
+      "Only an Admin can import spreadsheets.",
+    ]);
+    expect(screen.queryByRole("list", { name: "Importers" })).not.toBeInTheDocument();
+    unmount();
+  }
+  expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).startsWith("/api/imports"))).toBe(false);
+});

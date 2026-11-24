@@ -253,7 +253,7 @@ export async function getEvent(db: Db, actor: Actor, id: string) {
 
 // The event as an audit snapshot (FLOW-161). Areas are compared by name because
 // saving the form replaces their rows; startsAt/endsAt repeat date and times.
-async function eventSnapshot(db: DbLike, id: string) {
+export async function eventSnapshot(db: DbLike, id: string) {
   const [row] = await db.select().from(events).where(eq(events.id, id));
   const [event] = await toEvents(db, [row]);
   const snapshot: Record<string, unknown> = {

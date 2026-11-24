@@ -1,10 +1,12 @@
 import { unzipSync } from "fflate";
 
 // Reads an import file in the browser (FLOW-47, ADR-09): CSV or XLSX into rows of
-// cell text, top row first. Only the first worksheet of a workbook is read.
+// cell text, top row first. A workbook's worksheets are each read as one CSV
+// would be (one tab = one CSV); with several, the user picks one (FLOW-290).
 // Numbers come through as stored (a date cell is its serial number); module
 // importers parse their own values.
 export type Sheet = string[][];
+export type NamedSheet = { name: string; sheet: Sheet };
 
 // RFC 4180 CSV: quoted fields may hold commas, quotes ("") and line breaks. A
 // leading byte order mark is ignored; CRLF and LF both end a row.
@@ -67,30 +69,9 @@ function cellPosition(reference: string) {
   return { column: column - 1, row: Number(match[2]) - 1 };
 }
 
-export function parseXlsx(bytes: Uint8Array): Sheet {
-  let files: Record<string, Uint8Array>;
-  try {
-    files = unzipSync(bytes);
-  } catch {
-    throw new Error("This file isn't a readable .xlsx workbook.");
-  }
-  const workbook = xml(files["xl/workbook.xml"]);
-  const relations = xml(files["xl/_rels/workbook.xml.rels"]);
-  const first = workbook && elements(workbook, "sheet")[0];
-  if (!workbook || !relations || !first)
-    throw new Error("This file isn't a readable .xlsx workbook.");
-  const relationId = first.getAttribute("r:id");
-  const target = elements(relations, "Relationship")
-    .find((relation) => relation.getAttribute("Id") === relationId)
-    ?.getAttribute("Target");
-  const path = target?.startsWith("/")
-    ? target.slice(1)
-    : `xl/${target ?? "worksheets/sheet1.xml"}`;
-  const worksheet = xml(files[path]);
-  if (!worksheet) throw new Error("The workbook's first sheet is missing.");
-  const shared = xml(files["xl/sharedStrings.xml"]);
-  const strings = shared ? elements(shared, "si").map(stringText) : [];
+const unreadable = () => new Error("This file isn't a readable .xlsx workbook.");
 
+function readWorksheet(worksheet: Document, strings: string[]): Sheet {
   const sheet: Sheet = [];
   elements(worksheet, "row").forEach((rowNode, rowOrder) => {
     const rowIndex = Number(rowNode.getAttribute("r") ?? rowOrder + 1) - 1;
@@ -119,11 +100,44 @@ export function parseXlsx(bytes: Uint8Array): Sheet {
   return sheet;
 }
 
-// Reads a chosen file by its extension.
-export async function readImportFile(file: File): Promise<Sheet> {
+// Every worksheet of the workbook, in tab order, with its tab name.
+export function parseXlsxSheets(bytes: Uint8Array): NamedSheet[] {
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(bytes);
+  } catch {
+    throw unreadable();
+  }
+  const workbook = xml(files["xl/workbook.xml"]);
+  const relations = xml(files["xl/_rels/workbook.xml.rels"]);
+  const tabs = workbook ? elements(workbook, "sheet") : [];
+  if (!workbook || !relations || !tabs.length) throw unreadable();
+  const shared = xml(files["xl/sharedStrings.xml"]);
+  const strings = shared ? elements(shared, "si").map(stringText) : [];
+  return tabs.map((tab, index) => {
+    const name = tab.getAttribute("name") || `Sheet ${index + 1}`;
+    const relationId = tab.getAttribute("r:id");
+    const target = elements(relations, "Relationship")
+      .find((relation) => relation.getAttribute("Id") === relationId)
+      ?.getAttribute("Target");
+    const path = target?.startsWith("/")
+      ? target.slice(1)
+      : `xl/${target ?? `worksheets/sheet${index + 1}.xml`}`;
+    const worksheet = xml(files[path]);
+    if (!worksheet) throw new Error(`The workbook's sheet "${name}" is missing.`);
+    return { name, sheet: readWorksheet(worksheet, strings) };
+  });
+}
+
+// The workbook's first worksheet.
+export const parseXlsx = (bytes: Uint8Array): Sheet => parseXlsxSheets(bytes)[0].sheet;
+
+// Reads a chosen file by its extension: a CSV is one sheet, a workbook one per tab.
+export async function readImportFile(file: File): Promise<NamedSheet[]> {
   const name = file.name.toLowerCase();
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (name.endsWith(".csv")) return parseCsv(new TextDecoder().decode(bytes));
-  if (name.endsWith(".xlsx")) return parseXlsx(bytes);
+  if (name.endsWith(".csv"))
+    return [{ name: file.name, sheet: parseCsv(new TextDecoder().decode(bytes)) }];
+  if (name.endsWith(".xlsx")) return parseXlsxSheets(bytes);
   throw new Error("Choose a .csv or .xlsx file.");
 }

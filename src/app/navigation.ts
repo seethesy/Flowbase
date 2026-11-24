@@ -200,7 +200,7 @@ const recordBases: Record<string, RecordKind | NavLabel> = {
   "/sops": { copyId: "sop", label: "SOP" },
   "/inventory/counts": { copyId: "stock-count", label: "Stock count" },
   "/inventory/orders": { copyId: "order-list", label: "Order list" },
-  "/imports": { copyId: "import", label: "Import" },
+  "/settings/imports": { copyId: "import", label: "Import" },
 };
 // Path segments with no page of their own: count mode (/inventory/counts/:id)
 // sits under Inventory now the Counts list is gone (FLOW-291).

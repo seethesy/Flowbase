@@ -5,12 +5,17 @@ import {
   barExternalKey,
   barInventoryFields,
   describeBarRow,
+  describeKitchenRow,
   describeMasterRow,
+  kitchenExternalKey,
+  kitchenInventoryFields,
   masterExternalKey,
   masterInventoryFields,
   parseBarRow,
+  parseKitchenRow,
   parseMasterRow,
   type BarRow,
+  type KitchenRow,
   type MasterRow,
   type ParseResult,
 } from "../../shared/import-inventory";
@@ -43,8 +48,10 @@ import {
 } from "./inventory";
 import { defineImportModule, type ImportModule } from "./imports";
 import { ensureVendor } from "./vendors";
+import { eventsImporter } from "./import-events";
 
-// The Master Inventory (FLOW-78) and Bar Inventory (FLOW-91) importers. Each
+// The Master Inventory (FLOW-78), Bar Inventory (FLOW-91) and Kitchen Inventory
+// (FLOW-89) importers, each writing only its own list's table (FLOW-289). Each
 // sheet row becomes an item keyed by its sheet identity, so re-running a file
 // updates what it imported before and, when nothing in the file changed, nothing
 // at all. The file is authoritative for what it carries: category, subcategory,
@@ -277,7 +284,8 @@ function inventoryImporter<
   return defineImportModule<Row>({
     key: config.key,
     label: config.label,
-    permission: "inventory.write",
+    // Settings › Imports is Admin only (FLOW-290).
+    permission: "imports.run",
     fields: config.fields,
     transforms: config.transforms,
     parse: config.parse,
@@ -436,8 +444,48 @@ export const barInventoryImporter = inventoryImporter<BarRow>({
   }),
 });
 
-// Registered importers (FLOW-78, FLOW-91; FLOW-89, FLOW-99 and FLOW-101 add theirs).
+export const kitchenInventoryImporter = inventoryImporter<KitchenRow>({
+  key: "kitchen_inventory",
+  label: "Kitchen Inventory",
+  fields: kitchenInventoryFields,
+  transforms: [{ type: "inventory_rows", layout: "kitchen" }],
+  parse: parseKitchenRow,
+  externalKey: kitchenExternalKey,
+  describe: describeKitchenRow,
+  vendorType: "food_distributor",
+  // Q3: the item's default kitchen storage, which is also where its count goes.
+  stock: (row) => ({ name: row.storage, kind: "storage" }),
+  classification: () => ({ kind: "ingredient", category: "Ingredient" }),
+  costError: (actor, row) =>
+    row.costCents === null || canSeeField(actor, "internal_cost")
+      ? null
+      : "Only full-time staff can import costs.",
+  duplicateFilter: () =>
+    and(eq(allInventoryItems.kind, "consumable"), eq(allInventoryItems.subtype, "ingredient")),
+  draft: (row, targets) => ({
+    costCents: row.costCents,
+    item: {
+      kind: "consumable",
+      subtype: "ingredient",
+      name: row.name,
+      category: row.category,
+      subcategory: row.subcategory,
+      description: row.description,
+      flags: sortedFlags(row.flags),
+      consumable: {
+        purchaseUnit: "each",
+        preferredVendorId: targets.vendorId,
+        storageSectionId: targets.sectionId,
+      },
+    },
+  }),
+});
+
+// Registered importers (FLOW-78, FLOW-91, FLOW-89, FLOW-299; FLOW-99, FLOW-101
+// and FLOW-239 add theirs).
 export const registeredImportModules: ImportModule[] = [
   masterInventoryImporter,
   barInventoryImporter,
+  kitchenInventoryImporter,
+  eventsImporter,
 ];

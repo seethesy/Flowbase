@@ -85,19 +85,16 @@ test("a vendor's phone is edited from the Vendors table and persists (AC2)", asy
   expect(contacts.map((contact) => [contact.name, contact.phone])).toEqual([["Synthetic rep", "555-0199"]]);
 });
 
-test("Imports shows all five importer cards and the Recent imports table of the preview (AC3)", async ({ page }) => {
+// The importer cards themselves are Settings › Imports' (FLOW-290); this checks
+// the Recent imports table and its read-only record.
+test("Imports shows the Recent imports table of the preview and opens a record read-only (AC3)", async ({ page }) => {
   const admin = seedUsers[0];
   await browserDb((db) => db.insert(importLogs).values({ module: "test_rentals", fileName: "synthetic-rentals.csv",
     status: "completed", rowCount: 4, created: 2, updated: 1, skipped: 0, failed: 1,
     createdBy: admin.id, updatedBy: admin.id }));
-  await page.goto("/#/imports");
+  await page.goto("/#/settings/imports");
   const cards = page.getByRole("list", { name: "Importers" });
-  // The registered importers (in e2e, the test importer stands in for Master and
-  // Bar Inventory), then the three planned ones.
-  await expect(cards.getByRole("heading", { level: 3 }))
-    .toHaveText(["Test rentals", "Kitchen ingredients", "Recipe book", "Leads"]);
   await expect(cards.getByRole("listitem").filter({ hasText: "Test rentals" })).toContainText(`by ${adminName}`);
-  await expect(cards.getByRole("listitem").filter({ hasText: "Leads" })).toContainText("Never run");
 
   const table = page.getByRole("table", { name: "Recent imports" });
   await expect(table.locator("thead th")).toHaveText(["Open", "Date", "Importer", "File", "New", "Updated", "Errors", "By"]);

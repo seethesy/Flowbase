@@ -321,10 +321,12 @@ export const getRouter = () =>
         { path: "/sops/:id", element: <SopDetail /> },
         { path: "/reports", element: <TimeReports /> },
         { path: "/reports/operations", element: <OperationalReports /> },
-        // Imports left the Inventory heading for Settings (FLOW-290/291).
+        // Imports left the Inventory heading for Settings (FLOW-290/291); old
+        // /imports links land on the Settings page.
         { path: "/settings/imports", element: <ImportList /> },
+        { path: "/settings/imports/:module", element: <ImportPage /> },
         { path: "/imports", element: <Navigate to="/settings/imports" replace /> },
-        { path: "/imports/:module", element: <ImportPage /> },
+        { path: "/imports/:id", element: <LegacyRoute to="/settings/imports" /> },
         { path: "/settings", element: <SettingsPage /> },
         { path: "/settings/inventory-categories", element: <InventoryCategoriesPage /> },
         { path: "/settings/locations", element: <LocationsPage /> },

@@ -82,6 +82,7 @@ const expected: Record<Action, string> = {
   "beos.approve": "1010000",
   "users.manage": "1000000",
   "jobs.manage": "1000000",
+  "imports.run": "1000000",
   "ingest.manage": "1000000",
   "inventory.sections": "1000000",
   "inventory.write": "1110100",

@@ -156,7 +156,7 @@ afterAll(async () => {
 });
 
 describe("importers", () => {
-  it("lists only the importers the user may run", async () => {
+  it("lists the importers to the Admin", async () => {
     const modules = await admin.send<ImportModuleInfo[]>(
       "GET",
       "/api/imports/modules",
@@ -166,8 +166,8 @@ describe("importers", () => {
       { type: "category_headers", field: "category" },
     ]);
     expect(
-      await partTimeStaff.send("GET", "/api/imports/modules"),
-    ).toEqual([]);
+      (await partTimeStaff.call("GET", "/api/imports/modules")).status,
+    ).toBe(403);
     expect(
       (
         await partTimeStaff.call("POST", "/api/imports/dry-run", {
@@ -185,6 +185,27 @@ describe("importers", () => {
       ).status,
     ).toBe(404);
   });
+});
+
+describe("Admin only (FLOW-290 AC1)", () => {
+  // Technical and Kitchen Lead could import under FLOW-47 (inventory.write).
+  for (const role of ["technical", "kitchen_lead", "sales_manager"] as const)
+    it(`refuses every import endpoint to ${role}`, async () => {
+      const user = signedInAs(people.staff, role);
+      const { log } = await runImport([chairs()]);
+      const calls: [string, string, unknown?][] = [
+        ["GET", "/api/imports/modules"],
+        ["GET", "/api/imports/modules/test_rentals"],
+        ["GET", "/api/imports"],
+        ["GET", `/api/imports/${log.id}`],
+        ["POST", "/api/imports/dry-run", { module: "test_rentals", rows: [chairs()] }],
+        ["POST", "/api/imports", { module: "test_rentals", fileName: "a.csv", rowCount: 1 }],
+        ["POST", `/api/imports/${log.id}/rows`, { rows: [chairs()] }],
+        ["POST", `/api/imports/${log.id}/complete`],
+      ];
+      for (const [method, path, body] of calls)
+        expect((await user.call(method, path, body)).status, `${method} ${path}`).toBe(403);
+    });
 });
 
 describe("dry run", () => {
