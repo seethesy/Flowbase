@@ -1,12 +1,15 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  onDataChanged,
+  sessionRechecks,
   startLiveUpdates,
   type ChangeTransport,
 } from "../src/app/liveUpdates";
 import { useResource } from "../src/app/useResource";
 import { ApiRequestError } from "../src/services/core";
-import { POLL_FALLBACK_MS } from "../shared/realtime";
+import { POLL_FALLBACK_MS, type ChangeArea } from "../shared/realtime";
+import { affectedBy } from "../src/app/queryAreas";
 
 // FLOW-206: one shared "changed" ping subscription (ADR-11) makes visible
 // screens refetch through the API; a 30-second poll covers Realtime outages.
@@ -34,7 +37,7 @@ function fakeTransport() {
   const state: {
     opened: number;
     closed: number;
-    ping: () => void;
+    ping: (areas?: ChangeArea[] | null) => void;
     connect: (connected: boolean) => void;
   } = { opened: 0, closed: 0, ping: () => {}, connect: () => {} };
   const transport: ChangeTransport = ({ onPing, onConnected }) => {
@@ -49,10 +52,10 @@ function fakeTransport() {
 }
 
 // A screen showing data; counts how often it loaded.
-function screen(key = "live-test") {
+function screen(key = "live-test", ...rest: string[]) {
   const loads = { count: 0 };
   const hook = renderHook(() =>
-    useResource([key], async () => {
+    useResource([key, ...rest], async () => {
       loads.count += 1;
       return loads.count;
     }),
@@ -219,4 +222,119 @@ it("keeps showing data when a refetch fails for another reason", async () => {
   act(() => hook.result.current.reload());
   await waitFor(() => expect(hook.result.current.error).toBe("Network down"));
   expect(hook.result.current.data).toBe("Loaded");
+});
+
+// FLOW-304: a ping refetches only the screens its areas cover.
+it("refetches only the screens a ping's areas cover (AC1)", async () => {
+  const { state, transport } = fakeTransport();
+  const stop = startLiveUpdates(transport);
+  const leads = screen("leads", "inbox");
+  const inventory = screen("inventory-items", "master");
+  const kitchen = screen("kitchen-overview");
+  await waitFor(() => expect(kitchen.hook.result.current.data).toBe(1));
+  await waitFor(() => expect(leads.hook.result.current.data).toBe(1));
+  await waitFor(() => expect(inventory.hook.result.current.data).toBe(1));
+  act(() => state.connect(true));
+
+  act(() => state.ping(["leads"]));
+  await vi.advanceTimersByTimeAsync(600);
+  await waitFor(() => expect(leads.hook.result.current.data).toBe(2));
+  await vi.advanceTimersByTimeAsync(100);
+  expect(inventory.loads.count).toBe(1);
+  expect(kitchen.loads.count).toBe(1);
+
+  // Pings that settle together refetch the union of their areas, once.
+  act(() => {
+    state.ping(["inventory"]);
+    state.ping(["kitchen"]);
+  });
+  await vi.advanceTimersByTimeAsync(600);
+  await waitFor(() => expect(kitchen.hook.result.current.data).toBe(2));
+  await waitFor(() => expect(inventory.hook.result.current.data).toBe(2));
+  expect(leads.loads.count).toBe(2);
+  stop();
+});
+
+it("refetches everything for a ping without areas (AC4)", async () => {
+  const { state, transport } = fakeTransport();
+  const stop = startLiveUpdates(transport);
+  const leads = screen("leads");
+  const inventory = screen("inventory-items");
+  await waitFor(() => expect(leads.hook.result.current.data).toBe(1));
+  await waitFor(() => expect(inventory.hook.result.current.data).toBe(1));
+  act(() => state.connect(true));
+  act(() => state.ping());
+  await vi.advanceTimersByTimeAsync(600);
+  await waitFor(() => expect(leads.hook.result.current.data).toBe(2));
+  await waitFor(() => expect(inventory.hook.result.current.data).toBe(2));
+  stop();
+});
+
+it("reuses a screen's data for 30 seconds unless a ping covers it (AC5)", async () => {
+  const { state, transport } = fakeTransport();
+  const stop = startLiveUpdates(transport);
+  act(() => state.connect(true));
+  const loads = { count: 0 };
+  const open = () =>
+    renderHook(() =>
+      useResource(["leads", "list"], async () => {
+        loads.count += 1;
+        return loads.count;
+      }),
+    );
+  const first = open();
+  await waitFor(() => expect(first.result.current.data).toBe(1));
+  first.unmount();
+  // Back within 30 seconds: the cached copy, no request.
+  await vi.advanceTimersByTimeAsync(10_000);
+  const second = open();
+  await vi.advanceTimersByTimeAsync(100);
+  expect(second.result.current.data).toBe(1);
+  expect(loads.count).toBe(1);
+  second.unmount();
+  // A ping for another area leaves it fresh; one for leads marks it stale.
+  act(() => state.ping(["inventory"]));
+  await vi.advanceTimersByTimeAsync(600);
+  const third = open();
+  await vi.advanceTimersByTimeAsync(100);
+  expect(loads.count).toBe(1);
+  third.unmount();
+  act(() => state.ping(["leads"]));
+  await vi.advanceTimersByTimeAsync(600);
+  const fourth = open();
+  await waitFor(() => expect(fourth.result.current.data).toBe(2));
+  stop();
+});
+
+it("tells listeners which areas changed, so a session re-reads only what they cover (AC3)", async () => {
+  const { state, transport } = fakeTransport();
+  const stop = startLiveUpdates(transport);
+  act(() => state.connect(true));
+  const heard: (readonly ChangeArea[] | null)[] = [];
+  const stopListening = onDataChanged((areas) => heard.push(areas));
+  act(() => state.ping(["users"]));
+  await vi.advanceTimersByTimeAsync(600);
+  act(() => state.ping());
+  await vi.advanceTimersByTimeAsync(600);
+  expect(heard).toEqual([["users"], null]);
+  stopListening();
+  // A role or status change re-reads the profile; a roles matrix change the
+  // permissions; a lead change neither; an unknown change both.
+  expect(sessionRechecks(["users"])).toEqual({ policy: false, profile: true });
+  expect(sessionRechecks(["settings"])).toEqual({ policy: true, profile: false });
+  expect(sessionRechecks(["leads"])).toEqual({ policy: false, profile: false });
+  expect(sessionRechecks(null)).toEqual({ policy: true, profile: true });
+  stop();
+});
+
+it("maps query keys to areas, refetching unknown keys on any change", () => {
+  expect(affectedBy(["leads", "inbox"], ["leads"])).toBe(true);
+  expect(affectedBy(["leads", "inbox"], ["inventory"])).toBe(false);
+  expect(affectedBy(["leads", "inbox"], [])).toBe(false);
+  expect(affectedBy(["leads", "inbox"], null)).toBe(true);
+  // Settings (roles and permissions among them) can change any screen.
+  expect(affectedBy(["inventory-items"], ["settings"])).toBe(true);
+  expect(affectedBy(["some-new-screen"], ["kitchen"])).toBe(true);
+  expect(affectedBy(["layout-card", "leads", "card-1", "/api/leads"], ["leads"])).toBe(true);
+  expect(affectedBy(["layout-card", "leads", "card-1", "/api/leads"], ["kitchen"])).toBe(false);
 });

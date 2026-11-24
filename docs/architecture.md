@@ -16,7 +16,7 @@ Source: [FLOW-1](https://sybertechlabs.atlassian.net/browse/FLOW-1).
 | ADR-08 | Files: R2 (Free 10 GB) via short-lived presigned uploads; the browser resizes images before upload. |
 | ADR-09 | CPU budget: Workers Free = 10 ms CPU per request and per cron run. Heavy work runs in the browser (proposal .docx parsing, image resizing, CSV/XLSX parsing, printable documents). API requests validate and write; cron runs process small batches. |
 | ADR-10 | Scheduled jobs: Workers Cron Triggers (max 5 per account) + a `jobs` outbox table. |
-| ADR-11 | Realtime: Supabase Realtime broadcast "changed" pings (no data); clients refetch via the API; 30 s polling fallback. |
+| ADR-11 | Realtime: Supabase Realtime broadcast "changed" pings (no data, only the names of the areas changed); clients refetch the affected screens via the API; 30 s polling fallback. |
 | ADR-12 | Outbound email: a free provider (decided in the notifications ticket). |
 | ADR-13 | Lead intake: official channels where they exist (Thumbtack lead webhooks, Shopify webhooks); Playwright collector for Bark, Perfect Venue, WeddingPro and Eventective. No email intake. No AI. |
 | ADR-14 | Lead collector: Node + Playwright code in `collector/` (Flowbase repo). It runs on a schedule in the **ops repo** (every 2 h, 8am–8pm ET, ≤5 min per run): the ops workflow checks out Flowbase `main` read-only and posts to the Worker ingestion endpoint with a service token. Read-only; stops and alerts on 2FA/CAPTCHA/blocks and never tries to bypass them. |
@@ -109,7 +109,7 @@ including Admin. Financials require the record's assigned salesperson ID; omitti
 it never grants a salesperson access. BEO and recipe-book feature tickets consume
 these projections when their document modules are implemented.
 
-## ADR-11 freshness (FLOW-206)
+## ADR-11 freshness (FLOW-206, FLOW-304)
 
 An open screen shows another user's committed change without navigating.
 
@@ -117,28 +117,49 @@ An open screen shows another user's committed change without navigating.
   After a write (any method but GET/HEAD/OPTIONS) answers 2xx, which means its
   transaction committed, it broadcasts one `changed` event on the Supabase Realtime
   channel `flowbase-changes` (`shared/realtime.ts`). A failed or rolled-back write
-  answers with an error and sends nothing. Demo, dev and sign-in writes are skipped.
-  The ping runs after the response (`waitUntil`); a failed ping is logged, never
-  returned. Without `SUPABASE_URL`/`SUPABASE_SECRET_KEY` nothing is sent.
-- **No data.** The payload is only `{ at }`. The channel is a public broadcast
-  channel, so it must never carry ids or fields; browsers read records only through
-  the Worker API, which applies the reader's role and assignment scope.
+  answers with an error and sends nothing. Demo, dev, sign-in and a person's own
+  notification writes are skipped, and so are writes that change nothing shared
+  (FLOW-304): the activity tracker's `POST /api/time/sessions`, the read-only
+  regeneration previews, and saves whose handler calls `unchanged(c)` (resetting
+  a layout or wording that was never saved). The ping runs after the response
+  (`waitUntil`); a failed ping is logged, never returned. Without
+  `SUPABASE_URL`/`SUPABASE_SECRET_KEY` nothing is sent.
+- **Areas (FLOW-304).** The ping is `{ at, areas }`: the parts of the app the write
+  changed (`changeAreas`: leads, events, inventory, kitchen, tasks, users,
+  settings, layout, copy, …). `ROUTE_AREAS` in `worker/realtime.ts` gives each
+  router's mount path its areas (sub-paths that also change other areas come
+  first); a handler adds more with `touches(c, …)`. A write no rule covers pings
+  without areas. The write's response also carries `X-Changed-Areas`, so the
+  browser that saved marks only those areas' cached data stale (`send` in
+  `src/services/core.ts`); without the header it marks everything stale.
+- **No data.** The payload is only `{ at, areas }`, area names and never ids or
+  fields: the channel is a public broadcast channel. Browsers read records only
+  through the Worker API, which applies the reader's role and assignment scope.
 - **Client.** `src/app/liveUpdates.ts` holds one subscription and at most one timer
   for the whole app (reference-counted; AuthGate mounts it while someone is signed
-  in). A ping (bursts within 500 ms count once) invalidates the TanStack Query cache
-  and refetches only queries a mounted screen uses. Until Realtime confirms the
-  subscription, and whenever it drops, visible pages poll every 30 s instead
-  (`POLL_FALLBACK_MS`); reconnecting refetches once for pings lost meanwhile.
-  While the tab is hidden nothing is fetched or polled; a change seen meanwhile (or
-  no Realtime) refetches once when the tab is shown again.
-- **Access changes.** Each refresh re-reads `/api/auth/me`. A changed role or
-  employment type resets every cached query; a different user or sign-out clears
-  the cache (FLOW-189). `useResource` and `usePagedList` stop returning cached data
-  once a refetch answers 403 or 404, so a record the reader lost stays hidden.
+  in). A ping (bursts within 500 ms count once, with their areas combined)
+  invalidates the cached queries those areas cover and refetches the ones a mounted
+  screen uses. `src/app/queryAreas.ts` maps each query key's first segment to the
+  areas it shows; a key it doesn't list, a ping without areas (an older Worker
+  during a deploy) and a `settings` ping refetch everything. Until Realtime
+  confirms the subscription, and whenever it drops, visible pages poll every 30 s
+  instead (`POLL_FALLBACK_MS`); reconnecting refetches everything once for pings
+  lost meanwhile. While the tab is hidden nothing is fetched or polled; the areas
+  missed meanwhile (or everything, with no Realtime) refetch once when the tab is
+  shown again. Cached data counts as fresh for 30 s (`staleTime`), so returning to
+  a screen within 30 s makes no request unless a ping or a save covered it.
+- **Access changes.** A `users` ping (or one without areas) re-reads
+  `/api/auth/me`, and a `settings` ping (roles and permissions) re-reads the
+  permissions matrix. A changed role or employment type refetches every cached
+  query; a different user or sign-out clears the cache (FLOW-189). `useResource`
+  and `usePagedList` stop returning cached data once a refetch answers 403 or 404,
+  so a record the reader lost stays hidden.
 - **Consumers.** Every `useResource` / `usePagedList` screen takes part with no
   extra code. A new screen (e.g. the FLOW-155 day-of board) loads its data with
-  `useResource` under a key that names it; it must not open its own Realtime
-  channel or timer. Something outside the query cache that must react (e.g. a
-  board's own "last updated" note) can listen with `onDataChanged`, which fires
-  after each visible refresh. Data with its own expiry, such as signed attachment
+  `useResource` under a key that names it, and adds the key's first segment to
+  `QUERY_AREAS` (until then it refetches on every change); it must not open its own
+  Realtime channel or timer. A new write route adds its mount path to `ROUTE_AREAS`.
+  Something outside the query cache that must react (e.g. a board's own "last
+  updated" note) can listen with `onDataChanged`, which fires after each visible
+  refresh with the areas that changed. Data with its own expiry, such as signed attachment
   links (FLOW-201), uses `useResource`'s `expiresAt` option instead.

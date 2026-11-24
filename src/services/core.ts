@@ -1,6 +1,8 @@
 import { documentSchema } from "../../shared/documents";
 import type { z } from "zod";
 import { queryClient } from "../app/queryClient";
+import { affectedBy } from "../app/queryAreas";
+import { CHANGED_AREAS_HEADER, parseAreas } from "../../shared/realtime";
 import { authFetch } from "./auth";
 import { apiErrorSchema } from "../../shared/api";
 import type { Version } from "../../shared/schema-primitives";
@@ -86,11 +88,18 @@ async function send(path: string, method = "GET", body?: unknown) {
       duplicate.success ? duplicate.data.duplicates : [],
     );
   }
-  // A save can change anything another screen has cached (FLOW-189): mark it
-  // all stale, so each screen refetches the next time it opens. Screens on view
-  // reload what they show themselves, as before.
-  if (method !== "GET")
-    void queryClient.invalidateQueries({ refetchType: "none" });
+  // A save marks stale what other screens have cached of the areas it changed
+  // (FLOW-189, FLOW-304), as the API names them, so each such screen refetches
+  // the next time it opens. Without the header (an older Worker, or a write no
+  // area covers) everything is marked stale. Screens on view reload what they
+  // show themselves, as before.
+  if (method !== "GET") {
+    const areas = parseAreas(response.headers.get(CHANGED_AREAS_HEADER));
+    void queryClient.invalidateQueries({
+      predicate: (query) => affectedBy(query.queryKey, areas),
+      refetchType: "none",
+    });
+  }
   return { json, response };
 }
 

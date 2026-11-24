@@ -1,4 +1,4 @@
-import type { Hono, MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from "hono";
 import type { Actor } from "../shared/access";
 import {
   canReadField,
@@ -14,7 +14,8 @@ import {
   operatorsFor,
   type CardFilter,
 } from "../shared/layout";
-import { ApiError, type AppContext, type AppEnv } from "./hono";
+import { ApiError, type AppEnv } from "./hono";
+import { CARD_MEMORY_ROWS, compileCardSql } from "./card-sql";
 
 // `fields=` on list and detail endpoints (FLOW-253) and card queries (FLOW-256).
 //
@@ -23,10 +24,11 @@ import { ApiError, type AppContext, type AppEnv } from "./hono";
 // own row scope and field redaction first, so a projection can only narrow.
 //
 // A custom card adds where=<json filters>, orderBy=<field>:<asc|desc> and
-// take=<n> to a list request. The rows still come from the same list endpoint
-// (read page by page, as the viewer), then are filtered, sorted and cut to take
-// here, on fields the viewer may read only: a filter or sort on a field the
-// viewer can't read sees it as empty, so it can't reveal hidden values.
+// take=<n> to a list request. The list endpoint runs it in its own query
+// (FLOW-308, worker/card-sql.ts), then the rows are filtered, sorted and cut to
+// take again here, on fields the viewer may read only: a filter or sort on a
+// field the viewer can't read sees it as empty, so it can't reveal hidden
+// values.
 
 const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const routes: { pattern: RegExp; source: SourceKey; detail: boolean }[] = [
@@ -43,10 +45,6 @@ const routes: { pattern: RegExp; source: SourceKey; detail: boolean }[] = [
   { pattern: new RegExp(`^/api/leads/${uuid}/events$`, "i"), source: "events", detail: false },
 ];
 export const fieldRoute = (path: string) => routes.find((route) => route.pattern.test(path)) ?? null;
-
-// Pages read per card query: up to 2,000 rows at the list endpoint's largest page.
-const CARD_PAGES = 4;
-const CARD_PAGE_SIZE = 500;
 
 type Row = Record<string, unknown>;
 
@@ -179,7 +177,8 @@ export function applyCardQuery(actor: Actor, source: SourceKey, rows: Row[], que
 
 // Proposals have no list across events; as a main list a card reads the sales
 // tracker's proposal rows (FLOW-157), which already apply the viewer's scope.
-function salesProposals(body: unknown): Row[] {
+// The proposals list endpoint answers a card with these (worker/routes/proposals.ts).
+export function salesProposals(body: unknown): Row[] {
   const rows = (body as { rows?: Row[] } | null)?.rows ?? [];
   return rows
     .filter((row) => row.kind === "proposal")
@@ -195,7 +194,7 @@ function salesProposals(body: unknown): Row[] {
     }));
 }
 
-export function fieldProjection(app: () => Hono<AppEnv>): MiddlewareHandler<AppEnv> {
+export function fieldProjection(): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     const fields = c.req.query("fields");
     if (c.req.method !== "GET" || fields === undefined) return next();
@@ -205,48 +204,32 @@ export function fieldProjection(app: () => Hono<AppEnv>): MiddlewareHandler<AppE
     const parsed = parseFieldList(route.source, fields);
     if ("unknown" in parsed)
       throw new ApiError(400, "UNKNOWN_FIELD", `Unknown field: ${parsed.unknown.join(", ")}.`);
-    const url = new URL(c.req.url);
-    const card = route.detail ? null : parseCardQuery(route.source, url.searchParams);
+    const card = route.detail ? null : parseCardQuery(route.source, new URL(c.req.url).searchParams);
     const project = (row: Row) => projectRecord(actor, route.source, row, parsed.keys);
-    if (!card) {
-      await next();
-      if (c.res.status !== 200 || !c.res.headers.get("content-type")?.includes("application/json")) return;
-      const body = (await c.res.clone().json()) as unknown;
-      const headers = new Headers(c.res.headers);
-      headers.delete("content-length");
-      const projected = Array.isArray(body) ? body.map((row) => project(row as Row)) : project(body as Row);
-      c.res = new Response(JSON.stringify(projected), { status: 200, headers });
+    const now = new Date();
+    // A card query (FLOW-308): the list endpoint itself runs it, as the viewer,
+    // in one query. On the source's main list its filters, sort and limit go
+    // into that query's SQL where they can; on other lists (related records,
+    // computed sources) the endpoint reads one page. Either way the card is
+    // applied again here on what came back, on fields the viewer may read only.
+    if (card)
+      c.set(
+        "card",
+        c.req.path === fieldRegistry[route.source].listPath
+          ? compileCardSql(actor, route.source, card, now)
+          : { orderBy: [], limit: CARD_MEMORY_ROWS },
+      );
+    await next();
+    if (c.res.status !== 200 || !c.res.headers.get("content-type")?.includes("application/json")) return;
+    const body = (await c.res.clone().json()) as unknown;
+    if (card) {
+      const rows = Array.isArray(body) ? (body as Row[]) : [];
+      c.res = c.json(applyCardQuery(actor, route.source, rows, card, now).map(project));
       return;
     }
-    // A card query: read the list as the viewer, page by page, without the card
-    // parameters, then filter, sort, cut and project.
-    for (const key of ["fields", "where", "orderBy", "take", "cursor", "limit"]) url.searchParams.delete(key);
-    const proposalsList = c.req.path === "/api/proposals" && !url.searchParams.get("eventId");
-    const base = proposalsList ? new URL("/api/sales", url) : url;
-    let context: AppContext["executionCtx"] | undefined;
-    try {
-      context = c.executionCtx;
-    } catch {
-      // Tests and local requests have no execution context.
-    }
-    const rows: Row[] = [];
-    let cursor: string | null = null;
-    for (let page = 0; page < CARD_PAGES; page++) {
-      const target = new URL(base);
-      if (!proposalsList) target.searchParams.set("limit", String(CARD_PAGE_SIZE));
-      if (cursor) target.searchParams.set("cursor", cursor);
-      const response = await app().request(
-        `${target.pathname}${target.search}`,
-        { headers: c.req.raw.headers },
-        c.env,
-        context,
-      );
-      if (response.status !== 200) return new Response(response.body, response);
-      const body = (await response.json()) as unknown;
-      rows.push(...(proposalsList ? salesProposals(body) : Array.isArray(body) ? (body as Row[]) : []));
-      cursor = response.headers.get("X-Has-More") === "true" ? response.headers.get("X-Next-Cursor") : null;
-      if (!cursor) break;
-    }
-    return c.json(applyCardQuery(actor, route.source, rows, card).map(project));
+    const headers = new Headers(c.res.headers);
+    headers.delete("content-length");
+    const projected = Array.isArray(body) ? body.map((row) => project(row as Row)) : project(body as Row);
+    c.res = new Response(JSON.stringify(projected), { status: 200, headers });
   };
 }
