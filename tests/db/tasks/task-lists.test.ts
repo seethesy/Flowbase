@@ -99,7 +99,7 @@ const notificationsOf = (who: keyof typeof people) =>
 const titlesOf = async (who: keyof typeof people) =>
   (await notificationsOf(who)).map((n) => n.title).sort();
 
-const tables = sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, task_views, task_template_items, task_templates, task_comments, task_checklist_items, task_assignees, tasks, sop_versions, sops, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
+const tables = sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, task_views, task_template_items, task_templates, task_comments, task_checklist_items, task_assignees, task_managers, tasks, sop_versions, sops, notifications, notification_preferences, settings, event_staff_slots, event_shifts, lead_duplicates, leads, audit_log, event_status_history, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs, users`;
 beforeAll(async () => {
   await migrate(db, { migrationsFolder: "drizzle" });
 });
@@ -123,7 +123,7 @@ afterAll(async () => {
 });
 
 const newTask = (body: Record<string, unknown>, as = admin) =>
-  as.send<Task>("POST", "/api/tasks", body);
+  as.send<Task>("POST", "/api/tasks", "managerIds" in body || "overseerId" in body ? body : { ...body, managerIds: [] });
 const list = (as: ReturnType<typeof signedInAs>, query = "") =>
   as.send<TaskSummary[]>("GET", `/api/tasks${query}`);
 const ids = (tasks: { id: string }[]) => tasks.map((task) => task.id).sort();
@@ -155,6 +155,32 @@ beforeEach(() => {
 });
 
 describe("FLOW-59 communal task list", () => {
+  it("FLOW-324: a manager filter finds a task with several managers", async () => {
+    const task = await newTask({ title: "Check linens", managerIds: [people.casey, people.lead] });
+    expect(ids(await list(casey, `?mine=true&overseerId=${people.casey}`))).toContain(task.id);
+    expect(ids(await list(lead, `?mine=true&overseerId=${people.lead}`))).toContain(task.id);
+    expect(ids(await list(pat, `?mine=true&overseerId=${people.pat}`))).not.toContain(task.id);
+  });
+
+  it("FLOW-324: completion tells every active manager except the completer", async () => {
+    const task = await newTask({ title: "Polish glasses", assigneeIds: [people.pat], managerIds: [people.casey, people.lead] });
+    await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { status: "done" });
+    await drain();
+    expect(await titlesOf("casey")).toContain("Task completed: Polish glasses");
+    expect(await titlesOf("lead")).toContain("Task completed: Polish glasses");
+    expect(await titlesOf("pat")).not.toContain("Task completed: Polish glasses");
+  });
+
+  it("FLOW-324: deactivated managers stay on the task but stop receiving notifications", async () => {
+    const task = await newTask({ title: "Count linens", assigneeIds: [people.pat], managerIds: [people.lead, people.casey] });
+    await db.update(schema.users).set({ status: "deactivated" }).where(eq(schema.users.id, people.lead));
+    await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { status: "done" });
+    await drain();
+    expect(await titlesOf("lead")).not.toContain("Task completed: Count linens");
+    expect(await titlesOf("casey")).toContain("Task completed: Count linens");
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).managers.map((person) => person.id)).toContain(people.lead);
+  });
+
   it("AC1: part-time staff see their own tasks and the open unassigned ones, not others' (FLOW-272)", async () => {
     const theirs = await newTask({ title: "Restock gloves", assigneeIds: [people.pat] });
     await newTask({ title: "Polish trays", assigneeIds: [people.casey] });

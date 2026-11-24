@@ -149,6 +149,10 @@ export const defaultCleanupTemplate: CleanupSection[] = [
 ];
 const days = z.number().int().min(0).max(30);
 export const businessDefaultsSchema = z.object({
+  defaultTaskManagers: z.discriminatedUnion("mode", [
+    z.object({ mode: z.literal("all_admins"), userIds: z.array(id).default([]) }),
+    z.object({ mode: z.literal("people"), userIds: z.array(id).max(20).refine((ids) => new Set(ids).size === ids.length, "List each manager once.") }),
+  ]).default({ mode: "all_admins", userIds: [] }),
   // Days a rental stays reserved before and after its event.
   rentalBufferDaysBefore: days.default(1),
   rentalBufferDaysAfter: days.default(1),

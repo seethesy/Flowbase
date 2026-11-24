@@ -48,7 +48,6 @@ export const tasks = pgTable(
       .notNull()
       .default("normal"),
     dueAt: timestamptz("due_at"),
-    overseerId: uuid("overseer_id"),
     eventId: uuid("event_id"),
     clientId: uuid("client_id"),
     inventoryItemId: uuid("inventory_item_id"),
@@ -69,7 +68,6 @@ export const tasks = pgTable(
       .on(table.eventId, table.templateItemId)
       .where(sql`${table.templateItemId} is not null`),
     index("tasks_event_idx").on(table.eventId),
-    index("tasks_overseer_idx").on(table.overseerId),
     index("tasks_created_by_idx").on(table.createdBy),
     oneOf("tasks_type_check", table.type, taskTypes),
     oneOf("tasks_status_check", table.status, taskStatuses),
@@ -91,6 +89,21 @@ export const taskAssignees = pgTable(
       .on(table.taskId, table.userId)
       .where(sql`${table.archivedAt} is null`),
     index("task_assignees_user_idx").on(table.userId),
+  ],
+).enableRLS();
+// Managers are stored per task so later role changes do not rewrite history.
+export const taskManagers = pgTable(
+  "task_managers",
+  {
+    ...baseColumns(),
+    taskId: uuid("task_id").notNull().references(() => tasks.id),
+    userId: uuid("user_id").notNull(),
+  },
+  (table) => [
+    uniqueIndex("task_managers_task_user_idx")
+      .on(table.taskId, table.userId)
+      .where(sql`${table.archivedAt} is null`),
+    index("task_managers_user_idx").on(table.userId),
   ],
 ).enableRLS();
 export const taskChecklistItems = pgTable(

@@ -106,6 +106,16 @@ export async function updateSetting<K extends SettingKey>(
   value: BusinessSettings[K],
 ): Promise<BusinessSettings[K]> {
   return saving(db.transaction(async (tx) => {
+    if (key === "defaults") {
+      const managers = (value as BusinessSettings["defaults"]).defaultTaskManagers;
+      if (managers.mode === "people" && managers.userIds.length) {
+        const active = await tx.select({ id: users.id }).from(users).where(and(
+          inArray(users.id, managers.userIds), eq(users.status, "active"), isNull(users.archivedAt),
+        ));
+        if (active.length !== managers.userIds.length)
+          throw new ApiError(400, "INVALID_REQUEST", "Choose active staff as default task managers.");
+      }
+    }
     const [current] = await tx
       .select()
       .from(settings)

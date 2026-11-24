@@ -22,7 +22,7 @@ const manager = "c3070000-0000-4000-8000-000000000002";
 const clientId = "c3070000-0000-4000-8000-000000000003";
 const admin: Actor = { userId: lead, role: "admin" };
 const now = new Date("2026-11-12T16:00:00.000Z");
-const clear = sql`truncate table readiness_responses, sms_outbox, notifications, notification_preferences, task_assignees, tasks, event_staff_slots, event_shifts, truck_assignments, pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, reservation_conflicts, consumable_allocations, beos, payment_schedule_items, payments, vendor_orders, order_lists, events, clients, jobs, users cascade`;
+const clear = sql`truncate table readiness_responses, sms_outbox, notifications, notification_preferences, task_assignees, task_managers, tasks, event_staff_slots, event_shifts, truck_assignments, pull_list_lines, pull_lists, kitchen_menu_lines, kitchen_menus, reservation_conflicts, consumable_allocations, beos, payment_schedule_items, payments, vendor_orders, order_lists, events, clients, jobs, users cascade`;
 const eventIdFor = (n: number) => `e3070000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const taskIdFor = (n: number) => `a3070000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 

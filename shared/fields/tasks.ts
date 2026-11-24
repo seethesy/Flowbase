@@ -37,7 +37,7 @@ export const taskFields: SourceDef = {
     },
     { key: "dueAt", label: "Due", type: "datetime", sortable: true, filterable: true },
     { key: "assignees", label: "Assignees", type: "person", filterable: true },
-    { key: "overseer", label: "Overseer", type: "person", sortable: true, filterable: true },
+    { key: "overseer", label: "Manager", type: "person", sortable: true, filterable: true },
     { key: "creator", label: "Created by", type: "person", sortable: true, filterable: true },
     {
       key: "eventTitle",

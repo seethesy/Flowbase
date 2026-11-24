@@ -19,6 +19,7 @@ import {
 import { ratioBasisLabels, ratioBasisSchema } from "../../../shared/inventory";
 import { notificationCatalog, notificationTypes } from "../../../shared/notifications";
 import { settingsApi, useBusinessSettings } from "../../services/settings";
+import { staffApi } from "../../services/staff";
 import {
   Button,
   EmptyState,
@@ -456,7 +457,9 @@ const numberOf = (value: string) => (value.trim() === "" ? NaN : Number(value));
 function DefaultSettings() {
   const categoryPlaceholder = useCopy("settings.default-settings.category.placeholder", "Category");
   const quantityPlaceholder = useCopy("settings.default-settings.quantity.placeholder", "Quantity");
+  const specificManagersLabel = useCopy("settings.default-settings.specific-task-managers", "Specific task managers");
   const settings = useBusinessSettings();
+  const staff = useResource(["staff"], () => staffApi.list(), { reference: true });
   const [draft, setDraft] = useState(() => draftOf(settings.defaults));
   useEffect(() => setDraft(draftOf(settings.defaults)), [settings.defaults]);
   const save = useSaveState();
@@ -532,6 +535,22 @@ function DefaultSettings() {
       <form className="settings-form" noValidate onSubmit={(e) => void submit(e)}>
         <SaveMessages error={save.error} notice={save.notice} />
         <div className="form-grid">
+          <FormField label={<T id="settings.default-settings.default-task-managers">Default task managers</T>}>
+            <Dropdown value={draft.defaultTaskManagers.mode} onChange={(e) => set("defaultTaskManagers", e.target.value === "all_admins" ? { mode: "all_admins", userIds: [] } : { mode: "people", userIds: [] })}>
+              <option value="all_admins"><T id="settings.default-settings.all-admins">All Admins</T></option>
+              <option value="people"><T id="settings.default-settings.specific-people">Specific people</T></option>
+            </Dropdown>
+          </FormField>
+          {draft.defaultTaskManagers.mode === "people" && (
+            <FormField label={<T id="settings.default-settings.choose-task-managers">Choose task managers</T>}>
+              <Dropdown multiple aria-label={specificManagersLabel} value={draft.defaultTaskManagers.userIds}
+                onChange={(e) => set("defaultTaskManagers", { mode: "people", userIds: Array.from(e.target.selectedOptions, (option) => option.value) })}>
+                {(staff.data ?? []).filter((person) => person.active).map((person) => (
+                  <option key={person.id} value={person.id}>{person.name}</option>
+                ))}
+              </Dropdown>
+            </FormField>
+          )}
           {number("rentalBufferDaysBefore", "Rental buffer days before", "Days a rental is held before its event.")}
           {number("rentalBufferDaysAfter", "Rental buffer days after", "Days a rental is held after its event.")}
           {number("monthlySmsCap", "Monthly SMS cap", "Texts sent per calendar month; 0 sends none.")}
