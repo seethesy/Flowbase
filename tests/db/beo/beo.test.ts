@@ -967,3 +967,57 @@ describe("FLOW-337: generating the BEO from a proposal", () => {
     expect(await db.select().from(schema.beos)).toHaveLength(1);
   });
 });
+
+// FLOW-338: Import BEO saves the reviewed values to the event's BEO (Q1:
+// BEO-only), creating the BEO, or the event (Q4), when missing; an approved BEO
+// takes the import and logs it (Q2).
+describe("FLOW-338: importing a BEO from a file", () => {
+  const values = {
+    runOfShow: [
+      { time: "17:00", cue: "Guests arrive", owner: "", notes: "Welcome drinks" },
+      { time: "18:30", cue: "Toasts", owner: "", notes: "" },
+    ],
+    setupDetails: "Centerpieces - 8 tables, 1 per",
+    additionalNotes: "Menu\nInvented roast\n\nNot recognized\nPost event: team unloads the truck",
+    fileName: "synthetic-beo.docx",
+  };
+  type Result = { eventId: string; beoId: string; created: boolean };
+
+  it("creates the event's BEO with the schedule as run of show and the rest as notes (AC2, AC3)", async () => {
+    const event = await seed();
+    const result = await sam.send<Result>("POST", "/api/beos/import", { eventId: event.id, ...values });
+    expect(result).toMatchObject({ eventId: event.id, created: true });
+    const beo = await getBeo(sam, event);
+    expect(beo.id).toBe(result.beoId);
+    expect(beo.content.runOfShow.rows.map((row) => [row.time, row.cue])).toEqual([["17:00", "Guests arrive"], ["18:30", "Toasts"]]);
+    expect(beo.content.setupCleanup.setupDetails).toBe(values.setupDetails);
+    expect(beo.content.notes.additionalNotes).toContain("Not recognized\nPost event: team unloads the truck");
+    // Q1: the event's own records stay as they were.
+    expect(await db.select().from(schema.eventTimelineEntries).where(eq(schema.eventTimelineEntries.eventId, event.id))).toHaveLength(0);
+    const [audit] = await db.select().from(schema.auditLog).where(and(eq(schema.auditLog.entityType, "beo"), eq(schema.auditLog.entityId, result.beoId)));
+    expect(audit.changes).toMatchObject({ importedFrom: { after: "synthetic-beo.docx" }, runOfShowRows: { after: 2 } });
+  });
+
+  it("imports into an approved BEO and logs the changes (Q2, AC5)", async () => {
+    const event = await seed();
+    const before = await approved(event);
+    const result = await sam.send<Result>("POST", "/api/beos/import", { eventId: event.id, ...values });
+    expect(result).toMatchObject({ beoId: before.id, created: false });
+    const beo = await getBeo(sam, event);
+    expect(beo.changes.map((change) => change.fieldKey)).toEqual(expect.arrayContaining(["additional_notes", "setup_details"]));
+    expect(await db.select().from(schema.beos)).toHaveLength(1);
+  });
+
+  it("creates the event from the file when asked (Q4), and refuses people who can't edit events", async () => {
+    const result = await sam.send<Result>("POST", "/api/beos/import", {
+      newEvent: { title: "Sample Harbor Reunion", date: later, startTime: "17:00", guestCount: 64, address: "12 Example Lane" },
+      ...values,
+    });
+    expect(result.created).toBe(true);
+    const event = await sam.send<FlowEvent>("GET", `/api/events/${result.eventId}`);
+    expect(event).toMatchObject({ title: "Sample Harbor Reunion", date: later, startTime: "17:00", guestCount: 64, address: "12 Example Lane", status: "closed" });
+    expect((await getBeo(sam, event)).content.runOfShow.rows).toHaveLength(2);
+    expect((await casey.call("POST", "/api/beos/import", { newEvent: { title: "X", date: later, startTime: "17:00" }, ...values })).status).toBe(403);
+    expect((await sam.call("POST", "/api/beos/import", { fileName: "beo.docx" })).status).toBe(400);
+  });
+});

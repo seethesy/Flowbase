@@ -19,6 +19,7 @@ import { eventHubSchema } from "../../shared/event-hub";
 import { barPlanSchema, itemAllocationSchema, requirementSchema } from "../../shared/allocation";
 import { beoSceneSchema, beoViewSchema, offlineBeosSchema } from "../../shared/beo";
 import { beoListRowSchema } from "../../shared/beo-list";
+import { beoImportResultSchema } from "../../shared/beo-import";
 import { closeoutSchema } from "../../shared/closeout";
 import { eventRosterSchema } from "../../shared/event-staff";
 import { eventTimelineSchema } from "../../shared/event-timeline";
@@ -173,6 +174,8 @@ export function responseSchema(
     return id === "report" ? timeReportSchema : activityRecordedSchema;
   if (resource === "offline-beos") return offlineBeosSchema;
   // The BEOs tab (FLOW-265).
+  // Import BEO (FLOW-338).
+  if (resource === "beos" && id === "import") return beoImportResultSchema;
   if (resource === "beos") return beoListRowSchema.array();
   if (resource === "attachments")
     return !id && method === "GET"

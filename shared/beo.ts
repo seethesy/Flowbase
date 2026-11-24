@@ -54,8 +54,9 @@ export const beoSectionLabels: Record<BeoSection, string> = {
 // routes below (FLOW-145, 146, 147).
 export const beoNotesInputSchema = z
   .object({
-    setupDetails: text(5000),
-    additionalNotes: text(5000),
+    // Room for a whole imported BEO's notes (FLOW-338).
+    setupDetails: text(20_000),
+    additionalNotes: text(20_000),
   })
   .partial()
   .strict();

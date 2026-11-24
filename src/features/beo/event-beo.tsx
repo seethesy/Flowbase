@@ -20,6 +20,7 @@ import { BeoAreaList, BeoCleanup } from "./beo-areas";
 import { BeoSchedule } from "./beo-schedule";
 import { T, LabelT } from "../../app/copy";
 import "./event-beo.css";
+import { ImportBeoButton } from "./import-beo";
 
 // The banquet event order (FLOW-143, 144, 148): the ten sections in order, what is
 // still open or TBD marked, and what changed since approval marked until the next
@@ -270,6 +271,8 @@ export function EventBeoSection({
               <T id="event-beo.event-beo-section.print">Print</T>
             </Link>
           </Button>
+          {/* FLOW-338: a Word or PDF BEO into this event's BEO. */}
+          {data.canEdit && <ImportBeoButton event={event} onImported={() => beo.reload()} />}
           {!data.exists && data.canEdit && (
             <Button onClick={() => void run(() => beoApi.generate(event.id))}><T id="event-beo.event-beo-section.generate-beo">Generate BEO</T></Button>
           )}

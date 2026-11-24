@@ -21,6 +21,7 @@ import { useDeletable } from "../../app/live-edit/deletable";
 import { calendarWhenParts, weekday } from "../events/calendar-entries";
 import { EventsHeading } from "../events/events-heading";
 import { NewBeoButton } from "./new-beo";
+import { ImportBeoButton } from "./import-beo";
 import "./beo-list.css";
 
 // The Events screen's BEOs tab (FLOW-265): every event's BEO the viewer may open,
@@ -108,7 +109,7 @@ export function BeoListPage() {
 
   return (
     <>
-      <EventsHeading tab="beos"><NewBeoButton /></EventsHeading>
+      <EventsHeading tab="beos"><ImportBeoButton /><NewBeoButton /></EventsHeading>
       <PageGrid pageKey="beos.list">
       <Block id="filters" name="Filters" h={3}>
       <FilterBar>

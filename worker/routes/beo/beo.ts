@@ -10,6 +10,8 @@ import {
   runOfShowInputSchema,
 } from "../../../shared/beo";
 import { beoListQuerySchema } from "../../../shared/beo-list";
+import { beoImportInputSchema } from "../../../shared/beo-import";
+import { importBeo } from "../../records/beo/beo-import";
 import { requirePermission } from "../../auth";
 import { ApiError, idParam, parseBody, recordRunner, type AppContext, type AppEnv, type RunWithDb } from "../../hono";
 import { listBeos } from "../../records/beo/beo-list";
@@ -136,6 +138,12 @@ export function beoListRoutes(options: { withDb?: RunWithDb }) {
     if (!query.success)
       throw new ApiError(400, "INVALID_REQUEST", query.error.issues[0]?.message ?? "Invalid BEO filter.");
     return c.json(await record(c, (db, actor) => listBeos(db, actor, query.data)));
+  });
+  // Import BEO (FLOW-338): the values reviewed in the browser, saved to the
+  // event's BEO (and the event created from the file when asked).
+  routes.post("/import", requirePermission("events.write"), async (c) => {
+    const input = await parseBody(c, beoImportInputSchema);
+    return c.json(await record(c, (db, actor) => importBeo(db, actor, input)), 201);
   });
   return routes;
 }
