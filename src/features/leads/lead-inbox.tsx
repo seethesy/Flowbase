@@ -8,9 +8,12 @@ import { useResource } from "../../app/useResource";
 import { StatusSelect } from "../../components/ui/status-pill";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  leadsHeadingDefaultStatuses,
+  leadsHeadingStatuses,
   leadStatusLabels,
   leadStatusSchema,
   type Lead,
+  type LeadStatus,
   type LeadSummary,
 } from "../../../shared/leads";
 import { fieldDef } from "../../../shared/fields";
@@ -67,8 +70,13 @@ function notesText(node: JSONContent | null | undefined): string {
 }
 
 // The shared pipeline table. A lead can have several events; the detail lists all
-// of them while this table shows the lead's latest event name and date.
-export function LeadInbox() {
+// of them while this table shows the lead's latest event name and date. Each
+// heading's Overview lists its own pipeline stages (FLOW-328): `statuses` are
+// the ones its status filter offers, `shownByDefault` the ones listed while the
+// filter is empty. The table goes in a page Block; `overlays` (drawers, the undo
+// toast) go outside the page grid.
+type LeadTableOptions = { statuses: readonly LeadStatus[]; shownByDefault?: readonly LeadStatus[] };
+export function useLeadTable({ statuses, shownByDefault = statuses }: LeadTableOptions) {
   const searchPlaceholder = useCopy("leads.inbox.search-placeholder", "Search leads");
   const navigate = useNavigate();
   const [status, setStatus] = useState("");
@@ -81,14 +89,14 @@ export function LeadInbox() {
   useEffect(() => { setPageSize(Number(localStorage.getItem(`flowbase.leads.page-size.${userId}`)) || 25); }, [userId]);
   useEffect(() => { setPageNumber(1); }, [status, source, owner, search]);
   const [closing, setClosing] = useState<Lead | null>(null);
-  const [entering, setEntering] = useState(false);
   const [error, setError] = useState("");
   const term = useDebounced(search.trim());
   const owners = useResource(["lead-owners"], leadsApi.owners);
-  const leads = useResource(["leads", "table", status, source, owner, term],
+  const listed = status || shownByDefault.join(",");
+  const leads = useResource(["leads", "table", listed, source, owner, term],
     () => loadEveryPage((cursor) =>
       leadsApi.list({
-        status: status || undefined, source: source || undefined, assigned: owner || undefined,
+        status: listed, source: source || undefined, assigned: owner || undefined,
         search: term || undefined }, cursor)));
   const data = leads.data ?? [];
   const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
@@ -152,20 +160,14 @@ export function LeadInbox() {
     { key: "latestProposal", heading: "Proposal", cell: (lead) => lead.latestProposal ? <Link draggable={false} to={`/events/${lead.latestProposal.eventId}?proposal=${lead.latestProposal.id}`}>{lead.latestProposal.title}</Link> : "—" },
     { key: "latestBeo", heading: "BEO", cell: (lead) => lead.latestBeo ? <Link draggable={false} to={`/events/${lead.latestBeo.eventId}/beo/${lead.latestBeo.id}`}><T id="leads.inbox.beo-version" values={{ version: lead.latestBeo.version }}>{"BEO v{version}"}</T></Link> : "—" },
   ];
-  return <>
-    <PageHeader pageKey="leads.inbox" title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
-      <Allowed action="leads.create"><Button onClick={() => setEntering(true)}><T id="leads.inbox.new-lead">New lead</T></Button></Allowed>
-      <Button variant="outline" asChild><Link to="/leads/dashboard"><T id="leads.inbox.lead-dashboard">Lead dashboard</T></Link></Button>
-    </PageHeader>
-    <PageGrid pageKey="leads.inbox">
-    <Block id="lead-table" name="Leads table" h={24}>
+  const table = <>
       <FilterBar>
         <SearchInput value={search} onChange={setSearch} placeholder={searchPlaceholder} copyId="leads.inbox.search-placeholder" />
         <label><T id="leads.inbox.owners">Owners </T><Dropdown aria-label="Owners" value={owner} onChange={(event) => setOwner(event.target.value)}>
           <option value="">All owners</option><option value="unassigned">Unassigned</option>{owners.data?.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
         </Dropdown></label>
         <Select label="Statuses" value={status ? leadStatusLabels[status as Lead["status"]] : ""} onChange={(label) => setStatus(valueOf(leadStatusLabels, label) ?? "")}
-          options={leadStatusSchema.options.map((value) => leadStatusLabels[value])} />
+          options={statuses.map((value) => leadStatusLabels[value])} />
         <Select label="Sources" value={source} onChange={setSource} options={sources} />
         <span className="result-count"><T id="leads.inbox.lead-count" values={{ count: data.length }}>{"{count} leads"}</T></span>
       </FilterBar>
@@ -212,11 +214,29 @@ export function LeadInbox() {
             onClick={() => setPageNumber(number)}>{number}</button>)}
         <button type="button" disabled={pageNumber === pageCount} onClick={() => setPageNumber(pageNumber + 1)}><T id="leads.inbox.next">Next</T></button>
       </div>
-    </Block>
-    </PageGrid>
-    {entering && <NewLeadForm onClose={() => setEntering(false)} onCreated={() => leads.reload()} />}
+  </>;
+  const overlays = <>
     {closing && <ConvertLeadForm lead={closing} onClose={() => setClosing(null)} onConverted={(result) => navigate(`/events/${result.event.id}`)} />}
     {selection.toast}
+  </>;
+  return { table, overlays, reload: leads.reload };
+}
+
+// Leads › Overview (FLOW-328): the early pipeline stages. Lost leads show only
+// when the status filter picks Lost (A2).
+export function LeadInbox() {
+  const [entering, setEntering] = useState(false);
+  const leads = useLeadTable({ statuses: leadsHeadingStatuses, shownByDefault: leadsHeadingDefaultStatuses });
+  return <>
+    <PageHeader pageKey="leads.inbox" title={<T id="leads.inbox.title">Leads</T>} subtitle={<T id="leads.inbox.subtitle">Every inquiry from every source, in one place.</T>} eyebrow={<T id="leads.inbox.eyebrow">Leads</T>}>
+      <Allowed action="leads.create"><Button onClick={() => setEntering(true)}><T id="leads.inbox.new-lead">New lead</T></Button></Allowed>
+      <Button variant="outline" asChild><Link to="/leads/dashboard"><T id="leads.inbox.lead-dashboard">Lead dashboard</T></Link></Button>
+    </PageHeader>
+    <PageGrid pageKey="leads.inbox">
+      <Block id="lead-table" name="Leads table" h={24}>{leads.table}</Block>
+    </PageGrid>
+    {entering && <NewLeadForm onClose={() => setEntering(false)} onCreated={() => leads.reload()} />}
+    {leads.overlays}
   </>;
 }
 

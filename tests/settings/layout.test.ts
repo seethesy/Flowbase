@@ -23,7 +23,7 @@ import { applyCardQuery, parseCardQuery } from "../../worker/fields";
 import { compileCardSql } from "../../worker/card-sql";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
-import { defaultBlocks, readingOrder, withBuiltins } from "../../src/app/live-edit/layout-state";
+import { codeDefault, readingOrder, withBuiltins } from "../../src/app/live-edit/layout-state";
 
 // Page layouts (FLOW-253 to 256): the field registry and its read rules, the
 // LayoutDoc schema and server checks, contrast, and card queries.
@@ -111,13 +111,16 @@ describe("field registry (FLOW-253 AC1)", () => {
 
 describe("layout document (FLOW-253)", () => {
   it("accepts the empty layout and fills defaults", () => {
+    // A saved version 1 document reads as a page grid (FLOW-319).
     expect(layoutDocSchema.parse({ version: 1 })).toEqual(emptyLayout());
+    expect(layoutDocSchema.parse({ version: 2, grid: { cols: [10000], rows: [10000] } })).toEqual(emptyLayout());
     expect(layoutProblems("leads.detail", emptyLayout())).toEqual([]);
   });
 
   it("rejects raw CSS, other versions, and blocks outside the 12 columns", () => {
     const builtin = { kind: "builtin", id: "notes", x: 0, y: 0, w: 6, h: 4 };
     expect(layoutDocSchema.safeParse({ version: 2 }).success).toBe(false);
+    expect(layoutDocSchema.safeParse({ ...emptyLayout(), version: 3 }).success).toBe(false);
     expect(layoutDocSchema.safeParse({ version: 1, blocks: [{ ...builtin, style: { text: "red" } }] }).success).toBe(false);
     expect(layoutDocSchema.safeParse({ version: 1, blocks: [{ ...builtin, style: { text: "#fff; x" } }] }).success).toBe(false);
     expect(layoutDocSchema.safeParse({ version: 1, blocks: [{ ...builtin, x: 8, w: 6 }] }).success).toBe(false);
@@ -183,37 +186,47 @@ describe("block placement (FLOW-253)", () => {
     { id: "b", name: "B", w: 6, h: 3 },
   ];
 
-  it("stacks built-ins in code order by default", () => {
-    expect(defaultBlocks(builtins)).toEqual([
-      { kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 },
-      { kind: "builtin", id: "b", x: 0, y: 4, w: 6, h: 3 },
-    ]);
+  it("stacks built-ins in code order by default: one column, a row each, shares from their heights (FLOW-319 20)", () => {
+    expect(codeDefault(builtins)).toMatchObject({
+      version: 2,
+      grid: { cols: [10000], rows: [5714, 4286], regions: [] },
+      blocks: [
+        { kind: "builtin", id: "a", x: 0, y: 0, w: 1, h: 1 },
+        { kind: "builtin", id: "b", x: 0, y: 1, w: 1, h: 1 },
+      ],
+    });
   });
 
-  it("drops built-ins the code no longer has and adds a new one where its code order puts it (FLOW-278)", () => {
-    // "a" comes before "b" in code: it goes above the saved "b", which moves down.
-    const saved = doc({ blocks: [{ kind: "builtin", id: "old", x: 0, y: 0, w: 12, h: 9 }, { kind: "builtin", id: "b", x: 6, y: 0, w: 6, h: 3 }] });
-    expect(withBuiltins(saved, builtins)).toEqual([
-      { kind: "builtin", id: "b", x: 6, y: 4, w: 6, h: 3 },
-      { kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 },
+  it("adds a built-in new in code as a row above the next built-in in code order, or at the bottom (FLOW-319 21)", () => {
+    const saved = { ...emptyLayout(), grid: { cols: [10000], rows: [5000, 5000], regions: [] }, blocks: [
+      { kind: "builtin" as const, id: "old", x: 0, y: 0, w: 1, h: 1 },
+      { kind: "builtin" as const, id: "b", x: 0, y: 1, w: 1, h: 1 },
+    ] };
+    const merged = withBuiltins(saved, builtins);
+    expect(merged.grid.rows).toEqual([3334, 3333, 3333]);
+    expect(merged.blocks).toEqual([
+      { kind: "builtin", id: "old", x: 0, y: 0, w: 1, h: 1 },
+      { kind: "builtin", id: "b", x: 0, y: 2, w: 1, h: 1 },
+      { kind: "builtin", id: "a", x: 0, y: 1, w: 1, h: 1 },
     ]);
-    // A new block last in code goes to the bottom.
-    expect(withBuiltins(doc({ blocks: [{ kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 }] }), builtins)).toEqual([
-      { kind: "builtin", id: "a", x: 0, y: 0, w: 12, h: 4 },
-      { kind: "builtin", id: "b", x: 0, y: 4, w: 6, h: 3 },
-    ]);
+    const bottom = withBuiltins({ ...saved, blocks: [{ kind: "builtin", id: "a", x: 0, y: 0, w: 1, h: 1 }] }, builtins);
+    expect(bottom.blocks.find((block) => block.id === "b")).toMatchObject({ x: 0, y: 2 });
   });
 
-  it("loads a saved event layout after its removed board block disappears", () => {
+  it("keeps a removed built-in's tombstone, with no place on the grid", () => {
     const saved = doc({ blocks: [
       { kind: "builtin", id: "day-of", x: 0, y: 0, w: 12, h: 8, removed: true },
       { kind: "builtin", id: "closeout", x: 0, y: 8, w: 12, h: 8 },
     ] });
-    expect(withBuiltins(saved, [{ id: "closeout", name: "Closeout", w: 12, h: 8 }]).map((block) => block.id))
-      .toEqual(["closeout"]);
+    const merged = withBuiltins(saved, [{ id: "closeout", name: "Closeout", w: 12, h: 8 }]);
+    expect(merged.blocks.map((block) => block.id)).toEqual(["day-of", "closeout"]);
+    // The space it took is an empty row; its tombstone has no place.
+    expect(merged.grid.rows).toEqual([5000, 5000]);
+    expect(merged.blocks[0]).toMatchObject({ removed: true, x: 0, y: 0, w: 1, h: 1 });
+    expect(merged.blocks[1]).toMatchObject({ x: 0, y: 1, w: 1, h: 1 });
   });
 
-  it("orders blocks top to bottom, then left to right, for phones", () => {
+  it("orders boxes top to bottom, then left to right, for phones", () => {
     expect(readingOrder([{ id: "r", x: 6, y: 0 }, { id: "l", x: 0, y: 0 }, { id: "d", x: 0, y: 2 }]).map((b) => b.id)).toEqual([
       "l",
       "r",

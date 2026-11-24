@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Dropdown } from "../components/ui/Dropdown";
 import { Button, LoadingSkeleton, PageHeader, Section, ErrorText } from "../components/shared";
 import { roles, type Role } from "../../shared/access";
-import { emptyLayout, layoutItemGone, type LayoutBlock, type LayoutDoc } from "../../shared/layout";
+import { layoutItemGone, type LayoutBlock, type LayoutDoc } from "../../shared/layout";
 import {
   areas,
   cardShown,
@@ -25,7 +25,7 @@ import { request } from "../services/core";
 import { roleLabel } from "../services/users";
 import { useResource } from "./useResource";
 import { usePermissions } from "./permissions";
-import { defaultBlocks, withBuiltins, type BuiltinBlock } from "./live-edit/layout-state";
+import { codeDefault, withBuiltins, type BuiltinBlock } from "./live-edit/layout-state";
 import { layoutQueryKey } from "./copy";
 import { queryClient } from "./queryClient";
 import { navigationGroups, type NavGroup, type NavTab } from "./navigation";
@@ -128,9 +128,8 @@ export function RolesPermissionsPage() {
       }
       if (cardsDirty) {
         const doc = loaded.data.doc;
-        const base: LayoutDoc = doc
-          ? { ...doc, blocks: withBuiltins(doc, dashboardBuiltins) }
-          : { ...emptyLayout(), blocks: defaultBlocks(dashboardBuiltins) };
+        // The dashboard's page grid (FLOW-319), saved as version 2.
+        const base: LayoutDoc = doc ? withBuiltins(doc, dashboardBuiltins) : codeDefault(dashboardBuiltins);
         const blocks = base.blocks.map(
           (block): LayoutBlock => (block.kind === "text" ? block : { ...block, visibleTo: cards[block.id] }),
         );

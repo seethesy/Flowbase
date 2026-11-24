@@ -36,8 +36,9 @@ const data = {
   display: { type: "table", columns: [{ key: "name" }, { key: "budgetCents" }] },
 };
 const withData = (id: string, override: unknown) => ({
-  version: 1,
-  blocks: [{ kind: "builtin", id, x: 0, y: 0, w: 6, h: 12, data: override }],
+  version: 2,
+  grid: { cols: [10000], rows: [10000], regions: [] },
+  blocks: [{ kind: "builtin", id, x: 0, y: 0, w: 1, h: 1, data: override }],
   tables: {},
   fieldBoxes: {},
 });
@@ -114,7 +115,7 @@ it("FLOW-281: related client proposals retain the client endpoint instead of que
 });
 
 it("FLOW-282: validates lifecycle metadata and refuses layout deletion by non-Admins", async () => {
-  const doc = { version: 1, blocks: [{ kind: "builtin", id: "my-leads", x: 0, y: 0, w: 6, h: 8,
+  const doc = { version: 2, grid: { cols: [10000], rows: [10000], regions: [] }, blocks: [{ kind: "builtin", id: "my-leads", x: 0, y: 0, w: 1, h: 1,
     deleted: { at: "2026-11-23T20:00:00.000Z", by: userId, name: "My Leads" } }] };
   expect((await put("dashboard.home", doc)).status).toBe(200);
   expect((await put("dashboard.home", { ...doc, blocks: [{ ...doc.blocks[0], removed: true }] })).status).toBe(400);

@@ -4,6 +4,7 @@ import { seedUsers } from "../../../worker/db/seed";
 import { fallGala, juniper } from "../fixtures";
 import { browserDb, seedRecords } from "../database";
 import * as s from "../../../worker/db/schema";
+import { halfWidthAndDown } from "./page-grid-helpers";
 
 const sections = [
   ["events.staff", "leads", "Production leads"],
@@ -20,21 +21,18 @@ for (const [pageKey, id, name] of sections) {
     await browserDb((db) => db.update(s.events).set({ status: "preparation" }).where(eq(s.events.id, fallGala().id)));
     await page.goto(`/#/events/${fallGala().id}`);
     await page.getByRole("button", { name: "Edit screen text" }).click();
-    const section = page.locator(`[data-page-layout="${pageKey}"]`);
-    await section.getByRole("button", { name: `Half width: ${name}`, exact: true }).click();
-    const moving = section.getByLabel(`${name}: arrow keys move, Shift and arrow keys resize`, { exact: true });
-    await moving.focus();
-    await moving.press("ArrowDown");
+    // A second column: the block is half width, then moves (FLOW-321).
+    await halfWidthAndDown(page, pageKey, name);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("button", { name: "Edit screen text" })).toBeVisible();
     const selector = `[data-page-layout="${pageKey}"] > [data-block-id="${id}"]`;
-    await expect(page.locator(selector)).toHaveCSS("grid-column-end", "span 6");
+    await expect(page.locator(selector)).toHaveCSS("grid-column-end", "span 1");
     const placed = await page.locator(selector).getAttribute("style");
     const context = await browser.newContext();
     const other = await context.newPage();
     await mockBrowserAuth(other, { userId: seedUsers.find((u) => u.role === "sales_manager")!.id });
     await other.goto(`/#/events/${fallGala().id}`);
-    await expect(other.locator(selector)).toHaveCSS("grid-column-end", "span 6");
+    await expect(other.locator(selector)).toHaveCSS("grid-column-end", "span 1");
     expect(await other.locator(selector).getAttribute("style")).toBe(placed);
     await expect(other.locator('[data-page-layout="events.detail"]')).toHaveCount(0);
     await context.close();
@@ -47,10 +45,13 @@ for (const [path, pageKey] of [["staff", "staff.list"], ["inventory", "inventory
     await page.goto(`/#/${path}`);
     await expect(page.locator(`[data-page-layout="${pageKey}"] > [data-block-id="list"]`)).toBeVisible();
     await page.getByRole("button", { name: "Edit screen text" }).click();
-    await page.getByRole("button", { name: "Half width: Filters" }).click();
+    // The saved version 1 layout reads as a page grid (FLOW-321): a second
+    // column makes Filters half width.
+    await page.locator(`[data-page-layout="${pageKey}"] > .page-grid-frame > .layout-grid-guides`).getByRole("button", { name: "Add column right of column 1" }).click();
+    await page.locator(`[data-page-layout="${pageKey}"] > [role=toolbar]`).getByRole("button", { name: "Apply", exact: true }).click();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.reload();
-    await expect(page.locator(`[data-page-layout="${pageKey}"] > [data-block-id="filters"]`)).toHaveCSS("grid-column-end", "span 6");
+    await expect(page.locator(`[data-page-layout="${pageKey}"] > [data-block-id="filters"]`)).toHaveCSS("grid-column-end", "span 1");
     await expect(page.locator(`[data-page-layout="${pageKey}"] > [data-block-id="list"]`)).toBeVisible();
   });
 }

@@ -273,6 +273,7 @@ export async function createManualLead(
 }
 
 export type LeadFilter = {
+  // A status, or a comma-separated list of statuses.
   status?: string;
   source?: string;
   channel?: string;
@@ -296,7 +297,11 @@ export async function listLeads(
 ): Promise<Page<Lead>> {
   requireLeadAccess(actor);
   const none: Page<Lead> = { rows: [], next: null };
-  const status = filter.status ? leadStatusSchema.safeParse(filter.status) : undefined;
+  // One status, or several separated by commas (FLOW-328: each heading's
+  // Overview lists its own pipeline stages).
+  const status = filter.status
+    ? leadStatusSchema.array().min(1).safeParse(filter.status.split(","))
+    : undefined;
   if (status && !status.success) return none;
   const channel = filter.channel
     ? leadChannelSchema.safeParse(filter.channel)
@@ -323,7 +328,7 @@ export async function listLeads(
       and(
         visibleLeads(actor),
         isNull(leads.archivedAt),
-        status?.success ? eq(leads.status, status.data) : undefined,
+        status?.success ? inArray(leads.status, status.data) : undefined,
         filter.source ? eq(leads.source, filter.source) : undefined,
         channel?.success ? eq(leads.channel, channel.data) : undefined,
         filter.assigned === "unassigned"

@@ -3,8 +3,8 @@ import { usePermissions } from "../../app/permissions";
 import { T } from "../../app/copy";
 import { EmptyState, PageHeader } from "../../components/shared";
 
-// The Overview tab that opens the Sales, Marketing, Documents and Reports
-// headings (FLOW-295). Each starts as an empty page layout (FLOW-273): an Admin
+// The Overview tab that opens the Marketing, Documents and Reports headings
+// (FLOW-295; Sales › Overview lists leads since FLOW-328, sales-overview.tsx). Each starts as an empty page layout (FLOW-273): an Admin
 // in live edit adds cards, tables and text boxes, which everyone then sees.
 // Until something is added, the page shows a short empty state.
 
@@ -19,15 +19,6 @@ function NothingYet() {
           : <T id="heading-overview.empty.description">Cards added to this page will show here.</T>}
       />
     </section>
-  );
-}
-
-export function SalesOverview() {
-  return (
-    <>
-      <PageHeader title={<T id="heading-overview.sales.title">Sales overview</T>} eyebrow={<T id="heading-overview.sales.eyebrow">Sales</T>} />
-      <PageGrid pageKey="sales.overview"><NothingYet /></PageGrid>
-    </>
   );
 }
 

@@ -63,6 +63,7 @@ import { eq } from "drizzle-orm";
 import { id as uuid } from "../shared/schema-primitives";
 import { proposalRoutes } from "./routes/sales/proposals";
 import { salesRoutes } from "./routes/sales/sales";
+import { pricingRoutes } from "./routes/sales/pricing";
 import { operationalReportRoutes } from "./routes/home/operational-reports";
 import { homeRoutes } from "./routes/home/home";
 import { vendorRoutes } from "./routes/inventory/vendors";
@@ -377,6 +378,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/notifications", notificationRoutes(options));
   app.route("/api/proposals", proposalRoutes(options));
   app.route("/api/sales", salesRoutes(options));
+  app.route("/api/pricing", pricingRoutes(options));
   app.route("/api/operational-reports", operationalReportRoutes(options));
   app.route("/api/home", homeRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));

@@ -63,6 +63,7 @@ import {
 import { deletedRecordSchema, deleteResultSchema } from "../../shared/deletions";
 import { searchResultSchema } from "../../shared/search";
 import { vendorDetailSchema, vendorSchema } from "../../shared/vendors";
+import { priceItemSchema } from "../../shared/pricing";
 import {
   timeReportSchema,
   activityRecordedSchema,
@@ -241,6 +242,8 @@ export function responseSchema(
     if (action === "scale") return scaledRecipeSchema;
     return !id && method === "GET" ? recipeSchema.array() : recipeSchema;
   }
+  // Sales › Pricing's price list (FLOW-329): the list, otherwise one price.
+  if (resource === "pricing") return !id && method === "GET" ? priceItemSchema.array() : priceItemSchema;
   // Vendor directory (FLOW-84): the list, otherwise the vendor with its items.
   if (resource === "vendors") {
     if (action === "history") return historyEntrySchema.array();

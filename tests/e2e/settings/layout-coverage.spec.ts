@@ -39,24 +39,25 @@ async function asUser(browser: import("@playwright/test").Browser, userId: strin
 test("an Admin moves and resizes a built-in card, saves, and another user sees it (AC1)", async ({ page, browser }) => {
   await page.goto("/#/venues");
   await edit(page);
-  const frame = page.locator('.layout-grid-item[data-layout-id="list"]');
+  // Page grid (FLOW-321): a second column halves every block; the List then
+  // moves into the new column by its handle.
+  const frame = page.locator('[data-page-layout="venues.list"] > .page-grid-frame > [data-block-id="list"]');
   await expect(frame).toBeVisible();
-  // Resize from the corner: the full-width block gets narrower.
   const before = (await frame.boundingBox())!;
-  await dragBy(page, frame.locator(".react-resizable-handle-e"), -Math.round(before.width / 2));
+  await page.getByRole("button", { name: "Add column right of column 1", exact: true }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
   const resized = (await frame.boundingBox())!;
   expect(resized.width).toBeLessThan(before.width * 0.75);
-  // Move it right by its handle.
-  await dragBy(page, frame.locator(".layout-handle"), Math.round(before.width / 3));
+  await dragBy(page, frame.locator(".layout-handle"), Math.round(before.width / 2));
   const moved = (await frame.boundingBox())!;
   expect(moved.x).toBeGreaterThan(resized.x + 20);
   await save(page);
 
   const saved = page.locator('[data-block-id="list"]');
-  await expect(saved).toHaveAttribute("style", /grid-area: \d+ \/ (?!1 )\d+ \/ span \d+ \/ span (?!12)\d+/);
+  await expect(saved).toHaveAttribute("style", /grid-area: \d+ \/ 2 \/ span 1 \/ span 1;/);
   const other = await asUser(browser, salesperson.id);
   await other.page.goto("/#/venues");
-  await expect(other.page.locator('[data-block-id="list"]')).toHaveAttribute("style", /grid-area: \d+ \/ (?!1 )\d+ \/ span \d+ \/ span (?!12)\d+/);
+  await expect(other.page.locator('[data-block-id="list"]')).toHaveAttribute("style", /grid-area: \d+ \/ 2 \/ span 1 \/ span 1;/);
   await other.close();
 });
 

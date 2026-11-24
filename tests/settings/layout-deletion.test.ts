@@ -17,7 +17,7 @@ describe("layout deletion lifecycle", () => {
   it("retains built-in tombstones across code merging and physically removes custom text", () => {
     const doc = changeDeletedItem(changeDeletedItem(fixture(), "block/facts", "permanent"), "block/note-1", "permanent");
     expect(doc.blocks).toEqual([{ ...builtin, removed: true }]);
-    expect(withBuiltins(doc, [{ id: "facts", name: "Facts", w: 12, h: 8 }])).toEqual(doc.blocks);
+    expect(withBuiltins(doc, [{ id: "facts", name: "Facts", w: 12, h: 8 }]).blocks).toEqual(doc.blocks);
     expect(layoutLifecycleChanges(fixture(), doc)).toEqual([{ key: "block/facts", action: "permanent-delete" }, { key: "block/note-1", action: "permanent-delete" }]);
     expect(changeDeletedItem(doc, "block/facts", "restore")).toBe(doc);
   });
