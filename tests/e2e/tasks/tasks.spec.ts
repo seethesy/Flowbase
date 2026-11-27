@@ -3,7 +3,8 @@ import { test, expect, databaseTest, mockBrowserAuth } from "../auth-fixture";
 import { browserDb, seedRecords } from "../database";
 import { fallGala, juniper } from "../fixtures";
 import { seedUsers } from "../../../worker/db/seed";
-import { users } from "../../../worker/db/schema";
+import { and, eq, isNull } from "drizzle-orm";
+import { taskAssignees, users } from "../../../worker/db/schema";
 import { createTask } from "../../../worker/records/tasks/tasks";
 import { taskInputSchema, type TaskInput } from "../../../shared/tasks";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../../shared/time";
@@ -326,7 +327,11 @@ databaseTest("someone who doesn't manage a task sees no Delete task, and Drop re
   await expect(page.getByRole("heading", { name: "Wipe tables" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete task" })).toHaveCount(0);
   await page.getByRole("button", { name: "Drop Wipe tables" }).click();
-  // Only they leave; the other assignee stays.
-  await expect(page.getByRole("button", { name: "Drop Wipe tables" })).toHaveCount(0);
-  await expect(page.locator("dd").filter({ hasText: kitchenLead.name })).not.toContainText(partTimeStaff.name);
+  // Only they leave. The task is no longer theirs to see, so the page returns
+  // to the Tasks subtab, where it is gone from My Tasks.
+  await expect(page).toHaveURL(/#\/tasks$/);
+  await expect(page.getByRole("region", { name: "My Tasks" })).not.toContainText("Wipe tables");
+  const assignees = await browserDb((db) => db.select({ userId: taskAssignees.userId }).from(taskAssignees)
+    .where(and(eq(taskAssignees.taskId, taskId), isNull(taskAssignees.archivedAt))));
+  expect(assignees.map((row) => row.userId)).toEqual([kitchenLead.id]);
 });

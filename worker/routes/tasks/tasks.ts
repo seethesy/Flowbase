@@ -185,12 +185,18 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
       }),
     );
   });
+  // The task after the drop, or 204 when the caller can no longer see it (a
+  // role limited to its own and unassigned tasks, FLOW-272/346).
   routes.post("/:id/drop", requirePermission("tasks.write"), async (c) => {
     const id = taskId(c);
-    return c.json(await record(c, async (db, actor) => {
+    const task = await record(c, async (db, actor) => {
       await db.transaction((tx) => dropTask(tx, actor, id));
-      return getTask(db, actor, id);
-    }));
+      return getTask(db, actor, id).catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 404) return null;
+        throw cause;
+      });
+    });
+    return task ? c.json(task) : c.body(null, 204);
   });
   archiveRoutes(routes, record, { path: "/:id", what: "Task", guard: requirePermission("tasks.write"),
     set: (db, actor, id, archived) => db.transaction((tx) => setTaskArchived(tx, actor, id, archived)) });

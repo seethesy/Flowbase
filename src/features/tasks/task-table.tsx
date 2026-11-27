@@ -46,9 +46,11 @@ const localDue = (dueAt: string | null) => {
 
 // Pick up, or Drop for an assignee (claimButton). Colored, on tables and the task
 // page alike (FLOW-346).
-export function ClaimButton({ task, onDone, onError, busy = false }: {
+export function ClaimButton({ task, onDone, onGone, onError, busy = false }: {
   task: Pick<Task, "id" | "title" | "status" | "assignees">;
   onDone: (task: Task) => void;
+  // After a Drop that leaves the task out of what this person may see.
+  onGone?: () => void;
   onError: (message: string) => void;
   busy?: boolean;
 }) {
@@ -60,7 +62,9 @@ export function ClaimButton({ task, onDone, onError, busy = false }: {
     setRunning(true);
     onError("");
     try {
-      onDone(kind === "drop" ? await tasksApi.drop(task.id) : await tasksApi.claim(task.id));
+      const next = kind === "drop" ? await tasksApi.drop(task.id) : await tasksApi.claim(task.id);
+      if (next) onDone(next);
+      else (onGone ?? (() => undefined))();
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -304,7 +308,7 @@ export function TaskTable({
       meta: { exportable: false },
       cell: ({ row }) => (
         <div className="task-line-actions">
-          <ClaimButton task={row.original} onDone={onChanged} onError={onError} />
+          <ClaimButton task={row.original} onDone={onChanged} onGone={onChanged} onError={onError} />
           {actions?.(row.original)}
           {mayManage(actor, row.original) && <DeleteButton task={row.original} />}
         </div>

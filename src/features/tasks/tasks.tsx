@@ -180,7 +180,8 @@ export function TaskDetail() {
             </Dropdown>
           </FormField>
           {/* Pick up / Drop, as on the task tables (FLOW-346). */}
-          <ClaimButton task={data} busy={busy} onDone={(next) => task.replace(next)} onError={setError} />
+          <ClaimButton task={data} busy={busy} onDone={(next) => task.replace(next)}
+            onGone={() => navigate("/tasks", { replace: true })} onError={setError} />
           <dl>
             <dt><T id="tasks.task-detail.due">Due</T></dt>
             <dd>{data.dueAt ? dateTimeLabel(data.dueAt) : "—"}</dd>
