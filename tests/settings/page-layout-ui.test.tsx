@@ -195,7 +195,7 @@ describe("Columns (FLOW-254)", () => {
     expect(writes[0]).toMatchObject({
       method: "PUT",
       path: "/api/layout/venues.list",
-      body: { version: 2, tables: { "venues.venue-list": { columns: [{ key: "name" }] } } },
+      body: { version: 3, tables: { "venues.venue-list": { columns: [{ key: "name" }] } } },
     });
   });
 

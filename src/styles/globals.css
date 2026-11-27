@@ -2655,20 +2655,23 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 .undo-toast__close { display: inline-flex; color: #c9d4cd; }
 
 /* Page layouts (FLOW-253 to 256). With no saved layout pages render as before.
-   A saved layout is a page grid (FLOW-319/320): its tracks (inline
-   grid-template-*) keep their shares of the usable area at every width, so
-   phones keep the arrangement too; content larger than its cell scrolls inside
-   the cell. */
+   A saved layout is a page grid (FLOW-319/320): its columns (inline
+   grid-template-columns) keep their shares of the content width at every
+   width, so phones keep the arrangement too; each row is an exact pixel height,
+   its percentage of the screen height (FLOW-357); content larger than its cell
+   scrolls inside the cell. */
 .page-grid {
   display: grid;
   gap: 12px;
 }
+/* The grid spans the whole content width of a record page or the dashboard
+   (FLOW-358): every column of the wrapper, on its own row. */
 .detail-grid > .page-grid,
 .detail-grid > .page-grid-editing,
 .dashboard-cards > .page-grid,
 .dashboard-cards > .page-grid-editing {
-  grid-column: 1 / -1;
   grid-area: auto;
+  grid-column: 1 / -1;
 }
 .dashboard-cards:has(> .page-grid, > .page-grid-editing) {
   display: block;
@@ -2795,19 +2798,30 @@ tbody tr.is-selected:hover td { background: #d7e9dd; }
 }
 
 /* Field boxes and text boxes on a card's inner grid. */
+/* 1px rows and no row gap: a box's top and height are exact pixels, as placed
+   in edit mode (FLOW-357); a box's content taller than it scrolls inside it. */
 .layout-boxes {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: minmax(28px, auto);
-  gap: 8px 12px;
+  grid-auto-rows: 1px;
+  gap: 0 12px;
 }
 .layout-box {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
   padding: 4px 6px;
   border-radius: 6px;
+}
+/* Phones stack the boxes in reading order at their content's height. */
+@media (max-width: 899px) {
+  .layout-boxes {
+    grid-auto-rows: auto;
+    row-gap: 8px;
+  }
 }
 .layout-box small {
   color: var(--muted);

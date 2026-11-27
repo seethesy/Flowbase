@@ -128,7 +128,7 @@ export function RolesPermissionsPage() {
       }
       if (cardsDirty) {
         const doc = loaded.data.doc;
-        // The dashboard's page grid (FLOW-319), saved as version 2.
+        // The dashboard.s page grid (FLOW-319), saved as version 3 (FLOW-357).
         const base: LayoutDoc = doc ? withBuiltins(doc, dashboardBuiltins) : codeDefault(dashboardBuiltins);
         const blocks = base.blocks.map(
           (block): LayoutBlock => (block.kind === "text" ? block : { ...block, visibleTo: cards[block.id] }),

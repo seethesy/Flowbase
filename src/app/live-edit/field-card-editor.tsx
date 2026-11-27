@@ -12,7 +12,6 @@ import { styleClass, styleVars } from "./layout-style-view";
 import { StylePopover } from "./layout-style";
 import { widthPresets, withWidth } from "./layout-sizes";
 const LayoutGridEditor = lazy(() => import("./layout-grid-editor"));
-const BOX_ROW_HEIGHT = 28;
 
 export default function FieldCardEditor({
   cardKey,
@@ -68,7 +67,6 @@ export default function FieldCardEditor({
         <Suspense fallback={<div className="skeleton" role="status" aria-label="Loading field editor" />}>
           <LayoutGridEditor
             label={`Fields of ${cardKey}`}
-            rowHeight={BOX_ROW_HEIGHT}
             items={visible}
             itemLabel={(id) => name(visible.find((box) => box.id === id)!)}
             onChange={(items) =>

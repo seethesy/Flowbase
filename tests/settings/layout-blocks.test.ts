@@ -8,12 +8,14 @@ import { blockClass } from "../../src/app/live-edit/page-grid";
 // grid since FLOW-321), more appearance options, and hide on phone. Fit content
 // is dropped on the page grid (FLOW-319 A4).
 
-const item = { id: "list", x: 2, y: 4, w: 6, h: 8 };
+// A card's box: its top and height are pixels (FLOW-357).
+const item = { id: "list", x: 2, y: 40, w: 6, h: 64 };
 
 describe("keyboard move and resize (AC2)", () => {
-  it("moves one column or row with the arrow keys and stays on the grid", () => {
+  it("moves one column or 8px with the arrow keys and stays on the grid", () => {
     expect(keyboardStep(item, "ArrowRight", false)).toEqual({ ...item, x: 3 });
-    expect(keyboardStep(item, "ArrowUp", false)).toEqual({ ...item, y: 3 });
+    expect(keyboardStep(item, "ArrowUp", false)).toEqual({ ...item, y: 32 });
+    expect(keyboardStep({ ...item, y: 0 }, "ArrowUp", false)).toBeNull();
     expect(keyboardStep({ ...item, x: 6 }, "ArrowRight", false)).toBeNull();
     expect(keyboardStep({ ...item, x: 0 }, "ArrowLeft", false)).toBeNull();
     expect(keyboardStep(item, "Enter", false)).toBeNull();
@@ -21,7 +23,9 @@ describe("keyboard move and resize (AC2)", () => {
 
   it("resizes with Shift and the arrow keys", () => {
     expect(keyboardStep(item, "ArrowRight", true)).toEqual({ ...item, w: 7 });
-    expect(keyboardStep(item, "ArrowDown", true)).toEqual({ ...item, h: 9 });
+    expect(keyboardStep(item, "ArrowDown", true)).toEqual({ ...item, h: 72 });
+    // No box under 16px tall.
+    expect(keyboardStep({ ...item, h: 16 }, "ArrowUp", true)).toBeNull();
     expect(keyboardStep({ ...item, w: 1 }, "ArrowLeft", true)).toBeNull();
     expect(keyboardStep({ ...item, x: 6, w: 6 }, "ArrowRight", true)).toBeNull();
   });

@@ -3,13 +3,15 @@ import ReactGridLayout, { noCompactor, useContainerWidth, type Layout } from "re
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { GRID_COLUMNS } from "../../../shared/layout";
-import { keyboardStep } from "./layout-sizes";
+import { keyboardStep, MIN_BOX_HEIGHT } from "./layout-sizes";
 
 // The drag-and-resize 12-column grid of admin layout editing (FLOW-253), for
 // page blocks and for boxes inside a card (FLOW-255/256). Loaded only in edit
 // mode, so it stays out of the app's first load. Items move by their handle
 // (.layout-handle), so a click inside a block still edits its text, and by the
-// arrow keys when focused (FLOW-278).
+// arrow keys when focused (FLOW-278). Rows are 1px with no vertical margin,
+// so a box's top and height are free pixels with no snapping (FLOW-357); the
+// view (BoxesView) places them on the same 1px rows.
 
 export type { GridItem } from "./layout-sizes";
 import type { GridItem } from "./layout-sizes";
@@ -23,21 +25,19 @@ export default function LayoutGridEditor({
   items,
   render,
   onChange,
-  rowHeight,
   label,
   itemLabel,
 }: {
   items: GridItem[];
   render: (id: string) => ReactNode;
   onChange: (items: GridItem[]) => void;
-  rowHeight: number;
   label: string;
   // Each item's name for keyboard users.
   itemLabel?: (id: string) => string;
 }) {
   const { width, containerRef, mounted } = useContainerWidth();
   const depth = useContext(GridDepth);
-  const layout: Layout = items.map((item) => ({ i: item.id, x: item.x, y: item.y, w: item.w, h: item.h, minW: 1, minH: 1 }));
+  const layout: Layout = items.map((item) => ({ i: item.id, x: item.x, y: item.y, w: item.w, h: item.h, minW: 1, minH: MIN_BOX_HEIGHT }));
   const changed = (next: Layout) => {
     const moved = next.map((item) => ({ id: item.i, x: item.x, y: item.y, w: item.w, h: item.h }));
     const before = JSON.stringify(items.map(({ id, x, y, w, h }) => ({ id, x, y, w, h })));
@@ -50,7 +50,7 @@ export default function LayoutGridEditor({
         <ReactGridLayout
           layout={layout}
           width={width}
-          gridConfig={{ cols: GRID_COLUMNS, rowHeight, margin: [12, 12], containerPadding: [0, 0] }}
+          gridConfig={{ cols: GRID_COLUMNS, rowHeight: 1, margin: [12, 0], containerPadding: [0, 0] }}
           dragConfig={{ enabled: true, handle: ".layout-handle", cancel: `[data-grid-depth="${depth + 1}"]` }}
           resizeConfig={{ enabled: true, handles: ["se", "e", "s"] }}
           // Saved positions stay as placed (view mode places blocks the same

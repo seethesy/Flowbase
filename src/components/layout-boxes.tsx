@@ -7,8 +7,10 @@ import { styleClass, styleVars } from "../app/live-edit/layout-style-view";
 import { FieldLabel, FieldValue } from "./layout-fields";
 
 // Field boxes (label + value) and free-text boxes on a card's inner 12-column
-// grid (FLOW-255/256), as everyone sees them. Phones stack them in order. A
-// viewer who can't read a field doesn't get its box at all.
+// grid (FLOW-255/256), as everyone sees them. The grid's rows are 1px, so a
+// box's top and height are exact pixels, as placed in edit mode (FLOW-357).
+// Phones stack them in order. A viewer who can't read a field doesn't get its
+// box at all.
 
 export function boxPosition(box: { x: number; y: number; w: number; h: number }): CSSProperties {
   return { gridColumn: `${box.x + 1} / span ${box.w}`, gridRow: `${box.y + 1} / span ${box.h}` };

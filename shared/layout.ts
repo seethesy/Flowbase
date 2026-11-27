@@ -2,7 +2,7 @@ import { z } from "zod";
 import { roleSchema, roles } from "./access";
 import { fieldDef, fieldRegistry, isSourceKey, sourceKeys, type SourceKey } from "./fields";
 import { styleContrastOk } from "./contrast";
-import { asV2, gridProblems, SHARE_TOTAL } from "./page-grid";
+import { asLatest, gridProblems, SHARE_TOTAL } from "./page-grid";
 
 // Saved page layouts (FLOW-253): one LayoutDoc per page, shared by everyone, live
 // on Save through the same live-edit session as wording (FLOW-240). Table column
@@ -13,9 +13,14 @@ import { asV2, gridProblems, SHARE_TOTAL } from "./page-grid";
 // Version 2 (FLOW-319) places page blocks on an explicit grid of rows and
 // columns sized as shares, with merged regions (shared/page-grid.ts); a block's
 // x, y, w and h are then track coordinates. Saved version 1 documents (free
-// placement on 12 columns of 24px rows) convert on read and save as version 2.
+// placement on 12 columns of 24px rows) convert on read.
+//
+// Version 3 (FLOW-357) makes each row its own height, a percentage of the
+// screen height, and places a card's boxes in pixels (top and height) instead
+// of 28px rows. Saved version 1 and 2 documents convert on read and save as
+// version 3; PUT /api/layout accepts only version 3.
 
-export const LAYOUT_VERSION = 2;
+export const LAYOUT_VERSION = 3;
 export const GRID_COLUMNS = 12;
 // Raised from 20 for pages with many sections (FLOW-278).
 export const MAX_BLOCKS = 40;
@@ -83,8 +88,12 @@ const position = {
 const insideGrid = (value: { x: number; w: number }) => value.x + value.w <= GRID_COLUMNS;
 const gridMessage = { message: "A block must fit inside the 12 columns." };
 
-// A box inside a card's inner grid: a field (label + value) or plain text.
+// A box inside a card's inner grid: a field (label + value) or plain text. It
+// spans columns of the card's 12; its top (y) and height (h) are pixels in
+// version 3 (FLOW-357), 28px rows in older saved documents.
 export const textVariants = ["heading", "text", "note"] as const;
+export const MAX_BOX_TOP = 20000;
+export const MAX_BOX_HEIGHT = 4000;
 export const boxSchema = z
   .object({
     id: blockId,
@@ -92,6 +101,8 @@ export const boxSchema = z
     field: z.string().max(60).optional(),
     text: plainText(2000).optional(),
     ...position,
+    y: z.number().int().min(0).max(MAX_BOX_TOP),
+    h: z.number().int().min(1).max(MAX_BOX_HEIGHT),
     style: styleSchema.optional(),
     ...lifecycleShape,
   })
@@ -220,27 +231,30 @@ const docShape = {
 const rectSchema = z
   .object({ x: z.number().int().min(0).max(100), y: z.number().int().min(0).max(100), w: z.number().int().min(1).max(100), h: z.number().int().min(1).max(100) })
   .strict();
-// Column and row shares in basis points (1% = 100). Limits and totals are
-// checked by gridProblems, so a 400 names the offending path.
+// Column shares and row heights in basis points (1% = 100; rows of the screen
+// height, FLOW-357). Limits and totals are checked by gridProblems, so a 400
+// names the offending path.
 export const gridSchema = z
   .object({ cols: z.number().int().array().max(100), rows: z.number().int().array().max(100), regions: rectSchema.array().max(400).default([]) })
   .strict();
 
-// Version 1, read from saved rows only.
+// Versions 1 and 2, read from saved rows only.
 export const layoutDocV1Schema = z.object({ version: z.literal(1), ...docShape }).strict();
 export type LayoutDocV1 = z.infer<typeof layoutDocV1Schema>;
-// Version 2 as sent to PUT /api/layout (FLOW-321: the only version it accepts);
+export const layoutDocV2Schema = z.object({ version: z.literal(2), grid: gridSchema, ...docShape }).strict();
+export type LayoutDocV2 = z.infer<typeof layoutDocV2Schema>;
+// Version 3 as sent to PUT /api/layout (FLOW-357: the only version it accepts);
 // layoutProblems checks the grid.
-export const layoutDocV2Schema = z.object({ version: z.literal(LAYOUT_VERSION), grid: gridSchema, ...docShape }).strict();
-export type LayoutDoc = z.infer<typeof layoutDocV2Schema>;
-export type LayoutDocInput = z.input<typeof layoutDocV2Schema>;
-// A saved row: either version.
-export type StoredLayoutDoc = LayoutDoc | LayoutDocV1;
-// Either version, as version 2, with the grid's invariants checked: what the
+export const layoutDocV3Schema = z.object({ version: z.literal(LAYOUT_VERSION), grid: gridSchema, ...docShape }).strict();
+export type LayoutDoc = z.infer<typeof layoutDocV3Schema>;
+export type LayoutDocInput = z.input<typeof layoutDocV3Schema>;
+// A saved row: any version.
+export type StoredLayoutDoc = LayoutDoc | LayoutDocV2 | LayoutDocV1;
+// Any version, as version 3, with the grid's invariants checked: what the
 // client reads.
 export const layoutDocSchema = z
-  .union([layoutDocV1Schema, layoutDocV2Schema])
-  .transform((doc): LayoutDoc => asV2(doc))
+  .union([layoutDocV1Schema, layoutDocV2Schema, layoutDocV3Schema])
+  .transform((doc): LayoutDoc => asLatest(doc))
   .superRefine((doc, ctx) => {
     for (const problem of gridProblems(doc))
       ctx.addIssue({ code: "custom", path: problem.path.split("."), message: problem.message });
