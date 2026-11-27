@@ -326,6 +326,7 @@ databaseTest("someone who doesn't manage a task sees no Delete task, and Drop re
   await expect(page.getByRole("heading", { name: "Wipe tables" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete task" })).toHaveCount(0);
   await page.getByRole("button", { name: "Drop Wipe tables" }).click();
-  await expect(page.getByRole("button", { name: "Pick up Wipe tables" })).toBeVisible();
+  // Only they leave; the other assignee stays.
+  await expect(page.getByRole("button", { name: "Drop Wipe tables" })).toHaveCount(0);
   await expect(page.locator("dd").filter({ hasText: kitchenLead.name })).not.toContainText(partTimeStaff.name);
 });
