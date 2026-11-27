@@ -1,7 +1,16 @@
 import { choose, optionTexts } from "../dropdown";
+import type { Locator } from "@playwright/test";
 import { test, expect } from "../auth-fixture";
 import { consumable, defaultSections } from "../fixtures";
 import { seedInventory } from "../database";
+
+// FLOW-353: these tables have no Open column; a click on a plain cell opens the row.
+async function cellUnder(row: Locator, header: string) {
+  const headers = (await row.locator("xpath=ancestor::table[1]").locator("thead th").allTextContents()).map((text) => text.trim());
+  expect(headers).not.toContain("Open");
+  expect(headers).toContain(header);
+  return row.getByRole("cell").nth(headers.indexOf(header));
+}
 
 // Bar stock is kept at a location (FLOW-289), which no bar screen shows.
 const barStorage = defaultSections[6];
@@ -134,4 +143,11 @@ test("creates a bar item without a location (FLOW-291)", async ({ page }) => {
     page.getByRole("cell", { name: "Mid", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("case of 12 × 750 ml")).toBeVisible();
+});
+
+test("the bar table has no Open column and a row click opens the item (FLOW-353)", async ({ page }) => {
+  await seedInventory({ items: [bar("Tito's Vodka", "Liquor", "mid", { brand: "Tito's", subcategory: "Vodka", distributor: "Southern" })] });
+  await page.goto("/#/inventory/bar");
+  await (await cellUnder(page.getByRole("row", { name: /Tito's Vodka/ }), "Stock")).click();
+  await expect(page.getByRole("heading", { name: "Tito's Vodka", level: 1 })).toBeVisible();
 });

@@ -402,7 +402,6 @@ export function InventoryList() {
               <DataTable selection={selection} copyKey="inventory-lists.inventory-list"
                 data={data}
                 columns={columns}
-                openColumn
                 onRow={(item) => navigate(`/inventory/${item.id}`)}
                 label={<T id="inventory-lists.inventory-list.items-3">items</T>}
                 exportName="inventory"
@@ -649,7 +648,6 @@ export function IngredientList() {
             }}
             data={data}
             columns={columns}
-            openColumn
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label={<T id="inventory-lists.ingredient-list.ingredients-2">ingredients</T>}
             exportName="ingredients"
@@ -939,7 +937,6 @@ export function BarList() {
             }}
             data={data}
             columns={columns}
-            openColumn
             onRow={(item) => navigate(`/inventory/${item.id}`)}
             label={<T id="inventory-lists.bar-list.bar-items-3">bar items</T>}
             exportName="bar"

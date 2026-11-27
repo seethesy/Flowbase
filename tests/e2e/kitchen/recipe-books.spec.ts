@@ -1,10 +1,19 @@
 import { choose } from "../dropdown";
-import { databaseTest as test, expect, mockBrowserAuth } from "../auth-fixture";
+import type { Locator } from "@playwright/test";
+import { test, expect } from "../auth-fixture";
 import { browserDb, seedInventory } from "../database";
 import { consumable } from "../fixtures";
 import { seedUsers } from "../../../worker/db/seed";
 import { createRecipe } from "../../../worker/records/kitchen/recipes";
 import { recipeInputSchema } from "../../../shared/recipes";
+
+// FLOW-353: these tables have no Open column; a click on a plain cell opens the row.
+async function cellUnder(row: Locator, header: string) {
+  const headers = (await row.locator("xpath=ancestor::table[1]").locator("thead th").allTextContents()).map((text) => text.trim());
+  expect(headers).not.toContain("Open");
+  expect(headers).toContain(header);
+  return row.getByRole("cell").nth(headers.indexOf(header));
+}
 
 async function seedDishes(count = 1) {
   const chicken = consumable("Chicken Breast", { details: { unitCostCents: 400 } });
@@ -38,8 +47,8 @@ test("browses by category, ingredient, allergen and dietary tag and prints a kit
   await choose(page.getByLabel("Dietary tag", { exact: true }), "Vegan");
   await expect(page.getByText("0 recipes", { exact: true })).toBeVisible();
   await choose(page.getByLabel("Dietary tag", { exact: true }), "Gluten-free");
-  // Open shows the kitchen card; Print kitchen card prints it.
-  await page.getByRole("row", { name: /Tuscan Chicken/ }).getByRole("button", { name: "Open", exact: true }).click();
+  // A row click shows the kitchen card; Print kitchen card prints it.
+  await (await cellUnder(page.getByRole("row", { name: /Tuscan Chicken/ }), "Updated")).click();
   await page.getByRole("dialog", { name: /Tuscan Chicken/ }).getByRole("link", { name: "Print kitchen card" }).click();
   await expect(page).toHaveURL(new RegExp(`/print/recipes/${dish.id}`));
   await expect(page.locator(".print-document")).toContainText("Sear until golden.");
