@@ -8,6 +8,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -18,6 +19,8 @@ import type { Actor } from "../../../shared/access";
 import { canSeePayments } from "../../../shared/visibility";
 import {
   eventStatusDetailLabels,
+  pastEventStatuses,
+  type EventPeriod,
   type EventStatus,
   type EventStatusChange,
   type FlowEvent,
@@ -192,13 +195,16 @@ export async function listEvents(
     search?: string;
     // Any of these statuses (one label can cover several).
     statuses?: EventStatus[];
+    // Sales › Past Events (FLOW-340 A2): dated before today in New York and
+    // reached Closed (past) or never did / Lost (lost), newest first.
+    period?: EventPeriod;
   },
   page: PageRequest = {},
 ): Promise<Page<FlowEvent>> {
   const paging = keyset<EventRow>(
     [
-      { column: events.startsAt, type: "timestamp", of: (row) => row.startsAt },
-      { column: events.id, type: "uuid", of: (row) => row.id },
+      { column: events.startsAt, type: "timestamp", of: (row) => row.startsAt, desc: !!filter.period },
+      { column: events.id, type: "uuid", of: (row) => row.id, desc: !!filter.period },
     ],
     page,
   );
@@ -220,6 +226,12 @@ export async function listEvents(
           : undefined,
         filter.to
           ? lt(events.startsAt, businessTimeToUtc(addLocalDays(filter.to, 1), "00:00"))
+          : undefined,
+        filter.period
+          ? and(lt(events.startsAt, businessTimeToUtc(utcToBusinessTime(new Date()).date, "00:00")),
+            filter.period === "past"
+              ? inArray(events.status, [...pastEventStatuses])
+              : notInArray(events.status, [...pastEventStatuses]))
           : undefined,
         term
           ? or(

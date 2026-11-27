@@ -26,26 +26,36 @@ const tab = (groupId: string, tabId: string) => group(groupId).tabs.find((each) 
 afterEach(() => setNavHidden(emptyNavHidden()));
 
 describe("navigation by role", () => {
-  it("hides Sales › Venues for Part-time Staff only (AC1)", () => {
-    expect(tabs(partTime, "Sales")).toEqual(["Overview", "Venues", "Time Tracking"]);
-    setNavHidden(hiding(["sales.venues", "sales.time-tracking"]));
-    // Venues was the only other Sales tab, so Overview (and the heading) goes too.
+  it("hides Sales › Network for Part-time Staff only (AC1)", () => {
+    expect(tabs(partTime, "Sales")).toEqual(["Overview", "Past Events", "Network", "Time Tracking"]);
+    setNavHidden(hiding(["sales.network", "sales.time-tracking"]));
+    expect(tabs(partTime, "Sales")).toEqual(["Overview", "Past Events"]);
+    setNavHidden(hiding(["sales.past-events", "sales.network", "sales.time-tracking"]));
+    // Those were the only other Sales tabs, so Overview (and the heading) goes too.
     expect(headings(partTime)).not.toContain("Sales");
     expect(headings(partTime)).toContain("Events");
     // The breadcrumb's heading link skips a hidden tab.
     expect(breadcrumbTrail("/events/overview", partTime)[1]).toMatchObject({ label: "Events", to: "/events/overview" });
     // Admin and other roles are unchanged.
     expect(tabs(admin, "Sales")).toContain("Time Tracking");
-    expect(tabs(actor("staff"), "Sales")).toEqual(["Overview", "Venues", "Time Tracking"]);
+    expect(tabs(actor("staff"), "Sales")).toEqual(["Overview", "Past Events", "Network", "Time Tracking"]);
   });
 
   it("only narrows: showing a tab a role can't open does nothing (AC3)", () => {
     setNavHidden(emptyNavHidden());
     expect(tabs(partTime, "Leads")).toEqual(["BEO"]);
     expect(tabBlocked(group("leads"), tab("leads", "overview"), "part_time_staff")).toBe("No access to Leads");
-    expect(tabBlocked(group("sales"), tab("sales", "venues"), "part_time_staff")).toBeNull();
+    expect(tabBlocked(group("sales"), tab("sales", "network"), "part_time_staff")).toBeNull();
     expect(tabBlocked(group("leads"), tab("leads", "overview"), "admin")).toBeNull();
     expect(headingBlocked(group("sales"), "part_time_staff")).toBeNull();
+  });
+
+  it("hides Network and Analytics by their own keys (FLOW-340 AC6)", () => {
+    const salesperson = actor("salesperson");
+    setNavHidden({ ...emptyNavHidden(), salesperson: ["sales.network", "sales.analytics"] });
+    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Past Events", "Pricing", "Time Tracking"]);
+    // A record page under a hidden Network names no heading or tab.
+    expect(breadcrumbTrail("/clients/c-1", salesperson).map((crumb) => crumb.label)).toEqual(["Workspace", "Not available"]);
   });
 
   it("hides the moved Leads tabs by their new keys (FLOW-328 AC4)", () => {
@@ -78,15 +88,15 @@ describe("navigation by role", () => {
     const known = new Set(manifest.nav);
     expect(navHiddenProblem({ ...emptyNavHidden(), admin: ["sales"] }, known)).toMatch(/Admin always sees/);
     expect(navHiddenProblem(hiding(["sales.nowhere"]), known)).toMatch(/no heading or tab/);
-    expect(navHiddenProblem(hiding(["sales.venues", "sales.time-tracking"]), known)).toBeNull();
+    expect(navHiddenProblem(hiding(["sales.network", "sales.time-tracking"]), known)).toBeNull();
     expect(navHides(hiding(["sales"]), "admin", "sales")).toBe(false);
     expect(navHides(hiding(["sales"]), "part_time_staff", "sales", "time-tracking")).toBe(true);
   });
 
   it("changes one cell and keeps lists sorted without duplicates", () => {
-    const next = withCell(hiding(["sales.time-tracking"]), "part_time_staff", "sales.venues", false);
-    expect(next.part_time_staff).toEqual(["sales.time-tracking", "sales.venues"]);
-    expect(withCell(next, "part_time_staff", "sales.time-tracking", true).part_time_staff).toEqual(["sales.venues"]);
+    const next = withCell(hiding(["sales.time-tracking"]), "part_time_staff", "sales.network", false);
+    expect(next.part_time_staff).toEqual(["sales.network", "sales.time-tracking"]);
+    expect(withCell(next, "part_time_staff", "sales.time-tracking", true).part_time_staff).toEqual(["sales.network"]);
     expect(normalizeNavHidden({ part_time_staff: ["b", "a", "b"], admin: ["x"] })).toMatchObject({
       admin: [],
       part_time_staff: ["a", "b"],

@@ -165,3 +165,18 @@ button.back-link {
   margin: 0;
   color: var(--muted);
 }
+
+/* The task tables (FLOW-345): pastel rows for overdue, due today and done (the
+   title struck through), and the colored Pick up / Drop buttons (FLOW-346). */
+.table-card tr.task-row--overdue > td { background: var(--task-overdue-bg); }
+.table-card tr.task-row--today > td { background: var(--task-today-bg); }
+.table-card tr.task-row--done > td { background: var(--task-done-bg); }
+.task-row--done .task-title { text-decoration: line-through; }
+.task-title-cell { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.btn.task-drop { background: var(--task-drop-bg); border-color: var(--task-drop-bg); color: #fff; }
+.btn.task-drop:hover:not(:disabled) { background: #78350f; border-color: #78350f; }
+.task-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.task-history { margin: 0; padding-left: 18px; }
+.task-deleted { display: flex; flex-direction: column; gap: 8px; }
+/* Delete task at the bottom of the task page (FLOW-345 A1). */
+.task-delete-footer { display: flex; justify-content: flex-start; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border, #d9e0dc); }

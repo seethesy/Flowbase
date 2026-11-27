@@ -233,7 +233,8 @@ test("the Sales tracker renames a proposal in place and the name persists", asyn
   await browserDb(async (db) => {
     await db.insert(proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", notes: "Keep these notes" });
   });
-  await page.goto("/#/sales");
+  // The Sales tracker is under Sales › Analytics (FLOW-340).
+  await page.goto("/#/sales/analytics");
   const row = page.getByRole("row", { name: /Gala proposal/ });
   await row.getByTitle("Proposal title").click();
   await row.getByRole("textbox", { name: "Proposal title" }).fill("Gala proposal v2");

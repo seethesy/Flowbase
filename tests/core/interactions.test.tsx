@@ -43,14 +43,14 @@ it("navigates using the sidebar and exposes mobile navigation", async () => {
         <Route path="/" element={<p>Home content</p>} />
         <Route path="/sales/overview" element={<p>Sales overview content</p>} />
         <Route path="/leads" element={<p>Leads content</p>} />
-        <Route path="/clients" element={<ClientList />} />
+        <Route path="/sales/network" element={<ClientList />} />
       </Route>
     </Routes>,
   );
-  // Clients is a tab under the Sales heading (FLOW-246), which opens on its
-  // Overview (FLOW-295).
+  // Clients are under the Sales heading's Network tab (FLOW-246, FLOW-340); the
+  // heading opens on its Overview (FLOW-295).
   await user.click(screen.getByRole("link", { name: "Sales" }));
-  await user.click(screen.getByRole("link", { name: "Clients" }));
+  await user.click(screen.getByRole("link", { name: "Network" }));
   expect(screen.getByRole("heading", { name: "Clients" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Open navigation" }));
   expect(

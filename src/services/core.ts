@@ -16,6 +16,7 @@ import {
   venueSchema,
   type ClientInput,
   type EventInput,
+  type EventPeriod,
   type EventStatus,
   type EventTransitionInput,
   type VenueInput,
@@ -196,6 +197,8 @@ export const eventsApi = {
       to?: string;
       search?: string;
       statuses?: EventStatus[];
+      // Sales › Past Events (FLOW-340): before today, Past or Lost, newest first.
+      period?: EventPeriod;
     } = {},
     cursor?: string,
   ) => {

@@ -1012,6 +1012,13 @@
     "heading-overview.empty.title": [],
     "heading-overview.marketing.eyebrow": [],
     "heading-overview.marketing.title": [],
+    "heading-overview.notes.last-saved": [
+      "name",
+      "when"
+    ],
+    "heading-overview.notes.save": [],
+    "heading-overview.notes.saved": [],
+    "heading-overview.notes.title": [],
     "heading-overview.reports.eyebrow": [],
     "heading-overview.reports.title": [],
     "heading-overview.sales.eyebrow": [],
@@ -1740,7 +1747,14 @@
     "list-fields.list-checkboxes.archived": [
       "label"
     ],
+    "marketing-area.analytics.title": [],
+    "marketing-area.movies.title": [],
+    "marketing-area.other-events.title": [],
+    "marketing-area.seo.title": [],
+    "marketing-area.socials.title": [],
+    "marketing-area.website.title": [],
     "nav.all-tasks": [],
+    "nav.analytics": [],
     "nav.approvals": [],
     "nav.archived": [],
     "nav.bar": [],
@@ -1748,7 +1762,6 @@
     "nav.beos": [],
     "nav.client": [],
     "nav.client-recipe-book": [],
-    "nav.clients": [],
     "nav.collector-health": [],
     "nav.contracts": [],
     "nav.dashboard": [],
@@ -1769,14 +1782,18 @@
     "nav.locations": [],
     "nav.marketing": [],
     "nav.menus": [],
+    "nav.movies": [],
+    "nav.network": [],
     "nav.new-sop": [],
     "nav.not-available": [],
     "nav.operations": [],
     "nav.order": [],
     "nav.order-list": [],
     "nav.order-lists": [],
+    "nav.other-events": [],
     "nav.overview": [],
     "nav.page-not-found": [],
+    "nav.past-events": [],
     "nav.payment": [],
     "nav.payroll": [],
     "nav.photos": [],
@@ -1787,10 +1804,10 @@
     "nav.recipes": [],
     "nav.roles-permissions": [],
     "nav.sales": [],
-    "nav.sales-reports": [],
-    "nav.sales-tracker": [],
     "nav.schedule": [],
+    "nav.seo": [],
     "nav.settings": [],
+    "nav.socials": [],
     "nav.sop": [],
     "nav.sops": [],
     "nav.staff-directory": [],
@@ -1806,7 +1823,7 @@
     "nav.vendor": [],
     "nav.vendors": [],
     "nav.venue": [],
-    "nav.venues": [],
+    "nav.website": [],
     "nav.workspace": [],
     "notifications.notification-bell.email-settings": [],
     "notifications.notification-bell.mark-all-as-read": [],
@@ -2314,6 +2331,13 @@
       "dollars3"
     ],
     "sales.client-sales-tracker.versions": [],
+    "sales.corporate.title": [],
+    "sales.industry.title": [],
+    "sales.lost-events.subtitle": [],
+    "sales.lost-events.title": [],
+    "sales.past-events.load-more": [],
+    "sales.past-events.subtitle": [],
+    "sales.past-events.title": [],
     "sales.pricing.archive": [],
     "sales.pricing.category.fees": [],
     "sales.pricing.category.minimums": [],
@@ -2643,7 +2667,6 @@
     "stock-counts.count-mode.type-what-s-on-the": [],
     "stock-counts.start-count.start-stock-count": [],
     "task-lists.dashboard-group.view-all": [],
-    "task-lists.dashboard-table.mark-selected-done": [],
     "task-lists.dashboard-table.no-due-date": [],
     "task-lists.dashboard-table.tasks": [],
     "task-lists.dashboard-table.unassigned": [],
@@ -2674,19 +2697,20 @@
     "task-lists.new-task-drawer.when-you-assign-someone-else": [],
     "task-lists.quick-assign.assign": [],
     "task-lists.task-actions.claim": [],
+    "task-lists.task-actions.delete": [],
     "task-lists.task-actions.done": [],
+    "task-lists.task-actions.drop": [],
     "task-lists.task-actions.pick-up": [],
     "task-lists.task-dashboard-page.all-tasks": [],
+    "task-lists.task-dashboard-page.all-tasks-card": [],
     "task-lists.task-dashboard-page.every-task-coming-up-has": [],
     "task-lists.task-dashboard-page.my-tasks": [],
     "task-lists.task-dashboard-page.needs-delegation": [],
     "task-lists.task-dashboard-page.new-task": [],
-    "task-lists.task-dashboard-page.nothing-coming-up": [],
-    "task-lists.task-dashboard-page.nothing-else-due-today": [],
-    "task-lists.task-dashboard-page.nothing-overdue": [],
+    "task-lists.task-dashboard-page.no-tasks-yet": [],
+    "task-lists.task-dashboard-page.nothing-assigned-to-you": [],
     "task-lists.task-dashboard-page.overseeing": [],
     "task-lists.task-dashboard-page.tasks": [],
-    "task-lists.task-dashboard-page.tasks-i-manage": [],
     "task-lists.task-dashboard-page.team-tasks": [],
     "task-lists.task-dashboard-page.templates": [],
     "task-lists.task-dashboard-page.you-don-t-oversee-any": [],
@@ -2775,6 +2799,7 @@
     "tasks.task-detail.assigned-to": [],
     "tasks.task-detail.assignment-history": [],
     "tasks.task-detail.back": [],
+    "tasks.task-detail.back-to-tasks": [],
     "tasks.task-detail.by": [
       "name"
     ],
@@ -2787,16 +2812,21 @@
     "tasks.task-detail.completed": [],
     "tasks.task-detail.created-by": [],
     "tasks.task-detail.delete": [],
+    "tasks.task-detail.delete-cancel": [],
+    "tasks.task-detail.delete-confirm": [],
+    "tasks.task-detail.delete-yes": [],
     "tasks.task-detail.deleted": [],
     "tasks.task-detail.details": [],
-    "tasks.task-detail.drop": [],
     "tasks.task-detail.due": [],
     "tasks.task-detail.event": [],
+    "tasks.task-detail.history-by": [
+      "name"
+    ],
     "tasks.task-detail.linked-sop": [],
+    "tasks.task-detail.no-assignments-yet": [],
     "tasks.task-detail.notes": [],
     "tasks.task-detail.open-sop": [],
     "tasks.task-detail.overseer": [],
-    "tasks.task-detail.pick-up": [],
     "tasks.task-detail.position": [],
     "tasks.task-detail.priority": [
       "taskPriorityLabels",
@@ -3051,10 +3081,13 @@
     "purchasing.table.",
     "recipes.recipe-list.",
     "recipes.tag-choices.",
+    "sales.analytics.",
+    "sales.network.",
+    "sales.past-events-views.",
     "shared.file-list.",
     "sops.library.",
     "staff.staff-directory.",
-    "task-lists.dashboard-group.",
+    "tasks.all.table.",
     "tasks.dashboard.table.",
     "time-tracking.time-reports.",
     "vendors.vendor-list.",
@@ -3395,10 +3428,40 @@
       ],
       "fieldCards": []
     },
+    "marketing.movies": {
+      "blocks": [
+        "notes"
+      ],
+      "fieldCards": []
+    },
+    "marketing.other-events": {
+      "blocks": [
+        "notes"
+      ],
+      "fieldCards": []
+    },
+    "marketing.overview": {
+      "blocks": [
+        "notes"
+      ],
+      "fieldCards": []
+    },
     "marketing.photos": {
       "blocks": [
         "filters",
         "gallery"
+      ],
+      "fieldCards": []
+    },
+    "marketing.seo": {
+      "blocks": [
+        "notes"
+      ],
+      "fieldCards": []
+    },
+    "marketing.socials": {
+      "blocks": [
+        "notes"
       ],
       "fieldCards": []
     },
@@ -3482,9 +3545,21 @@
       ],
       "fieldCards": []
     },
+    "sales.lost-events": {
+      "blocks": [
+        "table"
+      ],
+      "fieldCards": []
+    },
     "sales.overview": {
       "blocks": [
         "lead-table"
+      ],
+      "fieldCards": []
+    },
+    "sales.past-events": {
+      "blocks": [
+        "table"
       ],
       "fieldCards": []
     },
@@ -3624,6 +3699,7 @@
     },
     "tasks.dashboard": {
       "blocks": [
+        "all-tasks",
         "my-tasks",
         "needs-delegation",
         "overseeing"
@@ -3739,15 +3815,21 @@
     "leads.payment",
     "leads.proposals",
     "marketing",
+    "marketing.analytics",
+    "marketing.movies",
+    "marketing.other-events",
     "marketing.overview",
     "marketing.photos",
+    "marketing.seo",
+    "marketing.socials",
+    "marketing.website",
     "sales",
-    "sales.clients",
+    "sales.analytics",
+    "sales.network",
     "sales.overview",
+    "sales.past-events",
     "sales.pricing",
-    "sales.sales-tracker",
     "sales.time-tracking",
-    "sales.venues",
     "staffing",
     "staffing.payroll",
     "staffing.schedule",

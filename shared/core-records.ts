@@ -156,6 +156,18 @@ export const eventStatusLabels: Record<EventStatus, string> = {
   lost: "Lost",
 };
 export const eventStatusDetailLabels = eventStatusLabels;
+// Sales › Past Events (FLOW-340 A2): an event dated before today (New York) is
+// Past once it reached Closed (Closed, Preparation or Finished), and Lost when it
+// never did or was marked Lost. The API applies the same rule
+// (`GET /api/events?period=past|lost`).
+export const pastEventStatuses = ["closed", "preparation", "finished"] as const satisfies readonly EventStatus[];
+export const eventPeriods = ["past", "lost"] as const;
+export const eventPeriodSchema = z.enum(eventPeriods);
+export type EventPeriod = z.infer<typeof eventPeriodSchema>;
+export function pastEventPeriod(event: { date: string; status: EventStatus }, today: string): EventPeriod | null {
+  if (event.date >= today) return null;
+  return (pastEventStatuses as readonly EventStatus[]).includes(event.status) ? "past" : "lost";
+}
 export const localTime = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a time.");

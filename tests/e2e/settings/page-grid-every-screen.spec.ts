@@ -12,6 +12,11 @@ import { uiLayout } from "../../../worker/db/schema";
 const screens = [
   "/", "/leads", "/leads/dashboard", "/leads/contracts", "/leads/payment", "/clients", "/contracts", "/proposals", "/sales", "/sales/reports",
   "/sales/overview", "/sales/time-tracking", "/marketing/overview", "/documents/overview", "/reports/overview",
+  // FLOW-340/341: the new Sales and Marketing tabs.
+  "/sales/past-events", "/sales/past-events?view=lost", "/sales/network", "/sales/network?view=venues",
+  "/sales/network?view=corporate", "/sales/network?view=industry", "/sales/analytics", "/sales/analytics?view=reports",
+  "/sales/analytics?view=marketing", "/marketing/socials", "/marketing/movies", "/marketing/other-events", "/marketing/seo",
+  "/marketing/website", "/marketing/analytics",
   "/inventory", "/inventory/order", "/inventory/orders", "/purchasing", "/inventory/low-stock", "/kitchen/orders",
   "/approvals", "/kitchen/ingredients", "/inventory/bar", "/inventory/master", "/inventory/counts", "/inventory/sections",
   "/recipes", "/kitchen/overview", "/kitchen/menus", "/recipes/client", "/events", "/events/overview", "/calendar",

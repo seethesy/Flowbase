@@ -1,0 +1,5 @@
+/* The shared Notes card on Marketing tabs (FLOW-341 A2). */
+.area-notes { display: grid; gap: 8px; }
+.area-notes textarea { width: 100%; min-height: 10rem; resize: vertical; font: inherit; }
+.area-notes__footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.area-notes__meta { color: var(--muted); font-size: 0.875rem; }

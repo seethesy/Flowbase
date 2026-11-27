@@ -46,7 +46,8 @@ databaseTest("a salesperson sees Leads and Sales but not operational reports", a
   await expect(tabs(page, "Leads")).toHaveText(["Overview", "Proposals", "Contracts", "Payment", "BEO"]);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Workspace\s*\/\s*Leads\s*\/\s*Overview/);
   await page.goto("/#/sales/overview");
-  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
+  // FLOW-340: Past Events, Network and Analytics.
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Past Events", "Network", "Analytics", "Pricing", "Time Tracking"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await page.goto("/#/reports");
   await expect(page).toHaveURL(/#\/sales\/time-tracking$/);
@@ -54,9 +55,12 @@ databaseTest("a salesperson sees Leads and Sales but not operational reports", a
 
 databaseTest("part-time staff only see the tabs they can open", async ({ page, isMobile }) => {
   await mockBrowserAuth(page, { userId: partTimeStaff.id });
+  // Venues are under Sales › Network (FLOW-340); they can't read clients.
   await page.goto("/#/venues");
+  await expect(page).toHaveURL(/#\/sales\/network\?view=venues$/);
   await expect(page.getByRole("heading", { name: "Venues", exact: true })).toBeVisible();
-  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Venues", "Time Tracking"]);
+  await expect(page.getByRole("tab", { name: "Clients" })).toHaveCount(0);
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Past Events", "Network", "Time Tracking"]);
   await page.goto("/#/inventory");
   await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
   await page.goto("/#/beos");

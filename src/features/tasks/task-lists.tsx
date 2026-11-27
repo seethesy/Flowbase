@@ -15,10 +15,12 @@ import { preparationApi } from "../../services/preparation";
 import { dateTimeLabel } from "../inventory/inventory-labels";
 import { T, useCopy, LabelT, joined } from "../../app/copy";
 import { NewTaskDrawer, names, useActiveStaff, useUpcomingEvents } from "./task-form";
+import { TaskTable } from "./task-table";
 import "./tasks.css";
 
 // Task lists (FLOW-59/60/61): the communal list at /tasks/all with filters and
-// saved views, and the event hub's Tasks section. The dashboard at /tasks is in
+// saved views (its rows are the shared task table, FLOW-345), and the event
+// hub's Tasks section (still one line per task). The dashboard at /tasks is in
 // task-dashboard.tsx and the new-task form in task-form.tsx. The API enforces
 // who sees what; these screens only hide what a person can't use.
 
@@ -448,13 +450,10 @@ export function TaskList() {
       ) : !list.data ? (
         <LoadingSkeleton />
       ) : list.data.length ? (
-        <ul className="task-lines" aria-label="Tasks">
-          {list.data.map((task) => (
-            <TaskLine key={task.id} task={task} onChanged={list.reload} staff={staff} events={events}>
-              <TaskActions task={task} onChanged={list.reload} onError={setError} />
-            </TaskLine>
-          ))}
-        </ul>
+        // The same task table as the Tasks subtab's cards (FLOW-345 Q1).
+        <div role="region" aria-label="Tasks">
+          <TaskTable tasks={list.data} staff={staff} copyKey="tasks.all.table" onChanged={list.reload} onError={setError} />
+        </div>
       ) : (
         <EmptyState title={<T id="task-lists.task-list.no-tasks">No tasks</T>} description={<T id="task-lists.task-list.no-tasks-match-these-filters">No tasks match these filters.</T>} />
       )}

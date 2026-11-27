@@ -6,6 +6,7 @@ import { listKeys, settingKeys } from "../../../shared/settings";
 import { importStatuses } from "../../../shared/imports";
 import { notificationTypes } from "../../../shared/notifications";
 import { deletableEntities } from "../../../shared/deletions";
+import { areaNoteKeys } from "../../../shared/area-notes";
 import { baseColumns, oneOf, timestamptz } from "../conventions";
 
 const attachmentStatuses = ["pending", "ready"] as const;
@@ -294,3 +295,14 @@ export const uiLayout = pgTable("ui_layout", {
   pageKey: text("page_key").notNull().unique(),
   layout: jsonb("layout").$type<StoredLayoutDoc>().notNull(),
 }).enableRLS();
+// Shared area notes (FLOW-341 A2): one text per key in shared/area-notes.ts,
+// typed by anyone who sees that tab. No row means nothing saved yet.
+export const areaNotes = pgTable(
+  "area_notes",
+  {
+    ...baseColumns(),
+    key: text("key", { enum: areaNoteKeys }).notNull().unique(),
+    body: text("body").notNull().default(""),
+  },
+  (table) => [oneOf("area_notes_key_check", table.key, areaNoteKeys)],
+).enableRLS();

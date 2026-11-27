@@ -624,6 +624,20 @@
       "when": 1795780801000,
       "tag": "0088_flow_344_task_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1795780802000,
+      "tag": "0089_flow_340_sales_heading_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1795808949430,
+      "tag": "0090_flow_341_area_notes",
+      "breakpoints": true
     }
   ]
 }

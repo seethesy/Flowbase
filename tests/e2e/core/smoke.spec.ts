@@ -12,9 +12,9 @@ test("sidebar, client search, detail tabs, and browser history", async ({
   ).toBeVisible();
   if (isMobile)
     await page.getByRole("button", { name: "Open navigation" }).click();
-  // Clients is a tab under the Sales heading (FLOW-246).
+  // Clients are under the Sales heading's Network tab (FLOW-246, FLOW-340).
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true }).click();
-  await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Clients", exact: true }).click();
+  await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Network", exact: true }).click();
   await page.getByPlaceholder("Search clients or contacts…").fill("Juniper");
   await page.getByRole("row", { name: /Juniper & Co\./ }).getByRole("button", { name: "Open", exact: true }).click();
   await page.getByRole("tab", { name: "Contacts", exact: true }).click();
@@ -44,8 +44,8 @@ test("legacy routes redirect and retain proposal filters", async ({ page }) => {
   // Prototype ids aren't real client ids, so the page explains it can't load one.
   await expect(page.getByRole("link", { name: "← All clients" })).toBeVisible();
   await page.goto("/#/contracts?view=table&stage=Sent");
-  // The Sales tracker lives at /sales since FLOW-276.
-  await expect(page).toHaveURL(/#\/sales\?view=table&stage=Sent$/);
+  // The Sales tracker is under Sales › Analytics (FLOW-276, FLOW-340).
+  await expect(page).toHaveURL(/#\/sales\/analytics\?view=table&stage=Sent$/);
   await expect(
     page.getByRole("heading", { name: "Sales tracker", exact: true }),
   ).toBeVisible();

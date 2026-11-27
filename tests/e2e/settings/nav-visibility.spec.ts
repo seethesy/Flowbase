@@ -9,9 +9,10 @@ const saveSettings = async (page: Page) => {
   await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save permissions" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Permissions saved" })).toBeVisible();
 };
-const venuesCell = (page: Page) => page.getByLabel("Sales › Venues for Part Time Staff", { exact: true });
+// Venues are under Sales › Network since FLOW-340.
+const venuesCell = (page: Page) => page.getByLabel("Sales › Network for Part Time Staff", { exact: true });
 
-test("Admin hides Sales › Venues and Time Tracking from Part-time Staff (AC1, AC2)", async ({ page, browser }) => {
+test("Admin hides Sales › Network, Past Events and Time Tracking from Part-time Staff (AC1, AC2)", async ({ page, browser }) => {
   await page.goto("/#/settings/permissions");
   const grid = page.getByRole("table", { name: "Navigation by role" });
   // Admin's column is locked on (AC4).
@@ -25,6 +26,7 @@ test("Admin hides Sales › Venues and Time Tracking from Part-time Staff (AC1, 
     .toContainText("No access to Leads");
 
   await venuesCell(page).uncheck();
+  await grid.getByLabel("Sales › Past Events for Part Time Staff", { exact: true }).uncheck();
   await grid.getByLabel("Sales › Time Tracking for Part Time Staff", { exact: true }).uncheck();
   await saveSettings(page);
 
@@ -34,13 +36,14 @@ test("Admin hides Sales › Venues and Time Tracking from Part-time Staff (AC1, 
   await other.goto("/#/calendar");
   const sidebar = other.getByRole("navigation", { name: "Main" });
   await expect(sidebar.getByRole("link", { name: "Events" })).toBeVisible();
-  // Both available Sales tabs are hidden, so the heading goes with them.
+  // Every available Sales tab is hidden, so the heading goes with them.
   await expect(sidebar.getByRole("link", { name: "Sales" })).toHaveCount(0);
 
   // A direct link to a hidden tab (AC2).
   await other.goto("/#/venues");
   await expect(other.getByRole("heading", { name: "Not available for your role" })).toBeVisible();
   await expect(other.getByRole("navigation", { name: "Breadcrumb" })).not.toContainText("Venues");
+  await expect(other.getByRole("navigation", { name: "Breadcrumb" })).not.toContainText("Network");
   await expect(other.getByRole("navigation", { name: "Sales pages" })).toHaveCount(0);
   await other.getByRole("link", { name: "Go to your first page" }).click();
   await expect(other).toHaveURL(/#\/$/);
@@ -58,8 +61,8 @@ test("Admin hides Sales › Venues and Time Tracking from Part-time Staff (AC1, 
 test("the live-edit popover and the Settings grid show and save the same values (AC5)", async ({ page }) => {
   await page.goto("/#/sales/overview");
   await page.getByRole("button", { name: "Edit screen text" }).click();
-  await page.getByRole("button", { name: "Who sees Sales › Venues" }).click();
-  const popover = page.getByRole("dialog", { name: "Who sees Sales › Venues" });
+  await page.getByRole("button", { name: "Who sees Sales › Network" }).click();
+  const popover = page.getByRole("dialog", { name: "Who sees Sales › Network" });
   await expect(popover.getByRole("checkbox", { name: /^Admin/ })).toBeDisabled();
   await popover.getByRole("checkbox", { name: /^Part Time Staff/ }).uncheck();
   await page.getByRole("group", { name: "Editing screen text" }).getByRole("button", { name: "Save" }).click();
@@ -73,9 +76,9 @@ test("the live-edit popover and the Settings grid show and save the same values 
   await saveSettings(page);
   await page.goto("/#/sales/overview");
   await page.getByRole("button", { name: "Edit screen text" }).click();
-  await page.getByRole("button", { name: "Who sees Sales › Venues" }).click();
+  await page.getByRole("button", { name: "Who sees Sales › Network" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Who sees Sales › Venues" }).getByRole("checkbox", { name: /^Part Time Staff/ }),
+    page.getByRole("dialog", { name: "Who sees Sales › Network" }).getByRole("checkbox", { name: /^Part Time Staff/ }),
   ).toBeChecked();
   await page.getByRole("group", { name: "Editing screen text" }).getByRole("button", { name: "Cancel" }).click();
 });

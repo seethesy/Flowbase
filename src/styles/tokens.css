@@ -30,4 +30,10 @@
   --status-closed-fg: #ffffff;
   --status-lost-bg: #3f3f3f;
   --status-lost-fg: #ffffff;
+  /* Task table rows (FLOW-345): pastel backgrounds under --text (all above 4.5:1). */
+  --task-overdue-bg: #fde4e1;
+  --task-today-bg: #fdf3c8;
+  --task-done-bg: #e0f2e4;
+  /* The Drop button (FLOW-345/346), white text on it. */
+  --task-drop-bg: #92400e;
 }

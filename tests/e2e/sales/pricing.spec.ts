@@ -56,6 +56,6 @@ test("roles that can't read proposals get no Pricing tab (AC1)", async ({ browse
   const page = await context.newPage();
   await mockBrowserAuth(page, { userId: partTime.id });
   await page.goto("/#/venues");
-  await expect(page.getByRole("navigation", { name: "Sales pages" }).getByRole("link")).toHaveText(["Overview", "Venues", "Time Tracking"]);
+  await expect(page.getByRole("navigation", { name: "Sales pages" }).getByRole("link")).toHaveText(["Overview", "Past Events", "Network", "Time Tracking"]);
   await context.close();
 });

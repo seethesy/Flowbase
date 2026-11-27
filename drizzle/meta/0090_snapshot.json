@@ -1,6 +1,6 @@
 {
-  "id": "ab32c5b5-d097-4159-8897-3bfd7ee33d30",
-  "prevId": "000bb2e2-e80f-4745-a671-896a83deaa6d",
+  "id": "90921d59-9d6a-4990-901a-fc79a3c970af",
+  "prevId": "6579129b-08e2-4ef9-8409-aab202f23d91",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -372,6 +372,84 @@
         "users_status_check": {
           "name": "users_status_check",
           "value": "\"users\".\"status\" in ('pending', 'active', 'deactivated', 'revoked')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.area_notes": {
+      "name": "area_notes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "area_notes_key_unique": {
+          "name": "area_notes_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "area_notes_key_check": {
+          "name": "area_notes_key_check",
+          "value": "\"area_notes\".\"key\" in ('marketing.overview', 'marketing.socials', 'marketing.movies', 'marketing.other-events', 'marketing.seo')"
         }
       },
       "isRLSEnabled": true
@@ -14841,6 +14919,13 @@
         },
         "description": {
           "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "notes": {
+          "name": "notes",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

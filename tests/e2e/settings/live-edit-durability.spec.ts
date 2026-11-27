@@ -27,16 +27,16 @@ test("lists orphaned edits; Delete removes one and Move to key re-keys another (
 
   const heading = notice(page).getByRole("listitem").filter({ hasText: "Our venues" });
   await heading.getByRole("button", { name: "Move to key" }).click();
-  await heading.getByRole("textbox", { name: "New wording key" }).fill("nav.venues");
+  await heading.getByRole("textbox", { name: "New wording key" }).fill("nav.network");
   await heading.getByRole("button", { name: "Move", exact: true }).click();
   await expect(notice(page).getByRole("button", { name: "1 saved edit no longer matches a screen" })).toBeVisible();
-  // The moved text now names the Venues tab.
+  // The moved text now names the Network tab (Venues are under it, FLOW-340).
   await expect(page.getByRole("navigation", { name: "Sales pages" }).getByText("Our venues")).toBeVisible();
 
   await notice(page).getByRole("listitem").filter({ hasText: "gone-section" }).getByRole("button", { name: "Delete" }).click();
   await expect(notice(page)).toHaveCount(0);
   const rows = await browserDb((db) => db.select({ key: s.uiCopy.key }).from(s.uiCopy));
-  expect(rows.map((row) => row.key)).toEqual(["nav.venues"]);
+  expect(rows.map((row) => row.key)).toEqual(["nav.network"]);
 });
 
 test("keeps the saved Approvals label under its fixed key (AC5)", async ({ page, isMobile }) => {

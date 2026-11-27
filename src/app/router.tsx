@@ -15,9 +15,6 @@ const Dashboard = lazy(() =>
 const ArchivedPage = lazy(() => import("../features/settings/archived").then((module) => ({ default: module.ArchivedPage })));
 const RolesPermissionsPage = lazy(() => import("./roles-permissions").then((module) => ({ default: module.RolesPermissionsPage })));
 const OperationsPage = lazy(() => import("../features/events/operations").then((module) => ({ default: module.OperationsPage })));
-const ClientList = lazy(() =>
-  import("../features/sales/clients").then((module) => ({ default: module.ClientList })),
-);
 const ClientDetail = lazy(() =>
   import("../features/sales/clients").then((module) => ({ default: module.ClientDetail })),
 );
@@ -47,9 +44,6 @@ const OfflineBeoPage = lazy(() =>
 const BeoPrint = lazy(() =>
   import("../features/beo/beo-print").then((module) => ({ default: module.BeoPrint })),
 );
-const VenueList = lazy(() =>
-  import("../features/sales/venues").then((module) => ({ default: module.VenueList })),
-);
 const VenueDetail = lazy(() =>
   import("../features/sales/venues").then((module) => ({ default: module.VenueDetail })),
 );
@@ -59,14 +53,19 @@ const PrintSample = lazy(() =>
 const ProposalLibrary = lazy(() =>
   import("../features/sales/proposal-library").then((module) => ({ default: module.ProposalLibrary })),
 );
-const SalesTracker = lazy(() =>
-  import("../features/sales/sales").then((module) => ({ default: module.SalesTracker })),
-);
-const SalesReports = lazy(() => import("../features/sales/sales").then((module) => ({ default: module.SalesReports })));
+const PastEventsPage = lazy(() => import("../features/sales/sales-tabs").then((module) => ({ default: module.PastEventsPage })));
+const SalesNetworkPage = lazy(() => import("../features/sales/sales-tabs").then((module) => ({ default: module.SalesNetworkPage })));
+const SalesAnalyticsPage = lazy(() => import("../features/sales/sales-tabs").then((module) => ({ default: module.SalesAnalyticsPage })));
 const SalesOverview = lazy(() => import("../features/sales/sales-overview").then((module) => ({ default: module.SalesOverview })));
 const PricingPage = lazy(() => import("../features/sales/pricing").then((module) => ({ default: module.PricingPage })));
 const SalesTimeTrackingPage = lazy(() => import("../features/sales/time-tracking-page").then((module) => ({ default: module.SalesTimeTrackingPage })));
+const MarketingAnalytics = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingAnalytics })));
 const MarketingOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingOverview })));
+const MarketingSocials = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingSocials })));
+const MarketingMovies = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingMovies })));
+const MarketingOtherEvents = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingOtherEvents })));
+const MarketingSeo = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingSeo })));
+const MarketingWebsite = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingWebsite })));
 const DocumentsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
 const SettingsPage = lazy(() =>
   import("../features/settings/settings").then((module) => ({ default: module.SettingsPage })),
@@ -215,13 +214,18 @@ function Profile() {
     </>
   );
 }
-function LegacyRoute({ to }: { to: string }) {
+// An old address: keeps its record id and query. `view` picks the view of a page
+// that now holds two former pages (FLOW-340, e.g. /venues → Sales › Network).
+function LegacyRoute({ to, view }: { to: string; view?: string }) {
   const location = useLocation();
   const { id } = useParams();
+  const search = new URLSearchParams(location.search);
+  if (view) search.set("view", view);
+  const query = search.toString();
   return (
     <Navigate
       replace
-      to={`${to}${id ? `/${encodeURIComponent(id.replace(/^cus-/, "cli-"))}` : ""}${location.search}`}
+      to={`${to}${id ? `/${encodeURIComponent(id.replace(/^cus-/, "cli-"))}` : ""}${query ? `?${query}` : ""}`}
     />
   );
 }
@@ -249,7 +253,9 @@ export const getRouter = () =>
         { path: "/leads/payment", element: <PaymentPage /> },
         { path: "/leads/dashboard", element: <LeadDashboardPage /> },
         { path: "/leads/:id", element: <LeadDetail /> },
-        { path: "/clients", element: <ClientList /> },
+        // FLOW-340: the Clients and Venues lists are Sales › Network, the Sales
+        // tracker and its reports Sales › Analytics. Record pages stay put.
+        { path: "/clients", element: <LegacyRoute to="/sales/network" /> },
         { path: "/clients/:id", element: <ClientDetail /> },
         { path: "/crm", element: <LegacyRoute to="/clients" /> },
         { path: "/crm/:id", element: <LegacyRoute to="/clients" /> },
@@ -260,10 +266,20 @@ export const getRouter = () =>
         // The headings' Overview tabs (FLOW-295).
         { path: "/sales/overview", element: <SalesOverview /> },
         { path: "/marketing/overview", element: <MarketingOverview /> },
+        // Marketing's working areas (FLOW-341), empty until the Admin adds cards.
+        { path: "/marketing/socials", element: <MarketingSocials /> },
+        { path: "/marketing/movies", element: <MarketingMovies /> },
+        { path: "/marketing/other-events", element: <MarketingOtherEvents /> },
+        { path: "/marketing/seo", element: <MarketingSeo /> },
+        { path: "/marketing/website", element: <MarketingWebsite /> },
+        { path: "/marketing/analytics", element: <MarketingAnalytics /> },
         { path: "/documents/overview", element: <DocumentsOverview /> },
         { path: "/reports/overview", element: <Navigate to="/sales/time-tracking" replace /> },
-        { path: "/sales", element: <SalesTracker /> },
-        { path: "/sales/reports", element: <SalesReports /> },
+        { path: "/sales", element: <LegacyRoute to="/sales/analytics" /> },
+        { path: "/sales/reports", element: <LegacyRoute to="/sales/analytics" view="reports" /> },
+        { path: "/sales/past-events", element: <PastEventsPage /> },
+        { path: "/sales/network", element: <SalesNetworkPage /> },
+        { path: "/sales/analytics", element: <SalesAnalyticsPage /> },
         { path: "/sales/pricing", element: <PricingPage /> },
         { path: "/sales/time-tracking", element: <SalesTimeTrackingPage /> },
         { path: "/inventory", element: <InventoryList /> },
@@ -304,7 +320,7 @@ export const getRouter = () =>
         { path: "/beos", element: <BeoListPage /> },
         { path: "/day-of", element: <LegacyRoute to="/events/overview" /> },
         { path: "/production", element: <ProductionOverviewPage /> },
-        { path: "/venues", element: <VenueList /> },
+        { path: "/venues", element: <LegacyRoute to="/sales/network" view="venues" /> },
         { path: "/venues/:id", element: <VenueDetail /> },
         { path: "/vendors", element: <VendorList /> },
         { path: "/vendors/:id", element: <VendorDetail /> },
