@@ -13,6 +13,7 @@ import { PDFDocument } from "pdf-lib";
 
 // FLOW-353: these tables have no Open column; a click on a plain cell opens the row.
 async function cellUnder(row: Locator, header: string) {
+  await expect(row).toBeVisible();
   const headers = (await row.locator("xpath=ancestor::table[1]").locator("thead th").allTextContents()).map((text) => text.trim());
   expect(headers).not.toContain("Open");
   expect(headers).toContain(header);

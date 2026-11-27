@@ -156,7 +156,7 @@ test("a Person client takes its POC's name, and renaming the POC renames it (FLO
   await page.goto("/#/clients");
   await page.getByRole("button", { name: "New Client", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await choose(dialog.getByLabel("Type", { exact: true }), "Person");
+  await choose(dialog.getByLabel("Type"), { label: "Person" });
   await expect(dialog.getByLabel("Name *", { exact: true })).toHaveCount(0);
   await dialog.getByLabel("Contact name *", { exact: true }).fill("Rowan Hale");
   await dialog.getByRole("button", { name: "Save client" }).click();
@@ -170,7 +170,7 @@ test("a Person client takes its POC's name, and renaming the POC renames it (FLO
 
   // Back to Organization: the name stays and is editable again.
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await choose(page.getByRole("dialog").getByLabel("Type", { exact: true }), "Organization");
+  await choose(page.getByRole("dialog").getByLabel("Type"), { label: "Organization" });
   await expect(page.getByRole("dialog").getByLabel("Name *", { exact: true })).toHaveValue("Rowan Hale-Ito");
   await page.getByRole("dialog").getByLabel("Name *", { exact: true }).fill("Hale Events");
   await page.getByRole("button", { name: "Save client" }).click();
