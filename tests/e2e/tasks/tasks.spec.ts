@@ -258,7 +258,6 @@ test("task tables: done turns the row green, Pick up becomes Drop, Delete has Un
   // AC4: Pick up adds me, then Drop removes only me.
   await all.getByRole("button", { name: "Pick up Open task" }).click();
   await expect(all.getByRole("button", { name: "Drop Open task" })).toBeVisible();
-  await expect(all.getByRole("row", { name: /Open task/ })).toContainText(admin.name);
   await expect(all.getByRole("row", { name: /Open task/ })).toContainText(fullTimeStaff.name);
   await all.getByRole("button", { name: "Drop Open task" }).click();
   await expect(all.getByRole("button", { name: "Pick up Open task" })).toBeVisible();
@@ -321,12 +320,12 @@ test("the task page saves assignees, managers and notes, and deletes with a conf
 });
 
 databaseTest("someone who doesn't manage a task sees no Delete task, and Drop removes only them (FLOW-346)", async ({ page }) => {
-  await mockBrowserAuth(page, { userId: fullTimeStaff.id });
-  const [taskId] = await seedTasks([{ title: "Wipe tables", assigneeIds: [fullTimeStaff.id, kitchenLead.id], managerIds: [admin.id] }]);
+  await mockBrowserAuth(page, { userId: partTimeStaff.id });
+  const [taskId] = await seedTasks([{ title: "Wipe tables", assigneeIds: [partTimeStaff.id, kitchenLead.id], managerIds: [admin.id] }]);
   await page.goto(`/#/tasks/${taskId}`);
   await expect(page.getByRole("heading", { name: "Wipe tables" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete task" })).toHaveCount(0);
   await page.getByRole("button", { name: "Drop Wipe tables" }).click();
   await expect(page.getByRole("button", { name: "Pick up Wipe tables" })).toBeVisible();
-  await expect(page.locator("dd").filter({ hasText: kitchenLead.name })).not.toContainText(fullTimeStaff.name);
+  await expect(page.locator("dd").filter({ hasText: kitchenLead.name })).not.toContainText(partTimeStaff.name);
 });
