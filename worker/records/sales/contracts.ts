@@ -1,8 +1,8 @@
-import { and, eq, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, isNull, lte } from "drizzle-orm";
 import type { Actor } from "../../../shared/access";
 import type { RecordContractInput } from "../../../shared/contracts";
 import type { Db } from "../../db/client";
-import { addendums, approvalRequests, attachments, contracts, events, proposalChangeLog, proposals, proposalVersions, settings } from "../../db/schema";
+import { addendums, approvalRequests, attachments, clients, contracts, events, proposalChangeLog, proposals, proposalVersions, settings } from "../../db/schema";
 import { ApiError, notFound } from "../../hono";
 import { writeAudit } from "../../audit/log";
 import { emitDomainEvent } from "../../jobs/queue";
@@ -26,6 +26,20 @@ const addendumView = (row: typeof addendums.$inferSelect) => ({
 export async function listEventContracts(db: Db, actor: Actor, eventId: string) {
   await findVisibleEvent(db, actor, eventId);
   return (await db.select().from(contracts).where(eq(contracts.eventId, eventId))).map(contractView);
+}
+export async function listContracts(db: Db, actor: Actor) {
+  const rows = await db.select({ contract: contracts, eventTitle: events.title, clientName: clients.name })
+    .from(contracts).innerJoin(events, eq(events.id, contracts.eventId))
+    .leftJoin(clients, eq(clients.id, events.clientId))
+    .where(and(visibleEvents(actor), isNull(events.archivedAt), isNull(contracts.archivedAt)))
+    .orderBy(desc(contracts.signedAt));
+  const open = await db.select({ eventId: addendums.eventId }).from(addendums)
+    .innerJoin(events, eq(events.id, addendums.eventId))
+    .where(and(visibleEvents(actor), isNull(events.archivedAt), isNull(addendums.archivedAt), isNull(addendums.signedAt)));
+  const counts = new Map<string, number>();
+  for (const row of open) counts.set(row.eventId, (counts.get(row.eventId) ?? 0) + 1);
+  return rows.map(({ contract, eventTitle, clientName }) => ({ ...contractView(contract), eventTitle, clientName,
+    openAddendums: counts.get(contract.eventId) ?? 0 }));
 }
 export async function recordContract(db: Db, actor: Actor, proposalId: string, input: RecordContractInput) {
   const proposal = await findVisibleProposal(db, actor, proposalId);

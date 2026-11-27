@@ -282,6 +282,12 @@ describe("payment schedule and log (FLOW-131)", () => {
       reference: "ZEL-8841",
       recordedBy: { id: people.sam, name: "Sam" },
     });
+    const across = await sam.send<{ eventId: string; type: string; kind: string | null; amountCents: number; paidCents: number; balanceCents: number }[]>("GET", "/api/events/payments/all");
+    expect(across.filter((row) => row.eventId === event.id)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "scheduled", kind: "deposit", amountCents: 150_000, paidCents: 150_000, balanceCents: 0 }),
+      expect.objectContaining({ type: "scheduled", kind: "balance", amountCents: 350_000, paidCents: 0, balanceCents: 350_000 }),
+      expect.objectContaining({ type: "received", kind: null, amountCents: 150_000 }),
+    ]));
   });
 
   it("rejects a full card number in the reference (AC2)", async () => {
@@ -311,6 +317,8 @@ describe("payment schedule and log (FLOW-131)", () => {
     const read = await pat.call("GET", `/api/events/${event.id}/payments`);
     expect([403, 404]).toContain(read.status);
     expect(await read.text()).not.toContain("150000");
+    const across = await pat.call("GET", "/api/events/payments/all");
+    expect(await across.text()).not.toContain("150000");
     const write = await pat.call("POST", `/api/events/${event.id}/payments`, {
       method: "cash",
       amountCents: 100,

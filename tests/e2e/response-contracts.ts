@@ -30,7 +30,7 @@ import { pullListSchema } from "../../shared/pull-list";
 import { readinessCheckSchema } from "../../shared/readiness";
 import { rentalRequestSchema } from "../../shared/rental-requests";
 import { truckLogSchema } from "../../shared/trucks";
-import { eventPaymentsSchema } from "../../shared/payments";
+import { eventPaymentsSchema, paymentListRowSchema } from "../../shared/payments";
 import {
   availabilitySchema,
   conflictSchema,
@@ -43,7 +43,7 @@ import {
   proposalUploadTicketSchema,
 } from "../../shared/proposals";
 import { proposalCatalogSchema, proposalMappingSchema } from "../../shared/proposal-mapping";
-import { addendumSchema, contractSchema, openAddendumSchema } from "../../shared/contracts";
+import { addendumSchema, contractListSchema, contractSchema, openAddendumSchema } from "../../shared/contracts";
 import {
   itemSchema,
   sectionSchema,
@@ -93,6 +93,7 @@ import {
 import {
   applyTemplateResultSchema,
   taskDashboardSchema,
+  taskAssignmentSchema,
   taskSchema,
   taskSummarySchema,
   taskTemplateSchema,
@@ -254,6 +255,7 @@ export function responseSchema(
     return !id && method === "GET" ? vendorSchema.array() : vendorDetailSchema;
   }
   if (["clients", "venues", "events"].includes(resource)) {
+    if (resource === "events" && id === "payments" && action === "all") return paymentListRowSchema.array();
     if (action === "history") return historyEntrySchema.array();
     if (action === "status-history") return eventStatusChangeSchema.array();
     if (action === "hub") return eventHubSchema;
@@ -296,6 +298,7 @@ export function responseSchema(
   // Proposals (FLOW-122/123): the event's list, the upload ticket, and otherwise
   // the proposal with its versions and stage history.
   if (resource === "proposals") {
+    if (id === "contracts" && action === "all") return contractListSchema.array();
     if (id === "addendums" && action === "open") return openAddendumSchema.array();
     // The Proposals library (FLOW-276).
     if (id === "files" && !action) return proposalLibraryFileSchema.array();
@@ -354,6 +357,8 @@ export function responseSchema(
       if (path.split("/")[5] === "apply") return applyTemplateResultSchema;
       return !action && method === "GET" ? taskTemplateSchema.array() : taskTemplateSchema;
     }
+    if (action === "assignments") return taskAssignmentSchema.array();
+    if (action === "archive" || action === "restore") return z.object({ id: z.string(), archived: z.boolean() });
     return !id && method === "GET" ? taskSummarySchema.array() : taskSchema;
   }
   if (resource === "sops")

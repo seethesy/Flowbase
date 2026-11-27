@@ -122,7 +122,7 @@ for (const role of ["admin", "salesperson"] as const) {
       page.getByRole("link", {
         name: "Autumn leadership retreat",
         exact: true,
-      }),
+      }).first(),
     ).toBeVisible();
     if (role === "salesperson")
       await expect(

@@ -54,7 +54,7 @@ describe("live-edit key manifest", () => {
     // Sidebar heading and tab keys (FLOW-284), with each heading's Overview tab.
     expect(manifest.nav).toContain("sales");
     expect(manifest.nav).toContain("sales.venues");
-    expect(manifest.nav).toContain("reports.overview");
+    expect(manifest.nav).toContain("sales.time-tracking");
     expect(manifest.nav).toContain("events.overview");
     // Event hub blocks come from blockIds: one per hub section.
     expect(manifest.layout["events.detail"].blocks).toEqual(

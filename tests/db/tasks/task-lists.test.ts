@@ -43,8 +43,8 @@ const people = {
 };
 const directory: [keyof typeof people, Role, EmploymentType][] = [
   ["admin", "admin", "full_time"],
-  ["lead", "kitchen_lead", "full_time"],
-  ["manager", "sales_manager", "full_time"],
+  ["lead", "admin", "full_time"],
+  ["manager", "admin", "full_time"],
   ["casey", "staff", "full_time"],
   // Part-time: no communal list, own tasks only.
   ["pat", "staff", "part_time"],
@@ -155,29 +155,37 @@ beforeEach(() => {
 });
 
 describe("FLOW-59 communal task list", () => {
+  it("FLOW-344: active staff without accounts may be assigned but receive no notification", async () => {
+    const id = "c5900000-0000-4000-8000-000000000099";
+    await db.insert(schema.users).values({ id, name: "Offline staff", email: "", mobile: "", role: "part_time_staff", status: "active", hasAccount: false });
+    const task = await newTask({ title: "Prepare chairs", assigneeIds: [id] });
+    expect(task.assignees.map((person) => person.id)).toEqual([id]);
+    await drain();
+    expect((await db.select().from(schema.notifications)).filter((notice) => notice.userId === id)).toEqual([]);
+  });
   it("FLOW-324: a manager filter finds a task with several managers", async () => {
-    const task = await newTask({ title: "Check linens", managerIds: [people.casey, people.lead] });
-    expect(ids(await list(casey, `?mine=true&overseerId=${people.casey}`))).toContain(task.id);
+    const task = await newTask({ title: "Check linens", managerIds: [people.manager, people.lead] });
+    expect(ids(await list(manager, `?mine=true&overseerId=${people.manager}`))).toContain(task.id);
     expect(ids(await list(lead, `?mine=true&overseerId=${people.lead}`))).toContain(task.id);
     expect(ids(await list(pat, `?mine=true&overseerId=${people.pat}`))).not.toContain(task.id);
   });
 
   it("FLOW-324: completion tells every active manager except the completer", async () => {
-    const task = await newTask({ title: "Polish glasses", assigneeIds: [people.pat], managerIds: [people.casey, people.lead] });
+    const task = await newTask({ title: "Polish glasses", assigneeIds: [people.pat], managerIds: [people.manager, people.lead] });
     await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { status: "done" });
     await drain();
-    expect(await titlesOf("casey")).toContain("Task completed: Polish glasses");
+    expect(await titlesOf("manager")).toContain("Task completed: Polish glasses");
     expect(await titlesOf("lead")).toContain("Task completed: Polish glasses");
     expect(await titlesOf("pat")).not.toContain("Task completed: Polish glasses");
   });
 
   it("FLOW-324: deactivated managers stay on the task but stop receiving notifications", async () => {
-    const task = await newTask({ title: "Count linens", assigneeIds: [people.pat], managerIds: [people.lead, people.casey] });
+    const task = await newTask({ title: "Count linens", assigneeIds: [people.pat], managerIds: [people.lead, people.manager] });
     await db.update(schema.users).set({ status: "deactivated" }).where(eq(schema.users.id, people.lead));
     await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { status: "done" });
     await drain();
     expect(await titlesOf("lead")).not.toContain("Task completed: Count linens");
-    expect(await titlesOf("casey")).toContain("Task completed: Count linens");
+    expect(await titlesOf("manager")).toContain("Task completed: Count linens");
     expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).managers.map((person) => person.id)).toContain(people.lead);
   });
 
@@ -212,15 +220,15 @@ describe("FLOW-59 communal task list", () => {
     expect(row).toMatchObject({ type: "task_claimed", body: "Casey took this task." });
   });
 
-  it("FLOW-272 AC2: only managers take a task someone else holds; the previous assignee is told", async () => {
+  it("FLOW-344: a viewer joins an assigned task without displacing its assignee", async () => {
     const task = await newTask({ title: "Hold the door", assigneeIds: [people.casey] });
     await drain();
-    // Part-time staff can't even see it, and can't take it by id: 403.
-    expect((await pat.call("POST", `/api/tasks/${task.id}/claim`, {})).status).toBe(403);
+    // Part-time staff can't even see it, and can't take it by id.
+    expect((await pat.call("POST", `/api/tasks/${task.id}/claim`, {})).status).toBe(404);
     const taken = await manager.send<Task>("POST", `/api/tasks/${task.id}/claim`, {}, 200);
-    expect(taken.assignees).toEqual([{ id: people.manager, name: "Manager" }]);
+    expect(taken.assignees.map((person) => person.id).sort()).toEqual([people.casey, people.manager].sort());
     await drain();
-    expect(await titlesOf("casey")).toEqual(["Task assigned: Hold the door", "Task reassigned: Hold the door"]);
+    expect(await titlesOf("casey")).toEqual(["Task assigned: Hold the door"]);
   });
 
   it("FLOW-272 AC1: part-time staff pick up an unassigned task and it joins their My tasks", async () => {
@@ -237,25 +245,26 @@ describe("FLOW-59 communal task list", () => {
     expect(await titlesOf("lead")).toEqual(["Task claimed: Stack chairs"]);
   });
 
-  it("FLOW-272 AC3: two people picking up at once, one wins and the other gets 409", async () => {
+  it("FLOW-344: two people may pick up together, and Drop removes only the caller", async () => {
     const task = await newTask({ title: "Carry ice" });
     const results = await Promise.all([
-      pat.call("POST", `/api/tasks/${task.id}/claim`, { unassignedOnly: true }),
+      manager.call("POST", `/api/tasks/${task.id}/claim`, { unassignedOnly: true }),
       casey.call("POST", `/api/tasks/${task.id}/claim`, { unassignedOnly: true }),
     ]);
-    expect(results.map((response) => response.status).sort()).toEqual([200, 409]);
-    const loser = results.find((response) => response.status === 409)!;
-    expect((await loser.json()).error.message).toMatch(/^Already picked up by (Pat|Casey)\.$/);
-    const [holder] = (await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees;
-    expect([people.pat, people.casey]).toContain(holder.id);
-    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees).toHaveLength(1);
+    expect(results.map((response) => response.status).sort()).toEqual([200, 200]);
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees.map((person) => person.id).sort()).toEqual([people.manager, people.casey].sort());
+    await casey.send<Task>("POST", `/api/tasks/${task.id}/drop`, {}, 200);
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees.map((person) => person.id)).toEqual([people.manager]);
+    const history = await admin.send<{ action: string; actor: { id: string } | null }[]>("GET", `/api/tasks/${task.id}/assignments`);
+    expect(history.map((entry) => entry.action).sort()).toEqual(["added", "added", "removed"]);
+    expect(history.at(-1)?.actor?.id).toBe(people.casey);
   });
 
   it("AC2: refuses claims on done tasks and tasks the user can't see; no overseer, nobody told", async () => {
     const done = await newTask({ title: "Done already", status: "done" });
     expect((await casey.call("POST", `/api/tasks/${done.id}/claim`, {})).status).toBe(409);
     const other = await newTask({ title: "Casey's", assigneeIds: [people.casey] });
-    expect((await pat.call("POST", `/api/tasks/${other.id}/claim`, {})).status).toBe(403);
+    expect((await pat.call("POST", `/api/tasks/${other.id}/claim`, {})).status).toBe(404);
     const loose = await newTask({ title: "No overseer" });
     await casey.send<Task>("POST", `/api/tasks/${loose.id}/claim`, {}, 200);
     await drain();
@@ -408,21 +417,35 @@ describe("FLOW-61 task dashboard", () => {
     const overdue = await newTask({ title: "Late", assigneeIds: [people.casey], dueAt: at(-2) });
     const later = await newTask({ title: "Later", assigneeIds: [people.casey], dueAt: at(5) });
     const undated = await newTask({ title: "Someday", assigneeIds: [people.casey] });
-    await newTask({ title: "Done", assigneeIds: [people.casey], dueAt: at(-2), status: "done" });
+    const done = await newTask({ title: "Done", assigneeIds: [people.casey], dueAt: at(-2), status: "done" });
     await newTask({ title: "Someone else's", assigneeIds: [people.pat], dueAt: at(-2) });
     const dashboard = await casey.send<TaskDashboard>("GET", "/api/tasks/dashboard");
-    expect(ids(dashboard.overdue.tasks)).toEqual([overdue.id]);
+    expect(ids(dashboard.overdue.tasks)).toEqual(expect.arrayContaining([overdue.id, done.id]));
+    expect(ids(dashboard.mine.tasks)).toEqual(expect.arrayContaining([overdue.id, done.id, later.id, undated.id]));
+    expect(dashboard.mine.tasks.every((task) => ["overdue", "today", "upcoming"].includes(task.dueBucket))).toBe(true);
     // Soonest due first; no due date last.
     expect(dashboard.upcoming.tasks.map((t) => t.id)).toEqual([later.id, undated.id]);
     expect(dashboard.needsDelegation).toBeNull();
     for (const due of ["overdue", "today", "upcoming"] as const) {
       const section = dashboard[due];
-      const listed = await list(casey, `?mine=true&assigneeId=${people.casey}&due=${due}`);
+      const listed = await list(casey, `?mine=true&assigneeId=${people.casey}&due=${due}&includeDone=true`);
       expect(section.count, due).toBe(listed.length);
       expect(ids(section.tasks), due).toEqual(ids(listed));
     }
     const overseeing = await list(casey, `?mine=true&overseerId=${people.casey}`);
     expect(dashboard.overseeing.count).toBe(overseeing.length);
+  });
+
+  it("FLOW-344: keeps completed tasks for the configured dashboard window", async () => {
+    const recent = await newTask({ title: "Recent", assigneeIds: [people.casey], status: "done" });
+    const old = await newTask({ title: "Old", assigneeIds: [people.casey], status: "done" });
+    await db.update(schema.tasks).set({ completedAt: new Date(Date.now() - 8 * 86_400_000) }).where(eq(schema.tasks.id, old.id));
+    await db.update(schema.tasks).set({ completedAt: new Date(Date.now() - 3 * 86_400_000) }).where(eq(schema.tasks.id, recent.id));
+    const dashboard = await casey.send<TaskDashboard>("GET", "/api/tasks/dashboard");
+    expect(ids(dashboard.mine.tasks)).toContain(recent.id);
+    expect(ids(dashboard.mine.tasks)).not.toContain(old.id);
+    expect(ids(dashboard.all.tasks)).toContain(recent.id);
+    expect(ids(dashboard.all.tasks)).not.toContain(old.id);
   });
 
   it("AC1: lists unassigned tasks on events in the next 14 days under Needs delegation for managers", async () => {

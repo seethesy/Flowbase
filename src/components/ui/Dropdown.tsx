@@ -72,6 +72,7 @@ type Common = {
   // the option is chosen (for a multiple-choice filter), in place of the
   // trailing check mark.
   checkboxes?: boolean;
+  searchable?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
@@ -185,6 +186,7 @@ export function Dropdown(props: DropdownProps) {
     placeholder,
     summary,
     checkboxes = false,
+    searchable = false,
     creatable,
     onBlur,
     onOpenChange,
@@ -195,6 +197,8 @@ export function Dropdown(props: DropdownProps) {
   const triggerId = id ?? `${listId}-trigger`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState("");
   const [open, setOpenState] = useState(Boolean(openOnMount));
   const [active, setActive] = useState(-1);
   const [position, setPosition] = useState<Position | null>(null);
@@ -203,6 +207,7 @@ export function Dropdown(props: DropdownProps) {
   const [createError, setCreateError] = useState("");
   const typed = useRef({ text: "", at: 0 });
   const addPlaceholder = useCopy("shared.dropdown.add.placeholder", "Add…");
+  const searchLabel = useCopy("shared.dropdown.search", "Search options");
 
   // Uncontrolled use (defaultValue) keeps its own value, like a native select.
   const [inner, setInner] = useState<string>(
@@ -212,12 +217,15 @@ export function Dropdown(props: DropdownProps) {
   const value: string = multiple ? "" : controlled ? String(props.value) : inner;
   const values: string[] = multiple ? (props.value as string[]) : [value];
   const selected = options.find((option) => option.value === value);
+  const matching = useMemo(() => options.map((option, index) => ({ option, index }))
+    .filter(({ option }) => !query || optionText(option).toLowerCase().includes(query.toLowerCase())), [options, query]);
 
   const setOpen = useCallback(
     (next: boolean) => {
       setOpenState(next);
       onOpenChange?.(next);
       if (!next) {
+        setQuery("");
         setDraft("");
         setCreateError("");
       }
@@ -246,6 +254,30 @@ export function Dropdown(props: DropdownProps) {
     const current = options.findIndex((option) => option.value === (multiple ? values[0] : value));
     setActive(index ?? (current >= 0 ? current : firstEnabled(options, 0, 1)));
     setOpen(true);
+  };
+
+  useEffect(() => {
+    if (open && searchable) searchRef.current?.focus();
+  }, [open, searchable]);
+
+  useEffect(() => {
+    if (!open || !searchable) return;
+    if (!matching.some(({ index }) => index === active))
+      setActive(matching.find(({ option }) => !option.disabled)?.index ?? -1);
+  }, [open, searchable, matching, active]);
+
+  const searchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const enabled = matching.filter(({ option }) => !option.disabled).map(({ index }) => index);
+      if (!enabled.length) return;
+      const current = enabled.indexOf(active);
+      const next = event.key === "ArrowDown" ? current + 1 : current - 1;
+      setActive(enabled[Math.max(0, Math.min(enabled.length - 1, next))]);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (active >= 0 && matching.some(({ index }) => index === active)) choose(options[active]);
+    }
   };
 
   // Position under the trigger; follow scroll and resize while open.
@@ -436,6 +468,18 @@ export function Dropdown(props: DropdownProps) {
             className={clsx("fb-select-list", `fb-select-list--${variant}`, position?.up && "fb-select-list--up")}
             style={style}
           >
+            {searchable && <input
+              ref={searchRef}
+              className="fb-select-search"
+              type="search"
+              aria-label={searchLabel}
+              aria-controls={listId}
+              aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+              data-copy-id="shared.dropdown.search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={searchKeyDown}
+            />}
             <div
               id={listId}
               role="listbox"
@@ -444,8 +488,9 @@ export function Dropdown(props: DropdownProps) {
               aria-multiselectable={multiple || undefined}
               tabIndex={-1}
             >
-              {segments(options).map((segment) => {
+              {segments(matching.map(({ option }) => option)).map((segment) => {
                 const rows = segment.items.map(({ option, index }) => {
+                  index = matching[index].index;
                   const isSelected = values.includes(option.value);
                   const toneClass = tone(option.value);
                   return (

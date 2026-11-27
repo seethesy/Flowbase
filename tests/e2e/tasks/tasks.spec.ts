@@ -32,6 +32,29 @@ const today = () => utcToBusinessTime(new Date()).date;
 const inDays = (days: number, time = "12:00") =>
   businessTimeToUtc(addLocalDays(today(), days), time).toISOString();
 
+test("FLOW-343: All Tasks filters by several roles and remembers them on reload", async ({ page }) => {
+  await seedTasks([
+    { title: "Admin task", assigneeIds: [admin.id] },
+    { title: "Kitchen task", assigneeIds: [kitchenLead.id] },
+    { title: "Staff task", assigneeIds: [fullTimeStaff.id] },
+  ]);
+  await page.goto("/#/");
+  const card = page.locator(".dashboard-card--all-tasks");
+  const filter = card.getByRole("combobox", { name: "Filter All Tasks by role" });
+  await filter.click();
+  await page.getByRole("searchbox", { name: "Search options" }).fill("kitchen");
+  await page.getByRole("option", { name: "Kitchen Lead" }).click();
+  await page.getByRole("searchbox", { name: "Search options" }).fill("staff");
+  await page.getByRole("option", { name: "Staff", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(card.getByRole("link", { name: "Kitchen task" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "Staff task" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "Admin task" })).toHaveCount(0);
+  await expect(page).toHaveURL(/role=kitchen_lead%2Cstaff/);
+  await page.reload();
+  await expect(filter).toHaveAttribute("data-value", "kitchen_lead,staff");
+});
+
 test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", async ({
   page,
 }) => {
@@ -88,7 +111,7 @@ test("FLOW-324: new tasks prefill Admins, then use the saved named managers", as
 
   await page.goto("/#/settings");
   await choose(page.getByLabel("Default task managers"), { label: "Specific people" });
-  const named = [seedUsers.find((user) => user.role === "kitchen_lead")!, seedUsers.find((user) => user.role === "sales_manager")!];
+  const named = admins.slice(0, 2);
   await choose(page.getByLabel("Specific task managers"), named.map((user) => user.id));
   await page.getByRole("button", { name: "Save defaults" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Defaults saved." })).toBeVisible();
@@ -123,7 +146,7 @@ databaseTest("part-time staff see their own and unassigned tasks, and pick one u
   await expect(page.getByRole("region", { name: "Upcoming" })).toContainText("Sweep the loading dock");
 });
 
-databaseTest("a Sales Manager can take a task someone else holds (FLOW-272 AC2)", async ({ page }) => {
+databaseTest("a Sales Manager can join a task someone else holds (FLOW-344 AC2)", async ({ page }) => {
   const manager = seedUsers.find((u) => u.role === "sales_manager")!;
   await mockBrowserAuth(page, { userId: manager.id });
   const [taskId] = await seedTasks([{ title: "Hold the door", assigneeIds: [fullTimeStaff.id] }]);
@@ -132,7 +155,7 @@ databaseTest("a Sales Manager can take a task someone else holds (FLOW-272 AC2)"
   await expect(page.getByRole("button", { name: "Claim Hold the door" })).toHaveCount(0);
   await page.goto(`/#/tasks/${taskId}`);
   await expect(page.locator("dd").filter({ hasText: manager.name })).toBeVisible();
-  await expect(page.locator("dd").filter({ hasText: fullTimeStaff.name })).toHaveCount(0);
+  await expect(page.locator("dd").filter({ hasText: fullTimeStaff.name })).toBeVisible();
 });
 
 test("delegates from Needs delegation, then reassigns on the task (FLOW-60/61)", async ({

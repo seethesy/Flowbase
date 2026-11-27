@@ -19,6 +19,7 @@ import { canSeePayments } from "../../../shared/visibility";
 import { writeAudit } from "../../audit/log";
 import type { Db, DbLike } from "../../db/client";
 import {
+  clients,
   events,
   paymentScheduleItems,
   payments,
@@ -29,7 +30,7 @@ import {
 import { ApiError, forbidden, notFound } from "../../hono";
 import { emitDomainEvent } from "../../jobs/queue";
 import { can } from "../../policy";
-import { findVisibleEvent } from "../events/events";
+import { findVisibleEvent, visibleEvents } from "../events/events";
 import { getSettings } from "../settings/settings";
 
 // The payment schedule and payment log (FLOW-131) and the reminders and overdue
@@ -180,6 +181,34 @@ async function paymentsOf(
 export async function getEventPayments(db: Db, actor: Actor, eventId: string) {
   await visibleEventForPayments(db, actor, eventId);
   return paymentsOf(db, actor, eventId);
+}
+
+export async function listPaymentsAcrossEvents(db: Db, actor: Actor) {
+  const visible = await db.select({ id: events.id, title: events.title, clientName: clients.name,
+    salespersonId: events.assignedSalespersonId })
+    .from(events).leftJoin(clients, eq(clients.id, events.clientId))
+    .where(and(visibleEvents(actor), isNull(events.archivedAt)));
+  const permitted = visible.filter((event) => canSeePayments(actor, { assignedSalespersonId: event.salespersonId }));
+  if (!permitted.length) return [];
+  const ids = permitted.map((event) => event.id);
+  const [schedule, received] = await Promise.all([
+    db.select().from(paymentScheduleItems).where(and(inArray(paymentScheduleItems.eventId, ids), isNull(paymentScheduleItems.archivedAt))),
+    db.select().from(payments).where(and(inArray(payments.eventId, ids), isNull(payments.archivedAt))),
+  ]);
+  const rows = permitted.flatMap((event) => {
+    const items = schedule.filter((item) => item.eventId === event.id).sort(byDueDate);
+    const paid = received.filter((payment) => payment.eventId === event.id);
+    const allocated = allocatePayments(items, paid.reduce((sum, payment) => sum + payment.amountCents, 0), todayOf(new Date()));
+    return [
+      ...allocated.map((item) => ({ id: item.id, eventId: event.id, eventTitle: event.title, clientName: event.clientName,
+        type: "scheduled" as const, kind: item.kind, dueDate: item.dueDate, amountCents: item.amountCents,
+        paidCents: item.paidCents, balanceCents: item.remainingCents })),
+      ...paid.map((payment) => ({ id: payment.id, eventId: event.id, eventTitle: event.title, clientName: event.clientName,
+        type: "received" as const, kind: null, dueDate: payment.receivedOn, amountCents: payment.amountCents,
+        paidCents: payment.amountCents, balanceCents: 0 })),
+    ];
+  });
+  return rows.sort((a, b) => (b.dueDate ?? "").localeCompare(a.dueDate ?? ""));
 }
 
 function requireRecord(actor: Actor) {

@@ -306,6 +306,7 @@
     "communications.communication-log.summary": [],
     "communications.communication-log.type": [],
     "communications.communication-log.view-task": [],
+    "dashboard.home.all-roles": [],
     "dashboard.home.all-tasks": [],
     "dashboard.home.client": [],
     "dashboard.home.date": [],
@@ -1697,6 +1698,13 @@
     "lead-entry.new-lead-form.save-lead": [],
     "lead-entry.new-lead-form.source": [],
     "lead-inbox.summary-line.unassigned": [],
+    "leads.contracts.addendums": [],
+    "leads.contracts.client": [],
+    "leads.contracts.event": [],
+    "leads.contracts.file": [],
+    "leads.contracts.open-file": [],
+    "leads.contracts.signed": [],
+    "leads.contracts.title": [],
     "leads.inbox.assign-selected": [],
     "leads.inbox.assign-selected-to": [],
     "leads.inbox.beo-version": [
@@ -1720,6 +1728,15 @@
     "leads.inbox.search-placeholder": [],
     "leads.inbox.subtitle": [],
     "leads.inbox.title": [],
+    "leads.payment.amount": [],
+    "leads.payment.balance": [],
+    "leads.payment.client": [],
+    "leads.payment.date": [],
+    "leads.payment.event": [],
+    "leads.payment.kind": [],
+    "leads.payment.paid": [],
+    "leads.payment.received": [],
+    "leads.payment.title": [],
     "list-fields.list-checkboxes.archived": [
       "label"
     ],
@@ -1733,6 +1750,7 @@
     "nav.client-recipe-book": [],
     "nav.clients": [],
     "nav.collector-health": [],
+    "nav.contracts": [],
     "nav.dashboard": [],
     "nav.documents": [],
     "nav.employee-profile": [],
@@ -1753,13 +1771,13 @@
     "nav.menus": [],
     "nav.new-sop": [],
     "nav.not-available": [],
-    "nav.operational-reports": [],
     "nav.operations": [],
     "nav.order": [],
     "nav.order-list": [],
     "nav.order-lists": [],
     "nav.overview": [],
     "nav.page-not-found": [],
+    "nav.payment": [],
     "nav.payroll": [],
     "nav.photos": [],
     "nav.pricing": [],
@@ -1767,7 +1785,6 @@
     "nav.proposals": [],
     "nav.recipe": [],
     "nav.recipes": [],
-    "nav.reports": [],
     "nav.roles-permissions": [],
     "nav.sales": [],
     "nav.sales-reports": [],
@@ -2375,6 +2392,7 @@
     "sales.sales-tracker.type": [],
     "sales.sales-tracker.type-2": [],
     "sales.sales-tracker.view-name.placeholder": [],
+    "sales.time-tracking.title": [],
     "search.global-search.everything-in-one-place": [],
     "search.global-search.no-matching-records": [],
     "search.global-search.search-clients-leads-events-venues.placeholder": [],
@@ -2470,12 +2488,14 @@
     "shared.detail-drawer.description": [],
     "shared.dropdown.add": [],
     "shared.dropdown.add.placeholder": [],
+    "shared.dropdown.search": [],
     "shared.empty-state.description": [],
     "shared.empty-state.title": [],
     "shared.file-list.demo-file": [],
     "shared.file-list.sample-attachment-preview-only": [
       "size"
     ],
+    "shared.people-picker.no-account": [],
     "shared.search-input.placeholder": [],
     "shared.section.fold": [
       "title"
@@ -2751,8 +2771,9 @@
     "tasks.task-detail.add": [],
     "tasks.task-detail.add-a-checklist-item.placeholder": [],
     "tasks.task-detail.another-event": [],
-    "tasks.task-detail.assign-to-me": [],
+    "tasks.task-detail.assigned": [],
     "tasks.task-detail.assigned-to": [],
+    "tasks.task-detail.assignment-history": [],
     "tasks.task-detail.back": [],
     "tasks.task-detail.by": [
       "name"
@@ -2765,10 +2786,14 @@
     "tasks.task-detail.comments": [],
     "tasks.task-detail.completed": [],
     "tasks.task-detail.created-by": [],
+    "tasks.task-detail.delete": [],
+    "tasks.task-detail.deleted": [],
     "tasks.task-detail.details": [],
+    "tasks.task-detail.drop": [],
     "tasks.task-detail.due": [],
     "tasks.task-detail.event": [],
     "tasks.task-detail.linked-sop": [],
+    "tasks.task-detail.notes": [],
     "tasks.task-detail.open-sop": [],
     "tasks.task-detail.overseer": [],
     "tasks.task-detail.pick-up": [],
@@ -2777,9 +2802,12 @@
       "taskPriorityLabels",
       "taskTypeLabels"
     ],
+    "tasks.task-detail.removed": [],
+    "tasks.task-detail.save-notes": [],
     "tasks.task-detail.status": [],
     "tasks.task-detail.system": [],
     "tasks.task-detail.task": [],
+    "tasks.task-detail.undo": [],
     "tasks.task-detail.write-a-comment.placeholder": [],
     "time-tracking.time-reports.active-time-in-flowbase-per": [],
     "time-tracking.time-reports.active-time-in-this-range": [],
@@ -3326,6 +3354,12 @@
       ],
       "fieldCards": []
     },
+    "leads.contracts": {
+      "blocks": [
+        "list"
+      ],
+      "fieldCards": []
+    },
     "leads.dashboard": {
       "blocks": [
         "by-channel-status",
@@ -3352,6 +3386,12 @@
     "leads.inbox": {
       "blocks": [
         "lead-table"
+      ],
+      "fieldCards": []
+    },
+    "leads.payment": {
+      "blocks": [
+        "list"
       ],
       "fieldCards": []
     },
@@ -3460,6 +3500,13 @@
         "booked-by-month",
         "pipeline",
         "win-rates"
+      ],
+      "fieldCards": []
+    },
+    "sales.time-tracking": {
+      "blocks": [
+        "operations",
+        "time"
       ],
       "fieldCards": []
     },
@@ -3585,10 +3632,12 @@
     },
     "tasks.detail": {
       "blocks": [
+        "assignments",
         "attachments",
         "checklist",
         "comments",
-        "details"
+        "details",
+        "notes"
       ],
       "fieldCards": []
     },
@@ -3669,7 +3718,6 @@
     "documents.overview",
     "documents.templates",
     "events",
-    "events.beos",
     "events.overview",
     "events.production",
     "inventory",
@@ -3685,20 +3733,20 @@
     "kitchen.photos",
     "kitchen.recipes",
     "leads",
+    "leads.beos",
+    "leads.contracts",
     "leads.overview",
+    "leads.payment",
     "leads.proposals",
     "marketing",
     "marketing.overview",
     "marketing.photos",
-    "reports",
-    "reports.operational-reports",
-    "reports.overview",
-    "reports.time-tracking",
     "sales",
     "sales.clients",
     "sales.overview",
     "sales.pricing",
     "sales.sales-tracker",
+    "sales.time-tracking",
     "sales.venues",
     "staffing",
     "staffing.payroll",

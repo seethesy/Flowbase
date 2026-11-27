@@ -3,6 +3,7 @@ import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { Link } from "react-router-dom";
 import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
 import { useAuth } from "../../app/auth";
+import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
 import { PageHeader, Section, Button, LoadingSkeleton, ErrorText } from "../../components/shared";
 import { leadsApi } from "../../services/leads";
@@ -26,17 +27,17 @@ const exportCsv = (rows: (string | number)[][]) => {
   URL.revokeObjectURL(url);
 };
 
-export function OperationalReports() {
+export function OperationalReports({ embedded = false }: { embedded?: boolean } = {}) {
   const user = useAuth()?.user;
+  const { can } = usePermissions();
   if (user?.role === "technical") return <>
-    <PageHeader title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} />
+    {!embedded && <PageHeader title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} />}
     <CollectorHealthPage embedded /><UsagePage embedded />
   </>;
-  return <OperationalReportsContent userRole={user?.role} />;
+  return <OperationalReportsContent userRole={user?.role} embedded={embedded} allowed={can("reports.operations.read")} />;
 }
 
-function OperationalReportsContent({ userRole }: { userRole?: string }) {
-  const allowed = userRole === "admin" || userRole === "sales_manager";
+function OperationalReportsContent({ userRole, embedded, allowed }: { userRole?: string; embedded: boolean; allowed: boolean }) {
   const [from, setFrom] = useState(() => addLocalDays(utcToBusinessTime(new Date()).date, -29));
   const [to, setTo] = useState(() => utcToBusinessTime(new Date()).date);
   const range = { from, to };
@@ -59,7 +60,8 @@ function OperationalReportsContent({ userRole }: { userRole?: string }) {
     ...(data?.orders.map((r) => ["Vendor spend", r.vendor, r.month, r.orders, r.spendCents]) ?? []),
   ];
   return <>
-    <PageHeader pageKey="reports.operations" title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} subtitle={<T id="operational-reports.operational-reports.time-leads-rental-use-and">Time, leads, rental use and purchasing</T>} />
+    {!embedded && <PageHeader pageKey="reports.operations" title={<T id="operational-reports.operational-reports.operational-reports">Operational reports</T>} subtitle={<T id="operational-reports.operational-reports.time-leads-rental-use-and">Time, leads, rental use and purchasing</T>} />}
+    {embedded && <h2><T id="operational-reports.operational-reports.operational-reports">Operational reports</T></h2>}
     <PageGrid pageKey="reports.operations">
     <Block id="dates" name="Dates and export" h={3}>
     <div className="sales-actions">

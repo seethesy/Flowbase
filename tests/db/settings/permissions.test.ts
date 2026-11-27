@@ -181,7 +181,7 @@ describe("the in-memory copy", () => {
 
 // Which roles see each sidebar heading and tab (FLOW-284).
 describe("navigation by role", () => {
-  const hidden = { ...emptyNavHidden(), part_time_staff: ["sales.venues", "reports"] };
+  const hidden = { ...emptyNavHidden(), part_time_staff: ["sales.venues", "sales.time-tracking"] };
   const partTime = signedInAs("part_time_staff");
 
   it("everyone reads it, starting with nothing hidden", async () => {
@@ -190,12 +190,12 @@ describe("navigation by role", () => {
     expect(await response.json()).toEqual({ hidden: emptyNavHidden() });
   });
 
-  it("AC1, AC2: Admin hides Venues and Reports for Part-time Staff; the API still answers by area", async () => {
+  it("AC1, AC2: Admin hides Venues and Time Tracking for Part-time Staff; the API still answers by area", async () => {
     const saved = await admin("PUT", "/api/permissions/navigation", { hidden });
     expect(saved.status).toBe(200);
-    expect((await saved.json()).hidden.part_time_staff).toEqual(["reports", "sales.venues"]);
+    expect((await saved.json()).hidden.part_time_staff).toEqual(["sales.time-tracking", "sales.venues"]);
     expect((await (await partTime("GET", "/api/permissions/navigation")).json()).hidden.part_time_staff).toEqual([
-      "reports",
+      "sales.time-tracking",
       "sales.venues",
     ]);
     // Not a security boundary: Venues still answers by the Events area.
@@ -219,6 +219,6 @@ describe("navigation by role", () => {
     await admin("PUT", "/api/permissions/navigation", { hidden });
     const audit = await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityType, "role_nav_hidden"));
     expect(audit).toHaveLength(1);
-    expect(audit[0].changes).toEqual({ part_time_staff: { before: [], after: ["reports", "sales.venues"] } });
+    expect(audit[0].changes).toEqual({ part_time_staff: { before: [], after: ["sales.time-tracking", "sales.venues"] } });
   });
 });

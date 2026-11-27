@@ -42,6 +42,7 @@ export const tasks = pgTable(
     ...baseColumns(),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
+    notes: text("notes").notNull().default(""),
     type: text("type", { enum: taskTypes }).notNull().default("general"),
     status: text("status", { enum: taskStatuses }).notNull().default("todo"),
     priority: text("priority", { enum: taskPriorities })

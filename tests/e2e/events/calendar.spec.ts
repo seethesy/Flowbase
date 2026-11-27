@@ -55,7 +55,7 @@ test("the sidebar opens the calendar", async ({ page, isMobile }) => {
   await expect(page.locator(".fc-dayGridMonth-view")).toBeVisible();
   await expect(page).toHaveURL(/#\/events\/overview$/);
   const tabs = page.getByRole("navigation", { name: "Events pages" });
-  await expect(tabs.getByRole("link")).toHaveText(["Overview", "BEOs", "Production"]);
+  await expect(tabs.getByRole("link")).toHaveText(["Overview", "Production"]);
 });
 
 // FLOW-294 AC1, AC4: Month, Week and Day only; no List, no Day-of tab; the old

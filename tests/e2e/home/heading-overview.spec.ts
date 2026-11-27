@@ -4,7 +4,7 @@ import { seedUsers } from "../../../worker/db/seed";
 import { choose } from "../dropdown";
 
 // FLOW-295 on the real Worker and database: Sales, Marketing, Documents and
-// Reports open on an Overview tab that starts empty, an Admin adds a card there
+// These headings open on an Overview tab that starts empty, an Admin adds a card there
 // in live edit that everyone then sees, and the other tabs keep their URLs.
 const salesperson = seedUsers.find((user) => user.role === "salesperson")!;
 
@@ -14,10 +14,9 @@ const tabs = (page: Page, heading: string) =>
 test("each heading opens on its Overview, and the old tabs keep their URLs (AC1, AC3)", async ({ page, isMobile }) => {
   for (const [heading, url, rest] of [
     // FLOW-328/329: Leads and Proposals moved to the Leads heading; Pricing is new.
-    ["Sales", "/sales/overview", ["Clients", "Sales tracker", "Venues", "Pricing"]],
+    ["Sales", "/sales/overview", ["Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]],
     ["Marketing", "/marketing/overview", ["Photos"]],
     ["Documents", "/documents/overview", ["Documents", "Templates"]],
-    ["Reports", "/reports/overview", ["Time tracking", "Operational reports"]],
   ] as const) {
     await page.goto("/");
     if (isMobile) await page.getByRole("button", { name: "Open navigation" }).click();
@@ -34,7 +33,8 @@ test("each heading opens on its Overview, and the old tabs keep their URLs (AC1,
   await page.goto("/#/documents");
   await expect(page.getByRole("heading", { name: "Documents", level: 1 })).toBeVisible();
   await page.goto("/#/reports/operations");
-  await expect(tabs(page, "Reports").filter({ hasText: "Operational reports" })).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/#\/sales\/time-tracking$/);
+  await expect(tabs(page, "Sales").filter({ hasText: "Time Tracking" })).toHaveAttribute("aria-current", "page");
   await page.goto("/#/marketing");
   await expect(tabs(page, "Marketing").filter({ hasText: "Photos" })).toHaveAttribute("aria-current", "page");
 });

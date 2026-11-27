@@ -1,4 +1,5 @@
 import { Dropdown } from "../../components/ui/Dropdown";
+import { PeoplePicker } from "../../components/ui/people-picker";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -543,12 +544,9 @@ function DefaultSettings() {
           </FormField>
           {draft.defaultTaskManagers.mode === "people" && (
             <FormField label={<T id="settings.default-settings.choose-task-managers">Choose task managers</T>}>
-              <Dropdown multiple aria-label={specificManagersLabel} value={draft.defaultTaskManagers.userIds}
-                onChange={(e) => set("defaultTaskManagers", { mode: "people", userIds: Array.from(e.target.selectedOptions, (option) => option.value) })}>
-                {(staff.data ?? []).filter((person) => person.active).map((person) => (
-                  <option key={person.id} value={person.id}>{person.name}</option>
-                ))}
-              </Dropdown>
+              <PeoplePicker staff={staff.data ?? []} kind="managers" label={specificManagersLabel}
+                value={draft.defaultTaskManagers.userIds}
+                onChange={(userIds) => set("defaultTaskManagers", { mode: "people", userIds })} />
             </FormField>
           )}
           {number("rentalBufferDaysBefore", "Rental buffer days before", "Days a rental is held before its event.")}

@@ -38,7 +38,7 @@ const people = {
 };
 const directory: [keyof typeof people, Role, EmploymentType][] = [
   ["admin", "admin", "full_time"],
-  ["lead", "kitchen_lead", "full_time"],
+  ["lead", "admin", "full_time"],
   ["sam", "salesperson", "full_time"],
   // Part-time: sees only their own tasks and can't assign others.
   ["pat", "staff", "part_time"],
@@ -114,25 +114,42 @@ const assignedEvents = () =>
     .where(eq(schema.jobs.type, "event:task.assigned"));
 
 describe("service API", () => {
+  it("FLOW-344: rejects a non-Admin manager and lets an assignee edit separate Notes", async () => {
+    expect((await admin.call("POST", "/api/tasks", { title: "Invalid manager", managerIds: [people.casey] })).status).toBe(400);
+    const task = await newTask({ title: "Prepare room", description: "Follow the setup plan", assigneeIds: [people.pat], managerIds: [people.lead] });
+    const edited = await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { notes: "Bring spare linens" }, 200);
+    expect(edited.description).toBe("Follow the setup plan");
+    expect(edited.notes).toBe("Bring spare linens");
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).notes).toBe("Bring spare linens");
+  });
+
+  it("FLOW-344: archive and restore retain assignees", async () => {
+    const task = await newTask({ title: "Count plates", assigneeIds: [people.pat], managerIds: [people.lead] });
+    expect((await pat.call("POST", `/api/tasks/${task.id}/archive`)).status).toBe(403);
+    expect((await lead.call("POST", `/api/tasks/${task.id}/archive`)).status).toBe(200);
+    expect((await admin.call("GET", `/api/tasks/${task.id}`)).status).toBe(404);
+    expect((await lead.call("POST", `/api/tasks/${task.id}/restore`)).status).toBe(200);
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees.map((person) => person.id)).toEqual([people.pat]);
+  });
   it("FLOW-324: copies active Admins or configured people onto each new task", async () => {
     const first = await pat.send<Task>("POST", "/api/tasks", { title: "Set out glasses" });
-    expect(first.managers.map((person) => person.id)).toEqual([people.admin]);
+    expect(first.managers.map((person) => person.id).sort()).toEqual([people.admin, people.lead].sort());
     await updateSetting(db, actorOf("admin"), "defaults", {
       ...defaultBusinessDefaults,
-      defaultTaskManagers: { mode: "people", userIds: [people.casey, people.lead] },
+      defaultTaskManagers: { mode: "people", userIds: [people.admin, people.lead] },
     });
     const second = await pat.send<Task>("POST", "/api/tasks", { title: "Set out plates" });
-    expect(second.managers.map((person) => person.id).sort()).toEqual([people.casey, people.lead].sort());
-    expect(first.managers.map((person) => person.id)).toEqual([people.admin]);
+    expect(second.managers.map((person) => person.id).sort()).toEqual([people.admin, people.lead].sort());
+    expect(first.managers.map((person) => person.id).sort()).toEqual([people.admin, people.lead].sort());
   });
 
   it("FLOW-324: every manager may edit and reassign, while a non-manager cannot", async () => {
-    const task = await newTask({ title: "Lay tablecloths", assigneeIds: [people.alex], managerIds: [people.pat, people.lead] });
+    const task = await newTask({ title: "Lay tablecloths", assigneeIds: [people.alex], managerIds: [people.admin, people.lead] });
     expect((await alex.call("PATCH", `/api/tasks/${task.id}`, { title: "Changed" })).status).toBe(403);
-    await pat.send<Task>("PATCH", `/api/tasks/${task.id}`, { assigneeIds: [people.sam] });
+    await admin.send<Task>("PATCH", `/api/tasks/${task.id}`, { assigneeIds: [people.sam] }, 200);
     const changed = await lead.send<Task>("PATCH", `/api/tasks/${task.id}`, { title: "Lay white tablecloths" });
     expect(changed.title).toBe("Lay white tablecloths");
-    expect(changed.managers.map((person) => person.id).sort()).toEqual([people.pat, people.lead].sort());
+    expect(changed.managers.map((person) => person.id).sort()).toEqual([people.admin, people.lead].sort());
   });
 
   it("creates a task with assignees, overseer, checklist and links, and audits it", async () => {
@@ -272,8 +289,8 @@ describe("AC1: one task list for every module", () => {
         (t) => t.id,
       ),
     ).toEqual([done.id, linked.id]);
-    // A kitchen lead can't open Sam's event, so can't link a task to it.
-    const refused = await lead.call("POST", "/api/tasks", { title: "Peek", eventId: gala.id });
+    // Staff outside the event can't link a task to it.
+    const refused = await casey.call("POST", "/api/tasks", { title: "Peek", eventId: gala.id });
     expect(refused.status).toBe(404);
   });
 });
@@ -353,10 +370,10 @@ describe("visibility and delegation", () => {
     ).toBe("Restock nitrile gloves");
     // A full-time staff member delegates.
     const delegated = await newTask(
-      { title: "Pat, restock the bar", type: "delegated", assigneeIds: [people.pat], overseerId: people.casey },
+      { title: "Pat, restock the bar", type: "delegated", assigneeIds: [people.pat], overseerId: people.admin },
       casey,
     );
-    expect(delegated.managers).toEqual([{ id: people.casey, name: "Casey" }]);
+    expect(delegated.managers).toEqual([{ id: people.admin, name: "Admin" }]);
   });
 });
 

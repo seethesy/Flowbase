@@ -60,7 +60,7 @@ const duration = (seconds: number) => {
 const daysAgo = (days: number) =>
   addLocalDays(utcToBusinessTime(new Date()).date, -days);
 
-export function TimeReports() {
+export function TimeReports({ embedded = false }: { embedded?: boolean } = {}) {
   const [from, setFrom] = useState(() => daysAgo(29));
   const [to, setTo] = useState(() => daysAgo(0));
   const report = useResource(
@@ -138,7 +138,7 @@ export function TimeReports() {
   const data = report.data;
   return (
     <>
-      <PageHeader pageKey="reports.time"
+      {!embedded && <PageHeader pageKey="reports.time"
         title={<T id="time-tracking.time-reports.time-tracking">Time tracking</T>}
         subtitle={
           data?.scope === "own"
@@ -146,7 +146,11 @@ export function TimeReports() {
             : <T id="time-tracking.time-reports.active-time-in-flowbase-per">Active time in Flowbase per booking and per person.</T>
         }
         eyebrow={<T id="time-tracking.time-reports.reports">Reports</T>}
-      />
+      />}
+      {embedded && <div><h2><T id="time-tracking.time-reports.time-tracking">Time tracking</T></h2>
+        <p>{data?.scope === "own"
+          ? <T id="time-tracking.time-reports.your-own-active-time-in">Your own active time in Flowbase.</T>
+          : <T id="time-tracking.time-reports.active-time-in-flowbase-per">Active time in Flowbase per booking and per person.</T>}</p></div>}
       <PageGrid pageKey="reports.time">
       <Block id="filters" name="Dates" h={4}>
       <FilterBar>

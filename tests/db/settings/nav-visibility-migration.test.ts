@@ -36,17 +36,21 @@ it("moves each role's hidden Sales tabs to the Leads heading", async () => {
       ('salesperson', '["sales.proposals"]'::jsonb),
       ('staff', '["reports", "sales"]'::jsonb),
       ('kitchen_lead', '["sales.leads", "sales.venues"]'::jsonb),
-      ('technical', '["events.beos"]'::jsonb)`;
+      ('technical', '["events.beos"]'::jsonb),
+      ('sales_manager', '["reports.time-tracking", "reports.operational-reports"]'::jsonb),
+      ('part_time_staff', '["reports.time-tracking"]'::jsonb)`;
 
     await migrate(db, { migrationsFolder: "drizzle" });
 
     const rows = await client<{ role: string; hidden: string[] }[]>`select role, hidden from role_nav_hidden order by role`;
     expect(Object.fromEntries(rows.map((row) => [row.role, row.hidden]))).toEqual({
       kitchen_lead: ["leads.overview", "sales.venues"],
+      part_time_staff: [],
+      sales_manager: ["sales.time-tracking"],
       salesperson: ["leads.proposals"],
       // The whole Sales heading was hidden, so the new Leads heading is too.
-      staff: ["leads", "reports", "sales"],
-      technical: ["events.beos"],
+      staff: ["leads", "sales", "sales.time-tracking"],
+      technical: ["leads.beos"],
     });
   } finally {
     await client?.end();

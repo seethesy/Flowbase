@@ -6,6 +6,7 @@ import axe from "axe-core";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Dropdown } from "../../src/components/ui/Dropdown";
+import { peopleOptions } from "../../src/components/ui/people-picker";
 import { StatusSelect } from "../../src/components/ui/status-pill";
 
 // FLOW-259: one shared dropdown in place of every native select.
@@ -33,6 +34,39 @@ function Fruit({ onChange = () => {} }: { onChange?: (value: string) => void }) 
 }
 
 describe("Dropdown", () => {
+  it("filters searchable multi-select options and keeps hidden selections from the keyboard", async () => {
+    const user = userEvent.setup();
+    function Searchable() {
+      const [value, setValue] = useState<string[]>([]);
+      return <Dropdown multiple checkboxes searchable aria-label="People" value={value} onValueChange={setValue}
+        options={[{ value: "alex", label: "Alex" }, { value: "blair", label: "Blair" }, { value: "casey", label: "Casey" }]} />;
+    }
+    render(<Searchable />);
+    const trigger = screen.getByRole("combobox", { name: "People" });
+    await user.click(trigger);
+    const search = screen.getByRole("searchbox", { name: "Search options" });
+    expect(search).toHaveFocus();
+    await user.type(search, "BL");
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual(["Blair"]);
+    await user.keyboard("{Enter}");
+    expect(trigger).toHaveAttribute("data-value", "blair");
+    await user.clear(search);
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+    await user.keyboard("{ArrowDown}{Enter}{Escape}");
+    expect(trigger).toHaveAttribute("data-value", "blair,casey");
+    expect(trigger).toHaveFocus();
+  });
+
+  it("offers all active assignees but only active Admin accounts as managers", () => {
+    const staff = [
+      { id: "a", name: "Admin", active: true, hasAccount: true, role: "admin" as const },
+      { id: "b", name: "Offline", active: true, hasAccount: false, role: null },
+      { id: "c", name: "Staff", active: true, hasAccount: true, role: "staff" as const },
+      { id: "d", name: "Former", active: false, hasAccount: true, role: "admin" as const },
+    ];
+    expect(peopleOptions(staff, "assignees").map((person) => person.id)).toEqual(["a", "b", "c"]);
+    expect(peopleOptions(staff, "managers").map((person) => person.id)).toEqual(["a"]);
+  });
   it("is a combobox button that opens a listbox of options with a check on the current one", async () => {
     const user = userEvent.setup();
     render(<Fruit />);

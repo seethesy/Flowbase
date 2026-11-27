@@ -197,7 +197,7 @@ describe("fan-out", () => {
       title: "Confirm rentals",
       dueAt: "2026-11-02T14:00:00.000Z",
       assigneeIds: [people.casey],
-      overseerId: people.sam,
+      overseerId: people.admin,
     });
     await drain();
     await db.insert(schema.jobs).values({
@@ -208,7 +208,7 @@ describe("fan-out", () => {
     });
     await drain();
     const due = (await db.select().from(schema.notifications)).filter((n) => n.type === "task_due");
-    expect(due.map((n) => n.userId).sort()).toEqual([people.casey, people.sam].sort());
+    expect(due.map((n) => n.userId).sort()).toEqual([people.casey, people.admin].sort());
     expect(due[0]).toMatchObject({ title: "Task overdue: Confirm rentals", link: `/tasks/${task.id}` });
   });
 

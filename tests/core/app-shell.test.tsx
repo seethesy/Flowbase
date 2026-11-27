@@ -31,10 +31,10 @@ function mount(path = "/", role: Role = "admin") {
 }
 const mainNav = () => screen.getByRole("navigation", { name: "Main" });
 
-it("shows the ten headings, Settings and Help, and no demo note or bottom collapse button", () => {
+it("shows the headings, Settings and Help, and no demo note or bottom collapse button", () => {
   mount();
   expect(within(mainNav()).getAllByRole("link").map((link) => link.textContent)).toEqual([
-    "Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
+    "Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents",
   ]);
   const secondary = screen.getByRole("navigation", { name: "Settings and help" });
   expect(within(secondary).getAllByRole("link").map((link) => link.textContent)).toEqual(["Settings", "Help & resources"]);
@@ -50,7 +50,7 @@ it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   await user.click(within(mainNav()).getByRole("link", { name: "Sales" }));
   expect(screen.getByText("Sales overview screen")).toBeInTheDocument();
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
   expect(within(tabs).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
   await user.click(within(tabs).getByRole("link", { name: "Clients" }));
   expect(screen.getByText("Clients screen")).toBeInTheDocument();
@@ -58,23 +58,24 @@ it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveClass("active");
 });
 
-it("opens Events on its Overview and keeps its tabs under Events (FLOW-294)", async () => {
+it("opens Events on its Overview and BEO under Leads (FLOW-339)", async () => {
   const user = userEvent.setup();
   mount();
   await user.click(within(mainNav()).getByRole("link", { name: "Events" }));
   expect(screen.getByText("Events overview screen")).toBeInTheDocument();
   const tabs = screen.getByRole("navigation", { name: "Events pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "BEOs", "Production"]);
-  await user.click(within(tabs).getByRole("link", { name: "BEOs" }));
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Production"]);
+  await user.click(within(mainNav()).getByRole("link", { name: "Leads" }));
+  await user.click(within(screen.getByRole("navigation", { name: "Leads pages" })).getByRole("link", { name: "BEO" }));
   expect(screen.getByText("BEOs screen")).toBeInTheDocument();
-  expect(within(mainNav()).getByRole("link", { name: "Events" })).toHaveClass("active");
-  expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Events" })).toBeInTheDocument();
+  expect(within(mainNav()).getByRole("link", { name: "Leads" })).toHaveClass("active");
+  expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Leads" })).toBeInTheDocument();
 });
 
 it("hides tabs the role can't open", () => {
   mount("/venues", "staff");
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Venues"]);
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Venues", "Time Tracking"]);
   expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveAttribute("href", "/sales/overview");
 });
 

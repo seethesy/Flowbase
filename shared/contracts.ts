@@ -22,6 +22,9 @@ export const contractSchema = z.object({
   clientSigner: z.string(), salespersonSigner: z.string(), cardOnFile: z.boolean(),
   cardLast4: z.string().nullable(), attachmentId: id.nullable(),
 });
+export const contractListSchema = contractSchema.extend({
+  eventTitle: z.string(), clientName: z.string().nullable(), openAddendums: z.number().int(),
+});
 
 export const recordAddendumSchema = z.object({
   proposalVersionId: id, changeIds: z.array(id).min(1), sentAt: timestamp,

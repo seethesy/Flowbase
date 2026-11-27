@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   applyTemplateResultSchema,
   taskDashboardSchema,
+  taskAssignmentSchema,
   taskSchema,
   taskSummarySchema,
   taskTemplateSchema,
@@ -39,6 +40,10 @@ export const tasksApi = {
     request(taskSchema, task(id), "PATCH", input),
   claim: (id: string, input: ClaimInput = {}) =>
     request(taskSchema, task(id, "claim"), "POST", input),
+  drop: (id: string) => request(taskSchema, task(id, "drop"), "POST", {}),
+  assignments: (id: string) => request(taskAssignmentSchema.array(), task(id, "assignments")),
+  setArchived: (id: string, archived: boolean) => request(z.object({ id: z.string(), archived: z.boolean() }),
+    task(id, archived ? "archive" : "restore"), "POST", {}),
   addChecklistItem: (id: string, label: string) =>
     request(taskSchema, task(id, "checklist"), "POST", { label }),
   updateChecklistItem: (id: string, itemId: string, input: ChecklistItemUpdate) =>

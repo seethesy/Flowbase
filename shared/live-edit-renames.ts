@@ -56,6 +56,10 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-342: Reports became the Sales Time Tracking tab.
+      "nav.reports",
+      "nav.operational-reports",
+      "tasks.task-detail.assign-to-me",
       // FLOW-350: the event page's Status card; the status changes in the
       // dropdown under the title and its history is in the History card.
       "events.event-status-panel.change-status",

@@ -12,7 +12,6 @@ import { RouteError } from "../components/RouteError";
 const Dashboard = lazy(() =>
   import("../features/home/dashboard").then((module) => ({ default: module.Dashboard })),
 );
-const OperationalReports = lazy(() => import("../features/home/operational-reports").then((module) => ({ default: module.OperationalReports })));
 const ArchivedPage = lazy(() => import("../features/settings/archived").then((module) => ({ default: module.ArchivedPage })));
 const RolesPermissionsPage = lazy(() => import("./roles-permissions").then((module) => ({ default: module.RolesPermissionsPage })));
 const OperationsPage = lazy(() => import("../features/events/operations").then((module) => ({ default: module.OperationsPage })));
@@ -25,6 +24,8 @@ const ClientDetail = lazy(() =>
 const LeadInbox = lazy(() =>
   import("../features/leads/leads").then((module) => ({ default: module.LeadInbox })),
 );
+const ContractsPage = lazy(() => import("../features/leads/financial-lists").then((module) => ({ default: module.ContractsPage })));
+const PaymentPage = lazy(() => import("../features/leads/financial-lists").then((module) => ({ default: module.PaymentPage })));
 const LeadDetail = lazy(() =>
   import("../features/leads/leads").then((module) => ({ default: module.LeadDetail })),
 );
@@ -64,12 +65,9 @@ const SalesTracker = lazy(() =>
 const SalesReports = lazy(() => import("../features/sales/sales").then((module) => ({ default: module.SalesReports })));
 const SalesOverview = lazy(() => import("../features/sales/sales-overview").then((module) => ({ default: module.SalesOverview })));
 const PricingPage = lazy(() => import("../features/sales/pricing").then((module) => ({ default: module.PricingPage })));
+const SalesTimeTrackingPage = lazy(() => import("../features/sales/time-tracking-page").then((module) => ({ default: module.SalesTimeTrackingPage })));
 const MarketingOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.MarketingOverview })));
 const DocumentsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.DocumentsOverview })));
-const ReportsOverview = lazy(() => import("../features/home/heading-overview").then((module) => ({ default: module.ReportsOverview })));
-const TimeReports = lazy(() =>
-  import("../features/staff/time-tracking").then((module) => ({ default: module.TimeReports })),
-);
 const SettingsPage = lazy(() =>
   import("../features/settings/settings").then((module) => ({ default: module.SettingsPage })),
 );
@@ -247,6 +245,8 @@ export const getRouter = () =>
       children: [
         { path: "/", element: <Dashboard /> },
         { path: "/leads", element: <LeadInbox /> },
+        { path: "/leads/contracts", element: <ContractsPage /> },
+        { path: "/leads/payment", element: <PaymentPage /> },
         { path: "/leads/dashboard", element: <LeadDashboardPage /> },
         { path: "/leads/:id", element: <LeadDetail /> },
         { path: "/clients", element: <ClientList /> },
@@ -261,10 +261,11 @@ export const getRouter = () =>
         { path: "/sales/overview", element: <SalesOverview /> },
         { path: "/marketing/overview", element: <MarketingOverview /> },
         { path: "/documents/overview", element: <DocumentsOverview /> },
-        { path: "/reports/overview", element: <ReportsOverview /> },
+        { path: "/reports/overview", element: <Navigate to="/sales/time-tracking" replace /> },
         { path: "/sales", element: <SalesTracker /> },
         { path: "/sales/reports", element: <SalesReports /> },
         { path: "/sales/pricing", element: <PricingPage /> },
+        { path: "/sales/time-tracking", element: <SalesTimeTrackingPage /> },
         { path: "/inventory", element: <InventoryList /> },
         // FLOW-292: ordering is Inventory › Order. Purchasing, the order lists'
         // old address, Low stock and Kitchen orders land there.
@@ -324,8 +325,8 @@ export const getRouter = () =>
         { path: "/tasks/:id", element: <TaskDetail /> },
         { path: "/sops", element: <SopLibrary /> },
         { path: "/sops/:id", element: <SopDetail /> },
-        { path: "/reports", element: <TimeReports /> },
-        { path: "/reports/operations", element: <OperationalReports /> },
+        { path: "/reports", element: <Navigate to="/sales/time-tracking" replace /> },
+        { path: "/reports/operations", element: <Navigate to="/sales/time-tracking" replace /> },
         // Imports left the Inventory heading for Settings (FLOW-290/291); old
         // /imports links land on the Settings page.
         { path: "/settings/imports", element: <ImportList /> },

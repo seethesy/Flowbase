@@ -16,6 +16,7 @@ import {
   archiveScheduleItem,
   createScheduleItem,
   getEventPayments,
+  listPaymentsAcrossEvents,
   recordPayment,
   updateScheduleItem,
 } from "../../records/sales/payments";
@@ -26,6 +27,10 @@ import {
 export function paymentRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
+
+  routes.get("/payments/all", requirePermission("events.read"), async (c) =>
+    c.json(await record(c, (db, actor) => listPaymentsAcrossEvents(db, actor))),
+  );
 
   routes.get("/:id/payments", requirePermission("events.read"), async (c) => {
     const id = idParam(c, "Event");

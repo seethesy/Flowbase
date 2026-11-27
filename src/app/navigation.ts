@@ -1,6 +1,7 @@
 import type { Actor } from "../../shared/access";
 import { can, type Action } from "../../shared/policy";
 import { navHidden, navHides } from "../../shared/nav-visibility";
+import { canSeePayments } from "../../shared/visibility";
 
 // The app's navigation map (FLOW-246). The sidebar headings, the tabs at the top
 // of each heading's pages and the header breadcrumb (FLOW-247) all read it, so a
@@ -58,6 +59,9 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "overview", name: "Overview", to: "/leads", visible: "leads.read" },
       { copyId: "proposals", name: "Proposals", to: "/proposals", visible: "proposals.read" },
+      { copyId: "contracts", name: "Contracts", to: "/leads/contracts", visible: "proposals.read" },
+      { copyId: "payment", name: "Payment", to: "/leads/payment", visible: (actor) => can(actor, "events.read") && canSeePayments(actor, { assignedSalespersonId: actor.userId }) },
+      { copyId: "beos", name: "BEO", to: "/beos", visible: "beos.read" },
     ],
   },
   {
@@ -70,6 +74,7 @@ export const navigationGroups: NavGroup[] = [
       { copyId: "venues", name: "Venues", to: "/venues", visible: "venues.read" },
       // The price list salespeople quote from (FLOW-329).
       { copyId: "pricing", name: "Pricing", to: "/sales/pricing", visible: "proposals.read" },
+      { copyId: "time-tracking", name: "Time Tracking", to: "/sales/time-tracking", visible: (actor) => can(actor, "time.read") || can(actor, "reports.operations.read") },
     ]),
   },
   {
@@ -80,7 +85,6 @@ export const navigationGroups: NavGroup[] = [
     tabs: [
       { copyId: "overview", name: "Overview", to: "/events/overview", also: ["/events"], visible: "events.read" },
       // Every event's BEO (FLOW-265).
-      { copyId: "beos", name: "BEOs", to: "/beos", visible: "beos.read" },
       { copyId: "production", name: "Production", to: "/production", visible: "production.read" },
     ],
   },
@@ -142,14 +146,6 @@ export const navigationGroups: NavGroup[] = [
       // Documents tab from (FLOW-284), and can be hidden on its own too.
       { copyId: "templates", name: "Templates", to: "/documents/templates",
         visible: (actor) => !navHides(navHidden(), actor.role, "documents", "documents") },
-    ]),
-  },
-  {
-    copyId: "reports",
-    name: "Reports",
-    tabs: withOverview("reports", "/reports/overview", [
-      { copyId: "time-tracking", name: "Time tracking", to: "/reports", visible: "time.read" },
-      { copyId: "operational-reports", name: "Operational reports", to: "/reports/operations", visible: "reports.operations.read" },
     ]),
   },
 ];

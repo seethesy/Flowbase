@@ -10,8 +10,8 @@ import { uiLayout } from "../../../worker/db/schema";
 // have no page grid (FLOW-283).
 
 const screens = [
-  "/", "/leads", "/leads/dashboard", "/clients", "/contracts", "/proposals", "/sales", "/sales/reports",
-  "/sales/overview", "/marketing/overview", "/documents/overview", "/reports/overview",
+  "/", "/leads", "/leads/dashboard", "/leads/contracts", "/leads/payment", "/clients", "/contracts", "/proposals", "/sales", "/sales/reports",
+  "/sales/overview", "/sales/time-tracking", "/marketing/overview", "/documents/overview", "/reports/overview",
   "/inventory", "/inventory/order", "/inventory/orders", "/purchasing", "/inventory/low-stock", "/kitchen/orders",
   "/approvals", "/kitchen/ingredients", "/inventory/bar", "/inventory/master", "/inventory/counts", "/inventory/sections",
   "/recipes", "/kitchen/overview", "/kitchen/menus", "/recipes/client", "/events", "/events/overview", "/calendar",
