@@ -41,9 +41,10 @@ export const isOpenLeadStatus = (status: LeadStatus) =>
   (openLeadStatuses as readonly string[]).includes(status);
 
 // The pipeline stages each sidebar heading's Overview lists (FLOW-328): Leads
-// holds getting and pitching leads, Sales closing them. Lost leads sit under
-// Leads, shown only when its status filter picks Lost.
-export const leadsHeadingStatuses: readonly LeadStatus[] = ["inquiry", "pitching", "p_creation", "p_sent", "lost"];
+// keeps every lead for its whole life, whatever its status (FLOW-351); Sales
+// lists only the closing stages. Lost leads show on Leads only when its status
+// filter picks Lost (FLOW-351 A1).
+export const leadsHeadingStatuses: readonly LeadStatus[] = pipelineStatuses;
 export const leadsHeadingDefaultStatuses: readonly LeadStatus[] = leadsHeadingStatuses.filter((status) => status !== "lost");
 export const salesHeadingStatuses: readonly LeadStatus[] = ["negotiation", "closing", "closed"];
 
