@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useState } from "react";
 
 // Folding cards (FLOW-347). A card starts open or closed as its screen says;
 // once the person folds or unfolds it, this device remembers that for them
@@ -39,3 +39,9 @@ export function useCardFold({ userId, pageKey, cardKey, defaultOpen }: {
   };
   return [folded, toggle];
 }
+
+// A screen that folds all its cards (the event page, FLOW-350) says so once for
+// a group of cards: each card in it gets the arrow and starts open or closed as
+// the group says, unless the card says otherwise. Cards nested inside a card
+// don't inherit it.
+export const SectionFoldContext = createContext<{ defaultOpen: boolean } | null>(null);

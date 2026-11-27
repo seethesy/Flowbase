@@ -974,15 +974,11 @@
     "events.event-picker.find-event": [],
     "events.event-picker.search.placeholder": [],
     "events.event-status-panel.automatic": [],
-    "events.event-status-panel.change-status": [],
     "events.event-status-panel.created-as": [
       "eventStatusDetailLabels"
     ],
-    "events.event-status-panel.new-status": [],
     "events.event-status-panel.show-older-changes": [],
-    "events.event-status-panel.status": [],
     "events.event-status-panel.status-history": [],
-    "events.event-status-panel.why-optional": [],
     "events.event-table.events": [],
     "events.new-event.cancel": [],
     "events.new-event.continue-without-lead": [],
@@ -3111,7 +3107,8 @@
     },
     "events.activity": {
       "blocks": [
-        "history"
+        "history",
+        "status-history"
       ],
       "fieldCards": []
     },

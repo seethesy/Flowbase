@@ -2,13 +2,13 @@ import { Allowed } from "../../app/permissions";
 import { Fragment, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Pencil, Archive, RotateCcw } from "lucide-react";
-import { eventStatusDetailLabels, contactRoleLabels, eventStatusSchema, type EventStatus, type FlowEvent } from "../../../shared/core-records";
+import { contactRoleLabels, eventStatusSchema, type FlowEvent } from "../../../shared/core-records";
 import { type HubSection } from "../../../shared/event-hub";
 import { allPages, clientsApi, eventsApi, venuesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
 import { useOpenFor } from "../../app/useOpenFor";
-import { LoadMore, useDebounced, usePagedList } from "../../app/paging";
-import { Button, Section, ConfirmationDialog, FormField, InfoItem, LoadingSkeleton, ErrorText, UnsavedLeaveGuard } from "../../components/shared";
+import { useDebounced } from "../../app/paging";
+import { Button, Section, ConfirmationDialog, FoldableSections, FormField, InfoItem, LoadingSkeleton, ErrorText, UnsavedLeaveGuard } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
 import { isStale } from "../../components/stale-reload";
 import { ListSelect, ListSuggestions } from "../common/list-fields";
@@ -36,95 +36,6 @@ import { copySlug } from "../../../shared/copy";
 import { StatusPill, StatusSelect } from "../../components/ui/status-pill";
 import { statusLabels, when } from "./event-list";
 import { countOf, draftOf, type EventDraft } from "./event-form";
-
-// Manual status changes (FLOW-56): Admin or the event's salesperson may pick any
-// status; the reason is optional. Everyone who can open the event sees the history.
-function EventStatusPanel({
-  event,
-  canChange,
-  onChanged,
-}: {
-  event: FlowEvent;
-  canChange: boolean;
-  onChanged: (event: FlowEvent) => void;
-}) {
-  const history = usePagedList(
-    ["event-status-history", event.id, event.status],
-    (cursor) => eventsApi.statusHistory(event.id, cursor),
-  );
-  const others = eventStatusSchema.options.filter(
-    (status) => status !== event.status,
-  );
-  const [to, setTo] = useState<EventStatus>(others[0]);
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const target = others.includes(to) ? to : others[0];
-  const change = async () => {
-    setSaving(true);
-    setError("");
-    try {
-      onChanged(
-        await eventsApi.setStatus(event.id, { status: target, reason }),
-      );
-      setReason("");
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <Section title={<T id="events.event-status-panel.status">Status</T>}>
-      {canChange && (
-        <form
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            void change();
-          }}
-        >
-          <ErrorText message={error} />
-          <FormField label={<T id="events.event-status-panel.new-status">New status</T>}>
-            <StatusSelect value={target} includeEventStages options={others} onChange={(value) => setTo(eventStatusSchema.parse(value))} />
-          </FormField>
-          <FormField label={<T id="events.event-status-panel.why-optional">Why (optional)</T>}>
-            <textarea
-              rows={2}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </FormField>
-          <Button type="submit" disabled={saving}>
-            <T id="events.event-status-panel.change-status">Change status</T>
-          </Button>
-        </form>
-      )}
-      <h3><T id="events.event-status-panel.status-history">Status history</T></h3>
-      {history.error ? (
-        <ErrorText message={history.error} />
-      ) : (
-        <ul aria-label="Status history">
-          {history.data?.map((entry) => (
-            <li key={entry.id}>
-              <strong>
-                {entry.from
-                  ? <><LabelT id="labels.pipeline-status" value={entry.from}>{eventStatusDetailLabels[entry.from]}</LabelT> → <LabelT id="labels.pipeline-status" value={entry.to}>{eventStatusDetailLabels[entry.to]}</LabelT></>
-                  : <T id="events.event-status-panel.created-as" values={{ eventStatusDetailLabels: <LabelT id="labels.pipeline-status" value={entry.to}>{eventStatusDetailLabels[entry.to]}</LabelT> }}>{"Created as {eventStatusDetailLabels}"}</T>}
-              </strong>{" "}
-              <small>
-                {new Date(entry.at).toLocaleString("en-US")}
-                {entry.manual ? "" : <T id="events.event-status-panel.automatic">{" · automatic"}</T>}
-              </small>
-              {entry.reason && <p>{entry.reason}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-      <LoadMore list={history} label={<T id="events.event-status-panel.show-older-changes">Show older changes</T>} />
-    </Section>
-  );
-}
 
 // The client and point of contact in the event page's Edit mode (FLOW-335), as
 // the event form picks them: a search of the server as you type, the chosen
@@ -196,6 +107,10 @@ const hubSectionNames: Record<HubSection, string> = {
   history: "History",
 };
 
+// FLOW-350: the hub sections whose cards start open (inside Details, Event
+// details and Notes start open; its other cards start closed).
+const openByDefault: ReadonlySet<HubSection> = new Set(["client", "proposal"]);
+
 // The API decides which sections the user may see; a section whose module doesn't
 // exist yet is never listed.
 export function EventDetail() {
@@ -212,6 +127,7 @@ export function EventDetail() {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [archive, setArchive] = useOpenFor(id);
+  const [statusError, setStatusError] = useState("");
   // Edit shows the fields the page shows (FLOW-255): every one with the code
   // default, else the card's visible boxes.
   const shows = useShownFields("events.detail", "event-facts");
@@ -317,7 +233,8 @@ export function EventDetail() {
         {timeInput("endTime", "End time")}
       </span>
     ) },
-    { label: "Client", value: e.client?.name ?? "—", field: "client", input: draft && (
+    // FLOW-350: outside Edit mode the client's name opens the client's page.
+    { label: "Client", value: e.client ? <Link to={`/clients/${e.client.id}`}>{e.client.name}</Link> : "—", field: "client", input: draft && (
       <EventClientInput clientId={draft.clientId} pocContactId={draft.pocContactId ?? null}
         onChange={(change) => setDraft((current) => (current ? { ...current, ...change } : current))} />
     ) },
@@ -357,8 +274,12 @@ export function EventDetail() {
     </div>
   );
   const render: Partial<Record<HubSection, () => ReactNode>> = {
+    // FLOW-350: every card folds. Event details, Notes, Client and Proposals
+    // start open; the rest start closed (the Block wraps each section in
+    // FoldableSections below).
     details: () => (
       <Fragment key="details">
+        <FoldableSections defaultOpen>
         <div className="detail-grid">
           {/* In Edit mode the facts show as inputs whatever the card's saved
               boxes; only the fields the card shows (FLOW-255). */}
@@ -398,11 +319,7 @@ export function EventDetail() {
             )}
           </Section>
         </div>
-        <EventStatusPanel
-          event={e}
-          canChange={canChangeStatus}
-          onChanged={setEvent}
-        />
+        </FoldableSections>
         <Allowed action="clients.read">
           <CommunicationLog target={{ eventId: e.id }} />
         </Allowed>
@@ -418,7 +335,7 @@ export function EventDetail() {
           <div className="contact-profile">
             <span className="avatar">{initials(client.name)}</span>
             <div>
-              <strong>{client.name}</strong>
+              <strong><Link to={`/clients/${client.id}`}>{client.name}</Link></strong>
               <small>
                 {client.kind === "organization" ? <T id="events.event-detail.organization" values={{ value: client.tags.length ? ` · ${client.tags.join(", ")}` : "" }}>{"Organization{value}"}</T> : <T id="events.event-detail.person" values={{ value: client.tags.length ? ` · ${client.tags.join(", ")}` : "" }}>{"Person{value}"}</T>}
               </small>
@@ -488,7 +405,8 @@ export function EventDetail() {
       <EventHistorySection
         key={`history:${e.id}`}
         eventId={e.id}
-        version={e.updatedAt}
+        // A status change reloads the status history too (FLOW-350).
+        version={`${e.updatedAt}:${e.status}`}
       />
     ),
   };
@@ -498,11 +416,31 @@ export function EventDetail() {
       <div className="record-heading">
         <div>
           <h1>{draft ? <input aria-label="Title" className="record-title-input" value={draft.title} onChange={(event) => set("title", event.target.value)} /> : e.title}</h1>
-          <p>
-            <StatusPill status={e.status} />
+          <div className="record-heading-meta">
+            {/* FLOW-350: the status changes here, for Admin or the event's
+                salesperson (any status, FLOW-56); others see the pill. */}
+            {canChangeStatus ? (
+              <StatusSelect
+                label="Event status"
+                value={e.status}
+                includeEventStages
+                options={eventStatusSchema.options}
+                onChange={async (value) => {
+                  setStatusError("");
+                  try {
+                    setEvent(await eventsApi.setStatus(e.id, { status: eventStatusSchema.parse(value), reason: "" }));
+                  } catch (cause) {
+                    setStatusError((cause as Error).message);
+                  }
+                }}
+              />
+            ) : (
+              <StatusPill status={e.status} />
+            )}
             {e.archivedAt && <span className="badge error"><T id="events.event-detail.archived">Archived</T></span>}
             <span>{when(e)}</span>
-          </p>
+          </div>
+          <ErrorText message={statusError} />
         </div>
         {canEdit && editing && (
           <div className="page-actions">
@@ -551,7 +489,7 @@ export function EventDetail() {
       >
         {sections.filter((section) => render[section]).map((section) => (
           <Block key={section} id={section.replace(/_/g, "-")} name={hubSectionNames[section]} h={section === "details" ? 18 : 12}>
-            {render[section]!()}
+            <FoldableSections defaultOpen={openByDefault.has(section)}>{render[section]!()}</FoldableSections>
           </Block>
         ))}
       </PageGrid>

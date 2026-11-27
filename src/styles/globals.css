@@ -1115,7 +1115,8 @@ tbody tr.table-row-openable {
 .record-heading h1 {
   font-size: 24px;
 }
-.record-heading p {
+.record-heading p,
+.record-heading .record-heading-meta {
   display: flex;
   align-items: center;
   gap: 12px;

@@ -93,7 +93,25 @@ export async function mockBrowserAuth(
   });
 }
 
-export const databaseTest = base.extend<{ database: void; contracts: void }>({
+export const databaseTest = base.extend<{ database: void; contracts: void; openCards: boolean; cardFolds: void }>({
+  // Folding cards (FLOW-347, FLOW-350): many event cards start folded. Specs of
+  // other features see every card open unless they fold one themselves; specs
+  // of the folding defaults set `test.use({ openCards: false })`.
+  openCards: [true, { option: true }],
+  cardFolds: [
+    async ({ page, openCards }, use) => {
+      if (openCards)
+        await page.addInitScript(() => {
+          const get = Storage.prototype.getItem;
+          Storage.prototype.getItem = function (this: Storage, key: string) {
+            const value = get.call(this, key);
+            return value === null && key.startsWith("flowbase.card-fold.") ? "open" : value;
+          };
+        });
+      await use();
+    },
+    { auto: true },
+  ],
   database: [
     async ({ request }, use) => {
       void request;

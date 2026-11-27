@@ -56,6 +56,12 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-350: the event page's Status card; the status changes in the
+      // dropdown under the title and its history is in the History card.
+      "events.event-status-panel.change-status",
+      "events.event-status-panel.new-status",
+      "events.event-status-panel.status",
+      "events.event-status-panel.why-optional",
       // FLOW-349: the retired events list page (/events now opens Events ›
       // Overview) and its "All events" breadcrumb.
       "events.event-list.events",
