@@ -13,12 +13,14 @@ import {
   edit,
   editBlock,
   editGrid,
+  expectRowHeights,
   expectSameBox,
+  GAP,
   measure,
   putLayout,
   save,
+  screenHeight,
   toolbar,
-  usableHeight,
   viewBlock,
   viewGrid,
   type Box,
@@ -28,8 +30,9 @@ import {
 // editor. Guides show only in live edit; tracks resize by divider and by exact
 // percentage; rows and columns are added and removed; cells merge and
 // unmerge; blocks go to an exact cell with the target highlighted; every edit
-// is previewed; it all works from the keyboard; saved version 1 layouts move
-// over.
+// is previewed; it all works from the keyboard; saved version 1 and 2 layouts
+// move over. Each row is its own percentage of the screen height and resizing
+// one never resizes another (FLOW-357).
 
 const KEY = "inventory.bar";
 const PATH = "/#/inventory/bar";
@@ -67,13 +70,14 @@ test("guides show every boundary, empty cell and merged area in live edit only (
   await page.goto(PATH);
   await edit(page);
   const grid = editGrid(page, KEY);
-  // The code default: one column, Filters and List in a row each.
-  await expect(dividers(grid)).toHaveCount(1);
-  await expect(input(page, "Row 1 height (%)")).toHaveValue("11.11");
-  await expect(input(page, "Row 2 height (%)")).toHaveValue("88.89");
+  // The code default: one column, Filters and List in a row each (2.5% of the
+  // screen height per unit of code height); each row has its lower edge.
+  await expect(dividers(grid)).toHaveCount(2);
+  await expect(input(page, "Row 1 height (%)")).toHaveValue("7.5");
+  await expect(input(page, "Row 2 height (%)")).toHaveValue("60");
   await ask(page, "Add column right of column 1");
   await ask(page, "Add row below row 2");
-  await expect(dividers(grid)).toHaveCount(3);
+  await expect(dividers(grid)).toHaveCount(4);
   await expect(grid.locator("[data-empty-cell]")).toHaveCount(4);
   // Merge the bottom row: one merged area.
   await emptyCell(page, 0, 2).click();
@@ -90,33 +94,48 @@ test("guides show every boundary, empty cell and merged area in live edit only (
   await expect(viewGrid(page, KEY)).toBeVisible();
 });
 
-test("a divider changes only its two tracks; an exact percentage rescales the rest and survives a reload (AC2)", async ({ page }) => {
+test("dragging a row from 20% to 35% changes only that row; Save and reload show exactly the edit's heights (FLOW-357 AC1, AC3)", async ({ page }) => {
   await page.goto(PATH);
   await edit(page);
   await ask(page, "Add row below row 2");
-  const before = await shares(page, "Row", 3);
-  const divider = page.getByRole("separator", { name: "Divider between row 2 and row 3" });
+  await input(page, "Row 2 height (%)").fill("20");
+  await input(page, "Row 2 height (%)").press("Enter");
+  expect(await shares(page, "Row", 3)).toEqual([7.5, 20, 20]);
+  const screen = await screenHeight(page);
+  const divider = page.getByRole("separator", { name: "Lower edge of row 2" });
   const box = await boxOf(divider);
-  await drag(page, divider, { x: box.x, y: box.y + 60, width: box.width, height: box.height }, async () => {
-    // Both percentages show while dragging.
-    await expect(divider).toHaveAttribute("aria-valuetext", /^Row 2 [\d.]+%, row 3 [\d.]+%$/);
+  await drag(page, divider, { x: box.x, y: box.y + screen * 0.15, width: box.width, height: box.height }, async () => {
+    // The row's percentage shows while dragging.
+    await expect(divider).toHaveAttribute("aria-valuetext", /^Row 2 [\d.]+% of the screen height$/);
   });
   const after = await shares(page, "Row", 3);
-  expect(after[0]).toBe(before[0]);
-  expect(after[1]).toBeGreaterThan(before[1]);
-  expect(after[1] + after[2]).toBeCloseTo(before[1] + before[2], 2);
+  expect(after[0]).toBe(7.5);
+  expect(Math.abs(after[1] - 35)).toBeLessThanOrEqual(0.2);
+  expect(after[2]).toBe(20);
+  // The divider sits on the row's lower edge after release.
+  const frame = await measure(editGrid(page, KEY));
+  const edge = frame.box.y + frame.rows[0] + GAP + frame.rows[1];
+  expect(Math.abs((await boxOf(divider)).y - edge)).toBeLessThanOrEqual(1);
+  expectRowHeights(frame.rows, after, screen, "edit");
 
+  // An exact percentage changes only that row too (AC6).
   await input(page, "Row 1 height (%)").fill("30");
   await input(page, "Row 1 height (%)").press("Enter");
   const exact = await shares(page, "Row", 3);
-  expect(exact[0]).toBe(30);
-  expect(exact[1] + exact[2]).toBeCloseTo(70, 2);
-  // The others keep their ratio.
-  expect(exact[1] / exact[2]).toBeCloseTo(after[1] / after[2], 1);
+  expect(exact).toEqual([30, after[1], 20]);
+  // Under 5% is refused with the reason, and nothing changes.
+  await input(page, "Row 3 height (%)").fill("4");
+  await input(page, "Row 3 height (%)").press("Enter");
+  await expect(status(page)).toHaveText("Row 3 can't be under 5% of the screen height.");
+  await toolbar(page, KEY).getByRole("button", { name: "OK", exact: true }).click();
+  expect(await shares(page, "Row", 3)).toEqual(exact);
+  const before = await measure(editGrid(page, KEY));
   await save(page);
   await page.reload();
   const m = await measure(viewGrid(page, KEY));
-  expect(Math.abs(m.rows[0] - (m.box.height - 24) * 0.3)).toBeLessThanOrEqual(1);
+  // Every row as tall as edit mode showed it (±1px).
+  m.rows.forEach((row, index) => expect(Math.abs(row - before.rows[index]), `row ${index + 1}`).toBeLessThanOrEqual(1));
+  expectRowHeights(m.rows, exact, screen, "view");
   await edit(page);
   await expect(input(page, "Row 1 height (%)")).toHaveValue("30");
 });
@@ -129,12 +148,12 @@ test("adds and removes rows and columns, merges and unmerges, previewing each an
   await ask(page, "Add row below row 2");
   // A preview draws its outcome but changes nothing until Apply.
   await page.getByRole("button", { name: "Add row below row 3", exact: true }).click();
-  await expect(status(page)).toHaveText("Add row 4; the other rows shrink to make room.");
+  await expect(status(page)).toHaveText("Add row 4 at 20% of the screen height; the other rows keep theirs.");
   await expect(grid.locator('[data-highlight="preview"]')).toHaveCount(1);
   await page.keyboard.press("Escape");
-  await expect(grid.getByRole("separator", { name: /^Divider between row/ })).toHaveCount(2);
+  await expect(grid.getByRole("separator", { name: /^Lower edge of row/ })).toHaveCount(3);
   await ask(page, "Add row below row 3");
-  await expect(grid.getByRole("separator", { name: /^Divider between row/ })).toHaveCount(3);
+  await expect(grid.getByRole("separator", { name: /^Lower edge of row/ })).toHaveCount(4);
 
   // Merge a 2 × 2 of empty cells.
   await emptyCell(page, 0, 2).click();
@@ -159,14 +178,14 @@ test("adds and removes rows and columns, merges and unmerges, previewing each an
   // Remove column 2 and row 4.
   await ask(page, "Remove column 2");
   await ask(page, "Remove row 4");
-  await expect(dividers(grid)).toHaveCount(2);
+  await expect(dividers(grid)).toHaveCount(3);
 
   // Refusals change nothing: Filters sits only in row 1.
   await page.getByRole("button", { name: "Remove row 1", exact: true }).click();
   await expect(status(page)).toHaveText("Move Filters out of row 1 first.");
   await expect(toolbar(page, KEY).getByRole("button", { name: "Apply", exact: true })).toHaveCount(0);
   await toolbar(page, KEY).getByRole("button", { name: "OK", exact: true }).click();
-  await expect(dividers(grid)).toHaveCount(2);
+  await expect(dividers(grid)).toHaveCount(3);
   await expect(editBlock(page, KEY, "filters")).toBeVisible();
 });
 
@@ -218,8 +237,10 @@ test("Inventory Bar: a card added in the cell below List starts on the previewed
   const viewCard = grid.locator("> [data-block-id^=card-]");
   expect(Math.abs((await boxOf(viewCard)).y - previewed.y)).toBeLessThanOrEqual(1);
   expectSameBox(await boxOf(viewCard), cellBox(m, { x: 0, y: 2, w: 1, h: 1 }), "card");
-  // Nothing outside the authored tracks: the grid ends at the usable height.
-  expect(Math.abs(m.box.height - (await usableHeight(grid)))).toBeLessThanOrEqual(1);
+  // Nothing outside the authored tracks: the rows are their percentages of the
+  // screen height and the grid ends with the last one.
+  expectRowHeights(m.rows, [7.5, 60, 20], await screenHeight(page));
+  expect(Math.abs(m.box.height - (m.rows.reduce((a, b) => a + b, 0) + GAP * 2))).toBeLessThanOrEqual(1);
 });
 
 test("keyboard only: resize, exact percentage, move, merge, unmerge and add a card into a chosen cell (AC6)", async ({ page }) => {
@@ -229,18 +250,22 @@ test("keyboard only: resize, exact percentage, move, merge, unmerge and add a ca
     await page.keyboard.press(key);
   };
   await press(page.getByRole("button", { name: "Edit screen text" }), "Enter");
-  // Resize: the divider's arrow keys, 1% a step.
-  const divider = page.getByRole("separator", { name: "Divider between row 1 and row 2" });
-  await expect(divider).toHaveAttribute("aria-valuenow", "11.11");
+  // Resize: the row edge's arrow keys, 1% a step, that row only.
+  const divider = page.getByRole("separator", { name: "Lower edge of row 1" });
+  await expect(divider).toHaveAttribute("aria-valuenow", "7.5");
   await press(divider, "ArrowDown");
-  await expect(divider).toHaveAttribute("aria-valuenow", "12.11");
-  await expect(status(page)).toHaveText("Row 1 12.11%, row 2 87.89%.");
+  await expect(divider).toHaveAttribute("aria-valuenow", "8.5");
+  await expect(status(page)).toHaveText("Row 1 is 8.5% of the screen height; the other rows keep theirs.");
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(divider).toHaveAttribute("aria-valuenow", "13.5");
+  await expect(input(page, "Row 2 height (%)")).toHaveValue("60");
   // Exact percentage.
   await input(page, "Row 1 height (%)").focus();
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("20");
   await page.keyboard.press("Enter");
-  await expect(input(page, "Row 2 height (%)")).toHaveValue("80");
+  await expect(input(page, "Row 1 height (%)")).toHaveValue("20");
+  await expect(input(page, "Row 2 height (%)")).toHaveValue("60");
   // A column, by its button, previewed and applied.
   await press(page.getByRole("button", { name: "Add column right of column 1" }), "Enter");
   await press(toolbar(page, KEY).getByRole("button", { name: "Apply", exact: true }), "Enter");
@@ -280,7 +305,7 @@ test("keyboard only: resize, exact percentage, move, merge, unmerge and add a ca
   await expect(viewGrid(page, KEY).getByRole("heading", { name: "Keyboard card" })).toBeVisible();
 });
 
-test("a saved version 1 layout renders converted, restores, saves as version 2 and resets; a version 1 PUT is refused (AC7)", async ({ page }) => {
+test("a saved version 1 layout renders converted, restores, saves as version 3 and resets; a version 1 PUT is refused (AC7)", async ({ page }) => {
   const deleted = { at: "2026-11-24T10:00:00.000Z", by: seedUsers[0].id, name: "Working Staff" };
   await browserDb((db) =>
     db.insert(uiLayout).values({
@@ -327,7 +352,7 @@ test("a saved version 1 layout renders converted, restores, saves as version 2 a
   expectSameBox(await boxOf(viewBlock(page, "dashboard.home", "working-staff")), cellBox(m, { x: 1, y: 1, w: 1, h: 1 }), "working staff");
   expectSameBox(await boxOf(viewBlock(page, "dashboard.home", "upcoming-events")), cellBox(m, { x: 0, y: 1, w: 1, h: 1 }), "upcoming events");
   const stored = await browserDb(async (db) => (await db.select().from(uiLayout).where(eq(uiLayout.pageKey, "dashboard.home")))[0]?.layout);
-  expect(stored?.version).toBe(2);
+  expect(stored?.version).toBe(3);
 
   // Reset: back to the native page.
   await edit(page);
@@ -338,5 +363,38 @@ test("a saved version 1 layout renders converted, restores, saves as version 2 a
   await expect(page.getByRole("heading", { name: "My Tasks" })).toBeVisible();
 
   const refused = await putLayout(page, "dashboard.home", { version: 1, blocks: [], tables: {}, fieldBoxes: {} });
+  expect(refused.status).toBe(400);
+});
+
+test("a saved version 2 layout opens converted: rows keep their percentages, now of the screen height; the first Save writes version 3; a version 2 PUT is refused (FLOW-357 AC5)", async ({ page }) => {
+  await browserDb((db) =>
+    db.insert(uiLayout).values({
+      pageKey: KEY,
+      updatedBy: seedUsers[0].id,
+      layout: {
+        version: 2,
+        grid: { cols: [10000], rows: [3000, 7000], regions: [] },
+        blocks: [
+          { kind: "builtin", id: "filters", x: 0, y: 0, w: 1, h: 1 },
+          { kind: "builtin", id: "list", x: 0, y: 1, w: 1, h: 1 },
+        ],
+        tables: {},
+        fieldBoxes: {},
+      },
+    }),
+  );
+  await page.goto(PATH);
+  await expect(viewBlock(page, KEY, "list")).toBeVisible();
+  const screen = await screenHeight(page);
+  expectRowHeights((await measure(viewGrid(page, KEY))).rows, [30, 70], screen, "converted");
+  await edit(page);
+  await expect(input(page, "Row 1 height (%)")).toHaveValue("30");
+  await expect(input(page, "Row 2 height (%)")).toHaveValue("70");
+  await input(page, "Row 1 height (%)").fill("25");
+  await input(page, "Row 1 height (%)").press("Enter");
+  await save(page);
+  const stored = await browserDb(async (db) => (await db.select().from(uiLayout).where(eq(uiLayout.pageKey, KEY)))[0]?.layout);
+  expect(stored).toMatchObject({ version: 3, grid: { rows: [2500, 7000] } });
+  const refused = await putLayout(page, KEY, { version: 2, grid: { cols: [10000], rows: [10000], regions: [] }, blocks: [], tables: {}, fieldBoxes: {} });
   expect(refused.status).toBe(400);
 });

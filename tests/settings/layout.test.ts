@@ -114,13 +114,14 @@ describe("layout document (FLOW-253)", () => {
     // A saved version 1 document reads as a page grid (FLOW-319).
     expect(layoutDocSchema.parse({ version: 1 })).toEqual(emptyLayout());
     expect(layoutDocSchema.parse({ version: 2, grid: { cols: [10000], rows: [10000] } })).toEqual(emptyLayout());
+    expect(layoutDocSchema.parse({ version: 3, grid: { cols: [10000], rows: [10000] } })).toEqual(emptyLayout());
     expect(layoutProblems("leads.detail", emptyLayout())).toEqual([]);
   });
 
   it("rejects raw CSS, other versions, and blocks outside the 12 columns", () => {
     const builtin = { kind: "builtin", id: "notes", x: 0, y: 0, w: 6, h: 4 };
     expect(layoutDocSchema.safeParse({ version: 2 }).success).toBe(false);
-    expect(layoutDocSchema.safeParse({ ...emptyLayout(), version: 3 }).success).toBe(false);
+    expect(layoutDocSchema.safeParse({ ...emptyLayout(), version: 4 }).success).toBe(false);
     expect(layoutDocSchema.safeParse({ version: 1, blocks: [{ ...builtin, style: { text: "red" } }] }).success).toBe(false);
     expect(layoutDocSchema.safeParse({ version: 1, blocks: [{ ...builtin, style: { text: "#fff; x" } }] }).success).toBe(false);
     expect(layoutDocSchema.safeParse({ version: 1, blocks: [{ ...builtin, x: 8, w: 6 }] }).success).toBe(false);
@@ -186,10 +187,11 @@ describe("block placement (FLOW-253)", () => {
     { id: "b", name: "B", w: 6, h: 3 },
   ];
 
-  it("stacks built-ins in code order by default: one column, a row each, shares from their heights (FLOW-319 20)", () => {
+  it("stacks built-ins in code order by default: one column, a row each, heights from their code heights (FLOW-319 20, FLOW-357)", () => {
     expect(codeDefault(builtins)).toMatchObject({
-      version: 2,
-      grid: { cols: [10000], rows: [5714, 4286], regions: [] },
+      version: 3,
+      // 2.5% of the screen height per unit: h 4 is 10%, h 3 is 7.5%.
+      grid: { cols: [10000], rows: [1000, 750], regions: [] },
       blocks: [
         { kind: "builtin", id: "a", x: 0, y: 0, w: 1, h: 1 },
         { kind: "builtin", id: "b", x: 0, y: 1, w: 1, h: 1 },
@@ -203,7 +205,8 @@ describe("block placement (FLOW-253)", () => {
       { kind: "builtin" as const, id: "b", x: 0, y: 1, w: 1, h: 1 },
     ] };
     const merged = withBuiltins(saved, builtins);
-    expect(merged.grid.rows).toEqual([3334, 3333, 3333]);
+    // A new 20% row; the others keep their heights (FLOW-357).
+    expect(merged.grid.rows).toEqual([5000, 2000, 5000]);
     expect(merged.blocks).toEqual([
       { kind: "builtin", id: "old", x: 0, y: 0, w: 1, h: 1 },
       { kind: "builtin", id: "b", x: 0, y: 2, w: 1, h: 1 },

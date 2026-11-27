@@ -7,13 +7,14 @@ import type { LayoutBlock, LayoutDoc } from "../../../shared/layout";
 
 export const GAP = 12;
 
-// A version 2 document: shares in basis points, blocks in track coordinates.
+// A version 3 document (FLOW-357): column shares and row heights (% of the
+// screen height) in basis points, blocks in track coordinates.
 export const gridDoc = (
   cols: number[],
   rows: number[],
   blocks: LayoutBlock[],
   regions: LayoutDoc["grid"]["regions"] = [],
-): LayoutDoc => ({ version: 2, grid: { cols, rows, regions }, blocks, tables: {}, fieldBoxes: {} });
+): LayoutDoc => ({ version: 3, grid: { cols, rows, regions }, blocks, tables: {}, fieldBoxes: {} });
 export const builtin = (id: string, x: number, y: number, w = 1, h = 1, extra: Partial<LayoutBlock> = {}) =>
   ({ kind: "builtin", id, x, y, w, h, ...extra }) as LayoutBlock;
 
@@ -66,8 +67,8 @@ export async function halfWidthAndDown(page: Page, pageKey: string, name: string
   await item.press("Enter");
 }
 
-// Boxes are in page coordinates, so a grid taller than the viewport (rows of
-// at least 56px) measures the same however far the page has scrolled.
+// Boxes are in page coordinates, so a grid taller than the viewport measures
+// the same however far the page has scrolled.
 export type Box = { x: number; y: number; width: number; height: number };
 // The grid's box and its resolved track sizes in px.
 export async function measure(grid: Locator) {
@@ -113,19 +114,23 @@ export function expectSameBox(actual: Box, expected: Box, label: string) {
   for (const key of ["x", "y", "width", "height"] as const)
     expect(Math.abs(actual[key] - expected[key]), `${label} ${key}: ${actual[key]} vs ${expected[key]}`).toBeLessThanOrEqual(1);
 }
-// The usable height (FLOW-320 A1): the viewport below the grid's top, less the
-// main area's bottom padding, never under 480px nor so short that a row goes
-// under 56px.
-export async function usableHeight(grid: Locator) {
-  return grid.evaluate((element) => {
-    const main = element.closest("main");
-    const padding = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
-    const top = element.getBoundingClientRect().top + window.scrollY;
-    const rows = getComputedStyle(element).gridTemplateRows.split(" ").filter(Boolean).map((part) => parseFloat(part));
-    const total = rows.reduce((a, b) => a + b, 0);
-    const forRows = rows.length ? Math.ceil((56 * total) / Math.min(...rows) + 12 * (rows.length - 1)) : 0;
-    return Math.max(480, Math.floor(window.innerHeight - top - padding), forRows);
+// The screen height rows are a percentage of (FLOW-357): the window's height
+// less the app header.
+export async function screenHeight(page: Page) {
+  return page.evaluate(() => window.innerHeight - (document.querySelector<HTMLElement>(".top-header")?.offsetHeight ?? 0));
+}
+// Each row within 1px of its percentage of the screen height.
+export function expectRowHeights(rows: number[], percents: number[], screen: number, label = "") {
+  expect(rows, label).toHaveLength(percents.length);
+  percents.forEach((percent, index) =>
+    expect(Math.abs(rows[index] - (screen * percent) / 100), `${label} row ${index + 1}: ${rows[index]}px`).toBeLessThanOrEqual(1));
+}
+// The main area's content width: what a full-width page grid spans (FLOW-358).
+export async function contentWidth(page: Page) {
+  return page.locator("main#main-content").evaluate((main) => {
+    const style = getComputedStyle(main);
+    return main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
   });
 }
-// A track's share of the usable size (gaps excluded).
+// A track's share of the tracks' total size (gaps excluded).
 export const share = (sizes: number[], index: number) => sizes[index] / sizes.reduce((a, b) => a + b, 0);

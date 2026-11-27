@@ -314,7 +314,6 @@ export function CardBuilder({
                 <Suspense fallback={null}>
                   <LayoutGridEditor
                     label="Box layout"
-                    rowHeight={28}
                     items={boxes}
                     itemLabel={(id) => {
                       const box = boxes.find((b) => b.id === id)!;

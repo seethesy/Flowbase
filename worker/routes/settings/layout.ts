@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { layoutDocV2Schema, layoutKeySchema, layoutProblems, type LayoutDoc } from "../../../shared/layout";
+import { layoutDocV3Schema, layoutKeySchema, layoutProblems, type LayoutDoc } from "../../../shared/layout";
 import { liveEditRenames, renameLayoutDoc } from "../../../shared/live-edit-renames";
 import type { LiveEditManifest } from "../../../shared/live-edit-orphans";
 import manifestJson from "../../../shared/generated/live-edit-keys.json";
@@ -40,12 +40,14 @@ export function layoutRoutes(options: { withDb?: RunWithDb }) {
   routes.put("/:pageKey", requirePermission("layout.edit"), async (c) => {
     const key = pageKey(c);
     const body: unknown = await c.req.json().catch(() => undefined);
-    // Saves are page grids (version 2) only since FLOW-321.
-    if (body && typeof body === "object" && (body as { version?: unknown }).version === 1)
-      throw new ApiError(400, "INVALID_LAYOUT", "Layouts are saved as page grids (version 2).", {
-        problems: [{ path: "version", message: "Layouts are saved as page grids (version 2)." }],
+    // Saves are page grids (FLOW-321) with rows as screen-height percentages
+    // (version 3, FLOW-357) only; older versions are read, converted, never saved.
+    const version = body && typeof body === "object" ? (body as { version?: unknown }).version : undefined;
+    if (version === 1 || version === 2)
+      throw new ApiError(400, "INVALID_LAYOUT", "Layouts are saved as version 3 page grids.", {
+        problems: [{ path: "version", message: "Layouts are saved as version 3 page grids." }],
       });
-    const layout = await parseBody(c, layoutDocV2Schema);
+    const layout = await parseBody(c, layoutDocV3Schema);
     // The grid's invariants, unknown fields, sources, operators or tables, a
     // low-contrast color pair, or too many cards: 400 naming the path, nothing saved.
     const problems = layoutProblems(key, layout);

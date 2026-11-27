@@ -11,25 +11,27 @@ import {
   edit,
   editBlock,
   editGrid,
+  expectRowHeights,
   expectSameBox,
+  GAP,
   measure,
   save,
-  share,
+  screenHeight,
   toolbar,
-  usableHeight,
   viewBlock,
   viewGrid,
 } from "./page-grid-helpers";
 
 // FLOW-322: end-to-end proof, on the real Worker and database, that a grid
-// authored in the editor keeps its proportions at two viewports, survives a
-// reload, looks the same in edit and view, and that layouts saved before the
-// page grid carry over. Synthetic fixtures only (ADR-27).
+// authored in the editor keeps its proportions at two viewports (columns their
+// shares of the width, rows their percentages of the screen height, FLOW-357),
+// survives a reload, looks the same in edit and view, and that layouts saved
+// before the page grid carry over. Synthetic fixtures only (ADR-27).
 
 const KEY = "inventory.bar";
 const PATH = "/#/inventory/bar";
 const viewports = [
-  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
   { width: 1024, height: 700 },
 ];
 const ask = async (page: Page, button: string) => {
@@ -78,17 +80,14 @@ test("an authored grid keeps its shares, merged area, empty cell and empty row a
     const grid = viewGrid(page, KEY);
     await expect(viewBlock(page, KEY, "list")).toBeVisible();
     const view = await measure(grid);
-    expect(view.rows, label).toHaveLength(4);
-    expect(Math.abs(view.box.height - (await usableHeight(grid))), label).toBeLessThanOrEqual(1);
-    expect(Math.abs(view.rows[0] - (view.box.height - 36) * 0.3), `${label} row 1`).toBeLessThanOrEqual(1);
+    // Rows: 30% as typed, 60% (List's code height), and two new 20% rows.
+    expectRowHeights(view.rows, [30, 60, 20, 20], await screenHeight(page), label);
     expect(Math.abs(view.cols[0] - (view.box.width - 12) * 0.4), `${label} column 1`).toBeLessThanOrEqual(1);
     const viewBoxes: Record<string, Awaited<ReturnType<typeof boxOf>>> = {};
     for (const [id, cell] of Object.entries(layoutCells)) {
       viewBoxes[id] = await boxOf(viewBlock(page, KEY, id));
       expectSameBox(viewBoxes[id], cellBox(view, cell), `${label} view ${id}`);
     }
-    // The empty row keeps its share.
-    expect(share(view.rows, 3), label).toBeGreaterThan(0.05);
 
     await edit(page);
     const frame = await measure(editGrid(page, KEY));
@@ -129,12 +128,13 @@ test("Inventory Bar: a card added below List starts on the previewed boundary at
     expectSameBox(await boxOf(card), cellBox(m, { x: 0, y: 2, w: 1, h: 1 }), `${label} card`);
     const list = await boxOf(viewBlock(page, KEY, "list"));
     expect(Math.abs((await boxOf(card)).y - (list.y + list.height + 12)), label).toBeLessThanOrEqual(1);
-    // Nothing outside the authored tracks.
-    expect(Math.abs(m.box.height - (await usableHeight(grid))), label).toBeLessThanOrEqual(1);
+    // Nothing outside the authored tracks: 7.5%, 60% and the new 20% row.
+    expectRowHeights(m.rows, [7.5, 60, 20], await screenHeight(page), label);
+    expect(Math.abs(m.box.height - (m.rows.reduce((a, b) => a + b, 0) + GAP * 2)), label).toBeLessThanOrEqual(1);
   }
 });
 
-test("layouts saved before the page grid convert, keep hidden and deleted items, save as version 2 and reset (AC4)", async ({ page }) => {
+test("layouts saved before the page grid convert, keep hidden and deleted items, save as version 3 and reset (AC4)", async ({ page }) => {
   await seedRecords({ clients: [juniper()] });
   const deleted = { at: "2026-11-24T10:00:00.000Z", by: seedUsers[0].id, name: "Working Staff" };
   await browserDb((db) =>
@@ -191,19 +191,18 @@ test("layouts saved before the page grid convert, keep hidden and deleted items,
     browserDb(async (db) => (await db.select().from(uiLayout).where(eq(uiLayout.pageKey, pageKey)))[0]?.layout);
   await page.setViewportSize(viewports[0]);
 
-  // Inventory Bar: the code-default shape, rows 11.11/88.89.
+  // Inventory Bar: rows 11.11% and 88.89% of the screen height.
   await page.goto(PATH);
   let m = await measure(viewGrid(page, KEY));
-  expect(m.rows).toHaveLength(2);
-  expect(Math.abs(share(m.rows, 0) - 0.1111)).toBeLessThan(0.001);
+  expectRowHeights(m.rows, [11.11, 88.89], await screenHeight(page));
   await edit(page);
   await expect(page.getByRole("textbox", { name: "Row 1 height (%)" })).toHaveValue("11.11");
   await page.getByRole("button", { name: "Hide on phone: Filters" }).click();
   await save(page);
-  expect((await stored(KEY))?.version).toBe(2);
+  expect((await stored(KEY))?.version).toBe(3);
 
   // Dashboard: same arrangement, hidden and deleted items in their trays and
-  // back in their places on restore; saves as version 2; Reset goes native.
+  // back in their places on restore; saves as version 3; Reset goes native.
   await page.goto("/#/");
   const dash = viewGrid(page, "dashboard.home");
   await expect(dash.getByText("Migrated note")).toBeVisible();
@@ -223,7 +222,7 @@ test("layouts saved before the page grid convert, keep hidden and deleted items,
   m = await measure(dash);
   expectSameBox(await boxOf(viewBlock(page, "dashboard.home", "my-tasks")), cellBox(m, { x: 1, y: 0, w: 1, h: 1 }), "my tasks restored");
   expectSameBox(await boxOf(viewBlock(page, "dashboard.home", "working-staff")), cellBox(m, { x: 1, y: 1, w: 1, h: 1 }), "working staff restored");
-  expect((await stored("dashboard.home"))?.version).toBe(2);
+  expect((await stored("dashboard.home"))?.version).toBe(3);
   await edit(page);
   await page.getByRole("button", { name: "Reset page layout", exact: true }).click();
   await page.getByRole("alertdialog", { name: "Reset page layout?" }).getByRole("button", { name: "Reset" }).click();
@@ -246,6 +245,6 @@ test("layouts saved before the page grid convert, keep hidden and deleted items,
   await page.getByRole("button", { name: "Hide on phone: Files" }).click();
   await save(page);
   const client2 = await stored("clients.detail");
-  expect(client2?.version).toBe(2);
+  expect(client2?.version).toBe(3);
   expect(client2?.blocks.map((block) => block.id)).toEqual(expect.arrayContaining(["client-facts", "contacts", "files", "upcoming-events"]));
 });

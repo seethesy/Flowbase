@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "../queryClient";
 import { fieldDef, type SourceKey } from "../../../shared/fields";
 import { GRID_COLUMNS, layoutItemGone, recordPages, type LayoutBox, type SavedLayout } from "../../../shared/layout";
+import { boxRowsToPx } from "../../../shared/page-grid";
 import { Section } from "../../components/shared";
 import { BoxesView } from "../../components/layout-boxes";
 import { layoutApi } from "../../services/layout";
@@ -20,9 +21,10 @@ const FieldCardEditor = lazy(() => import("./field-card-editor"));
 // can't be hidden. Edit chrome wording isn't wrapped in <T>.
 
 
-// The code's default boxes: its fields two to a row.
+// The code's default boxes: its fields two to a row, 64px tall with 8px between
+// rows (top and height in pixels, FLOW-357).
 export function defaultFieldBoxes(fields: string[]): LayoutBox[] {
-  return fields.map((field, index): LayoutBox => ({
+  return fields.map((field, index): LayoutBox => boxRowsToPx({
     id: `field-${index + 1}`,
     kind: "field",
     field,

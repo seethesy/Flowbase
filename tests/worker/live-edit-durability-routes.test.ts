@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest";
-import { asV2 } from "../../shared/page-grid";
+import { asLatest } from "../../shared/page-grid";
 import { createApp } from "../../worker/app";
 import type { Db } from "../../worker/db/client";
 import type { RunWithDb } from "../../worker/hono";
@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.mocked(getLayout).mockResolvedValue({
     pageKey: "events.detail",
     // A saved version 1 row reads as a page grid (FLOW-321).
-    layout: asV2(layout([{ id: "old-details" }, { id: "gone-section" }])),
+    layout: asLatest(layout([{ id: "old-details" }, { id: "gone-section" }])),
     updatedAt: "2026-11-22T00:00:00.000Z",
     updatedBy: userId,
   });

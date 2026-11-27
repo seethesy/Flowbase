@@ -5,23 +5,31 @@ import {
   addBlock,
   addTrack,
   apportion,
-  asV2,
+  asLatest,
+  boxRowsToPx,
   codeDefaultGrid,
+  codeRow,
   convertV1,
+  convertV2,
   dragDivider,
   emptySlots,
-  gridHeight,
   gridProblems,
   insertShare,
   keptPlace,
   keptTracks,
   mergeCells,
+  MAX_ROW,
+  MIN_ROW,
   MIN_SHARE,
   moveBlock,
+  NEW_ROW,
   placementOf,
   removeShare,
   removeTrack,
+  resizeRow,
   restoreBlock,
+  rowPixels,
+  rowTemplate,
   setShare,
   SHARE_TOTAL,
   trackPixels,
@@ -32,7 +40,8 @@ import {
 
 // The page grid model (FLOW-319): track math, editing operations, conversion
 // of saved layouts and the schema's invariants; and the renderer's sizing
-// helpers (FLOW-320).
+// helpers (FLOW-320). Rows are each a percentage of the screen height
+// (FLOW-357); columns are shares of the width.
 
 const builtin = (id: string, x: number, y: number, w = 1, h = 1, extra: Partial<LayoutBlock> = {}): LayoutBlock =>
   ({ kind: "builtin", id, x, y, w, h, ...extra }) as LayoutBlock;
@@ -47,7 +56,37 @@ const ok = (result: GridResult) => {
 };
 const total = (shares: number[]) => shares.reduce((a, b) => a + b, 0);
 
-describe("track math (AC3)", () => {
+describe("row math (FLOW-357)", () => {
+  it("resizing a row changes only that row, to the 0.1% step, between 5% and 200% (AC1)", () => {
+    expect(resizeRow([2000, 3000, 2500], 0, 3500)).toEqual([3500, 3000, 2500]);
+    expect(resizeRow([2000, 3000], 1, 3333)).toEqual([2000, 3330]);
+    expect(resizeRow([2000, 3000], 0, 100)).toEqual([MIN_ROW, 3000]);
+    expect(resizeRow([2000, 3000], 0, 99999)).toEqual([MAX_ROW, 3000]);
+  });
+
+  it("an exact percentage changes only that row; under 5% or over 200% is refused with a reason (AC6)", () => {
+    expect(setShare([2000, 3000, 2500], 1, 2500)).toEqual({ ok: true, shares: [2000, 2500, 2500] });
+    expect(setShare([10000], 0, 4000)).toEqual({ ok: true, shares: [4000] });
+    expect(setShare([2000, 3000], 0, 499)).toMatchObject({ ok: false, reason: "Row 1 can't be under 5% of the screen height." });
+    expect(setShare([2000, 3000], 1, 20001)).toMatchObject({ ok: false, reason: "Row 2 can't be over 200% of the screen height." });
+  });
+
+  it("adding a row inserts a 20% row and removing one leaves the others alone", () => {
+    expect(insertShare([5000, 5000], 1)).toEqual({ ok: true, shares: [5000, NEW_ROW, 5000] });
+    expect(insertShare([3000], 0)).toEqual({ ok: true, shares: [NEW_ROW, 3000] });
+    expect(removeShare([2000, 3000, 5000], 0)).toEqual({ ok: true, shares: [3000, 5000] });
+    expect(removeShare([10000], 0)).toMatchObject({ ok: false });
+  });
+
+  it("rows need not total 100%", () => {
+    const tall = grid([10000], [8000, 9000], [builtin("a", 0, 0), builtin("b", 0, 1)]);
+    const short = grid([10000], [1000], [builtin("a", 0, 0)]);
+    expect(gridProblems(tall)).toEqual([]);
+    expect(gridProblems(short)).toEqual([]);
+  });
+});
+
+describe("column math (AC3, unchanged by FLOW-357)", () => {
   it("dragging a divider changes only its two tracks and keeps their sum", () => {
     expect(dragDivider([3000, 7000], 0, 3500)).toEqual([3500, 6500]);
     expect(dragDivider([2000, 3000, 5000], 1, 4000)).toEqual([2000, 4000, 4000]);
@@ -57,23 +96,23 @@ describe("track math (AC3)", () => {
   });
 
   it("an exact percentage rescales the other tracks proportionally", () => {
-    expect(setShare([3333, 3333, 3334], 0, 3000)).toEqual({ ok: true, shares: [3000, 3500, 3500] });
-    expect(setShare([2000, 2000, 6000], 2, 5000)).toEqual({ ok: true, shares: [2500, 2500, 5000] });
+    expect(setShare([3333, 3333, 3334], 0, 3000, "cols")).toEqual({ ok: true, shares: [3000, 3500, 3500] });
+    expect(setShare([2000, 2000, 6000], 2, 5000, "cols")).toEqual({ ok: true, shares: [2500, 2500, 5000] });
   });
 
   it("refuses a percentage that would push a track under 1%, with the reason", () => {
-    expect(setShare([5000, 5000], 0, 50)).toMatchObject({ ok: false, reason: expect.stringMatching(/1%/) });
-    expect(setShare([5000, 5000], 0, 9950)).toMatchObject({ ok: false });
+    expect(setShare([5000, 5000], 0, 50, "cols")).toMatchObject({ ok: false, reason: expect.stringMatching(/1%/) });
+    expect(setShare([5000, 5000], 0, 9950, "cols")).toMatchObject({ ok: false });
     // The small track would scale under 1%.
-    expect(setShare([150, 4850, 5000], 2, 9000)).toMatchObject({ ok: false, reason: expect.stringMatching(/Row 1/) });
-    expect(setShare([10000], 0, 5000)).toMatchObject({ ok: false });
+    expect(setShare([150, 4850, 5000], 2, 9000, "cols")).toMatchObject({ ok: false, reason: expect.stringMatching(/Column 1/) });
+    expect(setShare([10000], 0, 5000, "cols")).toMatchObject({ ok: false });
   });
 
   it("adding a track gives it 1/(n+1) and shrinks the others proportionally; removing gives its share back", () => {
-    expect(insertShare([5000, 5000], 1)).toEqual({ ok: true, shares: [3334, 3333, 3333] });
-    expect(insertShare([3000, 7000], 2)).toEqual({ ok: true, shares: [2000, 4667, 3333] });
-    expect(removeShare([2000, 3000, 5000], 0)).toEqual({ ok: true, shares: [3750, 6250] });
-    expect(removeShare([10000], 0)).toMatchObject({ ok: false });
+    expect(insertShare([5000, 5000], 1, "cols")).toEqual({ ok: true, shares: [3334, 3333, 3333] });
+    expect(insertShare([3000, 7000], 2, "cols")).toEqual({ ok: true, shares: [2000, 4667, 3333] });
+    expect(removeShare([2000, 3000, 5000], 0, "cols")).toEqual({ ok: true, shares: [3750, 6250] });
+    expect(removeShare([10000], 0, "cols")).toMatchObject({ ok: false });
   });
 
   it("splits by largest remainder, deterministically", () => {
@@ -89,15 +128,15 @@ describe("track math (AC3)", () => {
       const pick = Math.floor(random() * 4);
       const index = Math.floor(random() * shares.length);
       if (pick === 0) {
-        const result = insertShare(shares, Math.floor(random() * (shares.length + 1)));
+        const result = insertShare(shares, Math.floor(random() * (shares.length + 1)), "cols");
         if (result.ok) shares = result.shares;
       } else if (pick === 1 && shares.length > 1) {
-        const result = removeShare(shares, index);
+        const result = removeShare(shares, index, "cols");
         if (result.ok) shares = result.shares;
       } else if (pick === 2 && index < shares.length - 1) {
         shares = dragDivider(shares, index, Math.floor(random() * SHARE_TOTAL));
       } else {
-        const result = setShare(shares, index, Math.floor(random() * SHARE_TOTAL));
+        const result = setShare(shares, index, Math.floor(random() * SHARE_TOTAL), "cols");
         if (result.ok) shares = result.shares;
       }
       expect(total(shares)).toBe(SHARE_TOTAL);
@@ -151,7 +190,8 @@ describe("editing operations (AC4)", () => {
   it("removes a track a region crosses (it shrinks), and refuses one a block sits entirely in", () => {
     const doc = grid([5000, 5000], [3000, 3000, 4000], [builtin("tall", 0, 0, 1, 3), builtin("b", 1, 0)], [{ x: 0, y: 0, w: 1, h: 3 }]);
     const crossed = ok(removeTrack(doc, "rows", 2));
-    expect(crossed.doc.grid.rows).toEqual([5000, 5000]);
+    // The other rows keep their heights (FLOW-357).
+    expect(crossed.doc.grid.rows).toEqual([3000, 3000]);
     expect(crossed.doc.grid.regions).toEqual([{ x: 0, y: 0, w: 1, h: 2 }]);
     expect(crossed.doc.blocks[0]).toMatchObject({ x: 0, y: 0, w: 1, h: 2 });
     expect(removeTrack(doc, "rows", 0)).toMatchObject({ ok: false, reason: "Move b out of row 1 first." });
@@ -161,7 +201,8 @@ describe("editing operations (AC4)", () => {
   it("adds a track; a region spanning the insert point grows", () => {
     const doc = grid([5000, 5000], [5000, 5000], [builtin("tall", 0, 0, 1, 2)], [{ x: 0, y: 0, w: 1, h: 2 }]);
     const result = ok(addTrack(doc, "rows", 1));
-    expect(result.doc.grid.rows).toEqual([3334, 3333, 3333]);
+    expect(result.doc.grid.rows).toEqual([5000, NEW_ROW, 5000]);
+    expect(result.outcome.message).toBe("Add row 2 at 20% of the screen height; the other rows keep theirs.");
     expect(result.doc.grid.regions).toEqual([{ x: 0, y: 0, w: 1, h: 3 }]);
     expect(result.doc.blocks[0]).toMatchObject({ h: 3 });
   });
@@ -173,7 +214,7 @@ describe("editing operations (AC4)", () => {
     const full = grid([5000, 5000], [10000], [builtin("a", 0, 0), builtin("b", 1, 0)]);
     expect(emptySlots(full)).toEqual([]);
     const added = ok(addBlock(full, text, "bottom"));
-    expect(added.doc.grid.rows).toEqual([5000, 5000]);
+    expect(added.doc.grid.rows).toEqual([10000, NEW_ROW]);
     expect(added.doc.grid.regions).toEqual([{ x: 0, y: 1, w: 2, h: 1 }]);
     expect(added.doc.blocks.at(-1)).toMatchObject({ x: 0, y: 1, w: 2, h: 1 });
   });
@@ -213,14 +254,14 @@ describe("conversion of saved layouts (AC5)", () => {
     expect(doc.grid.cols).toEqual([5000, 5000]);
     expect(doc.grid.rows).toEqual([4000, 2000, 4000]);
     expect(doc.grid.regions).toEqual([{ x: 0, y: 2, w: 2, h: 1 }]);
-    expect(emptySlots(doc)).toEqual([{ x: 1, y: 0, w: 1, h: 1 }, { x: 0, y: 1, w: 1, h: 1 }, { x: 1, y: 1, w: 1, h: 1 }]);
-    expect(gridProblems(doc)).toEqual([]);
+    expect(emptySlots(convertV2(doc))).toEqual([{ x: 1, y: 0, w: 1, h: 1 }, { x: 0, y: 1, w: 1, h: 1 }, { x: 1, y: 1, w: 1, h: 1 }]);
+    expect(gridProblems(convertV2(doc))).toEqual([]);
   });
 
   it("moves a block that overlaps an earlier one into a new row at the bottom", () => {
     const doc = convertV1(v1([builtin("a", 0, 0, 12, 4), builtin("b", 0, 2, 12, 4)]));
     expect(doc.blocks).toEqual([builtin("a", 0, 0), builtin("b", 0, 1)]);
-    expect(gridProblems(doc)).toEqual([]);
+    expect(gridProblems(convertV2(doc))).toEqual([]);
   });
 
   it("keeps a restore hint for hidden and deleted blocks; removed ones have no place; drops Fit content", () => {
@@ -240,9 +281,10 @@ describe("conversion of saved layouts (AC5)", () => {
   });
 
   it("is idempotent, and FLOW-277 renames still apply", () => {
-    const doc = convertV1(v1([builtin("old-details", 0, 0, 12, 4), builtin("notes", 0, 4, 12, 4)]));
-    expect(asV2(doc)).toBe(doc);
-    expect(asV2(asV2(doc))).toEqual(doc);
+    const doc = asLatest(v1([builtin("old-details", 0, 0, 12, 4), builtin("notes", 0, 4, 12, 4)]));
+    expect(doc.version).toBe(3);
+    expect(asLatest(doc)).toBe(doc);
+    expect(asLatest(asLatest(doc))).toEqual(doc);
     const renames = { copy: {}, blocks: { "events.detail/old-details": "details" }, removed: { copy: [], blocks: [] } };
     expect(renameLayoutDoc("events.detail", doc, renames).blocks.map((b) => b.id)).toEqual(["details", "notes"]);
     expect(renameLayoutDoc("events.detail", v1([builtin("old-details", 0, 0, 12, 4)]), renames).blocks[0].id).toBe("details");
@@ -252,11 +294,13 @@ describe("conversion of saved layouts (AC5)", () => {
     const blocks = Array.from({ length: 30 }, (_, n) => builtin(`b-${n}`, n % 2 ? 6 : 0, n * 3, 6, 2));
     const doc = convertV1(v1(blocks));
     expect(doc.grid.rows.length).toBeLessThanOrEqual(40);
-    expect(gridProblems(doc)).toEqual([]);
+    expect(gridProblems(asLatest(v1(blocks)))).toEqual([]);
   });
 
-  it("the code default is one column with a row per built-in", () => {
-    expect(codeDefaultGrid([{ id: "filters", h: 3 }, { id: "list", h: 24 }]).grid).toEqual({ cols: [10000], rows: [1111, 8889], regions: [] });
+  it("the code default is one column with a row per built-in, 2.5% of the screen height per unit of code height", () => {
+    expect(codeDefaultGrid([{ id: "filters", h: 3 }, { id: "list", h: 24 }]).grid).toEqual({ cols: [10000], rows: [750, 6000], regions: [] });
+    expect(codeRow(8)).toBe(NEW_ROW);
+    expect(codeRow(1)).toBe(MIN_ROW);
   });
 
   it("a built-in the code dropped leaves its cell empty when the code's ids are known", () => {
@@ -266,11 +310,34 @@ describe("conversion of saved layouts (AC5)", () => {
     expect(merged.grid.rows).toEqual([5000, 5000]);
   });
 
-  it("the client schema reads either version as a page grid", () => {
+  it("the client schema reads any version as a version 3 page grid", () => {
     const saved = savedLayoutSchema.parse({ pageKey: "inventory.bar", updatedAt: "2026-11-24", updatedBy: null,
       layout: v1([builtin("filters", 0, 0, 12, 3), builtin("list", 0, 3, 12, 24)]) });
-    expect(saved?.layout.version).toBe(2);
+    expect(saved?.layout.version).toBe(3);
     expect(saved?.layout.grid.rows).toEqual([1111, 8889]);
+  });
+
+  it("a saved version 2 layout converts on read: row shares become the same % of the screen height (FLOW-357 AC5)", () => {
+    const v2 = { ...grid([5000, 5000], [2500, 7400, 100], [builtin("a", 0, 0)]), version: 2 as const };
+    const saved = savedLayoutSchema.parse({ pageKey: "leads.detail", updatedAt: "2026-11-24", updatedBy: null, layout: v2 });
+    expect(saved?.layout.version).toBe(3);
+    expect(saved?.layout.grid.cols).toEqual([5000, 5000]);
+    // A share under 5% rises to the 5% floor.
+    expect(saved?.layout.grid.rows).toEqual([2500, 7400, MIN_ROW]);
+  });
+
+  it("converts version 2 card boxes from 28px rows to pixels, as they showed (FLOW-357 A2)", () => {
+    const box = { id: "field-1", kind: "field" as const, field: "name", x: 0, y: 2, w: 6, h: 2 };
+    expect(boxRowsToPx(box)).toEqual({ ...box, y: 72, h: 64 });
+    const card: LayoutBlock = {
+      kind: "card", id: "card-1", x: 0, y: 0, w: 1, h: 1,
+      card: { title: "Facts", source: { type: "record" }, filters: [], limit: 10, display: { type: "boxes", boxes: [box] } },
+    };
+    const v2 = { ...grid([10000], [10000], [card]), version: 2 as const, fieldBoxes: { "lead-facts": { boxes: [box] } } };
+    const doc = convertV2(v2);
+    expect(doc.fieldBoxes["lead-facts"].boxes[0]).toMatchObject({ y: 72, h: 64 });
+    const converted = doc.blocks[0];
+    expect(converted.kind === "card" && converted.card.display.type === "boxes" && converted.card.display.boxes[0]).toMatchObject({ y: 72, h: 64 });
   });
 });
 
@@ -288,7 +355,9 @@ describe("schema and server invariants (AC1)", () => {
       [{ ...doc, grid: { ...doc.grid, cols: [5000, 4999] } }, "grid.cols"],
       [{ ...doc, grid: { ...doc.grid, cols: [9901, 99] } }, "grid.cols.1"],
       [{ ...doc, grid: { ...doc.grid, cols: [...Array(12).fill(769), 772] } }, "grid.cols"],
-      [{ ...doc, grid: { ...doc.grid, rows: [...Array(40).fill(243), 280] } }, "grid.rows"],
+      [{ ...doc, grid: { ...doc.grid, rows: [...Array(40).fill(600), 600] } }, "grid.rows"],
+      [{ ...doc, grid: { ...doc.grid, rows: [499] } }, "grid.rows.0"],
+      [{ ...doc, grid: { ...doc.grid, rows: [20001] } }, "grid.rows.0"],
       [{ ...doc, grid: { ...doc.grid, rows: [5000, 5000], regions: [{ x: 0, y: 0, w: 2, h: 1 }, { x: 0, y: 0, w: 1, h: 2 }] }, blocks: [] }, "grid.regions.1"],
       [{ ...doc, grid: { ...doc.grid, regions: [{ x: 0, y: 0, w: 2, h: 2 }] }, blocks: [] }, "grid.regions.0"],
       [{ ...doc, blocks: [builtin("notes", 0, 0), builtin("event-notes", 0, 0)] }, "blocks.1"],
@@ -313,12 +382,11 @@ describe("rendering (FLOW-320)", () => {
     expect(trackPixels(500, [10000], 12)).toEqual([500]);
   });
 
-  it("fills the available height, with a 480px floor and no row under 56px", () => {
-    expect(gridHeight(700.6)).toBe(700);
-    expect(gridHeight(300)).toBe(480);
-    expect(gridHeight(700, [3000, 7000])).toBe(700);
-    // 17 equal rows: 17 × 56px plus 16 gaps.
-    expect(gridHeight(700, Array(17).fill(100))).toBe(17 * 56 + 16 * 12);
+  it("draws each row at exactly its % of the screen height, with no floor or minimum (FLOW-357 AC2)", () => {
+    expect(rowPixels([2500], 1008)).toEqual([252]);
+    expect(rowPixels([2500], 628)).toEqual([157]);
+    expect(rowPixels([500, 15000], 1000)).toEqual([50, 1500]);
+    expect(rowTemplate(rowPixels([2500, 3333], 1000))).toBe("250px 333.3px");
   });
 
   it("collapses a track whose only occupants are absent and keeps tracks authored empty", () => {

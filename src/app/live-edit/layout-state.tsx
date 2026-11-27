@@ -12,16 +12,16 @@ export { PageLayoutProvider, usePageLayoutContext, type PageLayout };
 
 // A page's layout (FLOW-253): the saved document, the session's unsaved one, and
 // how page parts (blocks, tables, field cards) change it. Documents are page
-// grids (FLOW-319); a saved version 1 document arrives converted.
+// grids (FLOW-319); a saved version 1 or 2 document arrives converted (FLOW-357).
 
 const LAYOUT_STALE_MS = 30 * 60_000;
 
 // A built-in block as the page's code declares it: its id, a name for the edit
-// chrome, and its height in the code default (its row's share).
+// chrome, and its height in the code default (its row height, FLOW-357).
 export type BuiltinBlock = { id: string; name: string; w: number; h: number };
 
 // The code default (FLOW-319 20): one column, one row per built-in block in
-// code order, each row's share proportional to its height.
+// code order, each row 2.5% of the screen height per unit of its height.
 export const codeDefault = (builtins: BuiltinBlock[]): LayoutDoc => ({ ...emptyLayout(), ...codeDefaultGrid(builtins) });
 
 // A saved document against the blocks the code has now: a built-in the code

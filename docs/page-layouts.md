@@ -1,8 +1,8 @@
 # Page layouts (FLOW-253 to 256)
 
 The Admin's live edit (FLOW-240) also changes page **layout**: blocks on the
-page grid (rows and columns sized as shares, with merged areas; FLOW-319 to
-322), table columns, field boxes and custom cards. There is one layout
+page grid (columns sized as shares, each row a percentage of the screen height,
+with merged areas; FLOW-319 to 322, FLOW-357), table columns, field boxes and custom cards. There is one layout
 per page, shared by everyone, saved by the same pencil → Save/Cancel session as
 wording. With no saved layout a page renders exactly as its code does.
 
@@ -160,8 +160,9 @@ a `Block`: with a saved layout only blocks render.
 
 - `pageKey` names the saved layout (`area.screen`). `record` makes "This record"
   and related-list cards available.
-- `h` sets the block's row share in the code default grid (one column, a row
-  per block, shares proportional to `h`); `w` no longer matters.
+- `h` sets the block's row height in the code default grid (one column, a row
+  per block, 2.5% of the screen height per unit of `h`, so the default 8 is a
+  20% row; FLOW-357); `w` no longer matters.
 - A block that is sometimes absent (`{cond && <Block …>}`, another tab, a role
   that can't see it) keeps its saved cell; while it's absent, a row or column
   holding only absent blocks collapses (FLOW-320 A3).
@@ -272,11 +273,14 @@ optional fields to show.
 
 Integration with main preserves FLOW-296 aggregate column resizing (no registry field chooser), FLOW-266 inventory filters and shortcuts, and the Documents `documents-table` id.
 
-## Page grid (FLOW-319 to 322)
+## Page grid (FLOW-319 to 322, rows FLOW-357)
 
-A saved layout is a `LayoutDoc` version 2: `grid.cols` and `grid.rows` are
-shares in basis points (1% = 100, each axis exactly 10000, every track at least
-1%), and `grid.regions` are merged rectangles of two or more cells that never
+A saved layout is a `LayoutDoc` version 3, in basis points (1% = 100):
+`grid.cols` are shares of the content width (exactly 10000, every column at
+least 1%); each of `grid.rows` is its own height, a percentage of the **screen
+height** (the window's height less the app header, the same on every page of a
+device), from 5% to 200%, with no total (FLOW-357). Rows adding up to more than
+100% make the page scroll; less leaves space below. `grid.regions` are merged rectangles of two or more cells that never
 overlap. Each shown block's `x`, `y`, `w`, `h` are track coordinates: a single
 cell, or exactly a merged area (addressed by its top-left cell); two shown
 blocks never share one. Hidden and deleted blocks keep their last place only as
@@ -284,22 +288,30 @@ a restore hint; a permanently removed block has none. `gridProblems`
 (`shared/page-grid.ts`) checks all of this for the client schema and for
 `PUT /api/layout`, whose 400 names the offending path.
 
-- **Saved version 1 layouts** convert on read (`convertV1`), on the server
-  (`getLayout`) and in the client schema: column edges at the shown blocks' left
-  and right edges, row edges at their tops and bottoms, gaps as empty cells, a
-  block overlapping an earlier one in a new row at the bottom; Fit content is
-  dropped. The first Save writes version 2; `PUT` refuses version 1. Reset
-  page layout still deletes the row, so the page renders natively again.
-- **Code default** in edit mode: one column, a row per built-in block, shares
-  from their `h`. A built-in added to the code after a save goes into a new
+- **Saved older layouts** convert on read (`asLatest`), on the server
+  (`getLayout`) and in the client schema. Version 1 (`convertV1`): column edges
+  at the shown blocks' left and right edges, row edges at their tops and
+  bottoms, gaps as empty cells, a block overlapping an earlier one in a new row
+  at the bottom; Fit content is dropped. Version 2 (`convertV2`, rows as shares
+  totalling 100%): a row share `s` becomes `s`% of the screen height (raised to
+  5% when under), which keeps today's look on a typical screen; card boxes go
+  from 28px rows to pixels. The first Save writes version 3; `PUT` refuses
+  versions 1 and 2. Reset page layout still deletes the row, so the page
+  renders natively again.
+- **Code default** in edit mode: one column, a row per built-in block, heights
+  from their `h` (`codeRow`). A built-in added to the code after a save goes into a new
   row spanning every column, above the row where the next built-in in code
   order starts (or at the bottom). A built-in the code dropped isn't sent by
   `GET /api/layout` (the key manifest says which exist): its cell stays empty.
-- **Track math**: dragging a divider changes only its two tracks; an exact
+- **Row math** (FLOW-357): dragging a row's lower edge (0.1% steps), its arrow
+  keys (1%, Shift 5%) and an exact percentage change **only that row**; under 5%
+  or over 200% is refused with the reason (a drag stops at the limits). A new
+  row is 20%; removing a row leaves the others.
+- **Column math**: dragging a divider changes only its two columns; an exact
   percentage rescales the others proportionally (to the nearest 0.1% when that
-  totals exactly) and is refused if a track would go under 1%; a new track gets
-  1/(n+1); a removed track's share goes to the others; rounding goes by largest
-  remainder.
+  totals exactly) and is refused if a column would go under 1%; a new column
+  gets 1/(n+1); a removed column's share goes to the others; rounding goes by
+  largest remainder.
 - **Operations** (each returns the next document and an outcome to preview, or
   a refusal with no change): move (onto an occupied cell: swap), merge (refused
   with several blocks inside, naming them), unmerge (its block to the top-left
@@ -308,19 +320,25 @@ a restore hint; a permanently removed block has none. `gridProblems`
   into an empty cell or a new row at the bottom (straight there when the page
   has no empty cell), restore to the last place when it's free, else to the
   cell the Admin picks.
-- **View mode** (`page-grid.tsx`): the grid fills the usable area, the content
-  width and the viewport below the grid's top less the main area's bottom
-  padding, with a 480px floor below which the page scrolls (the grid also grows
-  so that no row is under 56px, for pages with many rows); a grid nested in
-  another grid's cell fills that cell. Tracks are `minmax(0, <share>fr)`, so
-  each is (usable size − gaps) × share at every width, phones included. Content
+- **View mode** (`page-grid.tsx`): columns are `minmax(0, <share>fr)` of the
+  content width, so each is (width − gaps) × share at every width, phones
+  included. Each row is exactly `height% × screen height` px (`rowPixels`):
+  no floor or minimum resizes it. A grid nested in another grid's cell (event
+  section grids, closeout) follows the same rule and the outer cell scrolls
+  (FLOW-357 A1). Folding a card (FLOW-347) doesn't shrink its row. Content
   larger than its cell scrolls inside it. No guides or controls render.
+- **Full width** (FLOW-358): on record pages (client, lead, event, venue,
+  vendor, staff, inventory item) the record heading and tab bar stay fixed above
+  (A1) and the grid below spans the content area's full width on every tab:
+  inside `.detail-grid` it takes every column of the wrapper.
 - **Edit mode** (`page-grid-editor.tsx`) draws in the same frame (edit and view
   boxes match): the toolbar is fixed to the bottom of the screen (a nested
-  grid's follows its frame in its cell) and the guides are overlaid. Every boundary is a dotted
+  grid's follows its frame in its cell) and the guides are overlaid; rows are
+  drawn at exactly view mode's pixel heights. Every column boundary is a dotted
   blue divider (`role="separator"`, `aria-valuenow` the percentage; arrow keys
-  1%, Shift 5%; drag shows both percentages); every empty cell and merged area
-  is outlined. Each track's label has its exact percentage and add and remove
+  1%, Shift 5%; drag shows both percentages), and so is every row's lower edge,
+  the last row's included ("Lower edge of row N", the row's % of the screen
+  height); every empty cell and merged area is outlined. Each track's label has its exact percentage and add and remove
   buttons. Cells are focusable: the arrow keys move between them, Shift and
   the arrow keys (or Shift and click) select a rectangle for Merge and Unmerge.
   A block moves by its handle, the one destination highlighted, or with Enter,
@@ -328,6 +346,12 @@ a restore hint; a permanently removed block has none. `gridProblems`
   row at bottom"; Show and Restore use the last place or ask the same way.
   Every edit shows its outcome first (the grid draws it, with a line of text,
   also announced); Esc cancels.
+- **Card boxes** (field boxes and text boxes, FLOW-357 A2): a box's `y` and `h`
+  are pixels from version 3; the card's grid has 1px rows with no row gap, so
+  a box shows at exactly its saved top and height, with no snapping, in edit
+  (react-grid-layout with 1px rows) and view alike. The arrow keys move or, with
+  Shift, resize a box 8px at a time; no box is under 16px. Phones still stack
+  boxes in reading order at their content's height.
 - Playwright coverage: `tests/e2e/settings/page-grid-render.spec.ts`,
   `page-grid-editor.spec.ts` and `page-grid-cross-device.spec.ts`; model tests
   in `tests/settings/page-grid.test.ts`.

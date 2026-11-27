@@ -1,10 +1,13 @@
-import type { LayoutBlock, LayoutDoc, LayoutDocV1 } from "./layout";
+import type { LayoutBlock, LayoutBox, LayoutDoc, LayoutDocV1, LayoutDocV2 } from "./layout";
 
-// The page grid (FLOW-319): a page's blocks sit on explicit rows and columns
-// sized as shares, with merged rectangular regions. Each shown block fills one
-// cell or one region. Shares are integers in basis points (1% = 100) and each
-// axis totals exactly 10000. Pure functions only: the schema (shared/layout.ts),
-// the renderer (FLOW-320) and the editor (FLOW-321) build on them.
+// The page grid (FLOW-319): a page's blocks sit on explicit rows and columns,
+// with merged rectangular regions. Each shown block fills one cell or one
+// region. Sizes are integers in basis points (1% = 100). Columns are shares of
+// the content width and total exactly 10000. Each row is its own height, a
+// percentage of the screen height (FLOW-357): 5% to 200%, with no total, so
+// changing one row never resizes another. Pure functions only: the schema
+// (shared/layout.ts), the renderer (FLOW-320) and the editor (FLOW-321) build
+// on them.
 //
 // Only type imports from ./layout, which imports this file's functions.
 
@@ -12,6 +15,13 @@ export const SHARE_TOTAL = 10000;
 export const MIN_SHARE = 100;
 export const MAX_GRID_COLUMNS = 12;
 export const MAX_GRID_ROWS = 40;
+// A row's height in basis points of the screen height (FLOW-357).
+export const MIN_ROW = 500;
+export const MAX_ROW = 20000;
+// A new row: 20% of the screen height.
+export const NEW_ROW = 2000;
+// Rows move in steps of 0.1%.
+export const ROW_STEP = 10;
 // The old (v1) grid: 12 columns of 24px rows.
 const V1_COLUMNS = 12;
 
@@ -103,8 +113,17 @@ export function withMinimum(shares: number[]): number[] {
   }
 }
 
-// Dragging the divider after track `index`: only it and the next track change,
-// their combined share stays, and neither goes under 1%.
+// A row's height within its limits, to the 0.1% step (FLOW-357); resizing a
+// row changes only that row.
+export const clampRow = (value: number) => Math.min(MAX_ROW, Math.max(MIN_ROW, Math.round(value / ROW_STEP) * ROW_STEP));
+export function resizeRow(rows: number[], index: number, value: number): number[] {
+  const next = [...rows];
+  next[index] = clampRow(value);
+  return next;
+}
+
+// Dragging the divider after column `index`: only it and the next column
+// change, their combined share stays, and neither goes under 1%.
 export function dragDivider(shares: number[], index: number, first: number): number[] {
   const pair = shares[index] + shares[index + 1];
   const value = Math.min(pair - MIN_SHARE, Math.max(MIN_SHARE, Math.round(first)));
@@ -114,12 +133,21 @@ export function dragDivider(shares: number[], index: number, first: number): num
   return next;
 }
 
-// An exact share for one track: the others scale proportionally to absorb the
-// difference, to the nearest 0.1% when that totals exactly (so 30% of three
-// equal rows gives 30/35/35), else to the basis point.
+// An exact size for one track. A row takes it alone, between 5% and 200% of
+// the screen height (FLOW-357). A column's share: the others scale
+// proportionally to absorb the difference, to the nearest 0.1% when that totals
+// exactly (so 30% of three equal columns gives 30/35/35), else to the basis
+// point.
 export function setShare(shares: number[], index: number, value: number, axis: Axis = "rows"): SharesResult {
   const target = Math.round(value);
   const name = trackName(axis, index);
+  if (axis === "rows") {
+    if (target < MIN_ROW) return refuse(`${name} can't be under ${MIN_ROW / 100}% of the screen height.`);
+    if (target > MAX_ROW) return refuse(`${name} can't be over ${MAX_ROW / 100}% of the screen height.`);
+    const next = [...shares];
+    next[index] = target;
+    return { ok: true, shares: next };
+  }
   if (shares.length === 1)
     return target === SHARE_TOTAL ? { ok: true, shares: [SHARE_TOTAL] } : refuse(`A single ${trackNoun(axis)} is always 100%.`);
   if (target < MIN_SHARE) return refuse(`${name} can't be smaller than 1%.`);
@@ -138,10 +166,12 @@ export function setShare(shares: number[], index: number, value: number, axis: A
   return { ok: true, shares: next };
 }
 
-// A new track at position `at` gets 1/(n+1); the others shrink proportionally.
+// A new row at position `at` is 20% of the screen height and leaves the others
+// alone (FLOW-357). A new column gets 1/(n+1); the others shrink proportionally.
 export function insertShare(shares: number[], at: number, axis: Axis = "rows"): SharesResult {
   const max = axis === "cols" ? MAX_GRID_COLUMNS : MAX_GRID_ROWS;
   if (shares.length >= max) return refuse(`A page grid holds at most ${max} ${trackNoun(axis)}s.`);
+  if (axis === "rows") return { ok: true, shares: [...shares.slice(0, at), NEW_ROW, ...shares.slice(at)] };
   const weights = shares.map((share) => share * shares.length);
   weights.splice(at, 0, SHARE_TOTAL);
   const next = apportion(weights, SHARE_TOTAL);
@@ -150,9 +180,11 @@ export function insertShare(shares: number[], at: number, axis: Axis = "rows"): 
   return { ok: true, shares: next };
 }
 
-// A removed track's share goes to the others proportionally.
+// A removed row leaves the others alone (FLOW-357); a removed column's share
+// goes to the others proportionally.
 export function removeShare(shares: number[], at: number, axis: Axis = "rows"): SharesResult {
   if (shares.length === 1) return refuse(`A page grid keeps at least one ${trackNoun(axis)}.`);
+  if (axis === "rows") return { ok: true, shares: shares.filter((_, k) => k !== at) };
   return { ok: true, shares: apportion(shares.filter((_, k) => k !== at), SHARE_TOTAL) };
 }
 
@@ -194,10 +226,17 @@ export function gridProblems(doc: LayoutDoc): GridProblem[] {
     if (shares.length < 1 || shares.length > max)
       problems.push({ path: `grid.${key}`, message: `A page grid has 1 to ${max} ${noun}s.` });
     shares.forEach((share, index) => {
-      if (!Number.isInteger(share) || share < MIN_SHARE)
-        problems.push({ path: `grid.${key}.${index}`, message: `${trackName(key, index)} is under 1%.` });
+      const path = `grid.${key}.${index}`;
+      if (key === "rows") {
+        if (!Number.isInteger(share) || share < MIN_ROW)
+          problems.push({ path, message: `${trackName(key, index)} is under ${MIN_ROW / 100}% of the screen height.` });
+        else if (share > MAX_ROW)
+          problems.push({ path, message: `${trackName(key, index)} is over ${MAX_ROW / 100}% of the screen height.` });
+      } else if (!Number.isInteger(share) || share < MIN_SHARE)
+        problems.push({ path, message: `${trackName(key, index)} is under 1%.` });
     });
-    if (sum(shares) !== SHARE_TOTAL)
+    // Rows have no total (FLOW-357).
+    if (key === "cols" && sum(shares) !== SHARE_TOTAL)
       problems.push({ path: `grid.${key}`, message: `The ${noun}s must total 100%.` });
   };
   axis("cols", MAX_GRID_COLUMNS);
@@ -326,11 +365,19 @@ export function addTrack(doc: LayoutDoc, axis: Axis, at: number): GridResult {
   return {
     ok: true,
     doc: withBlocks(doc, blocks, grid),
-    outcome: { message: `Add ${noun} ${at + 1}; the other ${noun}s shrink to make room.`, moves: [], highlight: [added] },
+    outcome: {
+      message:
+        axis === "rows"
+          ? `Add row ${at + 1} at ${NEW_ROW / 100}% of the screen height; the other rows keep theirs.`
+          : `Add ${noun} ${at + 1}; the other ${noun}s shrink to make room.`,
+      moves: [],
+      highlight: [added],
+    },
   };
 }
 
-// Remove a track; its share goes to the others. Regions that cross it shrink. A
+// Remove a track; a column's share goes to the others, the other rows keep
+// their heights. Regions that cross it shrink. A
 // block that sits only in it must move first (FLOW-319 A2).
 export function removeTrack(doc: LayoutDoc, axis: Axis, index: number, names: Names = plainName): GridResult {
   const count = doc.grid[axis].length;
@@ -416,12 +463,16 @@ export function restoreBlock(doc: LayoutDoc, id: string, target?: Target, names:
 
 export type CodeBlock = { id: string; h: number };
 
+// A built-in's code height (a <Block>'s h, 8 by default) as a row height:
+// 2.5% of the screen height per unit, so the default is a 20% row.
+export const codeRow = (h: number) => clampRow(h * 250);
+
 // A page with no saved layout, in edit mode: one column, one row per built-in
-// block in code order, each row's share proportional to its height.
+// block in code order, each row's height from the block's code height.
 export function codeDefaultGrid(builtins: CodeBlock[]): Pick<LayoutDoc, "grid" | "blocks"> {
   const rows = builtins.slice(0, MAX_GRID_ROWS);
   return {
-    grid: { cols: [SHARE_TOTAL], rows: rows.length ? withMinimum(apportion(rows.map((b) => b.h), SHARE_TOTAL)) : [SHARE_TOTAL], regions: [] },
+    grid: { cols: [SHARE_TOTAL], rows: rows.length ? rows.map((b) => codeRow(b.h)) : [SHARE_TOTAL], regions: [] },
     blocks: builtins.map((block, index): LayoutBlock =>
       index < MAX_GRID_ROWS
         ? { kind: "builtin", id: block.id, x: 0, y: index, w: 1, h: 1 }
@@ -476,8 +527,9 @@ export function withCodeBlocks(doc: LayoutDoc, builtins: CodeBlock[], codeIds?: 
 // left and right edges, row edges at their tops and bottoms; each block fills
 // the cell or region covering its old rectangle, gaps become empty cells. A
 // block overlapping an earlier one moves into a new row at the bottom.
-// Deterministic and idempotent (a v2 document is returned as it is).
-export function convertV1(doc: LayoutDocV1): LayoutDoc {
+// Deterministic. Rows come out as shares (version 2); convertV2 makes them
+// heights.
+export function convertV1(doc: LayoutDocV1): LayoutDocV2 {
   const shown = doc.blocks.filter(blockShown);
   const rects = new Map<string, Rect>();
   const deferred: LayoutBlock[] = [];
@@ -534,7 +586,39 @@ export function convertV1(doc: LayoutDocV1): LayoutDoc {
   };
 }
 
-export const asV2 = (doc: LayoutDoc | LayoutDocV1): LayoutDoc => (doc.version === 2 ? doc : convertV1(doc));
+// Saved version 2 (rows as shares adding up to 100%; card boxes on rows of 28px
+// with 8px gaps) to version 3 (FLOW-357): a row share s becomes s% of the screen
+// height, kept between 5% and 200%, which is today's look on a typical screen;
+// card boxes keep their pixel place and height, now counted in pixels.
+export const BOX_ROW_PX = 28;
+export const BOX_GAP_PX = 8;
+export const boxRowsToPx = <B extends { y: number; h: number }>(box: B): B => ({
+  ...box,
+  y: box.y * (BOX_ROW_PX + BOX_GAP_PX),
+  h: box.h * BOX_ROW_PX + (box.h - 1) * BOX_GAP_PX,
+});
+const boxesToPx = (boxes: LayoutBox[]) => boxes.map(boxRowsToPx);
+const blockBoxesToPx = (block: LayoutBlock): LayoutBlock => {
+  if (block.kind === "card" && block.card.display.type === "boxes")
+    return { ...block, card: { ...block.card, display: { type: "boxes", boxes: boxesToPx(block.card.display.boxes) } } };
+  if (block.kind === "builtin" && block.data?.display.type === "boxes")
+    return { ...block, data: { ...block.data, display: { type: "boxes", boxes: boxesToPx(block.data.display.boxes) } } };
+  return block;
+};
+export function convertV2(doc: LayoutDocV2): LayoutDoc {
+  return {
+    ...doc,
+    version: 3,
+    grid: { ...doc.grid, rows: doc.grid.rows.map((share) => Math.min(MAX_ROW, Math.max(MIN_ROW, share))) },
+    blocks: doc.blocks.map(blockBoxesToPx),
+    fieldBoxes: Object.fromEntries(Object.entries(doc.fieldBoxes).map(([key, value]) => [key, { ...value, boxes: boxesToPx(value.boxes) }])),
+  };
+}
+
+// Any saved version as the current one. Idempotent: a version 3 document is
+// returned as it is.
+export const asLatest = (doc: LayoutDoc | LayoutDocV2 | LayoutDocV1): LayoutDoc =>
+  doc.version === 3 ? doc : convertV2(doc.version === 2 ? doc : convertV1(doc));
 
 // ---- Rendering (FLOW-320) ----------------------------------------------------------
 
@@ -563,23 +647,20 @@ export function keptPlace(r: Rect, kept: Record<Axis, number[]>) {
   return { gridColumn: `${col.from} / span ${col.span}`, gridRow: `${row.from} / span ${row.span}` };
 }
 
-// The grid's usable height (FLOW-320 A1): the viewport below the grid's top,
-// less the main area's bottom padding, never under the 480px floor; nor so
-// short that the smallest row would go under 56px (a page with many rows): past
-// either floor the page scrolls instead of shrinking rows further.
-export const GRID_FLOOR = 480;
-export const MIN_ROW_PX = 56;
-export function gridHeight(available: number, rows: number[] = [], gap = 12, floor = GRID_FLOOR) {
-  const smallest = rows.length ? Math.min(...rows) : 0;
-  const forRows = smallest > 0 ? Math.ceil((MIN_ROW_PX * sum(rows)) / smallest + gap * (rows.length - 1)) : 0;
-  return Math.max(floor, Math.floor(available), forRows);
+// The rows' pixel heights (FLOW-357): each row is exactly its share of the
+// screen height (basis points), on every page, nested or not, and in edit and
+// view mode alike. Rows adding up to more than the screen make the page scroll.
+export function rowPixels(rows: number[], screen: number): number[] {
+  return rows.map((row) => (row * screen) / SHARE_TOTAL);
 }
-// Each track's pixel size: (usable size − gaps) × share.
+// CSS grid rows of exact pixel heights.
+export const rowTemplate = (pixels: number[]) => pixels.map((px) => `${px}px`).join(" ");
+// Each column's pixel size: (usable width − gaps) × share.
 export function trackPixels(size: number, shares: number[], gap: number): number[] {
   const free = Math.max(0, size - gap * (shares.length - 1));
   const total = sum(shares) || 1;
   return shares.map((share) => (free * share) / total);
 }
-// CSS grid tracks for shares: fr units with a zero minimum, so content never
-// stretches a track.
+// CSS grid columns for shares: fr units with a zero minimum, so content never
+// stretches a column.
 export const gridTemplate = (shares: number[]) => shares.map((share) => `minmax(0, ${share}fr)`).join(" ");

@@ -6,7 +6,7 @@ import { uiLayout } from "../../../worker/db/schema";
 
 // FLOW-322 AC5, extending layout-every-screen.spec.ts: every screen's page
 // grids enter live edit with their guides drawn, take an edit, and save as
-// version 2 without a validation error. Print, sign-in and offline screens
+// version 3 without a validation error. Print, sign-in and offline screens
 // have no page grid (FLOW-283).
 
 const screens = [
@@ -50,16 +50,16 @@ async function editAndSave(page: Page, path: string) {
     await expect(page.getByRole("alert").filter({ hasText: /layout|grid|cell|row|column/i }), path).toHaveCount(0);
   } else await page.getByRole("group", { name: "Editing screen text" }).getByRole("button", { name: "Cancel", exact: true }).click();
   const saved = await browserDb((db) => db.select().from(uiLayout).where(inArray(uiLayout.pageKey, keys)));
-  for (const row of saved) expect(row.layout.version, `${path} ${row.pageKey}`).toBe(2);
+  for (const row of saved) expect(row.layout.version, `${path} ${row.pageKey}`).toBe(3);
 }
 
-test("every main screen's page grids show guides and save as version 2 (AC5)", async ({ page, isMobile }) => {
+test("every main screen's page grids show guides and save as version 3 (AC5)", async ({ page, isMobile }) => {
   test.skip(isMobile, "One viewport is enough for this sweep.");
   test.setTimeout(10 * 60_000);
   for (const path of screens) await editAndSave(page, path);
 });
 
-test("record pages' page grids, nested event tab grids included, show guides and save as version 2 (AC5)", async ({ page, isMobile }) => {
+test("record pages' page grids, nested event tab grids included, show guides and save as version 3 (AC5)", async ({ page, isMobile }) => {
   test.skip(isMobile, "One viewport is enough for this sweep.");
   test.setTimeout(5 * 60_000);
   const record = lead({ name: "Grid sweep lead" });

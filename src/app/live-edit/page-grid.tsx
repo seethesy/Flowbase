@@ -5,7 +5,6 @@ import {
   isValidElement,
   lazy,
   Suspense,
-  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -13,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { builtinCard, GRID_COLUMNS, type LayoutBlock, type LayoutDoc } from "../../../shared/layout";
-import { blockShown, GRID_FLOOR, gridHeight, gridTemplate, keptPlace, keptTracks } from "../../../shared/page-grid";
+import { blockShown, gridTemplate, keptPlace, keptTracks, rowPixels, rowTemplate } from "../../../shared/page-grid";
 import { CustomCard } from "../../components/custom-card";
 import { variantNames } from "./box-editor";
 import {
@@ -43,57 +42,51 @@ const PageGridEditor = lazy(() => import("./page-grid-editor"));
 // A page's arrangeable layout (FLOW-253). Each <Block> is one of the page's
 // built-in sections. With no saved layout and outside edit mode the page renders
 // its children exactly as before, with no wrapper. With a saved layout the
-// blocks sit on the page grid (FLOW-319/320): rows and columns that keep their
-// shares of the usable area on every device, each block filling its cell or
-// merged region, empty cells keeping their space. In edit mode an Admin edits
-// that grid (FLOW-321). The edit chrome's wording isn't wrapped in <T>.
+// blocks sit on the page grid (FLOW-319/320): columns keep their shares of the
+// content width; each row is its own percentage of the screen height (FLOW-357),
+// so rows adding up to more than the screen make the page scroll. Each block
+// fills its cell or merged region, empty cells keeping their space. In edit mode
+// an Admin edits that grid (FLOW-321). The edit chrome's wording isn't wrapped
+// in <T>.
 
-// Set inside a page grid's cell: a PageGrid there (an event tab's grid) takes
-// its height from that cell, not from the viewport (FLOW-320 A4).
+// Set inside a page grid's cell: a PageGrid there (an event tab's grid). Its
+// rows follow the same rule (FLOW-357 A1) and the outer cell scrolls; only its
+// edit toolbar sits differently.
 export const GridNesting = createContext(false);
 // Gap between tracks, px (matches .page-grid).
 export const GRID_GAP = 12;
 
-// The usable grid area (FLOW-320 A1): the frame's width is the content width;
-// its height is the viewport below the grid's top less the main area's bottom
-// padding, or, nested, the containing cell's content height below the grid;
-// never under the 480px floor or so short that a row (of `rows`, shares) goes
-// under 56px. Recomputed on resize. The editor draws in the same frame, so edit
-// and view agree.
-export function useGridFrame(rows: number[]) {
-  const nested = useContext(GridNesting);
+// The screen height rows are a percentage of (FLOW-357): the window's height
+// less the app header, the same on every page of the device.
+export function screenHeight() {
+  if (typeof window === "undefined") return 0;
+  const header = document.querySelector<HTMLElement>(".top-header");
+  return Math.max(0, window.innerHeight - (header?.offsetHeight ?? 0));
+}
+
+// The grid's frame: its width is the content width (columns' shares of it) and
+// `screen` the screen height (rows' percentages of it). Recomputed on resize.
+// The editor draws in the same frame, so edit and view agree to the pixel.
+export function useGridFrame() {
   const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 0, available: GRID_FLOOR });
+  const [size, setSize] = useState(() => ({ width: 0, screen: screenHeight() }));
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const cell = nested ? element.parentElement?.closest<HTMLElement>(".page-grid-block, .layout-block-body") ?? null : null;
-    const main = element.closest("main");
     const measure = () => {
-      const top = element.getBoundingClientRect().top;
-      let available: number;
-      if (cell) {
-        const box = cell.getBoundingClientRect();
-        const padding = parseFloat(getComputedStyle(cell).paddingBottom) || 0;
-        available = box.bottom - padding - top - cell.scrollTop;
-      } else {
-        const padding = main ? parseFloat(getComputedStyle(main).paddingBottom) || 0 : 0;
-        available = window.innerHeight - (top + window.scrollY) - padding;
-      }
-      const next = { width: element.clientWidth, available: Math.floor(available) };
-      setSize((current) => (current.width === next.width && current.available === next.available ? current : next));
+      const next = { width: element.clientWidth, screen: screenHeight() };
+      setSize((current) => (current.width === next.width && current.screen === next.screen ? current : next));
     };
     measure();
     window.addEventListener("resize", measure);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    observer?.observe(cell ?? main ?? document.body);
     observer?.observe(element);
     return () => {
       window.removeEventListener("resize", measure);
       observer?.disconnect();
     };
-  }, [nested]);
-  return { ref, width: size.width, height: gridHeight(size.available, rows, GRID_GAP) };
+  }, []);
+  return { ref, width: size.width, screen: size.screen };
 }
 
 type BlockProps = {
@@ -205,8 +198,10 @@ export function PageGrid({
 
 // View mode (FLOW-320): no guides, labels or controls. A block the code didn't
 // render this time (another tab, a permission) or that this role can't see is
-// absent: a row or column holding only absent blocks collapses and the others
-// keep their ratios; tracks authored empty keep their space (FLOW-320 A3).
+// absent: a row or column holding only absent blocks collapses, the other
+// columns keep their ratios and the other rows their heights; tracks authored
+// empty keep their space (FLOW-320 A3). Each row is exactly its percentage of
+// the screen height (FLOW-357).
 function GridView({
   pageKey,
   doc,
@@ -225,7 +220,7 @@ function GridView({
     (block) => blockVisible(pageKey, block, role) && (block.kind !== "builtin" || content.has(block.id)),
   );
   const kept = keptTracks(doc.grid, shown, present);
-  const frame = useGridFrame(kept.rows.map((index) => doc.grid.rows[index]));
+  const frame = useGridFrame();
   return (
     <div
       ref={frame.ref}
@@ -233,8 +228,7 @@ function GridView({
       data-page-layout={pageKey}
       style={{
         gridTemplateColumns: gridTemplate(kept.cols.map((index) => doc.grid.cols[index])),
-        gridTemplateRows: gridTemplate(kept.rows.map((index) => doc.grid.rows[index])),
-        height: kept.rows.length ? frame.height : undefined,
+        gridTemplateRows: rowTemplate(rowPixels(kept.rows.map((index) => doc.grid.rows[index]), frame.screen)),
       }}
     >
       {readingOrder(present).map((block) => (

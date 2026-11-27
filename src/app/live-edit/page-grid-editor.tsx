@@ -16,8 +16,13 @@ import {
   occupant,
   placeName,
   removeTrack,
+  resizeRow,
   restoreBlock,
+  rowPixels,
+  rowTemplate,
   sameRect,
+  MAX_ROW,
+  MIN_ROW,
   setShare,
   slotAt,
   trackName,
@@ -44,7 +49,10 @@ const CardBuilder = lazy(() => import("./card-builder").then((module) => ({ defa
 // guides, labels and handles are overlaid, so none of them moves or resizes
 // the frame. Every row and column
 // boundary, empty cell and merged area is drawn. Tracks resize by dragging a
-// divider (or its arrow keys) or by an exact percentage; rows and columns are
+// divider (or its arrow keys) or by an exact percentage: a column divider moves
+// two neighbouring shares; a row's lower edge changes only that row, a
+// percentage of the screen height (FLOW-357), drawn at exactly the pixels view
+// mode shows, to the 0.1% step; rows and columns are
 // added and removed, cells merged and unmerged, and blocks placed in an exact
 // cell or region. Each edit shows its outcome first (highlighted cells and a
 // line of text, also announced); Esc cancels. Edit chrome wording isn't wrapped
@@ -68,6 +76,8 @@ type Carry = { id: string; to: Cell | null; pointer: boolean };
 type DividerDrag = { axis: Axis; index: number; startShares: number[]; startAt: number; pixels: number; shares: number[] };
 
 const pct = (share: number) => (share / 100).toFixed(2).replace(/\.?0+$/, "");
+const rowMessage = (index: number, height: number) =>
+  `${trackName("rows", index)} is ${pct(height)}% of the screen height; the other rows keep theirs.`;
 const gridArea = (r: Rect) => ({ gridColumn: `${r.x + 1} / span ${r.w}`, gridRow: `${r.y + 1} / span ${r.h}` });
 const bounds = (a: Rect, b: Rect): Rect => {
   const x = Math.min(a.x, b.x);
@@ -98,8 +108,7 @@ export default function PageGridEditor({
   content: Map<string, ReactNode>;
 }) {
   const nested = useContext(GridNesting);
-  // Sized by the committed rows, so a divider drag doesn't resize the frame.
-  const frame = useGridFrame(doc.grid.rows);
+  const frame = useGridFrame();
   // The card being built: a new one (id null) going to `target`, or an existing
   // card block's. A built-in card's values (FLOW-279) are edited the same way.
   const [building, setBuilding] = useState<{ id: string | null; card: CardConfig; builtin?: boolean; target?: Target } | null>(null);
@@ -219,7 +228,7 @@ export default function PageGridEditor({
   const cols = divider?.axis === "cols" ? divider.shares : view.grid.cols;
   const rows = divider?.axis === "rows" ? divider.shares : view.grid.rows;
   const colPx = trackPixels(frame.width, cols, GRID_GAP);
-  const rowPx = trackPixels(frame.height, rows, GRID_GAP);
+  const rowPx = rowPixels(rows, frame.screen);
   const offsets = (sizes: number[]) => sizes.map((_, i) => sizes.slice(0, i).reduce((a, b) => a + b, 0) + GRID_GAP * i);
   const colAt = offsets(colPx);
   const rowAt = offsets(rowPx);
@@ -334,13 +343,22 @@ export default function PageGridEditor({
     event.preventDefault();
     event.currentTarget.focus();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    const sizes = axis === "cols" ? colPx : rowPx;
     const shares = doc.grid[axis];
-    setDivider({ axis, index, startShares: shares, shares, startAt: axis === "cols" ? event.clientX : event.clientY, pixels: sizes[index] + sizes[index + 1] });
+    // A column divider spreads its move over the pair's pixels; a row's edge
+    // over the screen height (FLOW-357).
+    const pixels = axis === "cols" ? colPx[index] + colPx[index + 1] : frame.screen;
+    setDivider({ axis, index, startShares: shares, shares, startAt: axis === "cols" ? event.clientX : event.clientY, pixels });
   };
   const onDividerMove = (event: PointerEvent<HTMLElement>) => {
     if (!divider) return;
     const delta = (divider.axis === "cols" ? event.clientX : event.clientY) - divider.startAt;
+    if (divider.axis === "rows") {
+      const height = divider.startShares[divider.index] + (divider.pixels ? (delta * 10000) / divider.pixels : 0);
+      const shares = resizeRow(divider.startShares, divider.index, height);
+      setDivider({ ...divider, shares });
+      setMessage(rowMessage(divider.index, shares[divider.index]));
+      return;
+    }
     const pair = divider.startShares[divider.index] + divider.startShares[divider.index + 1];
     const first = divider.startShares[divider.index] + (divider.pixels ? (delta * pair) / divider.pixels : 0);
     const shares = dragDivider(divider.startShares, divider.index, Math.round(first / 10) * 10);
@@ -357,6 +375,12 @@ export default function PageGridEditor({
     const delta = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -step : event.key === "ArrowRight" || event.key === "ArrowDown" ? step : 0;
     if (!delta) return;
     event.preventDefault();
+    if (axis === "rows") {
+      const rows = resizeRow(doc.grid.rows, index, doc.grid.rows[index] + delta);
+      commit({ ...doc, grid: { ...doc.grid, rows } });
+      setMessage(rowMessage(index, rows[index]));
+      return;
+    }
     const shares = dragDivider(doc.grid[axis], index, doc.grid[axis][index] + delta);
     commit({ ...doc, grid: { ...doc.grid, [axis]: shares } });
     setMessage(`${trackName(axis, index)} ${pct(shares[index])}%, ${trackName(axis, index + 1).toLowerCase()} ${pct(shares[index + 1])}%.`);
@@ -377,7 +401,7 @@ export default function PageGridEditor({
       return;
     }
     commit({ ...doc, grid: { ...doc.grid, [axis]: result.shares } });
-    setMessage(`${trackName(axis, index)} is ${pct(share)}%; the other ${axis === "cols" ? "columns" : "rows"} scale to fit.`);
+    setMessage(axis === "rows" ? rowMessage(index, share) : `${trackName(axis, index)} is ${pct(share)}%; the other columns scale to fit.`);
   };
 
   // ---- Highlights: the preview's outcome, the drop target, the selection ----------
@@ -525,7 +549,7 @@ export default function PageGridEditor({
         className="page-grid page-grid-frame"
         role="group"
         aria-label="Page grid"
-        style={{ gridTemplateColumns: gridTemplate(cols), gridTemplateRows: gridTemplate(rows), height: frame.height }}
+        style={{ gridTemplateColumns: gridTemplate(cols), gridTemplateRows: rowTemplate(rowPx) }}
       >
         {slots.map((slot) => {
           const block = occupant(view, slot);
@@ -682,19 +706,21 @@ export default function PageGridEditor({
               onKeyDown={(event) => onDividerKey(event, "cols", index)}
             />
           ))}
-          {rows.slice(0, -1).map((_, index) => (
+          {/* Each row's lower edge, the last row's too: it resizes only that row (FLOW-357). */}
+          {rows.map((_, index) => (
             <div
               key={`row-divider-${index}`}
               className={`layout-divider is-row${divider?.axis === "rows" && divider.index === index ? " is-dragging" : ""}`}
-              style={{ top: rowAt[index] + rowPx[index] }}
+              // In the gap below the row; the last row's centred on its edge.
+              style={{ top: rowAt[index] + rowPx[index] - (index === rows.length - 1 ? GRID_GAP / 2 : 0) }}
               role="separator"
               tabIndex={0}
               aria-orientation="horizontal"
-              aria-label={`Divider between row ${index + 1} and row ${index + 2}`}
+              aria-label={`Lower edge of row ${index + 1}`}
               aria-valuenow={Number(pct(rows[index]))}
-              aria-valuemin={1}
-              aria-valuemax={Number(pct(rows[index] + rows[index + 1] - 100))}
-              aria-valuetext={`Row ${index + 1} ${pct(rows[index])}%, row ${index + 2} ${pct(rows[index + 1])}%`}
+              aria-valuemin={MIN_ROW / 100}
+              aria-valuemax={MAX_ROW / 100}
+              aria-valuetext={`Row ${index + 1} ${pct(rows[index])}% of the screen height`}
               onPointerDown={(event) => onDividerDown(event, "rows", index)}
               onPointerMove={onDividerMove}
               onPointerUp={onDividerUp}

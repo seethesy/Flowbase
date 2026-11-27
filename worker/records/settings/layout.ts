@@ -1,6 +1,6 @@
 import { layoutLifecycleChanges } from "../../../shared/layout-deletion";
 import { emptyLayout } from "../../../shared/layout";
-import { asV2 } from "../../../shared/page-grid";
+import { asLatest } from "../../../shared/page-grid";
 import { eq, sql } from "drizzle-orm";
 import type { Actor } from "../../../shared/access";
 import type { LayoutDoc, SavedLayout, StoredLayoutDoc } from "../../../shared/layout";
@@ -10,12 +10,12 @@ import { uiLayout } from "../../db/schema";
 
 // Saved page layouts (FLOW-253): one row per page, shared by everyone. No row
 // means the page's code default. Save and reset are audit-logged. A row saved
-// as version 1 reads as version 2 (FLOW-321); its next Save stores version 2.
+// as version 1 or 2 reads as version 3 (FLOW-321, FLOW-357); its next Save stores version 3.
 
 type Row = typeof uiLayout.$inferSelect;
 const saved = (row: Row): NonNullable<SavedLayout> => ({
   pageKey: row.pageKey,
-  layout: asV2(row.layout),
+  layout: asLatest(row.layout),
   updatedAt: row.updatedAt.toISOString(),
   updatedBy: row.updatedBy,
 });
