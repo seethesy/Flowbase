@@ -60,7 +60,9 @@ databaseTest("part-time staff only see the tabs they can open", async ({ page, i
   await page.goto("/#/inventory");
   await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
   await page.goto("/#/beos");
-  await expect(tabs(page, "Leads")).toHaveText(["BEO"]);
+  // The section tab bar is omitted when BEO is this role's only Leads tab.
+  await expect(tabs(page, "Leads")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Leads");
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/sales/overview");
 });
