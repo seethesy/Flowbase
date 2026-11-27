@@ -35,23 +35,27 @@ describe("navigation groups", () => {
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Approvals"]);
     // FLOW-328: Leads (early stages) and Sales (late stages); FLOW-329: Pricing.
     expect(tabs(admin, "Leads")).toEqual(["Overview", "Proposals", "Contracts", "Payment", "BEO"]);
-    expect(tabs(admin, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
+    // FLOW-340: Overview, Past Events, Network, Analytics, Pricing, then Time Tracking.
+    expect(tabs(admin, "Sales")).toEqual(["Overview", "Past Events", "Network", "Analytics", "Pricing", "Time Tracking"]);
     expect(tabs(admin, "Events")).toEqual(["Overview", "Production"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Overview", "Recipes", "Ingredients", "Menus", "Photos"]);
-    expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
+    // FLOW-341: the working areas before Photos, and Analytics after it (A1).
+    expect(tabs(admin, "Marketing")).toEqual(["Overview", "Socials", "Movies", "Other Events", "SEO", "Website", "Photos", "Analytics"]);
     // FLOW-330: Templates after Documents.
     expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
   });
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
     expect(tabs(salesperson, "Leads")).toEqual(["Overview", "Proposals", "Contracts", "Payment", "BEO"]);
-    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
+    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Past Events", "Network", "Analytics", "Pricing", "Time Tracking"]);
     expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     // Staff can open BEO for events they can see; payment amounts stay restricted.
     expect(tabs(staff, "Leads")).toEqual(["BEO"]);
-    expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues", "Time Tracking"]);
+    // Network for the venues they may read (FLOW-340).
+    expect(tabs(staff, "Sales")).toEqual(["Overview", "Past Events", "Network", "Time Tracking"]);
+    expect(tabs(staff, "Marketing")).toEqual(["Overview", "Socials", "Movies", "Other Events", "SEO", "Website", "Photos", "Analytics"]);
     expect(tabs(staff, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
     expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     // Payroll is Admin and Technical only (FLOW-270 AC2).
@@ -74,11 +78,18 @@ describe("navigation groups", () => {
     expect(at("/leads")).toBe("Leads › Overview");
     expect(at("/leads/abc")).toBe("Leads › Overview");
     expect(at("/leads/dashboard")).toBe("Leads › Overview");
-    expect(at("/clients/cli-1")).toBe("Sales › Clients");
+    // FLOW-340: record pages sit under Sales › Network.
+    expect(at("/clients/cli-1")).toBe("Sales › Network");
+    expect(at("/venues/v-1")).toBe("Sales › Network");
+    expect(at("/sales/past-events")).toBe("Sales › Past Events");
+    expect(at("/sales/network")).toBe("Sales › Network");
+    expect(at("/sales/analytics")).toBe("Sales › Analytics");
+    for (const area of ["socials", "movies", "other-events", "seo", "website"])
+      expect(at(`/marketing/${area}`)).toMatch(/^Marketing › /);
+    expect(at("/marketing/other-events")).toBe("Marketing › Other Events");
     expect(at("/proposals")).toBe("Leads › Proposals");
     expect(at("/sales/pricing")).toBe("Sales › Pricing");
     expect(at("/documents/templates")).toBe("Documents › Templates");
-    expect(at("/sales/reports")).toBe("Sales › Sales tracker");
     expect(at("/events/e-1/beo/b-1")).toBe("Events › Overview");
     // FLOW-294: the calendar is Events › Overview; FLOW-293: Kitchen › Overview.
     expect(at("/events/overview")).toBe("Events › Overview");
@@ -100,7 +111,6 @@ describe("navigation groups", () => {
     expect(at("/sales/time-tracking")).toBe("Sales › Time Tracking");
     // FLOW-295: each heading's Overview, with the old tabs at their URLs.
     expect(at("/sales/overview")).toBe("Sales › Overview");
-    expect(at("/sales")).toBe("Sales › Sales tracker");
     expect(at("/marketing/overview")).toBe("Marketing › Overview");
     expect(at("/marketing")).toBe("Marketing › Photos");
     expect(at("/documents/overview")).toBe("Documents › Overview");
@@ -172,9 +182,11 @@ describe("breadcrumb trail", () => {
 
   it("links a heading to the first tab the user can open", () => {
     // The heading's Overview first (FLOW-295), for anyone who sees another tab.
-    expect(trail("/venues", staff)).toEqual(["Workspace>/", "Sales>/sales/overview", "Venues"]);
+    expect(trail("/sales/network", staff)).toEqual(["Workspace>/", "Sales>/sales/overview", "Network"]);
     // Signed out (e.g. tests rendering the header alone), every tab counts.
-    expect(trail("/venues", null)).toEqual(["Workspace>/", "Sales>/sales/overview", "Venues"]);
+    expect(trail("/sales/network", null)).toEqual(["Workspace>/", "Sales>/sales/overview", "Network"]);
+    // A record page names Network as its tab (FLOW-340).
+    expect(trail("/venues/v-1", staff)).toEqual(["Workspace>/", "Sales>/sales/overview", "Network>/sales/network", "Venue"]);
   });
 });
 

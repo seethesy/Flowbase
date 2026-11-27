@@ -1,23 +1,20 @@
 import { Dropdown } from "../../components/ui/Dropdown";
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { type ColumnDef } from "@tanstack/react-table";
-import { taskStatuses, taskStatusLabels, taskStatusSchema, taskTypeLabels, type TaskDashboardSection, type TaskDueBucket, type TaskFilter, type TaskSummary } from "../../../shared/tasks";
+import { Link } from "react-router-dom";
+import { type TaskDashboardSection, type TaskFilter, type TaskSummary } from "../../../shared/tasks";
+import type { StaffMember } from "../../../shared/staff";
 import { taskScope } from "../../../shared/policy";
 import { usePermissions } from "../../app/permissions";
 import { useResource } from "../../app/useResource";
-import { Button, DataTable, DateTimeCell, instantParts, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
+import { Button, LoadingSkeleton, PageHeader, Section, ErrorText } from "../../components/shared";
 import { tasksApi } from "../../services/tasks";
-import { dateTimeLabel } from "../inventory/inventory-labels";
-import { T, LabelT, useCopy } from "../../app/copy";
-import { copySlug } from "../../../shared/copy";
-import { NewTaskDrawer, names, useActiveStaff } from "./task-form";
-import { TaskActions } from "./task-lists";
+import { T } from "../../app/copy";
+import { NewTaskDrawer, useActiveStaff } from "./task-form";
+import { TaskTable } from "./task-table";
 import "./tasks.css";
 
-// The task dashboard at /tasks (FLOW-60): my tasks by when they're due, the tasks
-// I manage, and "Needs delegation" for managers.
+// The task dashboard at /tasks (FLOW-60/345): four task tables.
 
 // A link to the task list showing exactly the tasks a dashboard section counts.
 const listLink = (filter: TaskFilter) =>
@@ -27,151 +24,39 @@ const listLink = (filter: TaskFilter) =>
     ),
   ).toString()}`;
 
-// A dashboard section's tasks as a table (FLOW-297): the shared data table, so
-// an Admin in live edit picks and resizes its columns (one column set for every
-// section), the status changes in place without opening the task, and a click
-// anywhere else on the row opens it.
-function DashboardTaskTable({
-  tasks,
-  actions,
-  onChanged,
-  onError,
-}: {
-  tasks: TaskSummary[];
-  actions: (task: TaskSummary) => ReactNode;
-  onChanged: () => void;
-  onError: (message: string) => void;
-}) {
-  const navigate = useNavigate();
-  const columns: ColumnDef<TaskSummary, unknown>[] = [
-    {
-      accessorKey: "title",
-      header: "Task",
-      cell: ({ row }) => <Link to={`/tasks/${row.original.id}`}>{row.original.title}</Link>,
-      meta: { opensRecord: true },
-    },
-    {
-      id: "eventTitle",
-      header: "Event",
-      accessorFn: (task) => task.eventTitle ?? "",
-      cell: ({ row }) => row.original.eventId && row.original.eventTitle
-        ? <Link to={`/events/${row.original.eventId}`}>{row.original.eventTitle}</Link>
-        : "—",
-    },
-    {
-      id: "dueAt",
-      header: "Due",
-      // An ISO instant sorts by date and time together (FLOW-296).
-      accessorFn: (task) => task.dueAt ?? "",
-      cell: ({ row }) => {
-        const due = instantParts(row.original.dueAt);
-        return due ? <DateTimeCell date={due.date} time={due.time} /> : <T id="task-lists.dashboard-table.no-due-date">No due date</T>;
-      },
-      meta: { csv: (task) => (task.dueAt ? dateTimeLabel(task.dueAt) : "") },
-    },
-    {
-      id: "assignees",
-      header: "Assignee",
-      accessorFn: (task) => names(task.assignees),
-      cell: ({ row }) => row.original.assignees.length
-        ? names(row.original.assignees)
-        : <T id="task-lists.dashboard-table.unassigned">Unassigned</T>,
-    },
-    {
-      id: "status",
-      header: "Status",
-      accessorFn: (task) => taskStatusLabels[task.status],
-      cell: ({ row }) => <LabelT id="labels.task-status" value={row.original.status}>{taskStatusLabels[row.original.status]}</LabelT>,
-      // Anyone who sees a task may change its status (as on All tasks).
-      meta: {
-        edit: "select",
-        editValue: (task) => task.status,
-        editOptions: taskStatuses.map((value) => ({ value, label: taskStatusLabels[value] })),
-        onEdit: async (task, value) => {
-          await tasksApi.update(task.id, { status: taskStatusSchema.parse(value) });
-          onChanged();
-        },
-      },
-    },
-    {
-      id: "type",
-      header: "Type",
-      accessorFn: (task) => taskTypeLabels[task.type],
-      cell: ({ row }) => <LabelT id="labels.task-type" value={row.original.type}>{taskTypeLabels[row.original.type]}</LabelT>,
-    },
-    {
-      id: "actions",
-      header: "",
-      enableSorting: false,
-      meta: { exportable: false },
-      cell: ({ row }) => <div className="task-line-actions">{actions(row.original)}</div>,
-    },
-  ];
-  return (
-    <DataTable
-      copyKey="tasks.dashboard.table"
-      data={tasks}
-      columns={columns}
-      onRow={(task) => navigate(`/tasks/${task.id}`)}
-      label={<T id="task-lists.dashboard-table.tasks">tasks</T>}
-      // FLOW-260 selection, with a bulk Done (tasks have no Delete).
-      selection={{
-        rowId: (task) => task.id,
-        actions: (ids, clear) => (
-          <Button
-            variant="outline"
-            onClick={async () => {
-              onError("");
-              try {
-                await Promise.all(ids.map((id) => tasksApi.update(id, { status: "done" })));
-                clear();
-                onChanged();
-              } catch (cause) {
-                onError(cause instanceof Error ? cause.message : String(cause));
-              }
-            }}
-          >
-            <T id="task-lists.dashboard-table.mark-selected-done">Mark done</T>
-          </Button>
-        ),
-      }}
-    />
-  );
-}
-
-function DashboardGroup({
+// A dashboard card's table (FLOW-345): the shared task table, one column set for
+// every card (an Admin picks and resizes it in live edit), with a link to the
+// task list showing exactly the tasks the card counts.
+function DashboardCard({
   title,
+  label,
   section,
   filter,
   empty,
+  staff,
   onChanged,
   onError,
-  children,
+  actions,
 }: {
-  title: string;
+  title: ReactNode;
+  // The card's accessible name.
+  label: string;
   section: TaskDashboardSection;
   filter: TaskFilter;
   empty: ReactNode;
+  staff: StaffMember[];
   onChanged: () => void;
   onError: (message: string) => void;
-  children: (task: TaskSummary) => ReactNode;
+  actions?: (task: TaskSummary) => ReactNode;
 }) {
-
   return (
-    <div className="task-group" role="region" aria-label={title}>
-      <div className="task-group-head">
-        <h3>
-          <T id={`task-lists.dashboard-group.${copySlug(title)}`} values={{ count: section.count }}>
-            {`${title} ({count})`}
-          </T>
-        </h3>
-        {section.count > 0 && <Link to={listLink(filter)}><T id="task-lists.dashboard-group.view-all">View all</T></Link>}
-      </div>
-      {section.tasks.length ? (
-        <DashboardTaskTable tasks={section.tasks} actions={children} onChanged={onChanged} onError={onError} />
-      ) : (
-        <p className="task-empty">{empty}</p>
-      )}
+    <div role="region" aria-label={label}>
+      <Section title={title}
+        action={section.count > 0 ? <Link to={listLink(filter)}><T id="task-lists.dashboard-group.view-all">View all</T></Link> : undefined}>
+        {section.tasks.length
+          ? <TaskTable tasks={section.tasks} staff={staff} copyKey="tasks.dashboard.table" onChanged={onChanged} onError={onError} actions={actions} />
+          : <p className="task-empty">{empty}</p>}
+      </Section>
     </div>
   );
 }
@@ -231,9 +116,11 @@ function QuickAssign({
   );
 }
 
-// /tasks: each person's home for their own work and the work they manage.
+// /tasks: each person's home for their own work and the work they manage
+// (FLOW-345): All Tasks, My Tasks, Managing and, for those who triage, Needs
+// Delegation. Done tasks stay for the Settings' "hide completed tasks after N
+// days" (the API keeps them).
 export function TaskDashboardPage() {
-  const managingTitle = useCopy("task-lists.task-dashboard-page.tasks-i-manage", "Tasks I manage");
   const { actor, can } = usePermissions();
   const dashboard = useResource(["tasks", "dashboard"], () => tasksApi.dashboard());
   const staff = useActiveStaff();
@@ -243,14 +130,7 @@ export function TaskDashboardPage() {
   if (!dashboard.data || !actor) return <LoadingSkeleton />;
   const data = dashboard.data;
   const reload = () => dashboard.reload();
-  const act = (task: TaskSummary) => (
-    <TaskActions task={task} onChanged={reload} onError={setError} />
-  );
-  const mine = (due: TaskDueBucket): TaskFilter => ({
-    mine: "true",
-    assigneeId: actor.userId,
-    due,
-  });
+  const card = { staff, onChanged: reload, onError: setError };
   return (
     <>
       <PageHeader pageKey="tasks.dashboard" title={<T id="task-lists.task-dashboard-page.tasks">Tasks</T>} subtitle={<T id="task-lists.task-dashboard-page.your-tasks-and-the-ones">Your tasks and the ones you manage.</T>}>
@@ -268,73 +148,30 @@ export function TaskDashboardPage() {
       </PageHeader>
       <ErrorText message={error} />
       <PageGrid pageKey="tasks.dashboard">
-<Block id="my-tasks" name="My tasks" h={16}>
-<Section title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}>
-        <DashboardGroup
-          onChanged={reload}
-          onError={setError}
-          title="Overdue"
-          section={data.overdue}
-          filter={mine("overdue")}
-          empty={<T id="task-lists.task-dashboard-page.nothing-overdue">Nothing overdue.</T>}
-        >
-          {act}
-        </DashboardGroup>
-        <DashboardGroup
-          onChanged={reload}
-          onError={setError}
-          title="Due today"
-          section={data.today}
-          filter={mine("today")}
-          empty={<T id="task-lists.task-dashboard-page.nothing-else-due-today">Nothing else due today.</T>}
-        >
-          {act}
-        </DashboardGroup>
-        <DashboardGroup
-          onChanged={reload}
-          onError={setError}
-          title="Upcoming"
-          section={data.upcoming}
-          filter={mine("upcoming")}
-          empty={<T id="task-lists.task-dashboard-page.nothing-coming-up">Nothing coming up.</T>}
-        >
-          {act}
-        </DashboardGroup>
-      </Section>
-</Block>
-      <Block id="overseeing" name="Managing" h={8}>
-<Section title={<T id="task-lists.task-dashboard-page.overseeing">Managing</T>}>
-        <DashboardGroup
-          onChanged={reload}
-          onError={setError}
-          title={managingTitle}
-          section={data.overseeing}
-          filter={{ mine: "true", overseerId: actor.userId }}
-          empty={<T id="task-lists.task-dashboard-page.you-don-t-oversee-any">{"You don't manage any open tasks."}</T>}
-        >
-          {() => null}
-        </DashboardGroup>
-      </Section>
-</Block>
-      {data.needsDelegation && (
-        <Block id="needs-delegation" name="Needs delegation" h={8}>
-        <Section title={<T id="task-lists.task-dashboard-page.needs-delegation">Needs delegation</T>}>
-          <DashboardGroup
-          onChanged={reload}
-          onError={setError}
-            title="Unassigned in the next 14 days"
-            section={data.needsDelegation}
-            filter={{ unassigned: "true" }}
-            empty={<T id="task-lists.task-dashboard-page.every-task-coming-up-has">Every task coming up has someone on it.</T>}
-          >
-            {(task) => (
-              <QuickAssign task={task} staff={staff} onChanged={reload} onError={setError} />
-            )}
-          </DashboardGroup>
-        </Section>
+        <Block id="all-tasks" name="All tasks" h={16}>
+          <DashboardCard {...card} section={data.all} filter={{ includeDone: "true" }}
+            label="All Tasks" title={<T id="task-lists.task-dashboard-page.all-tasks-card">All tasks</T>}
+            empty={<T id="task-lists.task-dashboard-page.no-tasks-yet">No tasks yet.</T>} />
         </Block>
-      )}
-</PageGrid>
+        <Block id="my-tasks" name="My tasks" h={16}>
+          <DashboardCard {...card} section={data.mine} filter={{ assigneeId: actor.userId, includeDone: "true" }}
+            label="My Tasks" title={<T id="task-lists.task-dashboard-page.my-tasks">My tasks</T>}
+            empty={<T id="task-lists.task-dashboard-page.nothing-assigned-to-you">Nothing assigned to you.</T>} />
+        </Block>
+        <Block id="overseeing" name="Managing" h={12}>
+          <DashboardCard {...card} section={data.managing} filter={{ overseerId: actor.userId, includeDone: "true" }}
+            label="Managing" title={<T id="task-lists.task-dashboard-page.overseeing">Managing</T>}
+            empty={<T id="task-lists.task-dashboard-page.you-don-t-oversee-any">{"You don't manage any open tasks."}</T>} />
+        </Block>
+        {data.needsDelegation && (
+          <Block id="needs-delegation" name="Needs delegation" h={12}>
+            <DashboardCard {...card} section={data.needsDelegation} filter={{ unassigned: "true" }}
+              label="Needs Delegation" title={<T id="task-lists.task-dashboard-page.needs-delegation">Needs delegation</T>}
+              empty={<T id="task-lists.task-dashboard-page.every-task-coming-up-has">Every task coming up has someone on it.</T>}
+              actions={(task) => <QuickAssign task={task} staff={staff} onChanged={reload} onError={setError} />} />
+          </Block>
+        )}
+      </PageGrid>
       {adding && (
         <NewTaskDrawer open onClose={() => setAdding(false)} onCreated={reload} />
       )}

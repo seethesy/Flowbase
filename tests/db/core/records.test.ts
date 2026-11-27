@@ -16,6 +16,7 @@ import type {
   Client,
   ClientInput,
   EventInput,
+  EventStatus,
   FlowEvent,
   Venue,
   VenueInput,
@@ -105,7 +106,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await db.execute(
-    sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, jobs`,
+    sql`truncate table closeout_lines, event_closeouts, truck_assignments, event_planning_outputs, pull_list_lines, pull_lists, beo_checklist_items, beo_run_of_show, beo_areas, beo_changes, beos, kitchen_menu_lines, kitchen_menus, event_planning_steps, event_planning, consumable_allocations, event_requirements, event_bar_tiers, reservation_conflicts, reservations, lead_duplicates, leads, audit_log, event_status_history, event_staff_slots, event_shifts, proposal_mappings, proposal_change_log, proposal_version_mappings, contracts, addendums, proposal_versions, proposal_stage_history, proposals, event_areas, event_timeline_entries, payment_schedule_items, payments, events, venue_contacts, venue_areas, venues, client_contacts, clients, ingest_receipts, area_notes, jobs`,
   );
 });
 afterAll(async () => {
@@ -573,6 +574,32 @@ describe("events", () => {
     expect(
       await admin.get<FlowEvent[]>("/api/events?from=2026-11-15"),
     ).toHaveLength(0);
+  });
+
+  it("splits events before today into Past (reached Closed) and Lost, newest first (FLOW-340 A2)", async () => {
+    const owner = await admin.post<Client>("/api/clients", newClient());
+    const make = async (title: string, date: string, status: EventStatus) => {
+      const event = await admin.post<FlowEvent>("/api/events", newEvent(owner.id, { title, date }));
+      await db.update(schema.events).set({ status }).where(eq(schema.events.id, event.id));
+    };
+    await make("Older finished", "2020-03-01", "finished");
+    await make("Newer closed", "2021-06-01", "closed");
+    await make("Never closed", "2021-01-01", "negotiation");
+    await make("Marked lost", "2021-02-01", "lost");
+    await make("Upcoming closed", "2099-01-01", "closed");
+    const titles = async (period: string) =>
+      (await admin.get<FlowEvent[]>(`/api/events?period=${period}`)).map((e) => e.title);
+    expect(await titles("past")).toEqual(["Newer closed", "Older finished"]);
+    expect(await titles("lost")).toEqual(["Marked lost", "Never closed"]);
+    expect(await admin.get<FlowEvent[]>("/api/events")).toHaveLength(5);
+  });
+
+  it("saves shared Marketing notes for anyone who sees Marketing (FLOW-341 A2)", async () => {
+    expect(await admin.get("/api/area-notes/marketing.socials")).toMatchObject({ body: "", updatedAt: null });
+    const response = await admin.call("PUT", "/api/area-notes/marketing.socials", { body: "Post the fall menu Friday." });
+    expect(response.status).toBe(200);
+    expect(await admin.get("/api/area-notes/marketing.socials")).toMatchObject({ body: "Post the fall menu Friday." });
+    expect((await admin.call("GET", "/api/area-notes/sales.network")).status).toBe(404);
   });
 
   it("filters exactly the requested New York dates across daylight saving (FLOW-200)", async () => {

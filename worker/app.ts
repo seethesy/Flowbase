@@ -66,6 +66,7 @@ import { salesRoutes } from "./routes/sales/sales";
 import { pricingRoutes } from "./routes/sales/pricing";
 import { operationalReportRoutes } from "./routes/home/operational-reports";
 import { homeRoutes } from "./routes/home/home";
+import { areaNoteRoutes } from "./routes/home/area-notes";
 import { vendorRoutes } from "./routes/inventory/vendors";
 import { deletionRoutes } from "./routes/settings/deletions";
 import { orderListRoutes } from "./routes/inventory/order-lists";
@@ -381,6 +382,7 @@ export function createApp(options: Options = {}) {
   app.route("/api/pricing", pricingRoutes(options));
   app.route("/api/operational-reports", operationalReportRoutes(options));
   app.route("/api/home", homeRoutes(options));
+  app.route("/api/area-notes", areaNoteRoutes(options));
   app.route("/api/vendors", vendorRoutes(options));
   app.route("/api/deletions", deletionRoutes(options));
   app.route("/api", planningRoutes(options));

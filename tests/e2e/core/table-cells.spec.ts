@@ -41,11 +41,12 @@ test("My Dashboard tasks are a table: status changes in place, the row opens the
   const due = businessTimeToUtc(addLocalDays(today(), 3), "14:30").toISOString();
   const [taskId] = await seedTasks([{ title: "Fold napkins", assigneeIds: [admin.id], dueAt: due }]);
   await page.goto("/#/tasks");
-  const upcoming = page.getByRole("region", { name: "Upcoming" });
-  const row = upcoming.getByRole("row", { name: /Fold napkins/ });
-  await expect(upcoming.getByRole("columnheader", { name: "Due" })).toBeVisible();
-  // Columns: Task, Event, Due, Assignee, Status, Type, actions.
-  const assignee = (r: typeof row) => r.getByRole("cell").nth(3);
+  // My Tasks is one task table (FLOW-345).
+  const mine = page.getByRole("region", { name: "My Tasks" });
+  const row = mine.getByRole("row", { name: /Fold napkins/ });
+  await expect(mine.getByRole("columnheader", { name: "Due" })).toBeVisible();
+  const headers = (await mine.locator("thead th").allTextContents()).map((text) => text.replace(/[↑↓]/g, "").trim());
+  const assignee = (r: typeof row) => r.getByRole("cell").nth(headers.indexOf("Assignee"));
   await expect(assignee(row)).not.toHaveText("Unassigned");
   // The due date with its time beneath it (FLOW-296 AC2).
   await expect(row.locator(".date-time-cell__time")).toHaveText("14:30");
@@ -57,7 +58,7 @@ test("My Dashboard tasks are a table: status changes in place, the row opens the
   expect((await saved).ok()).toBeTruthy();
   await expect(page).toHaveURL(/#\/tasks$/);
 
-  await assignee(upcoming.getByRole("row", { name: /Fold napkins/ })).click();
+  await mine.getByRole("row", { name: /Fold napkins/ }).getByRole("cell").nth(headers.indexOf("Type")).click();
   await expect(page).toHaveURL(new RegExp(`#/tasks/${taskId}$`));
 });
 

@@ -71,7 +71,7 @@ export function SalesTracker() {
     {error && <p role="alert">{error}</p>}
     <PageGrid pageKey="sales.tracker">
     <Block id="actions" name="Reports and export" h={3}>
-    <div className="sales-actions"><Link to="/sales/reports"><T id="sales.sales-tracker.sales-reports">Sales reports</T></Link><Button onClick={() => download("sales-tracker.csv", salesCsv(rows))}><T id="sales.sales-tracker.export-csv">Export CSV</T></Button></div>
+    <div className="sales-actions"><Link to="/sales/analytics?view=reports"><T id="sales.sales-tracker.sales-reports">Sales reports</T></Link><Button onClick={() => download("sales-tracker.csv", salesCsv(rows))}><T id="sales.sales-tracker.export-csv">Export CSV</T></Button></div>
     </Block>
     <Block id="filters" name="Filters" h={5}>
     <div className="sales-filters" aria-label="Sales tracker filters">
@@ -156,7 +156,7 @@ export function SalesReports() {
   return <><PageHeader pageKey="sales.reports" title={<T id="sales.sales-reports.sales-reports">Sales reports</T>} subtitle={<T id="sales.sales-reports.pipeline-booked-events-and-win">Pipeline, booked events and win rates</T>} />
     <PageGrid pageKey="sales.reports">
     <Block id="actions" name="Dates and export" h={4}>
-    <p><Link to="/sales"><T id="sales.sales-reports.sales-tracker">← Sales tracker</T></Link></p>
+    <p><Link to="/sales/analytics"><T id="sales.sales-reports.sales-tracker">← Sales tracker</T></Link></p>
     <div className="sales-actions"><label><T id="sales.sales-reports.from">{"From "}</T><input aria-label="Report from" type="date" value={from} onChange={(event) => { setFrom(event.target.value); if (to && event.target.value > to) setTo(""); }} /></label><label><T id="sales.sales-reports.to">{"To "}</T><input aria-label="Report to" type="date" value={to} onChange={(event) => { setTo(event.target.value); if (from && event.target.value < from) setFrom(""); }} /></label><Button onClick={() => download("sales-reports.csv", csv)}><T id="sales.sales-reports.export-csv">Export CSV</T></Button></div>
     </Block>
     <Block id="pipeline" name="Pipeline by proposal stage" h={10} w={6}>

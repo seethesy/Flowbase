@@ -103,13 +103,14 @@ test("task list edits a title inline and keeps its record link", async ({ page }
   const drawer = page.getByRole("dialog");
   await drawer.getByLabel("Title").fill("Pack crates");
   await drawer.getByRole("button", { name: "Add task" }).click();
-  const row = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Pack crates" });
-  await row.getByRole("button", { name: "Edit" }).click();
-  await row.getByRole("textbox", { name: "Edit Pack crates" }).fill("Pack checked crates");
+  // All tasks is the task table (FLOW-345): Rename edits the title in place.
+  const row = page.getByRole("region", { name: "Tasks" }).getByRole("row", { name: /Pack crates/ });
+  await row.getByRole("button", { name: "Rename Pack crates" }).click();
+  await page.getByRole("textbox", { name: "Edit Pack crates" }).fill("Pack checked crates");
   const saved = page.waitForResponse((response) =>
     response.url().includes("/api/tasks/") && response.request().method() === "PATCH",
   );
-  await row.getByRole("textbox", { name: "Edit Pack crates" }).press("Enter");
+  await page.getByRole("textbox", { name: "Edit Pack crates" }).press("Enter");
   expect((await saved).ok()).toBeTruthy();
   await expect(page.getByRole("link", { name: "Pack checked crates" })).toBeVisible();
   await page.reload();
@@ -212,19 +213,18 @@ test("All tasks saves a task's priority and position in place", async ({ page })
   await drawer.getByLabel("Title").fill("Stack chairs");
   await drawer.getByRole("button", { name: "Add task" }).click();
   await expect(drawer).toHaveCount(0);
-  const row = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Stack chairs" });
-  await pickInline(page, row.getByTitle("Priority"), "High", "/api/tasks/");
+  // All tasks is the task table (FLOW-345): Priority and Position edit in place.
+  await pickInline(page, (await cellOf(page, /Stack chairs/, "Priority")).getByRole("button"), "High", "/api/tasks/");
   const saved = page.waitForResponse((response) =>
     response.url().includes("/api/tasks/") && response.request().method() === "PATCH",
   );
-  await row.getByTitle("Position").click();
-  await row.getByRole("textbox", { name: "Position" }).fill("Server");
-  await row.getByRole("textbox", { name: "Position" }).press("Enter");
+  await (await cellOf(page, /Stack chairs/, "Position")).getByRole("button").click();
+  await page.locator("tbody tr input.table-edit-input").fill("Server");
+  await page.locator("tbody tr input.table-edit-input").press("Enter");
   expect((await saved).ok()).toBeTruthy();
   await page.reload();
-  const reloaded = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Stack chairs" });
-  await expect(reloaded.getByTitle("Priority")).toHaveText("High");
-  await expect(reloaded.getByTitle("Position")).toHaveText("Server");
+  await expect(await cellOf(page, /Stack chairs/, "Priority")).toHaveText("High");
+  await expect(await cellOf(page, /Stack chairs/, "Position")).toHaveText("Server");
 });
 
 test("the Sales tracker renames a proposal in place and the name persists", async ({ page }) => {
@@ -233,7 +233,8 @@ test("the Sales tracker renames a proposal in place and the name persists", asyn
   await browserDb(async (db) => {
     await db.insert(proposals).values({ id: proposalId, eventId: fallGala().id, clientId: juniper().id, title: "Gala proposal", notes: "Keep these notes" });
   });
-  await page.goto("/#/sales");
+  // The Sales tracker is under Sales › Analytics (FLOW-340).
+  await page.goto("/#/sales/analytics");
   const row = page.getByRole("row", { name: /Gala proposal/ });
   await row.getByTitle("Proposal title").click();
   await row.getByRole("textbox", { name: "Proposal title" }).fill("Gala proposal v2");

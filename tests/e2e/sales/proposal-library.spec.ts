@@ -8,7 +8,7 @@ import { DOCX_TYPE, PDF_TYPE } from "../../../shared/proposals";
 
 // The Proposals library (FLOW-276) as the seeded Admin on the real Worker and
 // database: one file per event, labels, views, links, rename, search and filter,
-// and the Sales tracker's new home at /sales.
+// and the Sales tracker's home under Sales › Analytics (FLOW-340).
 
 const gala = { proposal: "f0000000-0000-4000-8000-000000000276", v1: "a0000000-0000-4000-8000-000000002761", v2: "a0000000-0000-4000-8000-000000002762" };
 const brunch = { event: "e0000000-0000-4000-8000-000000000276", proposal: "f0000000-0000-4000-8000-000000000277", v1: "a0000000-0000-4000-8000-000000002771" };
@@ -98,15 +98,26 @@ test("switches between list and grid views and remembers the choice", async ({ p
   await expect(page.getByRole("table", { name: "Proposal files" })).toBeVisible();
 });
 
-test("the Sales tracker lives at /sales and its tab opens it", async ({ page }) => {
+test("the Sales tracker and its reports are Sales › Analytics", async ({ page }) => {
   await seedLibrary();
-  // Proposals sit under Leads since FLOW-328; the tracker stays under Sales.
+  // Proposals sit under Leads since FLOW-328; the tracker stays under Sales, on
+  // the Analytics tab with the reports (FLOW-340).
   await page.goto("/#/sales/overview");
-  await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Sales tracker" }).click();
-  await expect(page).toHaveURL(/#\/sales$/);
+  await page.getByRole("navigation", { name: "Sales pages" }).getByRole("link", { name: "Analytics" }).click();
+  await expect(page).toHaveURL(/#\/sales\/analytics$/);
   await expect(page.getByRole("heading", { name: "Sales tracker", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Sales reports" }).click();
-  await expect(page.getByRole("heading", { name: "Sales reports" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Sales tracker" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Sales reports" }).click();
+  await expect(page).toHaveURL(/#\/sales\/analytics\?view=reports$/);
+  await expect(page.getByRole("heading", { name: "Sales reports", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "← Sales tracker" }).click();
-  await expect(page).toHaveURL(/#\/sales$/);
+  await expect(page).toHaveURL(/#\/sales\/analytics$/);
+  await page.getByRole("link", { name: "Sales reports" }).click();
+  await expect(page.getByRole("heading", { name: "Sales reports", exact: true })).toBeVisible();
+  // The old addresses open the tab on the matching view (AC5).
+  await page.goto("/#/sales");
+  await expect(page).toHaveURL(/#\/sales\/analytics$/);
+  await page.goto("/#/sales/reports");
+  await expect(page).toHaveURL(/#\/sales\/analytics\?view=reports$/);
+  await expect(page.getByRole("heading", { name: "Sales reports", exact: true })).toBeVisible();
 });

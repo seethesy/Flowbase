@@ -15,7 +15,7 @@ import {
   type TaskUpdate,
   type TaskViewInput,
 } from "../../shared/tasks";
-import { request, requestPage } from "./core";
+import { request, requestOrNone, requestPage } from "./core";
 
 // Tasks (FLOW-58). Every write answers with the whole task. The dashboard
 // (FLOW-61), saved views (FLOW-59) and templates (FLOW-62) live under it too.
@@ -40,7 +40,8 @@ export const tasksApi = {
     request(taskSchema, task(id), "PATCH", input),
   claim: (id: string, input: ClaimInput = {}) =>
     request(taskSchema, task(id, "claim"), "POST", input),
-  drop: (id: string) => request(taskSchema, task(id, "drop"), "POST", {}),
+  // Null when, once dropped, the caller can no longer see the task (FLOW-346).
+  drop: (id: string) => requestOrNone(taskSchema, task(id, "drop"), "POST", {}),
   assignments: (id: string) => request(taskAssignmentSchema.array(), task(id, "assignments")),
   setArchived: (id: string, archived: boolean) => request(z.object({ id: z.string(), archived: z.boolean() }),
     task(id, archived ? "archive" : "restore"), "POST", {}),

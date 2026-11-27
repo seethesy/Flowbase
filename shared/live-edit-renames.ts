@@ -58,6 +58,22 @@ export const liveEditRenames: LiveEditRenames = {
     copy: [
       // FLOW-342: Reports became the Sales Time Tracking tab.
       "nav.reports",
+      // FLOW-340: Clients and Venues became Sales › Network, the Sales tracker
+      // and its reports Sales › Analytics.
+      "nav.clients",
+      "nav.venues",
+      "nav.sales-tracker",
+      "nav.sales-reports",
+      // FLOW-345: the Tasks subtab's four tables replace My tasks' Overdue / Due
+      // today / Upcoming groups and the bulk Mark done; FLOW-346: the task page's
+      // Pick up / Drop are the tables' buttons.
+      "task-lists.dashboard-table.mark-selected-done",
+      "task-lists.task-dashboard-page.nothing-coming-up",
+      "task-lists.task-dashboard-page.nothing-else-due-today",
+      "task-lists.task-dashboard-page.nothing-overdue",
+      "task-lists.task-dashboard-page.tasks-i-manage",
+      "tasks.task-detail.drop",
+      "tasks.task-detail.pick-up",
       "nav.operational-reports",
       "tasks.task-detail.assign-to-me",
       // FLOW-350: the event page's Status card; the status changes in the

@@ -1,7 +1,7 @@
 import { LayoutHeader, PageSubtitle, useLayoutBlockId } from "../../app/live-edit/layout-deletion";
 import { isValidElement } from "react";
 import { Dropdown } from "../ui/Dropdown";
-import { lazy, Suspense, useContext, useId, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useContext, useId, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
 
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -134,7 +134,7 @@ export function EditableCell<Row>({
     {error && <span className="table-edit-error" role="alert">{error}</span>}
   </>;
   if (edit === "select" && multiple) return <div className="table-edit-multiple">
-    <Dropdown multiple autoFocus openOnMount value={draft ? draft.split(",") : []} variant="field" aria-label={label}
+    <Dropdown multiple checkboxes searchable autoFocus openOnMount value={draft ? draft.split(",") : []} variant="field" aria-label={label}
       options={options ?? []} onValueChange={(next) => setDraft(next.join(","))} />
     <button type="button" onClick={() => void commit()}><T id="shared.data-table.save">Save</T></button>
     <button type="button" onClick={() => { setEditing(false); setDraft(shown); }}><T id="shared.data-table.cancel">Cancel</T></button>
@@ -375,7 +375,14 @@ type DataTableProps<Row> = {
   // passes it only to users who can edit the records).
   selection?: TableSelection<Row>;
   openColumn?: boolean;
+  // Extra classes for a row, e.g. the task tables' overdue and done colors (FLOW-345).
+  rowClassName?: (row: Row) => string | undefined;
 };
+// A row's own Delete button (FLOW-345): deletes through the table's selection
+// onDelete, with the same Undo toast and Ctrl/Cmd+Z as the bulk bar (FLOW-260).
+// Null outside a table, or when the table has no onDelete.
+const TableRemoveContext = createContext<((ids: string[]) => Promise<void>) | null>(null);
+export const useTableRemove = () => useContext(TableRemoveContext);
 export function DataTable<Row>(props: DataTableProps<Row>) {
   const layout = usePageLayoutContext();
   const tableKey = props.tableKey ?? props.copyKey ?? "shared.data-table";
@@ -435,6 +442,7 @@ function DataTableView<Row>({
   copyKey = "shared.data-table",
   editor = null,
   onResize,
+  rowClassName,
 }: DataTableProps<Row> & {
   editor?: ReactNode;
   // Edit mode only (FLOW-273): a drag handle on each header sets that column's width.
@@ -502,6 +510,7 @@ function DataTableView<Row>({
           </Button>}
         </div>
       )}
+      <TableRemoveContext.Provider value={selection?.onDelete ? selecting.remove : null}>
       <div className="table-scroll">
         <table>
           <thead>
@@ -543,7 +552,7 @@ function DataTableView<Row>({
                 /* FLOW-296: a click anywhere on the row opens it, except on a
                    control in a cell (or in a dropdown menu it opened). */
                 {...(onRow ? rowOpenProps(() => onRow(row.original)) : {})}
-                className={[selecting.rowProps(index).className, onRow ? "table-row-openable" : ""].filter(Boolean).join(" ") || undefined}
+                className={[selecting.rowProps(index).className, onRow ? "table-row-openable" : "", rowClassName?.(row.original) ?? ""].filter(Boolean).join(" ") || undefined}
               >
                 {row.getVisibleCells().map((cell, i) => (
                   <td key={cell.id}>
@@ -580,6 +589,7 @@ function DataTableView<Row>({
           </tbody>
         </table>
       </div>
+      </TableRemoveContext.Provider>
       {!data.length && <EmptyState />}
       {selecting.toast}
       <div className="pagination">

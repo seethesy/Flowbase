@@ -68,10 +68,14 @@ export const navigationGroups: NavGroup[] = [
     copyId: "sales",
     name: "Sales",
     tabs: withOverview("sales", "/sales/overview", [
-      { copyId: "clients", name: "Clients", to: "/clients", visible: "clients.read" },
-      // The Sales tracker moved off /proposals (FLOW-276); its reports sit below it.
-      { copyId: "sales-tracker", name: "Sales tracker", to: "/sales", visible: "proposals.read" },
-      { copyId: "venues", name: "Venues", to: "/venues", visible: "venues.read" },
+      // FLOW-340: Overview, Past Events, Network, Analytics, Pricing, Time
+      // Tracking. Network holds the Clients and Venues tables (their record
+      // pages sit under it), Analytics the Sales tracker and its reports. Who
+      // had Clients, Venues or the tracker hidden moved with them (migration 0090).
+      { copyId: "past-events", name: "Past Events", to: "/sales/past-events", visible: "events.read" },
+      { copyId: "network", name: "Network", to: "/sales/network", also: ["/clients", "/venues"],
+        visible: (actor) => can(actor, "clients.read") || can(actor, "venues.read") },
+      { copyId: "analytics", name: "Analytics", to: "/sales/analytics", visible: "proposals.read" },
       // The price list salespeople quote from (FLOW-329).
       { copyId: "pricing", name: "Pricing", to: "/sales/pricing", visible: "proposals.read" },
       { copyId: "time-tracking", name: "Time Tracking", to: "/sales/time-tracking", visible: (actor) => can(actor, "time.read") || can(actor, "reports.operations.read") },
@@ -131,11 +135,23 @@ export const navigationGroups: NavGroup[] = [
       { copyId: "photos", name: "Photos", to: "/kitchen/photos", visible: "recipes.read" },
     ],
   },
-  // Marketing › Photos (FLOW-271) keeps the old Marketing tab's URL.
+  // Marketing › Photos (FLOW-271) keeps the old Marketing tab's URL. The working
+  // areas before it (FLOW-341) are pages with their own page keys
+  // (marketing.<copyId>, heading-overview.tsx): Socials to SEO start with a
+  // shared Notes card, Website and Analytics empty.
   {
     copyId: "marketing",
     name: "Marketing",
-    tabs: withOverview("marketing", "/marketing/overview", [{ copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" }]),
+    tabs: withOverview("marketing", "/marketing/overview", [
+      { copyId: "socials", name: "Socials", to: "/marketing/socials", visible: "marketing.read" },
+      { copyId: "movies", name: "Movies", to: "/marketing/movies", visible: "marketing.read" },
+      { copyId: "other-events", name: "Other Events", to: "/marketing/other-events", visible: "marketing.read" },
+      { copyId: "seo", name: "SEO", to: "/marketing/seo", visible: "marketing.read" },
+      { copyId: "website", name: "Website", to: "/marketing/website", visible: "marketing.read" },
+      { copyId: "photos", name: "Photos", to: "/marketing", visible: "marketing.read" },
+      // The same page as Sales › Analytics › Marketing analytics (FLOW-341 A1).
+      { copyId: "analytics", name: "Analytics", to: "/marketing/analytics", visible: "marketing.read" },
+    ]),
   },
   {
     copyId: "documents",
@@ -163,7 +179,6 @@ const subPages: Record<string, NavLabel> = {
   "/tasks/all": { copyId: "all-tasks", label: "All tasks" },
   "/tasks/templates": { copyId: "templates", label: "Templates" },
   "/sops/new": { copyId: "new-sop", label: "New SOP" },
-  "/sales/reports": { copyId: "sales-reports", label: "Sales reports" },
   "/inventory/orders": { copyId: "order-lists", label: "Order lists" },
   "/settings/locations": { copyId: "locations", label: "Locations" },
   "/settings/imports": { copyId: "imports", label: "Imports" },

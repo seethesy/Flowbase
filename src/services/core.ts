@@ -16,6 +16,7 @@ import {
   venueSchema,
   type ClientInput,
   type EventInput,
+  type EventPeriod,
   type EventStatus,
   type EventTransitionInput,
   type VenueInput,
@@ -108,6 +109,18 @@ export async function request<S extends z.ZodType>(
   return schema.parse((await send(path, method, body)).json);
 }
 
+// A write that may answer 204 No Content instead of a body (e.g. dropping a
+// task the caller can no longer see, FLOW-346): null then.
+export async function requestOrNone<S extends z.ZodType>(
+  schema: S,
+  path: string,
+  method = "GET",
+  body?: unknown,
+): Promise<z.output<S> | null> {
+  const { json, response } = await send(path, method, body);
+  return response.status === 204 ? null : schema.parse(json);
+}
+
 // One page of a list (FLOW-179): the rows, and the cursor for the next page when
 // the API says more rows exist.
 export type Page<T> = { rows: T[]; next: string | null };
@@ -196,6 +209,8 @@ export const eventsApi = {
       to?: string;
       search?: string;
       statuses?: EventStatus[];
+      // Sales › Past Events (FLOW-340): before today, Past or Lost, newest first.
+      period?: EventPeriod;
     } = {},
     cursor?: string,
   ) => {

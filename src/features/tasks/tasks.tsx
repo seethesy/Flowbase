@@ -18,6 +18,7 @@ import { staffApi } from "../../services/staff";
 import { tasksApi } from "../../services/tasks";
 import { sopsApi } from "../../services/sops";
 import { Attachments } from "../common/attachments";
+import { ClaimButton } from "./task-table";
 import { dateTimeLabel } from "../inventory/inventory-labels";
 import "./tasks.css";
 import { RoundCheck } from "../../components/ui/round-check";
@@ -43,9 +44,12 @@ function AssignmentHistory({ id }: { id: string }) {
   const history = useResource(["tasks", id, "assignments"], () => tasksApi.assignments(id));
   if (history.error) return <ErrorText message={history.error} />;
   if (!history.data) return <LoadingSkeleton />;
-  return <ul>{history.data.map((entry) => <li key={entry.id}>
+  // Newest first (FLOW-346).
+  const entries = [...history.data].sort((a, b) => b.at.localeCompare(a.at));
+  if (!entries.length) return <p className="task-empty"><T id="tasks.task-detail.no-assignments-yet">Nobody has been assigned yet.</T></p>;
+  return <ul className="task-history" aria-label="Assignment history">{entries.map((entry) => <li key={entry.id}>
     {entry.user.name} · {entry.action === "added" ? <T id="tasks.task-detail.assigned">Assigned</T> : <T id="tasks.task-detail.removed">Removed</T>}
-    {entry.actor && <> · {entry.actor.name}</>} · {dateTimeLabel(entry.at)}
+    {entry.actor && <> · <T id="tasks.task-detail.history-by" values={{ name: entry.actor.name }}>{"by {name}"}</T></>} · {dateTimeLabel(entry.at)}
   </li>)}</ul>;
 }
 
@@ -92,7 +96,7 @@ export function TaskDetail() {
   const writeACommentPlaceholder = useCopy("tasks.task-detail.write-a-comment.placeholder", "Write a comment");
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { actor, can } = usePermissions();
+  const { actor } = usePermissions();
   const task = useResource(["tasks", id], () => tasksApi.get(id));
   const sops = useResource(["sops", "options"], () => sopsApi.list(), { reference: true });
   const [error, setError] = useState("");
@@ -100,12 +104,27 @@ export function TaskDetail() {
   const [item, setItem] = useState("");
   const [comment, setComment] = useState("");
   const [archived, setArchived] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   if (task.error) return <ErrorText message={task.error} />;
   if (!task.data) return <LoadingSkeleton />;
   const data = task.data;
-  if (archived) return <><p role="status"><T id="tasks.task-detail.deleted">Task deleted.</T></p>
-    <Button onClick={async () => { try { await tasksApi.setArchived(id, false); setArchived(false); task.reload(); } catch (cause) { setError((cause as Error).message); } }}>
-      <T id="tasks.task-detail.undo">Undo</T></Button><ErrorText message={error} /></>;
+  // After Delete (FLOW-346): Undo, or back to the Tasks subtab.
+  if (archived) return <>
+    <PageHeader pageKey="tasks.detail" eyebrow={<T id="tasks.task-detail.task">Task</T>} title={data.title} />
+    <PageGrid pageKey="tasks.detail" record={{ source: "tasks", id, row: data as unknown as Record<string, unknown> }}>
+      <Block id="details" name="Task details" h={14}>
+        <section className="panel task-deleted">
+          <p role="status"><T id="tasks.task-detail.deleted">Task deleted.</T></p>
+          <div className="task-line-actions">
+            <Button onClick={async () => { try { await tasksApi.setArchived(id, false); setArchived(false); task.reload(); } catch (cause) { setError((cause as Error).message); } }}>
+              <T id="tasks.task-detail.undo">Undo</T></Button>
+            <Button asChild variant="outline"><Link to="/tasks"><T id="tasks.task-detail.back-to-tasks">Back to Tasks</T></Link></Button>
+          </div>
+          <ErrorText message={error} />
+        </section>
+      </Block>
+    </PageGrid>
+  </>;
   const act = async (change: () => Promise<Task>, after?: () => void) => {
     setBusy(true);
     setError("");
@@ -137,9 +156,7 @@ export function TaskDetail() {
         eyebrow={<T id="tasks.task-detail.task">Task</T>}
         title={data.title}
         subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: <LabelT id="labels.task-type" value={data.type}>{taskTypeLabels[data.type]}</LabelT>, taskPriorityLabels: <LabelT id="labels.task-priority" value={data.priority}>{taskPriorityLabels[data.priority]}</LabelT> }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}
-      >{data.canManage && <Button variant="outline" disabled={busy} onClick={async () => {
-        try { await tasksApi.setArchived(id, true); setArchived(true); } catch (cause) { setError((cause as Error).message); }
-      }}><T id="tasks.task-detail.delete">Delete</T></Button>}</PageHeader>
+      />
       <ErrorText message={error} />
       <PageGrid pageKey="tasks.detail" record={{ source: "tasks", id, row: data as unknown as Record<string, unknown> }}>
       <Block id="details" name="Task details" h={14}>
@@ -162,25 +179,9 @@ export function TaskDetail() {
               ))}
             </Dropdown>
           </FormField>
-          {actor &&
-            data.status !== "done" &&
-            !data.assignees.some((person) => person.id === actor.userId) &&
-            can("tasks.write") && (
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  void act(() =>
-                    tasksApi.claim(id),
-                  )
-                }
-              >
-                <T id="tasks.task-detail.pick-up">Pick up</T>
-              </Button>
-            )}
-          {actor && data.assignees.some((person) => person.id === actor.userId) &&
-            <Button variant="outline" disabled={busy} onClick={() => void act(() => tasksApi.drop(id))}>
-              <T id="tasks.task-detail.drop">Drop</T></Button>}
+          {/* Pick up / Drop, as on the task tables (FLOW-346). */}
+          <ClaimButton task={data} busy={busy} onDone={(next) => task.replace(next)}
+            onGone={() => navigate("/tasks", { replace: true })} onError={setError} />
           <dl>
             <dt><T id="tasks.task-detail.due">Due</T></dt>
             <dd>{data.dueAt ? dateTimeLabel(data.dueAt) : "—"}</dd>
@@ -312,6 +313,22 @@ export function TaskDetail() {
       </Block>
       <Block id="attachments" name="Task attachments" h={8}><Attachments recordType="task" recordId={id} /></Block>
       </PageGrid>
+      {/* Delete task, always at the bottom of the page (FLOW-345 A1), for whoever
+          manages the task; it asks first, then offers Undo. */}
+      {data.canManage && (
+        <div className="task-delete-footer">
+          {confirming
+            ? <span className="task-confirm" role="group" aria-label="Delete this task?">
+              <T id="tasks.task-detail.delete-confirm">Delete this task?</T>
+              <Button variant="destructive" disabled={busy} onClick={async () => {
+                setConfirming(false);
+                try { await tasksApi.setArchived(id, true); setArchived(true); } catch (cause) { setError((cause as Error).message); }
+              }}><T id="tasks.task-detail.delete-yes">Delete</T></Button>
+              <Button variant="outline" onClick={() => setConfirming(false)}><T id="tasks.task-detail.delete-cancel">Cancel</T></Button>
+            </span>
+            : <Button variant="destructive" disabled={busy} onClick={() => setConfirming(true)}><T id="tasks.task-detail.delete">Delete task</T></Button>}
+        </div>
+      )}
     </>
   );
 }

@@ -260,6 +260,12 @@ describe("FLOW-59 communal task list", () => {
     expect(history.at(-1)?.actor?.id).toBe(people.casey);
   });
 
+  it("FLOW-346: Drop answers 204 when the caller can no longer see the task, and still drops", async () => {
+    const task = await newTask({ title: "Wipe tables", assigneeIds: [people.pat, people.casey] });
+    expect((await pat.call("POST", `/api/tasks/${task.id}/drop`, {})).status).toBe(204);
+    expect((await admin.send<Task>("GET", `/api/tasks/${task.id}`)).assignees.map((person) => person.id)).toEqual([people.casey]);
+  });
+
   it("AC2: refuses claims on done tasks and tasks the user can't see; no overseer, nobody told", async () => {
     const done = await newTask({ title: "Done already", status: "done" });
     expect((await casey.call("POST", `/api/tasks/${done.id}/claim`, {})).status).toBe(409);

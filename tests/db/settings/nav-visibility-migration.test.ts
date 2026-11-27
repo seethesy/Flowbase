@@ -7,7 +7,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 
 // FLOW-328 AC4: Sales › Leads and Sales › Proposals moved to the new Leads
-// heading, and each role keeps what the Admin hid (FLOW-284).
+// heading, and each role keeps what the Admin hid (FLOW-284). Later moves
+// (FLOW-339/342, FLOW-340) run in the same upgrade.
 it("moves each role's hidden Sales tabs to the Leads heading", async () => {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL must point to disposable CI Postgres.");
@@ -33,21 +34,22 @@ it("moves each role's hidden Sales tabs to the Leads heading", async () => {
     await migrate(db, { migrationsFolder: folder });
 
     await client`insert into role_nav_hidden (role, hidden) values
-      ('salesperson', '["sales.proposals"]'::jsonb),
+      ('salesperson', '["sales.proposals", "sales.sales-tracker"]'::jsonb),
       ('staff', '["reports", "sales"]'::jsonb),
       ('kitchen_lead', '["sales.leads", "sales.venues"]'::jsonb),
       ('technical', '["events.beos"]'::jsonb),
       ('sales_manager', '["reports.time-tracking", "reports.operational-reports"]'::jsonb),
-      ('part_time_staff', '["reports.time-tracking"]'::jsonb)`;
+      ('part_time_staff', '["reports.time-tracking", "sales.clients"]'::jsonb)`;
 
     await migrate(db, { migrationsFolder: "drizzle" });
 
     const rows = await client<{ role: string; hidden: string[] }[]>`select role, hidden from role_nav_hidden order by role`;
     expect(Object.fromEntries(rows.map((row) => [row.role, row.hidden]))).toEqual({
-      kitchen_lead: ["leads.overview", "sales.venues"],
-      part_time_staff: [],
+      // FLOW-340: Clients and Venues became Network, the Sales tracker Analytics.
+      kitchen_lead: ["leads.overview", "sales.network"],
+      part_time_staff: ["sales.network"],
       sales_manager: ["sales.time-tracking"],
-      salesperson: ["leads.proposals"],
+      salesperson: ["leads.proposals", "sales.analytics"],
       // The whole Sales heading was hidden, so the new Leads heading is too.
       staff: ["leads", "sales", "sales.time-tracking"],
       technical: ["leads.beos"],

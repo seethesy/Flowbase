@@ -3,6 +3,7 @@ import {
   clientCreateSchema,
   clientInputSchema,
   eventInputSchema,
+  eventPeriodSchema,
   eventStatusSchema,
   eventTransitionSchema,
   venueInputSchema,
@@ -151,6 +152,7 @@ export function recordRoutes(options: {
       from: queryParam(c, "from"),
       to: queryParam(c, "to"),
       search: queryParam(c, "search"),
+      period: eventPeriodSchema.safeParse(c.req.query("period")).data,
       // ?status=a,b: events in any of these statuses; unknown values are ignored.
       statuses: (c.req.query("status") ?? "")
         .split(",")

@@ -18,8 +18,7 @@ function mount(path = "/", role: Role = "admin") {
             <Route path="/" element={<p>Home content</p>} />
             <Route path="/sales/overview" element={<p>Sales overview screen</p>} />
             <Route path="/leads" element={<p>Leads screen</p>} />
-            <Route path="/clients" element={<p>Clients screen</p>} />
-            <Route path="/venues" element={<p>Venues screen</p>} />
+            <Route path="/sales/network" element={<p>Network screen</p>} />
             <Route path="/events/overview" element={<p>Events overview screen</p>} />
             <Route path="/beos" element={<p>BEOs screen</p>} />
             <Route path="/profile" element={<p>Profile screen</p>} />
@@ -50,10 +49,11 @@ it("opens a heading's first tab and shows its sub-pages as tabs", async () => {
   await user.click(within(mainNav()).getByRole("link", { name: "Sales" }));
   expect(screen.getByText("Sales overview screen")).toBeInTheDocument();
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Past Events", "Network", "Analytics", "Pricing", "Time Tracking"]);
   expect(within(tabs).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
-  await user.click(within(tabs).getByRole("link", { name: "Clients" }));
-  expect(screen.getByText("Clients screen")).toBeInTheDocument();
+  // FLOW-340: Clients and Venues are Sales › Network.
+  await user.click(within(tabs).getByRole("link", { name: "Network" }));
+  expect(screen.getByText("Network screen")).toBeInTheDocument();
   // The heading stays highlighted on every tab.
   expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveClass("active");
 });
@@ -73,9 +73,9 @@ it("opens Events on its Overview and BEO under Leads (FLOW-339)", async () => {
 });
 
 it("hides tabs the role can't open", () => {
-  mount("/venues", "staff");
+  mount("/sales/network", "staff");
   const tabs = screen.getByRole("navigation", { name: "Sales pages" });
-  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Venues", "Time Tracking"]);
+  expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Past Events", "Network", "Time Tracking"]);
   expect(within(mainNav()).getByRole("link", { name: "Sales" })).toHaveAttribute("href", "/sales/overview");
 });
 
@@ -125,11 +125,11 @@ it("closes the profile menu on an outside click, Escape and navigation", async (
 });
 
 it("links every breadcrumb segment but the last", () => {
-  mount("/clients");
+  mount("/sales/network");
   const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(within(crumbs).getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
     ["Workspace", "/"],
     ["Sales", "/sales/overview"],
   ]);
-  expect(within(crumbs).getByText("Clients")).toHaveAttribute("aria-current", "page");
+  expect(within(crumbs).getByText("Network")).toHaveAttribute("aria-current", "page");
 });

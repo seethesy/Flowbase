@@ -26,7 +26,8 @@ test("saves a sidebar label and an empty state for everyone (AC2, AC8)", async (
   await startEditing(page);
   // A click on text inside a link edits it and does not navigate (AC8).
   await (await openNav(page, isMobile)).getByText("Sales", { exact: true }).click();
-  await expect(page).toHaveURL(/#\/venues$/);
+  // /venues opens Sales › Network on its Venues view (FLOW-340).
+  await expect(page).toHaveURL(/#\/sales\/network\?view=venues$/);
   await editor(page).getByRole("textbox", { name: "Text" }).fill("Selling");
   await editor(page).getByRole("button", { name: "Done" }).click();
   await expect(sidebar(page).getByText("Selling", { exact: true })).toBeVisible();
@@ -76,7 +77,8 @@ test("asks Save, Discard or Stay before leaving with unsaved edits (AC4)", async
   await go("Events");
   await prompt.getByRole("button", { name: "Stay" }).click();
   await expect(prompt).toBeHidden();
-  await expect(page).toHaveURL(/#\/venues$/);
+  // /venues opens Sales › Network on its Venues view (FLOW-340).
+  await expect(page).toHaveURL(/#\/sales\/network\?view=venues$/);
   await closeNav(page, isMobile);
   await expect(page.getByText("Nothing yet")).toBeVisible();
 

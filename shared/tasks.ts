@@ -146,6 +146,28 @@ export function dueBucket(dueAt: string | null, now: Date): TaskDueBucket {
   return due < tomorrow.getTime() ? "today" : "upcoming";
 }
 
+// How a task row looks in the task tables (FLOW-345): done (pastel green, title
+// struck through) wins over overdue (pastel red) and due today (pastel yellow).
+export type TaskRowState = "done" | "overdue" | "today" | null;
+export function taskRowState(task: { status: TaskStatus; dueAt: string | null }, now: Date): TaskRowState {
+  if (task.status === "done") return "done";
+  const bucket = dueBucket(task.dueAt, now);
+  return bucket === "upcoming" ? null : bucket;
+}
+
+// The task tables' and task page's Pick up / Drop button (FLOW-345/346): an
+// assignee may drop an open task; anyone else who may write tasks picks it up
+// (joining the other assignees, FLOW-344). A done task offers neither.
+export function claimButton(
+  task: { status: TaskStatus; assignees: { id: string }[] },
+  userId: string | null,
+  mayWrite: boolean,
+): "pick-up" | "drop" | null {
+  if (!userId || task.status === "done") return null;
+  if (task.assignees.some((person) => person.id === userId)) return "drop";
+  return mayWrite ? "pick-up" : null;
+}
+
 // GET /api/tasks filters. Every given filter applies. Without mine=true this is
 // the communal list (FLOW-59); roles limited to their own tasks also see the open
 // unassigned ones (FLOW-272).
