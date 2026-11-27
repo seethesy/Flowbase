@@ -1,13 +1,14 @@
 import { LayoutHeader, PageSubtitle, useLayoutBlockId } from "../../app/live-edit/layout-deletion";
 import { isValidElement } from "react";
 import { Dropdown } from "../ui/Dropdown";
-import { lazy, Suspense, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
+import { lazy, Suspense, useId, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from "react";
 
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Search,
   X,
   ArrowUpDown,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -50,6 +51,7 @@ import { LabelT, Plural, T, useCopy } from "../../app/copy";
 import { roleLabel } from "../../services/users";
 import { copySlug } from "../../../shared/copy";
 import { usePageLayoutContext } from "../../app/live-edit/layout-context";
+import { useCardFold } from "./card-fold";
 export { Button };
 
 // List export (FLOW-48). A column's CSV value is its accessor's value unless meta.csv
@@ -856,25 +858,51 @@ export function RoleText({ role, id = "labels.role" }: { role: string; id?: stri
   return <LabelT id={id} value={role}>{roleLabel(role)}</LabelT>;
 }
 
+// A card with a title. `collapsible` adds the fold arrow at its top right
+// (FLOW-347): folded, only the title bar shows. `defaultOpen` is how it starts
+// until the person folds or unfolds it, which this device then remembers.
 export function Section({
   title,
   children,
   action,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: ReactNode;
   children: ReactNode;
   action?: ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
   const blockId = useLayoutBlockId();
   const titleProps = isValidElement<{ id?: string; children?: ReactNode }>(title) ? title.props : null;
   const label = typeof title === "string" ? title : typeof titleProps?.children === "string" ? titleProps.children : "Section";
   const headerKey = titleProps?.id ?? `${blockId ?? "section"}.${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "title"}`;
+  const { actor } = usePermissions();
+  const pageKey = usePageLayoutContext()?.pageKey ?? "page";
+  const [foldedState, toggle] = useCardFold({ userId: actor?.userId ?? null, pageKey, cardKey: headerKey, defaultOpen });
+  const folded = collapsible && foldedState;
+  const bodyId = useId();
+  const foldLabel = useCopy("shared.section.fold", "Fold {title}", { title: label });
+  const unfoldLabel = useCopy("shared.section.unfold", "Unfold {title}", { title: label });
+  const arrow = collapsible ? (
+    <button
+      type="button"
+      className="section-fold"
+      aria-expanded={!folded}
+      aria-controls={bodyId}
+      aria-label={folded ? unfoldLabel : foldLabel}
+      onClick={toggle}
+    >
+      {folded ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+    </button>
+  ) : null;
   return (
-    <section className="panel">
+    <section className={folded ? "panel panel--folded" : "panel"}>
       <LayoutHeader headerKey={headerKey} name={`${label} header`}>
-        <div className="section-heading"><h2>{title}</h2>{action}</div>
+        <div className="section-heading"><h2>{title}</h2>{collapsible ? <span className="section-heading-actions">{action}{arrow}</span> : action}</div>
       </LayoutHeader>
-      {children}
+      {collapsible ? <div id={bodyId} hidden={folded}>{children}</div> : children}
     </section>
   );
 }

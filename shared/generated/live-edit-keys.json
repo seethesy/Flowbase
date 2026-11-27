@@ -2481,6 +2481,12 @@
       "size"
     ],
     "shared.search-input.placeholder": [],
+    "shared.section.fold": [
+      "title"
+    ],
+    "shared.section.unfold": [
+      "title"
+    ],
     "shared.table-selection.clear": [],
     "shared.table-selection.delete": [],
     "shared.table-selection.deleted.one": [
