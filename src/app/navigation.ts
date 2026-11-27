@@ -71,7 +71,7 @@ export const navigationGroups: NavGroup[] = [
       // FLOW-340: Overview, Past Events, Network, Analytics, Pricing, Time
       // Tracking. Network holds the Clients and Venues tables (their record
       // pages sit under it), Analytics the Sales tracker and its reports. Who
-      // had Clients, Venues or the tracker hidden moved with them (migration 0089).
+      // had Clients, Venues or the tracker hidden moved with them (migration 0090).
       { copyId: "past-events", name: "Past Events", to: "/sales/past-events", visible: "events.read" },
       { copyId: "network", name: "Network", to: "/sales/network", also: ["/clients", "/venues"],
         visible: (actor) => can(actor, "clients.read") || can(actor, "venues.read") },
