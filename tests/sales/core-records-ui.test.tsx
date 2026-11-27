@@ -1,5 +1,5 @@
 import { TestAuth } from "../auth-provider";
-import { choose, optionTexts } from "../dropdown-helpers";
+import { choose } from "../dropdown-helpers";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -7,9 +7,8 @@ import type { ReactNode } from "react";
 import { expect, it, vi } from "vitest";
 import { ClientForm, ClientList } from "../../src/features/sales/clients";
 import { EventForm } from "../../src/features/events/event-form";
-import { EventList } from "../../src/features/events/event-list";
 import { VenueForm } from "../../src/features/sales/venues";
-import type { Client, FlowEvent, Venue } from "../../shared/core-records";
+import type { Client, Venue } from "../../shared/core-records";
 
 const requestId = "81449b27-3ebd-41b3-bdad-58f725d7f319";
 const now = "2026-10-22T09:00:00.000Z";
@@ -333,85 +332,6 @@ it("offers every status when creating an event, and none when editing it", async
   expect(
     within(screen.getByRole("dialog")).queryByLabelText("Status"),
   ).not.toBeInTheDocument();
-});
-
-it("shows distinct pipeline statuses and filters one stage at a time (FLOW-251)", async () => {
-  const flowEvent = (
-    n: number,
-    title: string,
-    status: FlowEvent["status"],
-  ): FlowEvent => ({
-    id: `6b1f4c3e-2d5a-4e7b-8c9d-0a1b2c3d4e5${n}`,
-    title,
-    date: "2026-11-14",
-    startTime: "18:00",
-    endTime: null,
-    startsAt: "2026-11-14T23:00:00.000Z",
-    endsAt: null,
-    client: { id: client().id, name: "Juniper & Co." },
-    pocContactId: null,
-    venue: null,
-    address: "",
-    areas: [],
-    eventType: "",
-    serviceType: "",
-    foodServiceStyle: "",
-    guestCount: null,
-    servingsCount: null,
-    assignedSalespersonId: null,
-    productionLeadId: null,
-    assistantLeadIds: [],
-    dressCode: "",
-    arrivalTime: null,
-    transportationNotes: "",
-    internalNotes: "",
-    status,
-    bookedAt: null,
-    planningStaleAt: null,
-    archivedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  });
-  const all = [
-    flowEvent(1, "Fall gala", "negotiation"),
-    flowEvent(2, "Winter ball", "closing"),
-    flowEvent(3, "Spring brunch", "closed"),
-  ];
-  const requested: URL[] = [];
-  // Filters by ?status= the way the API does (FLOW-179).
-  mockApi({
-    "GET /api/events": (_init, url) => {
-      requested.push(url!);
-      const statuses = url!.searchParams.get("status")?.split(",");
-      return Response.json(
-        statuses ? all.filter((event) => statuses.includes(event.status)) : all,
-      );
-    },
-  });
-  const user = userEvent.setup();
-  mount(<EventList />);
-  const table = await screen.findByRole("table");
-  await within(table).findByText("Fall gala");
-  expect(within(table).getByText("Negotiation")).toBeInTheDocument();
-  expect(within(table).getByText("Closing")).toBeInTheDocument();
-  const filter = screen.getByLabelText("Statuses");
-  expect(
-    (await optionTexts(user, filter)).filter((text) => text === "Negotiation"),
-  ).toHaveLength(1);
-  await choose(user, filter, "Negotiation");
-  await waitFor(() =>
-    expect(within(table).queryByText("Spring brunch")).not.toBeInTheDocument(),
-  );
-  expect(within(table).getByText("Fall gala")).toBeInTheDocument();
-  expect(within(table).queryByText("Winter ball")).not.toBeInTheDocument();
-  expect(requested.at(-1)?.searchParams.get("status")).toBe("negotiation");
-  // The list opens on the default window: the past 7 days to the next 30.
-  const first = requested[0].searchParams;
-  expect(first.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  expect(first.get("to")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  expect(
-    (Date.parse(first.get("to")!) - Date.parse(first.get("from")!)) / 86_400_000,
-  ).toBe(37);
 });
 
 // FLOW-186: a save made from a stale copy is refused (409 STALE); the form says

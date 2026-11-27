@@ -60,6 +60,25 @@ export const liveEditRenames: LiveEditRenames = {
       "nav.reports",
       "nav.operational-reports",
       "tasks.task-detail.assign-to-me",
+      // FLOW-350: the event page's Status card; the status changes in the
+      // dropdown under the title and its history is in the History card.
+      "events.event-status-panel.change-status",
+      "events.event-status-panel.new-status",
+      "events.event-status-panel.status",
+      "events.event-status-panel.why-optional",
+      // FLOW-349: the retired events list page (/events now opens Events ›
+      // Overview) and its "All events" breadcrumb.
+      "events.event-list.events",
+      "events.event-list.events-2",
+      "events.event-list.events-3",
+      "events.event-list.every-proposal-beo-and-task",
+      "events.event-list.from",
+      "events.event-list.load-more-events",
+      "events.event-list.new-event",
+      "events.event-list.search-events-clients-or-venues.placeholder",
+      "events.event-list.show-archived",
+      "events.event-list.to",
+      "nav.all-events",
       // FLOW-336: Events › Overview has New event now, so its line no longer
       // says events start from a lead.
       "events-screen.calendar.events-at-negotiation-or-later",
@@ -262,6 +281,8 @@ export const liveEditRenames: LiveEditRenames = {
       "lead-detail.edit.title",
     ],
     blocks: [
+      // FLOW-349: the retired events list page.
+      "events.list/list",
       "events.detail/day-of",
       "day-of.board/urgent",
       "day-of.board/events",

@@ -1,4 +1,9 @@
 /* Basic calendar (FLOW-63). FullCalendar brings its own layout styles. */
+:root {
+  /* Done (FLOW-354): a darker version of Finished's #e2e8e3. */
+  --calendar-done-bg: #4b5a53;
+  --calendar-done-fg: #ffffff;
+}
 .calendar-panel {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -17,15 +22,14 @@
   border-color: transparent;
   color: var(--status-fg, var(--text));
 }
-.calendar-panel .calendar-status-negotiation { --status-bg: var(--status-negotiation-bg); --status-fg: var(--status-negotiation-fg); }
-.calendar-panel .calendar-status-closing { --status-bg: var(--status-closing-bg); --status-fg: var(--status-closing-fg); }
-.calendar-panel .calendar-status-closed { --status-bg: var(--status-closed-bg); --status-fg: var(--status-closed-fg); }
-.calendar-panel .calendar-status-preparation { --status-bg: #edf3ee; --status-fg: #20543f; }
-.calendar-panel .calendar-status-finished { --status-bg: #e2e8e3; --status-fg: #202c27; }
+/* Calendar statuses (FLOW-354): Pending in Negotiation's color, Confirmed in
+   Closed's, Preparation its own, Done a darker Finished (white text, 7:1). */
+.calendar-panel .calendar-group-pending { --status-bg: var(--status-negotiation-bg); --status-fg: var(--status-negotiation-fg); --status-dot: #d9a514; }
+.calendar-panel .calendar-group-confirmed { --status-bg: var(--status-closed-bg); --status-fg: var(--status-closed-fg); }
+.calendar-panel .calendar-group-preparation { --status-bg: #edf3ee; --status-fg: #20543f; }
+.calendar-panel .calendar-group-done { --status-bg: var(--calendar-done-bg); --status-fg: var(--calendar-done-fg); }
 /* Pending events (FLOW-294): no fill, a dot in the status color before the
    time and name, as Google Calendar shows them. Confirmed ones keep the fill. */
-.calendar-panel .calendar-status-negotiation { --status-dot: #d9a514; }
-.calendar-panel .calendar-status-closing { --status-dot: var(--status-closing-fg); }
 .calendar-panel .calendar-event.calendar-pending {
   background: transparent;
   border-color: transparent;
@@ -105,6 +109,11 @@
   color: var(--text);
   font-weight: 600;
 }
+/* The legend's and filter's calendar status pills (FLOW-354). */
+.status-pill--calendar-pending { --status-bg: var(--status-negotiation-bg); --status-fg: var(--status-negotiation-fg); }
+.status-pill--calendar-confirmed { --status-bg: var(--status-closed-bg); --status-fg: var(--status-closed-fg); }
+.status-pill--calendar-preparation { --status-bg: #edf3ee; --status-fg: #20543f; }
+.status-pill--calendar-done { --status-bg: var(--calendar-done-bg); --status-fg: var(--calendar-done-fg); }
 .calendar-legend {
   display: flex;
   flex-wrap: wrap;

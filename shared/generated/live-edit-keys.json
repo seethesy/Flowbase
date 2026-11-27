@@ -970,34 +970,16 @@
     "events.event-form-fields.transportation-notes": [],
     "events.event-form-fields.type-a-client-or-contact.placeholder": [],
     "events.event-form-fields.venue": [],
-    "events.event-list.events": [],
-    "events.event-list.events-2": [
-      "dataCount"
-    ],
-    "events.event-list.events-3": [
-      "dataCount"
-    ],
-    "events.event-list.every-proposal-beo-and-task": [],
-    "events.event-list.from": [],
-    "events.event-list.load-more-events": [],
-    "events.event-list.new-event": [],
-    "events.event-list.search-events-clients-or-venues.placeholder": [],
-    "events.event-list.show-archived": [],
-    "events.event-list.to": [],
     "events.event-picker.choose-an-event": [],
     "events.event-picker.event": [],
     "events.event-picker.find-event": [],
     "events.event-picker.search.placeholder": [],
     "events.event-status-panel.automatic": [],
-    "events.event-status-panel.change-status": [],
     "events.event-status-panel.created-as": [
       "eventStatusDetailLabels"
     ],
-    "events.event-status-panel.new-status": [],
     "events.event-status-panel.show-older-changes": [],
-    "events.event-status-panel.status": [],
     "events.event-status-panel.status-history": [],
-    "events.event-status-panel.why-optional": [],
     "events.event-table.events": [],
     "events.new-event.cancel": [],
     "events.new-event.continue-without-lead": [],
@@ -1758,7 +1740,6 @@
     "list-fields.list-checkboxes.archived": [
       "label"
     ],
-    "nav.all-events": [],
     "nav.all-tasks": [],
     "nav.approvals": [],
     "nav.archived": [],
@@ -2516,6 +2497,12 @@
     ],
     "shared.people-picker.no-account": [],
     "shared.search-input.placeholder": [],
+    "shared.section.fold": [
+      "title"
+    ],
+    "shared.section.unfold": [
+      "title"
+    ],
     "shared.table-selection.clear": [],
     "shared.table-selection.delete": [],
     "shared.table-selection.deleted.one": [
@@ -3011,6 +2998,7 @@
     "labels.beo-section.",
     "labels.beo-status.",
     "labels.calendar-layer.",
+    "labels.calendar-status.",
     "labels.client-kind.",
     "labels.communication-kind.",
     "labels.conflict-state.",
@@ -3147,7 +3135,8 @@
     },
     "events.activity": {
       "blocks": [
-        "history"
+        "history",
+        "status-history"
       ],
       "fieldCards": []
     },
@@ -3201,12 +3190,6 @@
       "fieldCards": [
         "event-facts"
       ]
-    },
-    "events.list": {
-      "blocks": [
-        "list"
-      ],
-      "fieldCards": []
     },
     "events.payments": {
       "blocks": [

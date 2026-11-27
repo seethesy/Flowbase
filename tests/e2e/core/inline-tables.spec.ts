@@ -49,7 +49,8 @@ test("client table saves an inline name and keeps Open", async ({ page }) => {
 test("event table saves an inline title", async ({ page }) => {
   const event = { ...fallGala(), date: utcToBusinessTime(new Date()).date };
   await seedRecords({ clients: [juniper()], events: [event] });
-  await page.goto("/#/events");
+  // The events table on Events › Overview (FLOW-349 retired the /events list).
+  await page.goto("/#/events/overview");
   const row = page.getByRole("row", { name: /Fall gala/ });
   await row.getByRole("button", { name: "Fall gala" }).click();
   await page.locator("tbody tr input.table-edit-input").fill("Winter gala");
@@ -283,7 +284,8 @@ test("Ingredients save how an item is bought inline", async ({ page }) => {
 test("event table changes an event's status with the pill dropdown", async ({ page }) => {
   const event = { ...fallGala(), date: utcToBusinessTime(new Date()).date };
   await seedRecords({ clients: [juniper()], events: [event] });
-  await page.goto("/#/events");
+  // The events table on Events › Overview (FLOW-349 retired the /events list).
+  await page.goto("/#/events/overview");
   await pickInline(page, page.getByRole("combobox", { name: "Status for Fall gala" }), "Negotiation", `/api/events/${event.id}/status`, "POST");
   await page.reload();
   await expect(page.getByRole("combobox", { name: "Status for Fall gala" })).toHaveAttribute("data-value", "negotiation");

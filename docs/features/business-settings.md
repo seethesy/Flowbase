@@ -17,3 +17,5 @@
 | `GET /api/settings/history` | Recent changes (Admin) |
 
 The browser loads settings once per page (`useBusinessSettings`, `src/services/settings.ts`) and refreshes them after Admin's changes; until they load, or if they can't, it uses the same built-in defaults.
+
+**Folding cards** (FLOW-347): every Settings card has a fold arrow at its top right (`Section` with `collapsible`; `aria-expanded`, Enter or Space). Folded, only the title bar shows and the card keeps its grid height; the saved layout is unchanged. Cards start open. A fold is remembered per person on this device (browser storage, `src/components/shared/card-fold.ts`).

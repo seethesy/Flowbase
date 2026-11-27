@@ -1,5 +1,5 @@
 import type { EventInput } from "@fullcalendar/core";
-import type { Calendar, CalendarLayer } from "../../../shared/calendar";
+import { calendarStatusGroup, type Calendar, type CalendarLayer } from "../../../shared/calendar";
 import { shiftKindLabels } from "../../../shared/event-staff";
 import { addLocalDays } from "../../../shared/time";
 
@@ -7,9 +7,9 @@ import { addLocalDays } from "../../../shared/time";
 // Times stay New York wall-clock strings; the calendar runs in UTC so it draws
 // them unchanged. Each entry carries the page it opens.
 
-// Negotiation and Closing aren't confirmed yet (FLOW-294); Closed, Preparation
-// and Finished are.
-export const isPendingStatus = (status: string) => status === "negotiation" || status === "closing";
+// Negotiation and Closing aren't confirmed yet (FLOW-294): the calendar shows
+// both as Pending (FLOW-354). Closed, Preparation and Finished are.
+export const isPendingStatus = (status: string) => calendarStatusGroup(status) === "pending";
 
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`;
@@ -36,6 +36,60 @@ export function calendarWhen(event: { start: string }): string {
   return `${weekday(event.start.slice(0, 10))} · ${clock(event.start)}`;
 }
 
+export type CalendarView = "month" | "week" | "day";
+const monthTitle = (month: string) =>
+  new Date(`${month}-01T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+const shiftMonth = (month: string, by: number) => {
+  const [year, number] = month.split("-").map(Number);
+  const next = new Date(Date.UTC(year, number - 1 + by, 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+const sundayOf = (date: string) => addLocalDays(date, -new Date(`${date}T12:00:00Z`).getUTCDay());
+// The six weeks the month grid shows, Sunday first.
+const gridOf = (month: string) => {
+  const from = sundayOf(`${month}-01`);
+  return { from, to: addLocalDays(from, 41) };
+};
+const shortDay = (date: string, withYear = false) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", ...(withYear && { year: "numeric" }), timeZone: "UTC",
+  });
+// What a view shows (FLOW-294): the days fetched for the calendar, the days the
+// events table lists (the same days the calendar shows, FLOW-348: a month view
+// lists all six weeks of its grid), its title, and the dates the previous and
+// next buttons go to.
+export function calendarRange(view: CalendarView, date: string) {
+  if (view === "day")
+    return {
+      fetch: { from: date, to: date },
+      table: { from: date, to: date },
+      title: new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+        weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
+      }),
+      previous: addLocalDays(date, -1),
+      next: addLocalDays(date, 1),
+    };
+  if (view === "week") {
+    const from = sundayOf(date);
+    const to = addLocalDays(from, 6);
+    return {
+      fetch: { from, to },
+      table: { from, to },
+      title: `${shortDay(from)} – ${shortDay(to, true)}`,
+      previous: addLocalDays(date, -7),
+      next: addLocalDays(date, 7),
+    };
+  }
+  const month = date.slice(0, 7);
+  return {
+    fetch: gridOf(month),
+    table: gridOf(month),
+    title: monthTitle(month),
+    previous: `${shiftMonth(month, -1)}-01`,
+    next: `${shiftMonth(month, 1)}-01`,
+  };
+}
+
 export function toCalendarEntries(
   calendar: Calendar,
   layers: ReadonlySet<CalendarLayer> = new Set(),
@@ -48,17 +102,21 @@ export function toCalendarEntries(
       start: event.start,
       end: event.end ?? undefined,
       // A chip in the status color (FLOW-251), with its time and name (FLOW-265):
-      // filled when confirmed, a dot and no fill while pending (FLOW-294).
+      // filled when confirmed, a dot and no fill while pending (FLOW-294). The
+      // color is the calendar status's (FLOW-354: Pending, Confirmed,
+      // Preparation, Done).
       display: "block",
       classNames: [
         "calendar-event",
         `calendar-status-${event.status}`,
+        `calendar-group-${calendarStatusGroup(event.status) ?? "pending"}`,
         isPendingStatus(event.status) ? "calendar-pending" : "calendar-confirmed",
       ],
       extendedProps: {
         path: `/events/${event.id}`,
         eventId: event.id,
         status: event.status,
+        group: calendarStatusGroup(event.status),
         pending: isPendingStatus(event.status),
       },
     })),

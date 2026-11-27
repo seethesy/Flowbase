@@ -1,35 +1,22 @@
-import { useDeletable } from "../../app/live-edit/deletable";
-import { Allowed, usePermissions } from "../../app/permissions";
+import { usePermissions } from "../../app/permissions";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { eventStatusLabels, eventStatusSchema, type EventInput, type FlowEvent } from "../../../shared/core-records";
-import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
 import { allPages, clientsApi, eventsApi, venuesApi } from "../../services/core";
 import { useResource } from "../../app/useResource";
-import { LoadMore, useDebounced, usePagedList } from "../../app/paging";
-import { PageHeader, Button, SearchInput, FilterBar, DataTable, LoadingSkeleton, Select, DateTimeCell, dateTimeSortKey, type TableSelection, ErrorText } from "../../components/shared";
+import { DataTable, DateTimeCell, dateTimeSortKey, type TableSelection, ErrorText } from "../../components/shared";
 import { date, time } from "./event-format";
 import { calendarWhen, calendarWhenParts } from "./calendar-entries";
-import { RoundCheck } from "../../components/ui/round-check";
-import { Block, PageGrid } from "../../app/live-edit/page-grid";
-import { T, useCopy } from "../../app/copy";
+import { T } from "../../app/copy";
 import { StatusPill, StatusSelect } from "../../components/ui/status-pill";
 import { mayOverrideStatus } from "../../../shared/policy";
-import { EventForm } from "./event-form";
 
-// The events list and the shared events table (FLOW-25/265), with inline field saves.
+// The shared events table (FLOW-25/265), with inline field saves. Events ›
+// Overview lists it under the calendar; the old events list page is gone
+// (FLOW-349).
 
 export const statusLabels = eventStatusLabels;
-
-// Today in New York as YYYY-MM-DD.
-const businessToday = () => utcToBusinessTime(new Date()).date;
-
-const defaultEventWindow = () => {
-  const today = businessToday();
-  return { from: addLocalDays(today, -7), to: addLocalDays(today, 30) };
-};
 
 export const when = (event: FlowEvent) =>
   `${date(event.date)} · ${time(event.startTime)}${event.endTime ? `–${time(event.endTime)}` : ""}`;
@@ -198,119 +185,6 @@ export function EventTable({
       exportAll={exportAll}
       selection={selection}
     />
-    </>
-  );
-}
-
-// Events (FLOW-55), created by hand so the calendar and tasks work before leads
-// and proposals exist.
-export function EventList() {
-  const searchEventsClientsOrVenuesPlaceholder = useCopy("events.event-list.search-events-clients-or-venues.placeholder", "Search events, clients or venues…");
-  const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const [archived, setArchived] = useState(false);
-  const [create, setCreate] = useState(false);
-  // Opens on the past 7 days through the next 30, soonest first (FLOW-179 A1);
-  // the date range reaches anything else, and clearing it shows every event.
-  const [range, setRange] = useState(defaultEventWindow);
-  const term = useDebounced(search.trim());
-  // Filter by the displayed status label.
-  const statuses = status
-    ? eventStatusSchema.options.filter((value) => statusLabels[value] === status)
-    : [];
-  const events = usePagedList(
-    ["events", "list", archived, term, statuses.join(","), range.from, range.to],
-    (cursor) =>
-      eventsApi.list(
-        {
-          archived,
-          search: term || undefined,
-          statuses,
-          from: range.from || undefined,
-          to: range.to || undefined,
-        },
-        cursor,
-      ),
-  );
-  const deletable = useDeletable("event", () => events.reload());
-  const data = events.data ?? [];
-  return (
-    <>
-      <PageHeader pageKey="events.list"
-        title={<T id="events.event-list.events">Events</T>}
-        subtitle={<T id="events.event-list.every-proposal-beo-and-task">Every proposal, BEO and task hangs off an event.</T>}
-        eyebrow={<T id="events.event-list.events">Events</T>}
-      >
-        <Allowed action="events.write">
-          <Button onClick={() => setCreate(true)}>
-            <Plus size={16} />
-            <T id="events.event-list.new-event">New Event</T>
-          </Button>
-        </Allowed>
-      </PageHeader>
-      <FilterBar>
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder={searchEventsClientsOrVenuesPlaceholder} copyId="events.event-list.search-events-clients-or-venues.placeholder"
-        />
-        <Select
-          label="Statuses"
-          options={[...new Set(Object.values(statusLabels))]}
-          value={status}
-          onChange={setStatus}
-        />
-        <label className="date-filter">
-          <T id="events.event-list.from">From</T>
-          <input
-            type="date"
-            value={range.from}
-            onChange={(e) => setRange({ ...range, from: e.target.value })}
-          />
-        </label>
-        <label className="date-filter">
-          <T id="events.event-list.to">To</T>
-          <input
-            type="date"
-            value={range.to}
-            onChange={(e) => setRange({ ...range, to: e.target.value })}
-          />
-        </label>
-        <label className="checkbox-filter">
-          <RoundCheck
-            checked={archived}
-            onChange={(e) => setArchived(e.target.checked)}
-          />
-          <T id="events.event-list.show-archived">Show archived</T>
-        </label>
-        <span className="result-count">
-          {events.hasMore ? <T id="events.event-list.events-2" values={{ dataCount: data.length }}>{"{dataCount}+ events"}</T> : <T id="events.event-list.events-3" values={{ dataCount: data.length }}>{"{dataCount} events"}</T>}
-        </span>
-      </FilterBar>
-      {events.loading && !events.data && !events.error ? (
-        <LoadingSkeleton />
-      ) : (
-        <PageGrid pageKey="events.list">
-          <Block id="list" name="List" h={24}>
-          <EventTable
-            events={data}
-            error={events.error}
-            selection={{ rowId: (row) => row.id, ...deletable }}
-            exportName="events"
-            exportAll={events.loadAll}
-            onSaved={() => events.reload()}
-          />
-          <LoadMore list={events} label={<T id="events.event-list.load-more-events">Load more events</T>} />
-        </Block>
-          </PageGrid>
-      )}
-      {create && (
-        <EventForm
-          onClose={() => setCreate(false)}
-          onSaved={(event) => navigate(`/events/${event.id}`)}
-        />
-      )}
     </>
   );
 }

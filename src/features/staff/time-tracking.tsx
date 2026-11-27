@@ -34,7 +34,7 @@ import { T, LabelT } from "../../app/copy";
 export function TimeTrackingSettings() {
   const idleMinutes = useBusinessSettings().defaults.idleCutoffMinutes;
   return (
-    <Section title={<T id="time-tracking.time-tracking-settings.time-tracking">Time tracking</T>}>
+    <Section title={<T id="time-tracking.time-tracking-settings.time-tracking">Time tracking</T>} collapsible>
       <p>
         <strong><T id="time-tracking.time-tracking-settings.time-tracking-is-on">Time tracking is on.</T></strong> {trackingNoticeText(idleMinutes)}
       </p>
