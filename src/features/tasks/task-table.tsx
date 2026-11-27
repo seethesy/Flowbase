@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
@@ -19,7 +19,7 @@ import { businessTimeToUtc, isBusinessTime, utcToBusinessTime } from "../../../s
 import type { StaffMember } from "../../../shared/staff";
 import { usePermissions } from "../../app/permissions";
 import { LabelT, T } from "../../app/copy";
-import { Button, DataTable, useTableRemove } from "../../components/shared";
+import { Button, DataTable, DateTimeCell, instantParts, useTableRemove } from "../../components/shared";
 import { RoundCheck } from "../../components/ui/round-check";
 import { peopleOptions } from "../../components/ui/people-picker";
 import { tasksApi } from "../../services/tasks";
@@ -72,6 +72,35 @@ export function ClaimButton({ task, onDone, onError, busy = false }: {
       <T id="task-lists.task-actions.drop">Drop</T></Button>
     : <Button className="task-pick-up" disabled={busy || running} aria-label={`Pick up ${task.title}`} onClick={() => void run()}>
       <T id="task-lists.task-actions.pick-up">Pick up</T></Button>;
+}
+
+// The check circle (FLOW-345 AC2): shows the new state at once and goes back
+// if the save fails.
+function DoneCheck({ task, save, onError }: {
+  task: Pick<TaskSummary, "title" | "status">;
+  save: (done: boolean) => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const saved = task.status === "done";
+  const [pending, setPending] = useState<boolean | null>(null);
+  // The reloaded row takes over once its status arrives.
+  useEffect(() => setPending(null), [task.status]);
+  const checked = pending ?? saved;
+  return (
+    <RoundCheck
+      checked={checked}
+      aria-label={`Done: ${task.title}`}
+      onChange={(event) => {
+        const done = event.target.checked;
+        setPending(done);
+        onError("");
+        save(done).catch((cause: unknown) => {
+          setPending(null);
+          onError(cause instanceof Error ? cause.message : String(cause));
+        });
+      }}
+    />
+  );
 }
 
 // The title, linking to the task, with Edit for whoever manages it (FLOW-275).
@@ -149,15 +178,8 @@ export function TaskTable({
       enableSorting: false,
       meta: { exportable: false },
       cell: ({ row }) => (
-        <RoundCheck
-          checked={row.original.status === "done"}
-          aria-label={`Done: ${row.original.title}`}
-          onChange={(event) => {
-            onError("");
-            patch(row.original, { status: event.target.checked ? "done" : "todo" })
-              .catch((cause: unknown) => onError(cause instanceof Error ? cause.message : String(cause)));
-          }}
-        />
+        <DoneCheck task={row.original} onError={onError}
+          save={(done) => patch(row.original, { status: done ? "done" : "todo" })} />
       ),
     },
     {
@@ -181,8 +203,12 @@ export function TaskTable({
       header: "Due",
       // An ISO instant sorts by date and time together (FLOW-296).
       accessorFn: (task) => task.dueAt ?? "",
-      cell: ({ row }) => row.original.dueAt ? dateTimeLabel(row.original.dueAt)
-        : <T id="task-lists.dashboard-table.no-due-date">No due date</T>,
+      // The date with its time beneath it (FLOW-296 AC2).
+      cell: ({ row }) => {
+        const due = instantParts(row.original.dueAt);
+        return due ? <DateTimeCell date={due.date} time={due.time} />
+          : <T id="task-lists.dashboard-table.no-due-date">No due date</T>;
+      },
       meta: {
         csv: (task) => (task.dueAt ? dateTimeLabel(task.dueAt) : ""),
         edit: "datetime",
@@ -258,6 +284,18 @@ export function TaskTable({
       header: "Type",
       accessorFn: (task) => taskTypeLabels[task.type],
       cell: ({ row }) => <LabelT id="labels.task-type" value={row.original.type}>{taskTypeLabels[row.original.type]}</LabelT>,
+    },
+    {
+      // The staff position expected to do it (FLOW-62), as on the old list.
+      id: "position",
+      header: "Position",
+      accessorFn: (task) => task.position ?? "",
+      meta: {
+        edit: "text",
+        canEdit: (task) => mayManage(actor, task),
+        editValue: (task) => task.position ?? "",
+        onEdit: (task, value) => patch(task, { position: value.trim() || null }),
+      },
     },
     {
       id: "actions",

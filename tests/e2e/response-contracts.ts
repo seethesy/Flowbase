@@ -117,6 +117,7 @@ import {
 } from "../../shared/imports";
 
 import { kitchenInChargeResultSchema, kitchenOverviewSchema } from "../../shared/kitchen-overview";
+import { areaNoteSchema } from "../../shared/area-notes";
 
 export function responseSchema(
   path: string,
@@ -378,5 +379,7 @@ export function responseSchema(
   if (resource === "kitchen") return id === "overview" ? kitchenOverviewSchema : kitchenInChargeResultSchema;
   if (resource === "order-lists")
     return !id && method === "GET" ? orderListSchema.array() : orderListSchema;
+  // Shared Marketing notes (FLOW-341 A2).
+  if (resource === "area-notes") return areaNoteSchema;
   throw new Error(`Missing shared response contract for ${method} ${path}`);
 }

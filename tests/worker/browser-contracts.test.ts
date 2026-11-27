@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { areaNoteSchema } from "../../shared/area-notes";
 import { responseSchema } from "../e2e/response-contracts";
 import { juniper } from "../e2e/fixtures";
 import { productionListSchema, productionOverviewSchema } from "../../shared/production";
@@ -35,4 +36,9 @@ it("maps the Google Calendar responses to their shared contracts (FLOW-268)", ()
   expect(responseSchema("/api/google-calendar", "DELETE", 200)).toBe(googleCalendarStatusSchema);
   expect(responseSchema("/api/google-calendar/connect", "POST", 200)).toBe(googleConnectSchema);
   expect(responseSchema("/api/google-calendar/events", "GET", 200)).toBe(googleEventsSchema);
+});
+
+it("maps the shared Marketing notes to their contract (FLOW-341)", () => {
+  expect(responseSchema("/api/area-notes/marketing.socials", "GET", 200)).toBe(areaNoteSchema);
+  expect(responseSchema("/api/area-notes/marketing.socials", "PUT", 200)).toBe(areaNoteSchema);
 });
