@@ -483,10 +483,11 @@ export function codeDefaultGrid(builtins: CodeBlock[]): Pick<LayoutDoc, "grid" |
 
 const trivialGrid = (grid: PageGridSpec) => grid.cols.length === 1 && grid.rows.length === 1 && !grid.regions.length;
 
-// A saved v2 document against the built-ins the code has now (replaces the v1
-// withBuiltins). A built-in added since the save goes into a new row spanning
-// every column, directly above the row where the next built-in in code order
-// starts, or at the bottom. With `codeIds`, built-ins the code dropped leave
+// A saved document against the built-ins the code has now (replaces the v1
+// withBuiltins). A built-in added since the save (or rendered only after edit
+// mode started) goes into a new row spanning every column, as tall as its code
+// height, directly above the row where the next built-in in code order starts,
+// or at the bottom. With `codeIds`, built-ins the code dropped leave
 // their cell empty; without it they stay (absent blocks, FLOW-320 A3).
 export function withCodeBlocks(doc: LayoutDoc, builtins: CodeBlock[], codeIds?: readonly string[]): LayoutDoc {
   // Nothing placed yet (a document holding only header or table edits): the code default.
@@ -501,7 +502,11 @@ export function withCodeBlocks(doc: LayoutDoc, builtins: CodeBlock[], codeIds?: 
       .map((code) => next.blocks.find((b) => b.kind === "builtin" && b.id === code.id && blockShown(b)))
       .find(Boolean);
     const at = later ? later.y : next.grid.rows.length;
-    const added = addTrack(next, "rows", at);
+    const inserted = addTrack(next, "rows", at);
+    // Its row is as tall as its code height says (FLOW-357), not a plain new row.
+    const added: GridResult = inserted.ok
+      ? { ...inserted, doc: { ...inserted.doc, grid: { ...inserted.doc.grid, rows: resizeRow(inserted.doc.grid.rows, at, codeRow(block.h)) } } }
+      : inserted;
     const fresh: LayoutBlock = { kind: "builtin", id: block.id, x: 0, y: Math.min(at, MAX_GRID_ROWS - 1), w: 1, h: 1 };
     if (!added.ok) {
       next = { ...next, blocks: [...next.blocks, { ...fresh, hidden: true }] };

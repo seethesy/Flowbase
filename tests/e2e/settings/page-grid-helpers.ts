@@ -117,6 +117,8 @@ export function expectSameBox(actual: Box, expected: Box, label: string) {
 // The screen height rows are a percentage of (FLOW-357): the window's height
 // less the app header.
 export async function screenHeight(page: Page) {
+  // The app shell (and its header) must be on screen first.
+  await expect(page.locator(".top-header")).toBeVisible();
   return page.evaluate(() => window.innerHeight - (document.querySelector<HTMLElement>(".top-header")?.offsetHeight ?? 0));
 }
 // Each row within 1px of its percentage of the screen height.

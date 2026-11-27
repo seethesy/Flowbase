@@ -205,8 +205,8 @@ describe("block placement (FLOW-253)", () => {
       { kind: "builtin" as const, id: "b", x: 0, y: 1, w: 1, h: 1 },
     ] };
     const merged = withBuiltins(saved, builtins);
-    // A new 20% row; the others keep their heights (FLOW-357).
-    expect(merged.grid.rows).toEqual([5000, 2000, 5000]);
+    // A new row of A's code height (h 4: 10%); the others keep theirs (FLOW-357).
+    expect(merged.grid.rows).toEqual([5000, 1000, 5000]);
     expect(merged.blocks).toEqual([
       { kind: "builtin", id: "old", x: 0, y: 0, w: 1, h: 1 },
       { kind: "builtin", id: "b", x: 0, y: 2, w: 1, h: 1 },

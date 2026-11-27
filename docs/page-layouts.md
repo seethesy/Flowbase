@@ -299,8 +299,8 @@ a restore hint; a permanently removed block has none. `gridProblems`
   versions 1 and 2. Reset page layout still deletes the row, so the page
   renders natively again.
 - **Code default** in edit mode: one column, a row per built-in block, heights
-  from their `h` (`codeRow`). A built-in added to the code after a save goes into a new
-  row spanning every column, above the row where the next built-in in code
+  from their `h` (`codeRow`). A built-in added to the code after a save (or one that renders only
+  after edit mode started) goes into a new row, as tall as its `h` says, spanning every column, above the row where the next built-in in code
   order starts (or at the bottom). A built-in the code dropped isn't sent by
   `GET /api/layout` (the key manifest says which exist): its cell stays empty.
 - **Row math** (FLOW-357): dragging a row's lower edge (0.1% steps), its arrow
