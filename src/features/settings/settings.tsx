@@ -52,7 +52,7 @@ export function SettingsPage() {
       <PageGrid pageKey="settings.page">
       {permissions.can("users.manage") && (
         <Block id="staff-access" name="Staff access" h={4}>
-        <Section title={<T id="settings.settings-page.staff-access">Staff access</T>}>
+        <Section title={<T id="settings.settings-page.staff-access">Staff access</T>} collapsible>
           <p>
             <Link to="/settings/users"><T id="settings.settings-page.manage-users">Manage users</T></Link> ·{" "}
             <Link to="/settings/permissions"><T id="settings.settings-page.roles-permissions">Roles & permissions</T></Link> ·{" "}
@@ -63,7 +63,7 @@ export function SettingsPage() {
       )}
       {manage && (
         <Block id="deleted-records" name="Deleted records" h={5}>
-        <Section title={<T id="settings.settings-page.deleted-records">Deleted records</T>}>
+        <Section title={<T id="settings.settings-page.deleted-records">Deleted records</T>} collapsible>
           <p><Link to="/settings/archived"><T id="settings.settings-page.archived">Archived: restore deleted records</T></Link></p>
           <p><Link to="/settings/inventory-categories"><T id="settings.settings-page.inventory-categories">Inventory categories</T></Link></p>
           <p><Link to="/settings/locations"><T id="settings.settings-page.locations">Locations</T></Link></p>
@@ -151,7 +151,7 @@ function CompanySettings() {
     await save.run(() => settingsApi.saveCompany(parsed.data), "Company profile saved.");
   };
   return (
-    <Section title={<T id="settings.company-settings.company-profile">Company profile</T>}>
+    <Section title={<T id="settings.company-settings.company-profile">Company profile</T>} collapsible>
       <p className="settings-hint"><T id="settings.company-settings.shown-at-the-top-of">Shown at the top of printed documents.</T></p>
       <form className="settings-form" noValidate onSubmit={(e) => void submit(e)}>
         <SaveMessages error={save.error} notice={save.notice} />
@@ -233,7 +233,7 @@ function ListSettings() {
     );
   };
   return (
-    <Section title={<T id="settings.list-settings.lists">Lists</T>}>
+    <Section title={<T id="settings.list-settings.lists">Lists</T>} collapsible>
       <p className="settings-hint">
         <T id="settings.list-settings.the-choices-offered-in-forms">{"The choices offered in forms. Archived values stay on records that already use them but can't be picked for new ones. Inventory locations are managed on "}</T><Link to="/settings/locations"><T id="settings.list-settings.inventory-locations">Locations</T></Link><T id="settings.list-settings.bar-categories-are-built-in">; bar categories are built in.</T>
       </p>
@@ -531,7 +531,7 @@ function DefaultSettings() {
     </FormField>
   );
   return (
-    <Section title={<T id="settings.default-settings.defaults">Defaults</T>}>
+    <Section title={<T id="settings.default-settings.defaults">Defaults</T>} collapsible>
       <form className="settings-form" noValidate onSubmit={(e) => void submit(e)}>
         <SaveMessages error={save.error} notice={save.notice} />
         <div className="form-grid">
@@ -707,7 +707,7 @@ function SettingsHistory() {
     { keepPrevious: true },
   );
   return (
-    <Section title={<T id="settings.settings-history.recent-changes">Recent changes</T>}>
+    <Section title={<T id="settings.settings-history.recent-changes">Recent changes</T>} collapsible>
       {history.error && <p role="alert"><T id="settings.settings-history.unable-to-load-the-change">Unable to load the change history.</T></p>}
       {history.data?.length === 0 && (
         <EmptyState

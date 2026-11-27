@@ -1,8 +1,16 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { calendarWhen, toCalendarEntries } from "../../src/features/events/calendar-entries";
-import { calendarSchema, type Calendar, type CalendarLayer } from "../../shared/calendar";
+import { calendarRange, calendarWhen, toCalendarEntries } from "../../src/features/events/calendar-entries";
+import {
+  calendarGroupStatuses,
+  calendarSchema,
+  calendarStatusGroup,
+  calendarStatusGroupLabels,
+  calendarStatusGroups,
+  type Calendar,
+  type CalendarLayer,
+} from "../../shared/calendar";
 
 // Basic calendar (FLOW-63), overview mode (FLOW-64) and layers (FLOW-67).
 
@@ -86,8 +94,8 @@ describe("event chips and the side panel (FLOW-265)", () => {
       title: "Fall gala",
       display: "block",
       // Closed is confirmed: a filled chip (FLOW-294).
-      classNames: ["calendar-event", "calendar-status-closed", "calendar-confirmed"],
-      extendedProps: { eventId: galaId, status: "closed", pending: false },
+      classNames: ["calendar-event", "calendar-status-closed", "calendar-group-confirmed", "calendar-confirmed"],
+      extendedProps: { eventId: galaId, status: "closed", group: "confirmed", pending: false },
     });
     expect(calendarWhen(gala)).toBe("Thu, Sep 17 · 5:00 PM");
     expect(calendarWhen({ start: "2026-11-28T00:05" })).toBe("Sat, Nov 28 · 12:05 AM");
@@ -195,5 +203,63 @@ describe("calendar layers (FLOW-67)", () => {
     expect(
       toCalendarEntries(own, on("production")).map((entry) => entry.id),
     ).toEqual([`event:${galaId}`, `task:${taskId}`]);
+  });
+});
+
+// FLOW-348: the events table under the calendar lists the days the calendar
+// shows. A month view shows six weeks, so its table does too.
+describe("the range the calendar and its events table show (FLOW-348)", () => {
+  it("lists the month grid's trailing days in a month view (AC1)", () => {
+    const range = calendarRange("month", "2026-11-15");
+    // November 2026 starts on a Sunday; the grid runs six weeks to Dec 12.
+    expect(range.fetch).toEqual({ from: "2026-11-01", to: "2026-12-12" });
+    expect(range.table).toEqual(range.fetch);
+    expect(range.table.from <= "2026-12-11" && "2026-12-11" <= range.table.to).toBe(true);
+  });
+
+  it("leaves out days outside the six visible weeks (AC2)", () => {
+    const range = calendarRange("month", "2026-11-15");
+    expect("2026-12-13" > range.table.to).toBe(true);
+    expect("2026-10-31" < range.table.from).toBe(true);
+    // A month that starts mid-week takes the grid's leading days too.
+    expect(calendarRange("month", "2026-12-01").table).toEqual({ from: "2026-11-29", to: "2027-01-09" });
+  });
+
+  it("keeps Week and Day views as they were (AC3)", () => {
+    expect(calendarRange("week", "2026-11-18").table).toEqual({ from: "2026-11-15", to: "2026-11-21" });
+    expect(calendarRange("day", "2026-11-18").table).toEqual({ from: "2026-11-18", to: "2026-11-18" });
+  });
+});
+
+// FLOW-354: the calendar's four statuses group the pipeline statuses it shows.
+describe("calendar statuses (FLOW-354)", () => {
+  it("are Pending, Confirmed, Preparation and Done, in that order (AC1)", () => {
+    expect(calendarStatusGroups.map((group) => calendarStatusGroupLabels[group])).toEqual([
+      "Pending", "Confirmed", "Preparation", "Done",
+    ]);
+  });
+
+  it("groups Negotiation and Closing as Pending and Finished as Done (AC2, AC4)", () => {
+    expect(calendarStatusGroup("negotiation")).toBe("pending");
+    expect(calendarStatusGroup("closing")).toBe("pending");
+    expect(calendarStatusGroup("closed")).toBe("confirmed");
+    expect(calendarStatusGroup("preparation")).toBe("preparation");
+    expect(calendarStatusGroup("finished")).toBe("done");
+    expect(calendarStatusGroup("lost")).toBeNull();
+  });
+
+  it("filters Pending by both of its pipeline statuses (AC3)", () => {
+    expect(calendarGroupStatuses.pending).toEqual(["negotiation", "closing"]);
+    expect(Object.values(calendarGroupStatuses).flat().sort()).toEqual(
+      ["closed", "closing", "finished", "negotiation", "preparation"],
+    );
+  });
+
+  it("draws Negotiation and Closing chips alike as pending, and Finished as Done", () => {
+    const at = (status: Calendar["events"][number]["status"]) =>
+      toCalendarEntries({ events: [{ ...gala, status }], tasks: [], layers: noLayers })[0];
+    for (const status of ["negotiation", "closing"] as const)
+      expect(at(status).classNames).toEqual(expect.arrayContaining(["calendar-group-pending", "calendar-pending"]));
+    expect(at("finished").classNames).toEqual(expect.arrayContaining(["calendar-group-done", "calendar-confirmed"]));
   });
 });

@@ -31,9 +31,6 @@ const LeadDetail = lazy(() =>
 const LeadDashboardPage = lazy(() =>
   import("../features/leads/lead-dashboard").then((module) => ({ default: module.LeadDashboardPage })),
 );
-const EventList = lazy(() =>
-  import("../features/events/event-list").then((module) => ({ default: module.EventList })),
-);
 const EventDetail = lazy(() =>
   import("../features/events/event-detail").then((module) => ({ default: module.EventDetail })),
 );
@@ -295,10 +292,10 @@ export const getRouter = () =>
         { path: "/kitchen/menus", element: <MenusPage /> },
         { path: "/recipes/client", element: <ClientRecipeBook /> },
         { path: "/recipes/:id", element: <RecipeDetail /> },
-        { path: "/events", element: <EventList /> },
         // Events › Overview (FLOW-294): the calendar with its events table. The
-        // old Calendar tab and the removed Day-of board land here, keeping
-        // their ?date= and filters.
+        // old Calendar tab, the removed Day-of board and the retired events
+        // list (/events, FLOW-349) land here, keeping their ?date= and filters.
+        { path: "/events", element: <LegacyRoute to="/events/overview" /> },
         { path: "/events/overview", element: <CalendarPage /> },
         { path: "/events/:id", element: <EventDetail /> },
         { path: "/events/:id/beo/:beoId", element: <EventBeoPage /> },

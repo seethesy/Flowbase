@@ -19,6 +19,7 @@ for (const role of ["admin", "salesperson"] as const) {
     )!;
     await seedDatabase(process.env.DATABASE_URL);
     await mockBrowserAuth(page, { userId: user.id });
+    const otherEventDate = addLocalDays(utcToBusinessTime(new Date()).date, 10);
     await browserDb(async (db) => {
       const otherOwner = seedUsers.find(
         (u) => u.role === "part_time_staff",
@@ -33,12 +34,10 @@ for (const role of ["admin", "salesperson"] as const) {
         id: seedId(30, 2),
         title: "Other salesperson event",
         clientId: seedId(30, 1),
-        // Inside the Events screen's default window (FLOW-179: the past 7
-        // days through the next 30) whatever day the test runs.
-        startsAt: businessTimeToUtc(
-          addLocalDays(utcToBusinessTime(new Date()).date, 10),
-          "18:00",
-        ),
+        // At Negotiation, so Events › Overview's table lists it (FLOW-349
+        // retired the /events list); the page opens on its month.
+        status: "negotiation",
+        startsAt: businessTimeToUtc(otherEventDate, "18:00"),
         assignedSalespersonId: otherOwner,
       });
       await db.insert(leads).values({
@@ -92,13 +91,10 @@ for (const role of ["admin", "salesperson"] as const) {
     const eventsLoaded = page.waitForResponse(
       (r) => new URL(r.url()).pathname === "/api/events",
     );
-    await page.goto("/#/events");
+    await page.goto(`/#/events/overview?date=${otherEventDate}`);
     await eventsLoaded;
-    await page
-      .getByPlaceholder("Search events, clients or venues…")
-      .fill("Other salesperson event");
     await expect(
-      page.getByRole("button", {
+      page.getByRole("table").getByRole("button", {
         name: "Other salesperson event",
         exact: true,
       }),

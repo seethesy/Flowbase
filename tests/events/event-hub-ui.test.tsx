@@ -1,4 +1,5 @@
 import { TestAuth } from "../auth-provider";
+import { choose } from "../dropdown-helpers";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, RouterProvider, createMemoryRouter } from "react-router-dom";
@@ -166,7 +167,10 @@ it("shows contact details as hidden when the API leaves them out", async () => {
   expect(screen.getByText(/Primary POC · Hidden · Hidden/)).toBeInTheDocument();
 });
 
-it("offers Change status only when the API allows it (FLOW-56)", async () => {
+// FLOW-350: the status changes in the dropdown under the title, for whoever
+// may change it; the Status card is gone.
+it("changes the status from the dropdown under the title (FLOW-350 AC2)", async () => {
+  const user = userEvent.setup();
   mountHub({
     event,
     client: null,
@@ -174,14 +178,23 @@ it("offers Change status only when the API allows it (FLOW-56)", async () => {
     canEdit: true,
     canChangeStatus: true,
   });
-  expect(
-    await screen.findByRole("button", { name: "Change status" }),
-  ).toBeInTheDocument();
-  expect(screen.getByLabelText("New status")).not.toHaveAttribute("data-value", "closed");
-  expect(screen.getByRole("heading", { name: "Status history" })).toBeInTheDocument();
+  const fetched = vi.mocked(fetch);
+  const base = fetched.getMockImplementation()!;
+  fetched.mockImplementation(async (input, init) =>
+    String(input) === `/api/events/${eventId}/status` && init?.method === "POST"
+      ? Response.json({ ...event, status: "preparation" })
+      : base(input, init));
+  const status = await screen.findByRole("combobox", { name: "Event status" });
+  expect(status).toHaveAttribute("data-value", "closed");
+  expect(screen.queryByRole("button", { name: "Change status" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Status" })).not.toBeInTheDocument();
+  await choose(user, status, "preparation");
+  await waitFor(() => expect(screen.getByRole("combobox", { name: "Event status" })).toHaveAttribute("data-value", "preparation"));
+  const post = fetched.mock.calls.find(([url, init]) => String(url) === `/api/events/${eventId}/status` && init?.method === "POST");
+  expect(JSON.parse(String(post![1]!.body))).toEqual({ status: "preparation", reason: "" });
 });
 
-it("shows the status history without the form to everyone else", async () => {
+it("shows a plain status pill to everyone else (FLOW-350 AC2)", async () => {
   mountHub({
     event,
     client: null,
@@ -189,15 +202,45 @@ it("shows the status history without the form to everyone else", async () => {
     canEdit: true,
     canChangeStatus: false,
   });
-  expect(
-    await screen.findByRole("heading", { name: "Status history" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Change status" }),
-  ).not.toBeInTheDocument();
+  const heading = (await screen.findByRole("heading", { name: "Fall gala", level: 1 })).closest(".record-heading")!;
+  expect(within(heading as HTMLElement).queryByRole("combobox")).not.toBeInTheDocument();
+  expect(within(heading as HTMLElement).getByText("Closed")).toBeInTheDocument();
+});
+
+it("links the client's name to the client's page outside Edit mode (FLOW-350 AC1)", async () => {
+  mountHub({
+    event,
+    client: client("olivia@juniper.example"),
+    sections: ["details", "client", "files"],
+    canEdit: true,
+    canChangeStatus: false,
+  });
+  const links = await screen.findAllByRole("link", { name: "Juniper & Co." });
+  // Event details and the Client card.
+  expect(links).toHaveLength(2);
+  for (const link of links) expect(link).toHaveAttribute("href", `/clients/${clientId}`);
+});
+
+it("opens Event details, Notes and Client and folds the other cards (FLOW-350 AC3)", async () => {
+  const user = userEvent.setup();
+  window.localStorage.clear();
+  mountHub({
+    event,
+    client: client(null),
+    sections: ["details", "client", "files", "history"],
+    canEdit: true,
+    canChangeStatus: false,
+  });
+  for (const title of ["Event details", "Notes", "Client"])
+    expect(await screen.findByRole("button", { name: `Fold ${title}` })).toHaveAttribute("aria-expanded", "true");
+  for (const title of ["Communication log", "Event files", "History"])
+    expect(await screen.findByRole("button", { name: `Unfold ${title}` })).toHaveAttribute("aria-expanded", "false");
+  await user.click(screen.getByRole("button", { name: "Unfold Event files" }));
+  expect(screen.getByRole("button", { name: "Fold Event files" })).toHaveAttribute("aria-expanded", "true");
 });
 
 it("loads the history section from the API (FLOW-166)", async () => {
+  window.localStorage.clear();
   mountHub({
     event,
     client: null,
@@ -205,6 +248,8 @@ it("loads the history section from the API (FLOW-166)", async () => {
     canEdit: false,
     canChangeStatus: false,
   });
+  // The History card starts folded (FLOW-350).
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Unfold History" }));
   const changes = await screen.findByRole("list", { name: "Event history" });
   expect(changes).toHaveTextContent("Changed");
   expect(changes).toHaveTextContent("Ash · Oct 23, 2026, 10:30 AM");

@@ -674,8 +674,40 @@ strong {
   font-size: 13px;
   letter-spacing: -0.2px;
 }
-.section-heading > a {
+.section-heading > a,
+.section-heading-actions > a {
   color: var(--muted);
+}
+/* Folding cards (FLOW-347): the arrow at the card's top right; a folded card
+   shows only its title bar and keeps its grid height. */
+.section-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.section-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.section-fold:hover {
+  background: var(--surface-muted, #eef2ef);
+  color: var(--text);
+}
+.section-fold:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.panel--folded .section-heading {
+  margin-bottom: 0;
 }
 .text-link {
   color: var(--primary);
@@ -1083,7 +1115,8 @@ tbody tr.table-row-openable {
 .record-heading h1 {
   font-size: 24px;
 }
-.record-heading p {
+.record-heading p,
+.record-heading .record-heading-meta {
   display: flex;
   align-items: center;
   gap: 12px;

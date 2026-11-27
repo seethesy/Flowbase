@@ -163,7 +163,8 @@ describe("breadcrumb trail", () => {
     ]);
     expect(trail("/settings/locations")).toEqual(["Workspace>/", "Settings>/settings", "Locations"]);
     expect(trail("/sops/new").at(-1)).toBe("New SOP");
-    expect(trail("/events")).toEqual(["Workspace>/", "Events>/events/overview", "Overview>/events/overview", "All events"]);
+    // /events redirects to Events › Overview (FLOW-349); it has no crumb of its own.
+    expect(trail("/events").at(-1)).not.toBe("All events");
     expect(trail("/settings/users")).toEqual(["Workspace>/", "Settings>/settings", "Users"]);
     // Settings › Imports and an importer under it (FLOW-290).
     expect(trail("/settings/imports")).toEqual(["Workspace>/", "Settings>/settings", "Imports"]);

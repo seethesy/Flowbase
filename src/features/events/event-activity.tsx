@@ -9,8 +9,9 @@ import { LabelT, T } from "../../app/copy";
 import type { ReactNode } from "react";
 import "./event-activity.css";
 
-// The event hub's history section (FLOW-166): the event's change history, for
-// anyone who can open the event. (The tasks section is FLOW-59's, in task-lists.)
+// The event hub's history section (FLOW-166): the event's status history
+// (FLOW-56, here since FLOW-350) and change history, for anyone who can open
+// the event. (The tasks section is FLOW-59's, in task-lists.)
 
 const stamp = (at: string) =>
   new Date(at).toLocaleString("en-US", {
@@ -81,6 +82,9 @@ export function EventHistorySection({
   const list = usePagedList(["event-history", eventId, version], (cursor) =>
     eventsApi.history(eventId, cursor),
   );
+  const statuses = usePagedList(["event-status-history", eventId, version], (cursor) =>
+    eventsApi.statusHistory(eventId, cursor),
+  );
   if (list.error)
     return (
       <Section title={<T id="event-activity.event-history-section.history">History</T>}>
@@ -91,6 +95,31 @@ export function EventHistorySection({
   return (
     <Section title={<T id="event-activity.event-history-section.history">History</T>}>
       <PageGrid pageKey="events.activity">
+      {/* FLOW-350 A1: the status history, moved here from the removed Status card. */}
+      <Block id="status-history" name="Status history" h={8}>
+      <h3><T id="events.event-status-panel.status-history">Status history</T></h3>
+      {statuses.error ? (
+        <ErrorText message={statuses.error} />
+      ) : (
+        <ul aria-label="Status history" className="event-activity-list">
+          {statuses.data?.map((entry) => (
+            <li key={entry.id}>
+              <strong>
+                {entry.from
+                  ? <><LabelT id="labels.pipeline-status" value={entry.from}>{eventStatusDetailLabels[entry.from]}</LabelT> → <LabelT id="labels.pipeline-status" value={entry.to}>{eventStatusDetailLabels[entry.to]}</LabelT></>
+                  : <T id="events.event-status-panel.created-as" values={{ eventStatusDetailLabels: <LabelT id="labels.pipeline-status" value={entry.to}>{eventStatusDetailLabels[entry.to]}</LabelT> }}>{"Created as {eventStatusDetailLabels}"}</T>}
+              </strong>{" "}
+              <small>
+                {stamp(entry.at)}
+                {entry.manual ? "" : <T id="events.event-status-panel.automatic">{" · automatic"}</T>}
+              </small>
+              {entry.reason && <p>{entry.reason}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <LoadMore list={statuses} label={<T id="events.event-status-panel.show-older-changes">Show older changes</T>} />
+      </Block>
       <Block id="history" name="Event history" h={16}>
       {list.data.length ? (
         <ul aria-label="Event history" className="event-activity-list">

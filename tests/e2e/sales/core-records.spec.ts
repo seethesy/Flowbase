@@ -66,8 +66,9 @@ test("event created at a venue picks up its address and areas, then edits", asyn
     page.getByRole("heading", { name: "The Glasshouse", level: 1 }),
   ).toBeVisible();
 
-  await page.goto("/#/events");
-  await page.getByRole("button", { name: "New Event", exact: true }).click();
+  await page.goto("/#/events/overview");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Continue without a lead" }).click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Title *", { exact: true }).fill("Fall gala");
   await dialog.getByLabel("Date *", { exact: true }).fill("2026-11-14");
@@ -88,23 +89,23 @@ test("event created at a venue picks up its address and areas, then edits", asyn
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("spinbutton", { name: "Guests" }).fill("120");
-  // Status changes in its own panel, not in Edit mode (FLOW-56).
+  // Status changes in the dropdown under the title, not in Edit mode (FLOW-56,
+  // FLOW-350).
   const details = page.locator("section.panel", { has: page.getByRole("heading", { name: "Event details" }) });
   await expect(details.locator("[data-readonly]", { hasText: "Status" }).getByRole("combobox")).toHaveCount(0);
   await page.locator(".record-heading").getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("spinbutton", { name: "Guests" })).toHaveCount(0);
   await expect(page.getByText("120", { exact: true })).toBeVisible();
 
-  // The status is a pill picker (FLOW-251).
-  const newStatus = page.locator("label.form-field", { hasText: "New status" });
-  await newStatus.getByRole("combobox", { name: "Status" }).click();
+  // The status is a pill picker (FLOW-251) under the title (FLOW-350).
+  const status = page.locator(".record-heading").getByRole("combobox", { name: "Event status" });
+  await status.click();
   await page.getByRole("option", { name: "Lost" }).click();
-  await page.getByLabel("Why (optional)").fill("Went with another caterer");
-  await page.getByRole("button", { name: "Change status" }).click();
-  await expect(page.getByText("Lost").first()).toBeVisible();
+  await expect(status).toHaveAttribute("data-value", "lost");
+  await expect(page.getByRole("heading", { name: "Status", exact: true })).toHaveCount(0);
+  // Its history is in the History card (FLOW-350 A1).
   const history = page.getByRole("list", { name: "Status history" });
   await expect(history.getByText("Inquiry → Lost")).toBeVisible();
-  await expect(history.getByText("Went with another caterer")).toBeVisible();
 });
 
 // FLOW-186: a save made from a copy another page has since changed is refused,

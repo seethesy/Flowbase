@@ -33,9 +33,9 @@ test("draws events at Negotiation or later as chips at their New York times, mon
   // AC1: earlier stages and Lost never show.
   await expect(page.getByText("Early pitch")).toHaveCount(0);
   await expect(page.getByText("Lost dinner")).toHaveCount(0);
-  // The Status filter offers only Negotiation and later.
+  // The Status filter offers the calendar's four statuses (FLOW-354).
   await page.getByRole("combobox", { name: "Status", exact: true }).click();
-  await expect(page.getByRole("listbox").last().getByRole("option")).toHaveText(["All statuses", "Negotiation", "Closing", "Closed", "Preparation", "Finished"]);
+  await expect(page.getByRole("listbox").last().getByRole("option")).toHaveText(["All statuses", "Pending", "Confirmed", "Preparation", "Done"]);
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: "Next month" }).click();
@@ -166,7 +166,8 @@ test("the events table lists the events in view and follows navigation and filte
   await seedSchedules();
   const nextWeek = { ...gala(), id: "e0000000-0000-4000-8000-0000000002f5", title: "Harvest brunch", date: "2026-09-24" };
   const october = { ...gala(), id: "e0000000-0000-4000-8000-0000000002f6", title: "October social", date: "2026-10-02" };
-  await seedRecords({ events: [nextWeek, october] });
+  const later = { ...gala(), id: "e0000000-0000-4000-8000-0000000002f7", title: "Late October social", date: "2026-10-12" };
+  await seedRecords({ events: [nextWeek, october, later] });
   await page.goto("/#/events/overview?date=2026-09-17");
   const table = page.locator(".calendar-events-table");
   const row = table.getByRole("row", { name: /Fall gala/ });
@@ -174,9 +175,11 @@ test("the events table lists the events in view and follows navigation and filte
   await expect(row.locator(".date-time-cell__date")).toHaveText("Thu, Sep 17");
   await expect(row.locator(".date-time-cell__time")).toHaveText("5:00 PM");
   await expect(row).toContainText(salesperson.name);
-  // Month: September only, though the grid shows Oct 2.
+  // Month: the six weeks the grid shows (FLOW-348), Aug 30 to Oct 10, so Oct 2
+  // is listed and Oct 12 is not.
   await expect(table.getByRole("row", { name: /Harvest brunch/ })).toBeVisible();
-  await expect(table.getByRole("row", { name: /October social/ })).toHaveCount(0);
+  await expect(table.getByRole("row", { name: /^(?!.*Late).*October social/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /Late October social/ })).toHaveCount(0);
 
   await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Week" }).click();
   await expect(row).toBeVisible();
@@ -186,9 +189,9 @@ test("the events table lists the events in view and follows navigation and filte
   await expect(table.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Previous week" }).click();
 
-  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "negotiation");
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "pending");
   await expect(table.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);
-  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "closed");
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "confirmed");
   await expect(row).toBeVisible();
   await choose(page.getByRole("combobox", { name: "Owner", exact: true }), salesperson.id);
   await expect(row).toBeVisible();
@@ -277,4 +280,54 @@ test("opens with the layers in the address checked in the layers dropdown (FLOW-
   await expect(list.getByRole("option", { name: "Tentative holds" })).toHaveAttribute("aria-selected", "true");
   await expect(list.getByRole("option", { name: "Production tasks" })).toHaveAttribute("aria-selected", "false");
   await expect(list.getByRole("option", { name: "Staff shifts" })).toHaveAttribute("aria-selected", "false");
+});
+
+// FLOW-348 AC1: an event in the month grid's trailing days is in the table too.
+test("lists an event in the month grid's trailing days in the events table", async ({ page }) => {
+  const december = { ...gala(), id: "e0000000-0000-4000-8000-0000000003f1", title: "Birthday pickup", date: "2026-12-11" };
+  await seedRecords({ clients: [juniper()], events: [december] });
+  await page.goto("/#/events/overview?date=2026-11-15");
+  await expect(page.getByRole("heading", { name: "November 2026" })).toBeVisible();
+  await expect(page.locator('.fc-daygrid-day[data-date="2026-12-11"]')).toContainText("Birthday pickup");
+  await expect(page.locator(".calendar-events-table").getByRole("row", { name: /Birthday pickup/ })).toBeVisible();
+});
+
+// FLOW-354: the calendar groups events as Pending, Confirmed, Preparation, Done.
+test("groups events into Pending, Confirmed, Preparation and Done", async ({ page }) => {
+  const at = (n: number, title: string, status: "negotiation" | "closing" | "finished") =>
+    ({ ...gala(), id: `e0000000-0000-4000-8000-0000000004f${n}`, title, status });
+  await seedRecords({
+    clients: [juniper()],
+    events: [gala(), at(1, "Negotiating dinner", "negotiation"), at(2, "Closing lunch", "closing"), at(3, "Finished brunch", "finished")],
+  });
+  await page.goto("/#/events/overview?date=2026-09-17");
+  // AC1: the legend, in order, in its colors.
+  const legend = page.locator(".calendar-legend .status-pill");
+  await expect(legend).toHaveText(["Pending", "Confirmed", "Preparation", "Done"]);
+  await expect(legend.nth(0)).toHaveCSS("background-color", "rgb(251, 228, 167)");
+  await expect(legend.nth(1)).toHaveCSS("background-color", "rgb(161, 38, 29)");
+  await expect(legend.nth(3)).toHaveCSS("background-color", "rgb(75, 90, 83)");
+  await expect(legend.nth(3)).toHaveCSS("color", "rgb(255, 255, 255)");
+  // AC2: Negotiation and Closing both draw as Pending, with Negotiation's dot.
+  for (const title of ["Negotiating dinner", "Closing lunch"]) {
+    const chip = page.locator(".calendar-event", { hasText: title });
+    await expect(chip).toHaveClass(/calendar-group-pending/);
+    await expect(chip.locator(".calendar-dot")).toHaveCSS("background-color", "rgb(217, 165, 20)");
+  }
+  // AC4: Finished draws as Done, in the darker color.
+  const done = page.locator(".calendar-event", { hasText: "Finished brunch" });
+  await expect(done).toHaveClass(/calendar-group-done/);
+  await expect(done).toHaveCSS("background-color", "rgb(75, 90, 83)");
+  // AC3: Pending filters the calendar and the table to Negotiation and Closing.
+  await choose(page.getByRole("combobox", { name: "Status", exact: true }), "pending");
+  await expect(page).toHaveURL(/status=pending/);
+  const table = page.locator(".calendar-events-table");
+  await expect(table.getByRole("row", { name: /Negotiating dinner/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /Closing lunch/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /Fall gala/ })).toHaveCount(0);
+  await expect(table.getByRole("row", { name: /Finished brunch/ })).toHaveCount(0);
+  await expect(page.locator(".calendar-event", { hasText: "Fall gala" })).toHaveCount(0);
+  await expect(page.locator(".calendar-event", { hasText: "Closing lunch" })).toBeVisible();
+  // The table keeps the real pipeline status (FLOW-354 A1).
+  await expect(table.getByRole("combobox", { name: "Status for Closing lunch" })).toHaveAttribute("data-value", "closing");
 });

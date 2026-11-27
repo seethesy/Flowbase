@@ -29,11 +29,30 @@ test("the event hub opens from the client page and the event list", async ({
     page.getByRole("heading", { name: "Juniper & Co.", level: 1 }),
   ).toBeVisible();
 
-  await page.goto("/#/events");
-  await page.getByRole("row", { name: /Fall gala/ }).getByRole("button", { name: "Open" }).click();
+  // The events table on Events › Overview (FLOW-349 retired the /events list).
+  await page.goto("/#/events/overview");
+  await page.locator(".calendar-events-table").getByRole("row", { name: /Fall gala/ }).getByRole("button", { name: "Open" }).click();
   await expect(
     page.getByRole("heading", { name: "Event files", exact: true }),
   ).toBeVisible();
+});
+
+// FLOW-349: every way back to "all events" lands on Events › Overview.
+test("All events, the /events address and archiving open Events › Overview (FLOW-349)", async ({ page }) => {
+  await seedRecords({ clients: [juniper()], events: [fallGala()] });
+  // AC2: the old address redirects.
+  await page.goto("/#/events");
+  await expect(page).toHaveURL(/#\/events\/overview$/);
+  await expect(page.locator(".fc-dayGridMonth-view")).toBeVisible();
+  // AC1: the event page's back link.
+  await page.goto(`/#/events/${fallGala().id}`);
+  await page.getByRole("link", { name: "← All events" }).click();
+  await expect(page).toHaveURL(/#\/events\/overview$/);
+  // AC3: archiving returns to the Overview.
+  await page.goto(`/#/events/${fallGala().id}`);
+  await page.locator(".record-heading").getByRole("button", { name: "Archive", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm" }).click();
+  await expect(page).toHaveURL(/#\/events\/overview$/);
 });
 
 // FLOW-335: Edit turns the event's own fields into inputs in place, in their
