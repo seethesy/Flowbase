@@ -10,6 +10,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   contactRoleLabels,
   contactRoleSchema,
+  clientNameFor,
+  personPoc,
   type Client,
   type ClientInput,
   type Contact,
@@ -91,7 +93,8 @@ export function ClientList() {
     {
       accessorKey: "name",
       header: "Client",
-      meta: { edit: "text", canEdit: () => can("clients.write"), onEdit: (row, value) => editClient(row, { name: value }) },
+      // A Person client's name is its Primary POC's (FLOW-352): edit it there.
+      meta: { edit: "text", canEdit: (row) => can("clients.write") && row.kind !== "person", onEdit: (row, value) => editClient(row, { name: value }) },
       cell: (c) => (
         <span className="company-cell">
           <span className="company-avatar">
@@ -299,12 +302,20 @@ function ClientFormFields({
         contact.key === key ? { ...contact, ...patch } : contact,
       ),
     );
+  // A Person client is named for its Primary POC (FLOW-352), so its name isn't
+  // entered separately; switching to Organization keeps that name, now editable.
+  const person = kind === "person";
+  const changeKind = (next: Client["kind"]) => {
+    if (person && next === "organization") setName(clientNameFor({ name, kind, contacts }));
+    setKind(next);
+  };
   const save = async (allowDuplicate: boolean) => {
-    if (!name.trim()) return setError("Name is required.");
+    if (person && !personPoc(contacts)) return setError("A Person client needs a Primary POC contact.");
+    if (!person && !name.trim()) return setError("Name is required.");
     if (contacts.some((contact) => !contact.name.trim()))
       return setError("Every contact needs a name.");
     const input: ClientInput = {
-      name,
+      name: clientNameFor({ name, kind, contacts }),
       kind,
       notes,
       tags: tags
@@ -381,18 +392,22 @@ function ClientFormFields({
           </Button>
         </div>
       )}
-      <FormField label={<T id="clients.client-form-fields.name">Name *</T>}>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-        />
-      </FormField>
+      {person ? (
+        <p className="muted"><T id="clients.client-form-fields.person-named-for-poc">A Person client is named for its Primary POC contact.</T></p>
+      ) : (
+        <FormField label={<T id="clients.client-form-fields.name">Name *</T>}>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </FormField>
+      )}
       <div className="form-grid">
         <FormField label={<T id="clients.client-form-fields.type">Type</T>}>
           <Dropdown
             value={kind}
-            onChange={(e) => setKind(e.target.value as Client["kind"])}
+            onChange={(e) => changeKind(e.target.value as Client["kind"])}
           >
             <option value="organization">Organization</option>
             <option value="person">Person</option>

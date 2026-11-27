@@ -1,7 +1,17 @@
 import { choose } from "../dropdown";
+import type { Locator } from "@playwright/test";
 import { test, expect } from "../auth-fixture";
 import { chairs } from "../fixtures";
 import { seedInventory } from "../database";
+
+// FLOW-353: these tables have no Open column; a click on a plain cell opens the row.
+async function cellUnder(row: Locator, header: string) {
+  await expect(row).toBeVisible();
+  const headers = (await row.locator("xpath=ancestor::table[1]").locator("thead th").allTextContents()).map((text) => text.trim());
+  expect(headers).not.toContain("Open");
+  expect(headers).toContain(header);
+  return row.getByRole("cell").nth(headers.indexOf(header));
+}
 
 test("edits rental details and maintains separate color stock on one item", async ({
   page,
@@ -175,10 +185,7 @@ test("transfers stock between locations from the item page", async ({
   await page.goto("/#/inventory");
   await choose(page
     .getByRole("combobox", { name: "Location", exact: true }), { label: "Cozy Cafe" });
-  await page
-    .getByRole("row", { name: /Chiavari Chair/ })
-    .getByRole("button", { name: "Open", exact: true })
-    .click();
+  await (await cellUnder(page.getByRole("row", { name: /Chiavari Chair/ }), "Stock")).click();
   await expect(
     page.getByRole("heading", { name: "Chiavari Chair", level: 1 }),
   ).toBeVisible();
@@ -269,10 +276,7 @@ test("creates, edits and filters ingredients", async ({ page }) => {
   );
   await page.getByLabel("Vendor", { exact: true }).fill("");
 
-  await page
-    .getByRole("row", { name: /Heavy Cream/ })
-    .getByRole("button", { name: "Open", exact: true })
-    .click();
+  await (await cellUnder(page.getByRole("row", { name: /Heavy Cream/ }), "Stock")).click();
   await expect(
     page.getByRole("heading", { name: "Heavy Cream", level: 1 }),
   ).toBeVisible();

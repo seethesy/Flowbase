@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type { Locator } from "@playwright/test";
 import { test, expect } from "../auth-fixture";
 import { choose } from "../dropdown";
 import { browserDb, seedInventory, seedRecords } from "../database";
@@ -9,6 +10,15 @@ import { createRecipe } from "../../../worker/records/kitchen/recipes";
 import { recipeInputSchema } from "../../../shared/recipes";
 import * as s from "../../../worker/db/schema";
 import { PDFDocument } from "pdf-lib";
+
+// FLOW-353: these tables have no Open column; a click on a plain cell opens the row.
+async function cellUnder(row: Locator, header: string) {
+  await expect(row).toBeVisible();
+  const headers = (await row.locator("xpath=ancestor::table[1]").locator("thead th").allTextContents()).map((text) => text.trim());
+  expect(headers).not.toContain("Open");
+  expect(headers).toContain(header);
+  return row.getByRole("cell").nth(headers.indexOf(header));
+}
 
 // The Kitchen screen's tabs (FLOW-267).
 async function seedDish() {
@@ -35,7 +45,7 @@ test("the tabs read Overview | Recipes | Ingredients | Menus | Photos under the 
 test("the kitchen card scales the ingredient amounts to N servings (AC3)", async ({ page }) => {
   await seedDish();
   await page.goto("/#/recipes");
-  await page.getByRole("row", { name: /Braised short rib/ }).getByRole("button", { name: "Open", exact: true }).click();
+  await (await cellUnder(page.getByRole("row", { name: /Braised short rib/ }), "Updated")).click();
   const card = page.getByRole("dialog", { name: /Braised short rib/ });
   await expect(card).toContainText("Contains Milk");
   const ingredients = card.getByRole("region", { name: "Ingredients" });
