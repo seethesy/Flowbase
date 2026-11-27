@@ -181,7 +181,10 @@ export function ConvertLeadForm({
       </div>
       {mode === "create" ? (
         <div className="form-grid">
-          <FormField label={<T id="lead-convert.convert-lead-form.client-name">Client name *</T>}>
+          {/* A Person client is named for its Primary POC (FLOW-352). */}
+          <FormField label={kind === "person"
+            ? <T id="lead-convert.convert-lead-form.poc-name">Point of contact name *</T>
+            : <T id="lead-convert.convert-lead-form.client-name">Client name *</T>}>
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </FormField>
           <FormField label={<T id="lead-convert.convert-lead-form.client-type">Client type</T>}>

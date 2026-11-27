@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm";
 import type { z } from "zod";
 import type { Actor } from "../../../shared/access";
-import { eventInputSchema } from "../../../shared/core-records";
+import { clientNameFor, eventInputSchema } from "../../../shared/core-records";
 import {
   isOpenLeadStatus,
   leadChannelSchema,
@@ -35,7 +35,7 @@ import {
 } from "../../../shared/leads";
 import { listHistoryPage, writeAudit } from "../../audit/log";
 import type { Db, DbLike } from "../../db/client";
-import { approvalRequests, beos, clientContacts, events, leadDuplicates, leads, proposals, users } from "../../db/schema";
+import { approvalRequests, beos, clientContacts, clients as clientRows, events, leadDuplicates, leads, proposals, users } from "../../db/schema";
 import { ApiError, forbidden, notFound } from "../../hono";
 import { emitDomainEvent } from "../../jobs/queue";
 import { can, clientScope, leadScope, mayCloseLead, type Scope } from "../../policy";
@@ -771,10 +771,12 @@ export async function convertLead(
       clientName = input.client.name.trim() || lead.name;
       if (!clientName)
         throw new ApiError(400, "INVALID_REQUEST", "Enter a client name.");
+      // A Person client and its Primary POC are one person (FLOW-352): the name
+      // entered on Closing is the POC's too.
       const contacts = hasContact
         ? [
             {
-              name: contact.name || clientName,
+              name: input.client.kind === "person" ? clientName : contact.name || clientName,
               role: "primary_poc" as const,
               email: contact.email || undefined,
               phone: contact.phone || undefined,
@@ -790,6 +792,8 @@ export async function convertLead(
       );
       if (visible.length && !input.client.allowDuplicate)
         throw duplicateClientError(visible);
+      // A Person client is named for its Primary POC (FLOW-352).
+      clientName = clientNameFor({ name: clientName, kind: input.client.kind, contacts });
       clientId = await insertClient(
         tx,
         actor,
@@ -859,6 +863,13 @@ export async function convertLead(
             })
             .returning({ id: clientContacts.id });
           pocContactId = added.id;
+          // A Person client's first Primary POC names it (FLOW-352).
+          const renamed = clientNameFor({ name: client.name, kind: client.kind,
+            contacts: [{ name: contact.name || clientName, role: existing.length === 0 ? "primary_poc" : "event_coordinator" }] });
+          if (renamed !== client.name) {
+            await tx.update(clientRows).set({ name: renamed, updatedBy: actor.userId }).where(eq(clientRows.id, clientId));
+            clientName = renamed;
+          }
           // The added contact shows in the client's history (FLOW-185 AC3).
           await writeAudit(tx, actor, {
             entityType: "client",
