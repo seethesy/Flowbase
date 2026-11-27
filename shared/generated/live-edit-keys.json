@@ -969,20 +969,6 @@
     "events.event-form-fields.transportation-notes": [],
     "events.event-form-fields.type-a-client-or-contact.placeholder": [],
     "events.event-form-fields.venue": [],
-    "events.event-list.events": [],
-    "events.event-list.events-2": [
-      "dataCount"
-    ],
-    "events.event-list.events-3": [
-      "dataCount"
-    ],
-    "events.event-list.every-proposal-beo-and-task": [],
-    "events.event-list.from": [],
-    "events.event-list.load-more-events": [],
-    "events.event-list.new-event": [],
-    "events.event-list.search-events-clients-or-venues.placeholder": [],
-    "events.event-list.show-archived": [],
-    "events.event-list.to": [],
     "events.event-picker.choose-an-event": [],
     "events.event-picker.event": [],
     "events.event-picker.find-event": [],
@@ -1741,7 +1727,6 @@
     "list-fields.list-checkboxes.archived": [
       "label"
     ],
-    "nav.all-events": [],
     "nav.all-tasks": [],
     "nav.approvals": [],
     "nav.archived": [],
@@ -2983,6 +2968,7 @@
     "labels.beo-section.",
     "labels.beo-status.",
     "labels.calendar-layer.",
+    "labels.calendar-status.",
     "labels.client-kind.",
     "labels.communication-kind.",
     "labels.conflict-state.",
@@ -3173,12 +3159,6 @@
       "fieldCards": [
         "event-facts"
       ]
-    },
-    "events.list": {
-      "blocks": [
-        "list"
-      ],
-      "fieldCards": []
     },
     "events.payments": {
       "blocks": [

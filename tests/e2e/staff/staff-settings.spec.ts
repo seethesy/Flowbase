@@ -66,8 +66,9 @@ test("a list value Admin adds in Settings is offered in the event form, and arch
     page.getByRole("list", { name: "Event types" }).getByText("Gala"),
   ).toBeVisible();
 
-  await page.goto("/#/events");
-  await page.getByRole("button", { name: "New Event", exact: true }).click();
+  await page.goto("/#/events/overview");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Continue without a lead" }).click();
   await expect.poll(() => optionTexts(page.getByRole("dialog").getByLabel(/^Event type/))).toEqual(["—", "Corporate", "Wedding", "Gala"]);
   await page.getByRole("button", { name: "Cancel" }).click();
 
@@ -80,7 +81,8 @@ test("a list value Admin adds in Settings is offered in the event form, and arch
     .getByRole("button", { name: "Archive" })
     .click();
   await expect(page.getByText("Gala archived.", { exact: true })).toBeVisible();
-  await page.goto("/#/events");
-  await page.getByRole("button", { name: "New Event", exact: true }).click();
+  await page.goto("/#/events/overview");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Continue without a lead" }).click();
   await expect.poll(() => optionTexts(page.getByRole("dialog").getByLabel(/^Event type/))).toEqual(["—", "Corporate", "Wedding"]);
 });

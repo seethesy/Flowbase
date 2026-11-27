@@ -66,8 +66,9 @@ test("event created at a venue picks up its address and areas, then edits", asyn
     page.getByRole("heading", { name: "The Glasshouse", level: 1 }),
   ).toBeVisible();
 
-  await page.goto("/#/events");
-  await page.getByRole("button", { name: "New Event", exact: true }).click();
+  await page.goto("/#/events/overview");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Continue without a lead" }).click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Title *", { exact: true }).fill("Fall gala");
   await dialog.getByLabel("Date *", { exact: true }).fill("2026-11-14");

@@ -27,8 +27,9 @@ test("a client beyond the first page is found by searching", async ({ page }) =>
     page.getByRole("heading", { name: "Zinnia Hall", level: 1 }),
   ).toBeVisible();
 
-  await page.goto("/#/events");
-  await page.getByRole("button", { name: "New Event", exact: true }).click();
+  await page.goto("/#/events/overview");
+  await page.getByRole("button", { name: "New event", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Continue without a lead" }).click();
   const dialog = page.getByRole("dialog");
   const picker = dialog.getByLabel(/^Client \*/);
   await expect.poll(() => optionTexts(picker)).not.toContain("Zinnia Hall");

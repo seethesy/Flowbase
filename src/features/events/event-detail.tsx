@@ -227,7 +227,7 @@ export function EventDetail() {
     setEditError("");
   }
   const back = (
-    <Link to="/events" className="back-link">
+    <Link to="/events/overview" className="back-link">
       <T id="events.event-detail.all-events">← All events</T>
     </Link>
   );
@@ -562,7 +562,7 @@ export function EventDetail() {
         onConfirm={async () => {
           await eventsApi.setArchived(e.id, true);
           setArchive(false);
-          navigate("/events");
+          navigate("/events/overview");
         }}
       >
         <T id="events.event-detail.will-be-hidden-from-the" values={{ title: e.title }}>{"{title} will be hidden from the event list."}</T>

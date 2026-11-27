@@ -6,6 +6,7 @@ import { seedUsers } from "../../../worker/db/seed";
 import { createTask } from "../../../worker/records/tasks/tasks";
 import { taskInputSchema, type TaskInput } from "../../../shared/tasks";
 import { addLocalDays, businessTimeToUtc, utcToBusinessTime } from "../../../shared/time";
+import { calendarWhenParts } from "../../../src/features/events/calendar-entries";
 
 // FLOW-296 and FLOW-297 on the real Worker and database: a dropdown in a table
 // row changes its value without opening the record, a click elsewhere on the
@@ -63,11 +64,12 @@ test("My Dashboard tasks are a table: status changes in place, the row opens the
 test("the events table shows the date with the start time beneath, and edits both (FLOW-296 AC2)", async ({ page }) => {
   const event = { ...fallGala(), date: today(), startTime: "18:00" };
   await seedRecords({ clients: [juniper()], events: [event] });
-  await page.goto("/#/events");
+  // The events table on Events › Overview (FLOW-349 retired the /events list).
+  await page.goto("/#/events/overview");
   const row = page.getByRole("row", { name: /Fall gala/ });
   await expect(page.getByRole("columnheader", { name: "Start" })).toHaveCount(0);
-  await expect(row.locator(".date-time-cell__date")).toHaveText(today());
-  await expect(row.locator(".date-time-cell__time")).toHaveText("18:00");
+  await expect(row.locator(".date-time-cell__date")).toHaveText(calendarWhenParts({ start: `${today()}T18:00` }).date);
+  await expect(row.locator(".date-time-cell__time")).toHaveText("6:00 PM");
 
   const next = addLocalDays(today(), 1);
   await row.locator(".table-edit-trigger").filter({ has: page.locator(".date-time-cell") }).click();
@@ -79,8 +81,8 @@ test("the events table shows the date with the start time beneath, and edits bot
   expect((await saved).ok()).toBeTruthy();
   await page.reload();
   const after = page.getByRole("row", { name: /Fall gala/ });
-  await expect(after.locator(".date-time-cell__date")).toHaveText(next);
-  await expect(after.locator(".date-time-cell__time")).toHaveText("19:30");
+  await expect(after.locator(".date-time-cell__date")).toHaveText(calendarWhenParts({ start: `${next}T19:30` }).date);
+  await expect(after.locator(".date-time-cell__time")).toHaveText("7:30 PM");
 });
 
 test("an Admin resizes columns on SOPs and My Dashboard tasks, for everyone (FLOW-296 AC1)", async ({ page }) => {

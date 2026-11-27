@@ -163,7 +163,6 @@ const otherPages: Record<string, NavLabel> = {
 
 // Pages below a tab that aren't records.
 const subPages: Record<string, NavLabel> = {
-  "/events": { copyId: "all-events", label: "All events" },
   "/leads/dashboard": { copyId: "lead-dashboard", label: "Lead dashboard" },
   "/tasks/all": { copyId: "all-tasks", label: "All tasks" },
   "/tasks/templates": { copyId: "templates", label: "Templates" },
