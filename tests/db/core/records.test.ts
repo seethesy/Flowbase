@@ -2,6 +2,7 @@ import { roles, employmentTypes } from "../../../shared/access";
 import type { EventHub } from "../../../shared/event-hub";
 import type { HistoryEntry } from "../../../shared/audit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -112,6 +113,76 @@ afterAll(async () => {
 });
 
 describe("clients", () => {
+  // FLOW-352: a Person client's name is always its Primary POC's.
+  describe("Person clients are named for their Primary POC (FLOW-352)", () => {
+    const person = (overrides: Partial<ClientInput> = {}) =>
+      newClient({ name: "Ignored name", kind: "person", ...overrides });
+    const put = async (created: Client, body: Partial<ClientInput>) => {
+      const response = await admin.call("PUT", `/api/clients/${created.id}`, {
+        ...newClient(), kind: created.kind, name: created.name, contacts: created.contacts.map(({ email, phone, ...contact }) => ({ ...contact, email: email ?? undefined, phone: phone ?? undefined })),
+        ...body, updatedAt: created.updatedAt,
+      });
+      expect(response.status).toBe(200);
+      return (await response.json()) as Client;
+    };
+
+    it("saves a new Person client with its POC's name (AC1)", async () => {
+      const created = await admin.post<Client>("/api/clients", person());
+      expect(created.name).toBe("Olivia Bennett");
+    });
+
+    it("renames the client when its POC is renamed (AC2)", async () => {
+      const created = await admin.post<Client>("/api/clients", person());
+      const renamed = await put(created, {
+        contacts: [{ ...created.contacts[0], name: "Olivia Park", email: undefined, phone: undefined }],
+      });
+      expect(renamed.name).toBe("Olivia Park");
+    });
+
+    it("corrects a different name sent for a Person client (AC3)", async () => {
+      const created = await admin.post<Client>("/api/clients", person());
+      const updated = await put(created, { name: "Someone else" });
+      expect(updated.name).toBe("Olivia Bennett");
+    });
+
+    it("keeps an Organization's own name, and switching kind follows the POC (AC4)", async () => {
+      const org = await admin.post<Client>("/api/clients", newClient());
+      expect(org.name).toBe("Juniper & Co.");
+      const toPerson = await put(org, { kind: "person" });
+      expect(toPerson.name).toBe("Olivia Bennett");
+      const toOrg = await put(toPerson, { kind: "organization" });
+      expect(toOrg.name).toBe("Olivia Bennett");
+      const renamedOrg = await put(toOrg, { name: "Bennett Events" });
+      expect(renamedOrg.name).toBe("Bennett Events");
+    });
+
+    it("keeps the given name for a Person client with no Primary POC", async () => {
+      const created = await admin.post<Client>("/api/clients", person({
+        name: "Pat Doe", contacts: [{ name: "Billing desk", role: "billing" }],
+      }));
+      expect(created.name).toBe("Pat Doe");
+    });
+
+    it("the migration renames mismatched Person clients and audits it (A1)", async () => {
+      const [mismatched] = await db.insert(clients).values({ name: "Old name", kind: "person" }).returning();
+      const [org] = await db.insert(clients).values({ name: "Org name", kind: "organization" }).returning();
+      await db.insert(schema.clientContacts).values([
+        { clientId: mismatched.id, name: "Rae Lin", role: "primary_poc", sortOrder: 0 },
+        { clientId: org.id, name: "Someone", role: "primary_poc", sortOrder: 0 },
+      ]);
+      await client.unsafe(readFileSync("drizzle/0089_flow_352_person_client_names.sql", "utf8"));
+      const rows = await db.select().from(clients);
+      expect(rows.find((row) => row.id === mismatched.id)?.name).toBe("Rae Lin");
+      expect(rows.find((row) => row.id === org.id)?.name).toBe("Org name");
+      const audit = await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, mismatched.id));
+      expect(audit).toEqual([expect.objectContaining({
+        entityType: "client", action: "update", createdBy: null,
+        changes: { name: { before: "Old name", after: "Rae Lin" } },
+      })]);
+      expect(await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, org.id))).toEqual([]);
+    });
+  });
+
   it("keeps unchanged contact rows on a repeated save and inserts five contacts together", async () => {
     const created = await admin.post<Client>("/api/clients", newClient());
     const contact = created.contacts[0];

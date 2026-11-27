@@ -452,6 +452,38 @@ describe("conversion (FLOW-112)", () => {
     ...overrides,
   });
 
+  // FLOW-352: a Person client and its Primary POC are one person, so the name
+  // entered on Closing names both; an Organization keeps the lead as its POC.
+  it("names a Person client and its Primary POC with the name entered on Closing", async () => {
+    const id = await seed();
+    await qualify(id);
+    const result = await admin.post<LeadConversion>(
+      `/api/leads/${id}/convert`,
+      convertBody({ client: { mode: "create", name: "Maya Ortiz-Reyes", kind: "person" } }),
+    );
+    expect(result.client.name).toBe("Maya Ortiz-Reyes");
+    const created = await admin.get<Client>(`/api/clients/${result.client.id}`);
+    expect(created.name).toBe("Maya Ortiz-Reyes");
+    expect(created.contacts).toEqual([expect.objectContaining({ name: "Maya Ortiz-Reyes", role: "primary_poc" })]);
+  });
+
+  it("names a contactless Person client for the lead added as its Primary POC on link", async () => {
+    const existing = await admin.post<Client>(
+      "/api/clients",
+      { name: "Placeholder", kind: "person", contacts: [] },
+      201,
+    );
+    const id = await seed();
+    await qualify(id);
+    const linked = await admin.post<LeadConversion>(
+      `/api/leads/${id}/convert`,
+      convertBody({ client: { mode: "link", clientId: existing.id } }),
+    );
+    expect(linked.client.name).toBe("Maya Ortiz");
+    const after = await admin.get<Client>(`/api/clients/${existing.id}`);
+    expect(after.name).toBe("Maya Ortiz");
+  });
+
   it("creates a client, contact and inquiry event pre-filled from the lead", async () => {
     const id = await seed();
     await admin.post(`/api/leads/${id}/assign`, {

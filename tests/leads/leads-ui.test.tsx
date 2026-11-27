@@ -185,7 +185,8 @@ it("warns about a matching client on convert and offers to link instead", async 
     />,
   );
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByLabelText("Client name *")).toHaveValue(
+  // A Person client (the default) is named for its point of contact (FLOW-352).
+  expect(within(dialog).getByLabelText("Point of contact name *")).toHaveValue(
     "Maya Ortiz",
   );
   expect(within(dialog).getByLabelText("Event date *")).toHaveValue(

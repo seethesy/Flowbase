@@ -15,6 +15,7 @@ import type { Actor } from "../../../shared/access";
 import {
   clientCreateSchema,
   clientInputSchema,
+  clientNameFor,
   type Client,
 } from "../../../shared/core-records";
 import type { z } from "zod";
@@ -335,7 +336,8 @@ export async function insertClient(
   const [row] = await tx
     .insert(clients)
     .values({
-      name: input.name,
+      // A Person client is named for its Primary POC (FLOW-352).
+      name: clientNameFor(input),
       kind: input.kind,
       notes: input.notes,
       tags: input.tags,
@@ -404,7 +406,9 @@ export async function updateClient(
     await tx
       .update(clients)
       .set({
-        name: input.name,
+        // A Person client is named for its Primary POC whatever name was sent
+        // (FLOW-352); switching to Organization keeps that name, now editable.
+        name: clientNameFor(input),
         kind: input.kind,
         notes: input.notes,
         tags: input.tags,

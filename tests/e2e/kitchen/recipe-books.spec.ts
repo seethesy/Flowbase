@@ -1,6 +1,6 @@
 import { choose } from "../dropdown";
 import type { Locator } from "@playwright/test";
-import { test, expect } from "../auth-fixture";
+import { databaseTest as test, expect, mockBrowserAuth } from "../auth-fixture";
 import { browserDb, seedInventory } from "../database";
 import { consumable } from "../fixtures";
 import { seedUsers } from "../../../worker/db/seed";

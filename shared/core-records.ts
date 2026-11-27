@@ -48,6 +48,14 @@ export const clientInputSchema = z.object({
   tags: z.array(text(40).min(1)).max(20).default([]),
   contacts: z.array(contactInputSchema).max(20).default([]),
 });
+// FLOW-352: a Person client and its point of contact are one person, so its name
+// is always its first Primary POC contact's name. An Organization keeps its own
+// name, and so does a Person with no Primary POC yet.
+export const personPoc = <C extends { name: string; role: ContactRole }>(contacts: readonly C[]) =>
+  contacts.find((contact) => contact.role === "primary_poc" && contact.name.trim() !== "");
+export const clientNameFor = (
+  client: { name: string; kind: z.infer<typeof clientKindSchema>; contacts: readonly { name: string; role: ContactRole }[] },
+) => (client.kind === "person" ? personPoc(client.contacts)?.name.trim() ?? client.name : client.name);
 export const clientCreateSchema = clientInputSchema.extend({
   // Set after the user has seen the duplicate warning and chosen to continue.
   allowDuplicate: z.boolean().default(false),
