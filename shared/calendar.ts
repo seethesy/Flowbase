@@ -34,6 +34,28 @@ const wallClock = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 export const calendarEventStatuses = ["negotiation", "closing", "closed", "preparation", "finished"] as const satisfies readonly EventStatus[];
 export type CalendarEventStatus = (typeof calendarEventStatuses)[number];
 
+// FLOW-354: the calendar groups those statuses into four plain ones, in this
+// order. The events keep their real status; only the calendar's legend, chips
+// and status filter use these. The events table keeps the pipeline status.
+export const calendarStatusGroups = ["pending", "confirmed", "preparation", "done"] as const;
+export type CalendarStatusGroup = (typeof calendarStatusGroups)[number];
+export const calendarStatusGroupLabels: Record<CalendarStatusGroup, string> = {
+  pending: "Pending",
+  confirmed: "Confirmed",
+  preparation: "Preparation",
+  done: "Done",
+};
+export const calendarGroupStatuses: Record<CalendarStatusGroup, readonly CalendarEventStatus[]> = {
+  pending: ["negotiation", "closing"],
+  confirmed: ["closed"],
+  preparation: ["preparation"],
+  done: ["finished"],
+};
+// The calendar status an event shows as; null for statuses the calendar leaves out.
+export function calendarStatusGroup(status: string): CalendarStatusGroup | null {
+  return calendarStatusGroups.find((group) => (calendarGroupStatuses[group] as readonly string[]).includes(status)) ?? null;
+}
+
 export const calendarEventSchema = z.object({
   id,
   title: z.string(),

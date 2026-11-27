@@ -7,12 +7,17 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import type { EventClickArg, EventContentArg } from "@fullcalendar/core";
 import {
   calendarEventStatuses,
+  calendarGroupStatuses,
   calendarLayerLabels,
   calendarLayers,
+  calendarStatusGroup,
+  calendarStatusGroupLabels,
+  calendarStatusGroups,
   type CalendarEventStatus,
   type CalendarLayer,
+  type CalendarStatusGroup,
 } from "../../../shared/calendar";
-import { addLocalDays, utcToBusinessTime } from "../../../shared/time";
+import { utcToBusinessTime } from "../../../shared/time";
 import { calendarApi, eventsApi } from "../../services/core";
 import { googleCalendarApi } from "../../services/google-calendar";
 import type { GoogleEvent } from "../../../shared/google-calendar";
@@ -23,10 +28,10 @@ import { useDeletable } from "../../app/live-edit/deletable";
 import { usePermissions } from "../../app/permissions";
 import { Button, FilterBar, ErrorText } from "../../components/shared";
 import { Dropdown } from "../../components/ui/Dropdown";
-import { StatusPill, statusLabel } from "../../components/ui/status-pill";
+import { statusLabel } from "../../components/ui/status-pill";
 import { T, LabelT, Plural } from "../../app/copy";
 import { CalendarEventPanel } from "./calendar-panel";
-import { toCalendarEntries } from "./calendar-entries";
+import { calendarRange, toCalendarEntries, type CalendarView } from "./calendar-entries";
 import { EventTable, saveEventFields } from "./event-list";
 import { EventsHeading } from "./events-heading";
 import { NewEventButton } from "./new-event";
@@ -45,13 +50,16 @@ import "./calendar.css";
 // the date are kept in the address, so a reload or a shared link keeps them.
 // Clicking an event opens its side panel.
 
-type CalendarView = "month" | "week" | "day";
 const fullCalendarViews: Record<CalendarView, string> = { month: "dayGridMonth", week: "timeGridWeek", day: "timeGridDay" };
 // Older links used FullCalendar's view names, or the removed List view.
 const viewOf = (value: string | null): CalendarView =>
   value === "week" || value === "timeGridWeek" ? "week" : value === "day" || value === "timeGridDay" ? "day" : "month";
-const isStatus = (value: string | null): value is CalendarEventStatus =>
-  calendarEventStatuses.includes(value as CalendarEventStatus);
+// The status filter is a calendar status (FLOW-354). Older links named a
+// pipeline status; they filter by its calendar status.
+const statusGroupOf = (value: string | null): CalendarStatusGroup | "" =>
+  calendarStatusGroups.includes(value as CalendarStatusGroup)
+    ? (value as CalendarStatusGroup)
+    : (calendarStatusGroup(value ?? "") ?? "");
 const parseLayers = (value: string | null) =>
   new Set(
     (value ?? "")
@@ -65,62 +73,6 @@ const nowInNewYork = () => {
   const { date, time } = utcToBusinessTime(new Date());
   return `${date}T${time}:00`;
 };
-const monthTitle = (month: string) =>
-  new Date(`${month}-01T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-const lastOfMonth = (month: string) => {
-  const [year, number] = month.split("-").map(Number);
-  return `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2, "0")}`;
-};
-const shiftMonth = (month: string, by: number) => {
-  const [year, number] = month.split("-").map(Number);
-  const next = new Date(Date.UTC(year, number - 1 + by, 1));
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`;
-};
-const sundayOf = (date: string) => addLocalDays(date, -new Date(`${date}T12:00:00Z`).getUTCDay());
-// The six weeks the month grid shows, Sunday first.
-const gridOf = (month: string) => {
-  const from = sundayOf(`${month}-01`);
-  return { from, to: addLocalDays(from, 41) };
-};
-const shortDay = (date: string, withYear = false) =>
-  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", ...(withYear && { year: "numeric" }), timeZone: "UTC",
-  });
-// What a view shows (FLOW-294): the days fetched for the calendar, the days the
-// events table lists (a month view lists its month), its title, and the dates
-// the previous and next buttons go to.
-function calendarRange(view: CalendarView, date: string) {
-  if (view === "day")
-    return {
-      fetch: { from: date, to: date },
-      table: { from: date, to: date },
-      title: new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
-        weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
-      }),
-      previous: addLocalDays(date, -1),
-      next: addLocalDays(date, 1),
-    };
-  if (view === "week") {
-    const from = sundayOf(date);
-    const to = addLocalDays(from, 6);
-    return {
-      fetch: { from, to },
-      table: { from, to },
-      title: `${shortDay(from)} – ${shortDay(to, true)}`,
-      previous: addLocalDays(date, -7),
-      next: addLocalDays(date, 7),
-    };
-  }
-  const month = date.slice(0, 7);
-  return {
-    fetch: gridOf(month),
-    table: { from: `${month}-01`, to: lastOfMonth(month) },
-    title: monthTitle(month),
-    previous: `${shiftMonth(month, -1)}-01`,
-    next: `${shiftMonth(month, 1)}-01`,
-  };
-}
-
 // The viewer's own Google events (FLOW-268), outlined in blue. Clicking one
 // opens it in Google Calendar.
 function toGoogleEntries(events: GoogleEvent[]) {
@@ -194,6 +146,15 @@ const googleResults: Record<string, string> = {
   failed: "Google Calendar couldn't be connected. Try again.",
 };
 
+// A calendar status in its color (FLOW-354), for the legend.
+function CalendarStatusPill({ group }: { group: CalendarStatusGroup }) {
+  return (
+    <span className={`status-pill status-pill--calendar-${group}`}>
+      <LabelT id="labels.calendar-status" value={group}>{calendarStatusGroupLabels[group]}</LabelT>
+    </span>
+  );
+}
+
 // An event chip: time and name, in the status color (FLOW-251). A pending event
 // has no fill and a dot in its status color first (FLOW-294). Layer entries draw
 // as FullCalendar does.
@@ -216,7 +177,7 @@ export function CalendarPage() {
   const view = viewOf(params.get("view"));
   const range = calendarRange(view, date);
   const owner = params.get("owner") ?? "";
-  const status = isStatus(params.get("status")) ? (params.get("status") as CalendarEventStatus) : "";
+  const status = statusGroupOf(params.get("status"));
   // Layers live in state, so a check shows at once; the address follows (a URL
   // update lands a moment later and would let the box flip back first).
   const [layers, setLayers] = useState(() => parseLayers(params.get("layers")));
@@ -264,7 +225,7 @@ export function CalendarPage() {
     return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [people.data, calendar.data]);
   const shown = (calendar.data?.events ?? []).filter(
-    (event) => (!owner || event.salespersonId === owner) && (!status || event.status === status),
+    (event) => (!owner || event.salespersonId === owner) && (!status || calendarStatusGroup(event.status) === status),
   );
   const googleShown = googleOn && googleConnected;
   const googleEvents = useResource(
@@ -320,10 +281,10 @@ export function CalendarPage() {
           value={status}
           options={[
             { value: "", label: <T id="calendar.calendar-page.all-statuses">All statuses</T>, text: "All statuses" },
-            ...calendarEventStatuses.map((value) => ({
+            ...calendarStatusGroups.map((value) => ({
               value,
-              label: <LabelT id="labels.pipeline-status" value={value}>{statusLabel(value)}</LabelT>,
-              text: statusLabel(value),
+              label: <LabelT id="labels.calendar-status" value={value}>{calendarStatusGroupLabels[value]}</LabelT>,
+              text: calendarStatusGroupLabels[value],
             })),
           ]}
           onValueChange={(next) => set({ status: next })}
@@ -379,7 +340,7 @@ export function CalendarPage() {
       </div>
       <p className="calendar-legend">
         <T id="calendar.calendar-page.status">Status:</T>
-        {calendarEventStatuses.map((value) => <StatusPill key={value} status={value} />)}
+        {calendarStatusGroups.map((value) => <CalendarStatusPill key={value} group={value} />)}
       </p>
       <ErrorText message={calendar.error} />
       <div className="calendar-panel">
@@ -429,11 +390,12 @@ function CalendarList({
   from: string;
   to: string;
   owner: string;
-  status: CalendarEventStatus | "";
+  status: CalendarStatusGroup | "";
   owners: { id: string; name: string }[];
 }) {
   const { can } = usePermissions();
-  const statuses = status ? [status] : [...calendarEventStatuses];
+  // A calendar status filters by the pipeline statuses it groups (FLOW-354).
+  const statuses = status ? [...calendarGroupStatuses[status]] : [...calendarEventStatuses];
   const list = usePagedList(["events", "calendar-list", from, to, statuses.join(",")], (cursor) =>
     eventsApi.list({ from, to, statuses }, cursor),
   );
