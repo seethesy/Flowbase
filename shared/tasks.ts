@@ -67,6 +67,7 @@ const checklistLabel = text(300).min(1, "Enter a checklist item.");
 export const taskInputSchema = z.object({
   title: text(200).min(1, "Enter a title."),
   description: text(5000).default(""),
+  notes: text(5000).default(""),
   type: taskTypeSchema.default("general"),
   status: taskStatusSchema.default("todo"),
   priority: taskPrioritySchema.default("normal"),
@@ -90,6 +91,7 @@ export const taskUpdateSchema = z
   .object({
     title: text(200).min(1, "Enter a title."),
     description: text(5000),
+    notes: text(5000),
     type: taskTypeSchema,
     status: taskStatusSchema,
     priority: taskPrioritySchema,
@@ -238,10 +240,14 @@ export type TaskSummary = z.infer<typeof taskSummarySchema>;
 
 export const taskSchema = taskSummarySchema.extend({
   description: z.string(),
+  notes: z.string(),
   checklist: z.array(checklistItemSchema),
   comments: z.array(taskCommentSchema),
   // May change the details, assignees and managers (mayManageTask).
   canManage: z.boolean(),
+});
+export const taskAssignmentSchema = z.object({
+  id: z.string(), user: person, action: z.enum(["added", "removed"]), actor: person.nullable(), at: timestamp,
 });
 export type Task = z.infer<typeof taskSchema>;
 
@@ -266,10 +272,13 @@ export const DASHBOARD_SECTION_SIZE = 50;
 export const NEEDS_DELEGATION_DAYS = 14;
 const dashboardSection = z.object({
   count: z.number().int().min(0),
-  tasks: z.array(taskSummarySchema),
+  tasks: z.array(taskSummarySchema.extend({ dueBucket: taskDueBucketSchema })),
 });
 export type TaskDashboardSection = z.infer<typeof dashboardSection>;
 export const taskDashboardSchema = z.object({
+  all: dashboardSection,
+  mine: dashboardSection,
+  managing: dashboardSection,
   overdue: dashboardSection,
   today: dashboardSection,
   upcoming: dashboardSection,

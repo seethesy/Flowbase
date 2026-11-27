@@ -19,6 +19,7 @@ import { businessDefaultsSchema, defaultBusinessDefaults } from "../../../shared
 import {
   completion,
   DASHBOARD_SECTION_SIZE,
+  dueBucket,
   dueBounds,
   NEEDS_DELEGATION_DAYS,
   type ChecklistItemUpdate,
@@ -167,12 +168,12 @@ async function defaultManagerIds(db: DbLike) {
   if (setting.mode === "people") {
     if (!setting.userIds.length) return [];
     const rows = await db.select({ id: users.id }).from(users).where(and(
-      inArray(users.id, setting.userIds), eq(users.status, "active"), isNull(users.archivedAt),
+      inArray(users.id, setting.userIds), eq(users.status, "active"), eq(users.role, "admin"), eq(users.hasAccount, true), isNull(users.archivedAt),
     ));
     return setting.userIds.filter((id) => rows.some((row) => row.id === id));
   }
   const rows = await db.select({ id: users.id }).from(users)
-    .where(and(eq(users.role, "admin"), eq(users.status, "active"), isNull(users.archivedAt)));
+    .where(and(eq(users.role, "admin"), eq(users.hasAccount, true), eq(users.status, "active"), isNull(users.archivedAt)));
   return rows.map((row) => row.id);
 }
 
@@ -196,6 +197,13 @@ async function assertPeople(db: DbLike, ids: string[]) {
       "INVALID_REQUEST",
       "Assign tasks to active staff only.",
     );
+}
+async function assertManagers(db: DbLike, ids: string[]) {
+  const wanted = [...new Set(ids)];
+  if (!wanted.length) return;
+  const found = await db.select({ id: users.id }).from(users).where(and(inArray(users.id, wanted),
+    eq(users.status, "active"), eq(users.role, "admin"), eq(users.hasAccount, true), isNull(users.archivedAt)));
+  if (found.length !== wanted.length) throw new ApiError(400, "INVALID_REQUEST", "Choose active Admin accounts as managers.");
 }
 
 // Linked records must exist, and a person may link only records they can open.
@@ -265,6 +273,7 @@ async function taskSnapshot(db: DbLike, id: string) {
   return {
     title: row.title,
     description: row.description,
+    notes: row.notes,
     type: row.type,
     status: row.status,
     priority: row.priority,
@@ -319,15 +328,15 @@ async function emitCompleted(db: DbLike, actor: Actor | null, taskId: string) {
 export async function createTask(
   db: DbLike,
   actor: Actor | null,
-  input: Omit<NewTask, "sopId"> & { sopId?: string | null },
+  input: Omit<NewTask, "sopId" | "notes"> & { sopId?: string | null; notes?: string },
   { templateItemId = null }: { templateItemId?: string | null } = {},
 ): Promise<string> {
   const managerIds = input.managerIds ?? (input.overseerId ? [input.overseerId] : await defaultManagerIds(db));
   assertDelegation(actor, input.assigneeIds, input.managerIds ?? (input.overseerId ? [input.overseerId] : undefined));
   await assertPeople(db, [
     ...input.assigneeIds,
-    ...managerIds,
   ]);
+  if (actor) await assertManagers(db, managerIds);
   await assertLinks(db, actor, input);
   const by = actor?.userId ?? null;
   const now = new Date();
@@ -336,6 +345,7 @@ export async function createTask(
     .values({
       title: input.title,
       description: input.description,
+      notes: input.notes ?? "",
       type: input.type,
       status: input.status,
       priority: input.priority,
@@ -421,6 +431,7 @@ export async function updateTask(
   const changing = managedFields.filter((key) => patch[key] !== undefined);
   const currentManagers = await managerIdsOf(db, id);
   if (actor && changing.length && !mayManageTask(actor, { createdBy: row.createdBy, managerIds: currentManagers })) throw forbidden();
+  if (actor && patch.notes !== undefined && !mayManageTask(actor, { createdBy: row.createdBy, managerIds: currentManagers }) && !await assigneeIdsOf(db, id).then((ids) => ids.includes(actor.userId))) throw forbidden();
   const before = await taskSnapshot(db, id);
   const current = before.assigneeIds;
   const next = patch.assigneeIds ?? current;
@@ -432,8 +443,8 @@ export async function updateTask(
   assertDelegation(actor, added, nextManagers, currentManagers, currentManagers.includes(actor?.userId ?? ""));
   await assertPeople(db, [
     ...added,
-    ...addedManagers,
   ]);
+  if (actor && (patch.managerIds !== undefined || patch.overseerId !== undefined)) await assertManagers(db, nextManagers);
   await assertLinks(db, actor, {
     eventId: patch.eventId !== row.eventId ? patch.eventId : undefined,
     clientId: patch.clientId !== row.clientId ? patch.clientId : undefined,
@@ -448,6 +459,7 @@ export async function updateTask(
   const fields = {
     title: patch.title,
     description: patch.description,
+    notes: patch.notes,
     type: patch.type,
     status: patch.status,
     priority: patch.priority,
@@ -505,55 +517,22 @@ export async function updateTask(
     await emitCompleted(db, actor, id);
 }
 
-// Claim / pick up (FLOW-59 AC2, FLOW-272): an unassigned open task goes to whoever
-// has tasks.write, which is every employee. A task someone else already holds can
-// only be taken over by a manager (tasks.delegate): the taker becomes its assignee
-// and the previous assignees are told. unassignedOnly is what the Pick up button
-// sends: if the task has been taken meanwhile it fails with 409 instead of
-// taking over (AC3). task.claimed tells the managers, if there are any. Claiming a
-// task you're already on changes nothing.
+// Pick up joins the current assignees; Drop removes only the caller.
 export async function claimTask(
   db: DbLike,
   actor: Actor,
   id: string,
-  options: { unassignedOnly?: boolean } = {},
+  _options: { unassignedOnly?: boolean } = {},
 ) {
+  void _options; // Accepted for older clients; joining no longer needs this guard.
   // The row is locked, so two pickers run one after the other and the second
   // sees the first one's assignee.
-  const row = await findTaskRow(db, null, id, true);
+  const row = await findTaskRow(db, actor, id, true);
   if (row.status === "done")
     throw new ApiError(409, "TASK_DONE", "This task is already done.");
   const before = await taskSnapshot(db, id);
   if (before.assigneeIds.includes(actor.userId)) return;
-  const previous = before.assigneeIds;
-  if (previous.length) {
-    if (options.unassignedOnly) {
-      const holders = await peopleOf(db, previous);
-      throw new ApiError(
-        409,
-        "ALREADY_PICKED_UP",
-        `Already picked up by ${previous.map((userId) => holders(userId)?.name ?? "someone").join(", ")}.`,
-      );
-    }
-    if (!can(actor, "tasks.delegate") && !before.managerIds.includes(actor.userId))
-      throw new ApiError(
-        403,
-        "FORBIDDEN",
-        "Only managers can take a task that is assigned to someone else.",
-      );
-  }
   await assertPeople(db, [actor.userId]);
-  if (previous.length)
-    await db
-      .update(taskAssignees)
-      .set({ archivedAt: new Date(), updatedBy: actor.userId })
-      .where(
-        and(
-          eq(taskAssignees.taskId, id),
-          inArray(taskAssignees.userId, previous),
-          isNull(taskAssignees.archivedAt),
-        ),
-      );
   await db.insert(taskAssignees).values({
     taskId: id,
     userId: actor.userId,
@@ -568,7 +547,7 @@ export async function claimTask(
     before,
     after: await taskSnapshot(db, id),
   });
-  await emitAssigned(db, actor, id, [actor.userId], previous);
+  await emitAssigned(db, actor, id, [actor.userId], []);
   await emitDomainEvent(db, {
     name: "task.claimed",
     entityId: id,
@@ -576,23 +555,59 @@ export async function claimTask(
   });
 }
 
+export async function dropTask(db: DbLike, actor: Actor, id: string) {
+  await findTaskRow(db, actor, id, true);
+  const before = await taskSnapshot(db, id);
+  if (!before.assigneeIds.includes(actor.userId)) return;
+  await db.update(taskAssignees).set({ archivedAt: new Date(), updatedBy: actor.userId })
+    .where(and(eq(taskAssignees.taskId, id), eq(taskAssignees.userId, actor.userId), isNull(taskAssignees.archivedAt)));
+  await db.update(tasks).set({ updatedBy: actor.userId }).where(eq(tasks.id, id));
+  await writeAudit(db, actor, { entityType: "task", entityId: id, action: "update", before, after: await taskSnapshot(db, id) });
+  await emitAssigned(db, actor, id, [], [actor.userId]);
+}
+
+export async function taskAssignments(db: DbLike, actor: Actor, id: string) {
+  await findTaskRow(db, actor, id);
+  const rows = await db.select().from(taskAssignees).where(eq(taskAssignees.taskId, id));
+  const person = await peopleOf(db, rows.flatMap((row) => [row.userId, row.createdBy, row.updatedBy]));
+  return rows.flatMap((row) => [
+    { id: `${row.id}:added`, user: person(row.userId)!, action: "added" as const,
+      actor: person(row.createdBy), at: row.createdAt.toISOString() },
+    ...(row.archivedAt ? [{ id: `${row.id}:removed`, user: person(row.userId)!, action: "removed" as const,
+      actor: person(row.updatedBy), at: row.archivedAt.toISOString() }] : []),
+  ]).sort((a, b) => a.at.localeCompare(b.at));
+}
+
 // Archives a task (it leaves every list). Needs mayManageTask.
-export async function archiveTask(db: DbLike, actor: Actor | null, id: string) {
-  const row = await findTaskRow(db, actor, id, true);
-  if (actor && !mayManageTask(actor, { createdBy: row.createdBy, managerIds: await managerIdsOf(db, id) })) throw forbidden();
+export async function setTaskArchived(db: DbLike, actor: Actor, id: string, archived: boolean) {
+  const [row] = await db.select().from(tasks).where(and(eq(tasks.id, id), visibleTasks(actor))).for("update");
+  if (!row) throw notFound("Task");
+  if (!mayManageTask(actor, { createdBy: row.createdBy, managerIds: await managerIdsOf(db, id) })) throw forbidden();
+  if (Boolean(row.archivedAt) === archived) return { id, archived };
   const before = await taskSnapshot(db, id);
   await db
     .update(tasks)
-    .set({ archivedAt: new Date(), updatedBy: actor?.userId ?? null })
+    .set({ archivedAt: archived ? new Date() : null, updatedBy: actor.userId })
     .where(eq(tasks.id, id));
   await writeAudit(db, actor, {
     entityType: "task",
     entityId: id,
-    action: "archive",
+    action: archived ? "archive" : "restore",
     before,
     after: await taskSnapshot(db, id),
   });
+  return { id, archived };
 }
+export const archiveTask = (db: DbLike, actor: Actor | null, id: string) => {
+  if (actor) return setTaskArchived(db, actor, id, true);
+  return (async () => {
+    await findTaskRow(db, null, id, true);
+    const before = await taskSnapshot(db, id);
+    await db.update(tasks).set({ archivedAt: new Date(), updatedBy: null }).where(eq(tasks.id, id));
+    await writeAudit(db, null, { entityType: "task", entityId: id, action: "archive", before, after: await taskSnapshot(db, id) });
+    return { id, archived: true };
+  })();
+};
 
 // Checklist items: anyone who can see the task works its checklist. Each change
 // is audited as a change of the task's checklist.
@@ -850,6 +865,7 @@ export async function getTask(db: DbLike, actor: Actor, id: string): Promise<Tas
   return {
     ...summary,
     description: row.description,
+    notes: row.notes,
     checklist: checklist.map((item) => ({
       id: item.id,
       label: item.label,
@@ -899,6 +915,7 @@ async function section(
   db: DbLike,
   actor: Actor,
   where: SQL | undefined,
+  now: Date,
 ): Promise<TaskDashboardSection> {
   const [{ total }] = await db.select({ total: count() }).from(tasks).where(where);
   const rows = await db
@@ -907,7 +924,9 @@ async function section(
     .where(where)
     .orderBy(sql`${tasks.dueAt} asc nulls last`, asc(tasks.createdAt), asc(tasks.id))
     .limit(DASHBOARD_SECTION_SIZE);
-  return { count: total, tasks: await toSummaries(db, actor, rows) };
+  return { count: total, tasks: (await toSummaries(db, actor, rows)).map((task) => ({
+    ...task, dueBucket: dueBucket(task.dueAt, now),
+  })) };
 }
 
 // Unassigned open tasks that need someone (FLOW-61 AC1): those on events that
@@ -937,20 +956,30 @@ export async function taskDashboard(
   actor: Actor,
   now = new Date(),
 ): Promise<TaskDashboard> {
+  const [setting] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "defaults"));
+  const parsed = businessDefaultsSchema.safeParse(setting?.value ?? {});
+  const hideDays = parsed.success ? parsed.data.hideCompletedTasksAfterDays : defaultBusinessDefaults.hideCompletedTasksAfterDays;
+  const cutoff = new Date(now.getTime() - hideDays * 86_400_000);
+  const keep = or(ne(tasks.status, "done"), gte(tasks.completedAt, cutoff));
   const mine = (due: TaskDueBucket) =>
     section(
       db,
       actor,
-      listWhere(actor, { mine: "true", assigneeId: actor.userId, due }, now),
+      and(listWhere(actor, { mine: "true", assigneeId: actor.userId, due, includeDone: "true" }, now), keep),
+      now,
     );
   return {
+    all: await section(db, actor, and(listWhere(actor, { includeDone: "true" }, now), keep), now),
+    mine: await section(db, actor, and(listWhere(actor, { assigneeId: actor.userId, includeDone: "true" }, now), keep), now),
+    managing: await section(db, actor, and(listWhere(actor, { overseerId: actor.userId, includeDone: "true" }, now), keep), now),
     overdue: await mine("overdue"),
     today: await mine("today"),
     upcoming: await mine("upcoming"),
     overseeing: await section(
       db,
       actor,
-      listWhere(actor, { mine: "true", overseerId: actor.userId }, now),
+      and(listWhere(actor, { mine: "true", overseerId: actor.userId, includeDone: "true" }, now), keep),
+      now,
     ),
     needsDelegation: can(actor, "tasks.triage")
       ? await section(
@@ -960,6 +989,7 @@ export async function taskDashboard(
             listWhere(actor, { unassigned: "true" }, now),
             needsDelegationWhere(now),
           ),
+          now,
         )
       : null,
   };

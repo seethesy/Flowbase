@@ -15,6 +15,7 @@ import { requirePermission } from "../../auth";
 import { enqueueJob } from "../../jobs/queue";
 import {
   ApiError,
+  archiveRoutes,
   idParam,
   pageRequest,
   parseBody,
@@ -28,12 +29,14 @@ import {
   addChecklistItem,
   addComment,
   archiveChecklistItem,
-  archiveTask,
   claimTask,
+  dropTask,
   createTask,
   getTask,
   getTaskSummaries,
   listTasksPage,
+  setTaskArchived,
+  taskAssignments,
   taskDashboard,
   updateChecklistItem,
   updateTask,
@@ -147,6 +150,9 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
     const id = taskId(c);
     return c.json(await record(c, (db, actor) => getTask(db, actor, id)));
   });
+  routes.get("/:id/assignments", requirePermission("tasks.read"), async (c) =>
+    c.json(await record(c, (db, actor) => taskAssignments(db, actor, taskId(c)))),
+  );
   routes.post("/", requirePermission("tasks.write"), async (c) => {
     const input = await parseBody(c, taskInputSchema);
     return c.json(
@@ -179,13 +185,15 @@ export function taskRoutes(options: { withDb?: RunWithDb }) {
       }),
     );
   });
-  routes.post("/:id/archive", requirePermission("tasks.write"), async (c) => {
+  routes.post("/:id/drop", requirePermission("tasks.write"), async (c) => {
     const id = taskId(c);
-    await record(c, (db, actor) =>
-      db.transaction((tx) => archiveTask(tx, actor, id)),
-    );
-    return c.body(null, 204);
+    return c.json(await record(c, async (db, actor) => {
+      await db.transaction((tx) => dropTask(tx, actor, id));
+      return getTask(db, actor, id);
+    }));
   });
+  archiveRoutes(routes, record, { path: "/:id", what: "Task", guard: requirePermission("tasks.write"),
+    set: (db, actor, id, archived) => db.transaction((tx) => setTaskArchived(tx, actor, id, archived)) });
   routes.post("/:id/checklist", requirePermission("tasks.write"), async (c) => {
     const id = taskId(c);
     const input = await parseBody(c, checklistItemInputSchema);

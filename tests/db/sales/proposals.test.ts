@@ -372,6 +372,10 @@ describe("proposal approval, revision, booking and addendum (FLOW-127–130)", (
     const contract = { signedAt: "2026-11-02T12:00:00.000Z", clientSigner: "Client", salespersonSigner: "Sam", cardOnFile: true, cardLast4: "1234", attachmentId: null, noFullCardNumberConfirmed: false };
     expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, { ...contract, cardLast4: "12345" })).status).toBe(400);
     expect((await sam.call("POST", `/api/proposals/${proposal.id}/contracts`, contract)).status).toBe(201);
+    const allContracts = await sam.send<{ eventId: string; eventTitle: string; openAddendums: number }[]>("GET", "/api/proposals/contracts/all");
+    expect(allContracts).toMatchObject([{ eventId: event.id, eventTitle: event.title, openAddendums: 0 }]);
+    expect((await kit.call("GET", "/api/proposals/contracts/all")).status).toBe(403);
+    expect(await sue.send<unknown[]>("GET", "/api/proposals/contracts/all")).toEqual([]);
     const booked = await sam.send<FlowEvent>("GET", `/api/events/${event.id}`);
     expect(booked.status).toBe("closed");
     expect(booked.bookedAt).toBe(contract.signedAt);

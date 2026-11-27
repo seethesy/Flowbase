@@ -32,10 +32,10 @@ function TaskRows({ rows, toggle, href, pickUp, showAssignee = true }: { rows: T
 export function Dashboard() {
   const role = useAuth()?.user.role;
   const [params, setParams] = useSearchParams();
-  const selectedRole = params.get("role") ?? "";
+  const selectedRole = (params.get("role") ?? "").split(",").filter(Boolean);
   const dashboard = useResource(["home", "dashboard", role], () => request(homeDashboardSchema, "/api/home/dashboard"));
   const [error, setError] = useState("");
-  const to = (path: string) => `${path}${path.includes("?") ? "&" : "?"}fromDashboard=1${selectedRole ? `&dashboardRole=${encodeURIComponent(selectedRole)}` : ""}`;
+  const to = (path: string) => `${path}${path.includes("?") ? "&" : "?"}fromDashboard=1${selectedRole.length ? `&dashboardRole=${encodeURIComponent(selectedRole.join(","))}` : ""}`;
   const toggle = async (task: TaskSummary) => {
     const current = dashboard.data;
     if (!current) return;
@@ -56,7 +56,7 @@ export function Dashboard() {
     dashboard.reload();
   };
   const data: HomeDashboard | undefined = dashboard.data;
-  const all = data?.allTasks?.filter((row) => !selectedRole || row.assigneeRoles.includes(selectedRole as Role)) ?? [];
+  const all = data?.allTasks?.filter((row) => !selectedRole.length || selectedRole.some((value) => row.assigneeRoles.includes(value as Role))) ?? [];
   return <>
     <PageHeader pageKey="dashboard.home" title={<T id="dashboard.home.title">Dashboard</T>} subtitle={role ? <RoleText role={role} /> : ""} />
     {error && <p role="alert">{error}</p>}
@@ -69,9 +69,9 @@ export function Dashboard() {
           </tr>)}</tbody></table></div></section></Block>}
         <Block id="my-tasks" name="My Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--my-tasks"><LayoutHeader headerKey="my-tasks.title" name="My Tasks header"><header><h2><T id="dashboard.home.my-tasks">My Tasks</T> <span>{data.myTasks.filter((task) => task.status !== "done").length}</span></h2><Link to={to("/tasks?mine=true")}><T id="dashboard.home.view-all-tasks">View all</T></Link></header></LayoutHeader>
           <div className="dashboard-card__scroll"><TaskRows rows={data.myTasks} showAssignee={false} toggle={(task) => void toggle(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>
-        {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><LayoutHeader headerKey="all-tasks.title" name="All Tasks header"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><Dropdown aria-label="Filter All Tasks by role" value={selectedRole} onChange={(event) => setParams(event.target.value ? { role: event.target.value } : {})}>
-          <option value="">All roles</option>{data.roles.map((value) => <option key={value} value={value}>{roleLabel(value)}</option>)}
-        </Dropdown></header></LayoutHeader><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} pickUp={(task) => void pickUp(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
+        {data.allTasks !== null && <Block id="all-tasks" name="All Tasks" w={6} h={12}><section className="dashboard-card dashboard-card--all-tasks"><LayoutHeader headerKey="all-tasks.title" name="All Tasks header"><header><h2><T id="dashboard.home.all-tasks">All Tasks</T> <span>{all.filter((row) => row.task.status !== "done").length}</span></h2><Dropdown multiple checkboxes searchable aria-label="Filter All Tasks by role" value={selectedRole} placeholder={<T id="dashboard.home.all-roles">All roles</T>} onValueChange={(values) => setParams(values.length ? { role: values.join(",") } : {})}
+          options={data.roles.map((value) => ({ value, label: roleLabel(value), text: roleLabel(value) }))} />
+        </header></LayoutHeader><div className="dashboard-card__scroll"><TaskRows rows={all.map((row) => row.task)} toggle={(task) => void toggle(task)} pickUp={(task) => void pickUp(task)} href={(id) => to(`/tasks/${id}`)} /></div></section></Block>}
         <Block id="upcoming-events" name="Upcoming Events" w={6} h={12}><section className="dashboard-card dashboard-card--events"><LayoutHeader headerKey="upcoming-events.title" name="Upcoming Events header"><header><h2><T id="dashboard.home.upcoming-events">Upcoming Events</T></h2><Link to={to("/events")}><T id="dashboard.home.view-all-events">View all</T></Link></header></LayoutHeader>
 
           <div className="dashboard-card__scroll"><table><thead><tr><th><T id="dashboard.home.event-date">Date</T></th><th><T id="dashboard.home.event-name">Event</T></th><th><T id="dashboard.home.venue">Venue</T></th><th><T id="dashboard.home.guests">Guests</T></th></tr></thead><tbody>{data.upcomingEvents.map((event) => <tr key={event.id}>

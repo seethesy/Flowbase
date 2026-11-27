@@ -35,7 +35,7 @@ import {
   recordProposalSent,
 } from "../../records/sales/proposals";
 import { getPreviousProposalMapping, getProposalCatalog, getProposalMapping, saveProposalMapping } from "../../records/sales/proposal-mapping";
-import { listEventContracts, recordContract, listEventAddendums, listOpenAddendums, recordAddendum, signAddendum } from "../../records/sales/contracts";
+import { listContracts, listEventContracts, recordContract, listEventAddendums, listOpenAddendums, recordAddendum, signAddendum } from "../../records/sales/contracts";
 
 // /api/proposals (FLOW-122/123). Proposals on events the user can't open answer
 // 404. Versions are created by uploading and are never changed or deleted: there is
@@ -44,6 +44,9 @@ export function proposalRoutes(options: { withDb?: RunWithDb }) {
   const routes = new Hono<AppEnv>();
   const record = recordRunner(options.withDb);
   const proposalId = (c: AppContext) => idParam(c, "Proposal");
+  routes.get("/contracts/all", requirePermission("proposals.read"), async (c) =>
+    c.json(await record(c, (db, actor) => listContracts(db, actor))),
+  );
   const env = (c: AppContext) => c.env ?? {};
 
   routes.get("/addendums/open", requirePermission("proposals.read"), async (c) =>

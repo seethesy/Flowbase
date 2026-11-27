@@ -7,7 +7,7 @@ import { seedUsers } from "../../../worker/db/seed";
 const salesperson = seedUsers.find((u) => u.role === "salesperson")!;
 const partTimeStaff = seedUsers.find((u) => u.role === "part_time_staff")!;
 
-const allHeadings = ["Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports"];
+const allHeadings = ["Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents"];
 async function headings(page: Page, isMobile: boolean) {
   if (isMobile) await page.getByRole("button", { name: "Open navigation" }).click();
   return page.getByRole("navigation", { name: "Main" }).getByRole("link").allTextContents();
@@ -16,10 +16,9 @@ const tabs = (page: Page, heading: string) =>
   page.getByRole("navigation", { name: `${heading} pages` }).getByRole("link");
 
 test("admin sees every heading and tab, and tabs deep-link", async ({ page, isMobile }) => {
-  await page.goto("/#/reports/operations");
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Workspace\s*\/\s*Reports\s*\/\s*Operational reports/);
-  await expect(tabs(page, "Reports")).toHaveText(["Overview", "Time tracking", "Operational reports"]);
-  await expect(tabs(page, "Reports").filter({ hasText: "Operational reports" })).toHaveAttribute("aria-current", "page");
+  await page.goto("/#/sales/time-tracking");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Workspace\s*\/\s*Sales\s*\/\s*Time Tracking/);
+  await expect(tabs(page, "Sales").filter({ hasText: "Time Tracking" })).toHaveAttribute("aria-current", "page");
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("link", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Help & resources", exact: true })).toBeVisible();
@@ -44,25 +43,24 @@ databaseTest("a salesperson sees Leads and Sales but not operational reports", a
   await mockBrowserAuth(page, { userId: salesperson.id });
   // FLOW-328: the leads table is Leads › Overview; FLOW-329: Sales › Pricing.
   await page.goto("/#/leads");
-  await expect(tabs(page, "Leads")).toHaveText(["Overview", "Proposals"]);
+  await expect(tabs(page, "Leads")).toHaveText(["Overview", "Proposals", "Contracts", "Payment", "BEO"]);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Workspace\s*\/\s*Leads\s*\/\s*Overview/);
   await page.goto("/#/sales/overview");
-  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await page.goto("/#/reports");
-  await expect(tabs(page, "Reports")).toHaveText(["Overview", "Time tracking"]);
+  await expect(page).toHaveURL(/#\/sales\/time-tracking$/);
 });
 
 databaseTest("part-time staff only see the tabs they can open", async ({ page, isMobile }) => {
   await mockBrowserAuth(page, { userId: partTimeStaff.id });
   await page.goto("/#/venues");
   await expect(page.getByRole("heading", { name: "Venues", exact: true })).toBeVisible();
-  // Venues is the only Sales tab left besides the heading's Overview (FLOW-295).
-  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Venues"]);
+  await expect(tabs(page, "Sales")).toHaveText(["Overview", "Venues", "Time Tracking"]);
   await page.goto("/#/inventory");
   await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
-  // No leads or proposals, so no Leads heading (FLOW-328).
-  expect(await headings(page, isMobile)).toEqual(allHeadings.filter((heading) => heading !== "Leads"));
+  await expect(tabs(page, "Leads")).toHaveText(["BEO"]);
+  expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/sales/overview");
 });
 

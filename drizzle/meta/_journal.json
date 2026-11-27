@@ -610,6 +610,20 @@
       "when": 1795553699483,
       "tag": "0086_flow_337_beo_source_proposal",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1795780800000,
+      "tag": "0087_flow_339_342_nav_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1795780801000,
+      "tag": "0088_flow_344_task_notes",
+      "breakpoints": true
     }
   ]
 }

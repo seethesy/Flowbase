@@ -1,5 +1,6 @@
 import { Block, PageGrid } from "../../app/live-edit/page-grid";
 import { Dropdown } from "../../components/ui/Dropdown";
+import { PeoplePicker } from "../../components/ui/people-picker";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -30,6 +31,24 @@ import { T, useCopy, LabelT } from "../../app/copy";
 const names = (people: { name: string }[]) =>
   people.map((person) => person.name).join(", ") || "—";
 
+function NotesEditor({ notes, save, busy }: { notes: string; save: (notes: string) => void; busy: boolean }) {
+  const [value, setValue] = useState(notes);
+  return <form onSubmit={(event) => { event.preventDefault(); save(value); }}>
+    <textarea aria-label="Task notes" rows={5} maxLength={5000} value={value} onChange={(event) => setValue(event.target.value)} />
+    <Button type="submit" disabled={busy || value === notes}><T id="tasks.task-detail.save-notes">Save notes</T></Button>
+  </form>;
+}
+
+function AssignmentHistory({ id }: { id: string }) {
+  const history = useResource(["tasks", id, "assignments"], () => tasksApi.assignments(id));
+  if (history.error) return <ErrorText message={history.error} />;
+  if (!history.data) return <LoadingSkeleton />;
+  return <ul>{history.data.map((entry) => <li key={entry.id}>
+    {entry.user.name} · {entry.action === "added" ? <T id="tasks.task-detail.assigned">Assigned</T> : <T id="tasks.task-detail.removed">Removed</T>}
+    {entry.actor && <> · {entry.actor.name}</>} · {dateTimeLabel(entry.at)}
+  </li>)}</ul>;
+}
+
 // Reassigning (FLOW-60 AC3) and the managers, for whoever manages the task.
 function Reassign({
   task,
@@ -56,28 +75,10 @@ function Reassign({
       }}
     >
       <FormField label={<T id="tasks.reassign.assigned-to">Assigned to</T>} hint={<T id="tasks.reassign.pick-one-or-more-people">Pick one or more people.</T>}>
-        <Dropdown
-          multiple
-          value={assignees}
-          onChange={(e) =>
-            setAssignees(Array.from(e.target.selectedOptions, (option) => option.value))
-          }
-        >
-          {active.map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.name}
-            </option>
-          ))}
-        </Dropdown>
+        <PeoplePicker staff={active} kind="assignees" value={assignees} onChange={setAssignees} />
       </FormField>
       <FormField label={<T id="tasks.reassign.overseer">Managers</T>}>
-        <Dropdown multiple value={managers} onChange={(e) => setManagers(Array.from(e.target.selectedOptions, (option) => option.value))}>
-          {active.map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.name}
-            </option>
-          ))}
-        </Dropdown>
+        <PeoplePicker staff={active} kind="managers" value={managers} onChange={setManagers} />
       </FormField>
       <Button type="submit" variant="outline" disabled={busy}>
         <T id="tasks.reassign.save-assignment">Save assignment</T>
@@ -98,9 +99,13 @@ export function TaskDetail() {
   const [busy, setBusy] = useState(false);
   const [item, setItem] = useState("");
   const [comment, setComment] = useState("");
+  const [archived, setArchived] = useState(false);
   if (task.error) return <ErrorText message={task.error} />;
   if (!task.data) return <LoadingSkeleton />;
   const data = task.data;
+  if (archived) return <><p role="status"><T id="tasks.task-detail.deleted">Task deleted.</T></p>
+    <Button onClick={async () => { try { await tasksApi.setArchived(id, false); setArchived(false); task.reload(); } catch (cause) { setError((cause as Error).message); } }}>
+      <T id="tasks.task-detail.undo">Undo</T></Button><ErrorText message={error} /></>;
   const act = async (change: () => Promise<Task>, after?: () => void) => {
     setBusy(true);
     setError("");
@@ -132,7 +137,9 @@ export function TaskDetail() {
         eyebrow={<T id="tasks.task-detail.task">Task</T>}
         title={data.title}
         subtitle={<T id="tasks.task-detail.priority" values={{ taskTypeLabels: <LabelT id="labels.task-type" value={data.type}>{taskTypeLabels[data.type]}</LabelT>, taskPriorityLabels: <LabelT id="labels.task-priority" value={data.priority}>{taskPriorityLabels[data.priority]}</LabelT> }}>{"{taskTypeLabels} · {taskPriorityLabels} priority"}</T>}
-      />
+      >{data.canManage && <Button variant="outline" disabled={busy} onClick={async () => {
+        try { await tasksApi.setArchived(id, true); setArchived(true); } catch (cause) { setError((cause as Error).message); }
+      }}><T id="tasks.task-detail.delete">Delete</T></Button>}</PageHeader>
       <ErrorText message={error} />
       <PageGrid pageKey="tasks.detail" record={{ source: "tasks", id, row: data as unknown as Record<string, unknown> }}>
       <Block id="details" name="Task details" h={14}>
@@ -158,26 +165,22 @@ export function TaskDetail() {
           {actor &&
             data.status !== "done" &&
             !data.assignees.some((person) => person.id === actor.userId) &&
-            (data.assignees.length === 0 || can("tasks.delegate")) && (
+            can("tasks.write") && (
               <Button
                 variant="outline"
                 disabled={busy}
                 onClick={() =>
                   void act(() =>
-                    tasksApi.claim(
-                      id,
-                      data.assignees.length === 0 ? { unassignedOnly: true } : {},
-                    ),
+                    tasksApi.claim(id),
                   )
                 }
               >
-                {data.assignees.length === 0 ? (
-                  <T id="tasks.task-detail.pick-up">Pick up</T>
-                ) : (
-                  <T id="tasks.task-detail.assign-to-me">Assign to me</T>
-                )}
+                <T id="tasks.task-detail.pick-up">Pick up</T>
               </Button>
             )}
+          {actor && data.assignees.some((person) => person.id === actor.userId) &&
+            <Button variant="outline" disabled={busy} onClick={() => void act(() => tasksApi.drop(id))}>
+              <T id="tasks.task-detail.drop">Drop</T></Button>}
           <dl>
             <dt><T id="tasks.task-detail.due">Due</T></dt>
             <dd>{data.dueAt ? dateTimeLabel(data.dueAt) : "—"}</dd>
@@ -237,6 +240,14 @@ export function TaskDetail() {
         </div>
       </Section>
       </Block>
+      <Block id="notes" name="Notes" h={8}><Section title={<T id="tasks.task-detail.notes">Notes</T>}>
+        {data.canManage || data.assignees.some((person) => person.id === actor?.userId)
+          ? <NotesEditor key={data.updatedAt} notes={data.notes} busy={busy} save={(notes) => void act(() => tasksApi.update(id, { notes }))} />
+          : <p>{data.notes}</p>}
+      </Section></Block>
+      <Block id="assignments" name="Assignment history" h={8}><Section title={<T id="tasks.task-detail.assignment-history">Assignment history</T>}>
+        <AssignmentHistory id={id} />
+      </Section></Block>
       <Block id="checklist" name="Checklist" h={12}>
       <Section title={<T id="tasks.task-detail.checklist" values={{ checklistDone: data.checklistDone, checklistTotal: data.checklistTotal }}>{"Checklist ({checklistDone}/{checklistTotal})"}</T>}>
         <ul className="task-checklist">

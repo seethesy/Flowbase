@@ -11,12 +11,12 @@ const saveSettings = async (page: Page) => {
 };
 const venuesCell = (page: Page) => page.getByLabel("Sales › Venues for Part Time Staff", { exact: true });
 
-test("Admin hides Sales › Venues and Reports from Part-time Staff (AC1, AC2)", async ({ page, browser }) => {
+test("Admin hides Sales › Venues and Time Tracking from Part-time Staff (AC1, AC2)", async ({ page, browser }) => {
   await page.goto("/#/settings/permissions");
   const grid = page.getByRole("table", { name: "Navigation by role" });
   // Admin's column is locked on (AC4).
-  await expect(grid.getByLabel("Reports for Admin: always shown", { exact: true })).toBeChecked();
-  await expect(grid.getByLabel("Reports for Admin: always shown", { exact: true })).toBeDisabled();
+  await expect(grid.getByLabel("Sales for Admin: always shown", { exact: true })).toBeChecked();
+  await expect(grid.getByLabel("Sales for Admin: always shown", { exact: true })).toBeDisabled();
   // A tab the role can't open anyway is disabled with the reason (AC3).
   // FLOW-328: the leads table is Leads › Overview.
   const leadsCell = grid.getByLabel("Leads › Overview for Part Time Staff", { exact: true });
@@ -25,9 +25,7 @@ test("Admin hides Sales › Venues and Reports from Part-time Staff (AC1, AC2)",
     .toContainText("No access to Leads");
 
   await venuesCell(page).uncheck();
-  await grid.getByLabel("Reports for Part Time Staff", { exact: true }).uncheck();
-  // Unchecking a heading turns off every tab under it.
-  await expect(grid.getByLabel("Reports › Time tracking for Part Time Staff", { exact: true })).toBeDisabled();
+  await grid.getByLabel("Sales › Time Tracking for Part Time Staff", { exact: true }).uncheck();
   await saveSettings(page);
 
   const context = await browser.newContext();
@@ -36,9 +34,8 @@ test("Admin hides Sales › Venues and Reports from Part-time Staff (AC1, AC2)",
   await other.goto("/#/calendar");
   const sidebar = other.getByRole("navigation", { name: "Main" });
   await expect(sidebar.getByRole("link", { name: "Events" })).toBeVisible();
-  // Venues was Sales' only tab for this role, so the heading goes with it.
+  // Both available Sales tabs are hidden, so the heading goes with them.
   await expect(sidebar.getByRole("link", { name: "Sales" })).toHaveCount(0);
-  await expect(sidebar.getByRole("link", { name: "Reports" })).toHaveCount(0);
 
   // A direct link to a hidden tab (AC2).
   await other.goto("/#/venues");
@@ -54,7 +51,7 @@ test("Admin hides Sales › Venues and Reports from Part-time Staff (AC1, AC2)",
 
   // Admin still sees everything.
   await page.goto("/#/venues");
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Reports" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Not available for your role" })).toHaveCount(0);
 });
 

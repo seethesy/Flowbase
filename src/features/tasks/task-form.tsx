@@ -1,4 +1,5 @@
 import { Dropdown } from "../../components/ui/Dropdown";
+import { PeoplePicker } from "../../components/ui/people-picker";
 import { useState, type FormEvent } from "react";
 import { taskPriorities, taskPriorityLabels, taskTypeLabels, taskTypes, type TaskPriority, type TaskType } from "../../../shared/tasks";
 import { businessTimeToUtc, isBusinessTime } from "../../../shared/time";
@@ -68,8 +69,8 @@ export function NewTaskDrawer({
   const [busy, setBusy] = useState(false);
   if (!actor) return null;
   const defaultManagers = defaults.mode === "all_admins"
-    ? staff.filter((member) => member.role === "admin").map((member) => member.id)
-    : defaults.userIds.filter((id) => staff.some((member) => member.id === id));
+    ? staff.filter((member) => member.role === "admin" && member.hasAccount).map((member) => member.id)
+    : defaults.userIds.filter((id) => staff.some((member) => member.id === id && member.hasAccount && member.role === "admin"));
   const selectedManagers = managers ?? defaultManagers;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -169,31 +170,13 @@ export function NewTaskDrawer({
         {delegates ? (
           <>
             <FormField label={<T id="task-lists.new-task-drawer.assign-to">Assign to</T>} hint={<T id="task-lists.new-task-drawer.pick-one-or-more-people">Pick one or more people.</T>}>
-              <Dropdown
-                multiple
-                value={assignees}
-                onChange={(e) =>
-                  setAssignees(Array.from(e.target.selectedOptions, (option) => option.value))
-                }
-              >
-                {staff.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.id === actor.userId ? `${member.name} (me)` : member.name}
-                  </option>
-                ))}
-              </Dropdown>
+              <PeoplePicker staff={staff} kind="assignees" value={assignees} onChange={setAssignees} />
             </FormField>
             <FormField
               label={<T id="task-lists.new-task-drawer.overseer">Managers</T>}
               hint={<T id="task-lists.new-task-drawer.when-you-assign-someone-else">Choose the people who manage this task.</T>}
             >
-              <Dropdown multiple value={selectedManagers} onChange={(e) => setManagers(Array.from(e.target.selectedOptions, (option) => option.value))}>
-                {staff.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </Dropdown>
+              <PeoplePicker staff={staff} kind="managers" value={selectedManagers} onChange={setManagers} />
             </FormField>
           </>
         ) : (

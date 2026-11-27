@@ -32,6 +32,29 @@ const today = () => utcToBusinessTime(new Date()).date;
 const inDays = (days: number, time = "12:00") =>
   businessTimeToUtc(addLocalDays(today(), days), time).toISOString();
 
+test("FLOW-343: All Tasks filters by several roles and remembers them on reload", async ({ page }) => {
+  await seedTasks([
+    { title: "Admin task", assigneeIds: [admin.id] },
+    { title: "Kitchen task", assigneeIds: [kitchenLead.id] },
+    { title: "Staff task", assigneeIds: [fullTimeStaff.id] },
+  ]);
+  await page.goto("/#/");
+  const card = page.locator(".dashboard-card--all-tasks");
+  const filter = card.getByRole("combobox", { name: "Filter All Tasks by role" });
+  await filter.click();
+  await page.getByRole("searchbox", { name: "Search options" }).fill("kitchen");
+  await page.getByRole("option", { name: "Kitchen Lead" }).click();
+  await page.getByRole("searchbox", { name: "Search options" }).fill("staff");
+  await page.getByRole("option", { name: "Staff", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(card.getByRole("link", { name: "Kitchen task" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "Staff task" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "Admin task" })).toHaveCount(0);
+  await expect(page).toHaveURL(/role=kitchen_lead%2Cstaff/);
+  await page.reload();
+  await expect(filter).toHaveAttribute("data-value", "kitchen_lead,staff");
+});
+
 test("adds, claims, completes and filters tasks, and saves a view (FLOW-59)", async ({
   page,
 }) => {

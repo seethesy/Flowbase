@@ -27,37 +27,33 @@ const trail = (path: string, who: Actor | null = admin, from?: string) =>
   breadcrumbTrail(path, who, from).map((crumb) => (crumb.to ? `${crumb.label}>${crumb.to}` : crumb.label));
 
 describe("navigation groups", () => {
-  it("lists exactly the ten headings with their tabs in order (AC1)", () => {
+  it("lists the headings and moved tabs in order (FLOW-339/342)", () => {
     expect(navigationGroups.map((group) => group.name)).toEqual([
-      "Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents", "Reports",
+      "Dashboard", "Leads", "Sales", "Events", "Staffing", "Inventory", "Kitchen", "Marketing", "Documents",
     ]);
-    expect(headings(admin)).toHaveLength(10);
+    expect(headings(admin)).toHaveLength(9);
     expect(tabs(admin, "Dashboard")).toEqual(["Overview", "Tasks", "Approvals"]);
     // FLOW-328: Leads (early stages) and Sales (late stages); FLOW-329: Pricing.
-    expect(tabs(admin, "Leads")).toEqual(["Overview", "Proposals"]);
-    expect(tabs(admin, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
-    expect(tabs(admin, "Events")).toEqual(["Overview", "BEOs", "Production"]);
+    expect(tabs(admin, "Leads")).toEqual(["Overview", "Proposals", "Contracts", "Payment", "BEO"]);
+    expect(tabs(admin, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
+    expect(tabs(admin, "Events")).toEqual(["Overview", "Production"]);
     expect(tabs(admin, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs", "Payroll"]);
     expect(tabs(admin, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
     expect(tabs(admin, "Kitchen")).toEqual(["Overview", "Recipes", "Ingredients", "Menus", "Photos"]);
     expect(tabs(admin, "Marketing")).toEqual(["Overview", "Photos"]);
     // FLOW-330: Templates after Documents.
     expect(tabs(admin, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
-    expect(tabs(admin, "Reports")).toEqual(["Overview", "Time tracking", "Operational reports"]);
   });
 
   it("hides tabs a role can't open, and headings left with none (AC4)", () => {
-    expect(tabs(salesperson, "Leads")).toEqual(["Overview", "Proposals"]);
-    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing"]);
+    expect(tabs(salesperson, "Leads")).toEqual(["Overview", "Proposals", "Contracts", "Payment", "BEO"]);
+    expect(tabs(salesperson, "Sales")).toEqual(["Overview", "Clients", "Sales tracker", "Venues", "Pricing", "Time Tracking"]);
     expect(tabs(salesperson, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
-    expect(tabs(salesperson, "Reports")).toEqual(["Overview", "Time tracking"]);
-    // Staff can't read leads, clients or proposals (so no Leads heading or
-    // Pricing tab), run imports or see operational reports.
-    expect(headings(staff)).not.toContain("Leads");
-    expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues"]);
+    // Staff can open BEO for events they can see; payment amounts stay restricted.
+    expect(tabs(staff, "Leads")).toEqual(["BEO"]);
+    expect(tabs(staff, "Sales")).toEqual(["Overview", "Venues", "Time Tracking"]);
     expect(tabs(staff, "Documents")).toEqual(["Overview", "Documents", "Templates"]);
     expect(tabs(staff, "Inventory")).toEqual(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
-    expect(tabs(staff, "Reports")).toEqual(["Overview", "Time tracking"]);
     // Payroll is Admin and Technical only (FLOW-270 AC2).
     expect(tabs(staff, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
     expect(tabs(salesperson, "Staffing")).toEqual(["Schedule", "Staff directory", "SOPs"]);
@@ -87,7 +83,7 @@ describe("navigation groups", () => {
     // FLOW-294: the calendar is Events › Overview; FLOW-293: Kitchen › Overview.
     expect(at("/events/overview")).toBe("Events › Overview");
     expect(at("/kitchen/overview")).toBe("Kitchen › Overview");
-    expect(at("/beos")).toBe("Events › BEOs");
+    expect(at("/beos")).toBe("Leads › BEO");
     expect(at("/inventory/counts/c-1")).toBe("Inventory › Inventory");
     // FLOW-291/292: Bar Inventory is its own tab; order lists sit under Order;
     // Ingredients are only under Kitchen.
@@ -99,7 +95,9 @@ describe("navigation groups", () => {
     expect(at("/inventory/photos")).toBe("Inventory › Photos");
     expect(at("/kitchen/photos")).toBe("Kitchen › Photos");
     expect(at("/marketing")).toBe("Marketing › Photos");
-    expect(at("/reports/operations")).toBe("Reports › Operational reports");
+    expect(at("/leads/contracts")).toBe("Leads › Contracts");
+    expect(at("/leads/payment")).toBe("Leads › Payment");
+    expect(at("/sales/time-tracking")).toBe("Sales › Time Tracking");
     // FLOW-295: each heading's Overview, with the old tabs at their URLs.
     expect(at("/sales/overview")).toBe("Sales › Overview");
     expect(at("/sales")).toBe("Sales › Sales tracker");
@@ -107,8 +105,8 @@ describe("navigation groups", () => {
     expect(at("/marketing")).toBe("Marketing › Photos");
     expect(at("/documents/overview")).toBe("Documents › Overview");
     expect(at("/documents")).toBe("Documents › Documents");
-    expect(at("/reports/overview")).toBe("Reports › Overview");
-    expect(at("/reports")).toBe("Reports › Time tracking");
+    expect(at("/reports/overview")).toBeNull();
+    expect(at("/reports")).toBeNull();
     expect(at("/settings")).toBeNull();
     // The Day-of board is gone (FLOW-294); /day-of only redirects.
     expect(at("/day-of")).toBeNull();
@@ -127,7 +125,7 @@ describe("breadcrumb trail", () => {
     expect(trail("/documents/templates")).toEqual(["Workspace>/", "Documents>/documents/overview", "Templates"]);
     expect(trail("/kitchen/ingredients")).toEqual(["Workspace>/", "Kitchen>/kitchen/overview", "Ingredients"]);
     expect(trail("/marketing")).toEqual(["Workspace>/", "Marketing>/marketing/overview", "Photos"]);
-    expect(trail("/reports/overview")).toEqual(["Workspace>/", "Reports>/reports/overview", "Overview"]);
+    expect(trail("/sales/time-tracking")).toEqual(["Workspace>/", "Sales>/sales/overview", "Time Tracking"]);
     expect(trail("/events/overview")).toEqual(["Workspace>/", "Events>/events/overview", "Overview"]);
   });
 
@@ -187,7 +185,7 @@ describe("nav wording keys", () => {
     for (const group of navigationGroups) {
       expect(group.copyId).toBe(copySlug(group.name));
       // Bar became Bar Inventory (FLOW-291) and kept its key.
-      for (const tab of group.tabs) expect(tab.copyId).toBe(tab.copyId === "bar" ? "bar" : copySlug(tab.name));
+      for (const tab of group.tabs) expect(tab.copyId).toBe(tab.copyId === "bar" || tab.copyId === "beos" ? tab.copyId : copySlug(tab.name));
     }
     expect(navKey("legacy")).toBe("nav.legacy");
   });

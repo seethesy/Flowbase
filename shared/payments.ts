@@ -84,6 +84,12 @@ export const scheduleItemSchema = z.object({
   overdue: z.boolean(),
   fromProposal: z.boolean(),
 });
+export const paymentListRowSchema = z.object({
+  id, eventId: id, eventTitle: z.string(), clientName: z.string().nullable(),
+  type: z.enum(["scheduled", "received"]), kind: scheduleKindSchema.nullable(),
+  dueDate: z.string().nullable(), amountCents: z.number().int(), paidCents: z.number().int(),
+  balanceCents: z.number().int(),
+});
 export type ScheduleItem = z.infer<typeof scheduleItemSchema>;
 
 const person = z.object({ id, name: z.string() });

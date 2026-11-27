@@ -56,6 +56,10 @@ export const liveEditRenames: LiveEditRenames = {
     // links and search box the Inventory screen's tabs, shortcut cards and
     // filters replace.
     copy: [
+      // FLOW-342: Reports became the Sales Time Tracking tab.
+      "nav.reports",
+      "nav.operational-reports",
+      "tasks.task-detail.assign-to-me",
       // FLOW-336: Events › Overview has New event now, so its line no longer
       // says events start from a lead.
       "events-screen.calendar.events-at-negotiation-or-later",
