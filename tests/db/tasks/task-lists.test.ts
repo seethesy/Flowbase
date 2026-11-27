@@ -223,8 +223,8 @@ describe("FLOW-59 communal task list", () => {
   it("FLOW-344: a viewer joins an assigned task without displacing its assignee", async () => {
     const task = await newTask({ title: "Hold the door", assigneeIds: [people.casey] });
     await drain();
-    // Part-time staff can't even see it, and can't take it by id: 403.
-    expect((await pat.call("POST", `/api/tasks/${task.id}/claim`, {})).status).toBe(403);
+    // Part-time staff can't even see it, and can't take it by id.
+    expect((await pat.call("POST", `/api/tasks/${task.id}/claim`, {})).status).toBe(404);
     const taken = await manager.send<Task>("POST", `/api/tasks/${task.id}/claim`, {}, 200);
     expect(taken.assignees.map((person) => person.id).sort()).toEqual([people.casey, people.manager].sort());
     await drain();
@@ -264,7 +264,7 @@ describe("FLOW-59 communal task list", () => {
     const done = await newTask({ title: "Done already", status: "done" });
     expect((await casey.call("POST", `/api/tasks/${done.id}/claim`, {})).status).toBe(409);
     const other = await newTask({ title: "Casey's", assigneeIds: [people.casey] });
-    expect((await pat.call("POST", `/api/tasks/${other.id}/claim`, {})).status).toBe(403);
+    expect((await pat.call("POST", `/api/tasks/${other.id}/claim`, {})).status).toBe(404);
     const loose = await newTask({ title: "No overseer" });
     await casey.send<Task>("POST", `/api/tasks/${loose.id}/claim`, {}, 200);
     await drain();

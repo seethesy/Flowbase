@@ -29,7 +29,7 @@ test("manager can filter and export operational reports", async ({ page }) => {
   await mockBrowserAuth(page, { userId: user.id });
   await page.goto("/#/reports/operations");
   await expect(page).toHaveURL(/#\/sales\/time-tracking$/);
-  await expect(page.getByRole("heading", { name: "Time Tracking" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Time Tracking", level: 1 })).toBeVisible();
   await expect(page.getByText("Rental utilization")).toBeVisible();
   await page.getByLabel("Report from").fill("2026-10-01");
   await page.getByLabel("Report to").fill("2026-11-30");

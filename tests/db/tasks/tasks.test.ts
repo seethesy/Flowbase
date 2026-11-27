@@ -289,8 +289,8 @@ describe("AC1: one task list for every module", () => {
         (t) => t.id,
       ),
     ).toEqual([done.id, linked.id]);
-    // A kitchen lead can't open Sam's event, so can't link a task to it.
-    const refused = await lead.call("POST", "/api/tasks", { title: "Peek", eventId: gala.id });
+    // Staff outside the event can't link a task to it.
+    const refused = await casey.call("POST", "/api/tasks", { title: "Peek", eventId: gala.id });
     expect(refused.status).toBe(404);
   });
 });

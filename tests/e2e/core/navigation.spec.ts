@@ -59,6 +59,7 @@ databaseTest("part-time staff only see the tabs they can open", async ({ page, i
   await expect(tabs(page, "Sales")).toHaveText(["Overview", "Venues", "Time Tracking"]);
   await page.goto("/#/inventory");
   await expect(tabs(page, "Inventory")).toHaveText(["Inventory", "Bar Inventory", "Order", "Vendors", "Photos"]);
+  await page.goto("/#/beos");
   await expect(tabs(page, "Leads")).toHaveText(["BEO"]);
   expect(await headings(page, isMobile)).toEqual(allHeadings);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sales", exact: true })).toHaveAttribute("href", "#/sales/overview");
